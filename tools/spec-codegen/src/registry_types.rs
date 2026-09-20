@@ -1486,10 +1486,37 @@ fn validate_digest_suite_rows(rows: &[&Map<String, Value>]) -> Result<()> {
     Ok(())
 }
 
+fn active_error_rows<'a>(
+    rows: &'a [&'a Map<String, Value>],
+    collection: &str,
+) -> Result<Vec<&'a Map<String, Value>>> {
+    let mut active = Vec::new();
+    for row in rows {
+        let code = string(row, "code")?;
+        match string(row, "status")? {
+            "active" => {
+                if row.contains_key("activation_condition") {
+                    bail!("{collection} {code} is active and must not retain activation_condition");
+                }
+                active.push(*row);
+            }
+            "reserved" => {
+                let condition = string(row, "activation_condition")?;
+                if condition.trim().is_empty() {
+                    bail!("{collection} {code} is reserved without an activation condition");
+                }
+            }
+            status => bail!("{collection} {code} has unknown status {status:?}"),
+        }
+    }
+    Ok(active)
+}
+
 fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
-    let rows = sorted_rows(artifact.array("codes")?, "code")?;
-    validate_unique(&rows, "code", &[])?;
+    let registered = sorted_rows(artifact.array("codes")?, "code")?;
+    validate_unique(&registered, "code", &[])?;
+    let rows = active_error_rows(&registered, "error code")?;
     let contexts = rows
         .iter()
         .filter_map(|row| row.get("http_status_by_context").and_then(Value::as_object))
@@ -1497,7 +1524,14 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
-    let mut output = header(&[&artifact.source], &format!("error_codes={}", rows.len()));
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "error_codes={}, reserved_not_emitted={}",
+            rows.len(),
+            registered.len() - rows.len()
+        ),
+    );
     output.push_str("use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\npub enum ErrorStatusContext {\n");
     for context in &contexts {
         writeln!(output, "    {},", variant(context, &[]))?;
@@ -1611,9 +1645,17 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 
 fn generate_reason_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
-    let rows = sorted_rows(artifact.array("reason_codes")?, "code")?;
-    validate_unique(&rows, "code", &[])?;
-    let mut output = header(&[&artifact.source], &format!("reason_codes={}", rows.len()));
+    let registered = sorted_rows(artifact.array("reason_codes")?, "code")?;
+    validate_unique(&registered, "code", &[])?;
+    let rows = active_error_rows(&registered, "reason code")?;
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "reason_codes={}, reserved_not_emitted={}",
+            rows.len(),
+            registered.len() - rows.len()
+        ),
+    );
     output.push_str("use serde::{Deserialize, Deserializer, Serialize, Serializer};\n\n#[derive(Clone, Debug, PartialEq, Eq, Hash)]\npub enum ReasonCode {\n");
     for row in &rows {
         writeln!(output, "    {},", variant(string(row, "code")?, &[]))?;
@@ -2737,6 +2779,59 @@ mod tests {
         ]);
         let error = validate_digest_suite_rows(&[&invalid]).expect_err("high nibble must fail");
         assert!(error.to_string().contains("high nibble zero"));
+    }
+
+    #[test]
+    fn error_codegen_omits_reserved_rows_from_runtime_enums() {
+        let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
+        let error_codes = outputs
+            .iter()
+            .find(|output| {
+                output.relative_path == Path::new("crates/wire/src/error_codes/error_code.rs")
+            })
+            .expect("generated error codes");
+        assert!(error_codes.contents.contains("StateMismatch"));
+        assert!(!error_codes.contents.contains("AgentAuthorizationInactive"));
+        let reason_codes = outputs
+            .iter()
+            .find(|output| {
+                output.relative_path == Path::new("crates/wire/src/error_codes/reason_code.rs")
+            })
+            .expect("generated reason codes");
+        assert!(reason_codes.contents.contains("ApprovalRequired"));
+        assert!(!reason_codes.contents.contains("ProofBindingMissing"));
+    }
+
+    #[test]
+    fn reserved_error_rows_require_a_nonempty_activation_condition() {
+        let missing = Map::from_iter([
+            (
+                "code".to_owned(),
+                Value::String("reserved_probe".to_owned()),
+            ),
+            ("status".to_owned(), Value::String("reserved".to_owned())),
+        ]);
+        assert!(
+            active_error_rows(&[&missing], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("activation_condition")
+        );
+
+        let active_with_condition = Map::from_iter([
+            ("code".to_owned(), Value::String("active_probe".to_owned())),
+            ("status".to_owned(), Value::String("active".to_owned())),
+            (
+                "activation_condition".to_owned(),
+                Value::String("stale".to_owned()),
+            ),
+        ]);
+        assert!(
+            active_error_rows(&[&active_with_condition], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("must not retain")
+        );
     }
 
     #[test]

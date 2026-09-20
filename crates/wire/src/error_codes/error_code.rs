@@ -1,7 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-20.8;
-//! sha256=2e7e3ddf9b024118271ed03140ddf31ca4de10558976e71bc43c6e5ff7d7531d Entries: error_codes=265
+//! Input: registry/error-code-registry.json; version=2026-09-21.2;
+//! sha256=f3bd7e216baff4b50b271c19b6acd0a7d860bf40093becd115398c972889e130
+//! Entries: error_codes=169, reserved_not_emitted=96
 
 use serde::{Deserialize, Serialize};
 
@@ -39,60 +40,33 @@ pub enum ErrorCode {
     AccountErased,
     AccountLocked,
     AccountSuspended,
-    AgentAuthorizationConflicted,
-    AgentAuthorizationInactive,
-    AgentMlsLeafBindingMismatch,
-    AgentProvisionFanoutUnavailable,
-    AgentSignerEvidenceMissing,
-    AgentSignerEvidenceStale,
-    AgentSigningKeyMismatch,
-    AppletAlreadyRegistered,
     AppletE2eeJoinUnauthorized,
-    AppletEffectiveScopeMismatch,
     AppletInstallPlanMismatch,
-    AppletInstallProjectionIncomplete,
-    AppletInstallRequired,
     AppletNamespaceConflict,
     AppletNamespacePatternInvalid,
-    AppletPackageExpired,
     AppletRegistrationEpochEvidenceDeactivated,
-    AppletRegistrationEpochEvidenceMismatch,
-    AppletRegistrationEpochEvidenceMissing,
-    AppletRegistrationEpochSigningKeyMismatch,
     AppletRegistrationUnauthorized,
     AppletRevoked,
-    AppletTransactionInProgress,
     AudienceMismatch,
     AudienceUnknown,
-    AuditReceiptInvalidated,
     AuthExpired,
     AuthoringRequestExpired,
-    AuthorizedGrantRevoked,
     AvatarBlobRefInvalid,
     BlobDigestMismatch,
     BlobExpired,
     BlobPresignInvalid,
     BlobQuotaExceeded,
-    CallAlreadyAnswered,
-    CallExpired,
-    CallNotFound,
-    CannotPairCurrentDevice,
     CapabilityDenied,
     CasConflict,
-    CausalConflict,
     ClaimFailed,
     ClaimRequired,
     Conflict,
     ConsentRequired,
     ContactLineageConflict,
-    ContactRequestExpired,
-    ContactRequestNotPending,
     ContactScopeStale,
     ContinuityEvidenceUnavailable,
     ContinuityInvalid,
     ControllerSignedEventRequired,
-    CredentialExpired,
-    CredentialNotFound,
     CurrentDidAuthorityUnavailable,
     CursorExpired,
     CursorIntegrityInvalid,
@@ -100,13 +74,8 @@ pub enum ErrorCode {
     CursorRevoked,
     CursorUnrecognized,
     DependencyMissing,
-    DeviceAlreadyAuthorized,
     DeviceGenerationFenced,
-    DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
-    DeviceReanchorCheckpointMismatch,
-    DeviceReanchorConflict,
-    DeviceRecoveryGenerationMismatch,
     DeviceRevocationPending,
     DeviceRevoked,
     DeviceUnauthorized,
@@ -116,30 +85,16 @@ pub enum ErrorCode {
     DidNotFound,
     DidProofRequired,
     DidRevoked,
-    DidUnknown,
     DigestMismatch,
     DirectConversationUnavailable,
     DirectoryGovernanceProofSignatureInvalid,
     DirectoryUnauthorized,
-    DiscoveryFailed,
-    DiscussionTrackDisabled,
-    DuplicateClauseClaim,
     DuplicateConflict,
     E2eeRequired,
-    EnclaveNoUpstreamProxyForExternal,
-    EnclaveNotTrusted,
     EpochMismatch,
-    ExternalInviteActorMismatch,
-    ExternalUserNoMainAccess,
     FailedPlane,
     FailedPrecondition,
-    FederationActorOriginDenied,
-    FederationInteropTrackOnly,
-    FederationOriginDenied,
-    FederationPrivateReadRailLocalOnly,
-    FirstBackupGateUnsatisfied,
     FrankingProofUnavailable,
-    FrankingTampered,
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
     HistoricalDidEvidenceInvalid,
@@ -153,24 +108,14 @@ pub enum ErrorCode {
     JsonInvalid,
     KeyReplay,
     KeyTransparencyProofMissing,
-    KeyUnavailable,
     KeypackageAlreadyConsumed,
     KeypackageUnknown,
     LimitExceeded,
-    MediaNegotiationFailed,
-    MediaPermissionDenied,
     MembershipCompensationConflict,
-    MethodNotAllowed,
     MimiE2eeBoundaryUnmarked,
-    MimiPayloadDigestMismatch,
-    MimiPayloadInvalid,
-    MimiReporterResolutionRequired,
     MimiRoomBindingEventInvalid,
-    MlsGenesisAlreadyExists,
     MlsGenesisBindingProposalMismatch,
     MlsGenesisBindingProposalRequired,
-    MlsGovernanceAnchorUnreachable,
-    MlsKeypackageClaimRequestExpired,
     MorphKindImmutable,
     MorphProfileWidensSchemaRef,
     NotFound,
@@ -183,20 +128,16 @@ pub enum ErrorCode {
     OrganizationRegistrationQuorumNotMet,
     OrganizationRegistrationRevoked,
     OrganizationRegistrationStale,
-    OverbroadRequest,
     ParamInvalid,
     ParamMissing,
     PayloadDigestMismatch,
     PayloadTooLarge,
     PcrAuthorityStale,
-    PeerStateStaleUnavailable,
-    PolicyCombinationInvalid,
     PolicyDenied,
     PolicyRevisionRollback,
     PolicyStale,
     PolicyUnavailable,
     PolicyViolation,
-    PreviewPolicyDenied,
     PrincipalUnknown,
     ProjectionIncomplete,
     PushGatewayUnreachable,
@@ -207,49 +148,19 @@ pub enum ErrorCode {
     Quarantine,
     QueryInvalid,
     QuotaExceeded,
-    RankExhausted,
     RateLimited,
     ReadReceiptComplianceFloorViolated,
-    RealmFederationPolicyClosed,
-    RealmFederationPolicyInvalid,
-    RealmFederationPolicyQuarantine,
-    RealmFederationPolicyRestricted,
     RealmFrozen,
     RealmStateSnapshotAuthorityUnverified,
-    RealmStateSnapshotChunkDigestMismatch,
     RealmStateSnapshotUnavailable,
     ReauthenticationRequired,
-    RecordingDenied,
-    RecoveryAuthorizationDeviceMismatch,
-    RecoveryAuthorizationPrincipalMismatch,
-    RecoveryAuthorizationSessionMismatch,
-    RecoveryControlEventKindMismatch,
-    RecoveryControlEventNotFound,
-    RecoveryListUpdateDeviceMismatch,
-    RecoveryListUpdatePrincipalMismatch,
-    RecoveryPolicyConflict,
-    RecoveryPolicyDeviceUnauthorized,
-    RecoveryPolicyIdMismatch,
     RecoveryPolicyMismatch,
-    RecoveryPolicyMissing,
-    RecoveryPolicyRevoked,
-    RecoveryPolicyTrustDomainMismatch,
-    RecoveryPolicyVersionMismatch,
-    RecoveryProofAuthorityInvalid,
-    RecoveryProofKindNotAllowed,
-    RecoveryProofKindUnimplemented,
-    RecoveryReceiptConflict,
-    RecoverySessionConflict,
-    RecoverySessionIdReused,
     RecoverySessionNotPending,
-    ResponseInvalid,
     RevisionStale,
     RevisionUnavailable,
     SchemaViolation,
-    SelectorTooComplex,
     ServiceIdentityConflict,
     ServiceIdentityProviderUnavailable,
-    ServiceIdentityUnavailable,
     ServiceRegistrationDenied,
     ServiceUnavailable,
     SessionGrantNotFound,
@@ -258,7 +169,6 @@ pub enum ErrorCode {
     SessionGrantReplayTerminal,
     SessionLoggedOut,
     SessionRevokeSelectorConflict,
-    SfuNotAllowed,
     SignalClassDenied,
     SignalRailUnavailable,
     SignalTtlOutOfRange,
@@ -268,7 +178,6 @@ pub enum ErrorCode {
     SoftLoggedOut,
     SourceRefsUnverifiable,
     StateMismatch,
-    StatusUnavailable,
     StreamDropped,
     StreamResyncRequired,
     TakedownInForce,
@@ -279,7 +188,6 @@ pub enum ErrorCode {
     TtlOutOfRange,
     TurnCredentialExpired,
     Unauthenticated,
-    UnrecognizedEndpoint,
     UnsupportedCiphersuite,
     UnsupportedContentEncoding,
     UnsupportedDidMethod,
@@ -293,11 +201,8 @@ pub enum ErrorCode {
     UnsupportedOrganizationRegistrationScope,
     UnsupportedProfile,
     UnsupportedProfilePatchPath,
-    UnsupportedProofProfile,
     UnsupportedProtocolVersion,
     UnsupportedSignatureAlg,
-    UpstreamUnavailable,
-    VerifierUnauthorized,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -320,60 +225,33 @@ impl ErrorCode {
         Self::AccountErased,
         Self::AccountLocked,
         Self::AccountSuspended,
-        Self::AgentAuthorizationConflicted,
-        Self::AgentAuthorizationInactive,
-        Self::AgentMlsLeafBindingMismatch,
-        Self::AgentProvisionFanoutUnavailable,
-        Self::AgentSignerEvidenceMissing,
-        Self::AgentSignerEvidenceStale,
-        Self::AgentSigningKeyMismatch,
-        Self::AppletAlreadyRegistered,
         Self::AppletE2eeJoinUnauthorized,
-        Self::AppletEffectiveScopeMismatch,
         Self::AppletInstallPlanMismatch,
-        Self::AppletInstallProjectionIncomplete,
-        Self::AppletInstallRequired,
         Self::AppletNamespaceConflict,
         Self::AppletNamespacePatternInvalid,
-        Self::AppletPackageExpired,
         Self::AppletRegistrationEpochEvidenceDeactivated,
-        Self::AppletRegistrationEpochEvidenceMismatch,
-        Self::AppletRegistrationEpochEvidenceMissing,
-        Self::AppletRegistrationEpochSigningKeyMismatch,
         Self::AppletRegistrationUnauthorized,
         Self::AppletRevoked,
-        Self::AppletTransactionInProgress,
         Self::AudienceMismatch,
         Self::AudienceUnknown,
-        Self::AuditReceiptInvalidated,
         Self::AuthExpired,
         Self::AuthoringRequestExpired,
-        Self::AuthorizedGrantRevoked,
         Self::AvatarBlobRefInvalid,
         Self::BlobDigestMismatch,
         Self::BlobExpired,
         Self::BlobPresignInvalid,
         Self::BlobQuotaExceeded,
-        Self::CallAlreadyAnswered,
-        Self::CallExpired,
-        Self::CallNotFound,
-        Self::CannotPairCurrentDevice,
         Self::CapabilityDenied,
         Self::CasConflict,
-        Self::CausalConflict,
         Self::ClaimFailed,
         Self::ClaimRequired,
         Self::Conflict,
         Self::ConsentRequired,
         Self::ContactLineageConflict,
-        Self::ContactRequestExpired,
-        Self::ContactRequestNotPending,
         Self::ContactScopeStale,
         Self::ContinuityEvidenceUnavailable,
         Self::ContinuityInvalid,
         Self::ControllerSignedEventRequired,
-        Self::CredentialExpired,
-        Self::CredentialNotFound,
         Self::CurrentDidAuthorityUnavailable,
         Self::CursorExpired,
         Self::CursorIntegrityInvalid,
@@ -381,13 +259,8 @@ impl ErrorCode {
         Self::CursorRevoked,
         Self::CursorUnrecognized,
         Self::DependencyMissing,
-        Self::DeviceAlreadyAuthorized,
         Self::DeviceGenerationFenced,
-        Self::DeviceReanchorAuthorityMismatch,
         Self::DeviceReanchorAuthorizeMismatch,
-        Self::DeviceReanchorCheckpointMismatch,
-        Self::DeviceReanchorConflict,
-        Self::DeviceRecoveryGenerationMismatch,
         Self::DeviceRevocationPending,
         Self::DeviceRevoked,
         Self::DeviceUnauthorized,
@@ -397,30 +270,16 @@ impl ErrorCode {
         Self::DidNotFound,
         Self::DidProofRequired,
         Self::DidRevoked,
-        Self::DidUnknown,
         Self::DigestMismatch,
         Self::DirectConversationUnavailable,
         Self::DirectoryGovernanceProofSignatureInvalid,
         Self::DirectoryUnauthorized,
-        Self::DiscoveryFailed,
-        Self::DiscussionTrackDisabled,
-        Self::DuplicateClauseClaim,
         Self::DuplicateConflict,
         Self::E2eeRequired,
-        Self::EnclaveNoUpstreamProxyForExternal,
-        Self::EnclaveNotTrusted,
         Self::EpochMismatch,
-        Self::ExternalInviteActorMismatch,
-        Self::ExternalUserNoMainAccess,
         Self::FailedPlane,
         Self::FailedPrecondition,
-        Self::FederationActorOriginDenied,
-        Self::FederationInteropTrackOnly,
-        Self::FederationOriginDenied,
-        Self::FederationPrivateReadRailLocalOnly,
-        Self::FirstBackupGateUnsatisfied,
         Self::FrankingProofUnavailable,
-        Self::FrankingTampered,
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
         Self::HistoricalDidEvidenceInvalid,
@@ -434,24 +293,14 @@ impl ErrorCode {
         Self::JsonInvalid,
         Self::KeyReplay,
         Self::KeyTransparencyProofMissing,
-        Self::KeyUnavailable,
         Self::KeypackageAlreadyConsumed,
         Self::KeypackageUnknown,
         Self::LimitExceeded,
-        Self::MediaNegotiationFailed,
-        Self::MediaPermissionDenied,
         Self::MembershipCompensationConflict,
-        Self::MethodNotAllowed,
         Self::MimiE2eeBoundaryUnmarked,
-        Self::MimiPayloadDigestMismatch,
-        Self::MimiPayloadInvalid,
-        Self::MimiReporterResolutionRequired,
         Self::MimiRoomBindingEventInvalid,
-        Self::MlsGenesisAlreadyExists,
         Self::MlsGenesisBindingProposalMismatch,
         Self::MlsGenesisBindingProposalRequired,
-        Self::MlsGovernanceAnchorUnreachable,
-        Self::MlsKeypackageClaimRequestExpired,
         Self::MorphKindImmutable,
         Self::MorphProfileWidensSchemaRef,
         Self::NotFound,
@@ -464,20 +313,16 @@ impl ErrorCode {
         Self::OrganizationRegistrationQuorumNotMet,
         Self::OrganizationRegistrationRevoked,
         Self::OrganizationRegistrationStale,
-        Self::OverbroadRequest,
         Self::ParamInvalid,
         Self::ParamMissing,
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
         Self::PcrAuthorityStale,
-        Self::PeerStateStaleUnavailable,
-        Self::PolicyCombinationInvalid,
         Self::PolicyDenied,
         Self::PolicyRevisionRollback,
         Self::PolicyStale,
         Self::PolicyUnavailable,
         Self::PolicyViolation,
-        Self::PreviewPolicyDenied,
         Self::PrincipalUnknown,
         Self::ProjectionIncomplete,
         Self::PushGatewayUnreachable,
@@ -488,49 +333,19 @@ impl ErrorCode {
         Self::Quarantine,
         Self::QueryInvalid,
         Self::QuotaExceeded,
-        Self::RankExhausted,
         Self::RateLimited,
         Self::ReadReceiptComplianceFloorViolated,
-        Self::RealmFederationPolicyClosed,
-        Self::RealmFederationPolicyInvalid,
-        Self::RealmFederationPolicyQuarantine,
-        Self::RealmFederationPolicyRestricted,
         Self::RealmFrozen,
         Self::RealmStateSnapshotAuthorityUnverified,
-        Self::RealmStateSnapshotChunkDigestMismatch,
         Self::RealmStateSnapshotUnavailable,
         Self::ReauthenticationRequired,
-        Self::RecordingDenied,
-        Self::RecoveryAuthorizationDeviceMismatch,
-        Self::RecoveryAuthorizationPrincipalMismatch,
-        Self::RecoveryAuthorizationSessionMismatch,
-        Self::RecoveryControlEventKindMismatch,
-        Self::RecoveryControlEventNotFound,
-        Self::RecoveryListUpdateDeviceMismatch,
-        Self::RecoveryListUpdatePrincipalMismatch,
-        Self::RecoveryPolicyConflict,
-        Self::RecoveryPolicyDeviceUnauthorized,
-        Self::RecoveryPolicyIdMismatch,
         Self::RecoveryPolicyMismatch,
-        Self::RecoveryPolicyMissing,
-        Self::RecoveryPolicyRevoked,
-        Self::RecoveryPolicyTrustDomainMismatch,
-        Self::RecoveryPolicyVersionMismatch,
-        Self::RecoveryProofAuthorityInvalid,
-        Self::RecoveryProofKindNotAllowed,
-        Self::RecoveryProofKindUnimplemented,
-        Self::RecoveryReceiptConflict,
-        Self::RecoverySessionConflict,
-        Self::RecoverySessionIdReused,
         Self::RecoverySessionNotPending,
-        Self::ResponseInvalid,
         Self::RevisionStale,
         Self::RevisionUnavailable,
         Self::SchemaViolation,
-        Self::SelectorTooComplex,
         Self::ServiceIdentityConflict,
         Self::ServiceIdentityProviderUnavailable,
-        Self::ServiceIdentityUnavailable,
         Self::ServiceRegistrationDenied,
         Self::ServiceUnavailable,
         Self::SessionGrantNotFound,
@@ -539,7 +354,6 @@ impl ErrorCode {
         Self::SessionGrantReplayTerminal,
         Self::SessionLoggedOut,
         Self::SessionRevokeSelectorConflict,
-        Self::SfuNotAllowed,
         Self::SignalClassDenied,
         Self::SignalRailUnavailable,
         Self::SignalTtlOutOfRange,
@@ -549,7 +363,6 @@ impl ErrorCode {
         Self::SoftLoggedOut,
         Self::SourceRefsUnverifiable,
         Self::StateMismatch,
-        Self::StatusUnavailable,
         Self::StreamDropped,
         Self::StreamResyncRequired,
         Self::TakedownInForce,
@@ -560,7 +373,6 @@ impl ErrorCode {
         Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
-        Self::UnrecognizedEndpoint,
         Self::UnsupportedCiphersuite,
         Self::UnsupportedContentEncoding,
         Self::UnsupportedDidMethod,
@@ -574,11 +386,8 @@ impl ErrorCode {
         Self::UnsupportedOrganizationRegistrationScope,
         Self::UnsupportedProfile,
         Self::UnsupportedProfilePatchPath,
-        Self::UnsupportedProofProfile,
         Self::UnsupportedProtocolVersion,
         Self::UnsupportedSignatureAlg,
-        Self::UpstreamUnavailable,
-        Self::VerifierUnauthorized,
     ];
 
     pub const AAD_DIGEST_MISMATCH: &'static str = "aad_digest_mismatch";
@@ -587,66 +396,34 @@ impl ErrorCode {
     pub const ACCOUNT_ERASED: &'static str = "account_erased";
     pub const ACCOUNT_LOCKED: &'static str = "account_locked";
     pub const ACCOUNT_SUSPENDED: &'static str = "account_suspended";
-    pub const AGENT_AUTHORIZATION_CONFLICTED: &'static str = "agent_authorization_conflicted";
-    pub const AGENT_AUTHORIZATION_INACTIVE: &'static str = "agent_authorization_inactive";
-    pub const AGENT_MLS_LEAF_BINDING_MISMATCH: &'static str = "agent_mls_leaf_binding_mismatch";
-    pub const AGENT_PROVISION_FANOUT_UNAVAILABLE: &'static str =
-        "agent_provision_fanout_unavailable";
-    pub const AGENT_SIGNER_EVIDENCE_MISSING: &'static str = "agent_signer_evidence_missing";
-    pub const AGENT_SIGNER_EVIDENCE_STALE: &'static str = "agent_signer_evidence_stale";
-    pub const AGENT_SIGNING_KEY_MISMATCH: &'static str = "agent_signing_key_mismatch";
-    pub const APPLET_ALREADY_REGISTERED: &'static str = "applet_already_registered";
     pub const APPLET_E2EE_JOIN_UNAUTHORIZED: &'static str = "applet_e2ee_join_unauthorized";
-    pub const APPLET_EFFECTIVE_SCOPE_MISMATCH: &'static str = "applet_effective_scope_mismatch";
     pub const APPLET_INSTALL_PLAN_MISMATCH: &'static str = "applet_install_plan_mismatch";
-    pub const APPLET_INSTALL_PROJECTION_INCOMPLETE: &'static str =
-        "applet_install_projection_incomplete";
-    pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
     pub const APPLET_NAMESPACE_PATTERN_INVALID: &'static str = "applet_namespace_pattern_invalid";
-    pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
     pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str =
         "applet_registration_epoch_evidence_deactivated";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &'static str =
-        "applet_registration_epoch_evidence_mismatch";
-    pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &'static str =
-        "applet_registration_epoch_evidence_missing";
-    pub const APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &'static str =
-        "applet_registration_epoch_signing_key_mismatch";
     pub const APPLET_REGISTRATION_UNAUTHORIZED: &'static str = "applet_registration_unauthorized";
     pub const APPLET_REVOKED: &'static str = "applet_revoked";
-    pub const APPLET_TRANSACTION_IN_PROGRESS: &'static str = "applet_transaction_in_progress";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
     pub const AUDIENCE_UNKNOWN: &'static str = "audience_unknown";
-    pub const AUDIT_RECEIPT_INVALIDATED: &'static str = "audit_receipt_invalidated";
     pub const AUTH_EXPIRED: &'static str = "auth_expired";
     pub const AUTHORING_REQUEST_EXPIRED: &'static str = "authoring_request_expired";
-    pub const AUTHORIZED_GRANT_REVOKED: &'static str = "authorized_grant_revoked";
     pub const AVATAR_BLOB_REF_INVALID: &'static str = "avatar_blob_ref_invalid";
     pub const BLOB_DIGEST_MISMATCH: &'static str = "blob_digest_mismatch";
     pub const BLOB_EXPIRED: &'static str = "blob_expired";
     pub const BLOB_PRESIGN_INVALID: &'static str = "blob_presign_invalid";
     pub const BLOB_QUOTA_EXCEEDED: &'static str = "blob_quota_exceeded";
-    pub const CALL_ALREADY_ANSWERED: &'static str = "call_already_answered";
-    pub const CALL_EXPIRED: &'static str = "call_expired";
-    pub const CALL_NOT_FOUND: &'static str = "call_not_found";
-    pub const CANNOT_PAIR_CURRENT_DEVICE: &'static str = "cannot_pair_current_device";
     pub const CAPABILITY_DENIED: &'static str = "capability_denied";
     pub const CAS_CONFLICT: &'static str = "cas_conflict";
-    pub const CAUSAL_CONFLICT: &'static str = "causal_conflict";
     pub const CLAIM_FAILED: &'static str = "claim_failed";
     pub const CLAIM_REQUIRED: &'static str = "claim_required";
     pub const CONFLICT: &'static str = "conflict";
     pub const CONSENT_REQUIRED: &'static str = "consent_required";
     pub const CONTACT_LINEAGE_CONFLICT: &'static str = "contact_lineage_conflict";
-    pub const CONTACT_REQUEST_EXPIRED: &'static str = "contact_request_expired";
-    pub const CONTACT_REQUEST_NOT_PENDING: &'static str = "contact_request_not_pending";
     pub const CONTACT_SCOPE_STALE: &'static str = "contact_scope_stale";
     pub const CONTINUITY_EVIDENCE_UNAVAILABLE: &'static str = "continuity_evidence_unavailable";
     pub const CONTINUITY_INVALID: &'static str = "continuity_invalid";
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
-    pub const CREDENTIAL_EXPIRED: &'static str = "credential_expired";
-    pub const CREDENTIAL_NOT_FOUND: &'static str = "credential_not_found";
     pub const CURRENT_DID_AUTHORITY_UNAVAILABLE: &'static str = "current_did_authority_unavailable";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
@@ -654,17 +431,9 @@ impl ErrorCode {
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
     pub const CURSOR_UNRECOGNIZED: &'static str = "cursor_unrecognized";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
-    pub const DEVICE_ALREADY_AUTHORIZED: &'static str = "device_already_authorized";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
-    pub const DEVICE_REANCHOR_AUTHORITY_MISMATCH: &'static str =
-        "device_reanchor_authority_mismatch";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
-    pub const DEVICE_REANCHOR_CHECKPOINT_MISMATCH: &'static str =
-        "device_reanchor_checkpoint_mismatch";
-    pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
-    pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
-        "device_recovery_generation_mismatch";
     pub const DEVICE_REVOCATION_PENDING: &'static str = "device_revocation_pending";
     pub const DEVICE_REVOKED: &'static str = "device_revoked";
     pub const DEVICE_UNAUTHORIZED: &'static str = "device_unauthorized";
@@ -674,33 +443,17 @@ impl ErrorCode {
     pub const DID_NOT_FOUND: &'static str = "did_not_found";
     pub const DID_PROOF_REQUIRED: &'static str = "did_proof_required";
     pub const DID_REVOKED: &'static str = "did_revoked";
-    pub const DID_UNKNOWN: &'static str = "did_unknown";
     pub const DIGEST_MISMATCH: &'static str = "digest_mismatch";
     pub const DIRECT_CONVERSATION_UNAVAILABLE: &'static str = "direct_conversation_unavailable";
     pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str =
         "directory_governance_proof_signature_invalid";
     pub const DIRECTORY_UNAUTHORIZED: &'static str = "directory_unauthorized";
-    pub const DISCOVERY_FAILED: &'static str = "discovery_failed";
-    pub const DISCUSSION_TRACK_DISABLED: &'static str = "discussion_track_disabled";
-    pub const DUPLICATE_CLAUSE_CLAIM: &'static str = "duplicate_clause_claim";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const E2EE_REQUIRED: &'static str = "e2ee_required";
-    pub const ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &'static str =
-        "enclave_no_upstream_proxy_for_external";
-    pub const ENCLAVE_NOT_TRUSTED: &'static str = "enclave_not_trusted";
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
-    pub const EXTERNAL_INVITE_ACTOR_MISMATCH: &'static str = "external_invite_actor_mismatch";
-    pub const EXTERNAL_USER_NO_MAIN_ACCESS: &'static str = "external_user_no_main_access";
     pub const FAILED_PLANE: &'static str = "failed_plane";
     pub const FAILED_PRECONDITION: &'static str = "failed_precondition";
-    pub const FEDERATION_ACTOR_ORIGIN_DENIED: &'static str = "federation_actor_origin_denied";
-    pub const FEDERATION_INTEROP_TRACK_ONLY: &'static str = "federation_interop_track_only";
-    pub const FEDERATION_ORIGIN_DENIED: &'static str = "federation_origin_denied";
-    pub const FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &'static str =
-        "federation_private_read_rail_local_only";
-    pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
-    pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
@@ -714,27 +467,16 @@ impl ErrorCode {
     pub const JSON_INVALID: &'static str = "json_invalid";
     pub const KEY_REPLAY: &'static str = "key_replay";
     pub const KEY_TRANSPARENCY_PROOF_MISSING: &'static str = "key_transparency_proof_missing";
-    pub const KEY_UNAVAILABLE: &'static str = "key_unavailable";
     pub const KEYPACKAGE_ALREADY_CONSUMED: &'static str = "keypackage_already_consumed";
     pub const KEYPACKAGE_UNKNOWN: &'static str = "keypackage_unknown";
     pub const LIMIT_EXCEEDED: &'static str = "limit_exceeded";
-    pub const MEDIA_NEGOTIATION_FAILED: &'static str = "media_negotiation_failed";
-    pub const MEDIA_PERMISSION_DENIED: &'static str = "media_permission_denied";
     pub const MEMBERSHIP_COMPENSATION_CONFLICT: &'static str = "membership_compensation_conflict";
-    pub const METHOD_NOT_ALLOWED: &'static str = "method_not_allowed";
     pub const MIMI_E2EE_BOUNDARY_UNMARKED: &'static str = "mimi_e2ee_boundary_unmarked";
-    pub const MIMI_PAYLOAD_DIGEST_MISMATCH: &'static str = "mimi_payload_digest_mismatch";
-    pub const MIMI_PAYLOAD_INVALID: &'static str = "mimi_payload_invalid";
-    pub const MIMI_REPORTER_RESOLUTION_REQUIRED: &'static str = "mimi_reporter_resolution_required";
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
-    pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GENESIS_BINDING_PROPOSAL_MISMATCH: &'static str =
         "mls_genesis_binding_proposal_mismatch";
     pub const MLS_GENESIS_BINDING_PROPOSAL_REQUIRED: &'static str =
         "mls_genesis_binding_proposal_required";
-    pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
-    pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
-        "mls_keypackage_claim_request_expired";
     pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
     pub const NOT_FOUND: &'static str = "not_found";
@@ -750,20 +492,16 @@ impl ErrorCode {
         "organization_registration_quorum_not_met";
     pub const ORGANIZATION_REGISTRATION_REVOKED: &'static str = "organization_registration_revoked";
     pub const ORGANIZATION_REGISTRATION_STALE: &'static str = "organization_registration_stale";
-    pub const OVERBROAD_REQUEST: &'static str = "overbroad_request";
     pub const PARAM_INVALID: &'static str = "param_invalid";
     pub const PARAM_MISSING: &'static str = "param_missing";
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
     pub const PCR_AUTHORITY_STALE: &'static str = "pcr_authority_stale";
-    pub const PEER_STATE_STALE_UNAVAILABLE: &'static str = "peer_state_stale_unavailable";
-    pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_REVISION_ROLLBACK: &'static str = "policy_revision_rollback";
     pub const POLICY_STALE: &'static str = "policy_stale";
     pub const POLICY_UNAVAILABLE: &'static str = "policy_unavailable";
     pub const POLICY_VIOLATION: &'static str = "policy_violation";
-    pub const PREVIEW_POLICY_DENIED: &'static str = "preview_policy_denied";
     pub const PRINCIPAL_UNKNOWN: &'static str = "principal_unknown";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
     pub const PUSH_GATEWAY_UNREACHABLE: &'static str = "push_gateway_unreachable";
@@ -774,63 +512,22 @@ impl ErrorCode {
     pub const QUARANTINE: &'static str = "quarantine";
     pub const QUERY_INVALID: &'static str = "query_invalid";
     pub const QUOTA_EXCEEDED: &'static str = "quota_exceeded";
-    pub const RANK_EXHAUSTED: &'static str = "rank_exhausted";
     pub const RATE_LIMITED: &'static str = "rate_limited";
     pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str =
         "read_receipt_compliance_floor_violated";
-    pub const REALM_FEDERATION_POLICY_CLOSED: &'static str = "realm_federation_policy_closed";
-    pub const REALM_FEDERATION_POLICY_INVALID: &'static str = "realm_federation_policy_invalid";
-    pub const REALM_FEDERATION_POLICY_QUARANTINE: &'static str =
-        "realm_federation_policy_quarantine";
-    pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
-        "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_STATE_SNAPSHOT_AUTHORITY_UNVERIFIED: &'static str =
         "realm_state_snapshot_authority_unverified";
-    pub const REALM_STATE_SNAPSHOT_CHUNK_DIGEST_MISMATCH: &'static str =
-        "realm_state_snapshot_chunk_digest_mismatch";
     pub const REALM_STATE_SNAPSHOT_UNAVAILABLE: &'static str = "realm_state_snapshot_unavailable";
     pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
-    pub const RECORDING_DENIED: &'static str = "recording_denied";
-    pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
-        "recovery_authorization_device_mismatch";
-    pub const RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &'static str =
-        "recovery_authorization_principal_mismatch";
-    pub const RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &'static str =
-        "recovery_authorization_session_mismatch";
-    pub const RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &'static str =
-        "recovery_control_event_kind_mismatch";
-    pub const RECOVERY_CONTROL_EVENT_NOT_FOUND: &'static str = "recovery_control_event_not_found";
-    pub const RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &'static str =
-        "recovery_list_update_device_mismatch";
-    pub const RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &'static str =
-        "recovery_list_update_principal_mismatch";
-    pub const RECOVERY_POLICY_CONFLICT: &'static str = "recovery_policy_conflict";
-    pub const RECOVERY_POLICY_DEVICE_UNAUTHORIZED: &'static str =
-        "recovery_policy_device_unauthorized";
-    pub const RECOVERY_POLICY_ID_MISMATCH: &'static str = "recovery_policy_id_mismatch";
     pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
-    pub const RECOVERY_POLICY_MISSING: &'static str = "recovery_policy_missing";
-    pub const RECOVERY_POLICY_REVOKED: &'static str = "recovery_policy_revoked";
-    pub const RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &'static str =
-        "recovery_policy_trust_domain_mismatch";
-    pub const RECOVERY_POLICY_VERSION_MISMATCH: &'static str = "recovery_policy_version_mismatch";
-    pub const RECOVERY_PROOF_AUTHORITY_INVALID: &'static str = "recovery_proof_authority_invalid";
-    pub const RECOVERY_PROOF_KIND_NOT_ALLOWED: &'static str = "recovery_proof_kind_not_allowed";
-    pub const RECOVERY_PROOF_KIND_UNIMPLEMENTED: &'static str = "recovery_proof_kind_unimplemented";
-    pub const RECOVERY_RECEIPT_CONFLICT: &'static str = "recovery_receipt_conflict";
-    pub const RECOVERY_SESSION_CONFLICT: &'static str = "recovery_session_conflict";
-    pub const RECOVERY_SESSION_ID_REUSED: &'static str = "recovery_session_id_reused";
     pub const RECOVERY_SESSION_NOT_PENDING: &'static str = "recovery_session_not_pending";
-    pub const RESPONSE_INVALID: &'static str = "response_invalid";
     pub const REVISION_STALE: &'static str = "revision_stale";
     pub const REVISION_UNAVAILABLE: &'static str = "revision_unavailable";
     pub const SCHEMA_VIOLATION: &'static str = "schema_violation";
-    pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
     pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
         "service_identity_provider_unavailable";
-    pub const SERVICE_IDENTITY_UNAVAILABLE: &'static str = "service_identity_unavailable";
     pub const SERVICE_REGISTRATION_DENIED: &'static str = "service_registration_denied";
     pub const SERVICE_UNAVAILABLE: &'static str = "service_unavailable";
     pub const SESSION_GRANT_NOT_FOUND: &'static str = "session_grant_not_found";
@@ -840,7 +537,6 @@ impl ErrorCode {
     pub const SESSION_GRANT_REPLAY_TERMINAL: &'static str = "session_grant_replay_terminal";
     pub const SESSION_LOGGED_OUT: &'static str = "session_logged_out";
     pub const SESSION_REVOKE_SELECTOR_CONFLICT: &'static str = "session_revoke_selector_conflict";
-    pub const SFU_NOT_ALLOWED: &'static str = "sfu_not_allowed";
     pub const SIGNAL_CLASS_DENIED: &'static str = "signal_class_denied";
     pub const SIGNAL_RAIL_UNAVAILABLE: &'static str = "signal_rail_unavailable";
     pub const SIGNAL_TTL_OUT_OF_RANGE: &'static str = "signal_ttl_out_of_range";
@@ -850,7 +546,6 @@ impl ErrorCode {
     pub const SOFT_LOGGED_OUT: &'static str = "soft_logged_out";
     pub const SOURCE_REFS_UNVERIFIABLE: &'static str = "source_refs_unverifiable";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
-    pub const STATUS_UNAVAILABLE: &'static str = "status_unavailable";
     pub const STREAM_DROPPED: &'static str = "stream_dropped";
     pub const STREAM_RESYNC_REQUIRED: &'static str = "stream_resync_required";
     pub const TAKEDOWN_IN_FORCE: &'static str = "takedown_in_force";
@@ -861,7 +556,6 @@ impl ErrorCode {
     pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
-    pub const UNRECOGNIZED_ENDPOINT: &'static str = "unrecognized_endpoint";
     pub const UNSUPPORTED_CIPHERSUITE: &'static str = "unsupported_ciphersuite";
     pub const UNSUPPORTED_CONTENT_ENCODING: &'static str = "unsupported_content_encoding";
     pub const UNSUPPORTED_DID_METHOD: &'static str = "unsupported_did_method";
@@ -876,11 +570,8 @@ impl ErrorCode {
         "unsupported_organization_registration_scope";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROFILE_PATCH_PATH: &'static str = "unsupported_profile_patch_path";
-    pub const UNSUPPORTED_PROOF_PROFILE: &'static str = "unsupported_proof_profile";
     pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
-    pub const UPSTREAM_UNAVAILABLE: &'static str = "upstream_unavailable";
-    pub const VERIFIER_UNAUTHORIZED: &'static str = "verifier_unauthorized";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -890,68 +581,35 @@ impl ErrorCode {
             Self::AccountErased => "account_erased",
             Self::AccountLocked => "account_locked",
             Self::AccountSuspended => "account_suspended",
-            Self::AgentAuthorizationConflicted => "agent_authorization_conflicted",
-            Self::AgentAuthorizationInactive => "agent_authorization_inactive",
-            Self::AgentMlsLeafBindingMismatch => "agent_mls_leaf_binding_mismatch",
-            Self::AgentProvisionFanoutUnavailable => "agent_provision_fanout_unavailable",
-            Self::AgentSignerEvidenceMissing => "agent_signer_evidence_missing",
-            Self::AgentSignerEvidenceStale => "agent_signer_evidence_stale",
-            Self::AgentSigningKeyMismatch => "agent_signing_key_mismatch",
-            Self::AppletAlreadyRegistered => "applet_already_registered",
             Self::AppletE2eeJoinUnauthorized => "applet_e2ee_join_unauthorized",
-            Self::AppletEffectiveScopeMismatch => "applet_effective_scope_mismatch",
             Self::AppletInstallPlanMismatch => "applet_install_plan_mismatch",
-            Self::AppletInstallProjectionIncomplete => "applet_install_projection_incomplete",
-            Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
             Self::AppletNamespacePatternInvalid => "applet_namespace_pattern_invalid",
-            Self::AppletPackageExpired => "applet_package_expired",
             Self::AppletRegistrationEpochEvidenceDeactivated => {
                 "applet_registration_epoch_evidence_deactivated"
             }
-            Self::AppletRegistrationEpochEvidenceMismatch => {
-                "applet_registration_epoch_evidence_mismatch"
-            }
-            Self::AppletRegistrationEpochEvidenceMissing => {
-                "applet_registration_epoch_evidence_missing"
-            }
-            Self::AppletRegistrationEpochSigningKeyMismatch => {
-                "applet_registration_epoch_signing_key_mismatch"
-            }
             Self::AppletRegistrationUnauthorized => "applet_registration_unauthorized",
             Self::AppletRevoked => "applet_revoked",
-            Self::AppletTransactionInProgress => "applet_transaction_in_progress",
             Self::AudienceMismatch => "audience_mismatch",
             Self::AudienceUnknown => "audience_unknown",
-            Self::AuditReceiptInvalidated => "audit_receipt_invalidated",
             Self::AuthExpired => "auth_expired",
             Self::AuthoringRequestExpired => "authoring_request_expired",
-            Self::AuthorizedGrantRevoked => "authorized_grant_revoked",
             Self::AvatarBlobRefInvalid => "avatar_blob_ref_invalid",
             Self::BlobDigestMismatch => "blob_digest_mismatch",
             Self::BlobExpired => "blob_expired",
             Self::BlobPresignInvalid => "blob_presign_invalid",
             Self::BlobQuotaExceeded => "blob_quota_exceeded",
-            Self::CallAlreadyAnswered => "call_already_answered",
-            Self::CallExpired => "call_expired",
-            Self::CallNotFound => "call_not_found",
-            Self::CannotPairCurrentDevice => "cannot_pair_current_device",
             Self::CapabilityDenied => "capability_denied",
             Self::CasConflict => "cas_conflict",
-            Self::CausalConflict => "causal_conflict",
             Self::ClaimFailed => "claim_failed",
             Self::ClaimRequired => "claim_required",
             Self::Conflict => "conflict",
             Self::ConsentRequired => "consent_required",
             Self::ContactLineageConflict => "contact_lineage_conflict",
-            Self::ContactRequestExpired => "contact_request_expired",
-            Self::ContactRequestNotPending => "contact_request_not_pending",
             Self::ContactScopeStale => "contact_scope_stale",
             Self::ContinuityEvidenceUnavailable => "continuity_evidence_unavailable",
             Self::ContinuityInvalid => "continuity_invalid",
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
-            Self::CredentialExpired => "credential_expired",
-            Self::CredentialNotFound => "credential_not_found",
             Self::CurrentDidAuthorityUnavailable => "current_did_authority_unavailable",
             Self::CursorExpired => "cursor_expired",
             Self::CursorIntegrityInvalid => "cursor_integrity_invalid",
@@ -959,13 +617,8 @@ impl ErrorCode {
             Self::CursorRevoked => "cursor_revoked",
             Self::CursorUnrecognized => "cursor_unrecognized",
             Self::DependencyMissing => "dependency_missing",
-            Self::DeviceAlreadyAuthorized => "device_already_authorized",
             Self::DeviceGenerationFenced => "device_generation_fenced",
-            Self::DeviceReanchorAuthorityMismatch => "device_reanchor_authority_mismatch",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
-            Self::DeviceReanchorCheckpointMismatch => "device_reanchor_checkpoint_mismatch",
-            Self::DeviceReanchorConflict => "device_reanchor_conflict",
-            Self::DeviceRecoveryGenerationMismatch => "device_recovery_generation_mismatch",
             Self::DeviceRevocationPending => "device_revocation_pending",
             Self::DeviceRevoked => "device_revoked",
             Self::DeviceUnauthorized => "device_unauthorized",
@@ -975,32 +628,18 @@ impl ErrorCode {
             Self::DidNotFound => "did_not_found",
             Self::DidProofRequired => "did_proof_required",
             Self::DidRevoked => "did_revoked",
-            Self::DidUnknown => "did_unknown",
             Self::DigestMismatch => "digest_mismatch",
             Self::DirectConversationUnavailable => "direct_conversation_unavailable",
             Self::DirectoryGovernanceProofSignatureInvalid => {
                 "directory_governance_proof_signature_invalid"
             }
             Self::DirectoryUnauthorized => "directory_unauthorized",
-            Self::DiscoveryFailed => "discovery_failed",
-            Self::DiscussionTrackDisabled => "discussion_track_disabled",
-            Self::DuplicateClauseClaim => "duplicate_clause_claim",
             Self::DuplicateConflict => "duplicate_conflict",
             Self::E2eeRequired => "e2ee_required",
-            Self::EnclaveNoUpstreamProxyForExternal => "enclave_no_upstream_proxy_for_external",
-            Self::EnclaveNotTrusted => "enclave_not_trusted",
             Self::EpochMismatch => "epoch_mismatch",
-            Self::ExternalInviteActorMismatch => "external_invite_actor_mismatch",
-            Self::ExternalUserNoMainAccess => "external_user_no_main_access",
             Self::FailedPlane => "failed_plane",
             Self::FailedPrecondition => "failed_precondition",
-            Self::FederationActorOriginDenied => "federation_actor_origin_denied",
-            Self::FederationInteropTrackOnly => "federation_interop_track_only",
-            Self::FederationOriginDenied => "federation_origin_denied",
-            Self::FederationPrivateReadRailLocalOnly => "federation_private_read_rail_local_only",
-            Self::FirstBackupGateUnsatisfied => "first_backup_gate_unsatisfied",
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
-            Self::FrankingTampered => "franking_tampered",
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
@@ -1014,24 +653,14 @@ impl ErrorCode {
             Self::JsonInvalid => "json_invalid",
             Self::KeyReplay => "key_replay",
             Self::KeyTransparencyProofMissing => "key_transparency_proof_missing",
-            Self::KeyUnavailable => "key_unavailable",
             Self::KeypackageAlreadyConsumed => "keypackage_already_consumed",
             Self::KeypackageUnknown => "keypackage_unknown",
             Self::LimitExceeded => "limit_exceeded",
-            Self::MediaNegotiationFailed => "media_negotiation_failed",
-            Self::MediaPermissionDenied => "media_permission_denied",
             Self::MembershipCompensationConflict => "membership_compensation_conflict",
-            Self::MethodNotAllowed => "method_not_allowed",
             Self::MimiE2eeBoundaryUnmarked => "mimi_e2ee_boundary_unmarked",
-            Self::MimiPayloadDigestMismatch => "mimi_payload_digest_mismatch",
-            Self::MimiPayloadInvalid => "mimi_payload_invalid",
-            Self::MimiReporterResolutionRequired => "mimi_reporter_resolution_required",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
-            Self::MlsGenesisAlreadyExists => "mls_genesis_already_exists",
             Self::MlsGenesisBindingProposalMismatch => "mls_genesis_binding_proposal_mismatch",
             Self::MlsGenesisBindingProposalRequired => "mls_genesis_binding_proposal_required",
-            Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
-            Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
             Self::MorphKindImmutable => "morph_kind_immutable",
             Self::MorphProfileWidensSchemaRef => "morph_profile_widens_schema_ref",
             Self::NotFound => "not_found",
@@ -1050,20 +679,16 @@ impl ErrorCode {
             }
             Self::OrganizationRegistrationRevoked => "organization_registration_revoked",
             Self::OrganizationRegistrationStale => "organization_registration_stale",
-            Self::OverbroadRequest => "overbroad_request",
             Self::ParamInvalid => "param_invalid",
             Self::ParamMissing => "param_missing",
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
             Self::PcrAuthorityStale => "pcr_authority_stale",
-            Self::PeerStateStaleUnavailable => "peer_state_stale_unavailable",
-            Self::PolicyCombinationInvalid => "policy_combination_invalid",
             Self::PolicyDenied => "policy_denied",
             Self::PolicyRevisionRollback => "policy_revision_rollback",
             Self::PolicyStale => "policy_stale",
             Self::PolicyUnavailable => "policy_unavailable",
             Self::PolicyViolation => "policy_violation",
-            Self::PreviewPolicyDenied => "preview_policy_denied",
             Self::PrincipalUnknown => "principal_unknown",
             Self::ProjectionIncomplete => "projection_incomplete",
             Self::PushGatewayUnreachable => "push_gateway_unreachable",
@@ -1074,55 +699,21 @@ impl ErrorCode {
             Self::Quarantine => "quarantine",
             Self::QueryInvalid => "query_invalid",
             Self::QuotaExceeded => "quota_exceeded",
-            Self::RankExhausted => "rank_exhausted",
             Self::RateLimited => "rate_limited",
             Self::ReadReceiptComplianceFloorViolated => "read_receipt_compliance_floor_violated",
-            Self::RealmFederationPolicyClosed => "realm_federation_policy_closed",
-            Self::RealmFederationPolicyInvalid => "realm_federation_policy_invalid",
-            Self::RealmFederationPolicyQuarantine => "realm_federation_policy_quarantine",
-            Self::RealmFederationPolicyRestricted => "realm_federation_policy_restricted",
             Self::RealmFrozen => "realm_frozen",
             Self::RealmStateSnapshotAuthorityUnverified => {
                 "realm_state_snapshot_authority_unverified"
             }
-            Self::RealmStateSnapshotChunkDigestMismatch => {
-                "realm_state_snapshot_chunk_digest_mismatch"
-            }
             Self::RealmStateSnapshotUnavailable => "realm_state_snapshot_unavailable",
             Self::ReauthenticationRequired => "reauthentication_required",
-            Self::RecordingDenied => "recording_denied",
-            Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
-            Self::RecoveryAuthorizationPrincipalMismatch => {
-                "recovery_authorization_principal_mismatch"
-            }
-            Self::RecoveryAuthorizationSessionMismatch => "recovery_authorization_session_mismatch",
-            Self::RecoveryControlEventKindMismatch => "recovery_control_event_kind_mismatch",
-            Self::RecoveryControlEventNotFound => "recovery_control_event_not_found",
-            Self::RecoveryListUpdateDeviceMismatch => "recovery_list_update_device_mismatch",
-            Self::RecoveryListUpdatePrincipalMismatch => "recovery_list_update_principal_mismatch",
-            Self::RecoveryPolicyConflict => "recovery_policy_conflict",
-            Self::RecoveryPolicyDeviceUnauthorized => "recovery_policy_device_unauthorized",
-            Self::RecoveryPolicyIdMismatch => "recovery_policy_id_mismatch",
             Self::RecoveryPolicyMismatch => "recovery_policy_mismatch",
-            Self::RecoveryPolicyMissing => "recovery_policy_missing",
-            Self::RecoveryPolicyRevoked => "recovery_policy_revoked",
-            Self::RecoveryPolicyTrustDomainMismatch => "recovery_policy_trust_domain_mismatch",
-            Self::RecoveryPolicyVersionMismatch => "recovery_policy_version_mismatch",
-            Self::RecoveryProofAuthorityInvalid => "recovery_proof_authority_invalid",
-            Self::RecoveryProofKindNotAllowed => "recovery_proof_kind_not_allowed",
-            Self::RecoveryProofKindUnimplemented => "recovery_proof_kind_unimplemented",
-            Self::RecoveryReceiptConflict => "recovery_receipt_conflict",
-            Self::RecoverySessionConflict => "recovery_session_conflict",
-            Self::RecoverySessionIdReused => "recovery_session_id_reused",
             Self::RecoverySessionNotPending => "recovery_session_not_pending",
-            Self::ResponseInvalid => "response_invalid",
             Self::RevisionStale => "revision_stale",
             Self::RevisionUnavailable => "revision_unavailable",
             Self::SchemaViolation => "schema_violation",
-            Self::SelectorTooComplex => "selector_too_complex",
             Self::ServiceIdentityConflict => "service_identity_conflict",
             Self::ServiceIdentityProviderUnavailable => "service_identity_provider_unavailable",
-            Self::ServiceIdentityUnavailable => "service_identity_unavailable",
             Self::ServiceRegistrationDenied => "service_registration_denied",
             Self::ServiceUnavailable => "service_unavailable",
             Self::SessionGrantNotFound => "session_grant_not_found",
@@ -1131,7 +722,6 @@ impl ErrorCode {
             Self::SessionGrantReplayTerminal => "session_grant_replay_terminal",
             Self::SessionLoggedOut => "session_logged_out",
             Self::SessionRevokeSelectorConflict => "session_revoke_selector_conflict",
-            Self::SfuNotAllowed => "sfu_not_allowed",
             Self::SignalClassDenied => "signal_class_denied",
             Self::SignalRailUnavailable => "signal_rail_unavailable",
             Self::SignalTtlOutOfRange => "signal_ttl_out_of_range",
@@ -1141,7 +731,6 @@ impl ErrorCode {
             Self::SoftLoggedOut => "soft_logged_out",
             Self::SourceRefsUnverifiable => "source_refs_unverifiable",
             Self::StateMismatch => "state_mismatch",
-            Self::StatusUnavailable => "status_unavailable",
             Self::StreamDropped => "stream_dropped",
             Self::StreamResyncRequired => "stream_resync_required",
             Self::TakedownInForce => "takedown_in_force",
@@ -1152,7 +741,6 @@ impl ErrorCode {
             Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
-            Self::UnrecognizedEndpoint => "unrecognized_endpoint",
             Self::UnsupportedCiphersuite => "unsupported_ciphersuite",
             Self::UnsupportedContentEncoding => "unsupported_content_encoding",
             Self::UnsupportedDidMethod => "unsupported_did_method",
@@ -1168,11 +756,8 @@ impl ErrorCode {
             }
             Self::UnsupportedProfile => "unsupported_profile",
             Self::UnsupportedProfilePatchPath => "unsupported_profile_patch_path",
-            Self::UnsupportedProofProfile => "unsupported_proof_profile",
             Self::UnsupportedProtocolVersion => "unsupported_protocol_version",
             Self::UnsupportedSignatureAlg => "unsupported_signature_alg",
-            Self::UpstreamUnavailable => "upstream_unavailable",
-            Self::VerifierUnauthorized => "verifier_unauthorized",
         }
     }
 
@@ -1184,68 +769,35 @@ impl ErrorCode {
             "account_erased" => Some(Self::AccountErased),
             "account_locked" => Some(Self::AccountLocked),
             "account_suspended" => Some(Self::AccountSuspended),
-            "agent_authorization_conflicted" => Some(Self::AgentAuthorizationConflicted),
-            "agent_authorization_inactive" => Some(Self::AgentAuthorizationInactive),
-            "agent_mls_leaf_binding_mismatch" => Some(Self::AgentMlsLeafBindingMismatch),
-            "agent_provision_fanout_unavailable" => Some(Self::AgentProvisionFanoutUnavailable),
-            "agent_signer_evidence_missing" => Some(Self::AgentSignerEvidenceMissing),
-            "agent_signer_evidence_stale" => Some(Self::AgentSignerEvidenceStale),
-            "agent_signing_key_mismatch" => Some(Self::AgentSigningKeyMismatch),
-            "applet_already_registered" => Some(Self::AppletAlreadyRegistered),
             "applet_e2ee_join_unauthorized" => Some(Self::AppletE2eeJoinUnauthorized),
-            "applet_effective_scope_mismatch" => Some(Self::AppletEffectiveScopeMismatch),
             "applet_install_plan_mismatch" => Some(Self::AppletInstallPlanMismatch),
-            "applet_install_projection_incomplete" => Some(Self::AppletInstallProjectionIncomplete),
-            "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
             "applet_namespace_pattern_invalid" => Some(Self::AppletNamespacePatternInvalid),
-            "applet_package_expired" => Some(Self::AppletPackageExpired),
             "applet_registration_epoch_evidence_deactivated" => {
                 Some(Self::AppletRegistrationEpochEvidenceDeactivated)
             }
-            "applet_registration_epoch_evidence_mismatch" => {
-                Some(Self::AppletRegistrationEpochEvidenceMismatch)
-            }
-            "applet_registration_epoch_evidence_missing" => {
-                Some(Self::AppletRegistrationEpochEvidenceMissing)
-            }
-            "applet_registration_epoch_signing_key_mismatch" => {
-                Some(Self::AppletRegistrationEpochSigningKeyMismatch)
-            }
             "applet_registration_unauthorized" => Some(Self::AppletRegistrationUnauthorized),
             "applet_revoked" => Some(Self::AppletRevoked),
-            "applet_transaction_in_progress" => Some(Self::AppletTransactionInProgress),
             "audience_mismatch" => Some(Self::AudienceMismatch),
             "audience_unknown" => Some(Self::AudienceUnknown),
-            "audit_receipt_invalidated" => Some(Self::AuditReceiptInvalidated),
             "auth_expired" => Some(Self::AuthExpired),
             "authoring_request_expired" => Some(Self::AuthoringRequestExpired),
-            "authorized_grant_revoked" => Some(Self::AuthorizedGrantRevoked),
             "avatar_blob_ref_invalid" => Some(Self::AvatarBlobRefInvalid),
             "blob_digest_mismatch" => Some(Self::BlobDigestMismatch),
             "blob_expired" => Some(Self::BlobExpired),
             "blob_presign_invalid" => Some(Self::BlobPresignInvalid),
             "blob_quota_exceeded" => Some(Self::BlobQuotaExceeded),
-            "call_already_answered" => Some(Self::CallAlreadyAnswered),
-            "call_expired" => Some(Self::CallExpired),
-            "call_not_found" => Some(Self::CallNotFound),
-            "cannot_pair_current_device" => Some(Self::CannotPairCurrentDevice),
             "capability_denied" => Some(Self::CapabilityDenied),
             "cas_conflict" => Some(Self::CasConflict),
-            "causal_conflict" => Some(Self::CausalConflict),
             "claim_failed" => Some(Self::ClaimFailed),
             "claim_required" => Some(Self::ClaimRequired),
             "conflict" => Some(Self::Conflict),
             "consent_required" => Some(Self::ConsentRequired),
             "contact_lineage_conflict" => Some(Self::ContactLineageConflict),
-            "contact_request_expired" => Some(Self::ContactRequestExpired),
-            "contact_request_not_pending" => Some(Self::ContactRequestNotPending),
             "contact_scope_stale" => Some(Self::ContactScopeStale),
             "continuity_evidence_unavailable" => Some(Self::ContinuityEvidenceUnavailable),
             "continuity_invalid" => Some(Self::ContinuityInvalid),
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
-            "credential_expired" => Some(Self::CredentialExpired),
-            "credential_not_found" => Some(Self::CredentialNotFound),
             "current_did_authority_unavailable" => Some(Self::CurrentDidAuthorityUnavailable),
             "cursor_expired" => Some(Self::CursorExpired),
             "cursor_integrity_invalid" => Some(Self::CursorIntegrityInvalid),
@@ -1253,13 +805,8 @@ impl ErrorCode {
             "cursor_revoked" => Some(Self::CursorRevoked),
             "cursor_unrecognized" => Some(Self::CursorUnrecognized),
             "dependency_missing" => Some(Self::DependencyMissing),
-            "device_already_authorized" => Some(Self::DeviceAlreadyAuthorized),
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
-            "device_reanchor_authority_mismatch" => Some(Self::DeviceReanchorAuthorityMismatch),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
-            "device_reanchor_checkpoint_mismatch" => Some(Self::DeviceReanchorCheckpointMismatch),
-            "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
-            "device_recovery_generation_mismatch" => Some(Self::DeviceRecoveryGenerationMismatch),
             "device_revocation_pending" => Some(Self::DeviceRevocationPending),
             "device_revoked" => Some(Self::DeviceRevoked),
             "device_unauthorized" => Some(Self::DeviceUnauthorized),
@@ -1269,36 +816,18 @@ impl ErrorCode {
             "did_not_found" => Some(Self::DidNotFound),
             "did_proof_required" => Some(Self::DidProofRequired),
             "did_revoked" => Some(Self::DidRevoked),
-            "did_unknown" => Some(Self::DidUnknown),
             "digest_mismatch" => Some(Self::DigestMismatch),
             "direct_conversation_unavailable" => Some(Self::DirectConversationUnavailable),
             "directory_governance_proof_signature_invalid" => {
                 Some(Self::DirectoryGovernanceProofSignatureInvalid)
             }
             "directory_unauthorized" => Some(Self::DirectoryUnauthorized),
-            "discovery_failed" => Some(Self::DiscoveryFailed),
-            "discussion_track_disabled" => Some(Self::DiscussionTrackDisabled),
-            "duplicate_clause_claim" => Some(Self::DuplicateClauseClaim),
             "duplicate_conflict" => Some(Self::DuplicateConflict),
             "e2ee_required" => Some(Self::E2eeRequired),
-            "enclave_no_upstream_proxy_for_external" => {
-                Some(Self::EnclaveNoUpstreamProxyForExternal)
-            }
-            "enclave_not_trusted" => Some(Self::EnclaveNotTrusted),
             "epoch_mismatch" => Some(Self::EpochMismatch),
-            "external_invite_actor_mismatch" => Some(Self::ExternalInviteActorMismatch),
-            "external_user_no_main_access" => Some(Self::ExternalUserNoMainAccess),
             "failed_plane" => Some(Self::FailedPlane),
             "failed_precondition" => Some(Self::FailedPrecondition),
-            "federation_actor_origin_denied" => Some(Self::FederationActorOriginDenied),
-            "federation_interop_track_only" => Some(Self::FederationInteropTrackOnly),
-            "federation_origin_denied" => Some(Self::FederationOriginDenied),
-            "federation_private_read_rail_local_only" => {
-                Some(Self::FederationPrivateReadRailLocalOnly)
-            }
-            "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
-            "franking_tampered" => Some(Self::FrankingTampered),
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
@@ -1312,28 +841,18 @@ impl ErrorCode {
             "json_invalid" => Some(Self::JsonInvalid),
             "key_replay" => Some(Self::KeyReplay),
             "key_transparency_proof_missing" => Some(Self::KeyTransparencyProofMissing),
-            "key_unavailable" => Some(Self::KeyUnavailable),
             "keypackage_already_consumed" => Some(Self::KeypackageAlreadyConsumed),
             "keypackage_unknown" => Some(Self::KeypackageUnknown),
             "limit_exceeded" => Some(Self::LimitExceeded),
-            "media_negotiation_failed" => Some(Self::MediaNegotiationFailed),
-            "media_permission_denied" => Some(Self::MediaPermissionDenied),
             "membership_compensation_conflict" => Some(Self::MembershipCompensationConflict),
-            "method_not_allowed" => Some(Self::MethodNotAllowed),
             "mimi_e2ee_boundary_unmarked" => Some(Self::MimiE2eeBoundaryUnmarked),
-            "mimi_payload_digest_mismatch" => Some(Self::MimiPayloadDigestMismatch),
-            "mimi_payload_invalid" => Some(Self::MimiPayloadInvalid),
-            "mimi_reporter_resolution_required" => Some(Self::MimiReporterResolutionRequired),
             "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
-            "mls_genesis_already_exists" => Some(Self::MlsGenesisAlreadyExists),
             "mls_genesis_binding_proposal_mismatch" => {
                 Some(Self::MlsGenesisBindingProposalMismatch)
             }
             "mls_genesis_binding_proposal_required" => {
                 Some(Self::MlsGenesisBindingProposalRequired)
             }
-            "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
-            "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
             "morph_kind_immutable" => Some(Self::MorphKindImmutable),
             "morph_profile_widens_schema_ref" => Some(Self::MorphProfileWidensSchemaRef),
             "not_found" => Some(Self::NotFound),
@@ -1352,20 +871,16 @@ impl ErrorCode {
             }
             "organization_registration_revoked" => Some(Self::OrganizationRegistrationRevoked),
             "organization_registration_stale" => Some(Self::OrganizationRegistrationStale),
-            "overbroad_request" => Some(Self::OverbroadRequest),
             "param_invalid" => Some(Self::ParamInvalid),
             "param_missing" => Some(Self::ParamMissing),
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
             "pcr_authority_stale" => Some(Self::PcrAuthorityStale),
-            "peer_state_stale_unavailable" => Some(Self::PeerStateStaleUnavailable),
-            "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
             "policy_denied" => Some(Self::PolicyDenied),
             "policy_revision_rollback" => Some(Self::PolicyRevisionRollback),
             "policy_stale" => Some(Self::PolicyStale),
             "policy_unavailable" => Some(Self::PolicyUnavailable),
             "policy_violation" => Some(Self::PolicyViolation),
-            "preview_policy_denied" => Some(Self::PreviewPolicyDenied),
             "principal_unknown" => Some(Self::PrincipalUnknown),
             "projection_incomplete" => Some(Self::ProjectionIncomplete),
             "push_gateway_unreachable" => Some(Self::PushGatewayUnreachable),
@@ -1376,67 +891,25 @@ impl ErrorCode {
             "quarantine" => Some(Self::Quarantine),
             "query_invalid" => Some(Self::QueryInvalid),
             "quota_exceeded" => Some(Self::QuotaExceeded),
-            "rank_exhausted" => Some(Self::RankExhausted),
             "rate_limited" => Some(Self::RateLimited),
             "read_receipt_compliance_floor_violated" => {
                 Some(Self::ReadReceiptComplianceFloorViolated)
             }
-            "realm_federation_policy_closed" => Some(Self::RealmFederationPolicyClosed),
-            "realm_federation_policy_invalid" => Some(Self::RealmFederationPolicyInvalid),
-            "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
-            "realm_federation_policy_restricted" => Some(Self::RealmFederationPolicyRestricted),
             "realm_frozen" => Some(Self::RealmFrozen),
             "realm_state_snapshot_authority_unverified" => {
                 Some(Self::RealmStateSnapshotAuthorityUnverified)
             }
-            "realm_state_snapshot_chunk_digest_mismatch" => {
-                Some(Self::RealmStateSnapshotChunkDigestMismatch)
-            }
             "realm_state_snapshot_unavailable" => Some(Self::RealmStateSnapshotUnavailable),
             "reauthentication_required" => Some(Self::ReauthenticationRequired),
-            "recording_denied" => Some(Self::RecordingDenied),
-            "recovery_authorization_device_mismatch" => {
-                Some(Self::RecoveryAuthorizationDeviceMismatch)
-            }
-            "recovery_authorization_principal_mismatch" => {
-                Some(Self::RecoveryAuthorizationPrincipalMismatch)
-            }
-            "recovery_authorization_session_mismatch" => {
-                Some(Self::RecoveryAuthorizationSessionMismatch)
-            }
-            "recovery_control_event_kind_mismatch" => Some(Self::RecoveryControlEventKindMismatch),
-            "recovery_control_event_not_found" => Some(Self::RecoveryControlEventNotFound),
-            "recovery_list_update_device_mismatch" => Some(Self::RecoveryListUpdateDeviceMismatch),
-            "recovery_list_update_principal_mismatch" => {
-                Some(Self::RecoveryListUpdatePrincipalMismatch)
-            }
-            "recovery_policy_conflict" => Some(Self::RecoveryPolicyConflict),
-            "recovery_policy_device_unauthorized" => Some(Self::RecoveryPolicyDeviceUnauthorized),
-            "recovery_policy_id_mismatch" => Some(Self::RecoveryPolicyIdMismatch),
             "recovery_policy_mismatch" => Some(Self::RecoveryPolicyMismatch),
-            "recovery_policy_missing" => Some(Self::RecoveryPolicyMissing),
-            "recovery_policy_revoked" => Some(Self::RecoveryPolicyRevoked),
-            "recovery_policy_trust_domain_mismatch" => {
-                Some(Self::RecoveryPolicyTrustDomainMismatch)
-            }
-            "recovery_policy_version_mismatch" => Some(Self::RecoveryPolicyVersionMismatch),
-            "recovery_proof_authority_invalid" => Some(Self::RecoveryProofAuthorityInvalid),
-            "recovery_proof_kind_not_allowed" => Some(Self::RecoveryProofKindNotAllowed),
-            "recovery_proof_kind_unimplemented" => Some(Self::RecoveryProofKindUnimplemented),
-            "recovery_receipt_conflict" => Some(Self::RecoveryReceiptConflict),
-            "recovery_session_conflict" => Some(Self::RecoverySessionConflict),
-            "recovery_session_id_reused" => Some(Self::RecoverySessionIdReused),
             "recovery_session_not_pending" => Some(Self::RecoverySessionNotPending),
-            "response_invalid" => Some(Self::ResponseInvalid),
             "revision_stale" => Some(Self::RevisionStale),
             "revision_unavailable" => Some(Self::RevisionUnavailable),
             "schema_violation" => Some(Self::SchemaViolation),
-            "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
             "service_identity_provider_unavailable" => {
                 Some(Self::ServiceIdentityProviderUnavailable)
             }
-            "service_identity_unavailable" => Some(Self::ServiceIdentityUnavailable),
             "service_registration_denied" => Some(Self::ServiceRegistrationDenied),
             "service_unavailable" => Some(Self::ServiceUnavailable),
             "session_grant_not_found" => Some(Self::SessionGrantNotFound),
@@ -1445,7 +918,6 @@ impl ErrorCode {
             "session_grant_replay_terminal" => Some(Self::SessionGrantReplayTerminal),
             "session_logged_out" => Some(Self::SessionLoggedOut),
             "session_revoke_selector_conflict" => Some(Self::SessionRevokeSelectorConflict),
-            "sfu_not_allowed" => Some(Self::SfuNotAllowed),
             "signal_class_denied" => Some(Self::SignalClassDenied),
             "signal_rail_unavailable" => Some(Self::SignalRailUnavailable),
             "signal_ttl_out_of_range" => Some(Self::SignalTtlOutOfRange),
@@ -1455,7 +927,6 @@ impl ErrorCode {
             "soft_logged_out" => Some(Self::SoftLoggedOut),
             "source_refs_unverifiable" => Some(Self::SourceRefsUnverifiable),
             "state_mismatch" => Some(Self::StateMismatch),
-            "status_unavailable" => Some(Self::StatusUnavailable),
             "stream_dropped" => Some(Self::StreamDropped),
             "stream_resync_required" => Some(Self::StreamResyncRequired),
             "takedown_in_force" => Some(Self::TakedownInForce),
@@ -1466,7 +937,6 @@ impl ErrorCode {
             "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
-            "unrecognized_endpoint" => Some(Self::UnrecognizedEndpoint),
             "unsupported_ciphersuite" => Some(Self::UnsupportedCiphersuite),
             "unsupported_content_encoding" => Some(Self::UnsupportedContentEncoding),
             "unsupported_did_method" => Some(Self::UnsupportedDidMethod),
@@ -1482,11 +952,8 @@ impl ErrorCode {
             }
             "unsupported_profile" => Some(Self::UnsupportedProfile),
             "unsupported_profile_patch_path" => Some(Self::UnsupportedProfilePatchPath),
-            "unsupported_proof_profile" => Some(Self::UnsupportedProofProfile),
             "unsupported_protocol_version" => Some(Self::UnsupportedProtocolVersion),
             "unsupported_signature_alg" => Some(Self::UnsupportedSignatureAlg),
-            "upstream_unavailable" => Some(Self::UpstreamUnavailable),
-            "verifier_unauthorized" => Some(Self::VerifierUnauthorized),
             _ => None,
         }
     }
@@ -1595,86 +1062,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The principal account is suspended. Existing sessions may observe account state where permitted, but new session issuance and writes MUST fail closed with this code.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::AgentAuthorizationConflicted,
-        type_uri: "https://arkret.org/problems/agent_authorization_conflicted",
-        title: "Agent authorization conflicted",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The accepted Agent key component contains conflicting active authorization state at the target checkpoint. The Event and signer evidence MUST be quarantined.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentAuthorizationInactive,
-        type_uri: "https://arkret.org/problems/agent_authorization_inactive",
-        title: "Agent authorization inactive",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The target Event accepted-at lies outside the Agent key authorization validity interval because the authorization is revoked, superseded, or expired.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentMlsLeafBindingMismatch,
-        type_uri: "https://arkret.org/problems/agent_mls_leaf_binding_mismatch",
-        title: "Agent mls leaf binding mismatch",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "An ordinary encrypted Agent Event does not have exactly one historical active BasicCredential leaf whose identity, signature key, and admission authorization lineage match its Agent signer evidence.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentProvisionFanoutUnavailable,
-        type_uri: "https://arkret.org/problems/agent_provision_fanout_unavailable",
-        title: "Agent provision fanout unavailable",
-        http_status: 501,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Agent provisioning fanout is not available on this deployment.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentSignerEvidenceMissing,
-        type_uri: "https://arkret.org/problems/agent_signer_evidence_missing",
-        title: "Agent signer evidence missing",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Portable Agent signer evidence is unavailable for the authorized shared context. For callers without that context this response is indistinguishable from an unknown Agent or method. Consumers remain Unresolved and MUST NOT fall back to device directory or an ordinary-Realm MLS leaf.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentSignerEvidenceStale,
-        type_uri: "https://arkret.org/problems/agent_signer_evidence_stale",
-        title: "Agent signer evidence stale",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Agent signer evidence exists but its source freshness observation or state checkpoint is too old for the target Event admission. Consumers remain Unresolved/Stale and retry without promoting the Event to Verified.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AgentSigningKeyMismatch,
-        type_uri: "https://arkret.org/problems/agent_signing_key_mismatch",
-        title: "Agent signing key mismatch",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The Agent proof method, disclosed raw key, public-key digest, signing-binding digest, authorization Event, or controller proof do not form one exact binding.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletAlreadyRegistered,
-        type_uri: "https://arkret.org/problems/applet_already_registered",
-        title: "Applet already registered",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "An applet with the same identity is already registered for the realm.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::AppletE2eeJoinUnauthorized,
         type_uri: "https://arkret.org/problems/applet_e2ee_join_unauthorized",
         title: "Applet e2ee join unauthorized",
@@ -1685,16 +1072,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "An Applet, bot actor, or Applet-managed Ghost Actor attempted to join an E2EE Realm / MLS group without the independent E2EE join authorization required by ak.profile.applet_e2ee_join.v1. Ordinary message/write capability grants do not imply MLS join authority. See zh/extensions/applet-integration.md §12.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::AppletEffectiveScopeMismatch,
-        type_uri: "https://arkret.org/problems/applet_effective_scope_mismatch",
-        title: "Applet effective scope mismatch",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The applet install projection does not match the requested effective scope.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallPlanMismatch,
         type_uri: "https://arkret.org/problems/applet_install_plan_mismatch",
         title: "Applet install plan mismatch",
@@ -1703,26 +1080,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["service_call"],
         description: "ak.self.applet.command.install.v1 recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md §4b.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletInstallProjectionIncomplete,
-        type_uri: "https://arkret.org/problems/applet_install_projection_incomplete",
-        title: "Applet install projection incomplete",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The applet install projection is not yet complete.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletInstallRequired,
-        type_uri: "https://arkret.org/problems/applet_install_required",
-        title: "Applet install required",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The operation requires the applet to be installed first.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletNamespaceConflict,
@@ -1745,16 +1102,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A namespaces.actors pattern in the submitted Applet package or derived registration violates the actor namespace pattern shape: it is not a did:webvh pattern, its SCID segment is neither '*' nor a non-empty SCID, it pins the registration's own service SCID in the SCID segment so it can never match a compliant Ghost, its host segment is not a literal equal to the host of the bare did the service_id currently resolves to, or no segment follows that host. Install preview and install commit both fail closed. See zh/extensions/applet-schema.md 2 and zh/extensions/applet-integration.md 4.1.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::AppletPackageExpired,
-        type_uri: "https://arkret.org/problems/applet_package_expired",
-        title: "Applet package expired",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The submitted applet package has expired.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceDeactivated,
         type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_deactivated",
         title: "Applet registration epoch evidence deactivated",
@@ -1763,36 +1110,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The exact DID method version pinned by the Applet registration epoch evidence resolves successfully but is deactivated. Preview and authoring fail closed without unversioned refetch or service-local key fallback.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletRegistrationEpochEvidenceMismatch,
-        type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_mismatch",
-        title: "Applet registration epoch evidence mismatch",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Applet registration epoch evidence does not match the expected epoch.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletRegistrationEpochEvidenceMissing,
-        type_uri: "https://arkret.org/problems/applet_registration_epoch_evidence_missing",
-        title: "Applet registration epoch evidence missing",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Applet registration epoch evidence is missing.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AppletRegistrationEpochSigningKeyMismatch,
-        type_uri: "https://arkret.org/problems/applet_registration_epoch_signing_key_mismatch",
-        title: "Applet registration epoch signing key mismatch",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Applet registration epoch signing key does not match the registered key.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationUnauthorized,
@@ -1815,16 +1132,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A revoked effective Applet install attempted a future write, transaction push side effect, delegated action, widget token use, or E2EE join. Reducers and service-call handlers MUST fail closed after ak.self.applet.command.revoke.v1 / ak.capability.revoke has taken effect. See zh/extensions/applet-integration.md §4b.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::AppletTransactionInProgress,
-        type_uri: "https://arkret.org/problems/applet_transaction_in_progress",
-        title: "Applet transaction in progress",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Another applet transaction is already in progress.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::AudienceMismatch,
         type_uri: "https://arkret.org/problems/audience_mismatch",
         title: "Audience mismatch",
@@ -1845,16 +1152,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A token, invite, notification, or delivery request names an audience that is unknown or not visible to the caller.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::AuditReceiptInvalidated,
-        type_uri: "https://arkret.org/problems/audit_receipt_invalidated",
-        title: "Audit receipt invalidated",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "An auditable E2EE decrypt receipt was invalidated by backfill, witness, or state verification.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::AuthExpired,
         type_uri: "https://arkret.org/problems/auth_expired",
         title: "Auth expired",
@@ -1873,16 +1170,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A new authoring attempt arrived after its registered preparation expiry. Message prepare uses client created_at plus 300 seconds. The caller needs a new request identity; accepted Event validity and exact replay/recovery of an existing submission are unaffected.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AuthorizedGrantRevoked,
-        type_uri: "https://arkret.org/problems/authorized_grant_revoked",
-        title: "Authorized grant revoked",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "A pending write, cache entry, snapshot claim, or downstream grant depends on a grant that has been revoked, superseded, expired, or revoked through an ancestor grant. The dependent action MUST fail closed or be quarantined until re-authorized.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AvatarBlobRefInvalid,
@@ -1935,46 +1222,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The blob operation exceeds actor, Realm, organization, or deployment storage/bandwidth quota.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::CallAlreadyAnswered,
-        type_uri: "https://arkret.org/problems/call_already_answered",
-        title: "Call already answered",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Call answer was already accepted and the operation is not idempotent for this participant.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CallExpired,
-        type_uri: "https://arkret.org/problems/call_expired",
-        title: "Call expired",
-        http_status: 410,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Call exists but its signaling window has expired.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CallNotFound,
-        type_uri: "https://arkret.org/problems/call_not_found",
-        title: "Call not found",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Call does not exist or is not visible to the caller.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CannotPairCurrentDevice,
-        type_uri: "https://arkret.org/problems/cannot_pair_current_device",
-        title: "Cannot pair current device",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The current device cannot pair with itself.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::CapabilityDenied,
         type_uri: "https://arkret.org/problems/capability_denied",
         title: "Capability denied",
@@ -1993,16 +1240,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "An optimistic concurrency precondition failed because the authority-committed typed current result or stream head no longer equals the submitted expectation. The caller must read current state and create a new signed Event; exact retry retains the original identity.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CausalConflict,
-        type_uri: "https://arkret.org/problems/causal_conflict",
-        title: "Causal conflict",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "An application-level referenced object, revision, or domain transition is incompatible with current authority-committed state. This code does not describe an Event predecessor graph.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ClaimFailed,
@@ -2055,26 +1292,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A Contact fact forks an issuer-local version, skips a version, references a non-current predecessor, reuses a consumed request ref, or attempts to revive a tombstoned generation. The conflicting fact is quarantined.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::ContactRequestExpired,
-        type_uri: "https://arkret.org/problems/contact_request_expired",
-        title: "Contact request expired",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a contact request older than contact_request_pending_ttl. The request projection is expired and no terminal response may be authored from it.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ContactRequestNotPending,
-        type_uri: "https://arkret.org/problems/contact_request_not_pending",
-        title: "Contact request not pending",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::ContactScopeStale,
         type_uri: "https://arkret.org/problems/contact_scope_stale",
         title: "Contact scope stale",
@@ -2113,26 +1330,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "An Agent operation that must preserve controller authorship omitted the required controller-signed durable Event proof. The service MUST NOT synthesize, service-sign, or directly project the missing controller fact. The controller must author and submit the exact closed Event required by the operation. See zh/identity/key-management.md §3.6.1 Lifecycle.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CredentialExpired,
-        type_uri: "https://arkret.org/problems/credential_expired",
-        title: "Credential expired",
-        http_status: 410,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "A credential matching the presentation request exists but is expired.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CredentialNotFound,
-        type_uri: "https://arkret.org/problems/credential_not_found",
-        title: "Credential not found",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The holder has no credential matching the authorized presentation request.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CurrentDidAuthorityUnavailable,
@@ -2205,16 +1402,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "One or more exact Event, RealmCommit, predecessor, proof, or other signed dependencies are absent. The response MUST identify the bounded missing set in the operation's closed details/item shape. This is recoverable only through bounded canonical backfill/resolve followed by a new evaluation; it is not authorization denial or service unavailability. Dual-registered with the per-item/federation-transaction reason code.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DeviceAlreadyAuthorized,
-        type_uri: "https://arkret.org/problems/device_already_authorized",
-        title: "Device already authorized",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The device is already authorized.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DeviceGenerationFenced,
         type_uri: "https://arkret.org/problems/device_generation_fenced",
         title: "Device generation fenced",
@@ -2225,16 +1412,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The receiver knows an authenticated device-generation revocation or the security command fails the current generation revision check. New affected live submissions are fenced; ordinary historical eligibility is recomputed from the signed authority context and authenticated closures, not the receiver arrival time.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DeviceReanchorAuthorityMismatch,
-        type_uri: "https://arkret.org/problems/device_reanchor_authority_mismatch",
-        title: "Device reanchor authority mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "A device re-anchor receipt scope, recovery session or transaction snapshot selects an account-local lineage or device generation that does not exactly match the covered ak.device.reanchor payload.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorizeMismatch,
         type_uri: "https://arkret.org/problems/device_reanchor_authorize_mismatch",
         title: "Device reanchor authorize mismatch",
@@ -2243,36 +1420,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "A device re-anchor completion authorization does not match the expected re-anchor authorization. Dual-registered as a service code and a reason_code (see reason_codes[]).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeviceReanchorCheckpointMismatch,
-        type_uri: "https://arkret.org/problems/device_reanchor_checkpoint_mismatch",
-        title: "Device reanchor checkpoint mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "A device re-anchor completion carries a checkpoint that does not match the recomputed device checkpoint. Dual-registered as a service code and a reason_code (see reason_codes[]).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeviceReanchorConflict,
-        type_uri: "https://arkret.org/problems/device_reanchor_conflict",
-        title: "Device reanchor conflict",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Concurrent device re-anchor completions conflict on the same principal generation state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeviceRecoveryGenerationMismatch,
-        type_uri: "https://arkret.org/problems/device_recovery_generation_mismatch",
-        title: "Device recovery generation mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Device recovery proof or authorization references a device generation that does not equal the principal's current accepted device generation.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevocationPending,
@@ -2365,16 +1512,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The requested DID exists in historical registry state but has been deactivated, revoked, or superseded.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DidUnknown,
-        type_uri: "https://arkret.org/problems/did_unknown",
-        title: "DID unknown",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "A DID cannot be resolved or validated under the active resolver policy.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DigestMismatch,
         type_uri: "https://arkret.org/problems/digest_mismatch",
         title: "Digest mismatch",
@@ -2415,36 +1552,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Directory ingest rejected an announce or withdraw because the signed resource payload does not authorize this Directory service DID.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DiscoveryFailed,
-        type_uri: "https://arkret.org/problems/discovery_failed",
-        title: "Discovery failed",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "Discovery of the requested resource failed.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DiscussionTrackDisabled,
-        type_uri: "https://arkret.org/problems/discussion_track_disabled",
-        title: "Discussion track disabled",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The target Strand discussion track is disabled.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DuplicateClauseClaim,
-        type_uri: "https://arkret.org/problems/duplicate_clause_claim",
-        title: "Duplicate clause claim",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "An SDK conformance claim repeats the same stable clause_id; each applicable clause must appear exactly once.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DuplicateConflict,
         type_uri: "https://arkret.org/problems/duplicate_conflict",
         title: "Duplicate conflict",
@@ -2465,26 +1572,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Realm or call policy requires E2EE and the requested media path did not satisfy it.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::EnclaveNoUpstreamProxyForExternal,
-        type_uri: "https://arkret.org/problems/enclave_no_upstream_proxy_for_external",
-        title: "Enclave no upstream proxy for external",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "No upstream proxy is configured for external egress from the enclave.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::EnclaveNotTrusted,
-        type_uri: "https://arkret.org/problems/enclave_not_trusted",
-        title: "Enclave not trusted",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The enclave is not trusted for the requested operation.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::EpochMismatch,
         type_uri: "https://arkret.org/problems/epoch_mismatch",
         title: "Epoch mismatch",
@@ -2493,26 +1580,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The referenced encryption epoch is stale or unavailable.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ExternalInviteActorMismatch,
-        type_uri: "https://arkret.org/problems/external_invite_actor_mismatch",
-        title: "External invite actor mismatch",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The external invite actor does not match the authenticated actor.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ExternalUserNoMainAccess,
-        type_uri: "https://arkret.org/problems/external_user_no_main_access",
-        title: "External user no main access",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The external user has no access to the main deployment surface.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
@@ -2535,56 +1602,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Reducer state-machine precondition failed. Carried with a reason_code in the {strand,space,morph}_not_active / _not_archived family or the {strand,space,morph,message,relation}_already_terminal family, or with object-specific reasons like space_parent_cycle. See zh/models/common-fields.md §5.1.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::FederationActorOriginDenied,
-        type_uri: "https://arkret.org/problems/federation_actor_origin_denied",
-        title: "Federation actor origin denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The federated actor origin was rejected by inbound policy.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FederationInteropTrackOnly,
-        type_uri: "https://arkret.org/problems/federation_interop_track_only",
-        title: "Federation interop track only",
-        http_status: 501,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The requested federation surface is interop-track only.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FederationOriginDenied,
-        type_uri: "https://arkret.org/problems/federation_origin_denied",
-        title: "Federation origin denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The federated origin was denied.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FederationPrivateReadRailLocalOnly,
-        type_uri: "https://arkret.org/problems/federation_private_read_rail_local_only",
-        title: "Federation private read rail local only",
-        http_status: 501,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The private read rail is local-only and not federated.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FirstBackupGateUnsatisfied,
-        type_uri: "https://arkret.org/problems/first_backup_gate_unsatisfied",
-        title: "First backup gate unsatisfied",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery-material gate requirements (first accepted RealmCommit and genesis recovery policy) are not satisfied.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::FrankingProofUnavailable,
         type_uri: "https://arkret.org/problems/franking_proof_unavailable",
         title: "Franking proof unavailable",
@@ -2593,16 +1610,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "E2EE franking proof cannot be produced for the requested ciphertext (sender did not include franking sidecar). See zh/governance/content-moderation.md §3.4.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FrankingTampered,
-        type_uri: "https://arkret.org/problems/franking_tampered",
-        title: "Franking tampered",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The franking tag is tampered or does not verify.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GovernanceKeyInvalid,
@@ -2735,16 +1742,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A profile requiring log-backed key transparency omitted its inclusion proof, consistency proof, log head, or required witness evidence.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::KeyUnavailable,
-        type_uri: "https://arkret.org/problems/key_unavailable",
-        title: "Key unavailable",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Required encrypted content key, MLS epoch, or authorized key share is not currently available.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::KeypackageAlreadyConsumed,
         type_uri: "https://arkret.org/problems/keypackage_already_consumed",
         title: "Keypackage already consumed",
@@ -2775,26 +1772,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A semantic protocol limit was exceeded even though the request body itself may be well-formed, such as a bounded recurrence expansion that cannot be returned within the v1 maximum result count.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::MediaNegotiationFailed,
-        type_uri: "https://arkret.org/problems/media_negotiation_failed",
-        title: "Media negotiation failed",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "SDP / ICE media negotiation failed after the request passed authorization and schema validation. Clients MAY retry with a fresh offer or rejoin flow; services MUST NOT treat this as authorization success for any durable call-state transition.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MediaPermissionDenied,
-        type_uri: "https://arkret.org/problems/media_permission_denied",
-        title: "Media permission denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Caller lacks permission to create, join, answer, or modify the media session.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::MembershipCompensationConflict,
         type_uri: "https://arkret.org/problems/membership_compensation_conflict",
         title: "Membership compensation conflict",
@@ -2803,16 +1780,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["endpoint"],
         description: "A compensation delegation/action/executor/admission/join binding is wrong, already consumed, absent, or conflicts with the current membership provenance. The operation performs no write on conflict and never removes a newer join Event.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MethodNotAllowed,
-        type_uri: "https://arkret.org/problems/method_not_allowed",
-        title: "Method not allowed",
-        http_status: 405,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The path exists but the HTTP method is not supported.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MimiE2eeBoundaryUnmarked,
@@ -2825,36 +1792,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The MIMI payload crosses the E2EE boundary without being marked.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::MimiPayloadDigestMismatch,
-        type_uri: "https://arkret.org/problems/mimi_payload_digest_mismatch",
-        title: "Mimi payload digest mismatch",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The MIMI payload digest does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MimiPayloadInvalid,
-        type_uri: "https://arkret.org/problems/mimi_payload_invalid",
-        title: "Mimi payload invalid",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The MIMI payload is invalid.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MimiReporterResolutionRequired,
-        type_uri: "https://arkret.org/problems/mimi_reporter_resolution_required",
-        title: "Mimi reporter resolution required",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "MIMI reporter resolution is required before this action.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::MimiRoomBindingEventInvalid,
         type_uri: "https://arkret.org/problems/mimi_room_binding_event_invalid",
         title: "Mimi room binding event invalid",
@@ -2863,16 +1800,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The caller-authored room binding Event is missing, unexpected, semantically inconsistent, or does not exactly bind the authenticated MIMI room update. These pre-admission causes deliberately share one outward envelope; the precise reason is audit-only.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MlsGenesisAlreadyExists,
-        type_uri: "https://arkret.org/problems/mls_genesis_already_exists",
-        title: "Mls genesis already exists",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "An MLS genesis operation attempted to initialize a group whose genesis state is already durably accepted. Receivers MUST preserve the existing group state and reject the conflicting initialization.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGenesisBindingProposalMismatch,
@@ -2893,26 +1820,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "A 0 -> 0 group_key_access_revision query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MlsGovernanceAnchorUnreachable,
-        type_uri: "https://arkret.org/problems/mls_governance_anchor_unreachable",
-        title: "Mls governance anchor unreachable",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required RealmCommit/Event/witness material that prevents the service from deciding dominance is revision_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MlsKeypackageClaimRequestExpired,
-        type_uri: "https://arkret.org/problems/mls_keypackage_claim_request_expired",
-        title: "Mls keypackage claim request expired",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The MLS KeyPackage claim request has expired.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MorphKindImmutable,
@@ -3035,16 +1942,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The organization binding is stale â€” the pinned version no longer reflects current control after a controller rotation, or the receipt has passed expires_at â€” and the attempted operation is on a high-risk path. Low-risk reads may still proceed; high-risk paths MUST fail closed until a successful refresh, so that one first-time proof cannot authorise the relationship indefinitely.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::OverbroadRequest,
-        type_uri: "https://arkret.org/problems/overbroad_request",
-        title: "Overbroad request",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "A presentation request asks for unrelated handles, credential identifiers, or global identifiers beyond its declared purpose.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::ParamInvalid,
         type_uri: "https://arkret.org/problems/param_invalid",
         title: "Param invalid",
@@ -3095,26 +1992,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The accepted PCR authority checkpoint, device generation, recovery-policy version or account-local-lineage binding is stale. DID freshness cannot repair this failure.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::PeerStateStaleUnavailable,
-        type_uri: "https://arkret.org/problems/peer_state_stale_unavailable",
-        title: "Peer state stale unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The peer's state is stale and temporarily unavailable.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PolicyCombinationInvalid,
-        type_uri: "https://arkret.org/problems/policy_combination_invalid",
-        title: "Policy combination invalid",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The submitted Realm policy combination (discoverability × join_rule × history_access) violates the Realm policy compatibility rules. Reducer keeps the prior accepted state.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::PolicyDenied,
         type_uri: "https://arkret.org/problems/policy_denied",
         title: "Policy denied",
@@ -3163,16 +2040,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "A realm-level policy refuses the requested write or fanout (read-receipts §2.5: ak.receipt.read drops when disclosure='disabled'; retry_after_ms is null because retry will not change the outcome).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PreviewPolicyDenied,
-        type_uri: "https://arkret.org/problems/preview_policy_denied",
-        title: "Preview policy denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md §4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PrincipalUnknown,
@@ -3275,16 +2142,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Storage, bandwidth, or compute quota was exceeded.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::RankExhausted,
-        type_uri: "https://arkret.org/problems/rank_exhausted",
-        title: "Rank exhausted",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "No valid fractional rank exists between the requested bounds; a rebalance or different position is required.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::RateLimited,
         type_uri: "https://arkret.org/problems/rate_limited",
         title: "Rate limited",
@@ -3303,46 +2160,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' â†’ child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Event with this wire code. See zh/discovery/read-receipts.md §2.5.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RealmFederationPolicyClosed,
-        type_uri: "https://arkret.org/problems/realm_federation_policy_closed",
-        title: "Realm federation policy closed",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The realm federation policy is closed.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RealmFederationPolicyInvalid,
-        type_uri: "https://arkret.org/problems/realm_federation_policy_invalid",
-        title: "Realm federation policy invalid",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The realm federation policy is invalid.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RealmFederationPolicyQuarantine,
-        type_uri: "https://arkret.org/problems/realm_federation_policy_quarantine",
-        title: "Realm federation policy quarantine",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The realm federation policy has quarantined the peer.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RealmFederationPolicyRestricted,
-        type_uri: "https://arkret.org/problems/realm_federation_policy_restricted",
-        title: "Realm federation policy restricted",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "The realm federation policy restricts this peer.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFrozen,
@@ -3365,16 +2182,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The snapshot issuer, witness quorum, or signing authority cannot be verified for the requested Realm and manifest time.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::RealmStateSnapshotChunkDigestMismatch,
-        type_uri: "https://arkret.org/problems/realm_state_snapshot_chunk_digest_mismatch",
-        title: "Snapshot chunk digest mismatch",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "A conformance snapshot chunk digest does not match the declared digest.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::RealmStateSnapshotUnavailable,
         type_uri: "https://arkret.org/problems/realm_state_snapshot_unavailable",
         title: "Snapshot unavailable",
@@ -3395,116 +2202,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication â€” recent login, WebAuthn, recovery key or a deployment equivalent â€” and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::RecordingDenied,
-        type_uri: "https://arkret.org/problems/recording_denied",
-        title: "Recording denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Recording or transcription is denied by Realm policy or participant consent state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryAuthorizationDeviceMismatch,
-        type_uri: "https://arkret.org/problems/recovery_authorization_device_mismatch",
-        title: "Recovery authorization device mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery authorization device does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryAuthorizationPrincipalMismatch,
-        type_uri: "https://arkret.org/problems/recovery_authorization_principal_mismatch",
-        title: "Recovery authorization principal mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery authorization principal does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryAuthorizationSessionMismatch,
-        type_uri: "https://arkret.org/problems/recovery_authorization_session_mismatch",
-        title: "Recovery authorization session mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery authorization session does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryControlEventKindMismatch,
-        type_uri: "https://arkret.org/problems/recovery_control_event_kind_mismatch",
-        title: "Recovery control event kind mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery control event kind does not match the expected kind.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryControlEventNotFound,
-        type_uri: "https://arkret.org/problems/recovery_control_event_not_found",
-        title: "Recovery control event not found",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The referenced recovery control event was not found.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryListUpdateDeviceMismatch,
-        type_uri: "https://arkret.org/problems/recovery_list_update_device_mismatch",
-        title: "Recovery list update device mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery list update device does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryListUpdatePrincipalMismatch,
-        type_uri: "https://arkret.org/problems/recovery_list_update_principal_mismatch",
-        title: "Recovery list update principal mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery list update principal does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyConflict,
-        type_uri: "https://arkret.org/problems/recovery_policy_conflict",
-        title: "Recovery policy conflict",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery policy conflicts with the current state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyDeviceUnauthorized,
-        type_uri: "https://arkret.org/problems/recovery_policy_device_unauthorized",
-        title: "Recovery policy device unauthorized",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The device is not authorized under the recovery policy.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyIdMismatch,
-        type_uri: "https://arkret.org/problems/recovery_policy_id_mismatch",
-        title: "Recovery policy id mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery policy id does not match.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMismatch,
         type_uri: "https://arkret.org/problems/recovery_policy_mismatch",
         title: "Recovery policy mismatch",
@@ -3515,106 +2212,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md §8.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyMissing,
-        type_uri: "https://arkret.org/problems/recovery_policy_missing",
-        title: "Recovery policy missing",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "No recovery policy is registered for the principal.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyRevoked,
-        type_uri: "https://arkret.org/problems/recovery_policy_revoked",
-        title: "Recovery policy revoked",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery policy has been revoked.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyTrustDomainMismatch,
-        type_uri: "https://arkret.org/problems/recovery_policy_trust_domain_mismatch",
-        title: "Recovery policy trust domain mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery policy trust domain does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryPolicyVersionMismatch,
-        type_uri: "https://arkret.org/problems/recovery_policy_version_mismatch",
-        title: "Recovery policy version mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery policy version does not match.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryProofAuthorityInvalid,
-        type_uri: "https://arkret.org/problems/recovery_proof_authority_invalid",
-        title: "Recovery proof authority invalid",
-        http_status: 401,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery proof authority is invalid.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryProofKindNotAllowed,
-        type_uri: "https://arkret.org/problems/recovery_proof_kind_not_allowed",
-        title: "Recovery proof kind not allowed",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery proof kind is not allowed.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryProofKindUnimplemented,
-        type_uri: "https://arkret.org/problems/recovery_proof_kind_unimplemented",
-        title: "Recovery proof kind unimplemented",
-        http_status: 501,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery proof kind is not implemented.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoveryReceiptConflict,
-        type_uri: "https://arkret.org/problems/recovery_receipt_conflict",
-        title: "Recovery receipt conflict",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery receipt conflicts with the current state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoverySessionConflict,
-        type_uri: "https://arkret.org/problems/recovery_session_conflict",
-        title: "Recovery session conflict",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery session conflicts with the current state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::RecoverySessionIdReused,
-        type_uri: "https://arkret.org/problems/recovery_session_id_reused",
-        title: "Recovery session id reused",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The recovery session id has already been used.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::RecoverySessionNotPending,
         type_uri: "https://arkret.org/problems/recovery_session_not_pending",
         title: "Recovery session not pending",
@@ -3623,16 +2220,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The recovery session is not in a pending state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ResponseInvalid,
-        type_uri: "https://arkret.org/problems/response_invalid",
-        title: "Response invalid",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "A downstream service response was syntactically valid transport data but did not satisfy the expected protocol contract, including directory/projection/service-call schema mismatch or missing required pagination/error fields.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RevisionStale,
@@ -3665,16 +2252,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Parsed input does not satisfy the declared schema contract.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::SelectorTooComplex,
-        type_uri: "https://arkret.org/problems/selector_too_complex",
-        title: "Selector too complex",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityConflict,
         type_uri: "https://arkret.org/problems/service_identity_conflict",
         title: "Service identity conflict",
@@ -3693,16 +2270,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "service_call",
         applies_to: &[],
         description: "The configured Service Identity Provider is temporarily unreachable or unavailable. Callers may retry without changing the registration request.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ServiceIdentityUnavailable,
-        type_uri: "https://arkret.org/problems/service_identity_unavailable",
-        title: "Service identity unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &["service_call", "delivery"],
-        description: "The target service cannot serve the request because its runtime service identity is not ready. The response SHOULD carry Retry-After when retry timing is known.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceRegistrationDenied,
@@ -3783,16 +2350,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["schema_validation", "service_call"],
         description: "`ak.gate.account.command.revoke_session.v1` supplied more than one mutually exclusive selector (`target_session_grant_id`, `target_device_id`, `all_sessions=true`) or otherwise failed selector closure. Receivers MUST reject instead of choosing one selector implicitly.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SfuNotAllowed,
-        type_uri: "https://arkret.org/problems/sfu_not_allowed",
-        title: "Sfu not allowed",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Requested SFU or media focus is not allowed by Realm policy or media service binding.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalClassDenied,
@@ -3883,16 +2440,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Encrypted content or MLS epoch is bound to an application state root that cannot be verified against accepted state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::StatusUnavailable,
-        type_uri: "https://arkret.org/problems/status_unavailable",
-        title: "Status unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Required credential revocation or status material is temporarily unavailable.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StreamDropped,
@@ -3993,16 +2540,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Authentication material is missing or invalid.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::UnrecognizedEndpoint,
-        type_uri: "https://arkret.org/problems/unrecognized_endpoint",
-        title: "Unrecognized endpoint",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "The path is inside the protocol namespace but not implemented by the service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedCiphersuite,
@@ -4135,16 +2672,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "`ak.self.account.command.update_profile.v1` received a patch path outside the account self-service allowlist (`display_name`, `avatar_blob_ref`, `profile_fields.<key>`). Handle, lifecycle, principal, actor_kind, accountability, authorization, and handle-claim paths MUST be rejected instead of silently ignored.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::UnsupportedProofProfile,
-        type_uri: "https://arkret.org/problems/unsupported_proof_profile",
-        title: "Unsupported proof profile",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "Wallet and verifier have no mutually supported proof profile for the requested presentation.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProtocolVersion,
         type_uri: "https://arkret.org/problems/unsupported_protocol_version",
         title: "Unsupported protocol version",
@@ -4163,25 +2690,5 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md §6.1.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::UpstreamUnavailable,
-        type_uri: "https://arkret.org/problems/upstream_unavailable",
-        title: "Upstream unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &["endpoint"],
-        description: "A required upstream dependency is temporarily unavailable. HTTP bindings MUST use 503 Service Unavailable and SHOULD include Retry-After when a retry window is known; 412 is reserved for failed request preconditions.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::VerifierUnauthorized,
-        type_uri: "https://arkret.org/problems/verifier_unauthorized",
-        title: "Verifier unauthorized",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &["service_call"],
-        description: "A presentation verifier could not prove authority to represent its claimed organization or relying party.",
     },
 ];

@@ -74,7 +74,7 @@ impl AgentSignerCurrentState {
         self.validate()?;
         if self.status != AgentCurrentStatus::Active {
             return Err(self_signer_error(
-                ErrorCode::AgentAuthorizationInactive,
+                ErrorCode::StateMismatch,
                 "Agent is not active at the returned current revision",
             ));
         }

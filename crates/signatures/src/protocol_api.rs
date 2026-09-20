@@ -386,10 +386,13 @@ mod tests {
 
         let error =
             verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true)).unwrap_err();
-        assert!(
-            error.to_string().contains("proof_binding_missing"),
-            "{error}"
-        );
+        assert!(matches!(
+            error,
+            Error::Wire(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::SchemaViolation,
+                ..
+            })
+        ));
 
         proof.domain = Some("ak:trust_domain:example.net".to_owned());
         assert!(

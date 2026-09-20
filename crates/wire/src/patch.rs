@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::{Result, WireError};
-use crate::error_codes::ReasonCode;
+use crate::error_codes::{ErrorCode, ReasonCode};
 use crate::generated::{
     REDACTABLE_FIELD_PATHS, REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS, REDUCER_MANAGED_PATCH_OBJECTS,
 };
@@ -281,7 +281,7 @@ impl Patch {
     /// for signing and diagnostics only and MUST NOT become an "apply A then
     /// B" business escape hatch, so any patch whose result could depend on it (a path
     /// that is a prefix of another, or two paths that decode to the same
-    /// field) is rejected as `patch_atomic_conflict` before a single op is
+    /// field) is rejected as `schema_violation` before a single op is
     /// applied. After that rejection the remaining paths are pairwise
     /// disjoint object locations and the result is order-independent by
     /// construction. Patch paths are pure ASCII under the §4.2.1 ABNF, so
@@ -335,11 +335,13 @@ impl Patch {
         for (index, (path, segments, _)) in parsed.iter().enumerate() {
             for (other_path, other_segments, _) in &parsed[index + 1..] {
                 if segments_overlap(segments, other_segments) {
-                    return Err(WireError::Protocol(format!(
-                        "{}: patch paths '{path}' and '{other_path}' write the same field or a \
-                         parent/child pair; split them into separate Events",
-                        ReasonCode::PATCH_ATOMIC_CONFLICT
-                    )));
+                    return Err(WireError::ProtocolCode {
+                        code: ErrorCode::SchemaViolation,
+                        message: format!(
+                            "patch paths '{path}' and '{other_path}' write the same field or a \
+                             parent/child pair; split them into separate Events"
+                        ),
+                    });
                 }
             }
         }
@@ -1173,7 +1175,7 @@ mod tests {
             .apply(&json!({"metadata": {"title": "x"}}))
             .unwrap_err();
 
-        assert!(err.to_string().contains(ReasonCode::PATCH_ATOMIC_CONFLICT));
+        assert_eq!(err.error_code(), Some(ErrorCode::SchemaViolation));
     }
 
     #[test]
@@ -1187,7 +1189,7 @@ mod tests {
 
         let err = patch.apply(&json!({"title": "x"})).unwrap_err();
 
-        assert!(err.to_string().contains(ReasonCode::PATCH_ATOMIC_CONFLICT));
+        assert_eq!(err.error_code(), Some(ErrorCode::SchemaViolation));
     }
 
     #[test]

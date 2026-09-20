@@ -1101,10 +1101,10 @@ impl ProofBindingRequirements {
 }
 
 fn proof_binding_missing(field: &str) -> WireError {
-    WireError::Protocol(format!(
-        "{}: proof {field} is required",
-        ReasonCode::PROOF_BINDING_MISSING
-    ))
+    WireError::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: format!("proof {field} is required"),
+    }
 }
 
 fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<()> {
@@ -1112,10 +1112,10 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
         return Err(proof_binding_missing("domain"));
     }
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
-        return Err(WireError::Protocol(format!(
-            "{}: expected domain is required",
-            ReasonCode::PROOF_BINDING_MISSING
-        )));
+        return Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "expected domain is required".to_owned(),
+        });
     }
     Ok(())
 }
@@ -1125,10 +1125,10 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
         return Err(proof_binding_missing("audience"));
     }
     if expected.is_none() {
-        return Err(WireError::Protocol(format!(
-            "{}: expected audience is required",
-            ReasonCode::PROOF_BINDING_MISSING
-        )));
+        return Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "expected audience is required".to_owned(),
+        });
     }
     Ok(())
 }

@@ -311,9 +311,9 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap_err();
-    assert!(
-        error.to_string().contains("proof_binding_missing"),
-        "{error}"
+    assert_eq!(
+        error.error_code(),
+        Some(arkret_wire::ErrorCode::SchemaViolation)
     );
     signed_event
         .producer_proof

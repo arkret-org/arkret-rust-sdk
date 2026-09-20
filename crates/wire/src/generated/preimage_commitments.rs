@@ -3,7 +3,7 @@
 //! Input: registry/event-kind-registry.json; version=2026-09-20.16;
 //! sha256=f9945090c0614facaf6a065670451e3aead9ab82a2e47bdd7baf7968f332a325 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=21c5cb7b87af5250df69b432d29c60c80b42220ec1a1f511ea3bf664bbec6f91
+//! sha256=32beeb431556689fa0e90e6bc27bffa08b559a829693e1b31810eebf55a28c95
 //! Entries: preimage_commitments=35
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

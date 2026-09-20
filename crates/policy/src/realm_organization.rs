@@ -157,13 +157,13 @@ where
                 .ok_or_else(|| {
                     RealmOrganizationVerificationError::Protocol(format!(
                         "ak.realm.organization delegation_ref did not resolve ({})",
-                        ReasonCode::GRANT_REVOKED_UPSTREAM
+                        ReasonCode::REALM_ORGANIZATION_AUTHORIZATION_INVALID
                     ))
                 })?;
             if !delegation.is_live {
                 return Err(RealmOrganizationVerificationError::Protocol(format!(
                     "ak.realm.organization delegation is not live ({})",
-                    ReasonCode::GRANT_REVOKED_UPSTREAM
+                    ReasonCode::REALM_ORGANIZATION_AUTHORIZATION_INVALID
                 )));
             }
             if delegation.organization_id != payload.organization_id {
@@ -205,7 +205,7 @@ where
     if payload.is_expired(now) {
         return Err(RealmOrganizationVerificationError::Protocol(format!(
             "ak.realm.organization statement is expired ({})",
-            ReasonCode::TTL_EXPIRED
+            ReasonCode::REALM_ORGANIZATION_EXPIRED
         )));
     }
 

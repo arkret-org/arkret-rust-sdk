@@ -1209,6 +1209,7 @@ mod tests {
                 .and_then(Value::as_array)
                 .unwrap_or_else(|| panic!("live error-code-registry missing {field}"))
                 .iter()
+                .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
                 .map(|entry| {
                     entry
                         .get("code")
@@ -1228,6 +1229,7 @@ mod tests {
             .and_then(Value::as_array)
             .unwrap_or_else(|| panic!("configured error-code-registry missing {field}"))
             .iter()
+            .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
             .map(|entry| {
                 entry
                     .get("code")
@@ -1257,6 +1259,9 @@ mod tests {
             .expect("configured error-code-registry missing codes");
         let mut contexts_seen = 0usize;
         for entry in entries {
+            if entry.get("status").and_then(Value::as_str) != Some("active") {
+                continue;
+            }
             let wire = entry
                 .get("code")
                 .and_then(Value::as_str)
