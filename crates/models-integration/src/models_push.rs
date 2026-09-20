@@ -3,8 +3,9 @@ use std::fmt;
 use std::ops::Deref;
 
 use arkret_wire::{
-    DeviceId, DidCoreId, EventId, MessageId, OpaqueLocalId, PushTargetId, RealmId, ReasonCode,
-    SchemaId, StrandId,
+    Audience, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MessageId, OpaqueLocalId,
+    PayloadProof, PushTargetId, RealmId, ReasonCode, Result as WireResult, SchemaId, StrandId,
+    WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -147,6 +148,78 @@ impl<'de> Deserialize<'de> for PushKey {
     }
 }
 
+/// Pairwise Station-generated registration identity used by the public
+/// Station-to-Gateway handoff contract.
+///
+/// Unlike the more general deployment-local identifier, this wire type is
+/// deliberately restricted to `^(?!ak:)[A-Za-z0-9._~-]{22,128}$`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct PushRegistrationId(String);
+
+impl PushRegistrationId {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if !(22..=128).contains(&value.len())
+            || !value.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'-')
+            })
+        {
+            return Err("push registration id must match ^(?!ak:)[A-Za-z0-9._~-]{22,128}$");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for PushRegistrationId {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for PushRegistrationId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for PushRegistrationId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl TryFrom<String> for PushRegistrationId {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PushRegistrationId> for String {
+    fn from(value: PushRegistrationId) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for PushRegistrationId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -241,6 +314,238 @@ pub struct PushUnregisterDeviceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PushUnregisterDeviceOutcome;
+
+/// Closed desired state submitted by a Station to one trusted public Push
+/// Gateway. Source and destination identities remain in the authenticated HTTP
+/// signature and are intentionally absent from this body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PushRegistrationHandoffRequestBody {
+    Active {
+        registration_id: PushRegistrationId,
+        push_target_id: PushTargetId,
+        device_id: DeviceId,
+        push_key: PushKey,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        platform: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        app_id: Option<String>,
+        visible_notification_opt_in: bool,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+        )]
+        expires_at: Option<DateTime<Utc>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        supersedes_registration_id: Option<PushRegistrationId>,
+    },
+    Revoked {
+        registration_id: PushRegistrationId,
+        push_target_id: PushTargetId,
+        device_id: DeviceId,
+    },
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushRegistrationHandoffState {
+    Active,
+    Revoked,
+}
+
+impl PushRegistrationHandoffState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Revoked => "revoked",
+        }
+    }
+}
+
+impl PushRegistrationHandoffRequestBody {
+    pub fn registration_id(&self) -> &PushRegistrationId {
+        match self {
+            Self::Active {
+                registration_id, ..
+            }
+            | Self::Revoked {
+                registration_id, ..
+            } => registration_id,
+        }
+    }
+
+    pub fn push_target_id(&self) -> &PushTargetId {
+        match self {
+            Self::Active { push_target_id, .. } | Self::Revoked { push_target_id, .. } => {
+                push_target_id
+            }
+        }
+    }
+
+    pub fn device_id(&self) -> &DeviceId {
+        match self {
+            Self::Active { device_id, .. } | Self::Revoked { device_id, .. } => device_id,
+        }
+    }
+
+    pub const fn state(&self) -> PushRegistrationHandoffState {
+        match self {
+            Self::Active { .. } => PushRegistrationHandoffState::Active,
+            Self::Revoked { .. } => PushRegistrationHandoffState::Revoked,
+        }
+    }
+
+    pub fn validate(&self) -> WireResult<()> {
+        if let Self::Active {
+            registration_id,
+            platform,
+            app_id,
+            supersedes_registration_id,
+            ..
+        } = self
+        {
+            if platform.as_deref().is_some_and(str::is_empty) {
+                return Err(WireError::Protocol(
+                    "push handoff platform must not be empty".to_owned(),
+                ));
+            }
+            if app_id.as_deref().is_some_and(str::is_empty) {
+                return Err(WireError::Protocol(
+                    "push handoff app_id must not be empty".to_owned(),
+                ));
+            }
+            if supersedes_registration_id.as_ref() == Some(registration_id) {
+                return Err(WireError::Protocol(
+                    "push handoff cannot supersede the registration being installed".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn request_digest(&self) -> WireResult<Hash> {
+        self.validate()?;
+        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
+/// Gateway-signed durable confirmation for an exact active installation or
+/// terminal revocation tombstone.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushRegistrationInstallationReceipt {
+    pub registration_id: PushRegistrationId,
+    pub push_target_id: PushTargetId,
+    pub device_id: DeviceId,
+    pub state: PushRegistrationHandoffState,
+    pub request_digest: Hash,
+    pub source_station_id: DidCoreId,
+    pub destination_gateway_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub stored_at: DateTime<Utc>,
+    pub proof: PayloadProof,
+}
+
+impl PushRegistrationInstallationReceipt {
+    pub fn expected_payload_digest(&self) -> WireResult<Hash> {
+        let value = canonical::unsigned_value(self, &["proof"])?;
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+    }
+
+    pub fn proof_binding_bytes(&self) -> WireResult<Vec<u8>> {
+        canonical::canonical_json_bytes(&serde_json::json!({
+            "context": arkret_wire::ProofContextId::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1,
+            "payload_digest": self.proof.payload_digest,
+            "registration_id": self.registration_id,
+            "push_target_id": self.push_target_id,
+            "device_id": self.device_id,
+            "state": self.state,
+            "request_digest": self.request_digest,
+            "source_station_id": self.source_station_id,
+            "destination_gateway_id": self.destination_gateway_id,
+            "verification_method": self.proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
+            "audience": self.proof.audience,
+        }))
+        .map_err(Into::into)
+    }
+
+    /// Validate every receipt/proof binding that does not require resolving the
+    /// Gateway verification method or checking its detached JWS bytes.
+    pub fn validate_proof_binding(&self) -> WireResult<()> {
+        self.proof.validate_production()?;
+        if self.proof.payload_digest != self.expected_payload_digest()? {
+            return Err(WireError::Protocol(
+                "push registration receipt payload digest mismatch".to_owned(),
+            ));
+        }
+        if self.proof.created_at != self.stored_at
+            || self.proof.domain.is_some()
+            || self.proof.proof_purpose.is_some()
+        {
+            return Err(WireError::Protocol(
+                "push registration receipt proof metadata mismatch".to_owned(),
+            ));
+        }
+        let expected_audience = Audience::Single(self.source_station_id.as_str().to_owned());
+        if self.proof.audience.as_ref() != Some(&expected_audience) {
+            return Err(WireError::Protocol(
+                "push registration receipt audience must equal source_station_id".to_owned(),
+            ));
+        }
+        if proof_controller(&self.proof.verification_method).as_ref()
+            != Some(&self.destination_gateway_id)
+        {
+            return Err(WireError::Protocol(
+                "push registration receipt signer must be the destination Gateway".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_handoff(
+        &self,
+        request: &PushRegistrationHandoffRequestBody,
+        source_station_id: &DidCoreId,
+        destination_gateway_id: &DidCoreId,
+    ) -> WireResult<()> {
+        request.validate()?;
+        self.validate_proof_binding()?;
+        if self.registration_id != *request.registration_id()
+            || self.push_target_id != *request.push_target_id()
+            || self.device_id != *request.device_id()
+            || self.state != request.state()
+            || self.request_digest != request.request_digest()?
+            || self.source_station_id != *source_station_id
+            || self.destination_gateway_id != *destination_gateway_id
+        {
+            return Err(WireError::Protocol(
+                "push registration receipt does not bind the exact handoff".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushRegistrationHandoffOutcome {
+    pub receipt: PushRegistrationInstallationReceipt,
+}
+
+fn proof_controller(method: &DidUrl) -> Option<DidCoreId> {
+    method
+        .as_str()
+        .rsplit_once('#')
+        .map(|(controller, _)| controller)
+        .and_then(|controller| Did::new(controller.to_owned()).ok())
+        .and_then(|controller| project_did_to_core_id(&controller).ok())
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -960,6 +1265,115 @@ mod tests {
             assert!(serde_json::from_value::<PushKey>(json!(invalid)).is_err());
         }
     }
+
+    #[test]
+    fn push_registration_id_enforces_the_closed_handoff_lexical_space() {
+        for valid in ["r".repeat(22), "A0._~-".repeat(21) + "ab"] {
+            let registration_id = PushRegistrationId::new(valid.clone()).unwrap();
+            assert_eq!(registration_id.as_str(), valid);
+            assert_eq!(
+                serde_json::to_value(&registration_id).unwrap(),
+                json!(valid)
+            );
+        }
+
+        for invalid in [
+            "r".repeat(21),
+            "r".repeat(129),
+            "ak:registration:not-opaque".to_owned(),
+            format!("{}:", "r".repeat(21)),
+        ] {
+            assert!(PushRegistrationId::new(invalid.clone()).is_err());
+            assert!(serde_json::from_value::<PushRegistrationId>(json!(invalid)).is_err());
+        }
+    }
+
+    fn active_handoff() -> PushRegistrationHandoffRequestBody {
+        serde_json::from_value(json!({
+            "registration_id": "registration_0123456789abcdef",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "state": "active",
+            "push_key": "provider-secret",
+            "platform": "apns",
+            "visible_notification_opt_in": false
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn handoff_request_is_a_closed_active_or_revoked_union() {
+        let active = active_handoff();
+        active.validate().unwrap();
+        assert_eq!(active.state(), PushRegistrationHandoffState::Active);
+        assert_eq!(active.request_digest().unwrap().as_str().len(), 71);
+
+        let revoked: PushRegistrationHandoffRequestBody = serde_json::from_value(json!({
+            "registration_id": "registration_0123456789abcdef",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "state": "revoked"
+        }))
+        .unwrap();
+        revoked.validate().unwrap();
+        assert_eq!(revoked.state(), PushRegistrationHandoffState::Revoked);
+
+        let surplus = json!({
+            "registration_id": "registration_0123456789abcdef",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "state": "revoked",
+            "push_key": "must-not-survive-a-tombstone"
+        });
+        assert!(serde_json::from_value::<PushRegistrationHandoffRequestBody>(surplus).is_err());
+    }
+
+    #[test]
+    fn installation_receipt_binds_exact_handoff_and_gateway_signer() {
+        let request = active_handoff();
+        let source_station_id =
+            project_did_to_core_id(&Did::new("did:web:source.example").unwrap()).unwrap();
+        let destination_gateway_id =
+            project_did_to_core_id(&Did::new("did:web:gateway.example").unwrap()).unwrap();
+        let stored_at = DateTime::parse_from_rfc3339("2026-09-20T12:34:56Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut receipt = PushRegistrationInstallationReceipt {
+            registration_id: request.registration_id().clone(),
+            push_target_id: request.push_target_id().clone(),
+            device_id: request.device_id().clone(),
+            state: request.state(),
+            request_digest: request.request_digest().unwrap(),
+            source_station_id: source_station_id.clone(),
+            destination_gateway_id: destination_gateway_id.clone(),
+            stored_at,
+            proof: PayloadProof {
+                kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+                verification_method: DidUrl::new("did:web:gateway.example#key-1").unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: stored_at,
+                domain: None,
+                audience: Some(Audience::Single(source_station_id.as_str().to_owned())),
+                proof_purpose: None,
+                jws: "a..b".to_owned(),
+            },
+        };
+        receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        receipt
+            .validate_for_handoff(&request, &source_station_id, &destination_gateway_id)
+            .unwrap();
+
+        let transcript: Value =
+            serde_json::from_slice(&receipt.proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(
+            transcript["context"],
+            arkret_wire::ProofContextId::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1
+        );
+        assert_eq!(transcript["audience"], source_station_id.as_str());
+
+        receipt.proof.audience = Some(Audience::Single("did:web:other.example".to_owned()));
+        assert!(receipt.validate_proof_binding().is_err());
+    }
 }
 
 // ── Push schema artifact counterparts ────────────────────────────────────
@@ -974,6 +1388,8 @@ pub enum PushOperations {
     PushRegisterDeviceRequestBody(PushRegisterDeviceRequestBody),
     PushRegisterDeviceOutcome(PushRegisterDeviceOutcome),
     PushUnregisterDeviceRequestBody(PushUnregisterDeviceRequestBody),
+    PushRegistrationHandoffRequestBody(PushRegistrationHandoffRequestBody),
+    PushRegistrationHandoffOutcome(PushRegistrationHandoffOutcome),
     PushNotifyRequestBody(PushNotifyRequestBody),
     PushNotifyOutcome(PushNotifyOutcome),
 }
