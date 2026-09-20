@@ -207,6 +207,101 @@ pub const fn http_signature_scenario_descriptor(\n\
 
 fn generate_protocol_time_tolerances(inputs: &SpecInputs) -> Result<String> {
     let registry = &inputs.contracts.protocol_time_tolerance_registry;
+    validate_protocol_time_tolerances(registry)?;
+
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!(
+            "protocol_time_tolerances={}, protocol_time_tolerance_scenarios={}",
+            registry.tolerances.len(),
+            registry.scenarios.len()
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub enum ProtocolTimeToleranceDirection {\n\
+    FutureOnly,\n\
+    SymmetricNotBeforeAndExpiry,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n\
+pub enum ProtocolTimeToleranceScenario {\n",
+    );
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    {},",
+            protocol_time_scenario_variant(&scenario.scenario_id)
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceDescriptor {\n\
+    pub tolerance_id: &'static str,\n\
+    pub name: &'static str,\n\
+    pub value_ms: i64,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceScenarioDescriptor {\n\
+    pub scenario: ProtocolTimeToleranceScenario,\n\
+    pub scenario_id: &'static str,\n\
+    pub tolerance_id: &'static str,\n\
+    pub direction: ProtocolTimeToleranceDirection,\n\
+    pub comparison: &'static str,\n\
+}\n\n",
+    );
+
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "pub const {}: i64 = {};",
+            associated_name(&tolerance.name, &[]),
+            tolerance.value
+        )
+        .expect("write to String");
+    }
+    output.push_str("\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n");
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceDescriptor {{ tolerance_id: {}, name: {}, value_ms: {} }},",
+            rust_string(&tolerance.tolerance_id),
+            rust_string(&tolerance.name),
+            associated_name(&tolerance.name, &[])
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub const PROTOCOL_TIME_TOLERANCE_SCENARIOS: &[ProtocolTimeToleranceScenarioDescriptor] = &[\n");
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceScenarioDescriptor {{ scenario: ProtocolTimeToleranceScenario::{}, scenario_id: {}, tolerance_id: {}, direction: ProtocolTimeToleranceDirection::{}, comparison: {} }},",
+            protocol_time_scenario_variant(&scenario.scenario_id),
+            rust_string(&scenario.scenario_id),
+            rust_string(&scenario.tolerance_id),
+            variant(&scenario.direction, &[]),
+            rust_string(&scenario.comparison)
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub fn protocol_time_tolerance(value: &str) -> Option<&'static ProtocolTimeToleranceDescriptor> {\n    PROTOCOL_TIME_TOLERANCES.iter().find(|row| row.tolerance_id == value)\n}\n\npub fn protocol_time_tolerance_scenario(value: &str) -> Option<&'static ProtocolTimeToleranceScenarioDescriptor> {\n    PROTOCOL_TIME_TOLERANCE_SCENARIOS.iter().find(|row| row.scenario_id == value)\n}\n\npub const fn protocol_time_tolerance_scenario_descriptor(\n    scenario: ProtocolTimeToleranceScenario,\n) -> &'static ProtocolTimeToleranceScenarioDescriptor {\n    &PROTOCOL_TIME_TOLERANCE_SCENARIOS[scenario as usize]\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn typed_and_wire_scenario_lookups_are_bijective() {\n        for row in PROTOCOL_TIME_TOLERANCE_SCENARIOS {\n            assert_eq!(\n                protocol_time_tolerance_scenario_descriptor(row.scenario),\n                row\n            );\n            assert_eq!(protocol_time_tolerance_scenario(row.scenario_id), Some(row));\n        }\n        assert_eq!(\n            PROTOCOL_TIME_TOLERANCE_SCENARIOS.len(),\n            ProtocolTimeToleranceScenario::BlobPresignTtl as usize + 1\n        );\n        assert!(protocol_time_tolerance_scenario(\"ak.time_tolerance.unknown.v1\").is_none());\n    }\n}\n");
+    Ok(output)
+}
+
+fn protocol_time_scenario_variant(scenario_id: &str) -> String {
+    variant(
+        scenario_id
+            .strip_prefix("ak.time_tolerance.")
+            .and_then(|value| value.strip_suffix(".v1"))
+            .unwrap_or(scenario_id),
+        &[],
+    )
+}
+
+fn validate_protocol_time_tolerances(
+    registry: &crate::model::ProtocolTimeToleranceRegistry,
+) -> Result<()> {
     let mut tolerance_ids = BTreeSet::new();
     let mut tolerance_names = BTreeSet::new();
     for tolerance in &registry.tolerances {
@@ -247,69 +342,7 @@ fn generate_protocol_time_tolerances(inputs: &SpecInputs) -> Result<String> {
         }
     }
 
-    let mut output = header(
-        &[&inputs.contracts_source],
-        &format!(
-            "protocol_time_tolerances={}, protocol_time_tolerance_scenarios={}",
-            registry.tolerances.len(),
-            registry.scenarios.len()
-        ),
-    );
-    output.push_str(
-        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
-pub enum ProtocolTimeToleranceDirection {\n\
-    FutureOnly,\n\
-    SymmetricNotBeforeAndExpiry,\n\
-}\n\n\
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
-pub struct ProtocolTimeToleranceDescriptor {\n\
-    pub tolerance_id: &'static str,\n\
-    pub name: &'static str,\n\
-    pub value_ms: i64,\n\
-}\n\n\
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
-pub struct ProtocolTimeToleranceScenarioDescriptor {\n\
-    pub scenario_id: &'static str,\n\
-    pub tolerance_id: &'static str,\n\
-    pub direction: ProtocolTimeToleranceDirection,\n\
-    pub comparison: &'static str,\n\
-}\n\n",
-    );
-
-    for tolerance in &registry.tolerances {
-        writeln!(
-            output,
-            "pub const {}: i64 = {};",
-            associated_name(&tolerance.name, &[]),
-            tolerance.value
-        )
-        .expect("write to String");
-    }
-    output.push_str("\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n");
-    for tolerance in &registry.tolerances {
-        writeln!(
-            output,
-            "    ProtocolTimeToleranceDescriptor {{ tolerance_id: {}, name: {}, value_ms: {} }},",
-            rust_string(&tolerance.tolerance_id),
-            rust_string(&tolerance.name),
-            associated_name(&tolerance.name, &[])
-        )
-        .expect("write to String");
-    }
-    output.push_str("];\n\npub const PROTOCOL_TIME_TOLERANCE_SCENARIOS: &[ProtocolTimeToleranceScenarioDescriptor] = &[\n");
-    for scenario in &registry.scenarios {
-        writeln!(
-            output,
-            "    ProtocolTimeToleranceScenarioDescriptor {{ scenario_id: {}, tolerance_id: {}, direction: ProtocolTimeToleranceDirection::{}, comparison: {} }},",
-            rust_string(&scenario.scenario_id),
-            rust_string(&scenario.tolerance_id),
-            variant(&scenario.direction, &[]),
-            rust_string(&scenario.comparison)
-        )
-        .expect("write to String");
-    }
-    output.push_str("];\n\npub fn protocol_time_tolerance(value: &str) -> Option<&'static ProtocolTimeToleranceDescriptor> {\n    PROTOCOL_TIME_TOLERANCES.iter().find(|row| row.tolerance_id == value)\n}\n\npub fn protocol_time_tolerance_scenario(value: &str) -> Option<&'static ProtocolTimeToleranceScenarioDescriptor> {\n    PROTOCOL_TIME_TOLERANCE_SCENARIOS.iter().find(|row| row.scenario_id == value)\n}\n");
-    Ok(output)
+    Ok(())
 }
 
 fn validate(inputs: &SpecInputs) -> Result<()> {
@@ -1348,4 +1381,65 @@ pub fn event_runtime_contract(event_kind: &str) -> Option<&'static EventRuntimeC
 "#,
     );
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use super::*;
+
+    fn spec_artifacts() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
+    }
+
+    #[test]
+    fn protocol_time_codegen_emits_closed_typed_scenarios() {
+        let inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+        let output = generate_protocol_time_tolerances(&inputs).expect("generate time contract");
+
+        for variant in ["ApprovalApprovedAt", "TemporalConstraint", "BlobPresignTtl"] {
+            assert!(output.contains(&format!("    {variant},")));
+            assert!(output.contains(&format!(
+                "scenario: ProtocolTimeToleranceScenario::{variant}"
+            )));
+        }
+        assert!(output.contains("protocol_time_tolerance_scenario_descriptor"));
+    }
+
+    #[test]
+    fn protocol_time_codegen_rejects_mutated_scenario_contracts() {
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+        let scenarios = &mut inputs.contracts.protocol_time_tolerance_registry.scenarios;
+
+        scenarios[0].direction = "past_only".to_owned();
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported direction")
+        );
+
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("reload canonical artifacts");
+        inputs.contracts.protocol_time_tolerance_registry.scenarios[0].tolerance_id =
+            "ak.time_tolerance.unknown.v1".to_owned();
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("references unknown tolerance")
+        );
+
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("reload canonical artifacts");
+        let duplicate = inputs.contracts.protocol_time_tolerance_registry.scenarios[0]
+            .scenario_id
+            .clone();
+        inputs.contracts.protocol_time_tolerance_registry.scenarios[1].scenario_id = duplicate;
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate protocol time tolerance scenario")
+        );
+    }
 }

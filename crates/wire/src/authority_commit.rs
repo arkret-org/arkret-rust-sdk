@@ -7,7 +7,7 @@ use arkret_identifiers::{
     CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MlsWelcomeDeliveryId,
     RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, SidecarId, StrandId,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -579,6 +579,52 @@ pub struct ApprovalSignatureInput {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub approved_at: DateTime<Utc>,
     pub nonce: String,
+}
+
+impl ApprovalSignatureInput {
+    /// Validate the registry-owned future-only bound for `approved_at`.
+    ///
+    /// Grant-specific lower bounds (`issued_at` and a temporal constraint's
+    /// `not_before`) require the authoritative grant projection and therefore
+    /// remain the governing Station reducer's responsibility.
+    pub fn validate_approved_at(&self, verification_time: DateTime<Utc>) -> Result<()> {
+        validate_approval_timestamp(self.approved_at, verification_time)
+    }
+}
+
+/// Apply the canonical `ak.time_tolerance.approval_approved_at.v1` scenario.
+/// Past timestamps are not rejected by this future-only guard.
+pub fn validate_approval_timestamp(
+    approved_at: DateTime<Utc>,
+    verification_time: DateTime<Utc>,
+) -> Result<()> {
+    use arkret_identifiers::{
+        ProtocolTimeToleranceDirection, ProtocolTimeToleranceScenario,
+        protocol_time_tolerance_scenario_descriptor,
+    };
+
+    let scenario = protocol_time_tolerance_scenario_descriptor(
+        ProtocolTimeToleranceScenario::ApprovalApprovedAt,
+    );
+    debug_assert_eq!(
+        scenario.direction,
+        ProtocolTimeToleranceDirection::FutureOnly
+    );
+    let latest = verification_time
+        .checked_add_signed(TimeDelta::milliseconds(scenario.tolerance_ms()))
+        .ok_or_else(|| {
+            WireError::Protocol(
+                "approval verification time cannot represent the registered future bound"
+                    .to_owned(),
+            )
+        })?;
+    if approved_at > latest {
+        return Err(WireError::Protocol(format!(
+            "approval approved_at exceeds the registered future-only bound for {}",
+            scenario.scenario_id
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1297,5 +1343,28 @@ mod tests {
                 serde_json::from_value(serde_json::json!(context.as_wire_str())).unwrap();
             assert_eq!(decoded, context);
         }
+    }
+
+    #[test]
+    fn approval_time_uses_the_generated_future_only_boundary() {
+        let verification_time = Utc.timestamp_millis_opt(1_800_000_000_000).unwrap();
+        let tolerance = arkret_identifiers::protocol_time_tolerance_scenario_descriptor(
+            arkret_identifiers::ProtocolTimeToleranceScenario::ApprovalApprovedAt,
+        )
+        .tolerance_ms();
+        let boundary = verification_time + TimeDelta::milliseconds(tolerance);
+
+        validate_approval_timestamp(boundary, verification_time).unwrap();
+        validate_approval_timestamp(boundary - TimeDelta::milliseconds(1), verification_time)
+            .unwrap();
+        assert!(
+            validate_approval_timestamp(boundary + TimeDelta::milliseconds(1), verification_time)
+                .is_err()
+        );
+
+        // This scenario is future-only: it must not accidentally inherit the
+        // symmetric expiry lower bound used by temporal constraints.
+        validate_approval_timestamp(verification_time - TimeDelta::days(365), verification_time)
+            .unwrap();
     }
 }

@@ -20,9 +20,9 @@ pub mod generated {
 
 pub use generated::digest_suite_codes::DigestSuiteCode;
 pub use generated::protocol_time_tolerances::{
-    ProtocolTimeToleranceDescriptor, ProtocolTimeToleranceDirection,
+    ProtocolTimeToleranceDescriptor, ProtocolTimeToleranceDirection, ProtocolTimeToleranceScenario,
     ProtocolTimeToleranceScenarioDescriptor, protocol_time_tolerance,
-    protocol_time_tolerance_scenario,
+    protocol_time_tolerance_scenario, protocol_time_tolerance_scenario_descriptor,
 };
 
 impl ProtocolTimeToleranceScenarioDescriptor {

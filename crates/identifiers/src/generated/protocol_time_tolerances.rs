@@ -1,13 +1,20 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.1;
-//! sha256=d87d8cfc8e682adedb7cfa88b4876dd919a547cba37b888c71aa4180e75420d8
+//! Input: registry/contract-registry.json; version=2026-09-21.2;
+//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d
 //! Entries: protocol_time_tolerances=2, protocol_time_tolerance_scenarios=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProtocolTimeToleranceDirection {
     FutureOnly,
     SymmetricNotBeforeAndExpiry,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProtocolTimeToleranceScenario {
+    ApprovalApprovedAt,
+    TemporalConstraint,
+    BlobPresignTtl,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,6 +26,7 @@ pub struct ProtocolTimeToleranceDescriptor {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProtocolTimeToleranceScenarioDescriptor {
+    pub scenario: ProtocolTimeToleranceScenario,
     pub scenario_id: &'static str,
     pub tolerance_id: &'static str,
     pub direction: ProtocolTimeToleranceDirection,
@@ -43,18 +51,21 @@ pub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[
 
 pub const PROTOCOL_TIME_TOLERANCE_SCENARIOS: &[ProtocolTimeToleranceScenarioDescriptor] = &[
     ProtocolTimeToleranceScenarioDescriptor {
+        scenario: ProtocolTimeToleranceScenario::ApprovalApprovedAt,
         scenario_id: "ak.time_tolerance.approval_approved_at.v1",
         tolerance_id: "ak.time_tolerance.hard_future_skew.v1",
         direction: ProtocolTimeToleranceDirection::FutureOnly,
         comparison: "approved_at <= verification_time + tolerance, inclusive",
     },
     ProtocolTimeToleranceScenarioDescriptor {
+        scenario: ProtocolTimeToleranceScenario::TemporalConstraint,
         scenario_id: "ak.time_tolerance.temporal_constraint.v1",
         tolerance_id: "ak.time_tolerance.hard_future_skew.v1",
         direction: ProtocolTimeToleranceDirection::SymmetricNotBeforeAndExpiry,
         comparison: "not_before <= verification_time + tolerance and expires_at >= verification_time - tolerance, both inclusive",
     },
     ProtocolTimeToleranceScenarioDescriptor {
+        scenario: ProtocolTimeToleranceScenario::BlobPresignTtl,
         scenario_id: "ak.time_tolerance.blob_presign_ttl.v1",
         tolerance_id: "ak.time_tolerance.expected_future_skew.v1",
         direction: ProtocolTimeToleranceDirection::SymmetricNotBeforeAndExpiry,
@@ -74,4 +85,31 @@ pub fn protocol_time_tolerance_scenario(
     PROTOCOL_TIME_TOLERANCE_SCENARIOS
         .iter()
         .find(|row| row.scenario_id == value)
+}
+
+pub const fn protocol_time_tolerance_scenario_descriptor(
+    scenario: ProtocolTimeToleranceScenario,
+) -> &'static ProtocolTimeToleranceScenarioDescriptor {
+    &PROTOCOL_TIME_TOLERANCE_SCENARIOS[scenario as usize]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn typed_and_wire_scenario_lookups_are_bijective() {
+        for row in PROTOCOL_TIME_TOLERANCE_SCENARIOS {
+            assert_eq!(
+                protocol_time_tolerance_scenario_descriptor(row.scenario),
+                row
+            );
+            assert_eq!(protocol_time_tolerance_scenario(row.scenario_id), Some(row));
+        }
+        assert_eq!(
+            PROTOCOL_TIME_TOLERANCE_SCENARIOS.len(),
+            ProtocolTimeToleranceScenario::BlobPresignTtl as usize + 1
+        );
+        assert!(protocol_time_tolerance_scenario("ak.time_tolerance.unknown.v1").is_none());
+    }
 }
