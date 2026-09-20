@@ -668,6 +668,16 @@ pub enum AuthorityRootRef {
     },
 }
 
+/// Reducer-derived lifecycle state of one capability grant current result.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityGrantStatus {
+    Active,
+    Revoked,
+    Relinquished,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityGrant {
@@ -691,6 +701,9 @@ pub struct CapabilityGrant {
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
+    /// Station-derived lifecycle state. Producers cannot author this member;
+    /// it is present on the materialized capability-grant current result.
+    pub status: CapabilityGrantStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<ActorId>,
     #[serde(
