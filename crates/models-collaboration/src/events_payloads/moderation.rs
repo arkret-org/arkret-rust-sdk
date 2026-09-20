@@ -58,13 +58,62 @@ pub struct FrankingProof {
 impl FrankingProof {
     pub const SIGNATURE_DOMAIN: &'static str = "ak.franking_proof.signature.v1";
 
+    /// Return the exact seven-field RFC 8785 transcript signed by the
+    /// receiving service.
+    ///
+    /// `signature` is the only payload member excluded. The domain is a
+    /// sibling of the six payload fields rather than a wrapper: the formal
+    /// transcript is
+    /// `{domain,realm_id,event_id,received_by,verification_method,received_at,replay_nonce}`.
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        let unsigned = arkret_canonical::unsigned_value(self, &["signature"])?;
-        arkret_canonical::canonical_json_bytes(&serde_json::json!({
-            "context": Self::SIGNATURE_DOMAIN,
-            "proof": unsigned,
-        }))
-        .map_err(Into::into)
+        let mut transcript = arkret_canonical::unsigned_value(self, &["signature"])?;
+        transcript
+            .as_object_mut()
+            .expect("FrankingProof serializes as an object")
+            .insert(
+                "domain".to_owned(),
+                serde_json::Value::String(Self::SIGNATURE_DOMAIN.to_owned()),
+            );
+        arkret_canonical::canonical_json_bytes(&transcript).map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod franking_proof_tests {
+    use super::*;
+
+    fn fixture() -> serde_json::Value {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
+            .expect("franking-proof KAT requires the spec artifacts");
+        serde_json::from_str(
+            &std::fs::read_to_string(
+                artifacts.join("fixtures/franking-proof-transcript-fixture.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn canonical_signing_bytes_are_the_formal_flat_seven_field_transcript() {
+        let fixture = fixture();
+        let proof: FrankingProof =
+            serde_json::from_value(fixture["case"]["source_payload"].clone()).unwrap();
+        let bytes = proof.canonical_signing_bytes().unwrap();
+
+        assert_eq!(
+            bytes,
+            fixture["case"]["transcript_jcs"]
+                .as_str()
+                .unwrap()
+                .as_bytes()
+        );
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value.as_object().unwrap().len(), 7);
+        assert!(value.get("domain").is_some());
+        assert!(value.get("signature").is_none());
+        assert!(value.get("context").is_none());
+        assert!(value.get("proof").is_none());
     }
 }
 

@@ -51,6 +51,8 @@ pub mod contact_receipt;
 mod device_authorization;
 #[cfg(feature = "collaboration")]
 pub mod device_pairing;
+#[cfg(feature = "collaboration")]
+pub mod franking_proof;
 
 #[cfg(feature = "keypackages")]
 pub mod device_projection;
