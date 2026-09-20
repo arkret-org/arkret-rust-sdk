@@ -35,6 +35,31 @@ impl Artifact {
             })
             .collect()
     }
+
+    fn section_array(&self, section: &str, key: &str) -> Result<Vec<&Map<String, Value>>> {
+        self.value
+            .get(section)
+            .and_then(Value::as_object)
+            .with_context(|| format!("{} missing {section} object", self.source.relative_path))?
+            .get(key)
+            .and_then(Value::as_array)
+            .with_context(|| {
+                format!(
+                    "{} missing {section}.{key} array",
+                    self.source.relative_path
+                )
+            })?
+            .iter()
+            .map(|value| {
+                value.as_object().with_context(|| {
+                    format!(
+                        "{} {section}.{key} entry is not an object",
+                        self.source.relative_path
+                    )
+                })
+            })
+            .collect()
+    }
 }
 
 fn field<'a>(row: &'a Map<String, Value>, key: &str) -> Result<&'a Value> {
@@ -1953,12 +1978,11 @@ fn emit_closed_enum(output: &mut String, type_name: &str, values: &[String]) -> 
 }
 
 fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let track = Artifact::load(artifacts_dir, "registry/track-name-registry.json")?;
-    let binding = Artifact::load(artifacts_dir, "registry/binding-kind-registry.json")?;
+    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
     let authority = Artifact::load(artifacts_dir, "registry/authority-set-policy-registry.json")?;
     let tracks = sorted_rows(
-        track
-            .array("track_names")?
+        contracts
+            .section_array("track_name_registry", "track_names")?
             .into_iter()
             .filter(|row| {
                 row.get("status")
@@ -1970,8 +1994,8 @@ fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutpu
         "track_name",
     )?;
     let bindings = sorted_rows(
-        binding
-            .array("entries")?
+        contracts
+            .section_array("binding_kind_registry", "entries")?
             .into_iter()
             .filter(|row| {
                 matches!(
@@ -1998,7 +2022,7 @@ fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutpu
     validate_unique(&tracks, "track_name", &[])?;
     validate_unique(&bindings, "kind", &[])?;
     let mut output = header(
-        &[&track.source, &binding.source, &authority.source],
+        &[&contracts.source, &authority.source],
         &format!(
             "track_names={}, binding_kinds={}, authority_policy_kinds={}, authority_source_kinds={}",
             tracks.len(),

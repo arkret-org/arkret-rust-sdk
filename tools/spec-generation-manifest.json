@@ -182,8 +182,7 @@
       "owner": "arkret-wire",
       "mode": "enum",
       "artifacts": [
-        "registry/track-name-registry.json",
-        "registry/binding-kind-registry.json",
+        "registry/contract-registry.json",
         "registry/authority-set-policy-registry.json"
       ]
     },
