@@ -127,8 +127,6 @@ pub struct SignalEncryptedPayload {
     pub epoch: u64,
     pub nonce: String,
     pub ciphertext: String,
-    /// Digest of the immutable outer header bound into the AEAD AAD.
-    pub aad_digest: Hash,
 }
 
 /// MLS group state the Signal content key was exported from.
@@ -136,17 +134,16 @@ pub struct SignalEncryptedPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignalKeyRef {
-    pub algorithm: String,
     pub group_state_ref: String,
 }
 
 /// The Signal domain's **pre-encryption immutable header** (`encoding.md`
-/// §10.2). Its canonical bytes are the AEAD AAD, and its digest is what
-/// travels as [`SignalEncryptedPayload::aad_digest`].
+/// §10.2). Its canonical bytes are the AEAD AAD. Receivers reconstruct the
+/// bytes from the envelope; no redundant AAD digest travels on the wire.
 ///
 /// Every member is fixed before AEAD encryption runs, which is the whole point
-/// of §10.2: nothing that depends on the AEAD output (ciphertext digest, the
-/// `aad_digest` itself, `envelope_digest`, the proof) may enter the AAD, so a
+/// of §10.2: nothing that depends on the AEAD output (ciphertext digest,
+/// `envelope_digest`, the proof) may enter the AAD, so a
 /// sender can build the AAD without having encrypted anything yet. The one
 /// member a sender only learns *while* sealing is the nonce, so it is passed
 /// separately to [`Self::aad_bytes`] rather than stored here — that also lets
@@ -282,13 +279,6 @@ impl SignalAeadBinding<'_> {
         object.insert("nonce".to_owned(), Value::String(nonce.to_owned()));
         Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
     }
-
-    /// `H(aad_bytes)`. Carried on the wire so a receiver can report a
-    /// mismatch before attempting the AEAD open, never as a substitute for
-    /// recomputing the AAD (`encoding.md` §10.2).
-    pub fn aad_digest(&self, nonce: &str) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(self.aad_bytes(nonce)?))?)
-    }
 }
 
 /// Detached sender proof over the Signal envelope.
@@ -376,7 +366,7 @@ impl SignalEnvelope {
     /// `H(canonical_json(envelope_without_proof))`.
     ///
     /// Because `proof` is the only removal, the digest commits to the
-    /// ciphertext and to `aad_digest` as well as to the header.
+    /// ciphertext and the complete server-visible header.
     pub fn envelope_digest(&self) -> Result<Hash> {
         let json = canonical::unsigned_value(self, &["proof"])?;
         Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
@@ -403,15 +393,6 @@ impl SignalEnvelope {
             aead_profile: &self.encrypted_payload.aead_profile,
             epoch: self.encrypted_payload.epoch,
         }
-    }
-
-    /// Recompute the AAD digest from the immutable server-visible header.
-    ///
-    /// Deliberately excludes `aad_digest` itself, the ciphertext and the
-    /// proof: the AEAD tag already binds ciphertext to AAD.
-    pub fn expected_aad_digest(&self) -> Result<Hash> {
-        self.aead_binding()
-            .aad_digest(&self.encrypted_payload.nonce)
     }
 
     /// Canonical bytes the sending device signs.
@@ -474,7 +455,6 @@ impl SignalEnvelope {
         }
         if payload.scheme != SIGNAL_AEAD_SCHEME
             || payload.purpose != SIGNAL_AEAD_PURPOSE
-            || payload.key_ref.algorithm != "MLS-EXPORTER-AEAD"
             || (EventId::new(&payload.key_ref.group_state_ref).is_err()
                 && Hash::new(&payload.key_ref.group_state_ref).is_err())
             || payload.nonce.len() != 16
@@ -560,11 +540,6 @@ impl SignalEnvelope {
         if self.proof.envelope_digest != self.envelope_digest()? {
             return Err(WireError::Protocol(
                 "signal proof envelope_digest does not match the envelope".to_owned(),
-            ));
-        }
-        if self.encrypted_payload.aad_digest != self.expected_aad_digest()? {
-            return Err(WireError::Protocol(
-                "signal aad_digest does not match the immutable outer header".to_owned(),
             ));
         }
         Ok(())
@@ -827,7 +802,6 @@ mod tests {
             encrypted_payload: SignalEncryptedPayload {
                 scheme: SIGNAL_AEAD_SCHEME.to_owned(),
                 key_ref: SignalKeyRef {
-                    algorithm: "MLS-EXPORTER-AEAD".to_owned(),
                     group_state_ref: "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
                         .to_owned(),
                 },
@@ -836,7 +810,6 @@ mod tests {
                 epoch: 7,
                 nonce: "AAAAAAAAAAAAAAAA".to_owned(),
                 ciphertext: "Q2lwaGVydGV4dFBsYWNlaG9sZGVy".to_owned(),
-                aad_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
@@ -847,7 +820,6 @@ mod tests {
                 jws: "a..b".to_owned(),
             },
         };
-        envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
         envelope
     }
@@ -892,8 +864,14 @@ mod tests {
             crate::DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
         moved.sender_actor_id = ActorId::account(account);
         assert_ne!(
-            moved.expected_aad_digest().unwrap(),
-            original.expected_aad_digest().unwrap()
+            moved
+                .aead_binding()
+                .aad_bytes(&moved.encrypted_payload.nonce)
+                .unwrap(),
+            original
+                .aead_binding()
+                .aad_bytes(&original.encrypted_payload.nonce)
+                .unwrap()
         );
         assert_ne!(
             moved.proof_binding_bytes().unwrap(),
@@ -907,7 +885,6 @@ mod tests {
         agent.sender_device_id = None;
         agent.proof.verification_method =
             DidUrl::new("did:webvh:z6mkfixture:alice.example#runtime-key").unwrap();
-        agent.encrypted_payload.aad_digest = agent.expected_aad_digest().unwrap();
         agent.proof.envelope_digest = agent.envelope_digest().unwrap();
         agent.validate_structural().unwrap();
         assert_eq!(agent.sender_endpoint(), SignalSenderEndpoint::Agent);
@@ -1046,10 +1023,12 @@ mod tests {
     }
 
     #[test]
-    fn aad_digest_covers_every_immutable_header_member() {
-        // Re-derive the proof digest after each mutation so the envelope digest
-        // check passes and the AAD binding is the one actually under test.
-        // Without this the first check would mask the second.
+    fn aad_bytes_cover_every_immutable_header_member() {
+        let baseline = envelope(SignalClass::Session, 30);
+        let baseline_aad = baseline
+            .aead_binding()
+            .aad_bytes(&baseline.encrypted_payload.nonce)
+            .unwrap();
         let mutations: [fn(&mut SignalEnvelope); 5] = [
             |envelope: &mut SignalEnvelope| {
                 envelope.expires_at = sent_at() + Duration::seconds(20);
@@ -1067,11 +1046,34 @@ mod tests {
         for mutate in mutations {
             let mut mutated = envelope(SignalClass::Session, 30);
             mutate(&mut mutated);
-            mutated.proof.envelope_digest = mutated.envelope_digest().unwrap();
-
-            let err = mutated.validate_structural().unwrap_err();
-            assert!(err.to_string().contains("aad_digest"), "{err}");
+            let mutated_aad = mutated
+                .aead_binding()
+                .aad_bytes(&mutated.encrypted_payload.nonce)
+                .unwrap();
+            assert_ne!(mutated_aad, baseline_aad);
         }
+    }
+
+    #[test]
+    fn wire_omits_redundant_aad_digest_and_key_algorithm() {
+        let original = envelope(SignalClass::Session, 30);
+        let wire = serde_json::to_value(&original).unwrap();
+        assert!(wire["encrypted_payload"].get("aad_digest").is_none());
+        assert!(
+            wire["encrypted_payload"]["key_ref"]
+                .get("algorithm")
+                .is_none()
+        );
+
+        let mut with_aad_digest = wire.clone();
+        with_aad_digest["encrypted_payload"]["aad_digest"] =
+            Value::String(format!("sha256:{}", "0".repeat(64)));
+        assert!(serde_json::from_value::<SignalEnvelope>(with_aad_digest).is_err());
+
+        let mut with_algorithm = wire;
+        with_algorithm["encrypted_payload"]["key_ref"]["algorithm"] =
+            Value::String("MLS-EXPORTER-AEAD".to_owned());
+        assert!(serde_json::from_value::<SignalEnvelope>(with_algorithm).is_err());
     }
 
     #[test]

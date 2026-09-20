@@ -11,8 +11,8 @@ use arkret_crypto::{AeadNonceContext, AeadNonceReplayTracker, compose_aead_nonce
 use arkret_models_crypto::MlsEndpointIdentity;
 use arkret_signatures::{PublicKeyMaterial, verify_ed25519_signal_proof};
 use arkret_wire::{
-    EventId, Hash, MAX_SIGNAL_PLAINTEXT_BYTES, RealmCommitId, ReasonCode, SIGNAL_AEAD_PURPOSE,
-    SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope, canonical,
+    EventId, MAX_SIGNAL_PLAINTEXT_BYTES, RealmCommitId, ReasonCode, SIGNAL_AEAD_PURPOSE,
+    SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope,
 };
 use zeroize::Zeroizing;
 
@@ -93,7 +93,6 @@ impl ArkretMlsGroup {
                 epoch: binding.epoch,
                 nonce: nonce_b64,
                 ciphertext: base64url_encode(&ciphertext),
-                aad_digest: Hash::new(canonical::sha256_digest(&aad))?,
             },
             nonce_counter: counter,
         })
