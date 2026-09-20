@@ -352,6 +352,14 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
     {
         bail!("approval eligibility defaults contain an unknown eligibility kind");
     }
+    if approval.event_mapping_defaults.get("non_event_surface").map(String::as_str)
+        != Some("ineligible_no_registered_carrier")
+        || approval.event_mapping_defaults.iter().any(|(mapping, eligibility)| {
+            mapping != "non_event_surface" && eligibility != "event_submission_carrier"
+        })
+    {
+        bail!("approval eligibility defaults do not preserve the durable/non-event boundary");
+    }
     let carrier_ids = approval
         .carriers
         .iter()
@@ -397,6 +405,27 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             bail!("approval eligibility {eligibility} references unknown carrier {carrier_id}");
         }
     }
+    if approval
+        .default_carrier_by_eligibility_kind
+        .keys()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>()
+        != BTreeSet::from(["event_submission_carrier"])
+    {
+        bail!("only event_submission_carrier may have a default approval carrier");
+    }
+    let event_default = approval
+        .default_carrier_by_eligibility_kind
+        .get("event_submission_carrier")
+        .and_then(|carrier_id| {
+            approval
+                .carriers
+                .iter()
+                .find(|carrier| carrier.carrier_id == *carrier_id)
+        });
+    if event_default.map(|carrier| carrier.carrier_class.as_str()) != Some("event_submission") {
+        bail!("event_submission_carrier default must name an event_submission carrier");
+    }
     let actions = inputs
         .capability_actions
         .actions
@@ -423,6 +452,26 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         if !carrier_ids.contains(row.carrier_id.as_str()) {
             bail!(
                 "approval eligibility override for {} names unknown carrier",
+                row.action
+            );
+        }
+        let action = inputs
+            .capability_actions
+            .actions
+            .iter()
+            .find(|action| action.action == row.action)
+            .expect("override action existence checked above");
+        let carrier = approval
+            .carriers
+            .iter()
+            .find(|carrier| carrier.carrier_id == row.carrier_id)
+            .expect("override carrier existence checked above");
+        if action.event_mapping_kind != "non_event_surface"
+            || row.eligibility_kind != "registered_operation_carrier"
+            || carrier.carrier_class != "non_event_operation"
+        {
+            bail!(
+                "approval eligibility override for {} does not select a non-event operation carrier",
                 row.action
             );
         }
