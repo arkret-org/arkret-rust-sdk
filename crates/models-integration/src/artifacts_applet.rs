@@ -209,9 +209,9 @@ impl DetachedProof {
                 "detached proof kind mismatch".to_owned(),
             ));
         }
-        if self.jws.is_empty() {
+        if !arkret_wire::is_compact_detached_jws(&self.jws) {
             return Err(arkret_wire::WireError::Protocol(
-                "detached proof JWS is empty".to_owned(),
+                "detached proof JWS must use protected..signature form".to_owned(),
             ));
         }
         if self

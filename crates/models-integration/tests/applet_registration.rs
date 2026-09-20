@@ -315,6 +315,9 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     });
     package.validate().unwrap();
     package.validate_with_epoch_evidence(&evidence).unwrap();
+    let mut carried_payload = package.clone();
+    carried_payload.proof.as_mut().unwrap().jws = "header.payload.sig".to_owned();
+    assert!(carried_payload.validate().is_err());
 
     let registration = package.to_registration(&evidence).unwrap();
     assert_eq!(registration.registration_epoch, package.registration_epoch);
@@ -1094,6 +1097,9 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     );
     first.validate_bindings().unwrap();
     second.validate_bindings().unwrap();
+    let mut carried_payload = first.clone();
+    carried_payload.proof.jws = "header.payload.signature".to_owned();
+    assert!(carried_payload.validate_bindings().is_err());
 
     // The dedicated managed-actor proof schema spells this field `audience_id`.
     // Check signed bytes as well as serialization so both cannot drift together.

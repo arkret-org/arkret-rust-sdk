@@ -1439,11 +1439,11 @@ impl AppletPackage {
                 "applet package digest does not match its canonical content".to_owned(),
             ));
         }
-        if self.proof.is_none() {
-            return Err(WireError::Protocol(
-                "applet package is not signed".to_owned(),
-            ));
-        }
+        let proof = self
+            .proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("applet package is not signed".to_owned()))?;
+        proof.validate()?;
         Ok(())
     }
 

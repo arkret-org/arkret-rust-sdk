@@ -904,6 +904,7 @@ impl AppletManagedActorAuthoringRequest {
             || self.expires_at - self.issued_at > chrono::Duration::minutes(5)
             || self.proof.created_at >= self.expires_at
             || self.proof.created_at != self.issued_at
+            || !arkret_wire::is_compact_detached_jws(&self.proof.jws)
         {
             return Err(WireError::Protocol(
                 "applet managed actor authoring request binding mismatch".to_owned(),
