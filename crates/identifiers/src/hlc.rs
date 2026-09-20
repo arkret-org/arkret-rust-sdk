@@ -8,13 +8,11 @@
 
 use std::time::Duration;
 
-use crate::{Hlc, IdentifierError, Result};
-
 /// Soft future-drift threshold generated from the protocol time-tolerance registry.
 pub use crate::generated::protocol_time_tolerances::EXPECTED_FUTURE_SKEW_MS;
-
 /// Hard future-drift cap generated from the protocol time-tolerance registry.
 pub use crate::generated::protocol_time_tolerances::HARD_FUTURE_SKEW_MS;
+use crate::{Hlc, IdentifierError, Result};
 
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
 pub const HLC_MAX_PHYSICAL_MS: u64 = 0xffffffffffff;
