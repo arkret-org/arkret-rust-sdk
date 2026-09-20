@@ -28,6 +28,7 @@ pub mod registration_anchor;
 mod resolvers;
 pub mod service_identity;
 pub mod service_resolution_evidence;
+pub mod test_material;
 #[cfg(test)]
 mod tests;
 pub mod verifier;
