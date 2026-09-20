@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.4;
-//! sha256=c962f4351e5f5f0c62c163738ef45996f527f8893174340435f712654f20344f
-//! Entries: operation_bundles=32 features=12
+//! Input: registry/contract-registry.json; version=2026-09-21.6;
+//! sha256=f43620cea46360b14f3bc31565ad2cfdc376f0889a751a9c08ba7f43242d8e8d
+//! Entries: operation_bundles=33 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -99,6 +99,24 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 operation_id: ServiceOperationId::FindDirectoryCommandWithdrawV1,
                 binding_kind: BindingKind::HttpJson,
             },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::FindDirectoryReadDescribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::FindDirectoryReadResolveRealmV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::FindDirectoryReadSearchRealmsV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.directory_service.public_read.v1",
+        service_kind: ServiceKind::DirectoryService,
+        members: &[
             OperationBindingPair {
                 operation_id: ServiceOperationId::FindDirectoryReadDescribeV1,
                 binding_kind: BindingKind::HttpJson,
