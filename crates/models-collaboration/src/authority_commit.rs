@@ -6,9 +6,9 @@
 //! branches without inventing a generic federation envelope.
 
 use arkret_wire::{
-    ActorId, CommitStreamRef, DidCoreId, DidUrl, EventCommitSubmission, EventId, EventKind, Hash,
+    ActorId, CommitStreamRef, DidCoreId, DidUrl, EventCommitSubmission, EventId, EventKind,
     MembershipCompensationAction, MembershipCompensationDelegationRef, MlsCommitSubmission,
-    RealmCommit, RealmCommitId, RealmId, Result, StrandId, UuidV7, WireError,
+    RealmCommit, RealmCommitId, RealmId, Result, UuidV7, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -55,15 +55,15 @@ pub struct OperationSignature {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommittedEventSubmission {
-    pub submission: EventCommitSubmission,
+    pub event_submission: EventCommitSubmission,
     pub source_commit: RealmCommit,
 }
 
 impl CommittedEventSubmission {
     pub fn validate(&self) -> Result<()> {
-        self.submission.validate()?;
+        self.event_submission.validate()?;
         self.source_commit.validate_shape()?;
-        let event = &self.submission.event;
+        let event = &self.event_submission.event;
         let expected_stream =
             CommitStreamRef::from_scope(&event.scope_ref, Some(event.realm_id.clone()))?;
         if self.source_commit.event_ref != event.event_id
@@ -153,52 +153,11 @@ fn validate_direct_conversation_event_order(events: &[EventCommitSubmission; 4])
     Ok(())
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum DirectConversationFoundingAuthorizationCore {
-    Human {
-        current_contact_round_id: Hash,
-        root_contact_round_id: Hash,
-        accepted_contact_evidence_digest: Hash,
-    },
-    ControllerAgent {
-        agent_provision_ref: EventId,
-        controller_binding_digest: Hash,
-    },
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationFoundingAcceptanceReceipt {
-    pub pair_key: Hash,
-    pub founder_id: ActorId,
-    pub realm_id: RealmId,
-    pub main_strand_id: StrandId,
-    pub founding_unit_digest: Hash,
-    pub authorization_core: DirectConversationFoundingAuthorizationCore,
-    pub issuer_id: DidCoreId,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    pub proof: OperationSignature,
-}
-
-impl DirectConversationFoundingAcceptanceReceipt {
-    pub fn validate(&self) -> Result<()> {
-        if self.proof.created_at != self.accepted_at {
-            return Err(WireError::Protocol(
-                "founding receipt proof.created_at must equal accepted_at".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationFoundingFederationSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub committed_events: [CommittedEventSubmission; 4],
-    pub source_acceptance_receipt: DirectConversationFoundingAcceptanceReceipt,
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
 }
 
@@ -207,12 +166,11 @@ impl DirectConversationFoundingFederationSubmission {
         let events = self
             .committed_events
             .each_ref()
-            .map(|item| &item.submission);
+            .map(|item| &item.event_submission);
         validate_direct_conversation_event_order(&events.map(Clone::clone))?;
         for item in &self.committed_events {
             item.validate()?;
         }
-        self.source_acceptance_receipt.validate()?;
         self.founding_authority_evidence.validate()?;
         if !self.committed_events.windows(2).all(|pair| {
             pair[1].source_commit.stream_position
@@ -463,7 +421,6 @@ pub struct DirectConversationFoundingAcceptanceOutcome {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub status: AggregateAcceptanceStatus,
     pub commits: [RealmCommit; 4],
-    pub receipt: DirectConversationFoundingAcceptanceReceipt,
 }
 
 impl DirectConversationFoundingAcceptanceOutcome {
@@ -471,7 +428,6 @@ impl DirectConversationFoundingAcceptanceOutcome {
         for commit in &self.commits {
             commit.validate_shape()?;
         }
-        self.receipt.validate()?;
         if !self.commits.windows(2).all(|pair| {
             pair[1].stream_position == pair[0].stream_position.saturating_add(1)
                 && pair[1].previous_commit_ref == Some(pair[0].commit_id.clone())
