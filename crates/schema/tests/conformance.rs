@@ -88,7 +88,7 @@ fn event_value() -> serde_json::Value {
             "station_id": "ak:did_core:webvh:z6mkstation"
         },
         "created_at": "2026-05-02T00:00:00.000Z",
-        "refs": [],
+        "semantic_refs": [],
         "payload": {},
         "producer_proof": {},
         "unknown_future_field": true

@@ -27,7 +27,7 @@ pub use data::{
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
 pub use events::{
-    EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS, EventsSubscribeFrameStream, EventsSubscribeOptions,
-    STREAM_SCAN_MAX_LIMIT,
+    COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
+    CommittedEventSubscribeOptions, STREAM_SCAN_MAX_LIMIT,
 };
 pub use signal::SignalSubscribeFrameStream;

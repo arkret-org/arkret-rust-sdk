@@ -8,12 +8,6 @@
     },
     {
       "repository": "inkson",
-      "path": "src/models.rs",
-      "pattern": "struct\\s+ResolveHandleView\\b",
-      "owner": "arkret_models_discovery::DirectoryHandleResolutionOutcome"
-    },
-    {
-      "repository": "inkson",
       "path": "src/views/settings/devices.rs",
       "pattern": "struct\\s+(PairingServerChallengeCarrier|ResolvedPairingApprovalPayload)\\b",
       "owner": "arkret_sdk::DevicePairingBootstrap"

@@ -61,9 +61,9 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
-    EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS, EventsSubscribeFrameStream, EventsSubscribeOptions,
-    RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES, STREAM_SCAN_MAX_LIMIT,
-    SignalSubscribeFrameStream, blob_resumable_upload_base_url,
+    COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
+    CommittedEventSubscribeOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
+    STREAM_SCAN_MAX_LIMIT, SignalSubscribeFrameStream, blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
 pub use key_backup_client::KeyBackupClient;
@@ -85,7 +85,7 @@ pub const HEADER_OPERATION: &str = "Arkret-Operation";
 /// never-ending body) suspend the caller forever; this crate is the
 /// shared transport for all Arkret services, so the default must be
 /// bounded. The long-lived NDJSON subscribe streams
-/// (`account_subscribe_frames`, `events_subscribe_frames`) are exempt — they
+/// (`account_subscribe_frames`, `committed_event_subscribe_frames`) are exempt — they
 /// stay open by design. Override with [`ClientBuilder::timeout`] (an
 /// explicit value applies client-wide, including streams).
 /// Native-only — the browser owns timeouts on wasm32.

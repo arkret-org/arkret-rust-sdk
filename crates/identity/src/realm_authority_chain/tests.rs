@@ -12,11 +12,11 @@ use arkret_models_identity::DidDocument;
 use arkret_signatures::PublicKeyMaterial;
 use arkret_signatures::detached_object::sign_detached_object;
 use arkret_wire::{
-    Base64UrlString, CommitStreamHead, CommitStreamRef, DetachedObjectSignature,
-    DetachedSignatureAlgorithm, DetachedSignatureContext, Did, DidCoreId, DidUrl, Event, EventId,
-    EventKind, Hash, RealmAuthorityBundle, RealmAuthorityCurrentAssertion, RealmAuthorityHandoff,
-    RealmAuthorityHandoffId, RealmAuthorityTransition, RealmCommit, RealmCommitAuthorityRef,
-    RealmCommitId, RealmId, RealmSnapshotId, ScopeRef, StreamRow,
+    Base64UrlString, CommitStreamHead, CommitStreamRef, CommittedEventFullView, CommittedEventView,
+    DetachedObjectSignature, DetachedSignatureAlgorithm, DetachedSignatureContext, Did, DidCoreId,
+    DidUrl, Event, EventId, EventKind, Hash, RealmAuthorityBundle, RealmAuthorityCurrentAssertion,
+    RealmAuthorityHandoff, RealmAuthorityHandoffId, RealmAuthorityTransition, RealmCommit,
+    RealmCommitAuthorityRef, RealmCommitId, RealmId, RealmSnapshotId, ScopeRef,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use ed25519_dalek::SigningKey;
@@ -221,7 +221,7 @@ struct Chain {
     bundle: RealmAuthorityBundle,
     keys: RealmAuthorityKeyMap,
     /// A later ordinary Realm-stream commit made under generation 1.
-    item: StreamRow,
+    item: CommittedEventFullView,
 }
 
 /// Genesis under Station A, one planned handoff to Station B, and a live
@@ -342,7 +342,7 @@ fn chain() -> Chain {
     Chain {
         bundle,
         keys,
-        item: StreamRow {
+        item: CommittedEventFullView {
             commit: item_commit,
             event: item_event,
         },
@@ -401,7 +401,7 @@ fn a_structurally_perfect_commit_signed_by_the_wrong_station_is_refused() {
         stream_position: item.commit.stream_position,
     };
     assert!(
-        reference.matches(&item),
+        reference.matches(&CommittedEventView::Full(item.clone())),
         "the structural match is exactly the check that must not be sufficient"
     );
 

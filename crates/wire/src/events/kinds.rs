@@ -5,13 +5,6 @@ pub use crate::generated::event_kinds::{
     EVENT_KIND_COUNT, EventKind, EventKindDescriptor, EventRegistryCategory,
 };
 
-/// Object-only schema id; this is not an Event.kind.
-pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];
-
-pub fn is_receipt_object_only(kind: &str) -> bool {
-    RECEIPT_OBJECT_KINDS.contains(&kind)
-}
-
 /// Closed escape set for an archived or frozen Realm. Authorization and the
 /// stricter terminal gate still apply to every exempt Event.
 pub fn realm_write_gate_exempt(kind: &EventKind, payload: &serde_json::Value) -> bool {

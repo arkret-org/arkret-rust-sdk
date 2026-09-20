@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AppletId, CircleId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
-    RealmId, ReasonCode, SchemaId, WebOrigin, WireResourceSelector, XExtensionMap,
+    RealmId, ReasonCode, SchemaId, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -135,7 +135,7 @@ pub struct EventSubmission {
     pub event_kind: String,
     pub payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refs: Option<Vec<BTreeMap<String, Value>>>,
+    pub semantic_refs: Option<Vec<SemanticRef>>,
 }
 
 /// Counterpart for

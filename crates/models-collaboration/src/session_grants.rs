@@ -924,7 +924,7 @@ mod session_grant_introspection_tests {
             },
             "device_id": DEVICE_ID,
             "audience_id": AUDIENCE_ID,
-            "scopes": ["ak.self.events.read.scan.v1"],
+            "scopes": ["ak.self.committed_event.read.scan.v1"],
             "expires_at": "2026-08-08T12:04:00.000Z",
             "revocation_ref": "org.arkret.coauth.session_grant:1",
             "session_public_key": CANONICAL_JWK,
@@ -1241,7 +1241,7 @@ mod tests {
         UnsignedAgentSessionGrantRequest::new(
             DidCoreId::new(PRINCIPAL).unwrap(),
             DeviceId::new(DEVICE).unwrap(),
-            vec!["ak.self.events.read.scan.v1".to_owned()],
+            vec!["ak.self.committed_event.read.scan.v1".to_owned()],
             EventId::new(AUTHORIZATION).unwrap(),
             SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),

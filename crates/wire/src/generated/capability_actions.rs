@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-18.1;
-//! sha256=095b04c097380e02d210ea6e49e777e0d8e51fdc01b9fe10a37abc1a0c6b3f0c Entries: registered=151
+//! Input: registry/capability-action-registry.json; version=2026-09-20.16;
+//! sha256=04b7123f5905f7415a42300bd7cb590dc3b28a230075c5623d04c3f8e683163e Entries: registered=150
 
 use serde::{Deserialize, Serialize};
 
@@ -87,7 +87,6 @@ pub enum CapabilityActionId {
     PinReorder,
     PolicyAction,
     PolicyManage,
-    PolicyRule,
     PolicySet,
     PresenceBroadcast,
     ReactionAdd,
@@ -133,8 +132,8 @@ pub enum CapabilityActionId {
     SelfBlobResourceGetV1,
     SelfBlobResourceHeadV1,
     SelfBlobUploadCreateV1,
-    SelfEventsReadScanV1,
-    SelfEventsStreamSubscribeV1,
+    SelfCommittedEventReadScanV1,
+    SelfCommittedEventStreamSubscribeV1,
     SelfKeysBackupSeriesCommandEraseV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
     SpaceArchive,
@@ -242,7 +241,6 @@ impl CapabilityActionId {
         Self::PinReorder,
         Self::PolicyAction,
         Self::PolicyManage,
-        Self::PolicyRule,
         Self::PolicySet,
         Self::PresenceBroadcast,
         Self::ReactionAdd,
@@ -288,8 +286,8 @@ impl CapabilityActionId {
         Self::SelfBlobResourceGetV1,
         Self::SelfBlobResourceHeadV1,
         Self::SelfBlobUploadCreateV1,
-        Self::SelfEventsReadScanV1,
-        Self::SelfEventsStreamSubscribeV1,
+        Self::SelfCommittedEventReadScanV1,
+        Self::SelfCommittedEventStreamSubscribeV1,
         Self::SelfKeysBackupSeriesCommandEraseV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
@@ -395,7 +393,6 @@ impl CapabilityActionId {
     pub const PIN_REORDER: &'static str = "ak.pin.reorder";
     pub const POLICY_ACTION: &'static str = "ak.policy.action";
     pub const POLICY_MANAGE: &'static str = "ak.policy.manage";
-    pub const POLICY_RULE: &'static str = "ak.policy.rule";
     pub const POLICY_SET: &'static str = "ak.policy.set";
     pub const PRESENCE_BROADCAST: &'static str = "ak.presence.broadcast";
     pub const REACTION_ADD: &'static str = "ak.reaction.add";
@@ -447,8 +444,10 @@ impl CapabilityActionId {
     pub const SELF_BLOB_RESOURCE_GET_V1: &'static str = "ak.self.blob.resource.get.v1";
     pub const SELF_BLOB_RESOURCE_HEAD_V1: &'static str = "ak.self.blob.resource.head.v1";
     pub const SELF_BLOB_UPLOAD_CREATE_V1: &'static str = "ak.self.blob.upload.create.v1";
-    pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
-    pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
+    pub const SELF_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
+        "ak.self.committed_event.read.scan.v1";
+    pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
+        "ak.self.committed_event.stream.subscribe.v1";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
         "ak.self.keys.backup_series.command.erase.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
@@ -557,7 +556,6 @@ impl CapabilityActionId {
             Self::PinReorder => Self::PIN_REORDER,
             Self::PolicyAction => Self::POLICY_ACTION,
             Self::PolicyManage => Self::POLICY_MANAGE,
-            Self::PolicyRule => Self::POLICY_RULE,
             Self::PolicySet => Self::POLICY_SET,
             Self::PresenceBroadcast => Self::PRESENCE_BROADCAST,
             Self::ReactionAdd => Self::REACTION_ADD,
@@ -605,8 +603,10 @@ impl CapabilityActionId {
             Self::SelfBlobResourceGetV1 => Self::SELF_BLOB_RESOURCE_GET_V1,
             Self::SelfBlobResourceHeadV1 => Self::SELF_BLOB_RESOURCE_HEAD_V1,
             Self::SelfBlobUploadCreateV1 => Self::SELF_BLOB_UPLOAD_CREATE_V1,
-            Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
-            Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
+            Self::SelfCommittedEventReadScanV1 => Self::SELF_COMMITTED_EVENT_READ_SCAN_V1,
+            Self::SelfCommittedEventStreamSubscribeV1 => {
+                Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
+            }
             Self::SelfKeysBackupSeriesCommandEraseV1 => {
                 Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
             }
@@ -719,7 +719,6 @@ impl CapabilityActionId {
             Self::PIN_REORDER => Some(Self::PinReorder),
             Self::POLICY_ACTION => Some(Self::PolicyAction),
             Self::POLICY_MANAGE => Some(Self::PolicyManage),
-            Self::POLICY_RULE => Some(Self::PolicyRule),
             Self::POLICY_SET => Some(Self::PolicySet),
             Self::PRESENCE_BROADCAST => Some(Self::PresenceBroadcast),
             Self::REACTION_ADD => Some(Self::ReactionAdd),
@@ -769,8 +768,10 @@ impl CapabilityActionId {
             Self::SELF_BLOB_RESOURCE_GET_V1 => Some(Self::SelfBlobResourceGetV1),
             Self::SELF_BLOB_RESOURCE_HEAD_V1 => Some(Self::SelfBlobResourceHeadV1),
             Self::SELF_BLOB_UPLOAD_CREATE_V1 => Some(Self::SelfBlobUploadCreateV1),
-            Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
-            Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
+            Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
+            Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
+                Some(Self::SelfCommittedEventStreamSubscribeV1)
+            }
             Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
                 Some(Self::SelfKeysBackupSeriesCommandEraseV1)
             }

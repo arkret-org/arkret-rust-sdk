@@ -33,9 +33,9 @@ use arkret_models_integration::{
 use arkret_signatures::{EventSigner, SignEventOptions, sign_event};
 use arkret_wire::{
     AccountId, ActorId, ActorKind, AppletId, AuthorizationRef, CommittedEventRef, DidCoreId,
-    Discoverability, Event, EventCommitSubmission, EventKind, EventRef, GenesisSalt, GrantId, Hash,
+    Discoverability, Event, EventCommitSubmission, EventKind, GenesisSalt, GrantId, Hash,
     HistoryAccess, JoinRule, PayloadProof, PayloadSigner, RealmId, SchemaId, ScopeRef,
-    SecurityClass, TrustDomainId, event_spec, proof_kind,
+    SecurityClass, SemanticRef, TrustDomainId, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -43,11 +43,11 @@ use serde_json::Value;
 use crate::Result;
 use crate::sdk_error::Error;
 
-/// `refs[].role` the PCR genesis and the accountability grant use to name the
+/// `semantic_refs[].role` the PCR genesis and the accountability grant use to name the
 /// provision Event of their own creation unit.
 pub const APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE: &str = "applet_managed_actor_provision";
 
-/// `refs[].role` the managed actor Profile uses to name its accountability
+/// `semantic_refs[].role` the managed actor Profile uses to name its accountability
 /// grant.
 pub const APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE: &str = "accountability";
 
@@ -189,7 +189,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
         .with_executed_by(service_actor_id.clone())
         .with_authorization_ref(authorization_ref.clone())
         .with_applet_id(branch.applet_id.clone())
-        .with_ref(EventRef::new(
+        .with_semantic_ref(SemanticRef::new(
             provision_event.event_id.as_str(),
             APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
         ))
@@ -228,7 +228,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
         )?
         .with_authorization_ref(authorization_ref.clone())
         .with_applet_id(branch.applet_id.clone())
-        .with_ref(EventRef::new(
+        .with_semantic_ref(SemanticRef::new(
             provision_event.event_id.as_str(),
             APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
         ))
@@ -250,7 +250,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
             actor_id,
             &delegation,
             managed_actor_id,
-            EventRef::new(
+            SemanticRef::new(
                 accountability_grant_event.event_id.as_str(),
                 APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE,
             ),
@@ -345,7 +345,7 @@ pub fn applet_managed_actor_unit_submissions(
     let genesis_payload: RealmCreatePayload = typed_payload(genesis)?;
     genesis_payload.object.validate()?;
     let genesis_binds_provision = matches!(
-        genesis.refs.as_slice(),
+        genesis.semantic_refs.as_slice(),
         [reference]
             if reference.role == APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE
                 && reference.critical
@@ -366,7 +366,7 @@ pub fn applet_managed_actor_unit_submissions(
 
     let accountability = &bundle.accountability_grant_event;
     let accountability_payload: AccountabilityGrantPayload = typed_payload(accountability)?;
-    let accountability_binds_provision = accountability.refs.iter().any(|reference| {
+    let accountability_binds_provision = accountability.semantic_refs.iter().any(|reference| {
         reference.role == APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE
             && reference.id == provision.event_id.as_str()
     });
@@ -382,7 +382,7 @@ pub fn applet_managed_actor_unit_submissions(
 
     let profile = &bundle.profile_event;
     let profile_payload: ActorProfileCreatePayload = typed_payload(profile)?;
-    let profile_binds_accountability = profile.refs.iter().any(|reference| {
+    let profile_binds_accountability = profile.semantic_refs.iter().any(|reference| {
         reference.role == APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE
             && reference.id == accountability.event_id.as_str()
     });
@@ -425,7 +425,7 @@ fn profile_intent(
     principal_id: DidCoreId,
     delegation: &AppletDelegatedEventAuthorization,
     managed_actor_id: ActorId,
-    accountability_ref: EventRef,
+    accountability_ref: SemanticRef,
     created_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
     validate_display_name(&branch.display_name)?;
@@ -464,7 +464,7 @@ fn profile_intent(
             ));
         }
     };
-    Ok(intent.with_refs(vec![accountability_ref]))
+    Ok(intent.with_semantic_refs(vec![accountability_ref]))
 }
 
 fn bot_profile(

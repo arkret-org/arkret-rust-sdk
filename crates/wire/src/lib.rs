@@ -38,10 +38,8 @@ pub mod consent_scope;
 pub mod constants;
 pub mod cursor;
 pub mod device_revocation;
-pub mod directory_source_ref_access;
 pub mod error_codes;
 pub mod event_envelope;
-pub mod event_receipt;
 pub mod event_submission;
 pub mod events;
 pub mod extension_manifest;
@@ -88,11 +86,9 @@ pub use authority_commit::*;
 pub use consent_scope::*;
 pub use constants::*;
 pub use device_revocation::*;
-pub use directory_source_ref_access::{DirectorySourceRefAccess, DirectorySourceRefAccessKind};
 pub use error::{Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
-pub use event_receipt::*;
 pub use event_submission::*;
 pub use events::*;
 pub use extension_manifest::{
@@ -162,3 +158,16 @@ pub use webvh_parameters::{
 };
 pub use wire_presence::WirePresence;
 pub use wire_strings::*;
+
+// Retain the pre-existing SDK identity-link surface until its own registry
+// drift is adjudicated; the current committed-event migration does not delete it.
+impl SchemaId {
+    pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
+}
+
+// Keep this pre-existing policy-facing string while its registry removal is
+// handled independently from the committed-event protocol migration.
+impl ReasonCode {
+    pub const MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &'static str =
+        "minimal_metadata_author_credential_invalid";
+}

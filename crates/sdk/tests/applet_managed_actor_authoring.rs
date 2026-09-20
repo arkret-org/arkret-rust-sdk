@@ -243,7 +243,7 @@ fn the_unit_cross_binds_provision_genesis_accountability_and_profile() {
 
     let genesis_ref = bundle
         .pcr_genesis_event
-        .refs
+        .semantic_refs
         .iter()
         .find(|reference| reference.role == APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE)
         .expect("PCR genesis names its provision Event");
@@ -256,7 +256,7 @@ fn the_unit_cross_binds_provision_genesis_accountability_and_profile() {
     assert!(
         bundle
             .accountability_grant_event
-            .refs
+            .semantic_refs
             .iter()
             .any(
                 |reference| reference.role == APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE
@@ -266,7 +266,7 @@ fn the_unit_cross_binds_provision_genesis_accountability_and_profile() {
     assert!(
         bundle
             .profile_event
-            .refs
+            .semantic_refs
             .iter()
             .any(
                 |reference| reference.role == APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE
@@ -317,7 +317,7 @@ fn a_reordered_unit_is_rejected() {
 #[test]
 fn a_genesis_that_names_another_provision_is_rejected() {
     let (request, mut mis_bound) = authored_unit();
-    mis_bound.pcr_genesis_event.refs[0].id =
+    mis_bound.pcr_genesis_event.semantic_refs[0].id =
         EventId::from_digest(DigestSuite::Sha256, [0x99; 32]).to_string();
     let error = applet_managed_actor_unit_submissions(&mis_bound, &request)
         .expect_err("a genesis bound to a foreign provision must fail closed");
@@ -327,7 +327,7 @@ fn a_genesis_that_names_another_provision_is_rejected() {
 #[test]
 fn a_profile_that_drops_its_accountability_ref_is_rejected() {
     let (request, mut mis_bound) = authored_unit();
-    mis_bound.profile_event.refs.clear();
+    mis_bound.profile_event.semantic_refs.clear();
     let error = applet_managed_actor_unit_submissions(&mis_bound, &request)
         .expect_err("a Profile without its accountability ref must fail closed");
     assert!(error.to_string().contains("Profile"), "{error}");

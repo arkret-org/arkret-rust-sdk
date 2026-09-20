@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-18.1;
-//! sha256=e90fd18d04d2581f73714a8d2948922cd617eed3e311fe7fc6d17f09489d4ada Entries: schema_ids=219,
-//! active=219
+//! Input: registry/schema-registry.json; version=2026-09-20.18;
+//! sha256=dad0e54735b3dd92df60edaf81274fd93fee2fc2e82c801e2138052fdf090d5d Entries: schema_ids=222,
+//! active=222
 
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +23,10 @@ pub enum SchemaId {
     ActorProfileOperationsV1,
     AgentAuthorityStateAttestationV1,
     AgentAuthorityStateEvidenceV1,
+    AgentDraftV1,
+    AgentDraftContentHandoffV1,
+    AgentDraftContentHandoffPlaintextV1,
+    AgentDraftPendingIntentV1,
     AgentMembershipCascadeV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
@@ -49,6 +53,7 @@ pub enum SchemaId {
     AppletRegistrationEpochEvidenceV1,
     AppletRegistrationEpochTranscriptV1,
     AppletWidgetDeclarationV1,
+    ApprovalSignatureV1,
     AuthenticatedSignerResolutionEvidenceV1,
     AuthorityCommitOperationsV1,
     AuthoritySetPolicyV1,
@@ -62,6 +67,7 @@ pub enum SchemaId {
     CapabilityV1,
     CircleV1,
     CircleOperationsV1,
+    CommittedEventSubscribeFrameV1,
     CommonIdsV1,
     ConsentOperationsV1,
     ContactOperationsV1,
@@ -91,9 +97,7 @@ pub enum SchemaId {
     ErasureReceiptOperationsV1,
     ErasureVerificationStubV1,
     EventV1,
-    EventBatchReceiptV1,
     EventPayloadV1,
-    EventsSubscribeFrameV1,
     ExtensionManifestV1,
     FileTransferV1,
     GrantConstraintV1,
@@ -104,7 +108,6 @@ pub enum SchemaId {
     HolderQuarantineV1,
     HttpProblemDetailsV1,
     IceConfigResponseV1,
-    IdentityLinkV1,
     IdentityReceiptV1,
     IdentityResolutionV1,
     InviteV1,
@@ -118,7 +121,6 @@ pub enum SchemaId {
     KeyTransparencyV1,
     KeypackageOperationsV1,
     KeysOperationsV1,
-    ListHandlesForSubjectResponseV1,
     MediaMetadataV1,
     MediaOperationsV1,
     MediaServiceBindingOutcomeV1,
@@ -180,6 +182,7 @@ pub enum SchemaId {
     RealmProfileV1,
     RealmReadOperationsV1,
     RealmStateSnapshotV1,
+    RealmStreamListV1,
     RecoveryCompletionAttestationV1,
     RecoveryPolicyV1,
     RecoveryReceiptV1,
@@ -246,6 +249,10 @@ impl SchemaId {
         Self::ActorProfileOperationsV1,
         Self::AgentAuthorityStateAttestationV1,
         Self::AgentAuthorityStateEvidenceV1,
+        Self::AgentDraftV1,
+        Self::AgentDraftContentHandoffV1,
+        Self::AgentDraftContentHandoffPlaintextV1,
+        Self::AgentDraftPendingIntentV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
@@ -272,6 +279,7 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
+        Self::ApprovalSignatureV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
@@ -285,6 +293,7 @@ impl SchemaId {
         Self::CapabilityV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
+        Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
@@ -314,9 +323,7 @@ impl SchemaId {
         Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
-        Self::EventBatchReceiptV1,
         Self::EventPayloadV1,
-        Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -327,7 +334,6 @@ impl SchemaId {
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
-        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
         Self::InviteV1,
@@ -341,7 +347,6 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
-        Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
         Self::MediaServiceBindingOutcomeV1,
@@ -403,6 +408,7 @@ impl SchemaId {
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RealmStateSnapshotV1,
+        Self::RealmStreamListV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -469,6 +475,10 @@ impl SchemaId {
         Self::ActorProfileOperationsV1,
         Self::AgentAuthorityStateAttestationV1,
         Self::AgentAuthorityStateEvidenceV1,
+        Self::AgentDraftV1,
+        Self::AgentDraftContentHandoffV1,
+        Self::AgentDraftContentHandoffPlaintextV1,
+        Self::AgentDraftPendingIntentV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
@@ -495,6 +505,7 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
+        Self::ApprovalSignatureV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
@@ -508,6 +519,7 @@ impl SchemaId {
         Self::CapabilityV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
+        Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
@@ -537,9 +549,7 @@ impl SchemaId {
         Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
-        Self::EventBatchReceiptV1,
         Self::EventPayloadV1,
-        Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -550,7 +560,6 @@ impl SchemaId {
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
-        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
         Self::InviteV1,
@@ -564,7 +573,6 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
-        Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
         Self::MediaServiceBindingOutcomeV1,
@@ -626,6 +634,7 @@ impl SchemaId {
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RealmStateSnapshotV1,
+        Self::RealmStreamListV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -694,6 +703,9 @@ impl SchemaId {
     /// Immutable Account Authority issuer-ledger lifecycle record with a suite-tagged full-digest
     /// identity and detached proof.
     pub const ACCOUNT_STATUS_RECORD_V1: &'static str = "ak.schema.account_status_record.v1";
+    /// Closed account aggregate stream frame with five independently completed global baseline
+    /// channels, including the holder-private agent_draft_pending_intents baseline/delta
+    /// projection.
     pub const ACCOUNT_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.account_subscribe_frame.v1";
     /// Issuer-signed accountability endorsement for Actor Profile accountable_principal_ids
     /// verification.
@@ -710,6 +722,24 @@ impl SchemaId {
     /// SHA-256 digest and the single Agent Authority attestation over that digest.
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.schema.agent_authority_state_evidence.v1";
+    /// Closed decrypted plaintext of controller-holder-created encrypted ak.agent.draft.v1 account
+    /// data. Station never receives this plaintext.
+    pub const AGENT_DRAFT_V1: &'static str = "ak.schema.agent_draft.v1";
+    /// Closed HPKE multi-recipient content handoff carried by ak.agent.draft.propose for accepted
+    /// controller devices.
+    pub const AGENT_DRAFT_CONTENT_HANDOFF_V1: &'static str =
+        "ak.schema.agent_draft_content_handoff.v1";
+    /// Closed plaintext inside each Agent draft HPKE content handoff; only the selected accepted
+    /// controller device opens it.
+    pub const AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1: &'static str =
+        "ak.schema.agent_draft_content_handoff_plaintext.v1";
+    /// Closed live | terminal-redacted Station-private pending-intent union created by
+    /// ak.agent.draft.propose and consumed atomically by the holder's first encrypted draft
+    /// account-data CAS. Live available values require content_handoff; terminal consumed/expired
+    /// values forbid ciphertext and retain create-once identity, source/digest, expiry and terminal
+    /// metadata.
+    pub const AGENT_DRAFT_PENDING_INTENT_V1: &'static str =
+        "ak.schema.agent_draft_pending_intent.v1";
     /// Closed Agent controller-membership binding and durable exact-set emergency cleanup state.
     pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
     /// Closed request/response DTO bundle for account pairing and Agent management operations.
@@ -735,7 +765,7 @@ impl SchemaId {
     /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message
     /// events. Sole normative declaration of explicit user-facing/internal response disposition.
     /// Never legal in plaintext metadata or shared Realm/Circle events. See zh/models/sidecar.md
-    /// section 7.2.1.
+    /// section 8.
     pub const AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1: &'static str =
         "ak.schema.agent_sidecar_event_exchange_binding.v1";
     /// Closed plaintext encrypted by ak.agent.sidecar.exchange.control. Sole durable source of
@@ -803,8 +833,12 @@ impl SchemaId {
     /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and
     /// consent gate.
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
-    /// Content-addressed historical signer-resolution evidence pinned for Event, Station and
-    /// AvailabilityReceipt signature verification.
+    /// The single approval evidence type of v1: one approver's detached signature over the closed
+    /// approval input, carried beside the target in the submission container and never inside an
+    /// Event.
+    pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.schema.approval_signature.v1";
+    /// Content-addressed historical signer-resolution evidence pinned for Event and Station
+    /// signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
         "ak.schema.authenticated_signer_resolution_evidence.v1";
     /// Authority submission, stream scan, authority bundle and handoff operations.
@@ -837,6 +871,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface Circle administration operations
     /// (ak.self.circle.*); see zh/models/circle.md.
     pub const CIRCLE_OPERATIONS_V1: &'static str = "ak.schema.circle_operations.v1";
+    /// Closed data/control frame union for ak.self.committed_event.stream.subscribe.v1.
+    pub const COMMITTED_EVENT_SUBSCRIBE_FRAME_V1: &'static str =
+        "ak.schema.committed_event_subscribe_frame.v1";
     /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and
     /// relation schemas so a single id-form change propagates without inline drift. Not an
     /// object/event schema. See zh/models/common-fields.md §6.
@@ -856,7 +893,7 @@ impl SchemaId {
     /// validates it.
     pub const CONTACT_REMARK_V1: &'static str = "ak.schema.contact_remark.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
-    /// basis, version, predecessor and full granted-scope set.
+    /// contact round, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
@@ -909,7 +946,7 @@ impl SchemaId {
     pub const DID_WEBVH_WITNESS_RECEIPT_V1: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
     /// Closed carriers for the Direct Conversation resolver and single-sided founding: the
     /// query-only resolve request and tagged outcome, permanent coordinates, the resolver blocker
-    /// set and the source founding acceptance receipt.
+    /// set and verified founding-authority evidence. Founding defines no second acceptance receipt.
     pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
         "ak.schema.direct_conversation_operations.v1";
     /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
@@ -929,10 +966,7 @@ impl SchemaId {
     /// Minimal retained verification stub bound by erasure-receipt.retained_stub_digest
     pub const ERASURE_VERIFICATION_STUB_V1: &'static str = "ak.schema.erasure_verification_stub.v1";
     pub const EVENT_V1: &'static str = "ak.schema.event.v1";
-    pub const EVENT_BATCH_RECEIPT_V1: &'static str = "ak.schema.event_batch_receipt.v1";
     pub const EVENT_PAYLOAD_V1: &'static str = "ak.schema.event_payload.v1";
-    /// Closed data/control frame union for ak.self.events.stream.subscribe.v1.
-    pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for
@@ -959,9 +993,6 @@ impl SchemaId {
     /// section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
     pub const ICE_CONFIG_RESPONSE_V1: &'static str = "ak.schema.ice_config_response.v1";
-    /// Encrypted minimal-metadata binding from Realm-scoped pairwise DID to principal DID, scoped
-    /// by realm_id and trust_domain.
-    pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
     /// Principal resolution projection/update/evidence and signed service resolution record
     /// contracts for the did_core_id/did model.
@@ -977,9 +1008,13 @@ impl SchemaId {
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
+    /// Encrypted signed append-only key-backup envelope. Its only optional source checkpoint is
+    /// source_commit_ref{realm_commit_id,device_generation_ref}; source_ref, nested/full
+    /// CommittedEventRef, string generation, Seal and frontier forms are not v1 wire.
     pub const KEY_BACKUP_V1: &'static str = "ak.schema.key_backup.v1";
     /// Signed principal-control record selecting the active backup series for one (actor_id,
-    /// backup_kind).
+    /// backup_kind), with the sole source anchor
+    /// source_commit_ref{realm_commit_id,device_generation_ref}.
     pub const KEY_BACKUP_ACTIVE_SERIES_V1: &'static str = "ak.schema.key_backup_active_series.v1";
     /// Canonical plaintext keybag opened from a ak.schema.key_backup.v1 envelope.
     pub const KEY_BACKUP_PLAINTEXT_V1: &'static str = "ak.schema.key_backup_plaintext.v1";
@@ -995,9 +1030,6 @@ impl SchemaId {
     /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key
     /// backup put/list/delete responses.
     pub const KEYS_OPERATIONS_V1: &'static str = "ak.schema.keys_operations.v1";
-    /// Directory response listing currently visible handle claims for a disclosed subject DID.
-    pub const LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1: &'static str =
-        "ak.schema.list_handles_for_subject_response.v1";
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
@@ -1107,10 +1139,10 @@ impl SchemaId {
     /// verify exactly one first-contact Realm join attempt.
     pub const REALM_JOIN_BOOTSTRAP_REQUEST_V1: &'static str =
         "ak.schema.realm_join_bootstrap_request.v1";
-    /// Time-bounded transport hint returned by Realm discovery / resolve paths for reaching the
-    /// already selected Station during join, invite-accept, knock, or restricted-join submission.
-    /// It is neither an identity selector nor an authorization grant and cannot change an
-    /// AccountId.
+    /// Closed, untrusted authority-bundle locator returned by Realm discovery, invite delivery, and
+    /// join intake. Realm scope and freshness belong to the enclosing carrier and nonce-bound
+    /// current assertion; the locator neither selects nor proves the current governance Station, is
+    /// not an identity selector or authorization grant, and cannot change an AccountId.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
     /// Restricted receiving-Realm outcome of one join application, carrying the durable proposal
     /// observation for that exact proposal and nothing else.
@@ -1165,6 +1197,10 @@ impl SchemaId {
     /// zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
     pub const REALM_STATE_SNAPSHOT_V1: &'static str = "ak.schema.realm_state_snapshot.v1";
+    /// Paginated ACL-filtered enumeration outcome of one Realm's authority streams: per-stream
+    /// head_commit_ref, next_position and the caller's readable_floor, plus next_cursor and
+    /// has_more.
+    pub const REALM_STREAM_LIST_V1: &'static str = "ak.schema.realm_stream_list.v1";
     /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant
     /// promotion.
     pub const RECOVERY_COMPLETION_ATTESTATION_V1: &'static str =
@@ -1183,9 +1219,11 @@ impl SchemaId {
     /// exclusively by the bound RecoveryTransaction terminal commit. See
     /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
-    /// Closed terminal artifact of a RecoveryTransaction: the replacement-device-signed first
-    /// new-generation RealmCommit together with its recovery receipt. It is the sole wire carrier
-    /// that brings that RealmCommit into the single atomic commit_recovery_unit commit.
+    /// Closed terminal artifact of a RecoveryTransaction containing only the
+    /// replacement-device-signed recovery receipt. It contains no RealmCommit, authority signature
+    /// or precomputed commit id; the governance Station validates the receipt and both prepared
+    /// producer Events, then issues their two consecutive PCR-stream RealmCommits inside the atomic
+    /// commit_recovery_unit admission.
     pub const RECOVERY_TERMINAL_COMMIT_V1: &'static str = "ak.schema.recovery_terminal_commit.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
@@ -1209,11 +1247,10 @@ impl SchemaId {
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
     /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe
     /// operations: base service metadata plus exact supported_operation_bundles and claim-level
-    /// partitions (supported_features / supported_profiles / verified_profiles / interop_surfaces),
-    /// with the registered directory_service overlay fields used by
-    /// ak.find.directory.read.describe.v1. Enforces development_mode=true =&gt;
-    /// verified_profiles=[]. interop_surfaces is limited to external interop surfaces. See
-    /// service-surface.md §3.0 and discovery-directory.md §8.9.
+    /// partitions (supported_features / supported_profiles / verified_profiles / interop_surfaces).
+    /// Directory describe exposes only its public-Realm resource kind, never private policy or
+    /// resolver configuration. Enforces development_mode=true =&gt; verified_profiles=[].
+    /// interop_surfaces is limited to external interop surfaces. See service-surface.md §3.0.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";
     /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and
     /// key references but no private key bytes.
@@ -1236,11 +1273,13 @@ impl SchemaId {
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
-    /// Unified own-Station current/historical Device and Agent signing-key outcome; exact local
-    /// recipient, no evidence closure or reusable current grant.
+    /// Unified own-Station current/historical Device and Agent signing-key outcome; resolved keys
+    /// bind an independent committed authorization ref, current revision and governance generation,
+    /// while unavailable echoes the exact selector.
     pub const SIGNER_KEY_QUERY_OUTCOME_V1: &'static str = "ak.schema.signer_key_query_outcome.v1";
-    /// Unified own-Station current/historical Device and Agent signing-key request; exact local
-    /// recipient, no evidence closure or reusable current grant.
+    /// Unified own-Station current/historical Device and Agent signing-key request; historical
+    /// selectors require an exact committed_event_ref obtained from a verified stream_row, never a
+    /// bare EventId or current projection.
     pub const SIGNER_KEY_QUERY_REQUEST_V1: &'static str = "ak.schema.signer_key_query_request.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
@@ -1311,6 +1350,12 @@ impl SchemaId {
             Self::ActorProfileOperationsV1 => Self::ACTOR_PROFILE_OPERATIONS_V1,
             Self::AgentAuthorityStateAttestationV1 => Self::AGENT_AUTHORITY_STATE_ATTESTATION_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
+            Self::AgentDraftV1 => Self::AGENT_DRAFT_V1,
+            Self::AgentDraftContentHandoffV1 => Self::AGENT_DRAFT_CONTENT_HANDOFF_V1,
+            Self::AgentDraftContentHandoffPlaintextV1 => {
+                Self::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1
+            }
+            Self::AgentDraftPendingIntentV1 => Self::AGENT_DRAFT_PENDING_INTENT_V1,
             Self::AgentMembershipCascadeV1 => Self::AGENT_MEMBERSHIP_CASCADE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
@@ -1349,6 +1394,7 @@ impl SchemaId {
                 Self::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1
             }
             Self::AppletWidgetDeclarationV1 => Self::APPLET_WIDGET_DECLARATION_V1,
+            Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1
             }
@@ -1364,6 +1410,7 @@ impl SchemaId {
             Self::CapabilityV1 => Self::CAPABILITY_V1,
             Self::CircleV1 => Self::CIRCLE_V1,
             Self::CircleOperationsV1 => Self::CIRCLE_OPERATIONS_V1,
+            Self::CommittedEventSubscribeFrameV1 => Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
@@ -1399,9 +1446,7 @@ impl SchemaId {
             Self::ErasureReceiptOperationsV1 => Self::ERASURE_RECEIPT_OPERATIONS_V1,
             Self::ErasureVerificationStubV1 => Self::ERASURE_VERIFICATION_STUB_V1,
             Self::EventV1 => Self::EVENT_V1,
-            Self::EventBatchReceiptV1 => Self::EVENT_BATCH_RECEIPT_V1,
             Self::EventPayloadV1 => Self::EVENT_PAYLOAD_V1,
-            Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
@@ -1412,7 +1457,6 @@ impl SchemaId {
             Self::HolderQuarantineV1 => Self::HOLDER_QUARANTINE_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
-            Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
             Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
             Self::InviteV1 => Self::INVITE_V1,
@@ -1426,7 +1470,6 @@ impl SchemaId {
             Self::KeyTransparencyV1 => Self::KEY_TRANSPARENCY_V1,
             Self::KeypackageOperationsV1 => Self::KEYPACKAGE_OPERATIONS_V1,
             Self::KeysOperationsV1 => Self::KEYS_OPERATIONS_V1,
-            Self::ListHandlesForSubjectResponseV1 => Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
             Self::MediaServiceBindingOutcomeV1 => Self::MEDIA_SERVICE_BINDING_OUTCOME_V1,
@@ -1496,6 +1539,7 @@ impl SchemaId {
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
             Self::RealmStateSnapshotV1 => Self::REALM_STATE_SNAPSHOT_V1,
+            Self::RealmStreamListV1 => Self::REALM_STREAM_LIST_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
@@ -1567,6 +1611,10 @@ impl SchemaId {
                 "schemas/agent-authority-evidence.schema.json"
             }
             Self::AgentAuthorityStateEvidenceV1 => "schemas/agent-authority-evidence.schema.json",
+            Self::AgentDraftV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftContentHandoffV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftContentHandoffPlaintextV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftPendingIntentV1 => "schemas/agent-draft-private.schema.json",
             Self::AgentMembershipCascadeV1 => "schemas/agent-membership-cascade.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
@@ -1613,6 +1661,7 @@ impl SchemaId {
                 "schemas/applet-registration-epoch-transcript.schema.json"
             }
             Self::AppletWidgetDeclarationV1 => "schemas/applet-widget-declaration.schema.json",
+            Self::ApprovalSignatureV1 => "schemas/approval-signature.schema.json",
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 "schemas/authenticated-signer-resolution-evidence.schema.json"
             }
@@ -1628,6 +1677,9 @@ impl SchemaId {
             Self::CapabilityV1 => "schemas/capability-grant.schema.json",
             Self::CircleV1 => "schemas/circle.schema.json",
             Self::CircleOperationsV1 => "schemas/circle-operations.schema.json",
+            Self::CommittedEventSubscribeFrameV1 => {
+                "schemas/committed-event-subscribe-frame.schema.json"
+            }
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
@@ -1665,9 +1717,7 @@ impl SchemaId {
             Self::ErasureReceiptOperationsV1 => "schemas/erasure-receipt-operations.schema.json",
             Self::ErasureVerificationStubV1 => "schemas/erasure-verification-stub.schema.json",
             Self::EventV1 => "schemas/event-envelope.schema.json",
-            Self::EventBatchReceiptV1 => "schemas/event-batch-receipt.schema.json",
             Self::EventPayloadV1 => "schemas/event-payload.schema.json",
-            Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
@@ -1678,7 +1728,6 @@ impl SchemaId {
             Self::HolderQuarantineV1 => "schemas/holder-quarantine.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
-            Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
             Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
@@ -1692,9 +1741,6 @@ impl SchemaId {
             Self::KeyTransparencyV1 => "schemas/key-transparency.schema.json",
             Self::KeypackageOperationsV1 => "schemas/keypackage-operations.schema.json",
             Self::KeysOperationsV1 => "schemas/keys-operations.schema.json",
-            Self::ListHandlesForSubjectResponseV1 => {
-                "schemas/list-handles-for-subject-response.schema.json"
-            }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
             Self::MediaServiceBindingOutcomeV1 => {
@@ -1772,6 +1818,7 @@ impl SchemaId {
             Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
             Self::RealmStateSnapshotV1 => "schemas/realm-state-snapshot.schema.json",
+            Self::RealmStreamListV1 => "schemas/realm-read-operations.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
@@ -1841,6 +1888,12 @@ impl SchemaId {
                 Some(Self::AgentAuthorityStateAttestationV1)
             }
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
+            Self::AGENT_DRAFT_V1 => Some(Self::AgentDraftV1),
+            Self::AGENT_DRAFT_CONTENT_HANDOFF_V1 => Some(Self::AgentDraftContentHandoffV1),
+            Self::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1 => {
+                Some(Self::AgentDraftContentHandoffPlaintextV1)
+            }
+            Self::AGENT_DRAFT_PENDING_INTENT_V1 => Some(Self::AgentDraftPendingIntentV1),
             Self::AGENT_MEMBERSHIP_CASCADE_V1 => Some(Self::AgentMembershipCascadeV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
@@ -1885,6 +1938,7 @@ impl SchemaId {
                 Some(Self::AppletRegistrationEpochTranscriptV1)
             }
             Self::APPLET_WIDGET_DECLARATION_V1 => Some(Self::AppletWidgetDeclarationV1),
+            Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
             Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1 => {
                 Some(Self::AuthenticatedSignerResolutionEvidenceV1)
             }
@@ -1902,6 +1956,7 @@ impl SchemaId {
             Self::CAPABILITY_V1 => Some(Self::CapabilityV1),
             Self::CIRCLE_V1 => Some(Self::CircleV1),
             Self::CIRCLE_OPERATIONS_V1 => Some(Self::CircleOperationsV1),
+            Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1 => Some(Self::CommittedEventSubscribeFrameV1),
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
@@ -1937,9 +1992,7 @@ impl SchemaId {
             Self::ERASURE_RECEIPT_OPERATIONS_V1 => Some(Self::ErasureReceiptOperationsV1),
             Self::ERASURE_VERIFICATION_STUB_V1 => Some(Self::ErasureVerificationStubV1),
             Self::EVENT_V1 => Some(Self::EventV1),
-            Self::EVENT_BATCH_RECEIPT_V1 => Some(Self::EventBatchReceiptV1),
             Self::EVENT_PAYLOAD_V1 => Some(Self::EventPayloadV1),
-            Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
@@ -1950,7 +2003,6 @@ impl SchemaId {
             Self::HOLDER_QUARANTINE_V1 => Some(Self::HolderQuarantineV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
-            Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
             Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
             Self::INVITE_V1 => Some(Self::InviteV1),
@@ -1964,9 +2016,6 @@ impl SchemaId {
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
             Self::KEYPACKAGE_OPERATIONS_V1 => Some(Self::KeypackageOperationsV1),
             Self::KEYS_OPERATIONS_V1 => Some(Self::KeysOperationsV1),
-            Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1 => {
-                Some(Self::ListHandlesForSubjectResponseV1)
-            }
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
             Self::MEDIA_SERVICE_BINDING_OUTCOME_V1 => Some(Self::MediaServiceBindingOutcomeV1),
@@ -2036,6 +2085,7 @@ impl SchemaId {
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
             Self::REALM_STATE_SNAPSHOT_V1 => Some(Self::RealmStateSnapshotV1),
+            Self::REALM_STREAM_LIST_V1 => Some(Self::RealmStreamListV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),

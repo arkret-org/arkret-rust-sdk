@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-18.3;
-//! sha256=b5912915d66bea81fc0c669e80bd9cc0392cc4cfd5051a580ee7778a61a00db9
-//! Entries: reason_codes=390
+//! Input: registry/error-code-registry.json; version=2026-09-20.6;
+//! sha256=b82baa50150d11393e797bd2f306acf2dd7740fc66210cfd14f5f80534c63c10
+//! Entries: reason_codes=386
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -16,7 +16,6 @@ pub enum ReasonCode {
     AccountStatusRecordStale,
     AccountStatusTransitionInvalid,
     AccountabilityGrantMissing,
-    ActorSessionMismatch,
     ActorSignatureRevoked,
     AeadNonceCounterReplay,
     AeadNonceDerivationInvalid,
@@ -42,6 +41,7 @@ pub enum ReasonCode {
     AppletManagedPcrGenesisRequiresClosedAggregate,
     AppletNamespaceMismatch,
     ApprovalAlreadyConsumed,
+    ApprovalCarrierUnregistered,
     ApprovalNonceReused,
     ApprovalRequired,
     AudienceMismatch,
@@ -141,7 +141,6 @@ pub enum ReasonCode {
     GrantValidityWindowEmpty,
     HandleHolderAcceptanceMissing,
     HandleHomographForbidden,
-    HandleSubjectMismatch,
     Harassment,
     HateSpeech,
     HumanApprovalRequired,
@@ -153,7 +152,6 @@ pub enum ReasonCode {
     IdentityLinkPolicyTightened,
     IdentityMethodEvidenceInvalid,
     Illegal,
-    InclusionProofFailed,
     InitialSessionRequestMismatch,
     IntegrityFailed,
     InternalError,
@@ -201,8 +199,6 @@ pub enum ReasonCode {
     MimiRoomBindingStatusTransitionInvalid,
     MimiRoomStateIncompatible,
     MinimalDisclosureViolation,
-    MinimalMetadataAuthorCredentialInvalid,
-    MinimalMetadataPresignForbidden,
     Misinformation,
     MlsActivationIrreversible,
     MlsActivationRequired,
@@ -229,7 +225,6 @@ pub enum ReasonCode {
     PatchPathReducerManaged,
     PatchUnsetRedactableField,
     PcrGenesisConflict,
-    PcrGenesisNotFirst,
     PcrGenesisUnitInvalid,
     PermissionDenied,
     PinTargetNotPinned,
@@ -307,6 +302,7 @@ pub enum ReasonCode {
     ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
     RiskPolicy,
+    RoutingUnlinkabilityPresignForbidden,
     RsvpBasisMalformed,
     RsvpOccurrenceNotCanonical,
     RuntimeKeyMissing,
@@ -336,7 +332,6 @@ pub enum ReasonCode {
     SessionMissing,
     SidecarCreateDenied,
     SignalPlaintextForbidden,
-    SoftFailed,
     SpaceAlreadyTerminal,
     SpaceHasLiveDependents,
     SpaceNotActive,
@@ -355,6 +350,7 @@ pub enum ReasonCode {
     StructureDepthExceeded,
     Superseded,
     SupersededByRepairing,
+    TestSigningMaterialDenied,
     ThirdPartyInviteAcceptanceMissing,
     ThirdPartyInviteAcceptanceStale,
     ThirdPartyInviteMaterialMismatch,
@@ -418,7 +414,6 @@ impl ReasonCode {
     pub const ACCOUNT_STATUS_RECORD_STALE: &'static str = "account_status_record_stale";
     pub const ACCOUNT_STATUS_TRANSITION_INVALID: &'static str = "account_status_transition_invalid";
     pub const ACCOUNTABILITY_GRANT_MISSING: &'static str = "accountability_grant_missing";
-    pub const ACTOR_SESSION_MISMATCH: &'static str = "actor_session_mismatch";
     pub const ACTOR_SIGNATURE_REVOKED: &'static str = "actor_signature_revoked";
     pub const AEAD_NONCE_COUNTER_REPLAY: &'static str = "aead_nonce_counter_replay";
     pub const AEAD_NONCE_DERIVATION_INVALID: &'static str = "aead_nonce_derivation_invalid";
@@ -456,6 +451,7 @@ impl ReasonCode {
         "applet_managed_pcr_genesis_requires_closed_aggregate";
     pub const APPLET_NAMESPACE_MISMATCH: &'static str = "applet_namespace_mismatch";
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
+    pub const APPROVAL_CARRIER_UNREGISTERED: &'static str = "approval_carrier_unregistered";
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
     pub const APPROVAL_REQUIRED: &'static str = "approval_required";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
@@ -577,7 +573,6 @@ impl ReasonCode {
     pub const GRANT_VALIDITY_WINDOW_EMPTY: &'static str = "grant_validity_window_empty";
     pub const HANDLE_HOLDER_ACCEPTANCE_MISSING: &'static str = "handle_holder_acceptance_missing";
     pub const HANDLE_HOMOGRAPH_FORBIDDEN: &'static str = "handle_homograph_forbidden";
-    pub const HANDLE_SUBJECT_MISMATCH: &'static str = "handle_subject_mismatch";
     pub const HARASSMENT: &'static str = "harassment";
     pub const HATE_SPEECH: &'static str = "hate_speech";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
@@ -592,7 +587,6 @@ impl ReasonCode {
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
     pub const IDENTITY_METHOD_EVIDENCE_INVALID: &'static str = "identity_method_evidence_invalid";
     pub const ILLEGAL: &'static str = "illegal";
-    pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
     pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
     pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
@@ -645,10 +639,6 @@ impl ReasonCode {
         "mimi_room_binding_status_transition_invalid";
     pub const MIMI_ROOM_STATE_INCOMPATIBLE: &'static str = "mimi_room_state_incompatible";
     pub const MINIMAL_DISCLOSURE_VIOLATION: &'static str = "minimal_disclosure_violation";
-    pub const MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &'static str =
-        "minimal_metadata_author_credential_invalid";
-    pub const MINIMAL_METADATA_PRESIGN_FORBIDDEN: &'static str =
-        "minimal_metadata_presign_forbidden";
     pub const MISINFORMATION: &'static str = "misinformation";
     pub const MLS_ACTIVATION_IRREVERSIBLE: &'static str = "mls_activation_irreversible";
     pub const MLS_ACTIVATION_REQUIRED: &'static str = "mls_activation_required";
@@ -675,7 +665,6 @@ impl ReasonCode {
     pub const PATCH_PATH_REDUCER_MANAGED: &'static str = "patch_path_reducer_managed";
     pub const PATCH_UNSET_REDACTABLE_FIELD: &'static str = "patch_unset_redactable_field";
     pub const PCR_GENESIS_CONFLICT: &'static str = "pcr_genesis_conflict";
-    pub const PCR_GENESIS_NOT_FIRST: &'static str = "pcr_genesis_not_first";
     pub const PCR_GENESIS_UNIT_INVALID: &'static str = "pcr_genesis_unit_invalid";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
     pub const PIN_TARGET_NOT_PINNED: &'static str = "pin_target_not_pinned";
@@ -771,6 +760,8 @@ impl ReasonCode {
         "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const RISK_POLICY: &'static str = "risk_policy";
+    pub const ROUTING_UNLINKABILITY_PRESIGN_FORBIDDEN: &'static str =
+        "routing_unlinkability_presign_forbidden";
     pub const RSVP_BASIS_MALFORMED: &'static str = "rsvp_basis_malformed";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
@@ -801,7 +792,6 @@ impl ReasonCode {
     pub const SESSION_MISSING: &'static str = "session_missing";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
-    pub const SOFT_FAILED: &'static str = "soft_failed";
     pub const SPACE_ALREADY_TERMINAL: &'static str = "space_already_terminal";
     pub const SPACE_HAS_LIVE_DEPENDENTS: &'static str = "space_has_live_dependents";
     pub const SPACE_NOT_ACTIVE: &'static str = "space_not_active";
@@ -820,6 +810,7 @@ impl ReasonCode {
     pub const STRUCTURE_DEPTH_EXCEEDED: &'static str = "structure_depth_exceeded";
     pub const SUPERSEDED: &'static str = "superseded";
     pub const SUPERSEDED_BY_REPAIRING: &'static str = "superseded_by_repairing";
+    pub const TEST_SIGNING_MATERIAL_DENIED: &'static str = "test_signing_material_denied";
     pub const THIRD_PARTY_INVITE_ACCEPTANCE_MISSING: &'static str =
         "third_party_invite_acceptance_missing";
     pub const THIRD_PARTY_INVITE_ACCEPTANCE_STALE: &'static str =
@@ -882,7 +873,6 @@ impl ReasonCode {
             Self::AccountStatusRecordStale => Self::ACCOUNT_STATUS_RECORD_STALE,
             Self::AccountStatusTransitionInvalid => Self::ACCOUNT_STATUS_TRANSITION_INVALID,
             Self::AccountabilityGrantMissing => Self::ACCOUNTABILITY_GRANT_MISSING,
-            Self::ActorSessionMismatch => Self::ACTOR_SESSION_MISMATCH,
             Self::ActorSignatureRevoked => Self::ACTOR_SIGNATURE_REVOKED,
             Self::AeadNonceCounterReplay => Self::AEAD_NONCE_COUNTER_REPLAY,
             Self::AeadNonceDerivationInvalid => Self::AEAD_NONCE_DERIVATION_INVALID,
@@ -922,6 +912,7 @@ impl ReasonCode {
             }
             Self::AppletNamespaceMismatch => Self::APPLET_NAMESPACE_MISMATCH,
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
+            Self::ApprovalCarrierUnregistered => Self::APPROVAL_CARRIER_UNREGISTERED,
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
             Self::ApprovalRequired => Self::APPROVAL_REQUIRED,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
@@ -1041,7 +1032,6 @@ impl ReasonCode {
             Self::GrantValidityWindowEmpty => Self::GRANT_VALIDITY_WINDOW_EMPTY,
             Self::HandleHolderAcceptanceMissing => Self::HANDLE_HOLDER_ACCEPTANCE_MISSING,
             Self::HandleHomographForbidden => Self::HANDLE_HOMOGRAPH_FORBIDDEN,
-            Self::HandleSubjectMismatch => Self::HANDLE_SUBJECT_MISMATCH,
             Self::Harassment => Self::HARASSMENT,
             Self::HateSpeech => Self::HATE_SPEECH,
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
@@ -1055,7 +1045,6 @@ impl ReasonCode {
             Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
             Self::IdentityMethodEvidenceInvalid => Self::IDENTITY_METHOD_EVIDENCE_INVALID,
             Self::Illegal => Self::ILLEGAL,
-            Self::InclusionProofFailed => Self::INCLUSION_PROOF_FAILED,
             Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
             Self::IntegrityFailed => Self::INTEGRITY_FAILED,
             Self::InternalError => Self::INTERNAL_ERROR,
@@ -1109,10 +1098,6 @@ impl ReasonCode {
             }
             Self::MimiRoomStateIncompatible => Self::MIMI_ROOM_STATE_INCOMPATIBLE,
             Self::MinimalDisclosureViolation => Self::MINIMAL_DISCLOSURE_VIOLATION,
-            Self::MinimalMetadataAuthorCredentialInvalid => {
-                Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID
-            }
-            Self::MinimalMetadataPresignForbidden => Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN,
             Self::Misinformation => Self::MISINFORMATION,
             Self::MlsActivationIrreversible => Self::MLS_ACTIVATION_IRREVERSIBLE,
             Self::MlsActivationRequired => Self::MLS_ACTIVATION_REQUIRED,
@@ -1139,7 +1124,6 @@ impl ReasonCode {
             Self::PatchPathReducerManaged => Self::PATCH_PATH_REDUCER_MANAGED,
             Self::PatchUnsetRedactableField => Self::PATCH_UNSET_REDACTABLE_FIELD,
             Self::PcrGenesisConflict => Self::PCR_GENESIS_CONFLICT,
-            Self::PcrGenesisNotFirst => Self::PCR_GENESIS_NOT_FIRST,
             Self::PcrGenesisUnitInvalid => Self::PCR_GENESIS_UNIT_INVALID,
             Self::PermissionDenied => Self::PERMISSION_DENIED,
             Self::PinTargetNotPinned => Self::PIN_TARGET_NOT_PINNED,
@@ -1227,6 +1211,9 @@ impl ReasonCode {
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RiskPolicy => Self::RISK_POLICY,
+            Self::RoutingUnlinkabilityPresignForbidden => {
+                Self::ROUTING_UNLINKABILITY_PRESIGN_FORBIDDEN
+            }
             Self::RsvpBasisMalformed => Self::RSVP_BASIS_MALFORMED,
             Self::RsvpOccurrenceNotCanonical => Self::RSVP_OCCURRENCE_NOT_CANONICAL,
             Self::RuntimeKeyMissing => Self::RUNTIME_KEY_MISSING,
@@ -1258,7 +1245,6 @@ impl ReasonCode {
             Self::SessionMissing => Self::SESSION_MISSING,
             Self::SidecarCreateDenied => Self::SIDECAR_CREATE_DENIED,
             Self::SignalPlaintextForbidden => Self::SIGNAL_PLAINTEXT_FORBIDDEN,
-            Self::SoftFailed => Self::SOFT_FAILED,
             Self::SpaceAlreadyTerminal => Self::SPACE_ALREADY_TERMINAL,
             Self::SpaceHasLiveDependents => Self::SPACE_HAS_LIVE_DEPENDENTS,
             Self::SpaceNotActive => Self::SPACE_NOT_ACTIVE,
@@ -1277,6 +1263,7 @@ impl ReasonCode {
             Self::StructureDepthExceeded => Self::STRUCTURE_DEPTH_EXCEEDED,
             Self::Superseded => Self::SUPERSEDED,
             Self::SupersededByRepairing => Self::SUPERSEDED_BY_REPAIRING,
+            Self::TestSigningMaterialDenied => Self::TEST_SIGNING_MATERIAL_DENIED,
             Self::ThirdPartyInviteAcceptanceMissing => Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
             Self::ThirdPartyInviteAcceptanceStale => Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
             Self::ThirdPartyInviteMaterialMismatch => Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
@@ -1344,7 +1331,6 @@ impl ReasonCode {
             Self::ACCOUNT_STATUS_RECORD_STALE => Self::AccountStatusRecordStale,
             Self::ACCOUNT_STATUS_TRANSITION_INVALID => Self::AccountStatusTransitionInvalid,
             Self::ACCOUNTABILITY_GRANT_MISSING => Self::AccountabilityGrantMissing,
-            Self::ACTOR_SESSION_MISMATCH => Self::ActorSessionMismatch,
             Self::ACTOR_SIGNATURE_REVOKED => Self::ActorSignatureRevoked,
             Self::AEAD_NONCE_COUNTER_REPLAY => Self::AeadNonceCounterReplay,
             Self::AEAD_NONCE_DERIVATION_INVALID => Self::AeadNonceDerivationInvalid,
@@ -1384,6 +1370,7 @@ impl ReasonCode {
             }
             Self::APPLET_NAMESPACE_MISMATCH => Self::AppletNamespaceMismatch,
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
+            Self::APPROVAL_CARRIER_UNREGISTERED => Self::ApprovalCarrierUnregistered,
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
             Self::APPROVAL_REQUIRED => Self::ApprovalRequired,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
@@ -1503,7 +1490,6 @@ impl ReasonCode {
             Self::GRANT_VALIDITY_WINDOW_EMPTY => Self::GrantValidityWindowEmpty,
             Self::HANDLE_HOLDER_ACCEPTANCE_MISSING => Self::HandleHolderAcceptanceMissing,
             Self::HANDLE_HOMOGRAPH_FORBIDDEN => Self::HandleHomographForbidden,
-            Self::HANDLE_SUBJECT_MISMATCH => Self::HandleSubjectMismatch,
             Self::HARASSMENT => Self::Harassment,
             Self::HATE_SPEECH => Self::HateSpeech,
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
@@ -1517,7 +1503,6 @@ impl ReasonCode {
             Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
             Self::IDENTITY_METHOD_EVIDENCE_INVALID => Self::IdentityMethodEvidenceInvalid,
             Self::ILLEGAL => Self::Illegal,
-            Self::INCLUSION_PROOF_FAILED => Self::InclusionProofFailed,
             Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
             Self::INTEGRITY_FAILED => Self::IntegrityFailed,
             Self::INTERNAL_ERROR => Self::InternalError,
@@ -1571,10 +1556,6 @@ impl ReasonCode {
             }
             Self::MIMI_ROOM_STATE_INCOMPATIBLE => Self::MimiRoomStateIncompatible,
             Self::MINIMAL_DISCLOSURE_VIOLATION => Self::MinimalDisclosureViolation,
-            Self::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID => {
-                Self::MinimalMetadataAuthorCredentialInvalid
-            }
-            Self::MINIMAL_METADATA_PRESIGN_FORBIDDEN => Self::MinimalMetadataPresignForbidden,
             Self::MISINFORMATION => Self::Misinformation,
             Self::MLS_ACTIVATION_IRREVERSIBLE => Self::MlsActivationIrreversible,
             Self::MLS_ACTIVATION_REQUIRED => Self::MlsActivationRequired,
@@ -1601,7 +1582,6 @@ impl ReasonCode {
             Self::PATCH_PATH_REDUCER_MANAGED => Self::PatchPathReducerManaged,
             Self::PATCH_UNSET_REDACTABLE_FIELD => Self::PatchUnsetRedactableField,
             Self::PCR_GENESIS_CONFLICT => Self::PcrGenesisConflict,
-            Self::PCR_GENESIS_NOT_FIRST => Self::PcrGenesisNotFirst,
             Self::PCR_GENESIS_UNIT_INVALID => Self::PcrGenesisUnitInvalid,
             Self::PERMISSION_DENIED => Self::PermissionDenied,
             Self::PIN_TARGET_NOT_PINNED => Self::PinTargetNotPinned,
@@ -1689,6 +1669,9 @@ impl ReasonCode {
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::RISK_POLICY => Self::RiskPolicy,
+            Self::ROUTING_UNLINKABILITY_PRESIGN_FORBIDDEN => {
+                Self::RoutingUnlinkabilityPresignForbidden
+            }
             Self::RSVP_BASIS_MALFORMED => Self::RsvpBasisMalformed,
             Self::RSVP_OCCURRENCE_NOT_CANONICAL => Self::RsvpOccurrenceNotCanonical,
             Self::RUNTIME_KEY_MISSING => Self::RuntimeKeyMissing,
@@ -1720,7 +1703,6 @@ impl ReasonCode {
             Self::SESSION_MISSING => Self::SessionMissing,
             Self::SIDECAR_CREATE_DENIED => Self::SidecarCreateDenied,
             Self::SIGNAL_PLAINTEXT_FORBIDDEN => Self::SignalPlaintextForbidden,
-            Self::SOFT_FAILED => Self::SoftFailed,
             Self::SPACE_ALREADY_TERMINAL => Self::SpaceAlreadyTerminal,
             Self::SPACE_HAS_LIVE_DEPENDENTS => Self::SpaceHasLiveDependents,
             Self::SPACE_NOT_ACTIVE => Self::SpaceNotActive,
@@ -1739,6 +1721,7 @@ impl ReasonCode {
             Self::STRUCTURE_DEPTH_EXCEEDED => Self::StructureDepthExceeded,
             Self::SUPERSEDED => Self::Superseded,
             Self::SUPERSEDED_BY_REPAIRING => Self::SupersededByRepairing,
+            Self::TEST_SIGNING_MATERIAL_DENIED => Self::TestSigningMaterialDenied,
             Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING => Self::ThirdPartyInviteAcceptanceMissing,
             Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE => Self::ThirdPartyInviteAcceptanceStale,
             Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH => Self::ThirdPartyInviteMaterialMismatch,
@@ -1904,11 +1887,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Reducer MUST reject the entire Event with this reason and MUST NOT accept a field-stripped projection. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant â€” `ak.self.agent.command.provision.v1` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume.v1` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause.v1`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::ACTOR_SESSION_MISMATCH,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A minimal-metadata Realm Event used a principal/session identity combination that does not match the active Realm-scoped pairwise actor binding, or attempted that actor/session split outside the declared minimal-metadata profile. Receivers MUST reject instead of falling back to the long-lived principal identity. See zh/conformance/conformance-vectors.md minimal-metadata identity-link vectors.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::ACTOR_SIGNATURE_REVOKED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "An event was signed with a device key that the deactivation/lock fanout has marked revoked. Subsequent ak.self.events.command.submit.v1 signed by that device MUST be rejected. See zh/identity/account-lifecycle.md §7.1.",
@@ -1926,7 +1904,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_DEACTIVATED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an Agent principal whose current `agent_status` typed current result is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6 §4.11.",
+        description: "A request targeted an Agent principal whose current `agent_status` typed current result is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_GRANT_CONSTRAINT_MISSING,
@@ -1966,7 +1944,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PAUSED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an agent principal whose current `agent_status` typed current result is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume.v1` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6 §4.11.",
+        description: "A request targeted an agent principal whose current `agent_status` typed current result is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume.v1` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
@@ -2034,14 +2012,19 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An agent draft/action approval has already been consumed by a successful publish attempt. Replaying the same approval MUST fail closed instead of publishing twice. See zh/conformance/conformance-vectors.md.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::APPROVAL_CARRIER_UNREGISTERED,
+        applies_to: &["auth_decision", "event_envelope"],
+        description: "A grant approval constraint or ak.policy.action approval requirement targeted a capability action whose approval_requirement_eligibility resolves to ineligible_no_registered_carrier. The configuration is rejected at write time with top-level schema_violation; it MUST NOT be stored and deferred until an execution that has no place to carry evidence. See zh/authz/constraint-schema.md section 9.1 and zh/models/governance-objects.md section 3.4.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_NONCE_REUSED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An approval signature carrying a (approver_did, nonce) tuple that was already consumed for the same grant_id / proposal_id was resubmitted. Approval signatures are single-use per-grant; reusing them is a cross-grant replay attempt. See zh/authz/constraint-schema.md §9.3.",
+        description: "An approval signature whose (approval_context, approver_did, nonce) triple was already consumed by a successfully accepted target was presented for a different target. The nonce namespace is (approval_context, approver_did) and the nonce is consumed only when the target is accepted, in that same transaction: an exact replay of the already accepted target returns the original outcome, and a failed verification or an unmet quorum MUST NOT consume it early, so normal retries that collect the remaining votes still work. See zh/authz/constraint-schema.md section 9.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_REQUIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Event was rejected because the active capability constraint requires approval evidence (per zh/authz/capabilities.md §6 / §8) and none was supplied.",
+        description: "An eligible execution was rejected because approval evidence is required and what was supplied through its registered carrier does not meet the requirement. Two independent layers can raise that requirement and both are evaluated: an approval constraint on a matched capability grant (zh/authz/capabilities.md §6 / §8, zh/authz/constraint-schema.md §9), and the Realm governance approval configuration registered as the policy_action typed current result (zh/models/governance-objects.md §3.5), which hangs off an (action token, scope) pair rather than off one grant. Either layer alone is enough to produce this reason code, and a layer writing approval_required=false only withdraws its own demand -- it never cancels the other's. The top-level error is claim_required. This is a require_review-class outcome, not a deny: supplying the missing approval signatures through the carrier named by capability-action-registry.json and retrying is the defined path. Requirements for actions without a registered carrier are instead rejected at configuration write time with approval_carrier_unregistered.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIENCE_MISMATCH,
@@ -2081,7 +2064,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AUTHORIZED_GRANT_REVOKED,
         applies_to: &["authz", "event_auth_state"],
-        description: "The grant referenced by refs[role=authorized_by] or an ancestor grant in its delegation chain has been revoked, superseded, expired, or tombstoned.",
+        description: "The grant referenced by semantic_refs[role=authorized_by] or an ancestor grant in its delegation chain has been revoked, superseded, expired, or tombstoned.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::BACKEND_UNAVAILABLE,
@@ -2091,7 +2074,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::BACKUP_REVISION_STALE,
         applies_to: &["device_recovery", "state_resolution"],
-        description: "`ak.schema.key_backup.v1.source_commit_ref.source_commit_ref` does not match the current principal control stream checkpoint, or `device_generation_ref` does not equal the active `current_device_generation_ref`. Receivers MUST refuse to use the envelope as the primary recovery source. See zh/identity/key-management.md §7.6.",
+        description: "`ak.schema.key_backup.v1.source_commit_ref.realm_commit_id` does not resolve to an accepted RealmCommit on the principal control stream, or `device_generation_ref` does not equal the active `current_device_generation_ref`. A later RealmCommit on the same stream does not by itself make the envelope stale. Receivers MUST refuse to use the envelope as the primary recovery source. See zh/identity/key-management.md §7.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::BLOB_REDACTED,
@@ -2176,7 +2159,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_COUNT_EXCEEDED,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "Reducer rejected a `ak.circle.create` exceeding the per-Realm active Circle cap, or a `ak.circle.member.state -> join` that would exceed the per-actor active MLS-backed Circle cap. Caps bound cascade/delivery fanout and the M+R MLS-rotation amplification of a single membership change (zh/conformance/scalability-constraints.md §5, zh/models/circle.md §10.3).",
+        description: "Reducer rejected a `ak.circle.create` exceeding the per-Realm active Circle cap, or a `ak.circle.member.state -> join` that would exceed the per-actor active MLS-backed Circle cap. Caps bound cascade/delivery fanout and the M+R MLS-rotation amplification of a single membership change (zh/conformance/scalability-constraints.md §5, zh/models/circle.md §10).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
@@ -2206,7 +2189,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_GENERATION_MISMATCH,
         applies_to: &["crypto", "auth_decision"],
-        description: "An MLS Welcome / KeyPackage claim binds a device generation that does not equal the receiver's current accepted generation. Receivers MUST reject before admitting the Welcome or key material. See zh/crypto-media/encryption-and-audit.md §2.6 and zh/crypto-media/device-lifecycle.md §14.4.",
+        description: "An MLS Welcome / KeyPackage claim binds a device generation that does not equal the receiver's current accepted generation. Receivers MUST reject before admitting the Welcome or key material. See zh/crypto-media/encryption-and-audit.md §2.6 and zh/crypto-media/device-lifecycle.md §14.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_INVALID,
@@ -2216,7 +2199,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CONSENT_REVOKED,
         applies_to: &["auth_decision"],
-        description: "Authorization outcome when a cached consent decision is re-evaluated and the underlying consent has been revoked; the stale cache entry MUST NOT authorize the action. See zh/conformance/conformance-vectors.md §9 (ak.vector.consent.cache_invalidation.v1).",
+        description: "Authorization outcome when a cached consent decision is re-evaluated and the underlying consent has been revoked; the stale cache entry MUST NOT authorize the action. See zh/conformance/conformance-vectors.md §3.5 (ak.vector.consent.cache_invalidation.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CONSENT_WITHDRAWN,
@@ -2325,7 +2308,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_BINDING_INVALID,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "An authored immutable Direct Conversation binding fact has an invalid issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding unit digest, or founding MLS references.",
+        description: "The ak.self.events.command.submit.v1 Direct Conversation binding-integrity stage rejected an ak.direct_conversation.bound Event because its issuer, pair key, authorization basis, Realm role, exact two-member set, main Strand, founding unit digest, or founding MLS references did not match accepted authoritative facts. The rejection occurs before result application, is atomic, and writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID,
@@ -2335,32 +2318,32 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An invite operation targeted a Realm carrying ak.profile.direct_conversation_realm.v1. Direct Conversation membership is established only by the resolver's verified two-participant bootstrap; all invite flows fail closed.",
+        description: "The ak.self.events.command.submit.v1 active-profile invite guard rejected an ak.invite.create or ak.invite.third_party Event targeting a Direct Conversation. A pair-external candidate is classified earlier as direct_conversation_third_party_member_forbidden; the atomic founding peer join is not an invite. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A Direct Conversation binding or membership projection does not resolve to exactly two distinct principal participants. New writes fail closed; an existing stable conversation is returned as suspended rather than replaced.",
+        description: "The ak.self.events.command.submit.v1 exact-two profile gate rejected a new write because the Direct Conversation binding or authoritative membership projection did not resolve to exactly two distinct principal participants. Existing stable conversations are returned read-only by ak.self.direct_conversation.read.resolve.v1 as suspended with blocker member_count_invalid, never as a write rejection. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PAIR_MATERIALIZATION_CONFLICT,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A second accepted Direct Conversation Realm was observed for the same pair_key while both carried apparently valid founder admission and source acceptance receipts, indicating slot, cutover-fence or signature equivocation by a trusted current Station. Both Realms freeze new Message, membership, policy, MLS and binding writes and all evidence is retained; implementations MUST NOT pick a winner by Realm-token lexical order or arrival order, tombstone either Realm, or migrate history. See zh/identity/contact-and-direct-conversation.md §5.7.",
+        description: "A second accepted Direct Conversation Realm was observed for the same pair_key while both carried apparently valid founder admission, four exact Events, four consecutive source RealmCommits and founding-authority evidence, indicating slot, cutover-fence or signature equivocation by a trusted current Station. Both Realms freeze new Message, membership, policy, MLS and binding writes and all evidence is retained; implementations MUST NOT pick a winner by Realm-token lexical order or arrival order, tombstone either Realm, or migrate history. See zh/identity/contact-and-direct-conversation.md §5.7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The ak.authority.direct_conversation_participant.v1 evaluator did not establish the immutable stable binding, exact participant, active membership, Realm/Strand/current scope-derived MLS group-and-epoch cross-binding, lifecycle, resource, both directional Contact heads/scopes, device or Agent gate required for the requested allowlisted action. Consent is not an authority source. The evaluator MUST NOT fall back to created_by, membership, a local projection row, Realm owner aggregation or an arbitrary Event/typed current result reference.",
+        description: "The current governance Station's active ak.authority.direct_conversation_participant.v1 evaluator rejected an Event-mapped allowlisted action because it could not establish every required immutable binding, exact participant, active membership, Realm/Strand/current scope-derived MLS group-and-epoch cross-binding, lifecycle, resource, directional Contact, device, or Agent input. The ak.self.events.command.submit.v1 rejection exposes only this non-enumerating reason and writes nothing. Encrypted Signal product actions use their own outer admission carrier and recipient policy, never this Event reason. Consent, created_by, a local projection row, Realm owner aggregation, or an arbitrary Event/current result cannot substitute; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "The technical authority-root controller attempted an operational, grant, member-governance, policy or terminal action outside the Direct Conversation profile phase mask. Root owner aggregation cannot bypass the participant authority or target the other participant.",
+        description: "The ak.self.events.command.submit.v1 technical-root phase-mask stage rejected an operational, grant, member-governance, policy, or terminal action outside the exact active Direct Conversation founding/materialization mask. Root owner aggregation cannot bypass participant authority or target the other participant. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_SLOT_ALREADY_COMMITTED,
         applies_to: &["service_call", "federation_transaction"],
-        description: "The founder's current Station already closed its local (founder_id, trust_domain_id, pair_key) founding slot with a different unit, so this unit is refused with zero writes. Carried under conflict. The caller MUST re-resolve the existing coordinates through ak.self.direct_conversation.read.resolve.v1 instead of authoring another unit; the service MUST NOT accept a second unit, degrade it to a partial acceptance or quarantine it. A byte-identical replay of the committed unit is not this code: it returns the stored byte-identical receipt. See zh/identity/contact-and-direct-conversation.md section 5.5.",
+        description: "The founder's current Station already closed its local (founder_id, trust_domain_id, pair_key) founding slot with a different unit, so this unit is refused with zero writes. Carried under conflict. The caller MUST re-resolve the existing coordinates through ak.self.direct_conversation.read.resolve.v1 instead of authoring another unit; the service MUST NOT accept a second unit, degrade it to a partial acceptance or quarantine it. A byte-identical replay of the committed unit is not this code: it returns the same four byte-identical source RealmCommits without changing the fourth committed_at. See zh/identity/contact-and-direct-conversation.md section 5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_SPACE_FORBIDDEN,
@@ -2370,12 +2353,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_TERMINAL_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "A canonical Direct Conversation Realm received ak.realm.destroy or any ak.realm.tombstone. DM coordinates are permanent and successor-free, so an irreversible terminal would leave the pair unable to ever hold a Direct Conversation while the resolver still had to return the dead coordinates. Reversible ak.realm.archive / ak.realm.freeze remain allowed through ordinary Realm authority and only surface as send blockers. See zh/identity/contact-and-direct-conversation.md §8.1.",
+        description: "The ak.self.events.command.submit.v1 profile terminal guard rejected ak.realm.destroy or ak.realm.tombstone against the canonical Direct Conversation Realm. DM coordinates are permanent and successor-free. Reversible archive/freeze and their reverse transitions remain subject to ordinary authority and do not match this reason. The rejection writes nothing; see zh/identity/contact-and-direct-conversation.md §8.1 and contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_THIRD_PARTY_MEMBER_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An invite or join attempted to add an ActorId that is not one of the two exact ActorIds in the immutable Direct Conversation binding. Group-chat expansion requires a new ordinary Collaboration Realm.",
+        description: "The ak.self.events.command.submit.v1 candidate-pair membership stage rejected an invite or join whose candidate ActorId was not one of the immutable Direct Conversation binding's two exact ActorIds. This reason has precedence over direct_conversation_invite_forbidden when both predicates match. Group expansion requires a new ordinary Collaboration Realm. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN,
@@ -2494,7 +2477,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "state_resolution",
             "federation_transaction",
         ],
-        description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state or active epoch chain: group/epoch/profile fields disagree, key_access_revision is not the deterministic digest of the registered membership/leaf-key/MLS-membership/encryption-history checkpoint, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md §2.5.",
+        description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state, Event payload or active epoch chain: scope/base/epoch fields disagree, the unsigned monotonic key_access_revision counter differs from the Station's accepted key-access revision, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md §2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_EXCEEDS_ISSUER_AUTHORITY,
@@ -2537,11 +2520,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Handle registration collided with the same authority-local handle-namespace UTS #39 skeleton index or failed the authority's declared Highly Restrictive registration policy. This is registration policy, not canonical equality; the skeleton never enters wire or proof bytes. See zh/identity/identity-handles.md §17.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::HANDLE_SUBJECT_MISMATCH,
-        applies_to: &["auth_decision", "service_call"],
-        description: "Handle resolution returned an AccountId that does not match the expected applicant, member, or invitee account. Clients and reducers MUST reject the candidate before building invite or join material. See zh/identity/identity-handles.md §3.7 and zh/conformance/conformance-vectors.md §8.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::HARASSMENT,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: harassment.",
@@ -2579,12 +2557,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_LINK_NO_LONGER_VISIBLE,
         applies_to: &["identity_resolution"],
-        description: "An identity-link resolution was invalidated because the linked identity is no longer visible to the requester after a membership transition or capability revoke; directory / sync / invite caches MUST drop the stale link. See zh/conformance/conformance-vectors.md §9 (ak.vector.identity_link.eager_invalidation.v1).",
+        description: "An identity-link resolution was invalidated because the linked identity is no longer visible to the requester after a membership transition or capability revoke; directory / sync / invite caches MUST drop the stale link. See zh/conformance/conformance-vectors.md §3.5 (ak.vector.identity_link.eager_invalidation.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_LINK_POLICY_TIGHTENED,
         applies_to: &["identity_resolution"],
-        description: "An identity-link resolution was invalidated because the governing visibility / link policy was tightened after the link was cached. See zh/conformance/conformance-vectors.md §9 (ak.vector.identity_link.policy_tightening_invalidation.v1).",
+        description: "An identity-link resolution was invalidated because the governing visibility / link policy was tightened after the link was cached. See zh/conformance/conformance-vectors.md §3.5 (ak.vector.identity_link.policy_tightening_invalidation.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_METHOD_EVIDENCE_INVALID,
@@ -2595,11 +2573,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ILLEGAL,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: content alleged to violate applicable law (CSAM, threats, IP infringement, etc.).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INCLUSION_PROOF_FAILED,
-        applies_to: &["client_sync", "realm_state_snapshot_verification"],
-        description: "Snapshot inclusion / omission challenge failed: issuer could not produce a valid Merkle branch or ordered-set slice for a sampled Event ID / actor sequence range against the manifest's event_set_commitment.root, OR the proof's root differs, OR an actor sequence gap is not reflected in soft_failed/quarantined digests. Client MUST quarantine or reject the snapshot and fall back to raw Event replay.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INITIAL_SESSION_REQUEST_MISMATCH,
@@ -2644,7 +2617,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALIDATED_BY_RATE_LIMIT,
         applies_to: &["auth_decision"],
-        description: "An out-of-band invite code attempt was invalidated because the per-code attempt rate limit was exceeded. See zh/conformance/conformance-vectors.md §9 (ak.vector.invite.oob_code_entropy.v1).",
+        description: "An out-of-band invite code attempt was invalidated because the per-code attempt rate limit was exceeded. See zh/conformance/conformance-vectors.md §3.11 (ak.vector.invite.oob_code_entropy.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_ALREADY_TERMINAL,
@@ -2679,7 +2652,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_OOB_ENTROPY_TOO_LOW,
         applies_to: &["auth_decision"],
-        description: "An out-of-band invite code was rejected because its entropy is below the required floor. See zh/conformance/conformance-vectors.md §9 (ak.vector.invite.oob_code_entropy.v1).",
+        description: "An out-of-band invite code was rejected because its entropy is below the required floor. See zh/conformance/conformance-vectors.md §3.11 (ak.vector.invite.oob_code_entropy.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::JOIN_POLICY_DUPLICATE_GATE_ID,
@@ -2837,16 +2810,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A moderation evidence package discloses material beyond the minimal-disclosure obligation (for example unrelated plaintext message bodies or MLS private state). The evidence submission MUST reject. See governance/content-moderation.md.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
-        applies_to: &["event_envelope", "identity_resolution"],
-        description: "A minimal-metadata content Event proof could not be bound to exactly one active MLS LeafNode whose basic credential identity equals Event.actor_id and whose signature_key matches proof.verification_method at the encrypted envelope epoch/group-state reference. The receiver MUST fail closed without querying a principal-scoped device directory. See zh/crypto-media/encryption-and-audit.md §2.10.3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MINIMAL_METADATA_PRESIGN_FORBIDDEN,
-        applies_to: &["authz", "service_call"],
-        description: "A presigned blob URL was requested for a Realm that requires minimal metadata or routing unlinkability. The service MUST deny presign and require an authenticated proxy, OHTTP relay, or equivalent non-bearer direct download path.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::MISINFORMATION,
         applies_to: &["moderation_report"],
         description: "Standard moderation reason: misleading / false information posing harm.",
@@ -2934,12 +2897,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PAIRING_REQUEST_EXPIRED,
         applies_to: &["auth_decision", "service_call"],
-        description: "A `ak.gate.account.command.pair_agent_key.v1` pairing request was presented after its `pairing_expires_at` (or the runtime key-pairing session id has been closed). The endpoint MUST fail closed; the controller MUST initiate a fresh pairing strand. See zh/identity/key-management.md §3.6 §4.5.",
+        description: "A `ak.gate.account.command.pair_agent_key.v1` pairing request was presented after its `pairing_expires_at` (or the runtime key-pairing session id has been closed). The endpoint MUST fail closed; the controller MUST initiate a fresh pairing strand. See zh/identity/key-management.md §3.6.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PARTIAL_AUTH_STATE,
         applies_to: &["state_resolution"],
-        description: "Auth state for the event could not be fully resolved within the implementation's auth_chain backfill bound; treat as soft-fail per scalability-constraints.md.",
+        description: "Authorization state for the event could not be fully resolved from the material the evaluator holds: a required grant, delegation link or current revocation status was not retrievable. It is an incomplete-evaluation diagnostic, never an admission outcome. The evaluator MUST NOT derive an allow cache entry from it and MUST either retry the dependency fetch or fail closed; a resolvable dependency that is merely absent is dependency_missing. See zh/authz/capabilities.md §10.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PARTICIPANT_BINDING_INVALID,
@@ -2954,7 +2917,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_ATOMIC_CONFLICT,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A single payload.patch contains parent/child writes, duplicate target paths, selector-affecting writes, or another multi-path combination that cannot be applied as one deterministic atomic Event. Reducer MUST reject the whole patch rather than partially applying paths. See zh/models/event-and-patch.md §4.4.",
+        description: "A single payload.patch contains parent/child writes, duplicate target paths, selector-affecting writes, or another multi-path combination that cannot be applied as one deterministic atomic Event. Reducer MUST reject the whole patch rather than partially applying paths. See zh/models/event-and-patch.md §4.3.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PATCH_PATH_INVALID,
@@ -2975,11 +2938,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::PCR_GENESIS_CONFLICT,
         applies_to: &["pcr_genesis"],
         description: "The deterministic Principal Control Realm already has a different authoritative genesis unit. The receiver MUST perform zero writes and MUST NOT replace the accepted founding device.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::PCR_GENESIS_NOT_FIRST,
-        applies_to: &["pcr_genesis"],
-        description: "Genesis admission was attempted after the PCR checkpoint ceased to be empty, or after a PCR genesis receipt already existed. The caller must use device pairing or PCR-policy re-anchor.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PCR_GENESIS_UNIT_INVALID,
@@ -3034,7 +2992,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PRINCIPAL_CONTROL_EVENT_KIND_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A Realm claiming ak.profile.principal_control_realm.v1 received a collaboration / media / content event kind outside its allowlist-only control-plane event policy. Reducers MUST reject instead of treating the Realm as ordinary collaboration history. See zh/identity/key-management.md §4.2 and artifacts/profiles/conformance-profiles.json#profile_requirements.",
+        description: "A Realm claiming ak.profile.principal_control_realm.v1 received a collaboration / media / content event kind outside its allowlist-only control-plane event policy. Reducers MUST reject instead of treating the Realm as ordinary collaboration history. See zh/models/realm-and-space.md §2.8.1 and artifacts/profiles/conformance-profiles.json#profile_requirements.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRINCIPAL_DEACTIVATED,
@@ -3044,7 +3002,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "service_call",
             "state_resolution",
         ],
-        description: "The account status checkpoint contains a deactivation for the exact AccountId acting as actor, subject, issuer, recipient, or device owner. New device/session grants, KeyPackage operations, capability delegation, membership writes targeting that account, push routes, and to-device enqueue MUST fail closed. See zh/identity/account-lifecycle.md §7.1 and zh/sync/federation.md §4.4.1.",
+        description: "The account status checkpoint contains a deactivation for the exact AccountId acting as actor, subject, issuer, recipient, or device owner. New device/session grants, KeyPackage operations, capability delegation, membership writes targeting that account, push routes, and to-device enqueue MUST fail closed. See zh/identity/account-lifecycle.md §7.1 and the federation propagation rules of zh/identity/account-lifecycle.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PRIVATE_ATTACHMENT,
@@ -3079,7 +3037,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `signature_invalid` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6 §4.5.",
+        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `signature_invalid` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_GATEWAY_UNREACHABLE,
@@ -3249,7 +3207,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECORDING_CONSENT_REQUIRED,
         applies_to: &["service_call", "event_envelope"],
-        description: "An `ak.call.recording.start` event attempted to enter recording/transcribing without `payload.result.retention.consent_confirmed=true` and a capture-kind-specific start-event ref equal to the Event `event_id`. Reducer MUST reject before either capture FSM or result typed current result is written. See zh/crypto-media/call-state.md §5.2.",
+        description: "A capture attempted to enter or stay in recording/transcribing without the consent evidence its Realm requires. The reachable trigger is the per-participant consent acknowledgment profile of zh/crypto-media/call-state.md §5.2: a recorded party has no current device-signed acknowledgment, or membership, device or capture epoch changed and the acknowledgment was not re-acquired. This code is NOT how a producer-declared consent value is refused: `call_recording_start_payload.result.retention.consent_confirmed` is `const: true`, so any other value is `schema_violation` before the reducer runs, and the capture-kind start-event ref is stamped by the reducer because the payload MUST NOT carry it. Reducer MUST reject before either capture FSM or result typed current result is written.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECORDING_STATE_TRANSITION_INVALID,
@@ -3376,6 +3334,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Recovery-session `rejection_reason_code` value: a server-side risk policy rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::ROUTING_UNLINKABILITY_PRESIGN_FORBIDDEN,
+        applies_to: &["authz", "service_call"],
+        description: "A presigned blob URL was requested for a Realm whose asset policy declares routing_unlinkability_required=true. The service MUST deny presign and require an authenticated proxy, OHTTP relay, or equivalent non-bearer direct download path.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::RSVP_BASIS_MALFORMED,
         applies_to: &["event_envelope", "schema_validation"],
         description: "entry.schedule_basis_refs does not carry exactly one well-formed ak:event: typed id: it is empty, holds more than one item, repeats an item, or the item is not a valid typed Event id. This shape admission is decidable from the payload field alone, without resolving the referenced Event, and MUST reject rather than pend. See zh/models/calendar-event.md section 8.1.",
@@ -3478,7 +3441,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_KEY_REVOKED,
         applies_to: &["federation_transaction", "auth_decision"],
-        description: "Federation idempotency replay outcome: a cached federated request was re-evaluated and the origin service's signing key is now revoked, so the cache hit is treated as historical_only and MUST NOT bypass current key-state verification. See zh/conformance/conformance-vectors.md §9 (ak.vector.federation.idempotency_after_key_revoke.v1).",
+        description: "Federation idempotency replay outcome: a cached federated request was re-evaluated and the origin service's signing key is now revoked, so the cache hit is treated as historical_only and MUST NOT bypass current key-state verification. See zh/conformance/conformance-vectors.md §3.9 (ak.vector.federation.idempotency_after_key_revoke.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_NOT_PLAINTEXT_VISIBLE,
@@ -3518,12 +3481,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,
         applies_to: &["service_call", "client_sync"],
-        description: "Sub-reason for failed_precondition when any plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/crypto-media/encryption-and-audit.md section 2.9.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SOFT_FAILED,
-        applies_to: &["state_resolution", "service_call"],
-        description: "An Event or reducer input is held in a reversible soft-failed state pending causal backfill, authorization material, policy evidence, or asynchronous verification. It may later upgrade to accepted or roll back to rejected, but accepted MUST NOT degrade to rejected without a new governance event. See zh/sync/operations-sync.md §4.4.",
+        description: "Sub-reason for failed_precondition when any plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/sync/signal.md §1 and §3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_ALREADY_TERMINAL,
@@ -3598,7 +3556,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::STREAM_TAIL_MISSING,
         applies_to: &["client_sync"],
-        description: "One authorized commit stream cannot be continued from the caller's durable cursor: the tail range between that cursor and the stream's current head is unavailable to this service (retention or history floor reached, or the durable range is otherwise not servable). It is per-stream and scoped to exactly one stream_ref, so the client re-acquires the snapshot and tail for that stream alone and MUST NOT reset other Realm / Circle / Sidecar streams, the account baseline or to-device ACKs. It is NOT the same as an empty tail: an authorized stream that is simply at its head returns zero items and `accepted`. It is also NOT interchangeable with the absence bucket of ak.peer.events.read.resolve_committed.v1, whose contract returns only exact matches with zero return and zero side effects so that non-existence, lost authorization and a hidden scope stay indistinguishable; emitting this code for a stream the caller may not read, or for one that does not exist, would turn that anti-enumeration bucket into an oracle. Only a stream the caller is currently authorized to read may be reported with it. See zh/sync/client-sync.md section 3.",
+        description: "One authorized commit stream cannot be continued from the caller's durable cursor: the tail range between that cursor and the stream's current head is unavailable to this service (retention or history floor reached, or the durable range is otherwise not servable). It is per-stream and scoped to exactly one stream_ref, so the client re-acquires the snapshot and tail for that stream alone and MUST NOT reset other Realm / Circle / Sidecar streams, the account baseline or to-device ACKs. It is NOT the same as an empty tail: an authorized stream that is simply at its head returns zero items and `accepted`. emitting this code for a stream the caller may not read, or for one that does not exist, would turn that anti-enumeration bucket into an oracle. Only a stream the caller is currently authorized to read may be reported with it. See zh/sync/client-sync.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::STRUCTURE_DEPTH_EXCEEDED,
@@ -3614,6 +3572,16 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SUPERSEDED_BY_REPAIRING,
         applies_to: &["event_envelope", "auth_decision"],
         description: "Reducer audit reason stamped when one controller-signed ak.agent.key.authorize runtime-replacement Event atomically observe-removes every prior active authorization dot named by its exact supersedes[] set and adds the new authorization. No synthetic ak.agent.key.revoke Event is authored. Sessions issued from superseded keys MUST fail closed within the revocation freshness window. See zh/identity/key-management.md §3.6.1.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::TEST_SIGNING_MATERIAL_DENIED,
+        applies_to: &[
+            "auth_decision",
+            "identity_resolution",
+            "proof_verification",
+            "crypto",
+        ],
+        description: "The presented signing material or identifier is registered in artifacts/registry/test-material-registry.json as published test material or as a reserved test identifier, so it MUST NOT be admitted on a formal verification, authorization or trust-admission path even when the signature verifies: its private key ships with the specification. The refusal is fail-closed and MUST NOT leave a verified binding, a resolution cache entry or accepted auth state behind, MUST NOT degrade to a weaker evidence class, a limited_trust pin or a retryable unavailable, and MUST NOT be reachable through a configuration switch on the formal API. See zh/identity/did-usage-and-verification.md §8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
@@ -3678,7 +3646,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNKNOWN_FIELD,
         applies_to: &["event_envelope"],
-        description: "Current parser rejected an Event carrying a top-level or payload field not declared by the closed schema for its kind (including removed / renamed fields in artifacts/registry/forbidden-wire-fields.json). Distinct from `schema_violation` in that it pinpoints an unrecognized field rather than a constraint violation on a known field. See zh/spec-map.md §1.2.1.",
+        description: "Current parser rejected an Event carrying a top-level or payload field not declared by the closed schema for its kind (including removed / renamed fields in artifacts/registry/forbidden-wire-fields.json). Distinct from `schema_violation` in that it pinpoints an unrecognized field rather than a constraint violation on a known field. See zh/overview/current-contract.md §1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNKNOWN_FOCUS_TYPE,
@@ -3688,7 +3656,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNKNOWN_KIND,
         applies_to: &["event_envelope"],
-        description: "Current parser rejected an Event whose `kind` is not an active registered v1 kind. Sync, federation, snapshot, SDK, and conformance paths MUST fail closed and MUST NOT perform payload-shape disambiguation or alias lookup. See zh/spec-map.md §1.2.1 and zh/overview/current-contract.md.",
+        description: "Current parser rejected an Event whose `kind` is not an active registered v1 kind. Sync, federation, snapshot, SDK, and conformance paths MUST fail closed and MUST NOT perform payload-shape disambiguation or alias lookup. See zh/overview/current-contract.md §1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNRESOLVED_BASIS,
@@ -3708,7 +3676,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_CIPHERSUITE,
         applies_to: &["service_call", "auth_decision", "keypackage_lifecycle"],
-        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. Receivers MUST fail closed even if the underlying MLS library supports the suite. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/crypto-media/encryption-and-audit.md §2.6.",
+        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage publish, claim or Commit submission. Receivers MUST fail closed even if the underlying MLS library supports the suite. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/crypto-media/encryption-and-audit.md §2.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_DIGEST_ALGORITHM,
@@ -3778,7 +3746,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::WATCH_SET_OTHERS_AUDIT_MISSING,
         applies_to: &["auth_decision"],
-        description: "A `ak.strand.watch.set` write that uses `ak.strand.watch.set.others` to set another actor's watch state was rejected because it lacked refs[role=audit_pair] to a same-batch `ak.audit.accessed` event, or the paired audit payload did not identify the same writer DID, target actor DID, typed current result id, paired event id/digest, and before/after heads. See zh/models/strand-and-message.md §8.4.",
+        description: "A `ak.strand.watch.set` write that uses `ak.strand.watch.set.others` to set another actor's watch state was rejected because it lacked semantic_refs[role=audit_pair] to a same-batch `ak.audit.accessed` event, or the paired audit payload did not identify the same writer DID, target actor DID, typed current result id, paired event id/digest, and before/after heads. See zh/models/strand-and-message.md §8.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::WEBVH_CACHE_TOO_STALE,

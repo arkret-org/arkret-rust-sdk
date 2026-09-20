@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-16.10;
-//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854 Input: registry/
-//! capability-action-registry.json; version=2026-09-18.1;
-//! sha256=095b04c097380e02d210ea6e49e777e0d8e51fdc01b9fe10a37abc1a0c6b3f0c Input: registry/
-//! schema-registry.json; version=2026-09-18.1;
-//! sha256=e90fd18d04d2581f73714a8d2948922cd617eed3e311fe7fc6d17f09489d4ada Input: registry/
-//! account-data-key-registry.json; version=2026-09-16.6;
-//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=50,
-//! special_forms=15, actions=151, schemas=219, account_data_patterns=24
+//! Input: registry/id-kind-registry.json; version=2026-09-19.1;
+//! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823 Input: registry/
+//! capability-action-registry.json; version=2026-09-20.16;
+//! sha256=04b7123f5905f7415a42300bd7cb590dc3b28a230075c5623d04c3f8e683163e Input: registry/
+//! schema-registry.json; version=2026-09-20.18;
+//! sha256=dad0e54735b3dd92df60edaf81274fd93fee2fc2e82c801e2138052fdf090d5d Input: registry/
+//! account-data-key-registry.json; version=2026-09-20.2;
+//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
+//! special_forms=15, actions=150, schemas=222, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1487,7 +1487,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[
             event_kind_str::POLICY_SET,
-            event_kind_str::POLICY_RULE,
             event_kind_str::POLICY_ACTION,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
@@ -1503,19 +1502,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "aggregate_admin",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::PolicyRule,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::POLICY_RULE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicySet,
@@ -1805,7 +1791,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MORPH_UPDATE,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
             event_kind_str::POLICY_ACTION,
-            event_kind_str::POLICY_RULE,
             event_kind_str::POLICY_SET,
             event_kind_str::REACTION_ADD,
             event_kind_str::REACTION_REMOVE,
@@ -1910,7 +1895,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.object.stage.set",
             "ak.policy.action",
             "ak.policy.manage",
-            "ak.policy.rule",
             "ak.policy.set",
             "ak.presence.broadcast",
             "ak.reaction.add",
@@ -2321,7 +2305,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfEventsReadScanV1,
+        action: CapabilityActionId::SelfCommittedEventReadScanV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -2334,7 +2318,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfEventsStreamSubscribeV1,
+        action: CapabilityActionId::SelfCommittedEventStreamSubscribeV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -2706,6 +2690,22 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_CONTENT_HANDOFF_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_PENDING_INTENT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AGENT_MEMBERSHIP_CASCADE_V1,
         file: "schemas/agent-membership-cascade.schema.json",
     },
@@ -2810,6 +2810,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-widget-declaration.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPROVAL_SIGNATURE_V1,
+        file: "schemas/approval-signature.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1,
         file: "schemas/authenticated-signer-resolution-evidence.schema.json",
     },
@@ -2860,6 +2864,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_OPERATIONS_V1,
         file: "schemas/circle-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
+        file: "schemas/committed-event-subscribe-frame.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::COMMON_IDS_V1,
@@ -2978,16 +2986,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/event-envelope.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::EVENT_BATCH_RECEIPT_V1,
-        file: "schemas/event-batch-receipt.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::EVENT_PAYLOAD_V1,
         file: "schemas/event-payload.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::EVENTS_SUBSCRIBE_FRAME_V1,
-        file: "schemas/events-subscribe-frame.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::EXTENSION_MANIFEST_V1,
@@ -3028,10 +3028,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::ICE_CONFIG_RESPONSE_V1,
         file: "schemas/ice-config-response.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::IDENTITY_LINK_V1,
-        file: "schemas/identity-link.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RECEIPT_V1,
@@ -3084,10 +3080,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::KEYS_OPERATIONS_V1,
         file: "schemas/keys-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
-        file: "schemas/list-handles-for-subject-response.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MEDIA_METADATA_V1,
@@ -3334,6 +3326,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-state-snapshot.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_STREAM_LIST_V1,
+        file: "schemas/realm-read-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
         file: "schemas/recovery-authority.schema.json",
     },
@@ -3574,7 +3570,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.draft.v1:<agent_id>:<draft_id>",
+        key_pattern: "ak.agent.draft.v1:<agent_id_sha256_b64u43>:<draft_id_sha256_b64u43>",
         scope: "controller_private_state",
         storage: "encrypted_account_data",
         plaintext_schema: None,

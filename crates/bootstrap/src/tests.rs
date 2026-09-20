@@ -6,8 +6,8 @@ use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     ActorId, AuthorizationRef, DeviceId, Did, DidCoreId, DidUrl, Discoverability, EventKind,
-    EventRef, GenesisSalt, Hash, HistoryAccess, JoinRule, NonEmptyString, ProducerEventProof,
-    RealmId, ScopeRef, TrustDomainId, project_did_to_core_id, proof_kind,
+    GenesisSalt, Hash, HistoryAccess, JoinRule, NonEmptyString, ProducerEventProof, RealmId,
+    ScopeRef, SemanticRef, TrustDomainId, project_did_to_core_id, proof_kind,
 };
 
 use crate::{
@@ -63,7 +63,7 @@ fn self_principal_input() -> SelfPrincipalPcrCreateInput {
         principal_did: principal_did.clone(),
         genesis_salt: GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        did_inception_ref: EventRef::new(
+        did_inception_ref: SemanticRef::new(
             format!("sha256:{}", "c".repeat(64)),
             DID_INCEPTION_REF_ROLE,
         ),
@@ -105,7 +105,7 @@ fn self_principal_builder_emits_only_producer_content() {
         RealmId::from_event_id(&authored.event_id)
     );
     assert!(authored.producer_proof.is_none());
-    assert_eq!(authored.refs.len(), 1);
+    assert_eq!(authored.semantic_refs.len(), 1);
 
     let wire = serde_json::to_value(authored.event()).unwrap();
     let object = wire["payload"]["object"].as_object().unwrap();
@@ -216,7 +216,7 @@ fn agent_provision_intent_is_an_unordered_realm_event() {
     )
     .unwrap();
     assert_eq!(intent.kind, EventKind::AgentProvision);
-    assert!(intent.refs.is_empty());
+    assert!(intent.semantic_refs.is_empty());
     let wire = serde_json::to_value(&intent).unwrap();
     assert!(wire.get("previous_commit_ref").is_none());
     assert!(wire.get("stream_position").is_none());

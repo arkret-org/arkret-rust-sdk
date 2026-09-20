@@ -770,7 +770,7 @@ impl Default for ProtocolSchemaRegistry {
                     ("scope_ref", "object"),
                     ("actor_id", "object"),
                     ("created_at", "string"),
-                    ("refs", "array"),
+                    ("semantic_refs", "array"),
                     ("payload", "object"),
                     ("proofs", "array"),
                 ],

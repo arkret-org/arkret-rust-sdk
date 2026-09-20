@@ -31,7 +31,7 @@ fn author_event(
     executed_by: Option<arkret_wire::ActorId>,
     authorization_ref: Option<arkret_wire::AuthorizationRef>,
     created_at: chrono::DateTime<chrono::Utc>,
-    refs: Vec<arkret_wire::EventRef>,
+    semantic_refs: Vec<arkret_wire::SemanticRef>,
     payload: serde_json::Value,
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
     let serde_json::Value::Object(payload) = payload else {
@@ -57,7 +57,7 @@ fn author_event(
             applet_id: None,
             external_ref: None,
             created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
-            refs,
+            semantic_refs,
             payload: payload.into_iter().collect(),
             producer_proof: None,
         },

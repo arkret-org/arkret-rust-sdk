@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use arkret_identifiers::{EventId, RealmCommitId};
 use arkret_wire::{
-    CommitStreamHead, CommitStreamRef, CommittedEventResolveOutcome, CommittedEventResolveRequest,
-    Event, RealmCommit, StreamRow, StreamScanOutcome, StreamScanRequest,
+    CommitStreamHead, CommitStreamRef, CommittedEventFullView, CommittedEventView, Event,
+    RealmCommit, StreamScanOutcome, StreamScanRequest,
 };
 use thiserror::Error;
 
@@ -45,11 +45,6 @@ pub trait AuthorityCommitStore: Send + Sync {
     fn commit_for_event(&self, event_id: &EventId) -> Option<RealmCommit>;
 
     fn scan(&self, request: &StreamScanRequest) -> CommitLogResult<StreamScanOutcome>;
-
-    fn resolve_committed(
-        &self,
-        request: &CommittedEventResolveRequest,
-    ) -> CommitLogResult<CommittedEventResolveOutcome>;
 }
 
 #[derive(Default)]
@@ -165,7 +160,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
         let inner = self.inner.lock().expect("authority commit store poisoned");
         let Some(head_id) = inner.heads.get(&request.stream_ref) else {
             return Ok(StreamScanOutcome {
-                commits: Vec::new(),
+                committed_events: Vec::new(),
                 truncated: false,
             });
         };
@@ -176,14 +171,14 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
             .stream_position;
         if first_position > head_position {
             return Ok(StreamScanOutcome {
-                commits: Vec::new(),
+                committed_events: Vec::new(),
                 truncated: false,
             });
         }
         let end_exclusive = first_position
             .saturating_add(u64::from(request.limit))
             .min(head_position.saturating_add(1));
-        let mut commits = Vec::with_capacity((end_exclusive - first_position) as usize);
+        let mut committed_events = Vec::with_capacity((end_exclusive - first_position) as usize);
         for position in first_position..end_exclusive {
             let commit_id = inner
                 .by_stream_position
@@ -199,39 +194,15 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
                 .get(&commit.event_ref)
                 .expect("commit points to an existing event")
                 .clone();
-            commits.push(StreamRow { commit, event });
+            committed_events.push(CommittedEventView::Full(CommittedEventFullView {
+                commit,
+                event,
+            }));
         }
         Ok(StreamScanOutcome {
-            commits,
+            committed_events,
             truncated: end_exclusive <= head_position,
         })
-    }
-
-    fn resolve_committed(
-        &self,
-        request: &CommittedEventResolveRequest,
-    ) -> CommitLogResult<CommittedEventResolveOutcome> {
-        request
-            .validate()
-            .map_err(|error| CommitLogError::InvalidCommit(error.to_string()))?;
-        let inner = self.inner.lock().expect("authority commit store poisoned");
-        let mut items = Vec::with_capacity(request.refs.len());
-        for reference in &request.refs {
-            let Some(commit) = inner.commits.get(&reference.commit_id) else {
-                continue;
-            };
-            let Some(event) = inner.events.get(&commit.event_ref) else {
-                continue;
-            };
-            let item = StreamRow {
-                commit: commit.clone(),
-                event: event.clone(),
-            };
-            if reference.matches(&item) {
-                items.push(item);
-            }
-        }
-        Ok(CommittedEventResolveOutcome { items })
     }
 }
 
@@ -265,7 +236,7 @@ mod tests {
             applet_id: None,
             external_ref: None,
             created_at: Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 0).unwrap(),
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             payload: Default::default(),
             producer_proof: None,
         }

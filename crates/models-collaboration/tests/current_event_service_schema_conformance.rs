@@ -4,12 +4,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::event_query::{
-    EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventView,
+    CommittedEventView, EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody,
 };
-use arkret_models_collaboration::sync_frames::events_subscribe::EventsSubscribeFrame;
+use arkret_models_collaboration::sync_frames::committed_event_subscribe::CommittedEventSubscribeFrame;
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{AuthoritySubmitRequest, CommittedEventResolveRequest, StreamScanRequest};
+use arkret_wire::{AuthoritySubmitRequest, StreamScanRequest};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -89,21 +89,9 @@ fn delivery_status_dtos_match_the_published_closed_fragments() {
 
 #[test]
 fn resource_get_and_subscribe_stay_on_the_current_models() {
-    assert_schema_and_serde::<EventView>(
-        "service-operation-dtos.schema.json",
-        "#/$defs/EventView",
-        json!({
-            "event": {
-                "view_kind": "reference_locked_event_stub",
-                "event_id": "ak:event:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
-                "realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
-                "reason_code": "not_found_or_unauthorized",
-                "reducer_input": false
-            }
-        }),
-    );
-    assert_schema_and_serde::<EventsSubscribeFrame>(
-        "events-subscribe-frame.schema.json",
+    assert!(serde_json::from_value::<CommittedEventView>(json!({})).is_err());
+    assert_schema_and_serde::<CommittedEventSubscribeFrame>(
+        "committed-event-subscribe-frame.schema.json",
         "#",
         json!({"kind": "heartbeat"}),
     );
@@ -117,5 +105,4 @@ fn submit_and_peer_read_operations_use_the_current_authority_commit_types() {
 
     assert_closed_empty::<AuthoritySubmitRequest>();
     assert_closed_empty::<StreamScanRequest>();
-    assert_closed_empty::<CommittedEventResolveRequest>();
 }

@@ -1166,22 +1166,22 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitKind; 2] = [
 pub enum InitialSessionGrantOperation {
     #[serde(rename = "ak.self.account.read.describe.v1")]
     AccountReadDescribe,
-    #[serde(rename = "ak.self.events.read.scan.v1")]
-    EventsReadScan,
+    #[serde(rename = "ak.self.committed_event.read.scan.v1")]
+    CommittedEventReadScan,
 }
 
 impl InitialSessionGrantOperation {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountReadDescribe => ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1,
-            Self::EventsReadScan => ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+            Self::CommittedEventReadScan => ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
         }
     }
 }
 
 pub const STANDARD_INITIAL_SESSION_GRANT_OPERATIONS: [InitialSessionGrantOperation; 2] = [
     InitialSessionGrantOperation::AccountReadDescribe,
-    InitialSessionGrantOperation::EventsReadScan,
+    InitialSessionGrantOperation::CommittedEventReadScan,
 ];
 
 pub fn standard_initial_session_grant_scope() -> Vec<String> {
@@ -1197,7 +1197,7 @@ pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 12] = [
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
     ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+    ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
     ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,

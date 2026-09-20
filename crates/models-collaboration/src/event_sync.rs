@@ -7,9 +7,9 @@
 pub use arkret_wire::{
     AuthorityBundleRequest, AuthorityCommitStatus, AuthorityHandoffRequest,
     AuthorityRejectionStatus, AuthoritySubmitOutcome, AuthoritySubmitRequest, CommitStreamHead,
-    CommitStreamRef, CommittedEventRef, CommittedEventResolveOutcome, CommittedEventResolveRequest,
-    EventCommitSubmission, RealmAuthorityBundle, RealmAuthorityCurrentAssertion,
-    RealmAuthorityHandoff, RealmAuthorityTransition, RealmCommit, RealmCommitAuthorityRef,
-    RealmStateSnapshot, RetentionAndHistoryFloor, StreamHistoryFloor, StreamRow, StreamScanOutcome,
-    StreamScanRequest,
+    CommitStreamRef, CommittedEventFullView, CommittedEventRef, CommittedEventView,
+    CommittedEventWithheldView, EventCommitSubmission, EventDisclosure, EventDisclosureStatus,
+    RealmAuthorityBundle, RealmAuthorityCurrentAssertion, RealmAuthorityHandoff,
+    RealmAuthorityTransition, RealmCommit, RealmCommitAuthorityRef, RealmStateSnapshot,
+    RetentionAndHistoryFloor, StreamHistoryFloor, StreamScanOutcome, StreamScanRequest,
 };

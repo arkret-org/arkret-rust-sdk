@@ -211,8 +211,8 @@ mod tests {
 
     const INTERACTIVE_CHAT_MANDATORY: [&str; 3] = [
         "ak.self.events.command.submit.v1",
-        "ak.self.events.read.scan.v1",
-        "ak.self.events.stream.subscribe.v1",
+        "ak.self.committed_event.read.scan.v1",
+        "ak.self.committed_event.stream.subscribe.v1",
     ];
     const E2EE_MANDATORY: &str = "ak.self.keys.keypackages.upload.create.v1";
 
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn authoring_completion_expands_selected_atomic_floors() {
         let completed = complete_agent_runtime_scope([
-            "ak.self.events.read.scan.v1",
+            "ak.self.committed_event.read.scan.v1",
             "ak.self.keys.keypackages.command.consume.v1",
         ])
         .unwrap();
@@ -311,8 +311,8 @@ mod tests {
     #[test]
     fn partial_capability_scopes_reach_the_registered_migration_reasons() {
         let interactive_without_submit = [
-            "ak.self.events.stream.subscribe.v1",
-            "ak.self.events.read.scan.v1",
+            "ak.self.committed_event.stream.subscribe.v1",
+            "ak.self.committed_event.read.scan.v1",
         ];
         let deficiency = assess_agent_runtime_scopes(
             interactive_without_submit,
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn lower_layers_cannot_select_a_capability() {
         let provision = ["ak.self.authz.read.check.v1"];
-        let lower_layer_activation = ["ak.self.events.stream.subscribe.v1"];
+        let lower_layer_activation = ["ak.self.committed_event.stream.subscribe.v1"];
         assert!(
             assess_agent_runtime_scopes(provision, lower_layer_activation, lower_layer_activation,)
                 .unwrap()

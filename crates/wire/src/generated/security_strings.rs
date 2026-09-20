@@ -1,22 +1,22 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-18.1;
-//! sha256=e6f7f0fcd4d9a2b35bd20b1ce76556fb8eb5819cba9f93a01ea9ef05551f684a Input: registry/
-//! exporter-label-registry.json; version=2026-09-16.10;
-//! sha256=676cbb1dbfa467f97c46247cb79818affc3e236100fb54ee70498a0736b8a939 Input: registry/
-//! digest-suite-registry.json; version=2026-09-16.11;
-//! sha256=f020a1a9a227111af78b1c898215bcadcb8edc34dd7f3ee3e439e598617c9794 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-20.4;
+//! sha256=6eb5ec5d5174d2ab2de800a75d1d47564f0e23cf899785741d3f06c752394a8b Input: registry/
+//! exporter-label-registry.json; version=2026-09-19.1;
+//! sha256=30b6f19c7a78d8f53f222ceb33867fc2216db73c3f9113d03ab89235ddffe68d Input: registry/
+//! digest-suite-registry.json; version=2026-09-19.1;
+//! sha256=5beb1a9c98f49df7b091ef2b8798be8f22aa0206452de2e112d833dc4f6e152f Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-16.7;
 //! sha256=6a6ce15fa926d380ab5ee8b3ebf4d1cdc19e864afe985e6a6b0d4d7dab3bc43f Input: registry/
-//! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
-//! mls-extension-registry.json; version=2026-09-16.10;
-//! sha256=e037e0aa33fc7d84790ff752c2e4afc8fd7aa330d6c52082613f7e0ad7e55d39 Input: registry/
+//! mls-ciphersuite-registry.json; version=2026-09-19.1;
+//! sha256=537db5f0e28f156755dfe617a235812eb236e938e9e7d7739e22ab675a63a0ae Input: registry/
+//! mls-extension-registry.json; version=2026-09-19.1;
+//! sha256=b365def7af189e665ea8631f9ce218658cc5a08b1e0f9c4d634fbbc04736c544 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=46, exporter_labels=7, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=40, exporter_labels=7, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,13 +36,11 @@ pub enum ProofContextId {
     DeviceProjectionAttestationProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
-    DirectorySourceRefAccessProofV1,
     EventProofV1,
     ExtensionManifestProofV1,
     HandleClaimProofV1,
     HandleClaimRevocationV1,
     HandleClaimStatusV1,
-    IdentityCreationControlProofV1,
     IdentityReceiptProofV1,
     JoinGateProofV1,
     KeyBackupDeleteProofV1,
@@ -58,13 +56,9 @@ pub enum ProofContextId {
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
     PushRegistrationInstallationReceiptProofV1,
-    RealmJoinCandidateProofV1,
-    RealmStateSnapshotProofV1,
-    ReceiptProofV1,
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
     SessionGrantAcceptedDevicePossessionProofV1,
-    SessionGrantPairwiseEndpointPossessionProofV1,
     SignalProofV1,
     ThirdPartyInviteAcceptanceAttestationProofV1,
     ThirdPartyInviteProvisionRequestProofV1,
@@ -86,13 +80,11 @@ impl ProofContextId {
         Self::DeviceProjectionAttestationProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
-        Self::DirectorySourceRefAccessProofV1,
         Self::EventProofV1,
         Self::ExtensionManifestProofV1,
         Self::HandleClaimProofV1,
         Self::HandleClaimRevocationV1,
         Self::HandleClaimStatusV1,
-        Self::IdentityCreationControlProofV1,
         Self::IdentityReceiptProofV1,
         Self::JoinGateProofV1,
         Self::KeyBackupDeleteProofV1,
@@ -108,13 +100,9 @@ impl ProofContextId {
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
         Self::PushRegistrationInstallationReceiptProofV1,
-        Self::RealmJoinCandidateProofV1,
-        Self::RealmStateSnapshotProofV1,
-        Self::ReceiptProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
         Self::SessionGrantAcceptedDevicePossessionProofV1,
-        Self::SessionGrantPairwiseEndpointPossessionProofV1,
         Self::SignalProofV1,
         Self::ThirdPartyInviteAcceptanceAttestationProofV1,
         Self::ThirdPartyInviteProvisionRequestProofV1,
@@ -143,15 +131,11 @@ impl ProofContextId {
         "ak.did_webvh_witness_receipt_proof.v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
         "ak.directory_governance_request_proof.v1";
-    pub const DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1: &'static str =
-        "ak.directory_source_ref_access_proof.v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event_proof.v1";
     pub const EXTENSION_MANIFEST_PROOF_V1: &'static str = "ak.extension_manifest_proof.v1";
     pub const HANDLE_CLAIM_PROOF_V1: &'static str = "ak.handle_claim_proof.v1";
     pub const HANDLE_CLAIM_REVOCATION_V1: &'static str = "ak.handle_claim_revocation.v1";
     pub const HANDLE_CLAIM_STATUS_V1: &'static str = "ak.handle_claim_status.v1";
-    pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
-        "ak.identity_creation_control_proof.v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity_receipt_proof.v1";
     pub const JOIN_GATE_PROOF_V1: &'static str = "ak.join_gate_proof.v1";
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
@@ -178,17 +162,12 @@ impl ProofContextId {
         "ak.principal_resolution_projection_attestation_proof.v1";
     pub const PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1: &'static str =
         "ak.push_registration_installation_receipt_proof.v1";
-    pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm_join_candidate_proof.v1";
-    pub const REALM_STATE_SNAPSHOT_PROOF_V1: &'static str = "ak.realm_state_snapshot_proof.v1";
-    pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt_proof.v1";
     pub const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1: &'static str =
         "ak.registration_did_evidence_control_proof.v1";
     pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.service_registration_receipt_proof.v1";
     pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_accepted_device_possession_proof.v1";
-    pub const SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1: &'static str =
-        "ak.session_grant_pairwise_endpoint_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
     pub const THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1: &'static str =
         "ak.third_party_invite_acceptance_attestation_proof.v1";
@@ -219,13 +198,11 @@ impl ProofContextId {
             }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
-            Self::DirectorySourceRefAccessProofV1 => Self::DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1,
             Self::EventProofV1 => Self::EVENT_PROOF_V1,
             Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
             Self::HandleClaimProofV1 => Self::HANDLE_CLAIM_PROOF_V1,
             Self::HandleClaimRevocationV1 => Self::HANDLE_CLAIM_REVOCATION_V1,
             Self::HandleClaimStatusV1 => Self::HANDLE_CLAIM_STATUS_V1,
-            Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::JoinGateProofV1 => Self::JOIN_GATE_PROOF_V1,
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
@@ -249,18 +226,12 @@ impl ProofContextId {
             Self::PushRegistrationInstallationReceiptProofV1 => {
                 Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1
             }
-            Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
-            Self::RealmStateSnapshotProofV1 => Self::REALM_STATE_SNAPSHOT_PROOF_V1,
-            Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
             Self::RegistrationDidEvidenceControlProofV1 => {
                 Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1
             }
             Self::ServiceRegistrationReceiptProofV1 => Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
             Self::SessionGrantAcceptedDevicePossessionProofV1 => {
                 Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
-            }
-            Self::SessionGrantPairwiseEndpointPossessionProofV1 => {
-                Self::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1
             }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
             Self::ThirdPartyInviteAcceptanceAttestationProofV1 => {
@@ -302,15 +273,11 @@ impl ProofContextId {
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryGovernanceRequestProofV1)
             }
-            Self::DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1 => {
-                Some(Self::DirectorySourceRefAccessProofV1)
-            }
             Self::EVENT_PROOF_V1 => Some(Self::EventProofV1),
             Self::EXTENSION_MANIFEST_PROOF_V1 => Some(Self::ExtensionManifestProofV1),
             Self::HANDLE_CLAIM_PROOF_V1 => Some(Self::HandleClaimProofV1),
             Self::HANDLE_CLAIM_REVOCATION_V1 => Some(Self::HandleClaimRevocationV1),
             Self::HANDLE_CLAIM_STATUS_V1 => Some(Self::HandleClaimStatusV1),
-            Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::JOIN_GATE_PROOF_V1 => Some(Self::JoinGateProofV1),
             Self::KEY_BACKUP_DELETE_PROOF_V1 => Some(Self::KeyBackupDeleteProofV1),
@@ -342,9 +309,6 @@ impl ProofContextId {
             Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1 => {
                 Some(Self::PushRegistrationInstallationReceiptProofV1)
             }
-            Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
-            Self::REALM_STATE_SNAPSHOT_PROOF_V1 => Some(Self::RealmStateSnapshotProofV1),
-            Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
             Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1 => {
                 Some(Self::RegistrationDidEvidenceControlProofV1)
             }
@@ -353,9 +317,6 @@ impl ProofContextId {
             }
             Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
-            }
-            Self::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1 => {
-                Some(Self::SessionGrantPairwiseEndpointPossessionProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
             Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1 => {
@@ -374,9 +335,9 @@ impl ProofContextId {
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
-    AppletDeliveryAuthenticationRecordDigestV1,
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
+    ApprovalSignatureV1,
     ContactGlareUnconsumedSlotV1,
     ContactNoOutgoingSlotV1,
     ContactRequestAcceptanceCoreV1,
@@ -386,26 +347,26 @@ pub enum DomainSeparationId {
     DeviceAuthorizeAppletManagedPossessionProofV1,
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
-    DirectoryListHandlesForSubjectRequestProofV1,
-    DirectoryResolveAgentSelectorRequestProofV1,
-    DirectoryResolveHandleRequestProofV1,
-    DirectoryResolveOrganizationRequestProofV1,
-    DirectoryResolveTargetRequestProofV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryDevicePossessionV1,
     IdentityRecoveryPolicySignatureV1,
     IdentityRecoveryProofV1,
     IdentityRecoveryReceiptSignatureV1,
+    IdentityCreationControlProofV1,
     KeypackageClaimTerminalReceiptV1,
     KeypackageConsumeReceiptV1,
     MimiReporterAuthorityProofV1,
     MlsRecipientDurableReceiptV1,
-    PeerEventsCommandSubmitV1ServiceBindingV1,
+    MlsWelcomeDeliverySignatureV1,
     PeerContactControlReceiptV1,
     PeerContactMirrorReceiptV1,
     RealmOrganizationStatementV1,
-    RealmStateSnapshotAuthStateIssuerLocalV1,
+    RealmAuthorityCurrentAssertionSignatureV1,
+    RealmAuthorityHandoffNewAcceptanceSignatureV1,
+    RealmAuthorityHandoffOldSignatureV1,
+    RealmCommitSignatureV1,
+    RealmSnapshotSignatureV1,
     WebsocketAuthV1,
 }
 
@@ -413,9 +374,9 @@ impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
-        Self::AppletDeliveryAuthenticationRecordDigestV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
+        Self::ApprovalSignatureV1,
         Self::ContactGlareUnconsumedSlotV1,
         Self::ContactNoOutgoingSlotV1,
         Self::ContactRequestAcceptanceCoreV1,
@@ -425,38 +386,37 @@ impl DomainSeparationId {
         Self::DeviceAuthorizeAppletManagedPossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
-        Self::DirectoryListHandlesForSubjectRequestProofV1,
-        Self::DirectoryResolveAgentSelectorRequestProofV1,
-        Self::DirectoryResolveHandleRequestProofV1,
-        Self::DirectoryResolveOrganizationRequestProofV1,
-        Self::DirectoryResolveTargetRequestProofV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryDevicePossessionV1,
         Self::IdentityRecoveryPolicySignatureV1,
         Self::IdentityRecoveryProofV1,
         Self::IdentityRecoveryReceiptSignatureV1,
+        Self::IdentityCreationControlProofV1,
         Self::KeypackageClaimTerminalReceiptV1,
         Self::KeypackageConsumeReceiptV1,
         Self::MimiReporterAuthorityProofV1,
         Self::MlsRecipientDurableReceiptV1,
-        Self::PeerEventsCommandSubmitV1ServiceBindingV1,
+        Self::MlsWelcomeDeliverySignatureV1,
         Self::PeerContactControlReceiptV1,
         Self::PeerContactMirrorReceiptV1,
         Self::RealmOrganizationStatementV1,
-        Self::RealmStateSnapshotAuthStateIssuerLocalV1,
+        Self::RealmAuthorityCurrentAssertionSignatureV1,
+        Self::RealmAuthorityHandoffNewAcceptanceSignatureV1,
+        Self::RealmAuthorityHandoffOldSignatureV1,
+        Self::RealmCommitSignatureV1,
+        Self::RealmSnapshotSignatureV1,
         Self::WebsocketAuthV1,
     ];
 
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.agent_authority_state_evidence.v1";
-    pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
-        "ak.applet.delivery_authentication_record_digest.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
         "ak.applet_managed_actor_authoring_request_proof.v1";
     pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
         "ak.applet_managed_actor_bundle_proof.v1";
+    pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.approval.signature.v1";
     pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
         "ak.contact.glare_unconsumed_slot.v1";
     pub const CONTACT_NO_OUTGOING_SLOT_V1: &'static str = "ak.contact.no_outgoing_slot.v1";
@@ -473,16 +433,6 @@ impl DomainSeparationId {
         "ak.device_authorize_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_recovery_possession_proof.v1";
-    pub const DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_list_handles_for_subject_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_agent_selector_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_handle_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_organization_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_target_request_proof.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
     pub const IDENTITY_RECOVERY_DEVICE_POSSESSION_V1: &'static str =
@@ -492,6 +442,8 @@ impl DomainSeparationId {
     pub const IDENTITY_RECOVERY_PROOF_V1: &'static str = "ak.identity.recovery_proof.v1";
     pub const IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_receipt.signature.v1";
+    pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
+        "ak.identity_creation_control_proof.v1";
     pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
         "ak.keypackage.claim_terminal_receipt.v1";
     pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume_receipt.v1";
@@ -499,26 +451,30 @@ impl DomainSeparationId {
         "ak.mimi_reporter_authority_proof.v1";
     pub const MLS_RECIPIENT_DURABLE_RECEIPT_V1: &'static str =
         "ak.mls.recipient_durable_receipt.v1";
-    pub const PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1: &'static str =
-        "ak.peer.events.command.submit.v1.service_binding.v1";
+    pub const MLS_WELCOME_DELIVERY_SIGNATURE_V1: &'static str =
+        "ak.mls_welcome_delivery_signature.v1";
     pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer_contact.control_receipt.v1";
     pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer_contact.mirror_receipt.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
-    pub const REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
-        "ak.realm_state_snapshot.auth_state.issuer_local.v1";
+    pub const REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1: &'static str =
+        "ak.realm_authority_current_assertion_signature.v1";
+    pub const REALM_AUTHORITY_HANDOFF_NEW_ACCEPTANCE_SIGNATURE_V1: &'static str =
+        "ak.realm_authority_handoff_new_acceptance_signature.v1";
+    pub const REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1: &'static str =
+        "ak.realm_authority_handoff_old_signature.v1";
+    pub const REALM_COMMIT_SIGNATURE_V1: &'static str = "ak.realm_commit_signature.v1";
+    pub const REALM_SNAPSHOT_SIGNATURE_V1: &'static str = "ak.realm_snapshot_signature.v1";
     pub const WEBSOCKET_AUTH_V1: &'static str = "ak.websocket_auth.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
-            Self::AppletDeliveryAuthenticationRecordDigestV1 => {
-                Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
-            }
             Self::AppletManagedActorAuthoringRequestProofV1 => {
                 Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
             }
             Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
+            Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
             Self::ContactGlareUnconsumedSlotV1 => Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1,
             Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
             Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
@@ -534,21 +490,6 @@ impl DomainSeparationId {
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
             }
-            Self::DirectoryListHandlesForSubjectRequestProofV1 => {
-                Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveAgentSelectorRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveHandleRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveOrganizationRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveTargetRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1
-            }
             Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryDevicePossessionV1 => {
@@ -559,19 +500,26 @@ impl DomainSeparationId {
             Self::IdentityRecoveryReceiptSignatureV1 => {
                 Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
             }
+            Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
             Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
             Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
             Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
             Self::MlsRecipientDurableReceiptV1 => Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
-            Self::PeerEventsCommandSubmitV1ServiceBindingV1 => {
-                Self::PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1
-            }
+            Self::MlsWelcomeDeliverySignatureV1 => Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1,
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
             Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
-            Self::RealmStateSnapshotAuthStateIssuerLocalV1 => {
-                Self::REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1
+            Self::RealmAuthorityCurrentAssertionSignatureV1 => {
+                Self::REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1
             }
+            Self::RealmAuthorityHandoffNewAcceptanceSignatureV1 => {
+                Self::REALM_AUTHORITY_HANDOFF_NEW_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmAuthorityHandoffOldSignatureV1 => {
+                Self::REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1
+            }
+            Self::RealmCommitSignatureV1 => Self::REALM_COMMIT_SIGNATURE_V1,
+            Self::RealmSnapshotSignatureV1 => Self::REALM_SNAPSHOT_SIGNATURE_V1,
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
         }
     }
@@ -580,15 +528,13 @@ impl DomainSeparationId {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
-            Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
-                Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
-            }
             Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
                 Some(Self::AppletManagedActorAuthoringRequestProofV1)
             }
             Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
                 Some(Self::AppletManagedActorBundleProofV1)
             }
+            Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
             Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1 => Some(Self::ContactGlareUnconsumedSlotV1),
             Self::CONTACT_NO_OUTGOING_SLOT_V1 => Some(Self::ContactNoOutgoingSlotV1),
             Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1 => Some(Self::ContactRequestAcceptanceCoreV1),
@@ -608,21 +554,6 @@ impl DomainSeparationId {
             Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
             }
-            Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryListHandlesForSubjectRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveAgentSelectorRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveHandleRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveOrganizationRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveTargetRequestProofV1)
-            }
             Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
             Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1 => {
@@ -635,21 +566,28 @@ impl DomainSeparationId {
             Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryReceiptSignatureV1)
             }
+            Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
             Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1 => {
                 Some(Self::KeypackageClaimTerminalReceiptV1)
             }
             Self::KEYPACKAGE_CONSUME_RECEIPT_V1 => Some(Self::KeypackageConsumeReceiptV1),
             Self::MIMI_REPORTER_AUTHORITY_PROOF_V1 => Some(Self::MimiReporterAuthorityProofV1),
             Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1 => Some(Self::MlsRecipientDurableReceiptV1),
-            Self::PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1 => {
-                Some(Self::PeerEventsCommandSubmitV1ServiceBindingV1)
-            }
+            Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1 => Some(Self::MlsWelcomeDeliverySignatureV1),
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
             Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
-            Self::REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => {
-                Some(Self::RealmStateSnapshotAuthStateIssuerLocalV1)
+            Self::REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1 => {
+                Some(Self::RealmAuthorityCurrentAssertionSignatureV1)
             }
+            Self::REALM_AUTHORITY_HANDOFF_NEW_ACCEPTANCE_SIGNATURE_V1 => {
+                Some(Self::RealmAuthorityHandoffNewAcceptanceSignatureV1)
+            }
+            Self::REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1 => {
+                Some(Self::RealmAuthorityHandoffOldSignatureV1)
+            }
+            Self::REALM_COMMIT_SIGNATURE_V1 => Some(Self::RealmCommitSignatureV1),
+            Self::REALM_SNAPSHOT_SIGNATURE_V1 => Some(Self::RealmSnapshotSignatureV1),
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),
             _ => None,
         }
@@ -1047,34 +985,12 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "operation_id",
-            "resource_id",
             "verification_method",
             "created_at",
             "proof_purpose",
             "audience_id",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectorySourceRefAccessProofV1,
-        context: "ak.directory_source_ref_access_proof.v1",
-        object_family: "directory_source_ref_access",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "source_id",
-            "directory_id",
-            "realm_id",
-            "discovery_event_id",
-            "source_refs",
-            "as_of",
-            "expires_at",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectorySourceRefAccess",
     },
     ProofContextDescriptor {
         id: ProofContextId::EventProofV1,
@@ -1154,35 +1070,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "proof_purpose",
         ],
         schema_ref: "schemas/handle-claim.schema.json#/$defs/handle_claim_status_view",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::IdentityCreationControlProofV1,
-        context: "ak.identity_creation_control_proof.v1",
-        object_family: "identity_creation_control",
-        consumer_operation: None,
-        binding_fields: &[
-            "proof_kind",
-            "challenge_id",
-            "challenge",
-            "purpose",
-            "principal_id",
-            "registration_anchor_digest",
-            "pcr_realm_id",
-            "realm_create_payload_digest",
-            "founding_authorize_payload_digest",
-            "initial_session_request_digest",
-            "genesis_unit_kinds",
-            "identity_creation_lease_id",
-            "lease_fence",
-            "dpop_jkt",
-            "audience_id",
-            "origin",
-            "trust_domain",
-            "issued_at",
-            "expires_at",
-            "verification_key_multibase",
-        ],
-        schema_ref: "schemas/account-operations.schema.json#/$defs/identity_creation_control_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::IdentityReceiptProofV1,
@@ -1445,53 +1332,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/push-operations.schema.json#/$defs/push_registration_installation_receipt",
     },
     ProofContextDescriptor {
-        id: ProofContextId::RealmJoinCandidateProofV1,
-        context: "ak.realm_join_candidate_proof.v1",
-        object_family: "realm_join_candidate",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "realm_id",
-            "service_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/realm-join-candidate.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::RealmStateSnapshotProofV1,
-        context: "ak.realm_state_snapshot_proof.v1",
-        object_family: "realm_state_snapshot",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "realm_state_snapshot_id",
-            "realm_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/realm-state-snapshot.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ReceiptProofV1,
-        context: "ak.receipt_proof.v1",
-        object_family: "event_batch_receipt",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/event-batch-receipt.schema.json",
-    },
-    ProofContextDescriptor {
         id: ProofContextId::RegistrationDidEvidenceControlProofV1,
         context: "ak.registration_did_evidence_control_proof.v1",
         object_family: "registration_did_evidence_control",
@@ -1546,25 +1386,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AcceptedDevicePossessionProof",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::SessionGrantPairwiseEndpointPossessionProofV1,
-        context: "ak.session_grant_pairwise_endpoint_possession_proof.v1",
-        object_family: "session_grant_pairwise_endpoint_possession",
-        consumer_operation: None,
-        binding_fields: &[
-            "request_id",
-            "account_id",
-            "realm_id",
-            "actor_id",
-            "audience_id",
-            "holder_jkt",
-            "session_intent_digest",
-            "issued_at",
-            "expires_at",
-            "verification_method",
-        ],
-        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof",
     },
     ProofContextDescriptor {
         id: ProofContextId::SignalProofV1,
@@ -1719,7 +1540,7 @@ pub const DIGEST_SUITES: &[AlgorithmSuiteDescriptor] = &[
     AlgorithmSuiteDescriptor {
         canonical_id: "sha256",
         status: "active",
-        role: "v1_default_must",
+        role: "v1_content_address_must",
         profile_gate: None,
     },
 ];

@@ -389,7 +389,7 @@ impl CarrierFixture {
             applet_id: None,
             external_ref: None,
             created_at: self.source.signature.created_at,
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             payload: serde_json::from_value(value).unwrap(),
             producer_proof: None,
         };

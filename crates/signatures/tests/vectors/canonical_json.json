@@ -50,11 +50,11 @@
         "payload": {
           "text": "hi"
         },
-        "refs": [],
+        "semantic_refs": [],
         "space_id": "ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN"
       },
-      "canonical_bytes": "{\"actor_id\":\"ak:did_core:web:alice.example\",\"created_at\":\"2026-05-19T00:00:00.000Z\",\"event_id\":\"ak:event:Ad0MolIiDydrY3uC5MFmNn6gRHYt05bqcaly_BmaNeer\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"},\"refs\":[],\"space_id\":\"ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN\"}",
-      "payload_digest": "sha256:243d165f436120b7aef91c2edb3ce6d5dd1fbd1b45a179cd87298b4bbeef8f47"
+      "canonical_bytes": "{\"actor_id\":\"ak:did_core:web:alice.example\",\"created_at\":\"2026-05-19T00:00:00.000Z\",\"event_id\":\"ak:event:Ad0MolIiDydrY3uC5MFmNn6gRHYt05bqcaly_BmaNeer\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"},\"semantic_refs\":[],\"space_id\":\"ak:space:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN\"}",
+      "payload_digest": "sha256:a3cac63b12013349479a45cf52a8a89d53cb85244252abf31b18c264d4d80010"
     }
   ]
 }

@@ -377,7 +377,7 @@ impl DevicePairingStatusOutcome {
             || authorized != self.authorized_event_ref.is_some()
         {
             return Err(WireError::Protocol(
-                "authorized device pairing status requires device and committed Event refs".into(),
+                "authorized device pairing status requires device and committed Event semantic refs".into(),
             ));
         }
         Ok(())

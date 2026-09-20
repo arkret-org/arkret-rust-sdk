@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, AppletId, AuthoredEvent, AuthorizationRef, EventKind, EventRef, ExtensionManifest,
-    RegistryContentRef, ScopeRef,
+    ActorId, AppletId, AuthoredEvent, AuthorizationRef, EventKind, ExtensionManifest,
+    RegistryContentRef, ScopeRef, SemanticRef,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -18,7 +18,7 @@ pub struct TypedEventDraft<K: EventSpec> {
     scope_ref: ScopeRef,
     actor_id: ActorId,
     payload: K::Payload,
-    refs: Vec<EventRef>,
+    semantic_refs: Vec<SemanticRef>,
     executed_by: Option<ActorId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
@@ -35,7 +35,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
             scope_ref,
             actor_id,
             payload,
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -44,13 +44,13 @@ impl<K: EventSpec> TypedEventDraft<K> {
         })
     }
 
-    pub fn with_refs(mut self, refs: Vec<EventRef>) -> Self {
-        self.refs = refs;
+    pub fn with_semantic_refs(mut self, semantic_refs: Vec<SemanticRef>) -> Self {
+        self.semantic_refs = semantic_refs;
         self
     }
 
-    pub fn with_ref(mut self, event_ref: EventRef) -> Self {
-        self.refs.push(event_ref);
+    pub fn with_semantic_ref(mut self, event_ref: SemanticRef) -> Self {
+        self.semantic_refs.push(event_ref);
         self
     }
 
@@ -91,7 +91,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
             created_at,
             payload.into_iter().collect(),
         )
-        .with_refs(self.refs)
+        .with_semantic_refs(self.semantic_refs)
         .with_optional_executed_by(self.executed_by)
         .with_optional_authorization_ref(self.authorization_ref)
         .with_optional_applet_id(self.applet_id)

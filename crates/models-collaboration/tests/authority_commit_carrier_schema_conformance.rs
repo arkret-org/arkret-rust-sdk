@@ -4,7 +4,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::authority_commit::{
-    DirectConversationFoundingAcceptanceReceipt,
     DirectConversationFoundingDependencyMissingProblem, PeerAuthoritySubmitOutcome,
     PeerAuthoritySubmitRequest, SelfAuthoritySubmitRequest,
 };
@@ -65,8 +64,8 @@ fn approved_event_submission() -> Value {
 fn event_submission_sidecar_and_both_endpoint_unions_reuse_one_shape() {
     let submission = approved_event_submission();
     assert_schema_and_serde::<EventCommitSubmission>(
-        "service-operation-dtos.schema.json",
-        "#/$defs/EventCommitSubmission",
+        "authority-commit-operations.schema.json",
+        "#/$defs/committed_event_submission/properties/event_submission",
         submission.clone(),
     );
     assert_schema_and_serde::<SelfAuthoritySubmitRequest>(
@@ -85,38 +84,7 @@ fn event_submission_sidecar_and_both_endpoint_unions_reuse_one_shape() {
 }
 
 #[test]
-fn direct_conversation_receipt_and_dependency_problem_are_closed() {
-    let receipt = json!({
-        "pair_key": format!("sha256:{}", "1".repeat(64)),
-        "founder_id": {
-            "kind": "account",
-            "account_id": {
-                "principal_id": "ak:did_core:webvh:z6mkfixture",
-                "station_id": "ak:did_core:webvh:z6mkfixturestationexample"
-            }
-        },
-        "realm_id": "ak:realm:ATh7OWLLpUdTVYsKdp6rkClScUpjYJlF1Y3byjeyHS8J",
-        "main_strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
-        "founding_unit_digest": format!("sha256:{}", "2".repeat(64)),
-        "authorization_core": {
-            "kind": "controller_agent",
-            "agent_provision_ref": "ak:event:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB",
-            "controller_binding_digest": format!("sha256:{}", "3".repeat(64))
-        },
-        "issuer_id": "ak:did_core:web:station.example",
-        "accepted_at": "2026-09-20T00:00:00.000Z",
-        "proof": {
-            "verification_method": "did:web:station.example#authority",
-            "created_at": "2026-09-20T00:00:00.000Z",
-            "jws": "eyJhbGciOiJFZDI1NTE5In0..c2ln"
-        }
-    });
-    assert_schema_and_serde::<DirectConversationFoundingAcceptanceReceipt>(
-        "direct-conversation-operations.schema.json",
-        "#/$defs/direct_conversation_founding_acceptance_receipt",
-        receipt,
-    );
-
+fn direct_conversation_dependency_problem_is_closed() {
     let problem = json!({
         "type": "https://arkret.org/problems/dependency_missing",
         "title": "Dependency missing",

@@ -23,7 +23,7 @@ reproduces, so a *valid* signature verifies as invalid:
 So the guard does not look for "a wrong preimage" (undecidable in text); it
 looks for the *act of building one by hand*: deleting the Event-only `event_id`
 member from a JSON map. Removing `proofs` alone stays allowed -- many non-Event
-signed objects (`EventBatchReceipt`, `PrincipalLocator`, DID documents) legally
+signed objects (`PrincipalLocator`, DID documents) legally
 strip their own `proofs` before signing, and those objects have no `event_id` to drop.
 
 Runs over any sibling repository via `--root`, because the rule is cross-repo

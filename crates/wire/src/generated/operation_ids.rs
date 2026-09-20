@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-20.4; sha256=71269d01d853cb607e38e2d71d9630db47e1e5b4f38ed021f8adb738eba6e94b
-//! Entries: registered=225
+//! Input: registry/operation-registry.json; version=2026-09-20.11;
+//! sha256=c093a1f819cdd57860a7b85ad7ccc730556d0423082a14317fbaecd0c1cc9fdd Entries: registered=207
 
 use serde::{Deserialize, Serialize};
 
@@ -24,39 +24,24 @@ pub enum ServiceOperationId {
     FindDirectoryCommandAnnounceV1,
     FindDirectoryCommandWithdrawV1,
     FindDirectoryReadDescribeV1,
-    FindDirectoryReadListHandlesForSubjectV1,
-    FindDirectoryReadPrivateContactDiscoveryV1,
-    FindDirectoryReadResolveAgentSelectorV1,
-    FindDirectoryReadResolveHandleV1,
-    FindDirectoryReadResolveOrganizationV1,
     FindDirectoryReadResolveRealmV1,
-    FindDirectoryReadResolveTargetV1,
-    FindDirectoryReadSearchActorsV1,
-    FindDirectoryReadSearchOrganizationsV1,
     FindDirectoryReadSearchRealmsV1,
-    FindDirectoryReadSearchUsersV1,
     GateAccountCommandAbandonIdentityCreationV1,
     GateAccountCommandFinalizeDevicePairingV1,
-    GateAccountCommandIntrospectSessionGrantV1,
-    GateAccountCommandIssueControllerGateAttestationV1,
     GateAccountCommandIssueDidBindingChallengeV1,
     GateAccountCommandIssueIdentityBindingChallengeV1,
     GateAccountCommandIssueRecoveryCompletionGrantV1,
     GateAccountCommandIssueSessionGrantV1,
     GateAccountCommandLogoutV1,
-    GateAccountCommandLogoutAuthSessionV1,
     GateAccountCommandPairAgentKeyV1,
     GateAccountCommandPairDeviceV1,
     GateAccountCommandRefreshSessionGrantV1,
     GateAccountCommandRegisterV1,
     GateAccountCommandRequestErasureV1,
     GateAccountCommandRevokeSessionV1,
-    GateAccountCommandStageDevicePairingV1,
     GateAccountExchangeCreateHandoffV1,
     GateAccountReadClaimDevicePairingCodeV1,
-    GateAccountReadDevicePairingStatusV1,
     GateAccountReadOnboardingV1,
-    GateAccountReadResolveDevicePairingV1,
     OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
     OpenAgentPairingReadResolveV1,
     OpenAgentPairingReadRuntimeKeyRequestStatusV1,
@@ -83,19 +68,16 @@ pub enum ServiceOperationId {
     OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
+    PeerCommittedEventReadScanV1,
     PeerContactsCommandSubmitV1,
-    PeerDeviceRevocationsCommandCheckV1,
     PeerErasureReceiptCommandSubmitV1,
     PeerErasureReceiptResourceGetV1,
     PeerEventsCommandSubmitV1,
-    PeerEventsReadResolveCommittedV1,
-    PeerEventsReadScanV1,
     PeerInvitesCommandSubmitV1,
     PeerKeysKeypackagesCommandClaimV1,
     PeerKeysKeypackagesReadClaimV1,
     PeerKeysReadLookupV1,
     PeerMlsReadGroupStateMaterialV1,
-    PeerPrincipalGenesisCommandSubmitV1,
     PeerRealmAuthorityCommandHandoffV1,
     PeerRealmJoinReadApplicationStatusV1,
     PeerRealmJoinReadBootstrapV1,
@@ -161,6 +143,9 @@ pub enum ServiceOperationId {
     SelfCircleMemberResourceDeleteV1,
     SelfCircleReadListV1,
     SelfCircleResourceGetV1,
+    SelfCommittedEventReadScanV1,
+    SelfCommittedEventResourceGetV1,
+    SelfCommittedEventStreamSubscribeV1,
     SelfConsentCommandGrantV1,
     SelfConsentCommandRequestV1,
     SelfConsentCommandRevokeV1,
@@ -180,9 +165,6 @@ pub enum ServiceOperationId {
     SelfDirectConversationReadResolveV1,
     SelfEventsCommandSubmitV1,
     SelfEventsReadDeliveryStatusV1,
-    SelfEventsReadScanV1,
-    SelfEventsResourceGetV1,
-    SelfEventsStreamSubscribeV1,
     SelfIdentityReadResolutionAuditV1,
     SelfInviteLocatorCommandIssueV1,
     SelfInviteLocatorCommandRevokeV1,
@@ -252,39 +234,24 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_REALM_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ACTORS_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS_V1,
-    ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT_V1,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_PAIR_DEVICE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REFRESH_SESSION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1,
-    ServiceOperationId::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING_V1,
-    ServiceOperationId::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RESOLVE_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS_V1,
@@ -311,19 +278,16 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+    ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
-    ServiceOperationId::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
     ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT_V1,
-    ServiceOperationId::PEER_EVENTS_READ_RESOLVE_COMMITTED_V1,
-    ServiceOperationId::PEER_EVENTS_READ_SCAN_V1,
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
     ServiceOperationId::PEER_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
-    ServiceOperationId::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
@@ -389,6 +353,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_CIRCLE_READ_LIST_V1,
     ServiceOperationId::SELF_CIRCLE_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
+    ServiceOperationId::SELF_COMMITTED_EVENT_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_GRANT_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_REQUEST_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE_V1,
@@ -408,9 +375,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE_V1,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_EVENTS_READ_DELIVERY_STATUS_V1,
-    ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
-    ServiceOperationId::SELF_EVENTS_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
     ServiceOperationId::SELF_IDENTITY_READ_RESOLUTION_AUDIT_V1,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ISSUE_V1,
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_REVOKE_V1,
@@ -522,39 +486,24 @@ impl ServiceOperationId {
         Self::FindDirectoryCommandAnnounceV1,
         Self::FindDirectoryCommandWithdrawV1,
         Self::FindDirectoryReadDescribeV1,
-        Self::FindDirectoryReadListHandlesForSubjectV1,
-        Self::FindDirectoryReadPrivateContactDiscoveryV1,
-        Self::FindDirectoryReadResolveAgentSelectorV1,
-        Self::FindDirectoryReadResolveHandleV1,
-        Self::FindDirectoryReadResolveOrganizationV1,
         Self::FindDirectoryReadResolveRealmV1,
-        Self::FindDirectoryReadResolveTargetV1,
-        Self::FindDirectoryReadSearchActorsV1,
-        Self::FindDirectoryReadSearchOrganizationsV1,
         Self::FindDirectoryReadSearchRealmsV1,
-        Self::FindDirectoryReadSearchUsersV1,
         Self::GateAccountCommandAbandonIdentityCreationV1,
         Self::GateAccountCommandFinalizeDevicePairingV1,
-        Self::GateAccountCommandIntrospectSessionGrantV1,
-        Self::GateAccountCommandIssueControllerGateAttestationV1,
         Self::GateAccountCommandIssueDidBindingChallengeV1,
         Self::GateAccountCommandIssueIdentityBindingChallengeV1,
         Self::GateAccountCommandIssueRecoveryCompletionGrantV1,
         Self::GateAccountCommandIssueSessionGrantV1,
         Self::GateAccountCommandLogoutV1,
-        Self::GateAccountCommandLogoutAuthSessionV1,
         Self::GateAccountCommandPairAgentKeyV1,
         Self::GateAccountCommandPairDeviceV1,
         Self::GateAccountCommandRefreshSessionGrantV1,
         Self::GateAccountCommandRegisterV1,
         Self::GateAccountCommandRequestErasureV1,
         Self::GateAccountCommandRevokeSessionV1,
-        Self::GateAccountCommandStageDevicePairingV1,
         Self::GateAccountExchangeCreateHandoffV1,
         Self::GateAccountReadClaimDevicePairingCodeV1,
-        Self::GateAccountReadDevicePairingStatusV1,
         Self::GateAccountReadOnboardingV1,
-        Self::GateAccountReadResolveDevicePairingV1,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
         Self::OpenAgentPairingReadResolveV1,
         Self::OpenAgentPairingReadRuntimeKeyRequestStatusV1,
@@ -581,19 +530,16 @@ impl ServiceOperationId {
         Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
+        Self::PeerCommittedEventReadScanV1,
         Self::PeerContactsCommandSubmitV1,
-        Self::PeerDeviceRevocationsCommandCheckV1,
         Self::PeerErasureReceiptCommandSubmitV1,
         Self::PeerErasureReceiptResourceGetV1,
         Self::PeerEventsCommandSubmitV1,
-        Self::PeerEventsReadResolveCommittedV1,
-        Self::PeerEventsReadScanV1,
         Self::PeerInvitesCommandSubmitV1,
         Self::PeerKeysKeypackagesCommandClaimV1,
         Self::PeerKeysKeypackagesReadClaimV1,
         Self::PeerKeysReadLookupV1,
         Self::PeerMlsReadGroupStateMaterialV1,
-        Self::PeerPrincipalGenesisCommandSubmitV1,
         Self::PeerRealmAuthorityCommandHandoffV1,
         Self::PeerRealmJoinReadApplicationStatusV1,
         Self::PeerRealmJoinReadBootstrapV1,
@@ -659,6 +605,9 @@ impl ServiceOperationId {
         Self::SelfCircleMemberResourceDeleteV1,
         Self::SelfCircleReadListV1,
         Self::SelfCircleResourceGetV1,
+        Self::SelfCommittedEventReadScanV1,
+        Self::SelfCommittedEventResourceGetV1,
+        Self::SelfCommittedEventStreamSubscribeV1,
         Self::SelfConsentCommandGrantV1,
         Self::SelfConsentCommandRequestV1,
         Self::SelfConsentCommandRevokeV1,
@@ -678,9 +627,6 @@ impl ServiceOperationId {
         Self::SelfDirectConversationReadResolveV1,
         Self::SelfEventsCommandSubmitV1,
         Self::SelfEventsReadDeliveryStatusV1,
-        Self::SelfEventsReadScanV1,
-        Self::SelfEventsResourceGetV1,
-        Self::SelfEventsStreamSubscribeV1,
         Self::SelfIdentityReadResolutionAuditV1,
         Self::SelfInviteLocatorCommandIssueV1,
         Self::SelfInviteLocatorCommandRevokeV1,
@@ -761,36 +707,14 @@ impl ServiceOperationId {
     pub const FIND_DIRECTORY_COMMAND_WITHDRAW_V1: &'static str =
         "ak.find.directory.command.withdraw.v1";
     pub const FIND_DIRECTORY_READ_DESCRIBE_V1: &'static str = "ak.find.directory.read.describe.v1";
-    pub const FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1: &'static str =
-        "ak.find.directory.read.list_handles_for_subject.v1";
-    pub const FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY_V1: &'static str =
-        "ak.find.directory.read.private_contact_discovery.v1";
-    pub const FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1: &'static str =
-        "ak.find.directory.read.resolve_agent_selector.v1";
-    pub const FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1: &'static str =
-        "ak.find.directory.read.resolve_handle.v1";
-    pub const FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1: &'static str =
-        "ak.find.directory.read.resolve_organization.v1";
     pub const FIND_DIRECTORY_READ_RESOLVE_REALM_V1: &'static str =
         "ak.find.directory.read.resolve_realm.v1";
-    pub const FIND_DIRECTORY_READ_RESOLVE_TARGET_V1: &'static str =
-        "ak.find.directory.read.resolve_target.v1";
-    pub const FIND_DIRECTORY_READ_SEARCH_ACTORS_V1: &'static str =
-        "ak.find.directory.read.search_actors.v1";
-    pub const FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS_V1: &'static str =
-        "ak.find.directory.read.search_organizations.v1";
     pub const FIND_DIRECTORY_READ_SEARCH_REALMS_V1: &'static str =
         "ak.find.directory.read.search_realms.v1";
-    pub const FIND_DIRECTORY_READ_SEARCH_USERS_V1: &'static str =
-        "ak.find.directory.read.search_users.v1";
     pub const GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1: &'static str =
         "ak.gate.account.command.abandon_identity_creation.v1";
     pub const GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1: &'static str =
         "ak.gate.account.command.finalize_device_pairing.v1";
-    pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1: &'static str =
-        "ak.gate.account.command.introspect_session_grant.v1";
-    pub const GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1: &'static str =
-        "ak.gate.account.command.issue_controller_gate_attestation.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1: &'static str =
         "ak.gate.account.command.issue_did_binding_challenge.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1: &'static str =
@@ -800,8 +724,6 @@ impl ServiceOperationId {
     pub const GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT_V1: &'static str =
         "ak.gate.account.command.issue_session_grant.v1";
     pub const GATE_ACCOUNT_COMMAND_LOGOUT_V1: &'static str = "ak.gate.account.command.logout.v1";
-    pub const GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION_V1: &'static str =
-        "ak.gate.account.command.logout_auth_session.v1";
     pub const GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1: &'static str =
         "ak.gate.account.command.pair_agent_key.v1";
     pub const GATE_ACCOUNT_COMMAND_PAIR_DEVICE_V1: &'static str =
@@ -814,17 +736,11 @@ impl ServiceOperationId {
         "ak.gate.account.command.request_erasure.v1";
     pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1: &'static str =
         "ak.gate.account.command.revoke_session.v1";
-    pub const GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1: &'static str =
-        "ak.gate.account.command.stage_device_pairing.v1";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1: &'static str =
         "ak.gate.account.exchange.create_handoff.v1";
     pub const GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1: &'static str =
         "ak.gate.account.read.claim_device_pairing_code.v1";
-    pub const GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1: &'static str =
-        "ak.gate.account.read.device_pairing_status.v1";
     pub const GATE_ACCOUNT_READ_ONBOARDING_V1: &'static str = "ak.gate.account.read.onboarding.v1";
-    pub const GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1: &'static str =
-        "ak.gate.account.read.resolve_device_pairing.v1";
     pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1: &'static str =
         "ak.open.agent_pairing.command.submit_runtime_key_request.v1";
     pub const OPEN_AGENT_PAIRING_READ_RESOLVE_V1: &'static str =
@@ -874,17 +790,14 @@ impl ServiceOperationId {
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
         "ak.peer.account_status.read.resolve.v1";
+    pub const PEER_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
+        "ak.peer.committed_event.read.scan.v1";
     pub const PEER_CONTACTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.contacts.command.submit.v1";
-    pub const PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1: &'static str =
-        "ak.peer.device_revocations.command.check.v1";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.erasure_receipt.command.submit.v1";
     pub const PEER_ERASURE_RECEIPT_RESOURCE_GET_V1: &'static str =
         "ak.peer.erasure_receipt.resource.get.v1";
     pub const PEER_EVENTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.events.command.submit.v1";
-    pub const PEER_EVENTS_READ_RESOLVE_COMMITTED_V1: &'static str =
-        "ak.peer.events.read.resolve_committed.v1";
-    pub const PEER_EVENTS_READ_SCAN_V1: &'static str = "ak.peer.events.read.scan.v1";
     pub const PEER_INVITES_COMMAND_SUBMIT_V1: &'static str = "ak.peer.invites.command.submit.v1";
     pub const PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1: &'static str =
         "ak.peer.keys.keypackages.command.claim.v1";
@@ -893,8 +806,6 @@ impl ServiceOperationId {
     pub const PEER_KEYS_READ_LOOKUP_V1: &'static str = "ak.peer.keys.read.lookup.v1";
     pub const PEER_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
         "ak.peer.mls.read.group_state_material.v1";
-    pub const PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1: &'static str =
-        "ak.peer.principal_genesis.command.submit.v1";
     pub const PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1: &'static str =
         "ak.peer.realm_authority.command.handoff.v1";
     pub const PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
@@ -1001,6 +912,12 @@ impl ServiceOperationId {
         "ak.self.circle.member.resource.delete.v1";
     pub const SELF_CIRCLE_READ_LIST_V1: &'static str = "ak.self.circle.read.list.v1";
     pub const SELF_CIRCLE_RESOURCE_GET_V1: &'static str = "ak.self.circle.resource.get.v1";
+    pub const SELF_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
+        "ak.self.committed_event.read.scan.v1";
+    pub const SELF_COMMITTED_EVENT_RESOURCE_GET_V1: &'static str =
+        "ak.self.committed_event.resource.get.v1";
+    pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
+        "ak.self.committed_event.stream.subscribe.v1";
     pub const SELF_CONSENT_COMMAND_GRANT_V1: &'static str = "ak.self.consent.command.grant.v1";
     pub const SELF_CONSENT_COMMAND_REQUEST_V1: &'static str = "ak.self.consent.command.request.v1";
     pub const SELF_CONSENT_COMMAND_REVOKE_V1: &'static str = "ak.self.consent.command.revoke.v1";
@@ -1029,9 +946,6 @@ impl ServiceOperationId {
     pub const SELF_EVENTS_COMMAND_SUBMIT_V1: &'static str = "ak.self.events.command.submit.v1";
     pub const SELF_EVENTS_READ_DELIVERY_STATUS_V1: &'static str =
         "ak.self.events.read.delivery_status.v1";
-    pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
-    pub const SELF_EVENTS_RESOURCE_GET_V1: &'static str = "ak.self.events.resource.get.v1";
-    pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
     pub const SELF_IDENTITY_READ_RESOLUTION_AUDIT_V1: &'static str =
         "ak.self.identity.read.resolution_audit.v1";
     pub const SELF_INVITE_LOCATOR_COMMAND_ISSUE_V1: &'static str =
@@ -1141,38 +1055,13 @@ impl ServiceOperationId {
             Self::FindDirectoryCommandAnnounceV1 => Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
             Self::FindDirectoryCommandWithdrawV1 => Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
             Self::FindDirectoryReadDescribeV1 => Self::FIND_DIRECTORY_READ_DESCRIBE_V1,
-            Self::FindDirectoryReadListHandlesForSubjectV1 => {
-                Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1
-            }
-            Self::FindDirectoryReadPrivateContactDiscoveryV1 => {
-                Self::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY_V1
-            }
-            Self::FindDirectoryReadResolveAgentSelectorV1 => {
-                Self::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1
-            }
-            Self::FindDirectoryReadResolveHandleV1 => Self::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
-            Self::FindDirectoryReadResolveOrganizationV1 => {
-                Self::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1
-            }
             Self::FindDirectoryReadResolveRealmV1 => Self::FIND_DIRECTORY_READ_RESOLVE_REALM_V1,
-            Self::FindDirectoryReadResolveTargetV1 => Self::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
-            Self::FindDirectoryReadSearchActorsV1 => Self::FIND_DIRECTORY_READ_SEARCH_ACTORS_V1,
-            Self::FindDirectoryReadSearchOrganizationsV1 => {
-                Self::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS_V1
-            }
             Self::FindDirectoryReadSearchRealmsV1 => Self::FIND_DIRECTORY_READ_SEARCH_REALMS_V1,
-            Self::FindDirectoryReadSearchUsersV1 => Self::FIND_DIRECTORY_READ_SEARCH_USERS_V1,
             Self::GateAccountCommandAbandonIdentityCreationV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1
             }
             Self::GateAccountCommandFinalizeDevicePairingV1 => {
                 Self::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1
-            }
-            Self::GateAccountCommandIntrospectSessionGrantV1 => {
-                Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1
-            }
-            Self::GateAccountCommandIssueControllerGateAttestationV1 => {
-                Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1
             }
             Self::GateAccountCommandIssueDidBindingChallengeV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1
@@ -1187,9 +1076,6 @@ impl ServiceOperationId {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT_V1
             }
             Self::GateAccountCommandLogoutV1 => Self::GATE_ACCOUNT_COMMAND_LOGOUT_V1,
-            Self::GateAccountCommandLogoutAuthSessionV1 => {
-                Self::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION_V1
-            }
             Self::GateAccountCommandPairAgentKeyV1 => Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1,
             Self::GateAccountCommandPairDeviceV1 => Self::GATE_ACCOUNT_COMMAND_PAIR_DEVICE_V1,
             Self::GateAccountCommandRefreshSessionGrantV1 => {
@@ -1200,22 +1086,13 @@ impl ServiceOperationId {
                 Self::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1
             }
             Self::GateAccountCommandRevokeSessionV1 => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
-            Self::GateAccountCommandStageDevicePairingV1 => {
-                Self::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1
-            }
             Self::GateAccountExchangeCreateHandoffV1 => {
                 Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1
             }
             Self::GateAccountReadClaimDevicePairingCodeV1 => {
                 Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1
             }
-            Self::GateAccountReadDevicePairingStatusV1 => {
-                Self::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1
-            }
             Self::GateAccountReadOnboardingV1 => Self::GATE_ACCOUNT_READ_ONBOARDING_V1,
-            Self::GateAccountReadResolveDevicePairingV1 => {
-                Self::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1
-            }
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1 => {
                 Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1
             }
@@ -1256,23 +1133,16 @@ impl ServiceOperationId {
             }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+            Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
-            Self::PeerDeviceRevocationsCommandCheckV1 => {
-                Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1
-            }
             Self::PeerErasureReceiptCommandSubmitV1 => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptResourceGetV1 => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
             Self::PeerEventsCommandSubmitV1 => Self::PEER_EVENTS_COMMAND_SUBMIT_V1,
-            Self::PeerEventsReadResolveCommittedV1 => Self::PEER_EVENTS_READ_RESOLVE_COMMITTED_V1,
-            Self::PeerEventsReadScanV1 => Self::PEER_EVENTS_READ_SCAN_V1,
             Self::PeerInvitesCommandSubmitV1 => Self::PEER_INVITES_COMMAND_SUBMIT_V1,
             Self::PeerKeysKeypackagesCommandClaimV1 => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
             Self::PeerKeysKeypackagesReadClaimV1 => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
             Self::PeerKeysReadLookupV1 => Self::PEER_KEYS_READ_LOOKUP_V1,
             Self::PeerMlsReadGroupStateMaterialV1 => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
-            Self::PeerPrincipalGenesisCommandSubmitV1 => {
-                Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1
-            }
             Self::PeerRealmAuthorityCommandHandoffV1 => {
                 Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1
             }
@@ -1376,6 +1246,11 @@ impl ServiceOperationId {
             Self::SelfCircleMemberResourceDeleteV1 => Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
             Self::SelfCircleReadListV1 => Self::SELF_CIRCLE_READ_LIST_V1,
             Self::SelfCircleResourceGetV1 => Self::SELF_CIRCLE_RESOURCE_GET_V1,
+            Self::SelfCommittedEventReadScanV1 => Self::SELF_COMMITTED_EVENT_READ_SCAN_V1,
+            Self::SelfCommittedEventResourceGetV1 => Self::SELF_COMMITTED_EVENT_RESOURCE_GET_V1,
+            Self::SelfCommittedEventStreamSubscribeV1 => {
+                Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
+            }
             Self::SelfConsentCommandGrantV1 => Self::SELF_CONSENT_COMMAND_GRANT_V1,
             Self::SelfConsentCommandRequestV1 => Self::SELF_CONSENT_COMMAND_REQUEST_V1,
             Self::SelfConsentCommandRevokeV1 => Self::SELF_CONSENT_COMMAND_REVOKE_V1,
@@ -1397,9 +1272,6 @@ impl ServiceOperationId {
             }
             Self::SelfEventsCommandSubmitV1 => Self::SELF_EVENTS_COMMAND_SUBMIT_V1,
             Self::SelfEventsReadDeliveryStatusV1 => Self::SELF_EVENTS_READ_DELIVERY_STATUS_V1,
-            Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
-            Self::SelfEventsResourceGetV1 => Self::SELF_EVENTS_RESOURCE_GET_V1,
-            Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
             Self::SelfIdentityReadResolutionAuditV1 => Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT_V1,
             Self::SelfInviteLocatorCommandIssueV1 => Self::SELF_INVITE_LOCATOR_COMMAND_ISSUE_V1,
             Self::SelfInviteLocatorCommandRevokeV1 => Self::SELF_INVITE_LOCATOR_COMMAND_REVOKE_V1,
@@ -1517,48 +1389,17 @@ impl ServiceOperationId {
             Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1 => Some(Self::FindDirectoryCommandAnnounceV1),
             Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1 => Some(Self::FindDirectoryCommandWithdrawV1),
             Self::FIND_DIRECTORY_READ_DESCRIBE_V1 => Some(Self::FindDirectoryReadDescribeV1),
-            Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1 => {
-                Some(Self::FindDirectoryReadListHandlesForSubjectV1)
-            }
-            Self::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY_V1 => {
-                Some(Self::FindDirectoryReadPrivateContactDiscoveryV1)
-            }
-            Self::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1 => {
-                Some(Self::FindDirectoryReadResolveAgentSelectorV1)
-            }
-            Self::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1 => {
-                Some(Self::FindDirectoryReadResolveHandleV1)
-            }
-            Self::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1 => {
-                Some(Self::FindDirectoryReadResolveOrganizationV1)
-            }
             Self::FIND_DIRECTORY_READ_RESOLVE_REALM_V1 => {
                 Some(Self::FindDirectoryReadResolveRealmV1)
-            }
-            Self::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1 => {
-                Some(Self::FindDirectoryReadResolveTargetV1)
-            }
-            Self::FIND_DIRECTORY_READ_SEARCH_ACTORS_V1 => {
-                Some(Self::FindDirectoryReadSearchActorsV1)
-            }
-            Self::FIND_DIRECTORY_READ_SEARCH_ORGANIZATIONS_V1 => {
-                Some(Self::FindDirectoryReadSearchOrganizationsV1)
             }
             Self::FIND_DIRECTORY_READ_SEARCH_REALMS_V1 => {
                 Some(Self::FindDirectoryReadSearchRealmsV1)
             }
-            Self::FIND_DIRECTORY_READ_SEARCH_USERS_V1 => Some(Self::FindDirectoryReadSearchUsersV1),
             Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1 => {
                 Some(Self::GateAccountCommandAbandonIdentityCreationV1)
             }
             Self::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1 => {
                 Some(Self::GateAccountCommandFinalizeDevicePairingV1)
-            }
-            Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1 => {
-                Some(Self::GateAccountCommandIntrospectSessionGrantV1)
-            }
-            Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1 => {
-                Some(Self::GateAccountCommandIssueControllerGateAttestationV1)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1 => {
                 Some(Self::GateAccountCommandIssueDidBindingChallengeV1)
@@ -1573,9 +1414,6 @@ impl ServiceOperationId {
                 Some(Self::GateAccountCommandIssueSessionGrantV1)
             }
             Self::GATE_ACCOUNT_COMMAND_LOGOUT_V1 => Some(Self::GateAccountCommandLogoutV1),
-            Self::GATE_ACCOUNT_COMMAND_LOGOUT_AUTH_SESSION_V1 => {
-                Some(Self::GateAccountCommandLogoutAuthSessionV1)
-            }
             Self::GATE_ACCOUNT_COMMAND_PAIR_AGENT_KEY_V1 => {
                 Some(Self::GateAccountCommandPairAgentKeyV1)
             }
@@ -1590,22 +1428,13 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1 => {
                 Some(Self::GateAccountCommandRevokeSessionV1)
             }
-            Self::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1 => {
-                Some(Self::GateAccountCommandStageDevicePairingV1)
-            }
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1 => {
                 Some(Self::GateAccountExchangeCreateHandoffV1)
             }
             Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1 => {
                 Some(Self::GateAccountReadClaimDevicePairingCodeV1)
             }
-            Self::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1 => {
-                Some(Self::GateAccountReadDevicePairingStatusV1)
-            }
             Self::GATE_ACCOUNT_READ_ONBOARDING_V1 => Some(Self::GateAccountReadOnboardingV1),
-            Self::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1 => {
-                Some(Self::GateAccountReadResolveDevicePairingV1)
-            }
             Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1 => {
                 Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1)
             }
@@ -1654,10 +1483,8 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
             Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1 => Some(Self::PeerAccountStatusReadResolveV1),
+            Self::PEER_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::PeerCommittedEventReadScanV1),
             Self::PEER_CONTACTS_COMMAND_SUBMIT_V1 => Some(Self::PeerContactsCommandSubmitV1),
-            Self::PEER_DEVICE_REVOCATIONS_COMMAND_CHECK_V1 => {
-                Some(Self::PeerDeviceRevocationsCommandCheckV1)
-            }
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerErasureReceiptCommandSubmitV1)
             }
@@ -1665,10 +1492,6 @@ impl ServiceOperationId {
                 Some(Self::PeerErasureReceiptResourceGetV1)
             }
             Self::PEER_EVENTS_COMMAND_SUBMIT_V1 => Some(Self::PeerEventsCommandSubmitV1),
-            Self::PEER_EVENTS_READ_RESOLVE_COMMITTED_V1 => {
-                Some(Self::PeerEventsReadResolveCommittedV1)
-            }
-            Self::PEER_EVENTS_READ_SCAN_V1 => Some(Self::PeerEventsReadScanV1),
             Self::PEER_INVITES_COMMAND_SUBMIT_V1 => Some(Self::PeerInvitesCommandSubmitV1),
             Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1 => {
                 Some(Self::PeerKeysKeypackagesCommandClaimV1)
@@ -1677,9 +1500,6 @@ impl ServiceOperationId {
             Self::PEER_KEYS_READ_LOOKUP_V1 => Some(Self::PeerKeysReadLookupV1),
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
                 Some(Self::PeerMlsReadGroupStateMaterialV1)
-            }
-            Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1 => {
-                Some(Self::PeerPrincipalGenesisCommandSubmitV1)
             }
             Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1 => {
                 Some(Self::PeerRealmAuthorityCommandHandoffV1)
@@ -1806,6 +1626,13 @@ impl ServiceOperationId {
             }
             Self::SELF_CIRCLE_READ_LIST_V1 => Some(Self::SelfCircleReadListV1),
             Self::SELF_CIRCLE_RESOURCE_GET_V1 => Some(Self::SelfCircleResourceGetV1),
+            Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
+            Self::SELF_COMMITTED_EVENT_RESOURCE_GET_V1 => {
+                Some(Self::SelfCommittedEventResourceGetV1)
+            }
+            Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
+                Some(Self::SelfCommittedEventStreamSubscribeV1)
+            }
             Self::SELF_CONSENT_COMMAND_GRANT_V1 => Some(Self::SelfConsentCommandGrantV1),
             Self::SELF_CONSENT_COMMAND_REQUEST_V1 => Some(Self::SelfConsentCommandRequestV1),
             Self::SELF_CONSENT_COMMAND_REVOKE_V1 => Some(Self::SelfConsentCommandRevokeV1),
@@ -1833,9 +1660,6 @@ impl ServiceOperationId {
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT_V1 => Some(Self::SelfEventsCommandSubmitV1),
             Self::SELF_EVENTS_READ_DELIVERY_STATUS_V1 => Some(Self::SelfEventsReadDeliveryStatusV1),
-            Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
-            Self::SELF_EVENTS_RESOURCE_GET_V1 => Some(Self::SelfEventsResourceGetV1),
-            Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
             Self::SELF_IDENTITY_READ_RESOLUTION_AUDIT_V1 => {
                 Some(Self::SelfIdentityReadResolutionAuditV1)
             }
@@ -2305,17 +2129,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceOutcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.find.directory.read.resolve_target.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
@@ -2365,104 +2187,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadListHandlesForSubjectV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/list-handles-for-subject",
-        grpc: Some("FindDirectory/ListHandlesForSubject"),
-        mq: Some("find.directory.query.list_handles_for_subject"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
-        ),
-        response_schema_ref: Some("schemas/list-handles-for-subject-response.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadPrivateContactDiscoveryV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/private-contact-discovery",
-        grpc: Some("FindDirectory/PrivateContactDiscovery"),
-        mq: Some("find.directory.query.private_contact_discovery"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_private_contact_discovery_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadResolveAgentSelectorV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/resolve-agent-selector",
-        grpc: Some("FindDirectory/ResolveAgentSelector"),
-        mq: Some("find.directory.query.resolve_agent_selector"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_agent_selector_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadResolveHandleV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/resolve-handle",
-        grpc: Some("FindDirectory/ResolveHandle"),
-        mq: Some("find.directory.query.resolve_handle"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_handle_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadResolveOrganizationV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/resolve-organization",
-        grpc: Some("FindDirectory/ResolveOrganization"),
-        mq: Some("find.directory.query.resolve_organization"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_organization_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_organization_resolution_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryReadResolveRealmV1,
         http_method: "POST",
         http_path: "/_arkret/find/directory/resolve-realm",
@@ -2483,66 +2207,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadResolveTargetV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/resolve-target",
-        grpc: Some("FindDirectory/ResolveTarget"),
-        mq: Some("find.directory.query.resolve_target"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_resolve_target_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_target_resolution_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadSearchActorsV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/search-actors",
-        grpc: Some("FindDirectory/SearchActors"),
-        mq: Some("find.directory.query.search_actors"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_actors_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_actor_search_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadSearchOrganizationsV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/search-organizations",
-        grpc: Some("FindDirectory/SearchOrganizations"),
-        mq: Some("find.directory.query.search_organizations"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_organizations_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_organization_search_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryReadSearchRealmsV1,
         http_method: "POST",
         http_path: "/_arkret/find/directory/search-realms",
@@ -2558,26 +2222,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/directory-operations.schema.json#/$defs/directory_realm_search_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryReadSearchUsersV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/search-users",
-        grpc: Some("FindDirectory/SearchUsers"),
-        mq: Some("find.directory.query.search_users"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_search_users_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_user_search_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2631,58 +2275,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/session-grants/introspect",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/controller-gate-attestations",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/agent-authority-evidence.schema.json#/$defs/controller_account_gate_attestation_issue_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-authority-evidence.schema.json#/$defs/controller_account_gate_attestation_issue_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "records_only_a_service_local_replay_ledger_row_so_the_same_request_id_and_canonical_intent_returns_the_original_bytes_no_event_is_authored",
-            ),
             branch_contract_json: None,
         }),
     },
@@ -2811,33 +2403,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.logout.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandLogoutAuthSessionV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/auth-sessions/logout",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("protocol_sequence"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.gate.account.command.logout_auth_session.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3006,33 +2571,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandStageDevicePairingV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/device-pairing/stages",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "account_authority_single_pairing_ledger_stage_and_internal_dedup_only_no_event_is_authored",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountExchangeCreateHandoffV1,
         http_method: "POST",
         http_path: "/_arkret/gate/account/authentication-handoffs",
@@ -3080,26 +2618,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountReadDevicePairingStatusV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/device-pairing/status-queries",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountReadOnboardingV1,
         http_method: "GET",
         http_path: "/_arkret/gate/account/onboarding",
@@ -3121,26 +2639,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("reads_only_the_current_service_local_account_onboarding_projection"),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountReadResolveDevicePairingV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/device-pairing/resolutions",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_resolve_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_bootstrap",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
@@ -3737,6 +3235,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerCommittedEventReadScanV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/streams/scan",
+        grpc: Some("PeerStreams/Scan"),
+        mq: Some("peer.streams.read.scan"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmitV1,
         http_method: "POST",
         http_path: "/_arkret/peer/contacts",
@@ -3758,31 +3276,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("delivers_existing_signed_fact_without_committing_a_local_event"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerDeviceRevocationsCommandCheckV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/device-revocations/check",
-        grpc: Some("PeerDeviceRevocations/Check"),
-        mq: Some("peer.device_revocations.command.check"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_check_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_check_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("origin_service_local_durable_revocation_gate_decision_ledger_only"),
             branch_contract_json: None,
         }),
     },
@@ -3857,46 +3350,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "{\"discriminator\":{\"description\":\"Closed peer ingress semantic branch. Schema validation proves that final otherwise can only be registered_atomic_unit.\",\"request_path\":\"/branch\"},\"effect_branches\":[{\"effect\":{\"event_kind_sources\":[\"$request.event_submission.event.kind\",\"$request.mls_submission.commit_event.kind\"],\"event_submission_path\":\"/event_submission\",\"kind\":\"event_log\",\"rationale\":\"Only the verified current governance Station performs first admission and signs the new RealmCommit.\"},\"equals\":\"authority_forward\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"stores_exact_source_committed_replicas_without_new_event_finality_resigning_or_second_fanout\"},\"equals\":\"committed_replication\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"atomically_materializes_a_registered_source_committed_unit_without_new_event_finality_resigning_or_second_fanout\"},\"otherwise\":true}]}",
             ),
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsReadResolveCommittedV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/streams/resolve",
-        grpc: Some("PeerStreams/ResolveCommitted"),
-        mq: Some("peer.streams.read.resolve_committed"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/committed_event_resolve_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/committed_event_resolve_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerEventsReadScanV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/streams/scan",
-        grpc: Some("PeerStreams/Scan"),
-        mq: Some("peer.streams.read.scan"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerInvitesCommandSubmitV1,
@@ -4007,34 +3460,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/principal-genesis",
-        grpc: Some("PeerPrincipalGenesis/Submit"),
-        mq: Some("peer.principal_genesis.command.submit"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/pcr_genesis_submit_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/pcr_genesis_submit_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.realm.create",
-                "ak.device.authorize",
-            ])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
@@ -5477,6 +4902,60 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCommittedEventReadScanV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/streams/scan",
+        grpc: Some("SelfStreams/Scan"),
+        mq: Some("self.streams.read.scan"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCommittedEventResourceGetV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/committed-events/{event_id}",
+        grpc: Some("SelfCommittedEvent/Get"),
+        mq: Some("self.committed_event.resource.get"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/CommittedEventView",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCommittedEventStreamSubscribeV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/committed-events/subscribe",
+        grpc: Some("SelfCommittedEvent/Subscribe"),
+        mq: Some("self.committed_event.stream.subscribe"),
+        body_class: Some("streaming_ndjson"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "event_stream",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/committed-event-subscribe-frame.schema.json"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfConsentCommandGrantV1,
         http_method: "POST",
         http_path: "/_arkret/self/consent/results/grant",
@@ -5908,58 +5387,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusOutcome",
         ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsReadScanV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/streams/scan",
-        grpc: Some("SelfStreams/Scan"),
-        mq: Some("self.streams.read.scan"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsResourceGetV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/events/{event_id}",
-        grpc: Some("SelfEvents/Get"),
-        mq: Some("self.events.resource.get"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/EventView"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfEventsStreamSubscribeV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/events/subscribe",
-        grpc: Some("SelfEvents/Subscribe"),
-        mq: Some("self.events.stream.subscribe"),
-        body_class: Some("streaming_ndjson"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "event_stream",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/events-subscribe-frame.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },

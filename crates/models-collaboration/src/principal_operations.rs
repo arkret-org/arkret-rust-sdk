@@ -9,7 +9,7 @@ use arkret_models_identity::{
     IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS, PrincipalRegistrationAnchor,
 };
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
+    DeviceId, Did, DidCoreId, Hash, IdempotencyKey, PcrGenesisUnit, RealmCommit, RealmId,
     RegistrationDidEvidence, Result, WireError, canonical, project_did_to_core_id,
 };
 use serde::{Deserialize, Serialize};
@@ -165,13 +165,12 @@ pub struct PcrGenesisSubmitOutcome {
     pub pcr_realm_id: RealmId,
     pub accepted_device_id: DeviceId,
     pub resolution: arkret_models_identity::PrincipalResolutionProjection,
-    pub receipt: EventBatchReceipt,
+    pub commits: [RealmCommit; 2],
 }
 
 impl PcrGenesisSubmitOutcome {
     pub fn validate_against(&self, request: &PcrGenesisSubmitRequestBody) -> Result<()> {
         request.validate()?;
-        let scope = self.receipt.pcr_genesis_scope()?;
         let create_payload: RealmCreatePayload =
             decode_payload_after_kind_validation(request.genesis_unit.create())?;
         let descriptor = create_payload
@@ -180,33 +179,19 @@ impl PcrGenesisSubmitOutcome {
             .ok_or_else(|| {
                 WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
-        let receipt_event_id = |kind: &str| {
-            self.receipt
-                .events
-                .iter()
-                .find(|item| item.kind.as_str() == kind)
-                .map(|item| &item.event_id)
-        };
+        let [create_commit, authorize_commit] = &self.commits;
+        create_commit.validate_shape()?;
+        authorize_commit.validate_successor_of(create_commit)?;
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id
             || self.accepted_device_id != descriptor.device_id
-            || scope.principal_id != request.principal_id
-            || scope.realm_id != request.pcr_realm_id
-            || scope.audience_id.as_core_id() != request.account_authority_id.as_core_id()
-            || scope.did_version_id != request.did_version_id
-            || scope.control_key_digest != request.control_key_digest
-            || scope.registration_evidence_digest
-                != request.registration_did_evidence.canonical_digest()?
-            || scope.accepted_device_id != descriptor.device_id
-            || scope.device_key_digest != descriptor.device_key_digest()?
-            || scope.hpke_key_digest != descriptor.hpke_key_digest()?
-            || receipt_event_id(arkret_wire::event_kind_str::REALM_CREATE)
-                != Some(&request.genesis_unit.create().event_id)
-            || receipt_event_id(arkret_wire::event_kind_str::DEVICE_AUTHORIZE)
-                != Some(&request.genesis_unit.founding_authorize().event_id)
+            || create_commit.realm_id != request.pcr_realm_id
+            || authorize_commit.realm_id != request.pcr_realm_id
+            || create_commit.event_ref != request.genesis_unit.create().event_id
+            || authorize_commit.event_ref != request.genesis_unit.founding_authorize().event_id
         {
             return Err(WireError::Protocol(
-                "PCR genesis accepted receipt does not match the submitted unit".to_owned(),
+                "PCR genesis commits do not match the submitted unit".to_owned(),
             ));
         }
         Ok(())
@@ -242,7 +227,7 @@ mod tests {
                 "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
                 "pcr_realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
                 "accepted_device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",
-                "receipt": {}
+                "commits": []
             }))
             .is_err(),
             "resolution must not become optional"

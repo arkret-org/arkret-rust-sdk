@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-16.11;
-//! sha256=0896b814a60258aa5a364b2527011cf85dc1dc3a313524ae21dc27440d6c1d2b Entries: profile_ids=81
+//! Input: profiles/conformance-profiles.json; version=2026-09-20.4;
+//! sha256=fbacd822689c48e050894483f21e5da6fb195e9cfe7881d7ce1c47f528bc7da3 Entries: profile_ids=78
 
 use serde::{Deserialize, Serialize};
 
@@ -41,13 +41,11 @@ pub enum ProfileId {
     E2eeClientV1,
     EncodingCborV1,
     EnterpriseClientV1,
-    EphemeralPairwisePrincipalV1,
     FederationMinimalV1,
     FileTransferV1,
     FrankingV1,
     FullClientV1,
     HashBlake3V1,
-    HashTransitionV1,
     HighSecurityOrganizationV1,
     HpkeP256V1,
     IdentityRegistryV1,
@@ -62,7 +60,6 @@ pub enum ProfileId {
     MembershipJoinCompensationV1,
     MimiInteropV1,
     MinimalClientV1,
-    MlsMinimalMetadataRealmV1,
     MlsCiphersuiteChacha20poly1305V1,
     MlsCiphersuitePqAuthV1,
     OrganizationV1,
@@ -164,13 +161,11 @@ impl ProfileId {
         Self::E2eeClientV1,
         Self::EncodingCborV1,
         Self::EnterpriseClientV1,
-        Self::EphemeralPairwisePrincipalV1,
         Self::FederationMinimalV1,
         Self::FileTransferV1,
         Self::FrankingV1,
         Self::FullClientV1,
         Self::HashBlake3V1,
-        Self::HashTransitionV1,
         Self::HighSecurityOrganizationV1,
         Self::HpkeP256V1,
         Self::IdentityRegistryV1,
@@ -185,7 +180,6 @@ impl ProfileId {
         Self::MembershipJoinCompensationV1,
         Self::MimiInteropV1,
         Self::MinimalClientV1,
-        Self::MlsMinimalMetadataRealmV1,
         Self::MlsCiphersuiteChacha20poly1305V1,
         Self::MlsCiphersuitePqAuthV1,
         Self::OrganizationV1,
@@ -255,14 +249,11 @@ impl ProfileId {
     pub const E2EE_CLIENT_V1: &'static str = "ak.profile.e2ee_client.v1";
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
-    pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
-        "ak.profile.ephemeral_pairwise_principal.v1";
     pub const FEDERATION_MINIMAL_V1: &'static str = "ak.profile.federation_minimal.v1";
     pub const FILE_TRANSFER_V1: &'static str = "ak.profile.file_transfer.v1";
     pub const FRANKING_V1: &'static str = "ak.profile.franking.v1";
     pub const FULL_CLIENT_V1: &'static str = "ak.profile.full_client.v1";
     pub const HASH_BLAKE3_V1: &'static str = "ak.profile.hash.blake3.v1";
-    pub const HASH_TRANSITION_V1: &'static str = "ak.profile.hash_transition.v1";
     pub const HIGH_SECURITY_ORGANIZATION_V1: &'static str =
         "ak.profile.high_security_organization.v1";
     pub const HPKE_P256_V1: &'static str = "ak.profile.hpke.p256.v1";
@@ -282,8 +273,6 @@ impl ProfileId {
         "ak.profile.membership_join_compensation.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.profile.mimi_interop.v1";
     pub const MINIMAL_CLIENT_V1: &'static str = "ak.profile.minimal_client.v1";
-    pub const MLS_MINIMAL_METADATA_REALM_V1: &'static str =
-        "ak.profile.mls.minimal_metadata_realm.v1";
     pub const MLS_CIPHERSUITE_CHACHA20POLY1305_V1: &'static str =
         "ak.profile.mls_ciphersuite.chacha20poly1305.v1";
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
@@ -352,13 +341,11 @@ impl ProfileId {
             Self::E2eeClientV1 => Self::E2EE_CLIENT_V1,
             Self::EncodingCborV1 => Self::ENCODING_CBOR_V1,
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
-            Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
             Self::FederationMinimalV1 => Self::FEDERATION_MINIMAL_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::FrankingV1 => Self::FRANKING_V1,
             Self::FullClientV1 => Self::FULL_CLIENT_V1,
             Self::HashBlake3V1 => Self::HASH_BLAKE3_V1,
-            Self::HashTransitionV1 => Self::HASH_TRANSITION_V1,
             Self::HighSecurityOrganizationV1 => Self::HIGH_SECURITY_ORGANIZATION_V1,
             Self::HpkeP256V1 => Self::HPKE_P256_V1,
             Self::IdentityRegistryV1 => Self::IDENTITY_REGISTRY_V1,
@@ -373,7 +360,6 @@ impl ProfileId {
             Self::MembershipJoinCompensationV1 => Self::MEMBERSHIP_JOIN_COMPENSATION_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MinimalClientV1 => Self::MINIMAL_CLIENT_V1,
-            Self::MlsMinimalMetadataRealmV1 => Self::MLS_MINIMAL_METADATA_REALM_V1,
             Self::MlsCiphersuiteChacha20poly1305V1 => Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1,
             Self::MlsCiphersuitePqAuthV1 => Self::MLS_CIPHERSUITE_PQ_AUTH_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
@@ -440,13 +426,11 @@ impl ProfileId {
             Self::E2eeClientV1 => ProfileRole::Client,
             Self::EncodingCborV1 => ProfileRole::Interop,
             Self::EnterpriseClientV1 => ProfileRole::Client,
-            Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
             Self::FederationMinimalV1 => ProfileRole::Server,
             Self::FileTransferV1 => ProfileRole::Client,
             Self::FrankingV1 => ProfileRole::Server,
             Self::FullClientV1 => ProfileRole::Client,
             Self::HashBlake3V1 => ProfileRole::Interop,
-            Self::HashTransitionV1 => ProfileRole::Interop,
             Self::HighSecurityOrganizationV1 => ProfileRole::Admin,
             Self::HpkeP256V1 => ProfileRole::Admin,
             Self::IdentityRegistryV1 => ProfileRole::Directory,
@@ -461,7 +445,6 @@ impl ProfileId {
             Self::MembershipJoinCompensationV1 => ProfileRole::Server,
             Self::MimiInteropV1 => ProfileRole::Interop,
             Self::MinimalClientV1 => ProfileRole::Client,
-            Self::MlsMinimalMetadataRealmV1 => ProfileRole::Admin,
             Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
             Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
             Self::OrganizationV1 => ProfileRole::Admin,
@@ -535,13 +518,11 @@ impl ProfileId {
             Self::E2EE_CLIENT_V1 => Some(Self::E2eeClientV1),
             Self::ENCODING_CBOR_V1 => Some(Self::EncodingCborV1),
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
-            Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
             Self::FEDERATION_MINIMAL_V1 => Some(Self::FederationMinimalV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::FRANKING_V1 => Some(Self::FrankingV1),
             Self::FULL_CLIENT_V1 => Some(Self::FullClientV1),
             Self::HASH_BLAKE3_V1 => Some(Self::HashBlake3V1),
-            Self::HASH_TRANSITION_V1 => Some(Self::HashTransitionV1),
             Self::HIGH_SECURITY_ORGANIZATION_V1 => Some(Self::HighSecurityOrganizationV1),
             Self::HPKE_P256_V1 => Some(Self::HpkeP256V1),
             Self::IDENTITY_REGISTRY_V1 => Some(Self::IdentityRegistryV1),
@@ -558,7 +539,6 @@ impl ProfileId {
             Self::MEMBERSHIP_JOIN_COMPENSATION_V1 => Some(Self::MembershipJoinCompensationV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MINIMAL_CLIENT_V1 => Some(Self::MinimalClientV1),
-            Self::MLS_MINIMAL_METADATA_REALM_V1 => Some(Self::MlsMinimalMetadataRealmV1),
             Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1 => {
                 Some(Self::MlsCiphersuiteChacha20poly1305V1)
             }

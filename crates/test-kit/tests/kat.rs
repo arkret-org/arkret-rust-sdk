@@ -13,7 +13,7 @@ use arkret_test_kit::negative::wire_negative_from_sdk;
 use arkret_test_kit::proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 use arkret_test_kit::signed_event::SignedEventFixtureBuilder;
 use arkret_test_kit::subjects;
-use arkret_wire::{ActorId, EventRef, ScopeRef};
+use arkret_wire::{ActorId, ScopeRef, SemanticRef};
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
@@ -221,7 +221,7 @@ fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
     .with_created_at(created_at)
     .build_unsigned()
     .unwrap();
-    event.refs.push(EventRef::new(
+    event.semantic_refs.push(SemanticRef::new(
         "ak:event:AYWFNfF8FDwLazsD2l4T6VYTFaH_DSzEOh9I05VjH0_l",
         "fixture_dependency",
     ));
@@ -241,7 +241,7 @@ fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
         serde_json::to_vec(&shared).unwrap(),
         serde_json::to_vec(&direct.into_event()).unwrap()
     );
-    assert_eq!(shared.refs, before.refs);
+    assert_eq!(shared.semantic_refs, before.semantic_refs);
     assert_eq!(shared.scope_ref, before.scope_ref);
     assert_eq!(shared.payload, before.payload);
     assert_eq!(shared.created_at, created_at);

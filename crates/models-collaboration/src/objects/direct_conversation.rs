@@ -3,9 +3,9 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, DidCoreId, Discoverability, EventId, EventRef, GenesisSalt, Hash,
-    HistoryAccess, JoinRule, ObjectStage, ObjectState, RealmId, Result, SecurityClass,
-    TrustDomainId, WireError, canonical,
+    AccountId, ActorId, DidCoreId, Discoverability, EventId, GenesisSalt, Hash, HistoryAccess,
+    JoinRule, ObjectStage, ObjectState, RealmId, Result, SecurityClass, SemanticRef, TrustDomainId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -355,19 +355,19 @@ pub const DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX: usize = 64;
 impl DirectConversationFoundingAuthorityEvidence {
     /// The single accepted Event reference this branch is founded on.
     #[must_use]
-    pub fn founding_ref(&self) -> EventRef {
+    pub fn founding_ref(&self) -> SemanticRef {
         match self {
             Self::ControllerAgent {
                 agent_provision_ref,
                 ..
-            } => EventRef::new(
+            } => SemanticRef::new(
                 agent_provision_ref.to_string(),
                 "direct_conversation_agent_provision",
             ),
             Self::Human {
                 contact_round_evidence,
                 ..
-            } => EventRef::new(
+            } => SemanticRef::new(
                 contact_round_evidence.contact_round_id.to_string(),
                 "direct_conversation_contact_round",
             ),

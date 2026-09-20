@@ -217,8 +217,8 @@ mod tests {
 
     use super::*;
     use crate::service_description::{
-        AuthMetadata, DirectoryAcceptPolicyKind, DirectoryResourceKind, EgressNetworkPolicy,
-        PlaintextVisibility, RateLimitPolicy, ServerLimits, TransportBinding,
+        AuthMetadata, DirectoryResourceKind, EgressNetworkPolicy, PlaintextVisibility,
+        RateLimitPolicy, ServerLimits, TransportBinding,
     };
 
     #[test]
@@ -257,30 +257,7 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
-            resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            private_contact_discovery: None,
-            restricted_query_proof: Some(true),
-            accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
-            accept_policy_ref: None,
-            default_ttl_seconds: Some(86_400),
-            max_ttl_seconds: Some(604_800),
-            revalidation_grace_seconds: Some(3_600),
-            accepted_resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
-            takedown_contact: None,
-            rate_limits: Some(BTreeMap::new()),
+            resource_kinds: vec![DirectoryResourceKind::Realm],
             extensions: Default::default(),
         };
 

@@ -97,7 +97,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
 wire-breaking list.
 Headline additions:
 
-- **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
+- **Types**: `CommittedEventSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
   `EventsFrontierState` oneOf (`AccountClient` / `FederationPeer` /
   `AnonymousHealth`),
   `FederationServiceBindingRef` (6 required fields),

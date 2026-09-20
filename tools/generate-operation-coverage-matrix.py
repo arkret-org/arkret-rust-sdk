@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 60
+AUDITED_CLAIMABLE_PROFILES = 59
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -164,7 +164,9 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     # service-resolution-mirror removal left 66. The authority-commit clean
     # break then deleted the full/relaxed governance profiles, the audited-E2EE
     # profile and the security-frontier profiles along with the mechanisms they
-    # claimed, leaving 60 claimable profiles. Their former matrix rows named
+    # claimed, leaving 60 claimable profiles. The committed-event protocol
+    # clean break then removed one more obsolete profile, leaving 59. Their
+    # former matrix rows named
     # operations that no longer exist and must disappear with them.
     # The guard is here so a silent catalog change cannot slip into the matrix, not
     # to pin a number forever, so it moves with a reviewed deletion.

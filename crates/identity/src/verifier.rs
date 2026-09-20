@@ -1174,7 +1174,7 @@ mod tests {
                     .with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
                     .single()
                     .expect("valid timestamp"),
-                refs: Vec::new(),
+                semantic_refs: Vec::new(),
                 payload: BTreeMap::from([("body".to_owned(), serde_json::json!("hello"))]),
                 executed_by: None,
                 authorization_ref: None,

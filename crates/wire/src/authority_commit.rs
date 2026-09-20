@@ -13,8 +13,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    ActorId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, DirectorySourceRefAccess,
-    Event, HistoryAccess, Result, ScopeRef, WireError,
+    ActorId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event, HistoryAccess, Result,
+    ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -922,12 +922,12 @@ impl StreamScanRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StreamRow {
+pub struct CommittedEventFullView {
     pub commit: RealmCommit,
     pub event: Event,
 }
 
-impl StreamRow {
+impl CommittedEventFullView {
     pub fn validate_shape(&self) -> Result<()> {
         self.commit.validate_shape()?;
         let expected_stream =
@@ -937,11 +937,63 @@ impl StreamRow {
             || self.commit.event_ref != self.event.event_id
         {
             return Err(WireError::Protocol(
-                "stream item commit must bind the exact Event and its independent scope stream"
+                "committed Event view must bind the exact Event and its independent scope stream"
                     .to_owned(),
             ));
         }
         Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventDisclosureStatus {
+    Withheld,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDisclosure {
+    pub status: EventDisclosureStatus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommittedEventWithheldView {
+    pub commit: RealmCommit,
+    pub event_disclosure: EventDisclosure,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
+pub enum CommittedEventView {
+    Full(CommittedEventFullView),
+    Withheld(CommittedEventWithheldView),
+}
+
+impl CommittedEventView {
+    pub fn validate_shape(&self) -> Result<()> {
+        match self {
+            Self::Full(view) => view.validate_shape(),
+            Self::Withheld(view) => view.commit.validate_shape(),
+        }
+    }
+
+    #[must_use]
+    pub fn commit(&self) -> &RealmCommit {
+        match self {
+            Self::Full(view) => &view.commit,
+            Self::Withheld(view) => &view.commit,
+        }
+    }
+
+    #[must_use]
+    pub fn reducer_input(&self) -> Option<&Event> {
+        match self {
+            Self::Full(view) => Some(&view.event),
+            Self::Withheld(_) => None,
+        }
     }
 }
 
@@ -958,132 +1010,54 @@ pub struct CommittedEventRef {
 }
 
 impl CommittedEventRef {
-    pub fn matches(&self, item: &StreamRow) -> bool {
+    pub fn matches(&self, item: &CommittedEventView) -> bool {
+        let commit = item.commit();
         item.validate_shape().is_ok()
-            && self.event_id == item.event.event_id
-            && self.commit_id == item.commit.commit_id
-            && self.stream_ref == item.commit.stream_ref
-            && self.stream_position == item.commit.stream_position
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CommittedEventResolveRequest {
-    pub realm_id: RealmId,
-    pub refs: Vec<CommittedEventRef>,
-    /// Source-signed bearer authorization scoped to the receiving Directory
-    /// and to the exact committed refs above.
-    pub source_ref_access: DirectorySourceRefAccess,
-}
-
-impl CommittedEventResolveRequest {
-    pub fn validate(&self) -> Result<()> {
-        self.source_ref_access.validate()?;
-        if self.refs.is_empty() || self.refs.len() > 100 {
-            return Err(WireError::Protocol(
-                "committed event resolve requires 1..=100 refs".to_owned(),
-            ));
-        }
-        if !self.refs.windows(2).all(|pair| pair[0] < pair[1]) {
-            return Err(WireError::Protocol(
-                "committed event refs must be sorted and unique".to_owned(),
-            ));
-        }
-        if self
-            .refs
-            .iter()
-            .any(|reference| reference.stream_ref.realm_id() != &self.realm_id)
-        {
-            return Err(WireError::Protocol(
-                "committed event ref realm must match request realm_id".to_owned(),
-            ));
-        }
-        if self.source_ref_access.realm_id != self.realm_id {
-            return Err(WireError::Protocol(
-                "source-ref access realm must match request realm_id".to_owned(),
-            ));
-        }
-        if self.refs.iter().any(|reference| {
-            self.source_ref_access
-                .source_refs
-                .binary_search(reference)
-                .is_err()
-        }) {
-            return Err(WireError::Protocol(
-                "every requested ref must belong to source_ref_access".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CommittedEventResolveOutcome {
-    pub items: Vec<StreamRow>,
-}
-
-impl CommittedEventResolveOutcome {
-    pub fn validate_for_request(&self, request: &CommittedEventResolveRequest) -> Result<()> {
-        request.validate()?;
-        if self.items.len() != request.refs.len()
-            || !request
-                .refs
-                .iter()
-                .zip(&self.items)
-                .all(|(reference, item)| reference.matches(item))
-        {
-            return Err(WireError::Protocol(
-                "committed Event resolution must return each requested exact ref in order"
-                    .to_owned(),
-            ));
-        }
-        for item in &self.items {
-            item.validate_shape()?;
-        }
-        Ok(())
+            && self.event_id == commit.event_ref
+            && self.commit_id == commit.commit_id
+            && self.stream_ref == commit.stream_ref
+            && self.stream_position == commit.stream_position
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamScanOutcome {
-    pub commits: Vec<StreamRow>,
+    pub committed_events: Vec<CommittedEventView>,
     pub truncated: bool,
 }
 
 impl StreamScanOutcome {
     pub fn validate_for_request(&self, request: &StreamScanRequest) -> Result<()> {
         request.validate()?;
-        if self.commits.len() > usize::from(request.limit) {
+        if self.committed_events.len() > usize::from(request.limit) {
             return Err(WireError::Protocol(
                 "stream scan returned more items than requested".to_owned(),
             ));
         }
-        for item in &self.commits {
+        for item in &self.committed_events {
             item.validate_shape()?;
-            if item.commit.realm_id != request.realm_id
-                || item.commit.stream_ref != request.stream_ref
+            if item.commit().realm_id != request.realm_id
+                || item.commit().stream_ref != request.stream_ref
             {
                 return Err(WireError::Protocol(
                     "stream scan item does not belong to the requested stream".to_owned(),
                 ));
             }
         }
-        if let Some(first) = self.commits.first() {
+        if let Some(first) = self.committed_events.first() {
             let expected_first_position = request
                 .after_position
                 .map_or(0, |position| position.saturating_add(1));
-            if first.commit.stream_position != expected_first_position {
+            if first.commit().stream_position != expected_first_position {
                 return Err(WireError::Protocol(
                     "stream scan did not start at genesis or immediately after after_position"
                         .to_owned(),
                 ));
             }
         }
-        for pair in self.commits.windows(2) {
-            pair[1].commit.validate_successor_of(&pair[0].commit)?;
+        for pair in self.committed_events.windows(2) {
+            pair[1].commit().validate_successor_of(pair[0].commit())?;
         }
         Ok(())
     }
@@ -1210,7 +1184,7 @@ mod tests {
         }
     }
 
-    fn circle_item(realm_id: RealmId, stream_position: u64) -> StreamRow {
+    fn circle_item(realm_id: RealmId, stream_position: u64) -> CommittedEventFullView {
         let circle_id = CircleId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [0x22; 32],
@@ -1237,7 +1211,7 @@ mod tests {
             Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
         )
         .unwrap();
-        StreamRow {
+        CommittedEventFullView {
             commit: RealmCommit {
                 commit_id: RealmCommitId::from_digest([stream_position as u8 + 1; 32]),
                 realm_id,
@@ -1276,10 +1250,39 @@ mod tests {
             limit: 10,
         };
         let outcome = StreamScanOutcome {
-            commits: vec![circle_item(realm_id, 1)],
+            committed_events: vec![CommittedEventView::Full(circle_item(realm_id, 1))],
             truncated: false,
         };
         assert!(outcome.validate_for_request(&request).is_err());
+    }
+
+    #[test]
+    fn committed_event_view_has_only_full_and_withheld_wire_branches() {
+        let full = circle_item(realm(0x10), 0);
+        let full_value = serde_json::to_value(CommittedEventView::Full(full.clone())).unwrap();
+        assert!(full_value.get("event").is_some());
+        assert!(full_value.get("event_disclosure").is_none());
+
+        let withheld = CommittedEventView::Withheld(CommittedEventWithheldView {
+            commit: full.commit,
+            event_disclosure: EventDisclosure {
+                status: EventDisclosureStatus::Withheld,
+            },
+        });
+        let withheld_value = serde_json::to_value(withheld).unwrap();
+        assert_eq!(withheld_value["event_disclosure"]["status"], "withheld");
+        assert!(withheld_value.get("event").is_none());
+
+        let mut mixed = full_value;
+        mixed["event_disclosure"] = json!({"status": "withheld"});
+        assert!(serde_json::from_value::<CommittedEventView>(mixed).is_err());
+        assert!(
+            serde_json::from_value::<CommittedEventView>(json!({
+                "commit": withheld_value["commit"].clone(),
+                "redacted": true
+            }))
+            .is_err()
+        );
     }
 
     /// The domain label and the serialized wire string are the same fact. If

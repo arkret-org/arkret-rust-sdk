@@ -1,13 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1; sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264
-//! Input: registry/contract-registry.json; version=2026-09-20.11; sha256=ddb8e90a310de941adcaac37fd619f7163870f72e758f82852915f8a1001841f
-//! Input: registry/operation-registry.json; version=2026-09-20.4; sha256=71269d01d853cb607e38e2d71d9630db47e1e5b4f38ed021f8adb738eba6e94b
-//! Input: registry/event-kind-registry.json; version=2026-09-20.12; sha256=83215a3ec575a781ff011675ac0662581ddfe5d705dae92ec6ea32ae1c3543a6
-//! Input: registry/schema-registry.json; version=2026-09-20.13; sha256=8506b2b92ecde50af52cd0b00410f2094bb63a67448fb083f648585ec708e188
-//! Input: registry/id-kind-registry.json; version=2026-09-19.1; sha256=67e08f1f70683f3333e21d704777ba677d07e9b5d866f0d865d5ccc5818bb065
-//! Input: deployment-probes.json; version=2026-06-19; sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
-//! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2, operation_surface_groups=33
+//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
+//! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
+//! contract-registry.json; version=2026-09-20.21;
+//! sha256=1e301594b9502f19e48d8fdb35c34d85d99b5c162cbe4975f2ee9b6c921cb941 Input: registry/
+//! operation-registry.json; version=2026-09-20.11;
+//! sha256=c093a1f819cdd57860a7b85ad7ccc730556d0423082a14317fbaecd0c1cc9fdd Input: registry/
+//! event-kind-registry.json; version=2026-09-20.13;
+//! sha256=68da4cb62285c5cf8477d5b19f3902f7ef8baab25ba354dfdb86475ef31d4d86 Input: registry/
+//! schema-registry.json; version=2026-09-20.18;
+//! sha256=dad0e54735b3dd92df60edaf81274fd93fee2fc2e82c801e2138052fdf090d5d Input: registry/
+//! id-kind-registry.json; version=2026-09-19.1;
+//! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823
+//! Input: deployment-probes.json; version=2026-06-19;
+//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
+//! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
+//! operation_surface_groups=33
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -32,7 +40,7 @@ pub struct AgentRuntimeCapabilityDescriptor {
 
 pub const AGENT_RUNTIME_CAPABILITIES: &[AgentRuntimeCapabilityDescriptor] = &[
     AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::E2ee, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1, ServiceOperationId::SelfKeysKeypackagesCommandConsumeV1, ServiceOperationId::SelfKeysKeypackagesCommandRevokeV1], mandatory_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1] },
-    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::InteractiveChat, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsStreamSubscribeV1], mandatory_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsStreamSubscribeV1] },
+    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::InteractiveChat, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfCommittedEventReadScanV1, ServiceOperationId::SelfCommittedEventStreamSubscribeV1], mandatory_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfCommittedEventReadScanV1, ServiceOperationId::SelfCommittedEventStreamSubscribeV1] },
 ];
 
 pub const fn agent_runtime_capability_descriptor(
@@ -354,10 +362,10 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         profile: None,
         operations: &[
             ServiceOperationId::SelfEventsCommandSubmitV1,
-            ServiceOperationId::SelfEventsResourceGetV1,
+            ServiceOperationId::SelfCommittedEventResourceGetV1,
             ServiceOperationId::SelfEventsReadDeliveryStatusV1,
-            ServiceOperationId::SelfEventsReadScanV1,
-            ServiceOperationId::SelfEventsStreamSubscribeV1,
+            ServiceOperationId::SelfCommittedEventReadScanV1,
+            ServiceOperationId::SelfCommittedEventStreamSubscribeV1,
             ServiceOperationId::SelfAccountReadDescribeV1,
             ServiceOperationId::SelfAccountReadViewerV1,
             ServiceOperationId::SelfAccountCommandUpdateProfileV1,
@@ -374,21 +382,19 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         surface_class: "extension",
         profile: None,
         operations: &[
-            ServiceOperationId::PeerDeviceRevocationsCommandCheckV1,
             ServiceOperationId::PeerEventsCommandSubmitV1,
             ServiceOperationId::PeerAccountStatusReadResolveV1,
             ServiceOperationId::PeerAccountStatusCommandSubmitV1,
             ServiceOperationId::PeerErasureReceiptCommandSubmitV1,
             ServiceOperationId::PeerErasureReceiptResourceGetV1,
             ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
-            ServiceOperationId::PeerEventsReadScanV1,
+            ServiceOperationId::PeerCommittedEventReadScanV1,
             ServiceOperationId::PeerInvitesCommandSubmitV1,
             ServiceOperationId::PeerContactsCommandSubmitV1,
             ServiceOperationId::PeerKeysKeypackagesCommandClaimV1,
             ServiceOperationId::PeerKeysKeypackagesReadClaimV1,
             ServiceOperationId::PeerKeysReadLookupV1,
             ServiceOperationId::PeerSignalCommandRelayV1,
-            ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -413,15 +419,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::FindDirectoryReadDescribeV1,
             ServiceOperationId::FindDirectoryReadSearchRealmsV1,
             ServiceOperationId::FindDirectoryReadResolveRealmV1,
-            ServiceOperationId::FindDirectoryReadResolveTargetV1,
-            ServiceOperationId::FindDirectoryReadSearchOrganizationsV1,
-            ServiceOperationId::FindDirectoryReadResolveOrganizationV1,
-            ServiceOperationId::FindDirectoryReadSearchActorsV1,
-            ServiceOperationId::FindDirectoryReadSearchUsersV1,
-            ServiceOperationId::FindDirectoryReadResolveHandleV1,
-            ServiceOperationId::FindDirectoryReadResolveAgentSelectorV1,
-            ServiceOperationId::FindDirectoryReadListHandlesForSubjectV1,
-            ServiceOperationId::FindDirectoryReadPrivateContactDiscoveryV1,
             ServiceOperationId::FindDirectoryCommandAnnounceV1,
             ServiceOperationId::FindDirectoryCommandWithdrawV1,
         ],
@@ -712,19 +709,13 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::GateAccountCommandRegisterV1,
             ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
             ServiceOperationId::GateAccountCommandPairDeviceV1,
-            ServiceOperationId::GateAccountCommandStageDevicePairingV1,
             ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
-            ServiceOperationId::GateAccountReadDevicePairingStatusV1,
-            ServiceOperationId::GateAccountReadResolveDevicePairingV1,
             ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
             ServiceOperationId::GateAccountCommandRefreshSessionGrantV1,
             ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrantV1,
-            ServiceOperationId::GateAccountCommandLogoutAuthSessionV1,
-            ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
             ServiceOperationId::GateAccountCommandLogoutV1,
             ServiceOperationId::GateAccountCommandRequestErasureV1,
             ServiceOperationId::GateAccountCommandRevokeSessionV1,
-            ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -753,7 +744,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         profile: None,
         operations: &[
             ServiceOperationId::OpenRealmAuthorityReadBundleV1,
-            ServiceOperationId::PeerEventsReadResolveCommittedV1,
             ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
         ],
     },
@@ -763,8 +753,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-20.12";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-20.13";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-20.4";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-20.13";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-20.18";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-20.11";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-19.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

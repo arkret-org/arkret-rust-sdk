@@ -1,7 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-20.11; sha256=ddb8e90a310de941adcaac37fd619f7163870f72e758f82852915f8a1001841f
-//! Entries: operation_bundles=34 features=12
+//! Input: registry/contract-registry.json; version=2026-09-20.21;
+//! sha256=1e301594b9502f19e48d8fdb35c34d85d99b5c162cbe4975f2ee9b6c921cb941
+//! Entries: operation_bundles=32 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -103,58 +104,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadListHandlesForSubjectV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadResolveHandleV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadResolveOrganizationV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::FindDirectoryReadResolveRealmV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadResolveTargetV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadSearchActorsV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadSearchOrganizationsV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::FindDirectoryReadSearchRealmsV1,
                 binding_kind: BindingKind::HttpJson,
             },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadSearchUsersV1,
-                binding_kind: BindingKind::HttpJson,
-            },
         ],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.directory_service.private_contact_discovery.v1",
-        service_kind: ServiceKind::DirectoryService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::FindDirectoryReadPrivateContactDiscoveryV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.directory_service.resolve_agent_selector.v1",
-        service_kind: ServiceKind::DirectoryService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::FindDirectoryReadResolveAgentSelectorV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.identity_registry.describe.v1",
@@ -337,14 +294,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryReadResolveHandleV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandIssueIdentityBindingChallengeV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -354,10 +303,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandLogoutAuthSessionV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -587,19 +532,7 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandStageDevicePairingV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountReadDevicePairingStatusV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountReadResolveDevicePairingV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -623,11 +556,11 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::PeerContactsCommandSubmitV1,
+                operation_id: ServiceOperationId::PeerCommittedEventReadScanV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::PeerDeviceRevocationsCommandCheckV1,
+                operation_id: ServiceOperationId::PeerContactsCommandSubmitV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -640,10 +573,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerEventsCommandSubmitV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerEventsReadScanV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -664,10 +593,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -783,6 +708,18 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfCommittedEventReadScanV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfCommittedEventResourceGetV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfCommittedEventStreamSubscribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfConsentCommandGrantV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -852,18 +789,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfEventsCommandSubmitV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfEventsReadScanV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfEventsResourceGetV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfEventsStreamSubscribeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1159,7 +1084,7 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::Websocket,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfEventsStreamSubscribeV1,
+                operation_id: ServiceOperationId::SelfCommittedEventStreamSubscribeV1,
                 binding_kind: BindingKind::Websocket,
             },
             OperationBindingPair {

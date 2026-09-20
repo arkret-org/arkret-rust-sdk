@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
-    AccountId, ActorId, Cursor, DidCoreId, Event, EventId, Hash, RealmId, Result, SchemaId,
-    StrandId, StreamRow, WireError, canonical,
+    AccountId, ActorId, CommittedEventView, Cursor, DidCoreId, Event, EventId, Hash, RealmId,
+    Result, SchemaId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,12 +21,13 @@ use crate::events_payloads::account_data::parse_agent_draft_account_data_key;
 use crate::events_payloads::agent::{AgentActionTarget, AgentDraftContentHandoff};
 use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionContent};
 use crate::sync_frames::account_sync::{
-    AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, StateAtWindowStart,
+    AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, RealmStreamWindow,
+    StateAtWindowStart,
 };
 use crate::sync_frames::current_results::{AccountCurrentCoverage, AccountCurrentResult};
 use crate::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
-    RealmListPage, RealmTimelineBaseline,
+    RealmListPage,
 };
 
 pub const ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
@@ -401,9 +402,11 @@ impl AccountSubscribeRealms {
 #[serde(deny_unknown_fields)]
 pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeline: Option<RealmTimeline>,
+    pub streams: Option<Vec<RealmStreamWindow>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeline_baseline: Option<RealmTimelineBaseline>,
+    pub streams_limited: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_snapshot_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_at_window_start: Option<StateAtWindowStart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -422,20 +425,37 @@ pub struct RealmSyncEntry {
     pub baseline: Option<RealmDetailBaseline>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unavailable: Option<RealmDetailUnavailable>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub committed_events: Option<Vec<CommittedEventView>>,
 }
 
 impl RealmSyncEntry {
     fn validate(&self) -> Result<()> {
-        if let Some(timeline) = &self.timeline {
-            timeline.validate()?;
+        if let Some(streams) = &self.streams {
+            if streams.len() > 64 {
+                return Err(protocol_error("Realm detail exceeds 64 stream windows"));
+            }
+            let mut previous: Option<Vec<u8>> = None;
+            let mut seen = BTreeSet::new();
+            for stream in streams {
+                stream.validate()?;
+                let key = canonical::canonical_json_bytes(&stream.stream_ref)?;
+                if !seen.insert(key.clone()) {
+                    return Err(protocol_error("Realm detail repeats a stream window"));
+                }
+                if previous.as_ref().is_some_and(|earlier| *earlier >= key) {
+                    return Err(protocol_error(
+                        "Realm stream windows are not sorted by canonical stream_ref bytes",
+                    ));
+                }
+                previous = Some(key);
+            }
         }
-        if let Some(timeline_baseline) = &self.timeline_baseline {
-            timeline_baseline.validate()?;
-            // A frozen window handle without the window it describes would
-            // name a cut the client never received.
-            if self.timeline.is_none() {
+        if let Some(cursor) = &self.window_snapshot_cursor {
+            validate_cursor(cursor)?;
+            if self.streams.is_none() {
                 return Err(protocol_error(
-                    "timeline_baseline requires the timeline it freezes",
+                    "window_snapshot_cursor requires stream windows",
                 ));
             }
         }
@@ -454,11 +474,20 @@ impl RealmSyncEntry {
         if let Some(baseline) = &self.baseline {
             baseline.validate()?;
         }
+        if let Some(events) = &self.committed_events {
+            if events.len() > 100 {
+                return Err(protocol_error("Realm detail exceeds 100 committed Events"));
+            }
+            for event in events {
+                event.validate_shape()?;
+            }
+        }
         // `unavailable` is exclusive with every projection member: a failure
         // and a partial answer for one Realm cannot both be true.
         if self.unavailable.is_some()
-            && (self.timeline.is_some()
-                || self.timeline_baseline.is_some()
+            && (self.streams.is_some()
+                || self.streams_limited.is_some()
+                || self.window_snapshot_cursor.is_some()
                 || self.state_at_window_start.is_some()
                 || self.current.is_some()
                 || self.account_data.is_some()
@@ -466,7 +495,8 @@ impl RealmSyncEntry {
                 || self.member_roster.is_some()
                 || self.unread_notifications.is_some()
                 || self.event_states.is_some()
-                || self.baseline.is_some())
+                || self.baseline.is_some()
+                || self.committed_events.is_some())
         {
             return Err(protocol_error(
                 "unavailable Realm detail cannot carry projection data",
@@ -543,36 +573,6 @@ impl RealmDetailBaseline {
     pub fn validate(&self) -> Result<()> {
         validate_cursor(&self.snapshot_cursor)?;
         self.coverage.validate()
-    }
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmTimeline {
-    #[serde(default)]
-    pub commits: Vec<StreamRow>,
-    pub limited: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preview_only: Option<bool>,
-}
-
-impl RealmTimeline {
-    fn validate(&self) -> Result<()> {
-        if self.commits.len() > 100 {
-            return Err(protocol_error("Realm timeline exceeds 100 commits"));
-        }
-        if let Some(cursor) = &self.prev_cursor {
-            validate_cursor(cursor)?;
-        }
-        for item in &self.commits {
-            item.commit.validate_shape()?;
-            if item.commit.event_ref != item.event.event_id {
-                return Err(protocol_error("timeline commit does not bind its Event"));
-            }
-        }
-        Ok(())
     }
 }
 

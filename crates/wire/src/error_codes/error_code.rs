@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-18.3;
-//! sha256=b5912915d66bea81fc0c669e80bd9cc0392cc4cfd5051a580ee7778a61a00db9 Entries: error_codes=268
+//! Input: registry/error-code-registry.json; version=2026-09-20.6;
+//! sha256=b82baa50150d11393e797bd2f306acf2dd7740fc66210cfd14f5f80534c63c10 Entries: error_codes=265
 
 use serde::{Deserialize, Serialize};
 
@@ -142,7 +142,6 @@ pub enum ErrorCode {
     FrankingTampered,
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
-    HandleUnverified,
     HistoricalDidEvidenceInvalid,
     HistoricalOnly,
     HistoryNotVisible,
@@ -200,8 +199,6 @@ pub enum ErrorCode {
     PreviewPolicyDenied,
     PrincipalUnknown,
     ProjectionIncomplete,
-    PsiBatchUnavailable,
-    PsiQuotaExhausted,
     PushGatewayUnreachable,
     PushPayloadTooLarge,
     PushTargetUnknown,
@@ -426,7 +423,6 @@ impl ErrorCode {
         Self::FrankingTampered,
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
-        Self::HandleUnverified,
         Self::HistoricalDidEvidenceInvalid,
         Self::HistoricalOnly,
         Self::HistoryNotVisible,
@@ -484,8 +480,6 @@ impl ErrorCode {
         Self::PreviewPolicyDenied,
         Self::PrincipalUnknown,
         Self::ProjectionIncomplete,
-        Self::PsiBatchUnavailable,
-        Self::PsiQuotaExhausted,
         Self::PushGatewayUnreachable,
         Self::PushPayloadTooLarge,
         Self::PushTargetUnknown,
@@ -709,7 +703,6 @@ impl ErrorCode {
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
-    pub const HANDLE_UNVERIFIED: &'static str = "handle_unverified";
     pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
     pub const HISTORICAL_ONLY: &'static str = "historical_only";
     pub const HISTORY_NOT_VISIBLE: &'static str = "history_not_visible";
@@ -773,8 +766,6 @@ impl ErrorCode {
     pub const PREVIEW_POLICY_DENIED: &'static str = "preview_policy_denied";
     pub const PRINCIPAL_UNKNOWN: &'static str = "principal_unknown";
     pub const PROJECTION_INCOMPLETE: &'static str = "projection_incomplete";
-    pub const PSI_BATCH_UNAVAILABLE: &'static str = "psi_batch_unavailable";
-    pub const PSI_QUOTA_EXHAUSTED: &'static str = "psi_quota_exhausted";
     pub const PUSH_GATEWAY_UNREACHABLE: &'static str = "push_gateway_unreachable";
     pub const PUSH_PAYLOAD_TOO_LARGE: &'static str = "push_payload_too_large";
     pub const PUSH_TARGET_UNKNOWN: &'static str = "push_target_unknown";
@@ -1012,7 +1003,6 @@ impl ErrorCode {
             Self::FrankingTampered => "franking_tampered",
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
-            Self::HandleUnverified => "handle_unverified",
             Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
             Self::HistoricalOnly => "historical_only",
             Self::HistoryNotVisible => "history_not_visible",
@@ -1076,8 +1066,6 @@ impl ErrorCode {
             Self::PreviewPolicyDenied => "preview_policy_denied",
             Self::PrincipalUnknown => "principal_unknown",
             Self::ProjectionIncomplete => "projection_incomplete",
-            Self::PsiBatchUnavailable => "psi_batch_unavailable",
-            Self::PsiQuotaExhausted => "psi_quota_exhausted",
             Self::PushGatewayUnreachable => "push_gateway_unreachable",
             Self::PushPayloadTooLarge => "push_payload_too_large",
             Self::PushTargetUnknown => "push_target_unknown",
@@ -1313,7 +1301,6 @@ impl ErrorCode {
             "franking_tampered" => Some(Self::FrankingTampered),
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
-            "handle_unverified" => Some(Self::HandleUnverified),
             "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
             "historical_only" => Some(Self::HistoricalOnly),
             "history_not_visible" => Some(Self::HistoryNotVisible),
@@ -1381,8 +1368,6 @@ impl ErrorCode {
             "preview_policy_denied" => Some(Self::PreviewPolicyDenied),
             "principal_unknown" => Some(Self::PrincipalUnknown),
             "projection_incomplete" => Some(Self::ProjectionIncomplete),
-            "psi_batch_unavailable" => Some(Self::PsiBatchUnavailable),
-            "psi_quota_exhausted" => Some(Self::PsiQuotaExhausted),
             "push_gateway_unreachable" => Some(Self::PushGatewayUnreachable),
             "push_payload_too_large" => Some(Self::PushPayloadTooLarge),
             "push_target_unknown" => Some(Self::PushTargetUnknown),
@@ -1616,7 +1601,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "The accepted Agent key component contains conflicting active authorization state at the target checkpoint. The Event and signer evidence MUST be quarantined.",
     },
     ErrorCodeDescriptor {
@@ -1626,7 +1611,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "The target Event accepted-at lies outside the Agent key authorization validity interval because the authorization is revoked, superseded, or expired.",
     },
     ErrorCodeDescriptor {
@@ -1636,7 +1621,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "An ordinary encrypted Agent Event does not have exactly one historical active BasicCredential leaf whose identity, signature key, and admission authorization lineage match its Agent signer evidence.",
     },
     ErrorCodeDescriptor {
@@ -1646,7 +1631,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 501,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Agent provisioning fanout is not available on this deployment.",
     },
     ErrorCodeDescriptor {
@@ -1656,7 +1641,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Portable Agent signer evidence is unavailable for the authorized shared context. For callers without that context this response is indistinguishable from an unknown Agent or method. Consumers remain Unresolved and MUST NOT fall back to device directory or an ordinary-Realm MLS leaf.",
     },
     ErrorCodeDescriptor {
@@ -1666,7 +1651,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Agent signer evidence exists but its source freshness observation or state checkpoint is too old for the target Event admission. Consumers remain Unresolved/Stale and retry without promoting the Event to Verified.",
     },
     ErrorCodeDescriptor {
@@ -1676,7 +1661,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "The Agent proof method, disclosed raw key, public-key digest, signing-binding digest, authorization Event, or controller proof do not form one exact binding.",
     },
     ErrorCodeDescriptor {
@@ -1686,7 +1671,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "An applet with the same identity is already registered for the realm.",
     },
     ErrorCodeDescriptor {
@@ -1706,7 +1691,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The applet install projection does not match the requested effective scope.",
     },
     ErrorCodeDescriptor {
@@ -1726,7 +1711,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The applet install projection is not yet complete.",
     },
     ErrorCodeDescriptor {
@@ -1736,7 +1721,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The operation requires the applet to be installed first.",
     },
     ErrorCodeDescriptor {
@@ -1766,7 +1751,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The submitted applet package has expired.",
     },
     ErrorCodeDescriptor {
@@ -1786,7 +1771,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Applet registration epoch evidence does not match the expected epoch.",
     },
     ErrorCodeDescriptor {
@@ -1796,7 +1781,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Applet registration epoch evidence is missing.",
     },
     ErrorCodeDescriptor {
@@ -1806,7 +1791,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Applet registration epoch signing key does not match the registered key.",
     },
     ErrorCodeDescriptor {
@@ -1836,7 +1821,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Another applet transaction is already in progress.",
     },
     ErrorCodeDescriptor {
@@ -1866,7 +1851,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "An auditable E2EE decrypt receipt was invalidated by backfill, witness, or state verification.",
     },
     ErrorCodeDescriptor {
@@ -1896,7 +1881,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "A pending write, cache entry, snapshot claim, or downstream grant depends on a grant that has been revoked, superseded, expired, or revoked through an ancestor grant. The dependent action MUST fail closed or be quarantined until re-authorized.",
     },
     ErrorCodeDescriptor {
@@ -1956,7 +1941,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Call answer was already accepted and the operation is not idempotent for this participant.",
     },
     ErrorCodeDescriptor {
@@ -1966,7 +1951,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 410,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Call exists but its signaling window has expired.",
     },
     ErrorCodeDescriptor {
@@ -1976,7 +1961,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Call does not exist or is not visible to the caller.",
     },
     ErrorCodeDescriptor {
@@ -1986,7 +1971,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The current device cannot pair with itself.",
     },
     ErrorCodeDescriptor {
@@ -2016,7 +2001,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "An application-level referenced object, revision, or domain transition is incompatible with current authority-committed state. This code does not describe an Event predecessor graph.",
     },
     ErrorCodeDescriptor {
@@ -2076,7 +2061,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a contact request older than contact_request_pending_ttl. The request projection is expired and no terminal response may be authored from it.",
     },
     ErrorCodeDescriptor {
@@ -2086,7 +2071,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Sub-reason for failed_precondition when ak.self.contact.command.respond.v1 or ak.self.contact.command.reject.v1 targets a request that has already been accepted, rejected, tombstoned, withdrawn, or otherwise left the pending state.",
     },
     ErrorCodeDescriptor {
@@ -2136,7 +2121,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 410,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "A credential matching the presentation request exists but is expired.",
     },
     ErrorCodeDescriptor {
@@ -2146,7 +2131,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The holder has no credential matching the authorized presentation request.",
     },
     ErrorCodeDescriptor {
@@ -2226,7 +2211,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The device is already authorized.",
     },
     ErrorCodeDescriptor {
@@ -2246,7 +2231,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "A device re-anchor receipt scope, recovery session or transaction snapshot selects an account-local lineage or device generation that does not exactly match the covered ak.device.reanchor payload.",
     },
     ErrorCodeDescriptor {
@@ -2266,7 +2251,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "A device re-anchor completion carries a checkpoint that does not match the recomputed device checkpoint. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
@@ -2276,7 +2261,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Concurrent device re-anchor completions conflict on the same principal generation state.",
     },
     ErrorCodeDescriptor {
@@ -2286,7 +2271,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Device recovery proof or authorization references a device generation that does not equal the principal's current accepted device generation.",
     },
     ErrorCodeDescriptor {
@@ -2386,7 +2371,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "A DID cannot be resolved or validated under the active resolver policy.",
     },
     ErrorCodeDescriptor {
@@ -2436,7 +2421,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "Discovery of the requested resource failed.",
     },
     ErrorCodeDescriptor {
@@ -2446,7 +2431,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "The target Strand discussion track is disabled.",
     },
     ErrorCodeDescriptor {
@@ -2456,7 +2441,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "An SDK conformance claim repeats the same stable clause_id; each applicable clause must appear exactly once.",
     },
     ErrorCodeDescriptor {
@@ -2486,7 +2471,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "No upstream proxy is configured for external egress from the enclave.",
     },
     ErrorCodeDescriptor {
@@ -2496,7 +2481,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The enclave is not trusted for the requested operation.",
     },
     ErrorCodeDescriptor {
@@ -2516,7 +2501,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The external invite actor does not match the authenticated actor.",
     },
     ErrorCodeDescriptor {
@@ -2526,7 +2511,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The external user has no access to the main deployment surface.",
     },
     ErrorCodeDescriptor {
@@ -2556,7 +2541,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The federated actor origin was rejected by inbound policy.",
     },
     ErrorCodeDescriptor {
@@ -2566,7 +2551,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 501,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The requested federation surface is interop-track only.",
     },
     ErrorCodeDescriptor {
@@ -2576,7 +2561,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The federated origin was denied.",
     },
     ErrorCodeDescriptor {
@@ -2586,7 +2571,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 501,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The private read rail is local-only and not federated.",
     },
     ErrorCodeDescriptor {
@@ -2596,7 +2581,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery-material gate requirements (first accepted RealmCommit and genesis recovery policy) are not satisfied.",
     },
     ErrorCodeDescriptor {
@@ -2616,7 +2601,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The franking tag is tampered or does not verify.",
     },
     ErrorCodeDescriptor {
@@ -2638,16 +2623,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "Session-grant rotation targeted a grant that was already single-use consumed (rotated). Treated as a credential-compromise signal; the rotation chain SHOULD be terminated. See account-lifecycle §4.1.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::HandleUnverified,
-        type_uri: "https://arkret.org/problems/handle_unverified",
-        title: "Handle unverified",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A handle or alias exists but lacks a verifiable current claim binding for the requested operation.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoricalDidEvidenceInvalid,
@@ -2766,7 +2741,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Required encrypted content key, MLS epoch, or authorized key share is not currently available.",
     },
     ErrorCodeDescriptor {
@@ -2806,7 +2781,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "SDP / ICE media negotiation failed after the request passed authorization and schema validation. Clients MAY retry with a fresh offer or rejoin flow; services MUST NOT treat this as authorization success for any durable call-state transition.",
     },
     ErrorCodeDescriptor {
@@ -2816,7 +2791,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Caller lacks permission to create, join, answer, or modify the media session.",
     },
     ErrorCodeDescriptor {
@@ -2826,7 +2801,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "A compensation delegation/action/executor/admission/join binding is wrong, already consumed, absent, or conflicts with the current membership provenance. The operation performs no write on conflict and never removes a newer join Event.",
     },
     ErrorCodeDescriptor {
@@ -2836,7 +2811,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 405,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The path exists but the HTTP method is not supported.",
     },
     ErrorCodeDescriptor {
@@ -2856,7 +2831,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The MIMI payload digest does not match.",
     },
     ErrorCodeDescriptor {
@@ -2866,7 +2841,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The MIMI payload is invalid.",
     },
     ErrorCodeDescriptor {
@@ -2876,7 +2851,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "MIMI reporter resolution is required before this action.",
     },
     ErrorCodeDescriptor {
@@ -2896,7 +2871,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "An MLS genesis operation attempted to initialize a group whose genesis state is already durably accepted. Receivers MUST preserve the existing group state and reject the conflicting initialization.",
     },
     ErrorCodeDescriptor {
@@ -2926,7 +2901,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required RealmCommit/Event/witness material that prevents the service from deciding dominance is revision_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
     },
     ErrorCodeDescriptor {
@@ -2936,7 +2911,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The MLS KeyPackage claim request has expired.",
     },
     ErrorCodeDescriptor {
@@ -3066,7 +3041,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "A presentation request asks for unrelated handles, credential identifiers, or global identifiers beyond its declared purpose.",
     },
     ErrorCodeDescriptor {
@@ -3126,7 +3101,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The peer's state is stale and temporarily unavailable.",
     },
     ErrorCodeDescriptor {
@@ -3136,8 +3111,8 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
-        description: "The submitted Realm policy combination (discoverability Ã— join_rule Ã— history_access) violates the v1 normative compatibility matrix in zh/discovery/discovery-directory.md §3.1. Reducer keeps the prior accepted state.",
+        applies_to: &["service_call", "delivery"],
+        description: "The submitted Realm policy combination (discoverability × join_rule × history_access) violates the Realm policy compatibility rules. Reducer keeps the prior accepted state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyDenied,
@@ -3196,7 +3171,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md §4.",
     },
     ErrorCodeDescriptor {
@@ -3218,26 +3193,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The requested projection cannot be claimed complete under the current supported feature set or dependency checkpoint.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PsiBatchUnavailable,
-        type_uri: "https://arkret.org/problems/psi_batch_unavailable",
-        title: "Psi batch unavailable",
-        http_status: 410,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The private-contact-discovery batch is unavailable for match or replay because it is unknown, belongs to another authenticated device credential, or exceeded batch_completion_ttl_seconds (after which its pinned VOPRF epoch may be released). These causes intentionally share one response. A conforming provider MUST retain the pinned epoch for the full completion TTL. Returned as a padded PSI Class B RFC 9457 Problem Details; callers must start a new blind batch, subject to the existing PSI quota. See zh/discovery/discovery-directory.md §6.4.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PsiQuotaExhausted,
-        type_uri: "https://arkret.org/problems/psi_quota_exhausted",
-        title: "Psi quota exhausted",
-        http_status: 429,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at first blind admission, before any target is evaluated; admitted match and exact retries MUST NOT be quota-denied. The response is a PSI Class B RFC 9457 Problem Details with required top-level ASCII-SP padding, exact phase Content-Length bucket, no Content-Encoding/content coding, and the advertised anti-enumeration delay distribution. It MUST carry a decimal-seconds `Retry-After` rounded up to a 300s multiple (minimum 300). Distinct from generic `rate_limited` and from 403 `quota_exceeded`. See zh/discovery/discovery-directory.md §6.3/§6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushGatewayUnreachable,
@@ -3326,7 +3281,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "No valid fractional rank exists between the requested bounds; a rebalance or different position is required.",
     },
     ErrorCodeDescriptor {
@@ -3356,7 +3311,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The realm federation policy is closed.",
     },
     ErrorCodeDescriptor {
@@ -3366,7 +3321,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The realm federation policy is invalid.",
     },
     ErrorCodeDescriptor {
@@ -3376,7 +3331,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The realm federation policy has quarantined the peer.",
     },
     ErrorCodeDescriptor {
@@ -3386,7 +3341,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "The realm federation policy restricts this peer.",
     },
     ErrorCodeDescriptor {
@@ -3416,7 +3371,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "A conformance snapshot chunk digest does not match the declared digest.",
     },
     ErrorCodeDescriptor {
@@ -3446,7 +3401,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Recording or transcription is denied by Realm policy or participant consent state.",
     },
     ErrorCodeDescriptor {
@@ -3456,7 +3411,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery authorization device does not match.",
     },
     ErrorCodeDescriptor {
@@ -3466,7 +3421,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery authorization principal does not match.",
     },
     ErrorCodeDescriptor {
@@ -3476,7 +3431,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery authorization session does not match.",
     },
     ErrorCodeDescriptor {
@@ -3486,7 +3441,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery control event kind does not match the expected kind.",
     },
     ErrorCodeDescriptor {
@@ -3496,7 +3451,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The referenced recovery control event was not found.",
     },
     ErrorCodeDescriptor {
@@ -3506,7 +3461,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery list update device does not match.",
     },
     ErrorCodeDescriptor {
@@ -3516,7 +3471,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery list update principal does not match.",
     },
     ErrorCodeDescriptor {
@@ -3526,7 +3481,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery policy conflicts with the current state.",
     },
     ErrorCodeDescriptor {
@@ -3536,7 +3491,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The device is not authorized under the recovery policy.",
     },
     ErrorCodeDescriptor {
@@ -3546,7 +3501,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery policy id does not match.",
     },
     ErrorCodeDescriptor {
@@ -3557,7 +3512,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md §9.5.",
+        description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md §8.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMissing,
@@ -3566,7 +3521,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "No recovery policy is registered for the principal.",
     },
     ErrorCodeDescriptor {
@@ -3576,7 +3531,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery policy has been revoked.",
     },
     ErrorCodeDescriptor {
@@ -3586,7 +3541,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery policy trust domain does not match.",
     },
     ErrorCodeDescriptor {
@@ -3596,7 +3551,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery policy version does not match.",
     },
     ErrorCodeDescriptor {
@@ -3606,7 +3561,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 401,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery proof authority is invalid.",
     },
     ErrorCodeDescriptor {
@@ -3616,7 +3571,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery proof kind is not allowed.",
     },
     ErrorCodeDescriptor {
@@ -3626,7 +3581,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 501,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery proof kind is not implemented.",
     },
     ErrorCodeDescriptor {
@@ -3636,7 +3591,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery receipt conflicts with the current state.",
     },
     ErrorCodeDescriptor {
@@ -3646,7 +3601,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery session conflicts with the current state.",
     },
     ErrorCodeDescriptor {
@@ -3656,7 +3611,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 409,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The recovery session id has already been used.",
     },
     ErrorCodeDescriptor {
@@ -3676,7 +3631,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 400,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "A downstream service response was syntactically valid transport data but did not satisfy the expected protocol contract, including directory/projection/service-call schema mismatch or missing required pagination/error fields.",
     },
     ErrorCodeDescriptor {
@@ -3716,7 +3671,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
     },
     ErrorCodeDescriptor {
@@ -3746,7 +3701,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 503,
         http_status_by_context: &[],
         scope: "both",
-        applies_to: &[],
+        applies_to: &["service_call", "delivery"],
         description: "The target service cannot serve the request because its runtime service identity is not ready. The response SHOULD carry Retry-After when retry timing is known.",
     },
     ErrorCodeDescriptor {
@@ -3836,7 +3791,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Requested SFU or media focus is not allowed by Realm policy or media service binding.",
     },
     ErrorCodeDescriptor {
@@ -3847,7 +3802,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "ak.self.signal.command.send.v1 rejected the envelope because the actor lacks the kind-specific broadcast capability or Realm policy disables that signal kind.",
+        description: "ak.self.signal.command.send.v1 rejected the envelope because an outer-visible signal_class, current participant/membership/scope authority, or Realm policy gate failed. The Station cannot inspect encrypted product kind or target; all such outer admission failures use this non-enumerating code without naming the failed input.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignalRailUnavailable,
@@ -3867,7 +3822,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "ak.self.signal.command.send.v1 rejected ttl_ms because it is absent when required or outside the service's advertised kind-specific range.",
+        description: "ak.self.signal.command.send.v1 rejected the outer envelope lifetime because it is absent when required or outside the service's advertised signal_class-specific range.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SignatureInvalid,
@@ -3897,7 +3852,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md §3.2. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "An RFC 9421 HTTP Message Signature failed the freshness window: created/expires missing or not integers, the claimed lifetime outside the registered ceiling, created outside the registered receiver skew, or expires already reached. It also covers byte-identical replays after the bounded replay cache evicted the entry. The window algorithm and its numerals are owned by http_signature_contract_registry in registry/contract-registry.json and stated in zh/sync/service-http-binding.md section 8.3; no other page or artifact carries those numerals. Scenario-specific tightening is registered as a freshness profile there, currently only for ak.peer.signal.command.relay.v1. Applies to every registered signing scenario, including Applet transaction push (zh/extensions/applet-integration.md section 7.3.1) and MIMI provider-to-provider writes (zh/extensions/mimi-interop.md section 5).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SoftLoggedOut,
@@ -3936,7 +3891,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 503,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Required credential revocation or status material is temporarily unavailable.",
     },
     ErrorCodeDescriptor {
@@ -4046,7 +4001,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 404,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "The path is inside the protocol namespace but not implemented by the service.",
     },
     ErrorCodeDescriptor {
@@ -4057,7 +4012,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed even if the underlying MLS library supports the suite. See zh/crypto-media/encryption-and-audit.md §2.6.",
+        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage publish, claim or Commit submission. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed even if the underlying MLS library supports the suite. See zh/crypto-media/encryption-and-audit.md §2.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedContentEncoding,
@@ -4186,7 +4141,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 422,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "Wallet and verifier have no mutually supported proof profile for the requested presentation.",
     },
     ErrorCodeDescriptor {
@@ -4216,7 +4171,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 503,
         http_status_by_context: &[],
         scope: "endpoint",
-        applies_to: &[],
+        applies_to: &["endpoint"],
         description: "A required upstream dependency is temporarily unavailable. HTTP bindings MUST use 503 Service Unavailable and SHOULD include Retry-After when a retry window is known; 412 is reserved for failed request preconditions.",
     },
     ErrorCodeDescriptor {
@@ -4226,7 +4181,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status: 403,
         http_status_by_context: &[],
         scope: "service_call",
-        applies_to: &[],
+        applies_to: &["service_call"],
         description: "A presentation verifier could not prove authority to represent its claimed organization or relying party.",
     },
 ];

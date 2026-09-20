@@ -360,7 +360,7 @@ mod tests {
             scope_ref: scope(),
             actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(alice(), alice())),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             payload: serde_json::from_value(json!({
                 "strand_id": strand_id,
                 "track_name": "discussion",

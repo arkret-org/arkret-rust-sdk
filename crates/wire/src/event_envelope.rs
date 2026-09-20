@@ -59,10 +59,10 @@ pub const MAX_HTTP_MESSAGE_CONTENT_BYTES: usize = 16 * 1024 * 1024;
 
 pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
 pub const MAX_EVENT_RESOLVE: usize = 100;
-pub const MAX_EVENT_REFS: usize = 128;
+pub const MAX_SEMANTIC_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
 
-pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
+pub const SEMANTIC_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
 pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_EVENT_ENVELOPE_BYTES {
@@ -82,10 +82,10 @@ pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_event_ref_count(count: usize) -> Result<()> {
-    if count > MAX_EVENT_REFS {
+pub fn validate_semantic_ref_count(count: usize) -> Result<()> {
+    if count > MAX_SEMANTIC_REFS {
         return Err(WireError::Protocol(format!(
-            "refs exceeds v1 maximum of {MAX_EVENT_REFS} entries"
+            "semantic_refs exceeds v1 maximum of {MAX_SEMANTIC_REFS} entries"
         )));
     }
     Ok(())
@@ -94,22 +94,31 @@ pub fn validate_event_ref_count(count: usize) -> Result<()> {
 pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
     if count > MAX_AUTHORIZED_BY_REFS {
         return Err(WireError::Protocol(format!(
-            "authorized_by refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
+            "authorized_by semantic_refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
         )));
     }
     Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct EventRef {
+pub struct SemanticRef {
     pub id: String,
     pub role: String,
     #[serde(default = "default_event_ref_critical")]
     pub critical: bool,
 }
 
-impl EventRef {
+/// Audience shape used by Applet publication artifacts.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EventProofAudience {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl SemanticRef {
     pub fn new(id: impl Into<String>, role: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -119,7 +128,7 @@ impl EventRef {
     }
 
     pub fn authorized_by_grant(grant_id: GrantId) -> Self {
-        Self::new(grant_id.to_string(), EVENT_REF_ROLE_AUTHORIZED_BY)
+        Self::new(grant_id.to_string(), SEMANTIC_REF_ROLE_AUTHORIZED_BY)
     }
 }
 
@@ -157,7 +166,7 @@ pub struct Event {
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<EventRef>,
+    pub semantic_refs: Vec<SemanticRef>,
     pub payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_proof: Option<ProducerEventProof>,
@@ -178,7 +187,7 @@ pub struct ProjectedEventInput {
     pub realm_id: RealmId,
     pub created_at: DateTime<Utc>,
     pub payload: BTreeMap<String, Value>,
-    pub refs: Vec<EventRef>,
+    pub semantic_refs: Vec<SemanticRef>,
 }
 
 impl From<&Event> for ProjectedEventInput {
@@ -191,7 +200,7 @@ impl From<&Event> for ProjectedEventInput {
             realm_id: event.realm_id.clone(),
             created_at: event.created_at,
             payload: event.payload.clone(),
-            refs: event.refs.clone(),
+            semantic_refs: event.semantic_refs.clone(),
         }
     }
 }
@@ -503,7 +512,7 @@ struct EventSer<'a> {
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    refs: &'a Vec<EventRef>,
+    semantic_refs: &'a Vec<SemanticRef>,
     payload: &'a BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     producer_proof: &'a Option<ProducerEventProof>,
@@ -522,7 +531,7 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
             created_at: event.created_at,
-            refs: &event.refs,
+            semantic_refs: &event.semantic_refs,
             payload: &event.payload,
             producer_proof: &event.producer_proof,
         }
@@ -559,7 +568,7 @@ struct EventWire {
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default)]
-    pub refs: Option<Vec<EventRef>>,
+    pub semantic_refs: Option<Vec<SemanticRef>>,
     pub payload: BTreeMap<String, Value>,
     #[serde(default)]
     pub producer_proof: Option<ProducerEventProof>,
@@ -570,12 +579,12 @@ impl TryFrom<EventWire> for Event {
 
     fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
         let kind = EventKind::from_wire(&wire.kind);
-        let refs = match wire.refs {
+        let semantic_refs = match wire.semantic_refs {
             None => Vec::new(),
-            Some(refs) if refs.is_empty() => {
-                return Err("refs must be omitted when empty".to_owned());
+            Some(semantic_refs) if semantic_refs.is_empty() => {
+                return Err("semantic_refs must be omitted when empty".to_owned());
             }
-            Some(refs) => refs,
+            Some(semantic_refs) => semantic_refs,
         };
         // zh/models/realm-and-space.md section 2.5.0: the genesis envelope
         // omits realm_id and receivers derive it from the Event's own id.
@@ -606,7 +615,7 @@ impl TryFrom<EventWire> for Event {
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
             created_at: wire.created_at,
-            refs,
+            semantic_refs,
             payload: wire.payload,
             producer_proof: wire.producer_proof,
         };
@@ -1150,7 +1159,7 @@ impl Event {
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
-        validate_event_ref_count(self.refs.len())?;
+        validate_semantic_ref_count(self.semantic_refs.len())?;
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
         let Some(producer) = self.producer_proof.as_ref() else {
@@ -1316,7 +1325,7 @@ impl Event {
             scope_ref,
             actor_id,
             created_at: canonical::normalize_timestamp_canonical(created_at),
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             payload: payload.into_iter().collect(),
             executed_by: None,
             authorization_ref: None,
@@ -1445,10 +1454,10 @@ mod event_wire_surface_tests {
     #[test]
     fn refs_are_optional_but_explicit_empty_is_rejected() {
         let value = serde_json::to_value(base_event()).unwrap();
-        assert!(value.get("refs").is_none());
+        assert!(value.get("semantic_refs").is_none());
 
         let mut invalid = value;
-        invalid["refs"] = json!([]);
+        invalid["semantic_refs"] = json!([]);
         let err = serde_json::from_value::<Event>(invalid).unwrap_err();
         assert!(
             err.to_string().contains("must be omitted when empty"),

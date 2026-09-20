@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-18.5;
-//! sha256=7e727be8faa463543688e7536f5fef5548e0b2cfdcc0c3d7064d7c418c1ff13c Input: registry/
-//! id-kind-registry.json; version=2026-09-16.10;
-//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
-//! Entries: active_events=148
+//! Input: registry/event-kind-registry.json; version=2026-09-20.13;
+//! sha256=68da4cb62285c5cf8477d5b19f3902f7ef8baab25ba354dfdb86475ef31d4d86 Input: registry/
+//! id-kind-registry.json; version=2026-09-19.1;
+//! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823
+//! Entries: active_events=147
 
 use arkret_wire::event_kind_str;
 
@@ -418,11 +418,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::POLICY_ACTION,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::POLICY_RULE,
         id_source: None,
         derived_id_kinds: &[],
     },

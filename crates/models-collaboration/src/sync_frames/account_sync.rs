@@ -8,7 +8,10 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::{ActorId, BlobRef, RealmId, Result, WireError, string_profiles};
+use arkret_wire::{
+    ActorId, BlobRef, CommitStreamRef, CommittedEventRef, RealmCommitId, RealmId, RealmSnapshotId,
+    Result, WireError, string_profiles,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::sync_frames::demand_sync::ACCOUNT_SYNC_MAX_COLLECTION_ITEMS;
@@ -103,13 +106,13 @@ impl WindowStartRealmMetadata {
     }
 }
 
-/// The E2EE epoch in force at the window start.
+/// The E2EE epoch in force at one stream's window start.
 ///
-/// `None` is a real answer, not missing data: a Realm may have no executable
-/// MLS epoch at that point, and the schema models that as an explicit `null`
-/// rather than an absent member.
+/// `None` is a real answer, not missing data: a stream may have no executable
+/// MLS epoch at that point. This value belongs to [`RealmStreamWindow`], never
+/// the Realm-wide display projection.
 // Field declaration order is byte-for-byte the `properties` order of
-// `account-subscribe-frame.schema.json#/$defs/state_at_window_start/properties/e2ee_epoch`.
+// `account-subscribe-frame.schema.json#/$defs/realm_stream_window/properties/e2ee_epoch`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WindowStartE2eeEpoch {
@@ -136,7 +139,6 @@ impl WindowStartE2eeEpoch {
 pub struct StateAtWindowStart {
     pub actor_profiles: Vec<WindowStartActorProfile>,
     pub realm_metadata: WindowStartRealmMetadata,
-    pub e2ee_epoch: Option<WindowStartE2eeEpoch>,
 }
 
 impl StateAtWindowStart {
@@ -168,6 +170,102 @@ impl StateAtWindowStart {
             previous = Some(key);
         }
         self.realm_metadata.validate()?;
+        Ok(())
+    }
+}
+
+/// Boundary represented by a stream-local window-start basis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StreamWindowAnchorKind {
+    StreamGenesis,
+    AfterCommittedPrefix,
+    BeforeReadableFloor,
+}
+
+/// Verifiable rebuild material for one stream's window start.
+// Field declaration order is byte-for-byte the `properties` order of
+// `account-subscribe-frame.schema.json#/$defs/realm_stream_window/properties/window_start_basis`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StreamWindowStartBasis {
+    pub anchor_kind: StreamWindowAnchorKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_position: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_commit_ref: Option<RealmCommitId>,
+    pub snapshot_ref: RealmSnapshotId,
+    pub governance_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_dependency_refs: Option<Vec<CommittedEventRef>>,
+}
+
+impl StreamWindowStartBasis {
+    pub fn validate(&self) -> Result<()> {
+        let anchored = self.anchor_position.is_some() && self.anchor_commit_ref.is_some();
+        match self.anchor_kind {
+            StreamWindowAnchorKind::StreamGenesis if anchored => {
+                return Err(protocol_error(
+                    "stream genesis basis must not carry an anchor position or commit",
+                ));
+            }
+            StreamWindowAnchorKind::StreamGenesis
+                if self.anchor_position.is_some() || self.anchor_commit_ref.is_some() =>
+            {
+                return Err(protocol_error(
+                    "stream genesis basis must not carry a partial anchor",
+                ));
+            }
+            StreamWindowAnchorKind::AfterCommittedPrefix
+            | StreamWindowAnchorKind::BeforeReadableFloor
+                if !anchored =>
+            {
+                return Err(protocol_error(
+                    "non-genesis stream basis requires anchor_position and anchor_commit_ref",
+                ));
+            }
+            _ => {}
+        }
+        if self
+            .accepted_dependency_refs
+            .as_ref()
+            .is_some_and(|refs| refs.len() > 64)
+        {
+            return Err(protocol_error(
+                "stream window basis exceeds 64 accepted dependency refs",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Per-stream frozen delivery window in one Realm bucket.
+// Field declaration order is byte-for-byte the `properties` order of
+// `account-subscribe-frame.schema.json#/$defs/realm_stream_window`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmStreamWindow {
+    pub stream_ref: CommitStreamRef,
+    pub head_commit_ref: RealmCommitId,
+    pub next_position: u64,
+    pub limited: bool,
+    pub window_limit: u32,
+    pub complete: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_only: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_start_basis: Option<StreamWindowStartBasis>,
+    pub e2ee_epoch: Option<WindowStartE2eeEpoch>,
+}
+
+impl RealmStreamWindow {
+    pub fn validate(&self) -> Result<()> {
+        if self.window_limit > 100 {
+            return Err(protocol_error("stream window_limit must be <= 100"));
+        }
+        if let Some(basis) = &self.window_start_basis {
+            basis.validate()?;
+        }
         if let Some(epoch) = &self.e2ee_epoch {
             epoch.validate()?;
         }
@@ -252,7 +350,6 @@ mod tests {
         json!({
             "actor_profiles": profiles,
             "realm_metadata": {},
-            "e2ee_epoch": null,
         })
     }
 
@@ -261,11 +358,10 @@ mod tests {
     }
 
     #[test]
-    fn null_e2ee_epoch_is_an_answer_and_round_trips() {
+    fn window_start_display_state_round_trips_without_stream_epoch() {
         let value = window_start(json!([]));
         let state = parse(value.clone());
         state.validate().unwrap();
-        assert!(state.e2ee_epoch.is_none());
         assert_eq!(serde_json::to_value(&state).unwrap(), value);
     }
 

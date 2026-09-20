@@ -8,8 +8,8 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    ActorId, AuthorizationRef, DeviceId, Did, Event, EventId, EventKind, EventRef, Hash,
-    OperationId, OperationKind, RealmId, ScopeRef, canonical, project_did_to_core_id,
+    ActorId, AuthorizationRef, DeviceId, Did, Event, EventId, EventKind, Hash, OperationId,
+    OperationKind, RealmId, ScopeRef, SemanticRef, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ pub struct ProjectedEventOperation {
     pub event_kind: EventKind,
     pub payload: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<EventRef>,
+    pub semantic_refs: Vec<SemanticRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -78,7 +78,7 @@ impl ProjectedEventOperation {
             object_id,
             event_kind: event.kind.clone(),
             payload,
-            refs: event.refs.clone(),
+            semantic_refs: event.semantic_refs.clone(),
             idempotency_key: None,
             created_at: event.created_at,
             context: ProjectionContext {
@@ -124,7 +124,7 @@ impl ProjectedEventOperation {
             realm_id: self.realm_id.clone(),
             created_at: self.created_at,
             payload: payload.into_iter().collect(),
-            refs: self.refs.clone(),
+            semantic_refs: self.semantic_refs.clone(),
         })
     }
 
@@ -214,7 +214,7 @@ pub struct LocalOperationDraft<K: LocalOperationSpec> {
     pub object_kind: &'static str,
     pub payload: K::Payload,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<EventRef>,
+    pub semantic_refs: Vec<SemanticRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -234,7 +234,7 @@ impl<K: LocalOperationSpec> LocalOperationDraft<K> {
             object_id: None,
             object_kind: K::OBJECT_KIND,
             payload,
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             idempotency_key: None,
             created_at: Utc::now(),
         }

@@ -20,10 +20,7 @@ pub use arkret_models_crypto::encrypted_envelope::{
     EventContentPreEncryptionHeader, EventContentRoutingContext, base64url_token,
     content_type_byte, content_type_token, fixed_base64url_token, major_minor_version,
 };
-pub use arkret_wire::event_receipt::{
-    DeviceReanchorReceiptScope, DeviceReanchorReceiptScopeKind, EventBatchOrdinaryReceiptScope,
-    EventBatchReceipt, EventBatchReceiptRow, EventBatchReceiptScope, EventProofAudience,
-};
+pub use arkret_wire::EventProofAudience;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json`.

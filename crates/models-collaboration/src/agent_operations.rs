@@ -590,7 +590,7 @@ mod tests {
             },
             "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000001",
             "controller_authorization_ref": "did:webvh:z6mkagent:agent.example#controller-1",
-            "requested_scope": { "actions": ["ak.self.events.read.scan.v1"] },
+            "requested_scope": { "actions": ["ak.self.committed_event.read.scan.v1"] },
             "runtime_state": "ready"
         });
         assert!(serde_json::from_value::<KeyState>(value).is_err());

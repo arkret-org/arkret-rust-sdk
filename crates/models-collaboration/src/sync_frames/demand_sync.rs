@@ -252,34 +252,6 @@ impl AccountBaselineSegment {
     }
 }
 
-/// The frozen timeline window generation for one Realm.
-///
-/// `window_limit` is the *cumulative* ceiling of the whole frozen window after
-/// the request targets are merged, not the count emitted in this frame. Byte
-/// budgets decide only how the window is segmented; they never lower it, or a
-/// client could not tell a short window from a truncated one.
-// Field declaration order is byte-for-byte the `properties` order of
-// `account-subscribe-frame.schema.json#/$defs/realm_timeline_baseline`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmTimelineBaseline {
-    pub snapshot_cursor: String,
-    pub window_limit: u32,
-    pub complete: bool,
-}
-
-impl RealmTimelineBaseline {
-    pub fn validate(&self) -> Result<()> {
-        validate_snapshot_cursor(&self.snapshot_cursor)?;
-        if self.window_limit > ACCOUNT_SYNC_MAX_TIMELINE_LIMIT {
-            return Err(protocol_error(
-                "Realm timeline baseline window_limit must be <= 100",
-            ));
-        }
-        Ok(())
-    }
-}
-
 /// Why one requested Realm detail could not be answered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -429,25 +401,6 @@ mod tests {
         good.validate().unwrap();
         assert!(good.completes(AccountBaselineChannel::StationCas));
         assert!(!good.completes(AccountBaselineChannel::Notifications));
-    }
-
-    #[test]
-    fn timeline_baseline_window_limit_is_bounded_and_cursor_checked() {
-        let over: RealmTimelineBaseline = serde_json::from_value(json!({
-            "snapshot_cursor": "ak:cursor:aaa",
-            "window_limit": 101,
-            "complete": false,
-        }))
-        .unwrap();
-        assert!(over.validate().is_err());
-
-        let bad_cursor: RealmTimelineBaseline = serde_json::from_value(json!({
-            "snapshot_cursor": "cursor:aaa",
-            "window_limit": 20,
-            "complete": true,
-        }))
-        .unwrap();
-        assert!(bad_cursor.validate().is_err());
     }
 
     #[test]

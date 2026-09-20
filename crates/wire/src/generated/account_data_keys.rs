@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-16.6;
-//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04
+//! Input: registry/account-data-key-registry.json; version=2026-09-20.2;
+//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -88,11 +88,16 @@ impl AccountDataKey {
     /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
     /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
-    /// Controller-owned encrypted draft created when Station materializes an agent's
-    /// ak.agent.draft.propose / ak.agent.action_request after capability / policy / accountability
-    /// / risk check. Draft MUST NOT enter shared Realm history; publishing produces a new shared
-    /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
-    /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
+    /// Controller-owned encrypted draft created only by the controller holder's ak.account_data.set
+    /// CAS. Both key components are fixed 43-character unpadded-base64url SHA-256 digests under
+    /// distinct registered domains; they are not reversible literals. ak.agent.draft.propose is not
+    /// a writer: it creates a Station-private pending intent whose HPKE handoff the holder
+    /// decrypts, validates and re-encrypts with the account secret. The initial create must
+    /// atomically consume that exact intent after Station recomputes the complete signed key from
+    /// the source row; Station never sees plaintext or generates the encrypted value. Draft MUST
+    /// NOT enter shared Realm history; publishing produces a new shared event referencing only an
+    /// opaque digest. See actor-private-effects.md §3.2 and private-objects.md §4.1.
+    /// Key pattern: `ak.agent.draft.v1:<agent_id_sha256_b64u43>:<draft_id_sha256_b64u43>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
     /// Controller-private per-context Sidecar hosted-view state. controller_account_key is
     /// derive_account_data_key(RFC8785_JCS(controller_account_id)) from models/account-data.md

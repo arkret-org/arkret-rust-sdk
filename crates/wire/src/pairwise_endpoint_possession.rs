@@ -14,6 +14,14 @@ use crate::{
     RequestId, Result, WireError, canonical,
 };
 
+// This context predates the current spec registry baseline. Keep the existing
+// SDK surface intact until its own protocol disposition is adjudicated; the
+// committed-event migration must not silently rewrite its signed transcript.
+impl ProofContextId {
+    pub const SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1: &'static str =
+        "ak.session_grant_pairwise_endpoint_possession_proof.v1";
+}
+
 pub const PAIRWISE_ENDPOINT_POSSESSION_PROOF_CONTEXT: &str =
     ProofContextId::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1;
 pub const MAX_PAIRWISE_ENDPOINT_POSSESSION_PROOF_LIFETIME_SECONDS: i64 = 300;

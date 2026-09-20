@@ -13,9 +13,9 @@
 use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
-use arkret_models_collaboration::event_query::EventView;
-use arkret_models_collaboration::sync_frames::events_subscribe::{
-    EventsStreamTrace, EventsSubscribeFrame,
+use arkret_models_collaboration::event_query::CommittedEventView;
+use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
+    CommittedEventStreamTrace, CommittedEventSubscribeFrame,
 };
 use arkret_wire::{
     ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventCommitSubmission, EventId,
@@ -29,32 +29,33 @@ use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 /// Largest page one stream tail read may request (`stream_scan_request.limit`).
 pub const STREAM_SCAN_MAX_LIMIT: u16 = 1000;
 
-/// Largest selector cardinality `ak.self.events.stream.subscribe.v1` accepts
+/// Largest selector cardinality `ak.self.committed_event.stream.subscribe.v1` accepts
 /// for either selector array.
-pub const EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS: usize = 256;
+pub const COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS: usize = 256;
 
 #[cfg(not(target_arch = "wasm32"))]
-type BoxEventsSubscribeFrameStream =
-    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<EventsSubscribeFrame>> + Send>>;
+type BoxCommittedEventSubscribeFrameStream = std::pin::Pin<
+    Box<dyn futures_util::Stream<Item = Result<CommittedEventSubscribeFrame>> + Send>,
+>;
 
 #[cfg(target_arch = "wasm32")]
-type BoxEventsSubscribeFrameStream =
-    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<EventsSubscribeFrame>>>>;
+type BoxCommittedEventSubscribeFrameStream =
+    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<CommittedEventSubscribeFrame>>>>;
 
-/// Selector and replay options for `ak.self.events.stream.subscribe.v1`.
+/// Selector and replay options for `ak.self.committed_event.stream.subscribe.v1`.
 ///
 /// `realm_ids` and `actor_ids` union within themselves and intersect with each
 /// other; at least one must be non-empty, because an unscoped subscription has
 /// no authorization to evaluate.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct EventsSubscribeOptions {
+pub struct CommittedEventSubscribeOptions {
     realm_ids: Vec<RealmId>,
     actor_ids: Vec<ActorId>,
     after: Option<String>,
     catchup: bool,
 }
 
-impl EventsSubscribeOptions {
+impl CommittedEventSubscribeOptions {
     pub fn new() -> Self {
         Self::default()
     }
@@ -98,33 +99,34 @@ impl EventsSubscribeOptions {
     pub fn validate(&self) -> Result<()> {
         if self.realm_ids.is_empty() && self.actor_ids.is_empty() {
             return Err(Error::Protocol(
-                "events subscribe requires at least one realm_ids or actor_ids selector".to_owned(),
+                "committed-event subscribe requires at least one realm_ids or actor_ids selector"
+                    .to_owned(),
             ));
         }
         for (label, len) in [
             ("realm_ids", self.realm_ids.len()),
             ("actor_ids", self.actor_ids.len()),
         ] {
-            if len > EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS {
+            if len > COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS {
                 return Err(Error::Protocol(format!(
-                    "events subscribe {label} exceeds {EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS} items"
+                    "committed-event subscribe {label} exceeds {COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS} items"
                 )));
             }
         }
         if unique_count(self.realm_ids.iter().map(RealmId::as_str)) != self.realm_ids.len() {
             return Err(Error::Protocol(
-                "events subscribe realm_ids must be unique".to_owned(),
+                "committed-event subscribe realm_ids must be unique".to_owned(),
             ));
         }
         let encoded_actors = self.encoded_actor_ids()?;
         if unique_count(encoded_actors.iter().map(String::as_str)) != encoded_actors.len() {
             return Err(Error::Protocol(
-                "events subscribe actor_ids must be unique".to_owned(),
+                "committed-event subscribe actor_ids must be unique".to_owned(),
             ));
         }
         if self.catchup && self.after.is_none() {
             return Err(Error::Protocol(
-                "events subscribe catchup requires an after cursor".to_owned(),
+                "committed-event subscribe catchup requires an after cursor".to_owned(),
             ));
         }
         Ok(())
@@ -149,25 +151,25 @@ fn unique_count<'a>(values: impl Iterator<Item = &'a str>) -> usize {
     values.collect::<std::collections::BTreeSet<_>>().len()
 }
 
-/// Validated frame stream for `ak.self.events.stream.subscribe.v1`.
+/// Validated frame stream for `ak.self.committed_event.stream.subscribe.v1`.
 ///
-/// The stream owns an [`EventsStreamTrace`], so frame-order violations (a frame
+/// The stream owns an [`CommittedEventStreamTrace`], so frame-order violations (a frame
 /// after a terminal one, `catchup_complete` without replayed data, a positional
 /// frame without a cursor) are rejected here rather than reaching the caller as
 /// silently reordered history.
-pub struct EventsSubscribeFrameStream {
-    inner: BoxEventsSubscribeFrameStream,
-    trace: EventsStreamTrace,
+pub struct CommittedEventSubscribeFrameStream {
+    inner: BoxCommittedEventSubscribeFrameStream,
+    trace: CommittedEventStreamTrace,
     failed: bool,
 }
 
-impl EventsSubscribeFrameStream {
-    pub async fn next_frame(&mut self) -> Result<Option<EventsSubscribeFrame>> {
+impl CommittedEventSubscribeFrameStream {
+    pub async fn next_frame(&mut self) -> Result<Option<CommittedEventSubscribeFrame>> {
         use futures_util::StreamExt;
 
         if self.failed {
             return Err(Error::Protocol(
-                "events subscribe stream was already rejected".to_owned(),
+                "committed-event subscribe stream was already rejected".to_owned(),
             ));
         }
         if self.trace.is_terminal() {
@@ -189,7 +191,7 @@ impl EventsSubscribeFrameStream {
         };
         frame.validate().map_err(|error| {
             self.failed = true;
-            Error::Protocol(format!("invalid events subscribe frame: {error}"))
+            Error::Protocol(format!("invalid committed-event subscribe frame: {error}"))
         })?;
         self.trace.push(&frame).map_err(|error| {
             self.failed = true;
@@ -304,15 +306,18 @@ impl Client {
     ) -> Result<StreamScanOutcome> {
         let mut cursor = after_position;
         let mut collected = StreamScanOutcome {
-            commits: Vec::new(),
+            committed_events: Vec::new(),
             truncated: false,
         };
         loop {
             let page = self
                 .scan_commit_stream_tail(realm_id.clone(), stream_ref.clone(), cursor, page_limit)
                 .await?;
-            let last_position = page.commits.last().map(|item| item.commit.stream_position);
-            collected.commits.extend(page.commits);
+            let last_position = page
+                .committed_events
+                .last()
+                .map(|item| item.commit().stream_position);
+            collected.committed_events.extend(page.committed_events);
             match (page.truncated, last_position) {
                 (true, Some(position)) => cursor = Some(position),
                 (true, None) => {
@@ -325,23 +330,12 @@ impl Client {
         }
     }
 
-    /// Read one Event by id through `ak.self.events.resource.get.v1`.
-    pub async fn event_get(&self, event_id: &EventId) -> Result<EventView> {
-        self.event_get_with_payload(event_id, true).await
-    }
-
-    /// Same, choosing whether the service inlines the Event payload.
-    pub async fn event_get_with_payload(
-        &self,
-        event_id: &EventId,
-        include_payload: bool,
-    ) -> Result<EventView> {
+    /// Read the caller-scoped Event/RealmCommit pair through
+    /// `ak.self.committed_event.resource.get.v1`.
+    pub async fn committed_event_get(&self, event_id: &EventId) -> Result<CommittedEventView> {
         reject_path_segment(event_id.as_str())?;
-        let path = format!("/_arkret/self/events/{}", event_id.as_str());
-        let builder = self
-            .request(Method::GET, &path)?
-            .query(&[("include_payload", include_payload)]);
-        self.send_json(builder).await
+        let path = format!("/_arkret/self/committed-events/{}", event_id.as_str());
+        self.send_json(self.request(Method::GET, &path)?).await
     }
 
     /// Fetch the authority-signed typed snapshot manifest for one Realm
@@ -381,7 +375,10 @@ impl Client {
         Ok(snapshot)
     }
 
-    fn events_subscribe_request(&self, options: &EventsSubscribeOptions) -> Result<RequestBuilder> {
+    fn committed_event_subscribe_request(
+        &self,
+        options: &CommittedEventSubscribeOptions,
+    ) -> Result<RequestBuilder> {
         options.validate()?;
         // `headers` replaces rather than appends, so the client-wide
         // `Accept: application/json` default does not survive alongside it.
@@ -393,7 +390,7 @@ impl Client {
             reqwest::header::HeaderValue::from_static("application/x-ndjson"),
         );
         let mut builder = self
-            .request_unbounded(Method::GET, "/_arkret/self/events/subscribe")?
+            .request_unbounded(Method::GET, "/_arkret/self/committed-events/subscribe")?
             .headers(accept);
         for realm_id in &options.realm_ids {
             builder = builder.query(&[("realm_ids", realm_id.as_str())]);
@@ -411,12 +408,12 @@ impl Client {
         Ok(builder)
     }
 
-    async fn events_subscribe_response(
+    async fn committed_event_subscribe_response(
         &self,
-        options: &EventsSubscribeOptions,
+        options: &CommittedEventSubscribeOptions,
         request_options: &ClientRequestOptions,
     ) -> Result<Response> {
-        let builder = self.events_subscribe_request(options)?;
+        let builder = self.committed_event_subscribe_request(options)?;
         let response = self
             .send_response(self.apply_request_options(builder, request_options)?)
             .await?;
@@ -428,37 +425,41 @@ impl Client {
             .to_ascii_lowercase();
         if !content_type.contains("application/x-ndjson") {
             return Err(Error::Protocol(
-                "events subscribe requires application/x-ndjson".to_owned(),
+                "committed-event subscribe requires application/x-ndjson".to_owned(),
             ));
         }
         Ok(response)
     }
 
     /// Open the long-lived NDJSON Event subscription.
-    pub async fn events_subscribe_frames(
+    pub async fn committed_event_subscribe_frames(
         &self,
-        options: &EventsSubscribeOptions,
-    ) -> Result<EventsSubscribeFrameStream> {
-        self.events_subscribe_frames_with_options(options, &ClientRequestOptions::default())
-            .await
+        options: &CommittedEventSubscribeOptions,
+    ) -> Result<CommittedEventSubscribeFrameStream> {
+        self.committed_event_subscribe_frames_with_options(
+            options,
+            &ClientRequestOptions::default(),
+        )
+        .await
     }
 
-    pub async fn events_subscribe_frames_with_options(
+    pub async fn committed_event_subscribe_frames_with_options(
         &self,
-        options: &EventsSubscribeOptions,
+        options: &CommittedEventSubscribeOptions,
         request_options: &ClientRequestOptions,
-    ) -> Result<EventsSubscribeFrameStream> {
+    ) -> Result<CommittedEventSubscribeFrameStream> {
         use futures_util::StreamExt;
 
         let response = self
-            .events_subscribe_response(options, request_options)
+            .committed_event_subscribe_response(options, request_options)
             .await?;
-        let inner: BoxEventsSubscribeFrameStream =
+        let inner: BoxCommittedEventSubscribeFrameStream =
             if crate::subscribe_body::streaming_bodies_available() {
                 Box::pin(
                     crate::subscribe_body::ndjson_lines(response.bytes_stream()).map(|line| {
                         line.and_then(|line| {
-                            serde_json::from_str::<EventsSubscribeFrame>(&line).map_err(Error::from)
+                            serde_json::from_str::<CommittedEventSubscribeFrame>(&line)
+                                .map_err(Error::from)
                         })
                     }),
                 )
@@ -467,14 +468,15 @@ impl Client {
                     .await?
                     .into_iter()
                     .map(|line| {
-                        serde_json::from_str::<EventsSubscribeFrame>(&line).map_err(Error::from)
+                        serde_json::from_str::<CommittedEventSubscribeFrame>(&line)
+                            .map_err(Error::from)
                     })
                     .collect::<Vec<_>>();
                 Box::pin(futures_util::stream::iter(frames))
             };
-        Ok(EventsSubscribeFrameStream {
+        Ok(CommittedEventSubscribeFrameStream {
             inner,
-            trace: EventsStreamTrace::new(options.catchup, options.after.clone()),
+            trace: CommittedEventStreamTrace::new(options.catchup, options.after.clone()),
             failed: false,
         })
     }
@@ -483,7 +485,7 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use arkret_canonical::DigestSuite;
-    use arkret_models_collaboration::sync_frames::events_subscribe::EventsSubscribeFrameKind;
+    use arkret_models_collaboration::sync_frames::committed_event_subscribe::CommittedEventSubscribeFrameKind;
     use arkret_wire::EventId;
     use url::Url;
 
@@ -499,13 +501,15 @@ mod tests {
 
     #[test]
     fn subscribe_without_a_selector_is_refused() {
-        let error = EventsSubscribeOptions::new().validate().unwrap_err();
+        let error = CommittedEventSubscribeOptions::new()
+            .validate()
+            .unwrap_err();
         assert!(error.to_string().contains("at least one"));
     }
 
     #[test]
     fn duplicate_realm_selectors_are_refused() {
-        let options = EventsSubscribeOptions::new()
+        let options = CommittedEventSubscribeOptions::new()
             .realm(realm(1))
             .realm(realm(1));
         assert!(
@@ -519,7 +523,9 @@ mod tests {
 
     #[test]
     fn catchup_without_a_cursor_is_refused() {
-        let options = EventsSubscribeOptions::new().realm(realm(1)).catchup(true);
+        let options = CommittedEventSubscribeOptions::new()
+            .realm(realm(1))
+            .catchup(true);
         assert!(
             options
                 .validate()
@@ -531,17 +537,20 @@ mod tests {
 
     #[test]
     fn subscribe_request_carries_the_ndjson_selector_query() {
-        let options = EventsSubscribeOptions::new()
+        let options = CommittedEventSubscribeOptions::new()
             .realm(realm(1))
             .realm(realm(2))
             .after("ak:cursor:abc")
             .catchup(true);
         let request = client()
-            .events_subscribe_request(&options)
+            .committed_event_subscribe_request(&options)
             .unwrap()
             .build()
             .unwrap();
-        assert_eq!(request.url().path(), "/_arkret/self/events/subscribe");
+        assert_eq!(
+            request.url().path(),
+            "/_arkret/self/committed-events/subscribe"
+        );
         let query = request.url().query().unwrap();
         assert_eq!(query.matches("realm_ids=").count(), 2);
         assert!(query.contains("after=ak%3Acursor%3Aabc"));
@@ -573,40 +582,40 @@ mod tests {
     #[tokio::test]
     async fn terminal_frame_stops_local_iteration() {
         let frames = vec![
-            Ok(EventsSubscribeFrame {
-                kind: EventsSubscribeFrameKind::Heartbeat,
+            Ok(CommittedEventSubscribeFrame {
+                kind: CommittedEventSubscribeFrameKind::Heartbeat,
                 realm_id: None,
                 cursor: None,
                 payload: None,
                 reconnect_after_ms: None,
             }),
-            Ok(EventsSubscribeFrame {
-                kind: EventsSubscribeFrameKind::ResyncRequired,
+            Ok(CommittedEventSubscribeFrame {
+                kind: CommittedEventSubscribeFrameKind::ResyncRequired,
                 realm_id: None,
                 cursor: None,
                 payload: None,
                 reconnect_after_ms: Some(1_000),
             }),
-            Ok(EventsSubscribeFrame {
-                kind: EventsSubscribeFrameKind::Heartbeat,
+            Ok(CommittedEventSubscribeFrame {
+                kind: CommittedEventSubscribeFrameKind::Heartbeat,
                 realm_id: None,
                 cursor: None,
                 payload: None,
                 reconnect_after_ms: None,
             }),
         ];
-        let mut stream = EventsSubscribeFrameStream {
+        let mut stream = CommittedEventSubscribeFrameStream {
             inner: Box::pin(futures_util::stream::iter(frames)),
-            trace: EventsStreamTrace::new(false, None),
+            trace: CommittedEventStreamTrace::new(false, None),
             failed: false,
         };
         assert_eq!(
             stream.next_frame().await.unwrap().unwrap().kind,
-            EventsSubscribeFrameKind::Heartbeat
+            CommittedEventSubscribeFrameKind::Heartbeat
         );
         assert_eq!(
             stream.next_frame().await.unwrap().unwrap().kind,
-            EventsSubscribeFrameKind::ResyncRequired
+            CommittedEventSubscribeFrameKind::ResyncRequired
         );
         assert!(stream.is_terminal());
         assert!(stream.next_frame().await.unwrap().is_none());

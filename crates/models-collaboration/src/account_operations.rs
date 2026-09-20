@@ -6,7 +6,7 @@ use arkret_models_identity::{
     HandleClaim, IdentityCreationRegistration,
 };
 use arkret_wire::{
-    Did, DidCoreId, EventBatchReceipt, EventCommitSubmission, EventKind, Hash, Result, WireError,
+    Did, DidCoreId, EventCommitSubmission, EventKind, Hash, RealmCommit, Result, WireError,
     project_did_to_core_id,
 };
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ pub struct AccountRegisterOutcome {
     pub registration_audit: Option<AccountRegistrationAudit>,
     pub binding_receipt: AccountBindingReceipt,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pcr_genesis_receipt: Option<EventBatchReceipt>,
+    pub pcr_genesis_commits: Option<[RealmCommit; 2]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_grant_outcome: Option<SessionGrantOutcome>,
 }
@@ -101,7 +101,12 @@ impl AccountRegisterOutcome {
                 "account register outcome does not match request".into(),
             ));
         }
-        self.binding_receipt.validate_shape()
+        self.binding_receipt.validate_shape()?;
+        if let Some([create, authorize]) = &self.pcr_genesis_commits {
+            create.validate_shape()?;
+            authorize.validate_successor_of(create)?;
+        }
+        Ok(())
     }
 }
 

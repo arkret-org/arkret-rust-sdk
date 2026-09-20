@@ -32,7 +32,9 @@ use crate::string_marker;
 use crate::sync_frames::account_subscribe::{
     AccountSubscribeFrame, AccountSubscribeFrameKind, RealmListRequest, SyncFilter,
 };
-use crate::sync_frames::events_subscribe::{EventsSubscribeFrame, EventsSubscribeFrameKind};
+use crate::sync_frames::committed_event_subscribe::{
+    CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
+};
 
 /// Ceiling on either `events` open-parameter selector array.
 pub const WEBSOCKET_MAX_SELECTOR_ITEMS: usize = 256;
@@ -238,7 +240,7 @@ impl WebSocketOpenParameters {
             WebSocketOperationId::AccountStreamSubscribe => {
                 Self::Account(serde_json::from_value(value)?)
             }
-            WebSocketOperationId::EventsStreamSubscribe => {
+            WebSocketOperationId::CommittedEventStreamSubscribe => {
                 Self::Events(serde_json::from_value(value)?)
             }
             WebSocketOperationId::SignalStreamSubscribe => {
@@ -254,7 +256,7 @@ impl WebSocketOpenParameters {
             (Self::Account(parameters), WebSocketOperationId::AccountStreamSubscribe) => {
                 parameters.validate()
             }
-            (Self::Events(parameters), WebSocketOperationId::EventsStreamSubscribe) => {
+            (Self::Events(parameters), WebSocketOperationId::CommittedEventStreamSubscribe) => {
                 parameters.validate()
             }
             (Self::Signal(_), WebSocketOperationId::SignalStreamSubscribe) => Ok(()),
@@ -270,7 +272,7 @@ impl WebSocketOpenParameters {
 #[serde(untagged)]
 pub enum WebSocketDataPayload {
     Account(Box<AccountSubscribeFrame>),
-    Events(Box<EventsSubscribeFrame>),
+    Events(Box<CommittedEventSubscribeFrame>),
     Signal(Box<SignalStreamFrame>),
 }
 
@@ -289,7 +291,7 @@ impl WebSocketDataPayload {
             }
             Self::Events(frame) => {
                 frame.validate()?;
-                if frame.kind != EventsSubscribeFrameKind::Event {
+                if frame.kind != CommittedEventSubscribeFrameKind::CommittedEvent {
                     return Err(protocol_error("events data payload must be an event frame"));
                 }
             }
@@ -309,7 +311,7 @@ impl WebSocketDataPayload {
 #[serde(untagged)]
 pub enum WebSocketChannelControlPayload {
     Account(Box<AccountSubscribeFrame>),
-    Events(Box<EventsSubscribeFrame>),
+    Events(Box<CommittedEventSubscribeFrame>),
     Signal(Box<SignalStreamFrame>),
 }
 
@@ -326,7 +328,7 @@ impl WebSocketChannelControlPayload {
             }
             Self::Events(frame) => {
                 frame.validate()?;
-                if frame.kind == EventsSubscribeFrameKind::Event {
+                if frame.kind == CommittedEventSubscribeFrameKind::CommittedEvent {
                     return Err(protocol_error(
                         "events event is data, not a control payload",
                     ));
@@ -1339,7 +1341,7 @@ mod tests {
     fn events_open(channel: &str) -> WebSocketClientFrame {
         WebSocketClientFrame::Open {
             channel_id: channel.to_owned(),
-            operation_id: WebSocketOperationId::EventsStreamSubscribe,
+            operation_id: WebSocketOperationId::CommittedEventStreamSubscribe,
             parameters: WebSocketOpenParameters::Events(WebSocketEventsOpenParameters {
                 realm_ids: Some(vec![
                     RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap(),
@@ -1398,7 +1400,7 @@ mod tests {
         let mut state = ready();
         let frame = WebSocketServerFrame::Opened {
             channel_id: "c9".to_owned(),
-            operation_id: WebSocketOperationId::EventsStreamSubscribe,
+            operation_id: WebSocketOperationId::CommittedEventStreamSubscribe,
         };
         assert!(
             state
@@ -1486,20 +1488,22 @@ mod tests {
         state
             .observe_server(&WebSocketServerFrame::Opened {
                 channel_id: "c1".to_owned(),
-                operation_id: WebSocketOperationId::EventsStreamSubscribe,
+                operation_id: WebSocketOperationId::CommittedEventStreamSubscribe,
             })
             .unwrap();
         state
             .observe_server(&WebSocketServerFrame::ChannelControl {
                 frame_scope: WebSocketChannelScope::Channel,
                 channel_id: "c1".to_owned(),
-                payload: WebSocketChannelControlPayload::Events(Box::new(EventsSubscribeFrame {
-                    kind: EventsSubscribeFrameKind::Checkpoint,
-                    realm_id: None,
-                    cursor: Some("ak:cursor:abc".to_owned()),
-                    payload: None,
-                    reconnect_after_ms: None,
-                })),
+                payload: WebSocketChannelControlPayload::Events(Box::new(
+                    CommittedEventSubscribeFrame {
+                        kind: CommittedEventSubscribeFrameKind::Checkpoint,
+                        realm_id: None,
+                        cursor: Some("ak:cursor:abc".to_owned()),
+                        payload: None,
+                        reconnect_after_ms: None,
+                    },
+                )),
             })
             .unwrap();
         state
@@ -1521,13 +1525,14 @@ mod tests {
 
     #[test]
     fn a_control_payload_may_not_be_a_positional_frame() {
-        let payload = WebSocketChannelControlPayload::Events(Box::new(EventsSubscribeFrame {
-            kind: EventsSubscribeFrameKind::Heartbeat,
-            realm_id: None,
-            cursor: None,
-            payload: None,
-            reconnect_after_ms: None,
-        }));
+        let payload =
+            WebSocketChannelControlPayload::Events(Box::new(CommittedEventSubscribeFrame {
+                kind: CommittedEventSubscribeFrameKind::Heartbeat,
+                realm_id: None,
+                cursor: None,
+                payload: None,
+                reconnect_after_ms: None,
+            }));
         payload.validate().unwrap();
 
         let signal = WebSocketChannelControlPayload::Signal(Box::new(SignalStreamFrame::Heartbeat));
@@ -1613,7 +1618,7 @@ mod tests {
         assert_eq!(open["kind"], json!("open"));
         assert_eq!(
             open["operation_id"],
-            json!("ak.self.events.stream.subscribe.v1")
+            json!("ak.self.committed_event.stream.subscribe.v1")
         );
     }
 }

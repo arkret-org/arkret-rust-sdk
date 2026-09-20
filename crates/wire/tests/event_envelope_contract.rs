@@ -1,7 +1,8 @@
 use arkret_wire::{
-    DidCoreId, Event, MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_REFS,
-    MAX_EVENT_RESOLVE, MAX_EVENT_SUBMIT_BATCH, RealmId, ScopeRef, validate_authorized_by_ref_count,
-    validate_event_envelope_byte_len, validate_event_ref_count, validate_event_submit_batch_count,
+    DidCoreId, Event, MAX_AUTHORIZED_BY_REFS, MAX_EVENT_ENVELOPE_BYTES, MAX_EVENT_RESOLVE,
+    MAX_EVENT_SUBMIT_BATCH, MAX_SEMANTIC_REFS, RealmId, ScopeRef, validate_authorized_by_ref_count,
+    validate_event_envelope_byte_len, validate_event_submit_batch_count,
+    validate_semantic_ref_count,
 };
 use serde_json::json;
 
@@ -50,7 +51,7 @@ fn event_scalability_limits_match_v1_profile() {
     assert_eq!(MAX_EVENT_ENVELOPE_BYTES, 1024 * 1024);
     assert_eq!(MAX_EVENT_SUBMIT_BATCH, 1_000);
     assert_eq!(MAX_EVENT_RESOLVE, 100);
-    assert_eq!(MAX_EVENT_REFS, 128);
+    assert_eq!(MAX_SEMANTIC_REFS, 128);
     assert_eq!(MAX_AUTHORIZED_BY_REFS, 64);
 }
 
@@ -60,8 +61,8 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_event_envelope_byte_len(MAX_EVENT_ENVELOPE_BYTES + 1).is_err());
     validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH).unwrap();
     assert!(validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH + 1).is_err());
-    validate_event_ref_count(MAX_EVENT_REFS).unwrap();
-    assert!(validate_event_ref_count(MAX_EVENT_REFS + 1).is_err());
+    validate_semantic_ref_count(MAX_SEMANTIC_REFS).unwrap();
+    assert!(validate_semantic_ref_count(MAX_SEMANTIC_REFS + 1).is_err());
     validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS).unwrap();
     assert!(validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS + 1).is_err());
 }

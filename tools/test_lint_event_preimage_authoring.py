@@ -55,7 +55,7 @@ fn verify(event: &Event) {
         self.assertEqual(self.scan({"src/sign.rs": source}, []), 1)
 
     def test_allows_stripping_proofs_from_a_non_event_object(self) -> None:
-        # EventBatchReceipt / PrincipalLocator / DID documents legally strip
+        # PrincipalLocator / DID documents legally strip
         # their own `proofs` before signing and have neither excluded member.
         source = 'fn sign(receipt: &Receipt) { object.remove("proofs"); }\n'
         self.assertEqual(self.scan({"src/receipt.rs": source}, []), 0)

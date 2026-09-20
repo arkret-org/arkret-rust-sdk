@@ -5,9 +5,8 @@ use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitRequest,
 };
 use arkret_wire::{
-    AuthorityBundleRequest, AuthorityHandoffRequest, CommittedEventResolveOutcome,
-    CommittedEventResolveRequest, RealmAuthorityBundle, RealmAuthorityHandoff, StreamScanOutcome,
-    StreamScanRequest,
+    AuthorityBundleRequest, AuthorityHandoffRequest, RealmAuthorityBundle, RealmAuthorityHandoff,
+    StreamScanOutcome, StreamScanRequest,
 };
 use reqwest::Method;
 use serde::Serialize;
@@ -62,18 +61,6 @@ impl Client {
     ) -> Result<StreamScanOutcome> {
         request.validate()?;
         let outcome: StreamScanOutcome = self.post("/_arkret/self/streams/scan", request).await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    /// Resolve exact authority-committed Events by their closed commit refs.
-    pub async fn resolve_committed_events(
-        &self,
-        request: &CommittedEventResolveRequest,
-    ) -> Result<CommittedEventResolveOutcome> {
-        request.validate()?;
-        let outcome: CommittedEventResolveOutcome =
-            self.post("/_arkret/peer/streams/resolve", request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }

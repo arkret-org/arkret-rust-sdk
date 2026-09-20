@@ -1,33 +1,54 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-18.6;
-//! sha256=5ed5da7e532bc73dfe466ef5ac5280756a087550e34da5023377a2ff091fbc87
-//! Entries: service_contracts=2
+//! Input: registry/contract-registry.json; version=2026-09-20.21;
+//! sha256=1e301594b9502f19e48d8fdb35c34d85d99b5c162cbe4975f2ee9b6c921cb941
+//! Entries: service_contracts=5
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ServiceContractId {
+    ActorPrivateEffectsV1,
+    ContactAdmissionV1,
     IntegrationManifestV1,
     PushBridgeV1,
+    RealmGovernanceStationHandoffV1,
 }
 
 impl ServiceContractId {
-    pub const ALL: &'static [Self] = &[Self::IntegrationManifestV1, Self::PushBridgeV1];
+    pub const ALL: &'static [Self] = &[
+        Self::ActorPrivateEffectsV1,
+        Self::ContactAdmissionV1,
+        Self::IntegrationManifestV1,
+        Self::PushBridgeV1,
+        Self::RealmGovernanceStationHandoffV1,
+    ];
 
+    pub const ACTOR_PRIVATE_EFFECTS_V1: &'static str = "ak.actor_private.effects.v1";
+    pub const CONTACT_ADMISSION_V1: &'static str = "ak.contact.admission.v1";
     pub const INTEGRATION_MANIFEST_V1: &'static str = "ak.integration.manifest.v1";
     pub const PUSH_BRIDGE_V1: &'static str = "ak.push.bridge.v1";
+    pub const REALM_GOVERNANCE_STATION_HANDOFF_V1: &'static str =
+        "ak.realm.governance_station_handoff.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::ActorPrivateEffectsV1 => Self::ACTOR_PRIVATE_EFFECTS_V1,
+            Self::ContactAdmissionV1 => Self::CONTACT_ADMISSION_V1,
             Self::IntegrationManifestV1 => Self::INTEGRATION_MANIFEST_V1,
             Self::PushBridgeV1 => Self::PUSH_BRIDGE_V1,
+            Self::RealmGovernanceStationHandoffV1 => Self::REALM_GOVERNANCE_STATION_HANDOFF_V1,
         }
     }
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACTOR_PRIVATE_EFFECTS_V1 => Some(Self::ActorPrivateEffectsV1),
+            Self::CONTACT_ADMISSION_V1 => Some(Self::ContactAdmissionV1),
             Self::INTEGRATION_MANIFEST_V1 => Some(Self::IntegrationManifestV1),
             Self::PUSH_BRIDGE_V1 => Some(Self::PushBridgeV1),
+            Self::REALM_GOVERNANCE_STATION_HANDOFF_V1 => {
+                Some(Self::RealmGovernanceStationHandoffV1)
+            }
             _ => None,
         }
     }

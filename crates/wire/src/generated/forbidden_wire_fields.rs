@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=af1fda206430fe95459d33c119cca8a83c5d68f1ae0c6b461f2bbfd3421428db
-//! Entries: forbidden_wire_fields=248
+//! sha256=ad9e3571f3c43649bb5526ff46e83266879f0a1ace86db4cdf917b85208df890
+//! Entries: forbidden_wire_fields=245
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -979,7 +979,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "proposal_morph_type",
+        id: "proposal_approval_mode_fields",
         context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
         rejection_level: "hard_reject",
         selectors: &[
@@ -997,7 +997,12 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             },
         ],
         match_kind: "field",
-        match_values: &["proposal_morph_type"],
+        match_values: &[
+            "proposal_id",
+            "proposal_morph_kind",
+            "proposal_morph_type",
+            "proposal_then_approve",
+        ],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -2274,108 +2279,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["device_key_alg"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "avatar",
-        context: "directory_projection",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/realm_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/organization_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/actor_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/object_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["avatar"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "name",
-        context: "directory_projection",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/realm_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/organization_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/actor_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/object_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["name"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "official_organizations",
-        context: "directory_projection",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/realm_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/organization_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/actor_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "directory-operations.schema.json#/$defs/object_preview",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["official_organizations"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

@@ -2,7 +2,7 @@
 //!
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
-use arkret_wire::{EventRef, SpaceId};
+use arkret_wire::{SemanticRef, SpaceId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub struct SpaceObjectTombstonePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_event_id: Option<EventRef>,
+    pub replacement_event_id: Option<SemanticRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,

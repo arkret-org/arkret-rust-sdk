@@ -1,15 +1,8 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
 use arkret_models_discovery::{
-    DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
-    DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
-    DirectoryOrganizationSearchOutcome, DirectoryRealmResolutionOutcome,
-    DirectoryRealmSearchOutcome, DirectoryResolveAgentSelectorRequestBody,
-    DirectoryResolveHandleRequestBody, DirectoryResolveRealmRequestBody,
-    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
-    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
-    DirectorySubjectHandleList, DirectoryTargetResolutionOutcome, ServiceDescribe,
-    ServiceRequirements,
+    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody,
+    DirectorySearchRealmsRequestBody, ServiceDescribe, ServiceRequirements,
 };
 use arkret_models_identity::actor_profile_operations::{
     ActorProfileResolveOutcome, ActorProfileResolveRequest,
@@ -305,70 +298,5 @@ impl Client {
     ) -> Result<DirectoryRealmResolutionOutcome> {
         self.post("/_arkret/find/directory/resolve-realm", request)
             .await
-    }
-
-    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.read.resolve_target.v1`.
-    /// Resolve a client-agnostic shareable object address (Realm / Strand /
-    /// Message) to a preview. The `address` and any `token` should be derived
-    /// from [`arkret_wire::parse_address`]; invite and preview tokens
-    /// MUST be bound to the resolved object server-side via
-    /// [`arkret_wire::verify_token_target`].
-    pub async fn directory_resolve_target(
-        &self,
-        request: &DirectoryResolveTargetRequestBody,
-    ) -> Result<DirectoryTargetResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-target", request)
-            .await
-    }
-
-    pub async fn directory_search_organizations(
-        &self,
-        request: &DirectorySearchOrganizationsRequestBody,
-    ) -> Result<DirectoryOrganizationSearchOutcome> {
-        self.post("/_arkret/find/directory/search-organizations", request)
-            .await
-    }
-
-    pub async fn directory_search_actors(
-        &self,
-        request: &DirectorySearchActorsRequestBody,
-    ) -> Result<DirectoryActorSearchOutcome> {
-        self.post("/_arkret/find/directory/search-actors", request)
-            .await
-    }
-
-    pub async fn directory_resolve_handle(
-        &self,
-        request: &DirectoryResolveHandleRequestBody,
-    ) -> Result<DirectoryHandleResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-handle", request)
-            .await
-    }
-
-    /// Resolve a controller-scoped Agent selector exactly.
-    pub async fn directory_resolve_agent_selector(
-        &self,
-        request: &DirectoryResolveAgentSelectorRequestBody,
-    ) -> Result<DirectoryAgentSelectorResolutionOutcome> {
-        let body: DirectoryAgentSelectorResolutionOutcome = self
-            .post("/_arkret/find/directory/resolve-agent-selector", request)
-            .await?;
-        body.validate()?;
-        Ok(body)
-    }
-
-    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.read.list_handles_for_subject.v1`.
-    /// Known holder/principal DID → current visible handle claims. The
-    /// response invariant `claims[].subject == subject` is enforced via
-    /// [`DirectorySubjectHandleList::validate`] before returning.
-    pub async fn directory_list_handles_for_subject(
-        &self,
-        request: &DirectoryListHandlesForSubjectRequestBody,
-    ) -> Result<DirectorySubjectHandleList> {
-        let body: DirectorySubjectHandleList = self
-            .post("/_arkret/find/directory/list-handles-for-subject", request)
-            .await?;
-        body.validate()?;
-        Ok(body)
     }
 }

@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, AppletId, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef, RealmId,
-    ScopeRef,
+    ActorId, AppletId, AuthoredEvent, AuthorizationRef, EventId, EventKind, RealmId, ScopeRef,
+    SemanticRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct EventIntent {
     created_at: DateTime<Utc>,
     payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    refs: Vec<EventRef>,
+    semantic_refs: Vec<SemanticRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -54,7 +54,7 @@ impl EventIntent {
             actor_id,
             created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
             payload,
-            refs: Vec::new(),
+            semantic_refs: Vec::new(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -86,8 +86,8 @@ impl EventIntent {
         &self.payload
     }
 
-    pub fn refs(&self) -> &[EventRef] {
-        &self.refs
+    pub fn semantic_refs(&self) -> &[SemanticRef] {
+        &self.semantic_refs
     }
 
     pub fn executed_by(&self) -> Option<&ActorId> {
@@ -136,13 +136,13 @@ impl EventIntent {
         self
     }
 
-    pub fn with_refs(mut self, refs: Vec<EventRef>) -> Self {
-        self.refs = refs;
+    pub fn with_semantic_refs(mut self, semantic_refs: Vec<SemanticRef>) -> Self {
+        self.semantic_refs = semantic_refs;
         self
     }
 
-    pub fn with_ref(mut self, event_ref: EventRef) -> Self {
-        self.refs.push(event_ref);
+    pub fn with_semantic_ref(mut self, event_ref: SemanticRef) -> Self {
+        self.semantic_refs.push(event_ref);
         self
     }
 
@@ -219,7 +219,7 @@ impl EventIntent {
             applet_id: self.applet_id,
             external_ref: self.external_ref,
             created_at: self.created_at,
-            refs: self.refs,
+            semantic_refs: self.semantic_refs,
             payload: self.payload,
             producer_proof: None,
         }
@@ -234,7 +234,7 @@ impl EventIntent {
             actor_id: event.actor_id.clone(),
             created_at: event.created_at,
             payload: event.payload.clone(),
-            refs: event.refs.clone(),
+            semantic_refs: event.semantic_refs.clone(),
             executed_by: event.executed_by.clone(),
             authorization_ref: event.authorization_ref.clone(),
             applet_id: event.applet_id.clone(),
@@ -248,7 +248,7 @@ impl EventIntent {
             && self.actor_id == event.actor_id
             && self.created_at == event.created_at
             && self.payload == event.payload
-            && self.refs == event.refs
+            && self.semantic_refs == event.semantic_refs
             && self.executed_by == event.executed_by
             && self.authorization_ref == event.authorization_ref
             && self.applet_id == event.applet_id

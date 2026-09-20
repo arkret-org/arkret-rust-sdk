@@ -5,9 +5,9 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    AccountId, ActorId, Did, DidCoreId, Discoverability, Event, EventKind, EventRef, GenesisSalt,
-    HistoryAccess, JoinRule, PcrGenesisUnit, ScopeRef, SecurityClass, TrustDomainId, WireError,
-    project_did_to_core_id,
+    AccountId, ActorId, Did, DidCoreId, Discoverability, Event, EventKind, GenesisSalt,
+    HistoryAccess, JoinRule, PcrGenesisUnit, ScopeRef, SecurityClass, SemanticRef, TrustDomainId,
+    WireError, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -24,7 +24,7 @@ pub struct SelfPrincipalPcrCreateInput {
     pub principal_did: Did,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
-    pub did_inception_ref: EventRef,
+    pub did_inception_ref: SemanticRef,
     pub initial_resolution: ResolutionCommitment,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
     pub initial_join_rule: JoinRule,
@@ -100,9 +100,9 @@ pub fn validate_self_principal_pcr_create(
         || event.authorization_ref.is_some()
         || event.applet_id.is_some()
         || event.external_ref.is_some()
-        || event.refs.len() != 1
-        || event.refs[0].role != DID_INCEPTION_REF_ROLE
-        || !event.refs[0].critical
+        || event.semantic_refs.len() != 1
+        || event.semantic_refs[0].role != DID_INCEPTION_REF_ROLE
+        || !event.semantic_refs[0].critical
     {
         return Err(WireError::Protocol(
             "invalid self-principal Realm-create Event shape".to_owned(),

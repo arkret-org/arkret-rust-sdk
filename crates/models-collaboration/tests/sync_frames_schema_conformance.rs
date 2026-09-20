@@ -20,21 +20,22 @@ use std::path::PathBuf;
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeFrame, AgentDraftPendingIntent, AgentDraftPendingIntentChange,
     AgentDraftPendingIntentContainer, AgentDraftPendingIntentRemoval, RealmDetailBaseline,
-    RealmSyncEntry, RealmSyncEventState, RealmTimeline,
+    RealmSyncEntry, RealmSyncEventState,
 };
 use arkret_models_collaboration::sync_frames::account_sync::{
-    AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, StateAtWindowStart,
-    WindowStartActorProfile, WindowStartE2eeEpoch, WindowStartRealmMetadata,
+    AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, RealmStreamWindow,
+    StateAtWindowStart, WindowStartActorProfile, WindowStartE2eeEpoch, WindowStartRealmMetadata,
+};
+use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
+    CommittedEventStreamTrace, CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
+    EpochRotationPayload,
 };
 use arkret_models_collaboration::sync_frames::current_results::{
     AccountCurrentCoverage, AccountCurrentResult,
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
-    RealmListPage, RealmListRemoval, RealmListRow, RealmTimelineBaseline,
-};
-use arkret_models_collaboration::sync_frames::events_subscribe::{
-    EpochRotationPayload, EventsStreamTrace, EventsSubscribeFrame, EventsSubscribeFrameKind,
+    RealmListPage, RealmListRemoval, RealmListRow,
 };
 use arkret_models_collaboration::sync_frames::websocket::{
     WebSocketAccountOpenParameters, WebSocketClientFrame, WebSocketConnectionDrainPayload,
@@ -351,7 +352,7 @@ where
 
 const ACCOUNT_FRAME: &str = "account-subscribe-frame.schema.json";
 const AGENT_DRAFT_PRIVATE: &str = "agent-draft-private.schema.json";
-const EVENTS_FRAME: &str = "events-subscribe-frame.schema.json";
+const EVENTS_FRAME: &str = "committed-event-subscribe-frame.schema.json";
 const WEBSOCKET_FRAME: &str = "websocket-frame.schema.json";
 const ACCOUNT_CURRENT: &str = "account-current-result.schema.json";
 
@@ -688,25 +689,6 @@ fn pending_intent_closed_shapes_and_shared_budget_reject_invalid_input() {
 }
 
 #[test]
-fn realm_timeline_baseline_matches_its_schema_shape_and_order() {
-    let baseline: RealmTimelineBaseline = round_trip(
-        ACCOUNT_FRAME,
-        "#/$defs/realm_timeline_baseline",
-        json!({
-            "snapshot_cursor": "ak:cursor:abc",
-            "window_limit": 20,
-            "complete": true,
-        }),
-    );
-    baseline.validate().unwrap();
-    assert_field_order(
-        &baseline,
-        ACCOUNT_FRAME,
-        &["$defs", "realm_timeline_baseline"],
-    );
-}
-
-#[test]
 fn realm_detail_baseline_and_invalidation_match_their_schema_shapes() {
     let baseline: RealmDetailBaseline = round_trip(
         ACCOUNT_FRAME,
@@ -776,7 +758,6 @@ fn state_at_window_start_matches_its_schema_shape_and_order() {
                 "join_rule": "invite",
                 "collaboration_role": "direct_conversation",
             },
-            "e2ee_epoch": {"epoch": 4, "key_ref": "ak:mls:epoch:4"},
         }),
     );
     state.validate().unwrap();
@@ -805,35 +786,20 @@ fn state_at_window_start_matches_its_schema_shape_and_order() {
 }
 
 #[test]
-fn a_null_e2ee_epoch_is_a_real_answer() {
-    let value = json!({
-        "actor_profiles": [],
-        "realm_metadata": {},
-        "e2ee_epoch": null,
-    });
-    validate_fragment(ACCOUNT_FRAME, "#/$defs/state_at_window_start", &value);
-    let state: StateAtWindowStart = serde_json::from_value(value.clone()).unwrap();
-    state.validate().unwrap();
-    assert!(state.e2ee_epoch.is_none());
-    assert_eq!(serde_json::to_value(&state).unwrap(), value);
-}
-
-#[test]
 fn window_start_e2ee_epoch_matches_its_schema_order() {
     let epoch = WindowStartE2eeEpoch {
         epoch: 4,
         key_ref: "ak:mls:epoch:4".to_owned(),
     };
     epoch.validate().unwrap();
-    // `e2ee_epoch` is nullable, so the schema spells it as a `oneOf` whose
-    // second branch is the object; that branch's `properties` order is the
-    // declaration order this type must match.
+    // `e2ee_epoch` is stream-local and nullable, so the schema spells it as a
+    // `oneOf` whose second branch is the object.
     assert_field_order(
         &epoch,
         ACCOUNT_FRAME,
         &[
             "$defs",
-            "state_at_window_start",
+            "realm_stream_window",
             "properties",
             "e2ee_epoch",
             "oneOf",
@@ -1016,25 +982,24 @@ fn account_frame_field_order_matches_the_schema() {
 #[test]
 fn realm_sync_entry_field_order_matches_the_schema() {
     let entry = RealmSyncEntry {
-        timeline: Some(RealmTimeline {
-            commits: Vec::new(),
-            limited: false,
-            prev_cursor: Some("ak:cursor:abc".to_owned()),
-            preview_only: Some(false),
-        }),
-        timeline_baseline: Some(
-            serde_json::from_value(json!({
-                "snapshot_cursor": "ak:cursor:abc",
+        streams: Some(vec![
+            serde_json::from_value::<RealmStreamWindow>(json!({
+                "stream_ref": {"kind": "realm", "realm_id": REALM_A},
+                "head_commit_ref": COMMIT_A,
+                "next_position": 1,
+                "limited": false,
                 "window_limit": 20,
                 "complete": true,
+                "e2ee_epoch": null,
             }))
             .unwrap(),
-        ),
+        ]),
+        streams_limited: Some(false),
+        window_snapshot_cursor: Some("ak:cursor:abc".to_owned()),
         state_at_window_start: Some(
             serde_json::from_value(json!({
                 "actor_profiles": [],
                 "realm_metadata": {},
-                "e2ee_epoch": null,
             }))
             .unwrap(),
         ),
@@ -1074,6 +1039,7 @@ fn realm_sync_entry_field_order_matches_the_schema() {
             .unwrap(),
         ),
         unavailable: None,
+        committed_events: Some(Vec::new()),
     };
     let expected = members_at(
         &schema_text(ACCOUNT_FRAME),
@@ -1115,8 +1081,8 @@ fn realm_sync_event_state_matches_its_schema_shape() {
 
 #[test]
 fn events_frame_top_level_order_matches_the_schema() {
-    let frame = EventsSubscribeFrame {
-        kind: EventsSubscribeFrameKind::Dropped,
+    let frame = CommittedEventSubscribeFrame {
+        kind: CommittedEventSubscribeFrameKind::Dropped,
         realm_id: Some(REALM_A.parse().unwrap()),
         cursor: Some("ak:cursor:abc".to_owned()),
         payload: None,
@@ -1157,7 +1123,7 @@ fn every_events_control_frame_is_accepted_by_the_schema_and_the_type() {
         json!({"kind": "unauthorized"}),
     ] {
         validate_document(EVENTS_FRAME, &value);
-        let frame = EventsSubscribeFrame::from_ndjson_line(&value.to_string())
+        let frame = CommittedEventSubscribeFrame::from_ndjson_line(&value.to_string())
             .unwrap_or_else(|error| panic!("{value}: {error}"))
             .expect("a non-blank line yields a frame");
         assert_eq!(serde_json::to_value(&frame).unwrap(), value);
@@ -1190,7 +1156,7 @@ fn the_type_refuses_every_shape_the_schema_refuses() {
         json!({"kind": "dropped", "cursor": "ak:cursor:abc"}),
     ] {
         assert!(
-            EventsSubscribeFrame::from_ndjson_line(&value.to_string()).is_err(),
+            CommittedEventSubscribeFrame::from_ndjson_line(&value.to_string()).is_err(),
             "{value} must be rejected",
         );
     }
@@ -1198,7 +1164,7 @@ fn the_type_refuses_every_shape_the_schema_refuses() {
 
 #[test]
 fn a_dropped_frame_keeps_its_own_realm_and_cursor() {
-    let frame = EventsSubscribeFrame::from_ndjson_line(
+    let frame = CommittedEventSubscribeFrame::from_ndjson_line(
         &json!({"kind": "dropped", "realm_id": REALM_A, "cursor": "ak:cursor:abc"}).to_string(),
     )
     .unwrap()
@@ -1211,8 +1177,8 @@ fn a_dropped_frame_keeps_its_own_realm_and_cursor() {
 
 #[test]
 fn the_events_trace_refuses_a_frame_after_a_terminal_one() {
-    let mut trace = EventsStreamTrace::new(false, None);
-    let dropped = EventsSubscribeFrame::from_ndjson_line(
+    let mut trace = CommittedEventStreamTrace::new(false, None);
+    let dropped = CommittedEventSubscribeFrame::from_ndjson_line(
         &json!({"kind": "dropped", "realm_id": REALM_A, "cursor": "ak:cursor:abc"}).to_string(),
     )
     .unwrap()
@@ -1222,7 +1188,7 @@ fn the_events_trace_refuses_a_frame_after_a_terminal_one() {
     assert_eq!(trace.resume_cursor(), Some("ak:cursor:abc"));
 
     let heartbeat =
-        EventsSubscribeFrame::from_ndjson_line(&json!({"kind": "heartbeat"}).to_string())
+        CommittedEventSubscribeFrame::from_ndjson_line(&json!({"kind": "heartbeat"}).to_string())
             .unwrap()
             .unwrap();
     assert!(trace.push(&heartbeat).is_err());
@@ -1230,8 +1196,8 @@ fn the_events_trace_refuses_a_frame_after_a_terminal_one() {
 
 #[test]
 fn catchup_complete_requires_replayed_data_first() {
-    let mut trace = EventsStreamTrace::new(true, Some("ak:cursor:abc".to_owned()));
-    let complete = EventsSubscribeFrame::from_ndjson_line(
+    let mut trace = CommittedEventStreamTrace::new(true, Some("ak:cursor:abc".to_owned()));
+    let complete = CommittedEventSubscribeFrame::from_ndjson_line(
         &json!({"kind": "catchup_complete", "cursor": "ak:cursor:def"}).to_string(),
     )
     .unwrap()
@@ -1360,7 +1326,7 @@ fn websocket_client_open_frame_validates_against_the_schema() {
     let value = json!({
         "kind": "open",
         "channel_id": "events-1",
-        "operation_id": "ak.self.events.stream.subscribe.v1",
+        "operation_id": "ak.self.committed_event.stream.subscribe.v1",
         "parameters": {"realm_ids": [REALM_A]},
     });
     validate_fragment(WEBSOCKET_FRAME, "#/$defs/open_events", &value);
