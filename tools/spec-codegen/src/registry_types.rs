@@ -1365,8 +1365,11 @@ fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput>
 }
 
 fn generate_authority_sources(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/authority-source-registry.json")?;
-    let rows = sorted_rows(artifact.array("sources")?, "authority_source_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("authority_source_registry", "sources")?,
+        "authority_source_id",
+    )?;
     let mut output = simple_string_enum(
         &artifact,
         &rows,

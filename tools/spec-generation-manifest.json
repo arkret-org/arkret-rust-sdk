@@ -145,7 +145,7 @@
       "owner": "arkret-wire",
       "mode": "enum",
       "artifacts": [
-        "registry/authority-source-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {
