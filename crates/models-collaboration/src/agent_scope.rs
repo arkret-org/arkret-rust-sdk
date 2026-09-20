@@ -3,7 +3,7 @@
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, Base64UrlString, Did, DidCoreId, DidUrl, Event, Hash, NonEmptyString, OpaqueLocalId,
-    ProducerEventProof, ProofContextId, RequestId, Result, SchemaId, WireError, canonical,
+    PayloadProof, ProofContextId, RequestId, Result, SchemaId, WireError, canonical,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -201,7 +201,7 @@ pub struct AgentRequestedScopeDisclosure {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub proofs: Vec<ProducerEventProof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 impl AgentRequestedScopeDisclosure {
@@ -219,9 +219,9 @@ impl AgentRequestedScopeDisclosure {
         .map_err(Into::into)
     }
 
-    pub fn canonical_proof_binding_bytes(&self, proof: &ProducerEventProof) -> Result<Vec<u8>> {
+    pub fn canonical_proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;
-        if proof.event_digest != payload_digest {
+        if proof.payload_digest != payload_digest {
             return Err(WireError::Protocol(
                 "agent requested-scope disclosure proof digest mismatch".into(),
             ));
@@ -263,10 +263,13 @@ impl AgentRequestedScopeDisclosure {
             ));
         }
         let digest = self.payload_digest()?;
-        if self.proofs.iter().any(|proof| proof.event_digest != digest) {
-            return Err(WireError::Protocol(
-                "agent requested-scope disclosure proof digest mismatch".into(),
-            ));
+        for proof in &self.proofs {
+            proof.validate_production()?;
+            if proof.payload_digest != digest {
+                return Err(WireError::Protocol(
+                    "agent requested-scope disclosure proof digest mismatch".into(),
+                ));
+            }
         }
         Ok(())
     }

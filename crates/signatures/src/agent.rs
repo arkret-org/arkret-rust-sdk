@@ -461,7 +461,7 @@ mod tests {
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
     };
     use arkret_wire::{
-        DeviceId, Did, DidCoreId, EventId, ProducerEventProof, RealmId, RequestId, SchemaId,
+        DeviceId, Did, DidCoreId, EventId, PayloadProof, RealmId, RequestId, SchemaId,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -721,10 +721,10 @@ mod tests {
             challenge: NonEmptyString::new(pairing_request_id).unwrap(),
             issued_at,
             expires_at: issued_at + chrono::Duration::minutes(5),
-            proofs: vec![ProducerEventProof {
+            proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new(format!("{controller_did}#key-1")).unwrap(),
-                event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: issued_at,
                 domain: None,
                 audience: None,
@@ -732,7 +732,7 @@ mod tests {
                 jws: "eyJhbGciOiJFZDI1NTE5In0..c2ln".to_owned(),
             }],
         };
-        disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
+        disclosure.proofs[0].payload_digest = disclosure.payload_digest().unwrap();
         let mut tampered_disclosure = disclosure.clone();
         tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
