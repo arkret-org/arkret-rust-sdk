@@ -84,6 +84,54 @@ fn validate_unique(rows: &[&Map<String, Value>], key: &str, prefixes: &[&str]) -
     Ok(())
 }
 
+fn validate_operation_transport_bindings(rows: &[&Map<String, Value>]) -> Result<()> {
+    let mut grpc_bindings = BTreeMap::new();
+    let mut mq_topics = BTreeMap::new();
+
+    for row in rows {
+        let operation_id = string(row, "operation_id")?;
+        let http_only = match row.get("http_only_variant") {
+            None => false,
+            Some(Value::Bool(value)) => *value,
+            Some(_) => bail!("{operation_id} http_only_variant is not a boolean"),
+        };
+        let grpc = match row.get("grpc") {
+            None => None,
+            Some(Value::String(value)) if !value.is_empty() => Some(value.as_str()),
+            Some(Value::String(_)) => bail!("{operation_id} has an empty grpc binding"),
+            Some(_) => bail!("{operation_id} grpc binding is not a string"),
+        };
+        let mq = match row.get("mq") {
+            None => None,
+            Some(Value::String(value)) if !value.is_empty() => Some(value.as_str()),
+            Some(Value::String(_)) => bail!("{operation_id} has an empty mq topic"),
+            Some(_) => bail!("{operation_id} mq topic is not a string"),
+        };
+
+        if http_only {
+            if grpc.is_some() || mq.is_some() {
+                bail!("{operation_id} is http-only and must not declare grpc/mq bindings");
+            }
+            continue;
+        }
+        let grpc = grpc.with_context(|| format!("{operation_id} is missing grpc binding"))?;
+        let mq = mq.with_context(|| format!("{operation_id} is missing mq topic"))?;
+        let (service, method) = grpc
+            .split_once('/')
+            .with_context(|| format!("{operation_id} grpc binding lacks Service/Method"))?;
+        if service.is_empty() || method.is_empty() || method.contains('/') {
+            bail!("{operation_id} grpc binding must be exactly non-empty Service/Method");
+        }
+        if grpc_bindings.insert(grpc, operation_id).is_some() {
+            bail!("duplicate grpc binding {grpc}");
+        }
+        if mq_topics.insert(mq, operation_id).is_some() {
+            bail!("duplicate mq topic {mq}");
+        }
+    }
+    Ok(())
+}
+
 pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
     Ok(vec![
         generate_digest_suite_codes(artifacts_dir)?,
@@ -565,6 +613,7 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/operation-registry.json")?;
     let rows = sorted_rows(artifact.array("operations")?, "operation_id")?;
     validate_unique(&rows, "operation_id", &["ak."])?;
+    validate_operation_transport_bindings(&rows)?;
     let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));
     output.push_str("use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\n#[repr(usize)]\npub enum ServiceOperationId {\n");
     for row in &rows {
@@ -621,7 +670,7 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(id, &["ak."])
         )?;
     }
-    output.push_str("        _ => None,\n    } }\n\n    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {\n        let specificity = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)).map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count()).min()?;\n        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity);\n        let selected = matches.next()?.id;\n        matches.next().is_none().then_some(selected)\n    }\n\n    pub fn matches_http_request(self, method: &str, path: &str) -> bool { let descriptor = self.descriptor(); descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) }\n    pub fn descriptor(self) -> &'static ServiceOperationDescriptor { &SERVICE_OPERATION_DESCRIPTORS[self as usize] }\n}\n\nimpl std::fmt::Display for ServiceOperationId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ServiceOperationId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ServiceOperationId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown service operation id: {raw}\"))) } }\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ServiceOperationId {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).enum_values(Self::ALL.iter().map(|value| value.as_str())).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ServiceOperationId {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[\n");
+    output.push_str("        _ => None,\n    } }\n\n    pub fn from_grpc(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.grpc == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_mq_topic(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.mq == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {\n        let specificity = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)).map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count()).min()?;\n        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity);\n        let selected = matches.next()?.id;\n        matches.next().is_none().then_some(selected)\n    }\n\n    pub fn matches_http_request(self, method: &str, path: &str) -> bool { let descriptor = self.descriptor(); descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) }\n    pub fn descriptor(self) -> &'static ServiceOperationDescriptor { &SERVICE_OPERATION_DESCRIPTORS[self as usize] }\n}\n\nimpl std::fmt::Display for ServiceOperationId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ServiceOperationId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ServiceOperationId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown service operation id: {raw}\"))) } }\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ServiceOperationId {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).enum_values(Self::ALL.iter().map(|value| value.as_str())).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ServiceOperationId {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[\n");
     for row in rows {
         let http = string(row, "http")?;
         let (method, path) = http
@@ -2698,6 +2747,21 @@ fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutpu
 mod tests {
     use super::*;
 
+    fn operation_row(id: &str, grpc: &str, mq: &str) -> Map<String, Value> {
+        serde_json::json!({
+            "operation_id": id,
+            "grpc": grpc,
+            "mq": mq
+        })
+        .as_object()
+        .expect("operation row")
+        .clone()
+    }
+
+    fn transport_validation(rows: &[Map<String, Value>]) -> Result<()> {
+        validate_operation_transport_bindings(&rows.iter().collect::<Vec<_>>())
+    }
+
     fn spec_artifacts() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
     }
@@ -2729,6 +2793,92 @@ mod tests {
         assert!(outputs.iter().all(|output| {
             output.relative_path != Path::new("crates/wire/src/generated/history_store_limits.rs")
         }));
+    }
+
+    #[test]
+    fn operation_transport_bindings_are_closed_and_unique() {
+        let first = operation_row(
+            "ak.self.probe.command.one.v1",
+            "SelfProbe/One",
+            "self.probe.one",
+        );
+        let second = operation_row(
+            "ak.self.probe.command.two.v1",
+            "SelfProbe/Two",
+            "self.probe.two",
+        );
+        let http_only = serde_json::json!({
+            "operation_id": "ak.self.probe.command.http_only.v1",
+            "http_only_variant": true
+        })
+        .as_object()
+        .expect("http-only row")
+        .clone();
+        transport_validation(&[first.clone(), second.clone(), http_only.clone()])
+            .expect("closed transport bindings");
+
+        let mut missing = first.clone();
+        missing.remove("grpc");
+        assert!(
+            transport_validation(&[missing])
+                .unwrap_err()
+                .to_string()
+                .contains("missing grpc")
+        );
+
+        let duplicate_grpc = operation_row(
+            "ak.self.probe.command.three.v1",
+            "SelfProbe/One",
+            "self.probe.three",
+        );
+        assert!(
+            transport_validation(&[first.clone(), duplicate_grpc])
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate grpc")
+        );
+
+        let duplicate_mq = operation_row(
+            "ak.self.probe.command.three.v1",
+            "SelfProbe/Three",
+            "self.probe.one",
+        );
+        assert!(
+            transport_validation(&[first.clone(), duplicate_mq])
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate mq")
+        );
+
+        let empty_service = operation_row(
+            "ak.self.probe.command.three.v1",
+            "/Three",
+            "self.probe.three",
+        );
+        assert!(
+            transport_validation(&[empty_service])
+                .unwrap_err()
+                .to_string()
+                .contains("non-empty Service/Method")
+        );
+
+        let mut forbidden = http_only;
+        forbidden.insert("grpc".into(), Value::String("SelfProbe/HttpOnly".into()));
+        assert!(
+            transport_validation(&[forbidden])
+                .unwrap_err()
+                .to_string()
+                .contains("http-only")
+        );
+
+        let mut malformed = second;
+        malformed.insert("mq".into(), Value::Bool(true));
+        assert!(
+            transport_validation(&[malformed])
+                .unwrap_err()
+                .to_string()
+                .contains("mq topic is not a string")
+        );
     }
 
     #[test]

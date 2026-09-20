@@ -1753,6 +1753,20 @@ impl ServiceOperationId {
         }
     }
 
+    pub fn from_grpc(value: &str) -> Option<Self> {
+        SERVICE_OPERATION_DESCRIPTORS
+            .iter()
+            .find(|descriptor| descriptor.grpc == Some(value))
+            .map(|descriptor| descriptor.id)
+    }
+
+    pub fn from_mq_topic(value: &str) -> Option<Self> {
+        SERVICE_OPERATION_DESCRIPTORS
+            .iter()
+            .find(|descriptor| descriptor.mq == Some(value))
+            .map(|descriptor| descriptor.id)
+    }
+
     pub fn from_http_request(method: &str, path: &str) -> Option<Self> {
         let specificity = SERVICE_OPERATION_DESCRIPTORS
             .iter()
