@@ -608,26 +608,44 @@ mod tests {
     }
 
     #[test]
-    fn fixture_schema_cases_match_typed_claim_validation() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
-            "../../../arkret-spec/spec/v1/artifacts/fixtures/sdk-conformance-claim-fixture.json",
-        );
+    fn fixture_schema_cases_match_the_published_schema() {
+        let artifacts = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../arkret-spec/spec/v1/artifacts");
+        let path = artifacts.join("fixtures/sdk-conformance-claim-fixture.json");
         let fixture: serde_json::Value =
             serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let schema: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("schemas/sdk-conformance-claim.schema.json")).unwrap(),
+        )
+        .unwrap();
+        let mut registry = crate::ProtocolSchemaRegistry::new();
+        for entry in std::fs::read_dir(artifacts.join("schemas")).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let document: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            if document
+                .get("$id")
+                .and_then(serde_json::Value::as_str)
+                .is_some()
+            {
+                registry
+                    .register_reference_document_from(document, path.display().to_string())
+                    .unwrap();
+            }
+        }
+        registry.register("test:sdk-conformance-claim", schema);
         for case in fixture["schema_validation_cases"].as_array().unwrap() {
             let expect_valid = case["expect_valid"].as_bool().unwrap();
-            let parsed = serde_json::from_value::<SdkConformanceClaim>(case["instance"].clone());
-            let accepted = parsed
-                .and_then(|claim| {
-                    claim
-                        .validate(["AK-SDK-001"])
-                        .map_err(|error| serde_json::Error::io(std::io::Error::other(error)))
-                })
-                .is_ok();
+            let validation =
+                registry.validate_value("test:sdk-conformance-claim", &case["instance"]);
+            let accepted = validation.is_ok();
             assert_eq!(
                 accepted, expect_valid,
-                "fixture case {} drifted",
-                case["name"]
+                "fixture case {} drifted: {validation:?}",
+                case["name"],
             );
         }
     }

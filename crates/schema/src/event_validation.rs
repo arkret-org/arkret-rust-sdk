@@ -69,6 +69,6 @@ mod tests {
     #[test]
     fn submit_gate_requires_exactly_one_producer_proof() {
         let error = event().validate_for_submit().unwrap_err().to_string();
-        assert!(error.contains("exactly one producer proof"));
+        assert!(error.contains("Event must carry producer_proof"));
     }
 }
