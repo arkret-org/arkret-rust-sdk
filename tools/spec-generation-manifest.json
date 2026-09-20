@@ -266,6 +266,22 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/wire/src/generated/preimage_commitments.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/event-kind-registry.json",
+        "schemas/*.schema.json"
+      ],
+      "provides": [
+        "PreimageCommitment",
+        "PREIMAGE_COMMITMENT_FIELDS"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/generated/profile_ids.rs"
       ],
       "owner": "arkret-wire",

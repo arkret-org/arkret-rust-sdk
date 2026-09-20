@@ -1,10 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use regex_lite::Regex;
 use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 
 use crate::model::LoadedArtifact;
 use crate::render::{associated_name, header, option_string, rust_string, string_slice, variant};
@@ -108,7 +109,346 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_reducer_managed_patch_paths(artifacts_dir)?,
         generate_forbidden_wire_fields(artifacts_dir)?,
         generate_mls_creator_bootstrap(artifacts_dir)?,
+        generate_preimage_commitments(artifacts_dir)?,
     ])
+}
+
+const PREIMAGE_COMMITMENT_KEYWORD: &str = "x-arkret-preimage-commitment";
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PreimageCommitmentEntry {
+    schema_file: String,
+    json_pointer: String,
+    commitment: String,
+}
+
+#[derive(Default)]
+struct SchemaRepository {
+    documents: BTreeMap<String, Value>,
+    bytes: BTreeMap<String, Vec<u8>>,
+}
+
+impl SchemaRepository {
+    fn load_document(&mut self, artifacts_dir: &Path, file: &str) -> Result<&Value> {
+        if !self.documents.contains_key(file) {
+            let path = artifacts_dir.join(file);
+            let bytes = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+            let document = serde_json::from_slice(&bytes)
+                .with_context(|| format!("parse {}", path.display()))?;
+            self.bytes.insert(file.to_owned(), bytes);
+            self.documents.insert(file.to_owned(), document);
+        }
+        Ok(self.documents.get(file).expect("document was inserted"))
+    }
+
+    fn load_node(&mut self, artifacts_dir: &Path, file: &str, pointer: &str) -> Result<Value> {
+        let document = self.load_document(artifacts_dir, file)?;
+        if pointer.is_empty() {
+            return Ok(document.clone());
+        }
+        document
+            .pointer(pointer)
+            .cloned()
+            .with_context(|| format!("{file} has no JSON Pointer #{pointer}"))
+    }
+
+    fn aggregate_source(&self) -> LoadedArtifact {
+        let mut digest = Sha256::new();
+        for (path, bytes) in &self.bytes {
+            digest.update(path.as_bytes());
+            digest.update([0]);
+            digest.update(bytes);
+            digest.update([0]);
+        }
+        LoadedArtifact {
+            relative_path: "reachable event schema closure",
+            version: "aggregate".to_owned(),
+            digest: hex::encode(digest.finalize()),
+        }
+    }
+}
+
+fn normalize_schema_file(base_file: Option<&str>, raw_file: &str) -> Result<String> {
+    let raw_file = raw_file
+        .strip_prefix("https://arkret.org/v1/")
+        .unwrap_or(raw_file);
+    let joined = if raw_file.is_empty() {
+        PathBuf::from(base_file.context("a fragment-only $ref has no base schema")?)
+    } else if raw_file.starts_with("schemas/") {
+        PathBuf::from(raw_file)
+    } else {
+        let base = base_file.context("a relative $ref has no base schema")?;
+        Path::new(base)
+            .parent()
+            .context("base schema has no parent")?
+            .join(raw_file)
+    };
+    let mut normalized = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(part) => normalized.push(part),
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    bail!("schema reference escapes the artifact root: {raw_file}");
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                bail!("schema reference must stay relative to the artifact root: {raw_file}")
+            }
+        }
+    }
+    Ok(normalized.to_string_lossy().replace('\\', "/"))
+}
+
+fn parse_schema_ref(base_file: Option<&str>, schema_ref: &str) -> Result<(String, String)> {
+    let (raw_file, fragment) = schema_ref.split_once('#').unwrap_or((schema_ref, ""));
+    let file = normalize_schema_file(base_file, raw_file)?;
+    let pointer = match fragment {
+        "" => String::new(),
+        value if value.starts_with('/') => value.to_owned(),
+        _ => bail!("schema reference fragment must be an RFC 6901 JSON Pointer: {schema_ref}"),
+    };
+    Ok((file, pointer))
+}
+
+fn visit_preimage_schema(
+    artifacts_dir: &Path,
+    repository: &mut SchemaRepository,
+    file: &str,
+    pointer: &str,
+    node: Value,
+    seen: &mut BTreeSet<(String, String)>,
+    found: &mut BTreeSet<(String, String, String)>,
+) -> Result<()> {
+    if !seen.insert((file.to_owned(), pointer.to_owned())) {
+        return Ok(());
+    }
+    let Some(object) = node.as_object() else {
+        return Ok(());
+    };
+    if let Some(commitment) = object.get(PREIMAGE_COMMITMENT_KEYWORD) {
+        let commitment = commitment.as_str().with_context(|| {
+            format!("{file}#{pointer} {PREIMAGE_COMMITMENT_KEYWORD} is not a string")
+        })?;
+        if !matches!(
+            commitment,
+            "envelope_omission"
+                | "fixed_event"
+                | "later_submission"
+                | "no_event_identity"
+                | "same_unit_sibling"
+                | "self_identity"
+        ) {
+            bail!("{file}#{pointer} has unknown preimage commitment {commitment:?}");
+        }
+        found.insert((file.to_owned(), pointer.to_owned(), commitment.to_owned()));
+    }
+    if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
+        let (target_file, target_pointer) = parse_schema_ref(Some(file), reference)?;
+        let target = repository.load_node(artifacts_dir, &target_file, &target_pointer)?;
+        visit_preimage_schema(
+            artifacts_dir,
+            repository,
+            &target_file,
+            &target_pointer,
+            target,
+            seen,
+            found,
+        )?;
+    }
+
+    for keyword in [
+        "items",
+        "contains",
+        "additionalProperties",
+        "propertyNames",
+        "not",
+        "if",
+        "then",
+        "else",
+        "unevaluatedProperties",
+    ] {
+        if let Some(child) = object.get(keyword).filter(|value| value.is_object()) {
+            let child_pointer = format!("{pointer}/{keyword}");
+            visit_preimage_schema(
+                artifacts_dir,
+                repository,
+                file,
+                &child_pointer,
+                child.clone(),
+                seen,
+                found,
+            )?;
+        }
+    }
+    for keyword in ["allOf", "anyOf", "oneOf", "prefixItems"] {
+        if let Some(children) = object.get(keyword).and_then(Value::as_array) {
+            for (index, child) in children.iter().enumerate() {
+                let child_pointer = format!("{pointer}/{keyword}/{index}");
+                visit_preimage_schema(
+                    artifacts_dir,
+                    repository,
+                    file,
+                    &child_pointer,
+                    child.clone(),
+                    seen,
+                    found,
+                )?;
+            }
+        }
+    }
+    for keyword in ["properties", "patternProperties", "dependentSchemas"] {
+        if let Some(children) = object.get(keyword).and_then(Value::as_object) {
+            for (name, child) in children {
+                let escaped = name.replace('~', "~0").replace('/', "~1");
+                let child_pointer = format!("{pointer}/{keyword}/{escaped}");
+                visit_preimage_schema(
+                    artifacts_dir,
+                    repository,
+                    file,
+                    &child_pointer,
+                    child.clone(),
+                    seen,
+                    found,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_preimage_commitments(
+    artifacts_dir: &Path,
+    repository: &mut SchemaRepository,
+    root_schema_ref: &str,
+) -> Result<BTreeSet<(String, String, String)>> {
+    let (file, pointer) = parse_schema_ref(None, root_schema_ref)?;
+    let root = repository.load_node(artifacts_dir, &file, &pointer)?;
+    let mut found = BTreeSet::new();
+    visit_preimage_schema(
+        artifacts_dir,
+        repository,
+        &file,
+        &pointer,
+        root,
+        &mut BTreeSet::new(),
+        &mut found,
+    )?;
+    Ok(found)
+}
+
+fn generate_preimage_commitments(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let event_kinds = Artifact::load(artifacts_dir, "registry/event-kind-registry.json")?;
+    let mut repository = SchemaRepository::default();
+    let mut roots = BTreeSet::from(["schemas/event-envelope.schema.json".to_owned()]);
+    for row in event_kinds.array("event_kinds")? {
+        roots.insert(string(row, "payload_schema_ref")?.to_owned());
+    }
+    let mut found = BTreeSet::new();
+    for root in roots {
+        found.extend(collect_preimage_commitments(
+            artifacts_dir,
+            &mut repository,
+            &root,
+        )?);
+    }
+    let entries = found
+        .into_iter()
+        .map(
+            |(schema_file, json_pointer, commitment)| PreimageCommitmentEntry {
+                schema_file,
+                json_pointer,
+                commitment,
+            },
+        )
+        .collect::<BTreeSet<_>>();
+    let schema_source = repository.aggregate_source();
+    let mut output = header(
+        &[&event_kinds.source, &schema_source],
+        &format!("preimage_commitments={}", entries.len()),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub enum PreimageCommitment {\n\
+    EnvelopeOmission,\n\
+    FixedEvent,\n\
+    LaterSubmission,\n\
+    NoEventIdentity,\n\
+    SameUnitSibling,\n\
+    SelfIdentity,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct PreimageCommitmentField {\n\
+    pub schema_file: &'static str,\n\
+    pub json_pointer: &'static str,\n\
+    pub commitment: PreimageCommitment,\n\
+}\n\n\
+pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[\n",
+    );
+    for entry in entries {
+        let variant = match entry.commitment.as_str() {
+            "envelope_omission" => "EnvelopeOmission",
+            "fixed_event" => "FixedEvent",
+            "later_submission" => "LaterSubmission",
+            "no_event_identity" => "NoEventIdentity",
+            "same_unit_sibling" => "SameUnitSibling",
+            "self_identity" => "SelfIdentity",
+            _ => unreachable!("commitments were validated while traversing"),
+        };
+        writeln!(
+            output,
+            "    PreimageCommitmentField {{ schema_file: {}, json_pointer: {}, commitment: PreimageCommitment::{variant} }},",
+            rust_string(&entry.schema_file),
+            rust_string(&entry.json_pointer),
+        )?;
+    }
+    output.push_str(
+        "];\n\n\
+pub fn preimage_commitment_at(\n\
+    schema_file: &str,\n\
+    json_pointer: &str,\n\
+) -> Option<PreimageCommitment> {\n\
+    PREIMAGE_COMMITMENT_FIELDS.iter().find(|field| {\n\
+        field.schema_file == schema_file && field.json_pointer == json_pointer\n\
+    }).map(|field| field.commitment)\n\
+}\n\n\
+#[cfg(test)]\n\
+mod tests {\n\
+    use super::*;\n\n\
+    #[test]\n\
+    fn generated_commitments_are_unique_and_queryable_by_exact_pointer() {\n\
+        for (index, field) in PREIMAGE_COMMITMENT_FIELDS.iter().enumerate() {\n\
+            assert_eq!(\n\
+                preimage_commitment_at(field.schema_file, field.json_pointer),\n\
+                Some(field.commitment)\n\
+            );\n\
+            assert!(!PREIMAGE_COMMITMENT_FIELDS[..index].iter().any(|earlier| {\n\
+                earlier.schema_file == field.schema_file\n\
+                    && earlier.json_pointer == field.json_pointer\n\
+            }));\n\
+        }\n\
+        assert_eq!(\n\
+            preimage_commitment_at(\n\
+                \"schemas/event-envelope.schema.json\",\n\
+                \"/properties/event_id\"\n\
+            ),\n\
+            Some(PreimageCommitment::EnvelopeOmission)\n\
+        );\n\
+        assert_eq!(\n\
+            preimage_commitment_at(\n\
+                \"schemas/agent-provision.schema.json\",\n\
+                \"/properties/principal_control_realm_id\"\n\
+            ),\n\
+            Some(PreimageCommitment::LaterSubmission)\n\
+        );\n\
+    }\n\
+}\n",
+    );
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/preimage_commitments.rs".into(),
+        contents: output,
+    })
 }
 
 fn option_usize(value: Option<&Value>, label: &str) -> Result<String> {
@@ -2132,7 +2472,8 @@ fn generate_reducer_managed_patch_paths(artifacts_dir: &Path) -> Result<Generate
     let mut path_count = 0usize;
     for object in objects {
         let object_kind = string(object, "object_kind")?;
-        let declared = declared_object_properties(artifacts_dir, string(object, "object_schema_ref")?)?;
+        let declared =
+            declared_object_properties(artifacts_dir, string(object, "object_schema_ref")?)?;
         let exempt = artifact_paths(object, "universal_exemptions")?;
         let mut rows: Vec<(String, String)> = Vec::new();
         for row in &universal {
@@ -2140,10 +2481,7 @@ fn generate_reducer_managed_patch_paths(artifacts_dir: &Path) -> Result<Generate
             if !declared.contains(path) || exempt.contains(path) {
                 continue;
             }
-            rows.push((
-                path.to_owned(),
-                render_reducer_managed_path(row, "None")?,
-            ));
+            rows.push((path.to_owned(), render_reducer_managed_path(row, "None")?));
         }
         for row in artifact_rows(object, "forbidden_patch_paths")? {
             let path = string(row, "path")?;
@@ -2210,7 +2548,10 @@ fn render_reducer_managed_path(row: &Map<String, Value>, schema_enforced: &str) 
     ))
 }
 
-fn artifact_rows<'a>(row: &'a Map<String, Value>, key: &str) -> Result<Vec<&'a Map<String, Value>>> {
+fn artifact_rows<'a>(
+    row: &'a Map<String, Value>,
+    key: &str,
+) -> Result<Vec<&'a Map<String, Value>>> {
     field(row, key)?
         .as_array()
         .with_context(|| format!("field {key} is not an array"))?
@@ -2322,12 +2663,13 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 23);
+        assert_eq!(outputs.len(), 24);
         for required in [
             "crates/wire/src/generated/reducer_managed_patch_paths.rs",
             "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
             "crates/wire/src/generated/security_strings.rs",
+            "crates/wire/src/generated/preimage_commitments.rs",
             "crates/wire/src/error_codes/error_code.rs",
             "crates/identifiers/src/generated/digest_suite_codes.rs",
         ] {
@@ -2345,6 +2687,42 @@ mod tests {
         assert!(outputs.iter().all(|output| {
             output.relative_path != Path::new("crates/wire/src/generated/history_store_limits.rs")
         }));
+    }
+
+    #[test]
+    fn preimage_commitment_codegen_follows_refs_but_not_unreferenced_defs() {
+        let root = std::env::temp_dir().join(format!(
+            "arkret-preimage-codegen-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let schemas = root.join("schemas");
+        std::fs::create_dir_all(&schemas).expect("create fixture schemas");
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"$ref":"./shared.schema.json#/$defs/reachable","$defs":{"dead":{"x-arkret-preimage-commitment":"self_identity"}}}"#,
+        )
+        .expect("write root schema");
+        std::fs::write(
+            schemas.join("shared.schema.json"),
+            r#"{"$defs":{"reachable":{"type":"object","properties":{"source_event_id":{"type":"string","description":"description text is not a rule","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"same_unit_sibling"}}}"#,
+        )
+        .expect("write shared schema");
+
+        let mut repository = SchemaRepository::default();
+        let found =
+            collect_preimage_commitments(&root, &mut repository, "schemas/root.schema.json")
+                .expect("collect commitments");
+        assert_eq!(found.len(), 1);
+        assert!(found.contains(&(
+            "schemas/shared.schema.json".to_owned(),
+            "/$defs/reachable/properties/source_event_id".to_owned(),
+            "fixed_event".to_owned(),
+        )));
+        std::fs::remove_dir_all(root).expect("remove isolated fixture tree");
     }
 
     #[test]

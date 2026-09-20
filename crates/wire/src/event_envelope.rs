@@ -476,6 +476,15 @@ pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
             "Event digest preimage input must be a JSON object envelope".to_owned(),
         ));
     };
+    if crate::generated::preimage_commitment_at(
+        "schemas/event-envelope.schema.json",
+        "/properties/event_id",
+    ) != Some(crate::generated::PreimageCommitment::EnvelopeOmission)
+    {
+        return Err(WireError::Protocol(
+            "generated Event preimage contract does not omit event_id".to_owned(),
+        ));
+    }
     let mut map = map.clone();
     map.remove("event_id");
     map.remove("producer_proof");
