@@ -2,8 +2,8 @@
 
 use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
-    EncryptedPayloadScheme, EventCommitSubmission, EventKind, Hash, Result, ScopeRef, StrandId,
-    WireError,
+    AccountId, EncryptedPayloadScheme, EventCommitSubmission, EventKind, Hash, RealmId, RequestId,
+    Result, ScopeRef, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -109,6 +109,44 @@ impl MessageSubmitRequestBody {
     }
 }
 
+/// Optional thin-client request for a governance Station to prepare one
+/// unsigned `ak.message.create` Event. Full clients may author locally; this
+/// carrier grants no authority and reserves no stream position.
+// Field declaration order is byte-for-byte the properties order of
+// message-authoring.schema.json#/$defs/message_prepare_request_body.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MessagePrepareRequestBody {
+    pub request_id: RequestId,
+    pub account_id: AccountId,
+    pub realm_id: RealmId,
+    pub intent: MessageAuthoringIntent,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+impl MessagePrepareRequestBody {
+    /// `x-arkret-max-canonical-bytes` on the schema node.
+    pub const MAX_CANONICAL_BYTES: usize = 1_048_576;
+
+    pub fn validate(&self) -> Result<()> {
+        let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(self)?;
+        if canonical_bytes.len() > Self::MAX_CANONICAL_BYTES {
+            return Err(WireError::Protocol(
+                "message prepare request exceeds its canonical byte ceiling".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Canonical-hash idempotency key bound by the prepare outcome.
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(arkret_canonical::canonical::canonical_sha256(self)?).map_err(Into::into)
+    }
+}
+
 /// Counterpart for
 /// `message-authoring.schema.json#/$defs/message_prepare_outcome`.
 ///
@@ -159,6 +197,63 @@ impl MessagePrepareOutcome {
     /// from the unsigned bytes by hand.
     pub fn draft_event_id(&self) -> Result<arkret_wire::EventId> {
         self.draft.event_id()
+    }
+
+    /// Verify that a Station-prepared draft answers the exact frozen request.
+    ///
+    /// This comparison is deliberately client-side: prepare is not an
+    /// authority decision, and a client must never sign a Station-rewritten
+    /// message body or encryption scope.
+    pub fn validate_against_request(&self, request: &MessagePrepareRequestBody) -> Result<()> {
+        request.validate()?;
+        self.validate()?;
+        if self.request_digest != request.canonical_request_digest()? {
+            return Err(WireError::Protocol(
+                "message prepare outcome does not bind the exact request".to_owned(),
+            ));
+        }
+        let expected_expires_at = request
+            .created_at
+            .checked_add_signed(chrono::Duration::seconds(300))
+            .ok_or_else(|| {
+                WireError::Protocol("message prepare request timestamp overflows expiry".to_owned())
+            })?;
+        if self.expires_at != expected_expires_at {
+            return Err(WireError::Protocol(
+                "message prepare outcome expiry must equal created_at plus 300 seconds".to_owned(),
+            ));
+        }
+
+        let authored = self
+            .draft
+            .unsigned_event_for_kind(arkret_wire::event_kind_str::MESSAGE_CREATE)?;
+        let event = authored.event();
+        if event.actor_id.as_account_id() != Some(&request.account_id)
+            || event.realm_id != request.realm_id
+            || event.created_at != request.created_at
+        {
+            return Err(WireError::Protocol(
+                "message prepare draft rewrites the frozen author, Realm, or timestamp".to_owned(),
+            ));
+        }
+        if let MessageAuthoringContent::Mls {
+            encryption_context,
+            ..
+        } = &request.intent.content
+            && event.scope_ref != encryption_context.effective_scope
+        {
+            return Err(WireError::Protocol(
+                "message prepare draft rewrites the frozen encryption scope".to_owned(),
+            ));
+        }
+        if serde_json::to_value(&event.payload)?
+            != serde_json::to_value(request.intent.payload())?
+        {
+            return Err(WireError::Protocol(
+                "message prepare draft rewrites the frozen message payload".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -226,6 +321,117 @@ mod message_prepare_tests {
             "observed_at": "2026-09-16T00:00:00.000Z",
             "expires_at": "2026-09-16T00:05:00.000Z"
         })
+    }
+
+    fn request_value() -> Value {
+        json!({
+            "request_id": "ak:request:019b6a40-0000-7000-8000-000000000001",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkauthor",
+                "station_id": "ak:did_core:webvh:z6mkstation"
+            },
+            "realm_id": "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
+            "intent": {
+                "strand_id": "ak:strand:AUOjN8M8xm-W1G1Ve9UR6sHKJh7JPG7bM8ZDnzcGJ2Vh",
+                "track_name": "discussion",
+                "content": {
+                    "kind": "plaintext",
+                    "content": {
+                        "kind": "ak.content.text",
+                        "body": "hello",
+                        "format": "plain"
+                    }
+                }
+            },
+            "created_at": "2026-09-16T00:00:00.000Z"
+        })
+    }
+
+    fn draft_for_request(request: &MessagePrepareRequestBody) -> PreparedEventDraft {
+        let payload = serde_json::to_value(request.intent.payload()).unwrap();
+        let event = test_support::raw_event_for_actor_at(
+            arkret_wire::event_kind_str::MESSAGE_CREATE,
+            ScopeRef::Realm {
+                realm_id: request.realm_id.clone(),
+            },
+            ActorId::account(request.account_id.clone()),
+            payload,
+            request.created_at,
+        )
+        .unwrap();
+        let bytes =
+            arkret_canonical::canonical::canonical_json_bytes(&event.digest_payload().unwrap())
+                .unwrap();
+        let event_digest = Hash::new(
+            event
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap(),
+        )
+        .unwrap();
+        PreparedEventDraft {
+            unsigned_event_bytes: Base64UrlString::new(arkret_canonical::base64url_encode(&bytes))
+                .unwrap(),
+            event_digest,
+        }
+    }
+
+    fn outcome_for_request(request: &MessagePrepareRequestBody) -> MessagePrepareOutcome {
+        MessagePrepareOutcome {
+            request_digest: request.canonical_request_digest().unwrap(),
+            draft: draft_for_request(request),
+            observed_at: request.created_at,
+            expires_at: request.created_at + chrono::Duration::seconds(300),
+        }
+    }
+
+    #[test]
+    fn request_round_trips_in_schema_property_order() {
+        let value = request_value();
+        let request: MessagePrepareRequestBody = serde_json::from_value(value.clone()).unwrap();
+        request.validate().unwrap();
+        assert_eq!(serde_json::to_value(&request).unwrap(), value);
+        assert!(request.canonical_request_digest().is_ok());
+    }
+
+    #[test]
+    fn every_request_member_is_required_and_no_other_is_accepted() {
+        for member in ["request_id", "account_id", "realm_id", "intent", "created_at"] {
+            let mut missing = request_value();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<MessagePrepareRequestBody>(missing).is_err(),
+                "{member} must be required"
+            );
+        }
+        let mut extended = request_value();
+        extended
+            .as_object_mut()
+            .unwrap()
+            .insert("reservation_handle".to_owned(), json!("x"));
+        assert!(serde_json::from_value::<MessagePrepareRequestBody>(extended).is_err());
+    }
+
+    #[test]
+    fn outcome_must_bind_the_exact_frozen_request_and_draft() {
+        let request: MessagePrepareRequestBody = serde_json::from_value(request_value()).unwrap();
+        outcome_for_request(&request)
+            .validate_against_request(&request)
+            .unwrap();
+
+        let mut changed_value = request_value();
+        changed_value["intent"]["content"]["content"]["body"] = json!("rewritten");
+        let changed: MessagePrepareRequestBody = serde_json::from_value(changed_value).unwrap();
+
+        let digest_mismatch = outcome_for_request(&request);
+        assert!(digest_mismatch.validate_against_request(&changed).is_err());
+
+        let mut rewritten_draft = outcome_for_request(&request);
+        rewritten_draft.draft = draft_for_request(&changed);
+        assert!(rewritten_draft.validate_against_request(&request).is_err());
+
+        let mut wrong_expiry = outcome_for_request(&request);
+        wrong_expiry.expires_at += chrono::Duration::seconds(1);
+        assert!(wrong_expiry.validate_against_request(&request).is_err());
     }
 
     #[test]
