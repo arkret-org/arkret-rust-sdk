@@ -1011,6 +1011,21 @@ mod tests {
     }
 
     #[test]
+    fn directory_public_read_bundle_does_not_advertise_writes() {
+        let mut description = directory_description();
+        description.supported_operation_bundles = vec![
+            "ak.operation_bundle.directory_service.describe.v1".to_owned(),
+            "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
+        ];
+
+        description.validate().unwrap();
+        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadSearchRealmsV1));
+        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadResolveRealmV1));
+        assert!(!description.supports_operation(ServiceOperationId::FindDirectoryCommandAnnounceV1));
+        assert!(!description.supports_operation(ServiceOperationId::FindDirectoryCommandWithdrawV1));
+    }
+
+    #[test]
     fn directory_service_requires_overlay_fields() {
         let mut description = directory_description();
         description.resource_kinds.clear();
