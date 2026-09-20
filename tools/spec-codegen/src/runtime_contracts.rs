@@ -18,6 +18,10 @@ pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
     validate(inputs)?;
     Ok(vec![
         GeneratedOutput {
+            relative_path: "crates/signatures/src/generated/http_signature_contract.rs".into(),
+            contents: generate_http_signature_contract(inputs)?,
+        },
+        GeneratedOutput {
             relative_path: "crates/identifiers/src/generated/protocol_time_tolerances.rs".into(),
             contents: generate_protocol_time_tolerances(inputs)?,
         },
@@ -34,6 +38,171 @@ pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
             contents: generate_event_runtime_contracts(inputs)?,
         },
     ])
+}
+
+fn generate_http_signature_contract(inputs: &SpecInputs) -> Result<String> {
+    let registry = &inputs.contracts.http_signature_contract_registry;
+    let profile = registry
+        .freshness_profiles
+        .iter()
+        .find(|profile| {
+            profile.freshness_profile_id == registry.common_contract.freshness_profile_id
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "HTTP signature common contract references unknown freshness profile {}",
+                registry.common_contract.freshness_profile_id
+            )
+        })?;
+    let max_lifetime = profile.max_signature_lifetime_seconds.ok_or_else(|| {
+        anyhow::anyhow!(
+            "HTTP signature freshness profile {} has no max_signature_lifetime_seconds",
+            profile.freshness_profile_id
+        )
+    })?;
+    let created_skew = profile.created_skew_seconds.ok_or_else(|| {
+        anyhow::anyhow!(
+            "HTTP signature freshness profile {} has no created_skew_seconds",
+            profile.freshness_profile_id
+        )
+    })?;
+    if max_lifetime <= 0 || created_skew < 0 {
+        bail!("HTTP signature freshness values must be positive/non-negative");
+    }
+
+    let scenario_ids = registry
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.scenario_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if scenario_ids.len() != registry.scenarios.len() {
+        bail!("HTTP signature scenario ids must be unique");
+    }
+    for scenario in &registry.scenarios {
+        if scenario.freshness_profile_id != profile.freshness_profile_id {
+            bail!(
+                "HTTP signature scenario {} does not use the common freshness profile",
+                scenario.scenario_id
+            );
+        }
+        if let Some(parent) = &scenario.extends
+            && !scenario_ids.contains(parent.as_str())
+        {
+            bail!(
+                "HTTP signature scenario {} extends unknown scenario {}",
+                scenario.scenario_id,
+                parent
+            );
+        }
+    }
+
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!(
+            "http_signature_scenarios={}, freshness_profile={}",
+            registry.scenarios.len(),
+            profile.freshness_profile_id
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n\
+pub enum HttpSignatureScenario {\n",
+    );
+    for scenario in &registry.scenarios {
+        writeln!(output, "    {},", variant(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"])).expect("write to String");
+    }
+    output.push_str(
+        "}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct HttpSignatureConditionalComponentDescriptor {\n\
+    pub component: &'static str,\n\
+    pub condition: &'static str,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct HttpSignatureScenarioDescriptor {\n\
+    pub scenario: HttpSignatureScenario,\n\
+    pub scenario_id: &'static str,\n\
+    pub extends: Option<HttpSignatureScenario>,\n\
+    pub additional_covered_components: &'static [&'static str],\n\
+    pub conditional_covered_components: &'static [HttpSignatureConditionalComponentDescriptor],\n\
+    pub required_headers: &'static [&'static str],\n\
+    pub freshness_profile_id: &'static str,\n\
+}\n\n",
+    );
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_FRESHNESS_PROFILE_ID: &str = {};",
+        rust_string(&profile.freshness_profile_id)
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_MAX_LIFETIME_SECONDS: i64 = {max_lifetime};"
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_CREATED_SKEW_SECONDS: i64 = {created_skew};"
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_COMMON_COVERED_COMPONENTS: &[&str] = {};",
+        string_slice(&registry.common_contract.covered_components)
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_REQUIRED_PARAMETERS: &[&str] = {};\n",
+        string_slice(&registry.common_contract.signature_parameters)
+    )
+    .expect("write to String");
+
+    for scenario in &registry.scenarios {
+        let name = associated_name(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
+        writeln!(
+            output,
+            "const {name}_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalComponentDescriptor] = &["
+        )
+        .expect("write to String");
+        for conditional in &scenario.conditional_covered_components {
+            writeln!(
+                output,
+                "    HttpSignatureConditionalComponentDescriptor {{ component: {}, condition: {} }},",
+                rust_string(&conditional.component),
+                rust_string(&conditional.condition)
+            )
+            .expect("write to String");
+        }
+        output.push_str("];\n");
+    }
+    output.push_str("\npub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[\n");
+    for scenario in &registry.scenarios {
+        let variant_name = variant(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
+        let const_name = associated_name(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
+        let parent = scenario.extends.as_ref().map_or_else(
+            || "None".to_owned(),
+            |parent| format!("Some(HttpSignatureScenario::{})", variant(parent, &["ak.http_signature.scenario.", ".v1"])),
+        );
+        writeln!(
+            output,
+            "    HttpSignatureScenarioDescriptor {{ scenario: HttpSignatureScenario::{variant_name}, scenario_id: {}, extends: {parent}, additional_covered_components: {}, conditional_covered_components: {const_name}_CONDITIONAL_COMPONENTS, required_headers: {}, freshness_profile_id: {} }},",
+            rust_string(&scenario.scenario_id),
+            string_slice(&scenario.additional_covered_components),
+            string_slice(&scenario.required_headers),
+            rust_string(&scenario.freshness_profile_id),
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "];\n\n\
+pub const fn http_signature_scenario_descriptor(\n\
+    scenario: HttpSignatureScenario,\n\
+) -> &'static HttpSignatureScenarioDescriptor {\n\
+    &HTTP_SIGNATURE_SCENARIOS[scenario as usize]\n\
+}\n",
+    );
+    Ok(output)
 }
 
 fn generate_protocol_time_tolerances(inputs: &SpecInputs) -> Result<String> {

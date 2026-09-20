@@ -213,7 +213,47 @@ pub struct AgentCapabilitySet {
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
+    pub http_signature_contract_registry: HttpSignatureContractRegistry,
     pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureContractRegistry {
+    pub common_contract: HttpSignatureCommonContract,
+    pub freshness_profiles: Vec<HttpSignatureFreshnessProfile>,
+    pub scenarios: Vec<HttpSignatureScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureCommonContract {
+    pub covered_components: Vec<String>,
+    pub signature_parameters: Vec<String>,
+    pub freshness_profile_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureFreshnessProfile {
+    pub freshness_profile_id: String,
+    pub max_signature_lifetime_seconds: Option<i64>,
+    pub created_skew_seconds: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureScenario {
+    pub scenario_id: String,
+    pub extends: Option<String>,
+    #[serde(default)]
+    pub additional_covered_components: Vec<String>,
+    #[serde(default)]
+    pub conditional_covered_components: Vec<HttpSignatureConditionalComponent>,
+    pub required_headers: Vec<String>,
+    pub freshness_profile_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureConditionalComponent {
+    pub component: String,
+    pub condition: String,
 }
 
 #[derive(Debug, Deserialize)]

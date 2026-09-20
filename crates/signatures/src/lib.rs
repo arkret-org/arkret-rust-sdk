@@ -6,6 +6,9 @@ mod development_identity;
 // all sign or verify with it, and only some of them enable `webvh`.
 pub mod eddsa_jcs_2022;
 pub mod http_signature;
+pub mod generated {
+    pub mod http_signature_contract;
+}
 #[cfg(feature = "collaboration")]
 pub mod media;
 #[cfg(feature = "service-identity")]
