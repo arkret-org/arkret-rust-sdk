@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LoadedArtifact {
     pub relative_path: &'static str,
     pub version: String,
@@ -67,16 +67,16 @@ impl SpecInputs {
     pub fn load(artifacts_dir: &Path) -> Result<Self> {
         let (id_kinds_source, id_kinds) =
             LoadedArtifact::read(artifacts_dir, "registry/id-kind-registry.json")?;
-        let (capability_actions_source, capability_actions) =
-            LoadedArtifact::read(artifacts_dir, "registry/capability-action-registry.json")?;
         let (schemas_source, schemas) =
             LoadedArtifact::read(artifacts_dir, "registry/schema-registry.json")?;
         let (account_data_source, account_data) =
             LoadedArtifact::read(artifacts_dir, "registry/account-data-key-registry.json")?;
         let (agent_runtime_source, agent_runtime) =
             LoadedArtifact::read(artifacts_dir, "registry/agent-runtime-scope-registry.json")?;
-        let (contracts_source, contracts) =
+        let (contracts_source, contracts): (LoadedArtifact, ContractRegistry) =
             LoadedArtifact::read(artifacts_dir, "registry/contract-registry.json")?;
+        let capability_actions_source = contracts_source.clone();
+        let capability_actions = contracts.capability_action_registry.clone();
         let (operations_source, operations) =
             LoadedArtifact::read(artifacts_dir, "registry/operation-registry.json")?;
         let (event_kinds_source, event_kinds) =
@@ -128,12 +128,12 @@ pub struct SpecialIdForm {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CapabilityActionRegistry {
     pub actions: Vec<CapabilityAction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CapabilityAction {
     pub action: String,
     pub category: String,
@@ -212,6 +212,7 @@ pub struct AgentCapabilitySet {
 
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
+    pub capability_action_registry: CapabilityActionRegistry,
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
     pub http_signature_contract_registry: HttpSignatureContractRegistry,
     pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,

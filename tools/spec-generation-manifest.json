@@ -70,7 +70,7 @@
       "artifacts": [
         "registry/schema-registry.json",
         "registry/id-kind-registry.json",
-        "registry/capability-action-registry.json",
+        "registry/contract-registry.json",
         "registry/account-data-key-registry.json"
       ]
     },
@@ -156,7 +156,7 @@
       "owner": "arkret-wire",
       "mode": "enum",
       "artifacts": [
-        "registry/capability-action-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {

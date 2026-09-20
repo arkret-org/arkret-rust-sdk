@@ -77,7 +77,11 @@ pub fn option_string(value: Option<&str>) -> String {
 pub fn header(inputs: &[&LoadedArtifact], counts: &str) -> String {
     let mut output =
         String::from("//! @generated; do not edit by hand.\n//! Generator: tools/spec-codegen\n");
+    let mut seen = std::collections::BTreeSet::new();
     for input in inputs {
+        if !seen.insert(input.relative_path) {
+            continue;
+        }
         writeln!(
             output,
             "//! Input: {}; version={}; sha256={}",

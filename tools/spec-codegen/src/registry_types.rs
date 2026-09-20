@@ -1914,8 +1914,11 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 }
 
 fn generate_capability_actions(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/capability-action-registry.json")?;
-    let rows = sorted_rows(artifact.array("actions")?, "action")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("capability_action_registry", "actions")?,
+        "action",
+    )?;
     validate_unique(&rows, "action", &["ak."])?;
     let mut output = simple_string_enum(
         &artifact,
