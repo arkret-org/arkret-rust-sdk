@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-21.3;
-//! sha256=be9eb43fcecb7fe103c3a383eaada503c90aa8b31a415d02f42611ba091f2103
-//! Entries: error_codes=168, reserved_not_emitted=96
+//! Input: registry/error-code-registry.json; version=2026-09-21.4;
+//! sha256=feb985bc0ece698d5e86fa2d227389bb64677e713febdb3638ca23c39a5aa17c
+//! Entries: error_codes=170, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -112,6 +112,7 @@ pub enum ErrorCode {
     KeypackageUnknown,
     LimitExceeded,
     MembershipCompensationConflict,
+    MethodNotAllowed,
     MimiE2eeBoundaryUnmarked,
     MimiRoomBindingEventInvalid,
     MlsGenesisBindingProposalMismatch,
@@ -187,6 +188,7 @@ pub enum ErrorCode {
     TtlOutOfRange,
     TurnCredentialExpired,
     Unauthenticated,
+    UnrecognizedEndpoint,
     UnsupportedCiphersuite,
     UnsupportedContentEncoding,
     UnsupportedDidMethod,
@@ -296,6 +298,7 @@ impl ErrorCode {
         Self::KeypackageUnknown,
         Self::LimitExceeded,
         Self::MembershipCompensationConflict,
+        Self::MethodNotAllowed,
         Self::MimiE2eeBoundaryUnmarked,
         Self::MimiRoomBindingEventInvalid,
         Self::MlsGenesisBindingProposalMismatch,
@@ -371,6 +374,7 @@ impl ErrorCode {
         Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
+        Self::UnrecognizedEndpoint,
         Self::UnsupportedCiphersuite,
         Self::UnsupportedContentEncoding,
         Self::UnsupportedDidMethod,
@@ -469,6 +473,7 @@ impl ErrorCode {
     pub const KEYPACKAGE_UNKNOWN: &'static str = "keypackage_unknown";
     pub const LIMIT_EXCEEDED: &'static str = "limit_exceeded";
     pub const MEMBERSHIP_COMPENSATION_CONFLICT: &'static str = "membership_compensation_conflict";
+    pub const METHOD_NOT_ALLOWED: &'static str = "method_not_allowed";
     pub const MIMI_E2EE_BOUNDARY_UNMARKED: &'static str = "mimi_e2ee_boundary_unmarked";
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENESIS_BINDING_PROPOSAL_MISMATCH: &'static str =
@@ -552,6 +557,7 @@ impl ErrorCode {
     pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
+    pub const UNRECOGNIZED_ENDPOINT: &'static str = "unrecognized_endpoint";
     pub const UNSUPPORTED_CIPHERSUITE: &'static str = "unsupported_ciphersuite";
     pub const UNSUPPORTED_CONTENT_ENCODING: &'static str = "unsupported_content_encoding";
     pub const UNSUPPORTED_DID_METHOD: &'static str = "unsupported_did_method";
@@ -653,6 +659,7 @@ impl ErrorCode {
             Self::KeypackageUnknown => "keypackage_unknown",
             Self::LimitExceeded => "limit_exceeded",
             Self::MembershipCompensationConflict => "membership_compensation_conflict",
+            Self::MethodNotAllowed => "method_not_allowed",
             Self::MimiE2eeBoundaryUnmarked => "mimi_e2ee_boundary_unmarked",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
             Self::MlsGenesisBindingProposalMismatch => "mls_genesis_binding_proposal_mismatch",
@@ -736,6 +743,7 @@ impl ErrorCode {
             Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
+            Self::UnrecognizedEndpoint => "unrecognized_endpoint",
             Self::UnsupportedCiphersuite => "unsupported_ciphersuite",
             Self::UnsupportedContentEncoding => "unsupported_content_encoding",
             Self::UnsupportedDidMethod => "unsupported_did_method",
@@ -840,6 +848,7 @@ impl ErrorCode {
             "keypackage_unknown" => Some(Self::KeypackageUnknown),
             "limit_exceeded" => Some(Self::LimitExceeded),
             "membership_compensation_conflict" => Some(Self::MembershipCompensationConflict),
+            "method_not_allowed" => Some(Self::MethodNotAllowed),
             "mimi_e2ee_boundary_unmarked" => Some(Self::MimiE2eeBoundaryUnmarked),
             "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
             "mls_genesis_binding_proposal_mismatch" => {
@@ -929,6 +938,7 @@ impl ErrorCode {
             "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
+            "unrecognized_endpoint" => Some(Self::UnrecognizedEndpoint),
             "unsupported_ciphersuite" => Some(Self::UnsupportedCiphersuite),
             "unsupported_content_encoding" => Some(Self::UnsupportedContentEncoding),
             "unsupported_did_method" => Some(Self::UnsupportedDidMethod),
@@ -1774,6 +1784,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A compensation delegation/action/executor/admission/join binding is wrong, already consumed, absent, or conflicts with the current membership provenance. The operation performs no write on conflict and never removes a newer join Event.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::MethodNotAllowed,
+        type_uri: "https://arkret.org/problems/method_not_allowed",
+        title: "Method not allowed",
+        http_status: 405,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &["endpoint"],
+        description: "The path exists but the HTTP method is not supported.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::MimiE2eeBoundaryUnmarked,
         type_uri: "https://arkret.org/problems/mimi_e2ee_boundary_unmarked",
         title: "Mimi e2ee boundary unmarked",
@@ -2522,6 +2542,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Authentication material is missing or invalid.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::UnrecognizedEndpoint,
+        type_uri: "https://arkret.org/problems/unrecognized_endpoint",
+        title: "Unrecognized endpoint",
+        http_status: 404,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &["endpoint"],
+        description: "The path is inside the protocol namespace but not implemented by the service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedCiphersuite,
