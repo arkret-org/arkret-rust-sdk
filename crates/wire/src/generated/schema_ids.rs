@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.7;
-//! sha256=b8cc91c0bff48f2869a2561f148c14658d6ade331c63878770e4dd48e7469108 Entries: schema_ids=222,
+//! Input: registry/contract-registry.json; version=2026-09-21.8;
+//! sha256=35485bb3455de904e069a46b9bfdf681730a12179d5fe69440918478a4c6a748 Entries: schema_ids=222,
 //! active=222
 
 use serde::{Deserialize, Serialize};
@@ -755,8 +755,8 @@ impl SchemaId {
     /// requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
-    /// Signed controller-scoped Agent selector claim for
-    /// @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
+    /// Signed controller-scoped Agent label claim for verification of an already-known full Agent
+    /// AccountId; not a free-text mention resolver.
     pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
     /// access. It is not a Circle profile and has no backing Circle or editable membership. See
@@ -949,8 +949,8 @@ impl SchemaId {
     /// set and verified founding-authority evidence. Founding defines no second acceptance receipt.
     pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
         "ak.schema.direct_conversation_operations.v1";
-    /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
-    /// discovery, handle lookup, and agent selector lookup operations.
+    /// Closed request/response DTO bundle for registered Directory discovery search, resolve, and
+    /// private contact discovery operations; no Agent selector lookup operation is registered.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
     /// Closed decrypted plaintext shape and canonical recurring-time semantics for ak.dnd_schedule.
     pub const DND_SCHEDULE_V1: &'static str = "ak.schema.dnd_schedule.v1";
