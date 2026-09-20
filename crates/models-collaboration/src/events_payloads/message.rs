@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
-use arkret_wire::{DidCoreId, Result, StrandId, WireError};
+use arkret_wire::{DidCoreId, EventId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -836,6 +836,16 @@ pub struct MessageAgentContext {
     pub authorization_ref: String,
 }
 
+/// A producer-visible replacement declaration for one accepted poll response.
+/// The governance Station verifies both Event refs against the same poll,
+/// actor and effective scope; this pair is not a vote-winner selector.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PollResponseHead {
+    pub poll_event_ref: EventId,
+    pub response_event_ref: EventId,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageCreatePayload {
@@ -857,6 +867,8 @@ pub struct MessageCreatePayload {
     pub agent_context: Option<MessageAgentContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mimi_provenance: Option<MimiMessageProvenance>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub poll_response_heads: Vec<PollResponseHead>,
 }
 
 impl MessageCreatePayload {
@@ -876,6 +888,7 @@ impl MessageCreatePayload {
             reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
+            poll_response_heads: Vec::new(),
         }
     }
 
@@ -907,7 +920,25 @@ impl MessageCreatePayload {
             reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
+            poll_response_heads: Vec::new(),
         }
+    }
+
+    /// Bind the exact accepted response Events this message supersedes.
+    /// An empty declaration is represented by omission on the wire.
+    pub fn with_poll_response_heads(mut self, heads: Vec<PollResponseHead>) -> Result<Self> {
+        if heads.len() > 64
+            || heads
+                .iter()
+                .enumerate()
+                .any(|(index, head)| heads[..index].contains(head))
+        {
+            return Err(WireError::Protocol(
+                "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
+            ));
+        }
+        self.poll_response_heads = heads;
+        Ok(self)
     }
 
     pub fn with_mls_encrypted_content(

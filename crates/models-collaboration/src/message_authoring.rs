@@ -70,6 +70,7 @@ impl MessageAuthoringIntent {
             reply_to_id: self.reply_to_id.clone(),
             agent_context: None,
             mimi_provenance: None,
+            poll_response_heads: Vec::new(),
         };
         match &self.content {
             MessageAuthoringContent::Plaintext { content, metadata } => {

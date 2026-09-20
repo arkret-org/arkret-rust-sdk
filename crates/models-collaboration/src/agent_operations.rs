@@ -93,6 +93,9 @@ pub struct AgentRenewPairingRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AgentRenewPairingOutcome {
     pub agent_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: DidUrl,
+    pub requested_scope_digest: Hash,
     pub pairing_request_id: OpaqueLocalId,
     pub pairing_code: String,
     #[serde(with = "canonical_timestamp")]
