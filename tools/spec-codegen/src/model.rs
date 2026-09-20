@@ -132,7 +132,37 @@ pub struct SpecialIdForm {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct CapabilityActionRegistry {
+    pub event_mapping_kind_definitions: BTreeMap<String, String>,
+    pub approval_requirement_eligibility: ApprovalRequirementEligibilityRegistry,
     pub actions: Vec<CapabilityAction>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalRequirementEligibilityRegistry {
+    pub eligibility_kind_definitions: BTreeMap<String, String>,
+    pub event_mapping_defaults: BTreeMap<String, String>,
+    pub carriers: Vec<ApprovalEvidenceCarrier>,
+    pub default_carrier_by_eligibility_kind: BTreeMap<String, String>,
+    pub action_overrides: Vec<ApprovalEligibilityOverride>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalEvidenceCarrier {
+    pub carrier_id: String,
+    pub carrier_class: String,
+    pub operation_id: String,
+    pub request_schema_ref: String,
+    pub carrier_schema_ref: String,
+    pub carrier_field: String,
+    pub evidence_schema_ref: String,
+    pub allowed_target_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalEligibilityOverride {
+    pub action: String,
+    pub eligibility_kind: String,
+    pub carrier_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

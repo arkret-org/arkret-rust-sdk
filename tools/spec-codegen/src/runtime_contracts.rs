@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
-use crate::model::{RealmBootstrapProfile, SpecInputs};
+use crate::model::{CapabilityAction, RealmBootstrapProfile, SpecInputs};
 use crate::render::{
     associated_name, event_kind_slice, header, option_string, rust_string, string_slice, variant,
 };
@@ -319,6 +319,125 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         .iter()
         .map(|row| row.operation_id.as_str())
         .collect::<BTreeSet<_>>();
+    let approval = &inputs.capability_actions.approval_requirement_eligibility;
+    let eligibility_kinds = approval
+        .eligibility_kind_definitions
+        .keys()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let expected_eligibility_kinds = BTreeSet::from([
+        "event_submission_carrier",
+        "registered_operation_carrier",
+        "ineligible_no_registered_carrier",
+    ]);
+    if eligibility_kinds != expected_eligibility_kinds {
+        bail!("approval eligibility kinds are not the closed v1 set");
+    }
+    if approval
+        .event_mapping_defaults
+        .keys()
+        .collect::<BTreeSet<_>>()
+        != inputs
+            .capability_actions
+            .event_mapping_kind_definitions
+            .keys()
+            .collect::<BTreeSet<_>>()
+    {
+        bail!("approval eligibility defaults do not cover every event mapping kind");
+    }
+    if approval
+        .event_mapping_defaults
+        .values()
+        .any(|value| !eligibility_kinds.contains(value.as_str()))
+    {
+        bail!("approval eligibility defaults contain an unknown eligibility kind");
+    }
+    let carrier_ids = approval
+        .carriers
+        .iter()
+        .map(|row| row.carrier_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if carrier_ids.len() != approval.carriers.len() {
+        bail!("approval evidence carrier ids must be unique");
+    }
+    for carrier in &approval.carriers {
+        if !operations.contains(carrier.operation_id.as_str()) {
+            bail!(
+                "approval evidence carrier {} references unknown operation {}",
+                carrier.carrier_id,
+                carrier.operation_id
+            );
+        }
+        if !matches!(
+            carrier.carrier_class.as_str(),
+            "event_submission" | "non_event_operation"
+        ) {
+            bail!(
+                "approval evidence carrier {} has unknown class",
+                carrier.carrier_id
+            );
+        }
+        if carrier.allowed_target_kinds.is_empty()
+            || carrier
+                .allowed_target_kinds
+                .iter()
+                .any(|value| !matches!(value.as_str(), "event" | "operation"))
+        {
+            bail!(
+                "approval evidence carrier {} has invalid target kinds",
+                carrier.carrier_id
+            );
+        }
+    }
+    for (eligibility, carrier_id) in &approval.default_carrier_by_eligibility_kind {
+        if !eligibility_kinds.contains(eligibility.as_str()) {
+            bail!("approval default carrier uses unknown eligibility kind {eligibility}");
+        }
+        if !carrier_ids.contains(carrier_id.as_str()) {
+            bail!("approval eligibility {eligibility} references unknown carrier {carrier_id}");
+        }
+    }
+    let actions = inputs
+        .capability_actions
+        .actions
+        .iter()
+        .map(|row| row.action.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut overridden_actions = BTreeSet::new();
+    for row in &approval.action_overrides {
+        if !overridden_actions.insert(row.action.as_str()) {
+            bail!("duplicate approval eligibility override for {}", row.action);
+        }
+        if !actions.contains(row.action.as_str()) {
+            bail!(
+                "approval eligibility override names unknown action {}",
+                row.action
+            );
+        }
+        if !eligibility_kinds.contains(row.eligibility_kind.as_str()) {
+            bail!(
+                "approval eligibility override for {} has unknown kind",
+                row.action
+            );
+        }
+        if !carrier_ids.contains(row.carrier_id.as_str()) {
+            bail!(
+                "approval eligibility override for {} names unknown carrier",
+                row.action
+            );
+        }
+    }
+    for action in &inputs.capability_actions.actions {
+        if !approval
+            .event_mapping_defaults
+            .contains_key(&action.event_mapping_kind)
+        {
+            bail!(
+                "capability action {} has no approval eligibility default",
+                action.action
+            );
+        }
+    }
     for (owner, values) in inputs
         .agent_runtime
         .capability_sets
@@ -479,6 +598,32 @@ fn bootstrap_profiles(inputs: &SpecInputs) -> [(&'static str, &RealmBootstrapPro
     ]
 }
 
+fn approval_resolution<'a>(
+    inputs: &'a SpecInputs,
+    action: &'a CapabilityAction,
+) -> (&'a str, Option<&'a str>) {
+    let registry = &inputs.capability_actions.approval_requirement_eligibility;
+    if let Some(override_row) = registry
+        .action_overrides
+        .iter()
+        .find(|row| row.action == action.action)
+    {
+        return (
+            &override_row.eligibility_kind,
+            Some(&override_row.carrier_id),
+        );
+    }
+    let eligibility = registry
+        .event_mapping_defaults
+        .get(&action.event_mapping_kind)
+        .expect("approval eligibility defaults validated before generation");
+    let carrier_id = registry
+        .default_carrier_by_eligibility_kind
+        .get(eligibility)
+        .map(String::as_str);
+    (eligibility, carrier_id)
+}
+
 fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
     let mut ids = inputs
         .id_kinds
@@ -496,6 +641,13 @@ fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
     special.sort_by_key(|row| &row.kind);
     let mut actions = inputs.capability_actions.actions.iter().collect::<Vec<_>>();
     actions.sort_by_key(|row| &row.action);
+    let mut approval_carriers = inputs
+        .capability_actions
+        .approval_requirement_eligibility
+        .carriers
+        .iter()
+        .collect::<Vec<_>>();
+    approval_carriers.sort_by_key(|row| &row.carrier_id);
     let mut schemas = inputs
         .schemas
         .schemas
@@ -519,10 +671,11 @@ fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
             &inputs.account_data_source,
         ],
         &format!(
-            "id_kinds={}, special_forms={}, actions={}, schemas={}, account_data_patterns={}",
+            "id_kinds={}, special_forms={}, actions={}, approval_carriers={}, schemas={}, account_data_patterns={}",
             ids.len(),
             special.len(),
             actions.len(),
+            approval_carriers.len(),
             schemas.len(),
             patterns.len()
         ),
@@ -555,6 +708,26 @@ impl CapabilityRiskTier {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalRequirementEligibility {
+    EventSubmissionCarrier,
+    RegisteredOperationCarrier,
+    IneligibleNoRegisteredCarrier,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ApprovalEvidenceCarrierDescriptor {
+    pub carrier_id: &'static str,
+    pub carrier_class: &'static str,
+    pub operation_id: &'static str,
+    pub request_schema_ref: &'static str,
+    pub carrier_schema_ref: &'static str,
+    pub carrier_field: &'static str,
+    pub evidence_schema_ref: &'static str,
+    pub allowed_target_kinds: &'static [&'static str],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CapabilityActionDescriptor {
     pub action: CapabilityActionId,
@@ -568,6 +741,8 @@ pub struct CapabilityActionDescriptor {
     pub root_control_only: bool,
     pub subject_only: bool,
     pub event_mapping_kind: &'static str,
+    pub approval_requirement_eligibility: ApprovalRequirementEligibility,
+    pub approval_evidence_carrier_id: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -612,12 +787,31 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         .expect("write to String");
     }
     output.push_str(
+        "];\n\npub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[\n",
+    );
+    for row in approval_carriers {
+        writeln!(
+            output,
+            "    ApprovalEvidenceCarrierDescriptor {{ carrier_id: {}, carrier_class: {}, operation_id: {}, request_schema_ref: {}, carrier_schema_ref: {}, carrier_field: {}, evidence_schema_ref: {}, allowed_target_kinds: {} }},",
+            rust_string(&row.carrier_id),
+            rust_string(&row.carrier_class),
+            rust_string(&row.operation_id),
+            rust_string(&row.request_schema_ref),
+            rust_string(&row.carrier_schema_ref),
+            rust_string(&row.carrier_field),
+            rust_string(&row.evidence_schema_ref),
+            string_slice(&row.allowed_target_kinds),
+        )
+        .expect("write to String");
+    }
+    output.push_str(
         "];\n\npub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[\n",
     );
     for row in actions {
+        let (approval_eligibility, approval_carrier_id) = approval_resolution(inputs, row);
         writeln!(
             output,
-            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {} }},",
+            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {}, approval_requirement_eligibility: ApprovalRequirementEligibility::{}, approval_evidence_carrier_id: {} }},",
             variant(&row.action, &["ak."]),
             rust_string(&row.category),
             variant(&row.risk_tier, &[]),
@@ -629,6 +823,8 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
             row.root_control_only,
             row.subject_only,
             rust_string(&row.event_mapping_kind),
+            variant(approval_eligibility, &[]),
+            option_string(approval_carrier_id),
         )
         .expect("write to String");
     }
@@ -673,6 +869,18 @@ pub const fn capability_action_descriptor(id: CapabilityActionId) -> &'static Ca
 
 pub fn capability_actions_for_event_kind(event_kind: &str) -> impl Iterator<Item = &'static CapabilityActionDescriptor> {
     REGISTERED_CAPABILITY_ACTIONS.iter().filter(move |row| row.target_event_kinds.contains(&event_kind))
+}
+
+pub fn approval_evidence_carrier(value: &str) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    APPROVAL_EVIDENCE_CARRIERS.iter().find(|row| row.carrier_id == value)
+}
+
+pub fn approval_evidence_carrier_for_action(
+    action: CapabilityActionId,
+) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    capability_action_descriptor(action)
+        .approval_evidence_carrier_id
+        .and_then(approval_evidence_carrier)
 }
 
 pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {
