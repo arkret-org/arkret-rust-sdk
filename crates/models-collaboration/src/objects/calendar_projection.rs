@@ -8,7 +8,7 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::Hash;
+use arkret_wire::{EventId, Hash};
 use serde::{Deserialize, Serialize};
 
 use crate::objects::productivity::RsvpResponse;
@@ -96,7 +96,7 @@ impl RsvpResponseClass {
 pub struct CalendarRsvpWinner {
     pub source_event_digest: Hash,
     /// Schedule revision checkpoint this responder signed into the entry.
-    pub schedule_basis_refs: Vec<Hash>,
+    pub schedule_basis_refs: Vec<EventId>,
     /// Present only when the response axis resolved.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response: Option<RsvpResponse>,
@@ -121,7 +121,7 @@ impl CalendarRsvpWinner {
     /// or `recurrence` moved since this head was written; that is what turns an
     /// instance winner into an orphan, because the occurrence key itself changed.
     pub fn classify_basis(
-        schedule_basis_refs: &[Hash],
+        schedule_basis_refs: &[EventId],
         known_schedule_revisions: &[Hash],
         is_instance_head: bool,
         identity_affecting_changed: bool,
@@ -133,7 +133,7 @@ impl CalendarRsvpWinner {
         if schedule_basis_refs.is_empty()
             || schedule_basis_refs
                 .iter()
-                .any(|basis| !known.contains(basis.as_str()))
+                .any(|basis| !known.contains(basis.event_digest().as_str()))
         {
             return RsvpBasisClass::UnresolvedBasis;
         }
@@ -187,5 +187,32 @@ impl CalendarRsvpProjection {
             .chain(self.series_winner.iter())
             .filter(|winner| !winner.participates())
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EVENT: &str = "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg";
+
+    #[test]
+    fn rsvp_basis_classifies_exact_event_id_against_known_digest() {
+        let event = EventId::new(EVENT).unwrap();
+        let digest = event.event_digest();
+        assert_eq!(
+            CalendarRsvpWinner::classify_basis(
+                std::slice::from_ref(&event),
+                std::slice::from_ref(&digest),
+                false,
+                false,
+                false,
+            ),
+            RsvpBasisClass::Current,
+        );
+        assert_eq!(
+            CalendarRsvpWinner::classify_basis(&[event], &[], false, false, false),
+            RsvpBasisClass::UnresolvedBasis,
+        );
     }
 }

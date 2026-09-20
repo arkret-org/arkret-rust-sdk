@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, ActorId, BlobId, CallId, CircleId, CommittedEventRef, DeviceId, DidCoreId,
+    AccountDataKey, ActorId, BlobId, CallId, CircleId, DeviceId, DidCoreId, EventId,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, RealmId, Result, ScheduledSendId, SchemaId,
     ScopeRef, SpaceId, StrandId, WireError, canonical,
 };
@@ -31,8 +31,8 @@ pub const CALENDAR_METADATA_FIELDS_NAMESPACE: &str = "calendar";
 /// route the ciphertext to exactly one decrypted schema.
 pub const RSVP_RESPONSE_CONTENT_TYPE: &str = "application/vnd.arkret.calendar-rsvp-response+json";
 pub const MAX_RSVP_COMMENT_CODE_POINTS: usize = 2_000;
-/// Bound on exact committed schedule revisions carried by an RSVP.
-pub const MAX_RSVP_SCHEDULE_BASIS_REFS: usize = 128;
+/// The wire shape retains an array, but one RSVP names exactly one schedule Event.
+pub const MAX_RSVP_SCHEDULE_BASIS_REFS: usize = 1;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -291,14 +291,13 @@ impl RsvpResponse {
     }
 }
 
-/// Complete RSVP value, including the exact committed schedule revisions the
+/// Complete RSVP value, including the exact schedule revision the
 /// responder observed.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RsvpEntry {
-    /// Non-empty schedule revision checkpoint the responder actually observed, as
-    /// committed Event references sorted in ascending canonical byte order.
-    pub schedule_basis_refs: Vec<CommittedEventRef>,
+    /// Exactly one `ak:event:` typed ID for the schedule winner observed.
+    pub schedule_basis_refs: Vec<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response: Option<RsvpResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -329,30 +328,45 @@ impl RsvpEntry {
                 ));
             }
         }
-        if self.schedule_basis_refs.is_empty() {
+        if self.schedule_basis_refs.len() != MAX_RSVP_SCHEDULE_BASIS_REFS {
             return Err(WireError::Protocol(
-                "rsvp entry schedule_basis_refs must be non-empty".to_owned(),
-            ));
-        }
-        if self.schedule_basis_refs.len() > MAX_RSVP_SCHEDULE_BASIS_REFS {
-            return Err(WireError::Protocol(
-                "rsvp entry schedule_basis_refs must contain <= 128 entries".to_owned(),
-            ));
-        }
-        // Canonical ascending byte order is a shape-admission condition that
-        // JSON Schema cannot express; accepting an unsorted basis would fork
-        // both the accepted set and the signed canonical bytes.
-        let ordered = self
-            .schedule_basis_refs
-            .windows(2)
-            .all(|pair| pair[0] < pair[1]);
-        if !ordered {
-            return Err(WireError::Protocol(
-                "rsvp entry schedule_basis_refs must be unique and sorted in ascending canonical byte order"
-                    .to_owned(),
+                "rsvp entry schedule_basis_refs must contain exactly one EventId".to_owned(),
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod rsvp_entry_tests {
+    use super::*;
+
+    const EVENT: &str = "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg";
+
+    #[test]
+    fn schedule_basis_is_exactly_one_typed_event_id() {
+        let response = Some(RsvpResponse {
+            status: RsvpStatus::Accepted,
+            comment: None,
+        });
+        let entry = RsvpEntry {
+            schedule_basis_refs: vec![EventId::new(EVENT).unwrap()],
+            response,
+            encrypted_response: None,
+        };
+        entry.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&entry).unwrap()["schedule_basis_refs"],
+            json!([EVENT])
+        );
+        let mut empty = entry.clone();
+        empty.schedule_basis_refs.clear();
+        assert!(empty.validate().is_err());
+        let mut multiple = entry;
+        multiple
+            .schedule_basis_refs
+            .push(EventId::new(EVENT).unwrap());
+        assert!(multiple.validate().is_err());
     }
 }
 

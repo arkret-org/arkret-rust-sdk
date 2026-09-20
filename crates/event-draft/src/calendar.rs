@@ -8,12 +8,12 @@ use arkret_models_collaboration::objects::calendar_projection::CalendarScheduleP
 use arkret_models_collaboration::objects::productivity::{
     CalendarEventFields, CalendarStatus, RsvpEntry, RsvpResponse, RsvpSetPayload,
 };
-use arkret_wire::{CommittedEventRef, Result, StrandId, WireError};
+use arkret_wire::{EventId, Result, StrandId, WireError};
 
 /// Schedule revision winner the responder observed, plus the response itself.
 ///
 /// The wire field remains an array, but it MUST contain exactly the committed
-/// Event reference for the deterministic schedule winner.
+/// Event ID for the deterministic schedule winner.
 #[derive(Clone, Debug)]
 pub struct RsvpAuthoring {
     pub event_ref: StrandId,
@@ -21,7 +21,7 @@ pub struct RsvpAuthoring {
     /// is the only legal value, so the same event never has both a series and
     /// a base-instance response key.
     pub occurrence: Option<String>,
-    pub schedule_basis_refs: Vec<CommittedEventRef>,
+    pub schedule_basis_refs: Vec<EventId>,
     pub response: RsvpResponseBranch,
 }
 
@@ -67,7 +67,7 @@ impl RsvpAuthoring {
         }
         let schedule_basis_refs = self.schedule_basis_refs;
         if schedule_basis_refs.len() != 1
-            || schedule_basis_refs[0].event_id.event_digest() != schedule.schedule_revision_source
+            || schedule_basis_refs[0].event_digest() != schedule.schedule_revision_source
         {
             return Err(WireError::Protocol(
                 "rsvp schedule_basis_refs must contain exactly the deterministic schedule winner"

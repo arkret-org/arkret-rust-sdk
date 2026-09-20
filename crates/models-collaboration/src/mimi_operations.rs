@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiDelivery, MimiDeliveryStatus, MimiFailure,
-    MimiIdentifierMatch, MimiOpaquePayload,
+    MimiIdentifier, MimiIdentifierMatch, MimiOhttpContext, MimiOpaquePayload,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -605,6 +605,93 @@ impl MimiSubmitMessageOutcome {
     }
 }
 
+/// Closed request for `ak.open.mimi.read.identifiers.v1`.
+/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_request_body`.
+// Field order matches the schema properties and therefore the canonical body.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiIdentifierQueryRequestBody {
+    #[serde(deserialize_with = "deserialize_identifier_query_identifiers")]
+    pub identifiers: Vec<MimiIdentifier>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_profile: Option<NonEmptyString>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_nonempty_identifier_query_proofs"
+    )]
+    pub proofs: Vec<PayloadProof>,
+}
+
+fn deserialize_identifier_query_identifiers<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<MimiIdentifier>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let identifiers = Vec::<MimiIdentifier>::deserialize(deserializer)?;
+    if !(1..=1000).contains(&identifiers.len()) {
+        return Err(serde::de::Error::custom(
+            "MIMI identifier query requires 1..=1000 identifiers",
+        ));
+    }
+    Ok(identifiers)
+}
+
+fn deserialize_nonempty_identifier_query_proofs<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<PayloadProof>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let proofs = Vec::<PayloadProof>::deserialize(deserializer)?;
+    if proofs.is_empty() {
+        return Err(serde::de::Error::custom(
+            "present MIMI identifier query proofs must be non-empty",
+        ));
+    }
+    Ok(proofs)
+}
+
+impl MimiIdentifierQueryRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if !(1..=1000).contains(&self.identifiers.len()) {
+            return Err(WireError::Protocol(
+                "MIMI identifier query requires 1..=1000 identifiers".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        self.validate()?;
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    pub fn unsigned_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
+            self.requester_id.as_ref().map(|id| serde_json::json!(id)),
+            Vec::new(),
+            &self.payload_digest()?,
+            proof,
+        )
+    }
+}
+
 /// Counterpart for
 /// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
 ///
@@ -651,6 +738,24 @@ impl MimiIdentifierQueryOutcome {
     }
 }
 
+/// Closed request for `ak.open.mimi.command.proxy_download.v1`.
+/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_request_body`.
+// The schema's `asset_ref` anyOf accepts a typed BlobRef or an ordinary
+// non-empty opaque provider reference; NonEmptyString preserves both branches.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiProxyDownloadRequestBody {
+    pub asset_ref: NonEmptyString,
+    pub requester_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ohttp_context: Option<MimiOhttpContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<NonEmptyString>,
+}
+
 /// Counterpart for
 /// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
 ///
@@ -685,6 +790,85 @@ mod mimi_relay_tests {
     const EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
     const DIGEST: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+
+    fn identifier_query_request_value() -> Value {
+        json!({
+            "identifiers": [{"kind": "handle", "identifier_commitment": DIGEST}],
+            "requester_id": "ak:did_core:web:provider.example",
+            "privacy_profile": "private_identifier_query"
+        })
+    }
+
+    #[test]
+    fn identifier_query_request_is_closed_and_binds_its_request_context() {
+        let value = identifier_query_request_value();
+        let body: MimiIdentifierQueryRequestBody = serde_json::from_value(value.clone()).unwrap();
+        body.validate().unwrap();
+        assert_eq!(serde_json::to_value(&body).unwrap(), value);
+        let proof = PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:web:provider.example#key-1").unwrap(),
+            payload_digest: body.payload_digest().unwrap(),
+            created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
+            domain: Some(ProofContextId::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1.to_owned()),
+            audience: Some(arkret_wire::Audience::Single(
+                "ak:did_core:web:station.example".to_owned(),
+            )),
+            proof_purpose: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
+        };
+        let transcript = String::from_utf8(body.proof_binding_bytes(&proof).unwrap()).unwrap();
+        assert!(transcript.contains(ProofContextId::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1));
+        assert!(transcript.contains(ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1));
+        assert!(transcript.contains("ak:did_core:web:provider.example"));
+
+        let mut anonymous = body;
+        anonymous.requester_id = None;
+        anonymous.proofs.push(proof.clone());
+        let digest_with_proof = anonymous.payload_digest().unwrap();
+        anonymous.proofs.clear();
+        assert_eq!(anonymous.payload_digest().unwrap(), digest_with_proof);
+        let mut anonymous_proof = proof.clone();
+        anonymous_proof.payload_digest = digest_with_proof;
+        let unsigned_transcript = String::from_utf8(
+            anonymous
+                .unsigned_proof_binding_bytes(&anonymous_proof.unsigned())
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(!unsigned_transcript.contains("\"issuer\""));
+
+        let mut unknown = value.clone();
+        unknown["unregistered"] = json!(true);
+        assert!(serde_json::from_value::<MimiIdentifierQueryRequestBody>(unknown).is_err());
+        let mut empty = value;
+        empty["identifiers"] = json!([]);
+        assert!(serde_json::from_value::<MimiIdentifierQueryRequestBody>(empty).is_err());
+        let mut empty_proofs = identifier_query_request_value();
+        empty_proofs["proofs"] = json!([]);
+        assert!(serde_json::from_value::<MimiIdentifierQueryRequestBody>(empty_proofs).is_err());
+    }
+
+    #[test]
+    fn proxy_download_request_preserves_opaque_and_typed_asset_refs() {
+        for asset_ref in [
+            "provider-download-1",
+            "ak:blob:sha256:01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91",
+        ] {
+            let value = json!({
+                "asset_ref": asset_ref,
+                "requester_id": "ak:did_core:web:provider.example",
+                "ohttp_context": {"context_id": "relay-1", "request_digest": DIGEST}
+            });
+            let body: MimiProxyDownloadRequestBody = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&body).unwrap(), value);
+        }
+        let invalid = json!({
+            "asset_ref": "",
+            "requester_id": "ak:did_core:web:provider.example"
+        });
+        assert!(serde_json::from_value::<MimiProxyDownloadRequestBody>(invalid).is_err());
+    }
 
     fn sender() -> Value {
         json!({
