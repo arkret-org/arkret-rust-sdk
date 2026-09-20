@@ -298,12 +298,8 @@ pub struct DidRootProofBody {
 pub struct RecoveryUnlockProofBodyWithSignature {
     pub kind: RecoveryUnlockProofKind,
     pub challenge: Base64UrlString,
-    pub recovery_secret_ref: String,
     pub verification_method: DidUrl,
     pub signature_algorithm: RecoverySignatureAlgorithm,
-    /// Public binding hash over the session transcript and
-    /// `recovery_secret_ref`; it prevents proof-shell substitution.
-    pub unlock_commitment: Hash,
     pub signature: Base64UrlString,
 }
 
@@ -451,7 +447,6 @@ pub struct DidRootRecoveryTranscript {
 pub struct RecoveryUnlockProofBody {
     pub kind: RecoveryUnlockProofKind,
     pub challenge: Base64UrlString,
-    pub recovery_secret_ref: String,
     pub verification_method: DidUrl,
     pub signature_algorithm: RecoverySignatureAlgorithm,
 }
@@ -785,10 +780,8 @@ mod tests {
             "proof": {
                 "kind": "recovery_unlock",
                 "challenge": CHALLENGE,
-                "recovery_secret_ref": fixtures::RECOVERY_METHOD_URL,
                 "verification_method": fixtures::RECOVERY_METHOD_URL,
                 "signature_algorithm": "Ed25519",
-                "unlock_commitment": digest(0xef),
                 "signature": "cHJvb2Ytc2lnbmF0dXJl"
             }
         });
@@ -805,12 +798,19 @@ mod tests {
             .insert("seal_ref".to_owned(), json!("x"));
         assert!(serde_json::from_value::<RecoverySessionProofSubmitRequestBody>(unknown).is_err());
 
-        let mut missing = value;
-        missing["proof"]
-            .as_object_mut()
-            .unwrap()
-            .remove("unlock_commitment");
-        assert!(serde_json::from_value::<RecoverySessionProofSubmitRequestBody>(missing).is_err());
+        for (field, legacy_value) in [
+            ("recovery_secret_ref", json!("recovery-key-fixture")),
+            ("unlock_commitment", json!(digest(0xef))),
+        ] {
+            let mut legacy = value.clone();
+            legacy["proof"]
+                .as_object_mut()
+                .unwrap()
+                .insert(field.to_owned(), legacy_value);
+            assert!(
+                serde_json::from_value::<RecoverySessionProofSubmitRequestBody>(legacy).is_err()
+            );
+        }
     }
 
     #[test]
@@ -875,7 +875,6 @@ mod tests {
             "proof_body": {
                 "kind": "recovery_unlock",
                 "challenge": CHALLENGE,
-                "recovery_secret_ref": fixtures::RECOVERY_METHOD_URL,
                 "verification_method": fixtures::RECOVERY_METHOD_URL,
                 "signature_algorithm": "Ed25519"
             }
