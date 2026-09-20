@@ -1391,8 +1391,11 @@ fn generate_authority_sources(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 }
 
 fn generate_schema_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/schema-registry.json")?;
-    let rows = sorted_rows(artifact.array("schemas")?, "schema_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("schema_registry", "schemas")?,
+        "schema_id",
+    )?;
     validate_unique(&rows, "schema_id", &["ak.schema.", "ak."])?;
     let active = rows
         .iter()

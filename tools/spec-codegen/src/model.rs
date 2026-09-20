@@ -65,10 +65,6 @@ pub struct SpecInputs {
 
 impl SpecInputs {
     pub fn load(artifacts_dir: &Path) -> Result<Self> {
-        let (id_kinds_source, id_kinds) =
-            LoadedArtifact::read(artifacts_dir, "registry/id-kind-registry.json")?;
-        let (schemas_source, schemas) =
-            LoadedArtifact::read(artifacts_dir, "registry/schema-registry.json")?;
         let (account_data_source, account_data) =
             LoadedArtifact::read(artifacts_dir, "registry/account-data-key-registry.json")?;
         let (agent_runtime_source, agent_runtime) =
@@ -77,6 +73,10 @@ impl SpecInputs {
             LoadedArtifact::read(artifacts_dir, "registry/contract-registry.json")?;
         let capability_actions_source = contracts_source.clone();
         let capability_actions = contracts.capability_action_registry.clone();
+        let id_kinds_source = contracts_source.clone();
+        let id_kinds = contracts.id_kind_registry.clone();
+        let schemas_source = contracts_source.clone();
+        let schemas = contracts.schema_registry.clone();
         let (operations_source, operations) =
             LoadedArtifact::read(artifacts_dir, "registry/operation-registry.json")?;
         let (event_kinds_source, event_kinds) =
@@ -106,13 +106,13 @@ impl SpecInputs {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct IdKindRegistry {
     pub id_kinds: Vec<IdKind>,
     pub special_forms: Vec<SpecialIdForm>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct IdKind {
     pub kind: String,
     pub category: String,
@@ -120,7 +120,7 @@ pub struct IdKind {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SpecialIdForm {
     pub kind: String,
     pub wire_form: String,
@@ -154,12 +154,12 @@ pub struct CapabilityAction {
     pub event_mapping_kind: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SchemaRegistry {
     pub schemas: Vec<SchemaRegistration>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SchemaRegistration {
     pub schema_id: String,
     pub file: String,
@@ -213,6 +213,8 @@ pub struct AgentCapabilitySet {
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
     pub capability_action_registry: CapabilityActionRegistry,
+    pub id_kind_registry: IdKindRegistry,
+    pub schema_registry: SchemaRegistry,
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
     pub http_signature_contract_registry: HttpSignatureContractRegistry,
     pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,

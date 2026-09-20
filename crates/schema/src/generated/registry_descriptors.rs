@@ -1,11 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-19.1;
-//! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823 Input: registry/
-//! contract-registry.json; version=2026-09-20.25;
+//! Input: registry/contract-registry.json; version=2026-09-20.25;
 //! sha256=75427e307029abe6530b20b2d6df516b7c5fe94836568f8ab82f13d33ef98aaf Input: registry/
-//! schema-registry.json; version=2026-09-20.18;
-//! sha256=dad0e54735b3dd92df60edaf81274fd93fee2fc2e82c801e2138052fdf090d5d Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
 //! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
 //! special_forms=15, actions=149, schemas=222, account_data_patterns=24

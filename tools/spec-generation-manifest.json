@@ -46,7 +46,7 @@
       "mode": "registered+descriptor",
       "artifacts": [
         "registry/event-kind-registry.json",
-        "registry/id-kind-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {
@@ -68,8 +68,6 @@
       "owner": "arkret-schema",
       "mode": "registered+descriptor",
       "artifacts": [
-        "registry/schema-registry.json",
-        "registry/id-kind-registry.json",
         "registry/contract-registry.json",
         "registry/account-data-key-registry.json"
       ]
@@ -86,8 +84,6 @@
         "registry/contract-registry.json",
         "registry/operation-registry.json",
         "registry/event-kind-registry.json",
-        "registry/schema-registry.json",
-        "registry/id-kind-registry.json",
         "deployment-probes.json"
       ]
     },
@@ -349,7 +345,7 @@
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
-        "registry/schema-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {
