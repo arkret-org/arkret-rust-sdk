@@ -5,6 +5,7 @@ use arkret_identifiers::Did;
 use arkret_wire::{DidCoreId, DidUrl, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
 
 pub const SDK_CONFORMANCE_CLAIM_DOMAIN: &str = "arkret-sdk-conformance-claim-v1";
@@ -90,9 +91,11 @@ pub struct SdkConformanceEvidence {
     pub kind: SdkEvidenceKind,
     pub evidence_ref: String,
     pub digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub covers_vectors: Option<Vec<String>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SdkEvidenceKind {
     VectorResult,
@@ -121,6 +124,265 @@ pub enum SdkConformanceClaimError {
     SignatureInvalid,
     #[error("failed to construct SDK conformance signing input: {0}")]
     SigningInput(String),
+    #[error("invalid SDK conformance contract: {0}")]
+    InvalidContract(String),
+    #[error("SDK conformance vector coverage mismatch: {0}")]
+    VectorCoverage(String),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractClause {
+    clause_id: String,
+    grades: Vec<String>,
+    source_anchor: String,
+    summary: String,
+    required_evidence: Vec<SdkEvidenceKind>,
+    #[serde(default)]
+    vector_evidence: Option<ContractVectorEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVectorEvidence {
+    vectors: Vec<String>,
+    decision_points: Vec<ContractDecisionPoint>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractDecisionPoint {
+    id: String,
+    requirement: String,
+    vectors: Vec<String>,
+    #[serde(default)]
+    required_case_refs: Vec<Value>,
+}
+
+/// Parsed view of the canonical `sdk_conformance_contract` together with its
+/// exact JCS commitment and expanded vector sets.
+#[derive(Clone, Debug)]
+pub struct SdkConformanceContract {
+    digest: String,
+    clauses: std::collections::BTreeMap<String, ExpandedContractClause>,
+}
+
+#[derive(Clone, Debug)]
+struct ExpandedContractClause {
+    required_evidence: BTreeSet<SdkEvidenceKind>,
+    vectors: BTreeSet<String>,
+    decision_point_vectors: BTreeSet<String>,
+}
+
+impl SdkConformanceContract {
+    /// Parse the exact contract object and expand `.*` vector families against
+    /// the active vector ids from the same specification revision.
+    pub fn from_value<'a>(
+        value: &Value,
+        active_vector_ids: impl IntoIterator<Item = &'a str>,
+    ) -> Result<Self, SdkConformanceClaimError> {
+        let object = value.as_object().ok_or_else(|| {
+            SdkConformanceClaimError::InvalidContract("contract must be an object".to_owned())
+        })?;
+        let clauses_value = object.get("clauses").ok_or_else(|| {
+            SdkConformanceClaimError::InvalidContract("contract.clauses is missing".to_owned())
+        })?;
+        let clauses: Vec<ContractClause> = serde_json::from_value(clauses_value.clone())
+            .map_err(|error| SdkConformanceClaimError::InvalidContract(error.to_string()))?;
+        let active = active_vector_ids.into_iter().collect::<BTreeSet<_>>();
+        let mut expanded = std::collections::BTreeMap::new();
+
+        for clause in clauses {
+            if !is_clause_id(&clause.clause_id) || expanded.contains_key(&clause.clause_id) {
+                return Err(SdkConformanceClaimError::InvalidContract(format!(
+                    "invalid or duplicate clause id {}",
+                    clause.clause_id
+                )));
+            }
+            // These fields are signed by the contract digest. Touch them here
+            // so a malformed hand-written partial contract is not accepted as
+            // a generator input merely because coverage fields happen to parse.
+            if clause.grades.is_empty()
+                || clause.source_anchor.is_empty()
+                || clause.summary.is_empty()
+            {
+                return Err(SdkConformanceClaimError::InvalidContract(format!(
+                    "{} has incomplete metadata",
+                    clause.clause_id
+                )));
+            }
+            let required_evidence = clause
+                .required_evidence
+                .into_iter()
+                .collect::<BTreeSet<_>>();
+            let mut vectors = BTreeSet::new();
+            let mut decision_point_vectors = BTreeSet::new();
+            match clause.vector_evidence {
+                Some(vector_evidence) => {
+                    for pattern in &vector_evidence.vectors {
+                        vectors.extend(expand_vector_pattern(pattern, &active)?);
+                    }
+                    for decision_point in vector_evidence.decision_points {
+                        if decision_point.id.is_empty() || decision_point.requirement.is_empty() {
+                            return Err(SdkConformanceClaimError::InvalidContract(format!(
+                                "{} has an incomplete decision point",
+                                clause.clause_id
+                            )));
+                        }
+                        let _ = decision_point.required_case_refs;
+                        for vector in decision_point.vectors {
+                            if !vectors.contains(&vector) {
+                                return Err(SdkConformanceClaimError::InvalidContract(format!(
+                                    "{} decision point names vector outside clause set: {}",
+                                    clause.clause_id, vector
+                                )));
+                            }
+                            decision_point_vectors.insert(vector);
+                        }
+                    }
+                    if !required_evidence.contains(&SdkEvidenceKind::VectorResult) {
+                        return Err(SdkConformanceClaimError::InvalidContract(format!(
+                            "{} has vector_evidence without vector_result requirement",
+                            clause.clause_id
+                        )));
+                    }
+                }
+                None if required_evidence.contains(&SdkEvidenceKind::VectorResult) => {
+                    return Err(SdkConformanceClaimError::InvalidContract(format!(
+                        "{} requires vector_result but has no vector_evidence",
+                        clause.clause_id
+                    )));
+                }
+                None => {}
+            }
+            expanded.insert(
+                clause.clause_id,
+                ExpandedContractClause {
+                    required_evidence,
+                    vectors,
+                    decision_point_vectors,
+                },
+            );
+        }
+
+        Ok(Self {
+            digest: sdk_conformance_contract_digest(value)?,
+            clauses: expanded,
+        })
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    pub fn clause_ids(&self) -> impl Iterator<Item = &str> {
+        self.clauses.keys().map(String::as_str)
+    }
+
+    /// Construct claim evidence from the contract rather than a caller-owned
+    /// vector list. Wildcard families have already been expanded.
+    pub fn vector_result_evidence(
+        &self,
+        clause_id: &str,
+        evidence_ref: impl Into<String>,
+        digest: impl Into<String>,
+    ) -> Result<SdkConformanceEvidence, SdkConformanceClaimError> {
+        let clause = self
+            .clauses
+            .get(clause_id)
+            .ok_or_else(|| SdkConformanceClaimError::UnknownClause(clause_id.to_owned()))?;
+        if !clause
+            .required_evidence
+            .contains(&SdkEvidenceKind::VectorResult)
+        {
+            return Err(SdkConformanceClaimError::InvalidContract(format!(
+                "{clause_id} does not require vector_result"
+            )));
+        }
+        Ok(SdkConformanceEvidence {
+            kind: SdkEvidenceKind::VectorResult,
+            evidence_ref: evidence_ref.into(),
+            digest: digest.into(),
+            covers_vectors: Some(clause.vectors.iter().cloned().collect()),
+        })
+    }
+
+    pub fn validate_claim_coverage(
+        &self,
+        claim: &SdkConformanceClaim,
+    ) -> Result<(), SdkConformanceClaimError> {
+        if claim.contract_digest != self.digest {
+            return Err(SdkConformanceClaimError::BindingMismatch(
+                "contract_digest".to_owned(),
+            ));
+        }
+        for clause_claim in &claim.clause_claims {
+            let clause = self.clauses.get(&clause_claim.clause_id).ok_or_else(|| {
+                SdkConformanceClaimError::UnknownClause(clause_claim.clause_id.clone())
+            })?;
+            let covered = clause_claim
+                .evidence
+                .iter()
+                .filter(|evidence| evidence.kind == SdkEvidenceKind::VectorResult)
+                .flat_map(|evidence| evidence.covers_vectors.iter().flatten())
+                .cloned()
+                .collect::<BTreeSet<_>>();
+            if !covered.is_subset(&clause.vectors) {
+                return Err(SdkConformanceClaimError::VectorCoverage(format!(
+                    "{} names vectors outside its expanded contract set",
+                    clause_claim.clause_id
+                )));
+            }
+            if matches!(
+                clause_claim.result,
+                SdkClauseResult::Pass | SdkClauseResult::Fail
+            ) && clause
+                .required_evidence
+                .contains(&SdkEvidenceKind::VectorResult)
+                && !clause.decision_point_vectors.is_subset(&covered)
+            {
+                return Err(SdkConformanceClaimError::VectorCoverage(format!(
+                    "{} does not cover every decision-point vector",
+                    clause_claim.clause_id
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn sdk_conformance_contract_digest(
+    contract: &Value,
+) -> Result<String, SdkConformanceClaimError> {
+    let bytes = canonical::canonical_json_bytes(contract)
+        .map_err(|error| SdkConformanceClaimError::InvalidContract(error.to_string()))?;
+    Ok(canonical::sha256_digest(&bytes))
+}
+
+fn expand_vector_pattern<'a>(
+    pattern: &str,
+    active: &BTreeSet<&'a str>,
+) -> Result<Vec<String>, SdkConformanceClaimError> {
+    if let Some(prefix) = pattern.strip_suffix(".*") {
+        let prefix = format!("{prefix}.");
+        let matches = active
+            .iter()
+            .filter(|candidate| candidate.starts_with(&prefix))
+            .map(|candidate| (*candidate).to_owned())
+            .collect::<Vec<_>>();
+        if matches.is_empty() {
+            return Err(SdkConformanceClaimError::InvalidContract(format!(
+                "vector family {pattern} expands to an empty set"
+            )));
+        }
+        Ok(matches)
+    } else if active.contains(pattern) {
+        Ok(vec![pattern.to_owned()])
+    } else {
+        Err(SdkConformanceClaimError::InvalidContract(format!(
+            "unknown or inactive vector {pattern}"
+        )))
+    }
 }
 
 impl SdkConformanceClaim {
@@ -222,6 +484,24 @@ impl SdkConformanceClaim {
             for evidence in &claim.evidence {
                 validate_text("evidence.evidence_ref", &evidence.evidence_ref, 2048)?;
                 validate_nonzero_digest("evidence.digest", &evidence.digest)?;
+                match (evidence.kind, evidence.covers_vectors.as_deref()) {
+                    (SdkEvidenceKind::VectorResult, Some(vectors))
+                        if !vectors.is_empty()
+                            && vectors.len() <= 1024
+                            && vectors.iter().all(|vector| is_vector_id(vector))
+                            && all_unique(vectors) => {}
+                    (SdkEvidenceKind::VectorResult, _) => {
+                        return Err(SdkConformanceClaimError::InvalidField(
+                            "vector_result.covers_vectors".to_owned(),
+                        ));
+                    }
+                    (_, None) => {}
+                    (_, Some(_)) => {
+                        return Err(SdkConformanceClaimError::InvalidField(
+                            "covers_vectors is only valid for vector_result".to_owned(),
+                        ));
+                    }
+                }
             }
         }
         Ok(())
@@ -363,6 +643,23 @@ impl SdkConformanceClaim {
         }
         Ok(())
     }
+
+    pub fn validate_against_contract(
+        &self,
+        contract: &SdkConformanceContract,
+        expected_artifact_digest: &str,
+        expected_spec_revision: &str,
+        verify_signature: impl FnOnce(&SdkClaimIssuer, &SdkConformanceProof, &[u8]) -> bool,
+    ) -> Result<(), SdkConformanceClaimError> {
+        self.validate_against(
+            contract.clause_ids(),
+            expected_artifact_digest,
+            expected_spec_revision,
+            contract.digest(),
+            verify_signature,
+        )?;
+        contract.validate_claim_coverage(self)
+    }
 }
 
 fn validate_text(field: &str, value: &str, max_len: usize) -> Result<(), SdkConformanceClaimError> {
@@ -408,6 +705,22 @@ fn is_clause_id(value: &str) -> bool {
     value.len() == 10
         && value.starts_with("AK-SDK-")
         && value[7..].bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn is_vector_id(value: &str) -> bool {
+    let Some((body, version)) = value
+        .strip_prefix("ak.vector.")
+        .and_then(|value| value.rsplit_once(".v"))
+    else {
+        return false;
+    };
+    !body.is_empty()
+        && body.contains('.')
+        && body.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_')
+        })
+        && !version.is_empty()
+        && version.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn all_unique(values: &[String]) -> bool {
@@ -479,6 +792,9 @@ mod tests {
                     kind: SdkEvidenceKind::VectorResult,
                     evidence_ref: "ci://run/1".to_owned(),
                     digest: format!("sha256:{}", "4".repeat(64)),
+                    covers_vectors: Some(vec![
+                        "ak.vector.sdk.envelope_precheck_rejects_before_consumption.v1".to_owned(),
+                    ]),
                 }],
                 rationale: None,
             }],
@@ -513,6 +829,7 @@ mod tests {
                 kind: SdkEvidenceKind::BuildVariantInventory,
                 evidence_ref: "ci://run/1/build-variants".to_owned(),
                 digest: inventory_digest,
+                covers_vectors: None,
             }],
             rationale: None,
         });
@@ -612,9 +929,8 @@ mod tests {
         let artifacts = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../arkret-spec/spec/v1/artifacts");
         let path = artifacts.join("fixtures/sdk-conformance-claim-fixture.json");
-        let fixture: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-        let schema: serde_json::Value = serde_json::from_slice(
+        let fixture: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let schema: Value = serde_json::from_slice(
             &std::fs::read(artifacts.join("schemas/sdk-conformance-claim.schema.json")).unwrap(),
         )
         .unwrap();
@@ -624,13 +940,8 @@ mod tests {
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
                 continue;
             }
-            let document: serde_json::Value =
-                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-            if document
-                .get("$id")
-                .and_then(serde_json::Value::as_str)
-                .is_some()
-            {
+            let document: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            if document.get("$id").and_then(Value::as_str).is_some() {
                 registry
                     .register_reference_document_from(document, path.display().to_string())
                     .unwrap();
@@ -674,6 +985,110 @@ mod tests {
                 |_, _, _| false,
             ),
             Err(SdkConformanceClaimError::SignatureInvalid)
+        ));
+    }
+
+    #[test]
+    fn formal_contract_digest_and_vector_evidence_are_generated_from_artifacts() {
+        let artifacts = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../arkret-spec/spec/v1/artifacts");
+        let profiles: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("profiles/conformance-profiles.json")).unwrap(),
+        )
+        .unwrap();
+        let registry: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("registry/vector-registry.json")).unwrap(),
+        )
+        .unwrap();
+        let active = registry["vectors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["status"] == "active")
+            .map(|row| row["vector_id"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        let contract_value = &profiles["sdk_conformance_contract"];
+        let contract = SdkConformanceContract::from_value(contract_value, active).unwrap();
+        assert_eq!(
+            contract.digest(),
+            "sha256:48731f15bfbb66db140d48c893a5e4cf2b5bc18602dee84ee817e00afeb82dd2"
+        );
+
+        let evidence = contract
+            .vector_result_evidence(
+                "AK-SDK-014",
+                "ci://run/identity-test-material",
+                format!("sha256:{}", "7".repeat(64)),
+            )
+            .unwrap();
+        assert_eq!(
+            evidence.covers_vectors.unwrap(),
+            vec![
+                "ak.vector.identity.reserved_test_identifier_rejected.v1".to_owned(),
+                "ak.vector.identity.test_signing_material_rejected.v1".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn contract_validation_rejects_missing_or_out_of_clause_vector_coverage() {
+        let contract_value = serde_json::json!({
+            "clauses": [{
+                "clause_id": "AK-SDK-001",
+                "grades": ["V"],
+                "source_anchor": "spec/test",
+                "summary": "test",
+                "required_evidence": ["vector_result"],
+                "vector_evidence": {
+                    "vectors": ["ak.vector.sdk.sample.v1"],
+                    "decision_points": [{
+                        "id": "sample",
+                        "requirement": "sample decision",
+                        "vectors": ["ak.vector.sdk.sample.v1"]
+                    }]
+                }
+            }]
+        });
+        let contract = SdkConformanceContract::from_value(
+            &contract_value,
+            ["ak.vector.sdk.sample.v1", "ak.vector.sdk.other.v1"],
+        )
+        .unwrap();
+        let mut claim = valid_claim();
+        claim.contract_digest = contract.digest().to_owned();
+        claim.clause_claims[0].evidence[0].covers_vectors = Some(vec![]);
+        assert!(matches!(
+            claim.validate(contract.clause_ids()),
+            Err(SdkConformanceClaimError::InvalidField(field))
+                if field == "vector_result.covers_vectors"
+        ));
+
+        claim.clause_claims[0].evidence[0].covers_vectors =
+            Some(vec!["ak.vector.sdk.other.v1".to_owned()]);
+        assert!(matches!(
+            contract.validate_claim_coverage(&claim),
+            Err(SdkConformanceClaimError::VectorCoverage(_))
+        ));
+
+        claim.clause_claims[0].evidence[0].covers_vectors =
+            Some(vec!["ak.vector.sdk.sample.v1".to_owned()]);
+        contract.validate_claim_coverage(&claim).unwrap();
+    }
+
+    #[test]
+    fn non_vector_evidence_cannot_claim_vector_coverage() {
+        let mut claim = claim_with_build_variants();
+        claim
+            .clause_claims
+            .iter_mut()
+            .find(|clause| clause.clause_id == "AK-SDK-015")
+            .unwrap()
+            .evidence[0]
+            .covers_vectors = Some(vec!["ak.vector.sdk.sample.v1".to_owned()]);
+        assert!(matches!(
+            claim.validate(["AK-SDK-001", "AK-SDK-015"]),
+            Err(SdkConformanceClaimError::InvalidField(field))
+                if field == "covers_vectors is only valid for vector_result"
         ));
     }
 }
