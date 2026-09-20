@@ -452,6 +452,7 @@ pub enum ViewVisibility {
 /// both `strand.schema.json` and `morph.schema.json`. Only `redacted` is a
 /// terminal state now; `ak.strand.tombstone` / `ak.strand.delete` / equivalent
 /// kinds collapse into a single `ak.redaction` event targeting the object.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectState {
@@ -479,6 +480,7 @@ pub enum ObjectStage {
     Superseded,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceState {

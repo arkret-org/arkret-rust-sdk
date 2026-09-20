@@ -90,6 +90,7 @@ pub struct DocumentMorphProjection {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionAssignedToRelation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionAssignedToRelation {
     pub relation_id: RelationId,
@@ -100,6 +101,7 @@ pub struct ProjectionAssignedToRelation {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionMorphRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionMorphRow {
     pub morph_id: MorphId,
@@ -155,6 +157,7 @@ impl ProjectionMorphRow {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionSpaceRow {
     pub space_id: SpaceId,
@@ -194,6 +197,7 @@ pub struct ProjectionSpaceRow {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionStrandRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionStrandRow {
     pub strand_id: StrandId,
@@ -479,6 +483,7 @@ mod projection_row_tests {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionMorphList.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionMorphList {
     pub realm_id: RealmId,
@@ -513,6 +518,7 @@ impl ProjectionMorphList {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionSpaceList.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionSpaceList {
     pub realm_id: RealmId,
@@ -546,6 +552,7 @@ impl ProjectionSpaceList {
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/ProjectionStrandList.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProjectionStrandList {
     pub realm_id: RealmId,

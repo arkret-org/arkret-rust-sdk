@@ -2102,6 +2102,7 @@ impl ContactListRow {
 
 /// Viewer-specific current Contact rows.
 /// `contact-operations.schema.json#/$defs/contact_list`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactList {
