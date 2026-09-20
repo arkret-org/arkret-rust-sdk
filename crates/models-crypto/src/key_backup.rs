@@ -14,6 +14,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::RecoveryPolicyRef;
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -92,6 +94,8 @@ pub struct KeyBackup {
     pub supersedes_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_commit_ref: Option<KeyBackupSourceCommitRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -118,6 +122,18 @@ impl KeyBackup {
             .is_some_and(|source| source.device_generation_ref == 0)
         {
             return protocol("key backup source_commit_ref generation must be positive");
+        }
+        if self
+            .recovery_policy_ref
+            .as_ref()
+            .is_some_and(|reference| reference.policy_version == 0)
+        {
+            return protocol("key backup recovery_policy_ref version must be positive");
+        }
+        if self.encryption.recipient_method == KeyBackupRecipientMethod::RecoveryPublicKey
+            && self.recovery_policy_ref.is_none()
+        {
+            return protocol("recovery_public_key key backup requires recovery_policy_ref");
         }
         if self
             .device_id

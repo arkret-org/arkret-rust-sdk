@@ -835,6 +835,7 @@ fn build_key_backup_envelope_in_series(
         supersedes_id,
         supersedes_digest,
         source_commit_ref,
+        recovery_policy_ref: None,
         extra: XExtensionMap::default(),
     };
 
@@ -1018,6 +1019,47 @@ mod tests {
 
         // A different passphrase must fail before the AEAD, on the commitment.
         assert!(decrypt_key_backup_envelope(b"wrong passphrase", &envelope).is_err());
+    }
+
+    #[test]
+    fn recovery_public_key_requires_a_positive_recovery_policy_ref() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let mut envelope = genesis(&kek, &seen);
+        envelope.encryption.recipient_method = KeyBackupRecipientMethod::RecoveryPublicKey;
+        envelope.encryption.recipient_key_ref =
+            Some("did:web:alice.example#backup-hpke".to_owned());
+        envelope.encryption.kdf = None;
+        envelope.recovery_policy_ref = None;
+
+        assert!(
+            envelope
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("requires recovery_policy_ref")
+        );
+
+        envelope.recovery_policy_ref = Some(arkret_models_crypto::RecoveryPolicyRef {
+            policy_id: arkret_wire::PolicyId::new("ak:policy:01964137-0000-7000-8000-000000000077")
+                .unwrap(),
+            policy_version: 0,
+        });
+        assert!(
+            envelope
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("version must be positive")
+        );
+
+        envelope
+            .recovery_policy_ref
+            .as_mut()
+            .unwrap()
+            .policy_version = 1;
+        let wire = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(wire["recovery_policy_ref"]["policy_version"], 1);
     }
 
     #[test]
