@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-20.4;
-//! sha256=6eb5ec5d5174d2ab2de800a75d1d47564f0e23cf899785741d3f06c752394a8b Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-20.5;
+//! sha256=01f1a49ad1c8eb0a85c1a3cfbf622e416d77b3abc7b6dade872017982784054d Input: registry/
 //! exporter-label-registry.json; version=2026-09-19.1;
 //! sha256=30b6f19c7a78d8f53f222ceb33867fc2216db73c3f9113d03ab89235ddffe68d Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
 //! sha256=5beb1a9c98f49df7b091ef2b8798be8f22aa0206452de2e112d833dc4f6e152f Input: registry/
-//! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! signature-alg-registry.json; version=2026-09-20.1;
+//! sha256=ef58f25cd4bdcc0101dd841d4271b0454f22bef3bb8b3636cb383d10c0b15009 Input: registry/
 //! hpke-suite-registry.json; version=2026-09-16.7;
 //! sha256=6a6ce15fa926d380ab5ee8b3ebf4d1cdc19e864afe985e6a6b0d4d7dab3bc43f Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-09-19.1;
@@ -1566,8 +1566,8 @@ pub const SIGNATURE_ALGORITHMS: &[AlgorithmSuiteDescriptor] = &[
     },
     AlgorithmSuiteDescriptor {
         canonical_id: "ML-DSA-65",
-        status: "active",
-        role: "v1_profile_gated_pqc",
+        status: "reserved",
+        role: "reserved_pqc_signature",
         profile_gate: Some("ak.profile.signature.pqc.v1"),
     },
 ];

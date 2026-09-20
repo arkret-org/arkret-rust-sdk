@@ -177,9 +177,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
             EventProductClass::Organization
         }
         EventKind::PinAdd | EventKind::PinRemove | EventKind::PinReorder => EventProductClass::Pin,
-        EventKind::PolicyAction | EventKind::PolicyRule | EventKind::PolicySet => {
-            EventProductClass::Policy
-        }
+        EventKind::PolicyAction | EventKind::PolicySet => EventProductClass::Policy,
         EventKind::ProfileCreate | EventKind::ProfileRealmOverride | EventKind::ProfileUpdate => {
             EventProductClass::Profile
         }
@@ -213,7 +211,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::ContainerMoveItem
         | EventKind::ContainerRebalance
         | EventKind::RelationCreate
-        | EventKind::RelationResolve
         | EventKind::RelationTombstone
         | EventKind::RelationUpdate => EventProductClass::Relation,
         EventKind::RsvpSet => EventProductClass::Strand,

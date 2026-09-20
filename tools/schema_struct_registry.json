@@ -238,16 +238,20 @@
       "schema": "event-payload.schema.json#/$defs/cross_object_redaction_payload"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationCreatePayload",
+      "schema": "event-payload.schema.json#/$defs/relation_create_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/relation.rs::RelationDefinition",
+      "schema": "relation.schema.json#/$defs/relation_definition"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationUpdatePayload",
       "schema": "event-payload.schema.json#/$defs/relation_update_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationTombstonePayload",
       "schema": "event-payload.schema.json#/$defs/relation_tombstone_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationResolvePayload",
-      "schema": "event-payload.schema.json#/$defs/relation_resolve_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/sidecar.rs::SidecarCreatePayload",

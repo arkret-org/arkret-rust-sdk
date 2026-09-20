@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/reducer-managed-path-registry.json; version=2026-09-19.4;
-//! sha256=438b00f6f3a68efb82de5ed6a131919be038bc398317d3a3dcc5f0036955e03c Entries: objects=7,
-//! effective_paths=73, universal_paths=9
+//! Input: registry/reducer-managed-path-registry.json; version=2026-09-20.1;
+//! sha256=838af6a8db286a9f3e9c4e219bc0dda64d0b9c87e047eab23f25d17ad029e321 Entries: objects=7,
+//! effective_paths=76, universal_paths=9
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReducerManagedPatchPath {
@@ -290,6 +290,13 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
                 schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {
+                path: "from_ref",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                owner_kind: "event_kind",
+                schema_enforced: Some(true),
+            },
+            ReducerManagedPatchPath {
                 path: "id",
                 basis: "create_locked",
                 reason_code: "patch_path_reducer_managed",
@@ -302,6 +309,13 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
                 reason_code: "patch_path_reducer_managed",
                 owner_kind: "reducer",
                 schema_enforced: None,
+            },
+            ReducerManagedPatchPath {
+                path: "relation_kind",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                owner_kind: "event_kind",
+                schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {
                 path: "schema",
@@ -323,6 +337,13 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
                 reason_code: "patch_path_reducer_managed",
                 owner_kind: "reducer",
                 schema_enforced: None,
+            },
+            ReducerManagedPatchPath {
+                path: "to_ref",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                owner_kind: "event_kind",
+                schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {
                 path: "updated_at",

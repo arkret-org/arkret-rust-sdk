@@ -112,10 +112,6 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/realm_join.rs"),
     ),
     (
-        "endpoints/relation.rs",
-        include_str!("../src/endpoints/relation.rs"),
-    ),
-    (
         "endpoints/signal.rs",
         include_str!("../src/endpoints/signal.rs"),
     ),

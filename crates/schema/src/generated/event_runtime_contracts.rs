@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-20.13;
-//! sha256=68da4cb62285c5cf8477d5b19f3902f7ef8baab25ba354dfdb86475ef31d4d86 Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-20.16;
+//! sha256=f9945090c0614facaf6a065670451e3aead9ab82a2e47bdd7baf7968f332a325 Input: registry/
 //! id-kind-registry.json; version=2026-09-19.1;
 //! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823
-//! Entries: active_events=147
+//! Entries: active_events=146
 
 use arkret_wire::event_kind_str;
 
@@ -605,11 +605,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         event_kind: event_kind_str::RELATION_CREATE,
         id_source: Some(EventIdSource::EventDerived),
         derived_id_kinds: &["relation"],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::RELATION_RESOLVE,
-        id_source: None,
-        derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::RELATION_TOMBSTONE,

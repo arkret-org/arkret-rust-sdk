@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-09-19.1;
 //! sha256=a3811256d9f4f3fc7f6b23c4c46c79725b3fac6f2871015e153f0e3fcf9a6823 Input: registry/
-//! capability-action-registry.json; version=2026-09-20.16;
-//! sha256=04b7123f5905f7415a42300bd7cb590dc3b28a230075c5623d04c3f8e683163e Input: registry/
+//! capability-action-registry.json; version=2026-09-20.17;
+//! sha256=a77238f81a35590a1d00fad5f4c8fdf4e7e562019e940979d9cd592798697a5c Input: registry/
 //! schema-registry.json; version=2026-09-20.18;
 //! sha256=dad0e54735b3dd92df60edaf81274fd93fee2fc2e82c801e2138052fdf090d5d Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
 //! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
-//! special_forms=15, actions=150, schemas=222, account_data_patterns=24
+//! special_forms=15, actions=149, schemas=222, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1818,7 +1818,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_UNFREEZE,
             event_kind_str::REDACTION,
             event_kind_str::RELATION_CREATE,
-            event_kind_str::RELATION_RESOLVE,
             event_kind_str::RELATION_TOMBSTONE,
             event_kind_str::RELATION_UPDATE,
             event_kind_str::SCHEMA_DEFINE,
@@ -1914,7 +1913,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.set_default_strand",
             "ak.receipt.broadcast",
             "ak.relation.create",
-            "ak.relation.resolve",
             "ak.relation.tombstone",
             "ak.relation.update",
             "ak.rsvp.set",
@@ -2058,19 +2056,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::RELATION_CREATE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RelationResolve,
-        category: "strand",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::RELATION_RESOLVE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,

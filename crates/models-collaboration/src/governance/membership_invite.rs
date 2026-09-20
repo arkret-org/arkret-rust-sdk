@@ -10,7 +10,6 @@ use crate::governance::agent_membership_cascade::{
     AgentControllerMembershipBinding, MembershipLifecycleCause,
 };
 use crate::governance::third_party_invite::ThirdPartyInvite;
-use crate::objects::relation::Relation;
 
 /// Evaluate a third-party invite claim against the only canonical admission
 /// time available before acceptance: the signed claim Event's `created_at`.
@@ -971,48 +970,4 @@ pub fn invite_subject_proof_transcript_digest(
             binding_proof_digest,
         )?,
     ))?)
-}
-
-/// Flat-form payload for `ak.relation.create`
-/// (`#/$defs/relation_create_payload`).
-///
-/// The payload carries the whole Relation object under `relation`:
-/// `ak.relation.create`'s registered projection is `set value =
-/// payload.relation`, and `event-and-patch.md` §2.4.2 lets a projection move an
-/// existing root path wholesale but never assemble one, so a flat
-/// `{relation_id, kind, from_ref, to_ref}` form would reduce to nothing.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationCreatePayload {
-    /// The whole relation object, minus the id.
-    ///
-    /// `#/$defs/relation_create_object` is `allOf [relation.schema.json, not
-    /// required id/type/effective_scope]`, so this is the same object type the
-    /// projection materializes. The id is derived from the create Event
-    /// (`RelationId::from_event_id`) and `effective_scope` is reducer-managed;
-    /// both MUST stay unset here.
-    pub relation: Relation,
-    /// Optional lexical ordering rank.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-}
-
-impl RelationCreatePayload {
-    /// Build the payload from the Relation object the create event materializes.
-    pub fn new(relation: Relation) -> Self {
-        Self {
-            relation,
-            rank: None,
-        }
-    }
-
-    pub fn with_rank(mut self, rank: impl Into<String>) -> Self {
-        self.rank = Some(rank.into());
-        self
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self)
-            .map_err(|err| WireError::Protocol(format!("relation create payload serialize: {err}")))
-    }
 }

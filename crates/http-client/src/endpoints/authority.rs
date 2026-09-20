@@ -8,23 +8,10 @@ use arkret_wire::{
     AuthorityBundleRequest, AuthorityHandoffRequest, RealmAuthorityBundle, RealmAuthorityHandoff,
     StreamScanOutcome, StreamScanRequest,
 };
-use reqwest::Method;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
 impl Client {
-    pub(crate) async fn events_read_query<T, B>(&self, path: &str, body: &B) -> Result<T>
-    where
-        T: DeserializeOwned,
-        B: Serialize + ?Sized,
-    {
-        let query_method = Method::from_bytes(b"QUERY").expect("QUERY is a registered HTTP method");
-        let request = self.canonical_json_body(self.request(query_method, path)?, body)?;
-        self.send_json(request).await
-    }
-
     /// Submit a producer-signed Event, or an atomic MLS Commit + Welcome set,
     /// to the current Realm governance Station.
     pub async fn submit_to_realm_authority(

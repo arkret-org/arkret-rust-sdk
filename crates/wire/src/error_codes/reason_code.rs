@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-20.6;
-//! sha256=b82baa50150d11393e797bd2f306acf2dd7740fc66210cfd14f5f80534c63c10
-//! Entries: reason_codes=386
+//! Input: registry/error-code-registry.json; version=2026-09-20.8;
+//! sha256=2e7e3ddf9b024118271ed03140ddf31ca4de10558976e71bc43c6e5ff7d7531d
+//! Entries: reason_codes=381
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -292,11 +292,6 @@ pub enum ReasonCode {
     ReducerProjectionFailed,
     RefsTooLarge,
     RelationAlreadyTerminal,
-    RelationConflictBaselineStale,
-    RelationConflictFanoutExceeded,
-    RelationConflictGroupNotVisible,
-    RelationConflictMaterialPageGap,
-    RelationConflictMaterialUnavailable,
     RelationKindContainsDerived,
     RelationKindWatchesDerived,
     ResolutionHistoryAncestorUnknown,
@@ -746,14 +741,6 @@ impl ReasonCode {
     pub const REDUCER_PROJECTION_FAILED: &'static str = "reducer_projection_failed";
     pub const REFS_TOO_LARGE: &'static str = "refs_too_large";
     pub const RELATION_ALREADY_TERMINAL: &'static str = "relation_already_terminal";
-    pub const RELATION_CONFLICT_BASELINE_STALE: &'static str = "relation_conflict_baseline_stale";
-    pub const RELATION_CONFLICT_FANOUT_EXCEEDED: &'static str = "relation_conflict_fanout_exceeded";
-    pub const RELATION_CONFLICT_GROUP_NOT_VISIBLE: &'static str =
-        "relation_conflict_group_not_visible";
-    pub const RELATION_CONFLICT_MATERIAL_PAGE_GAP: &'static str =
-        "relation_conflict_material_page_gap";
-    pub const RELATION_CONFLICT_MATERIAL_UNAVAILABLE: &'static str =
-        "relation_conflict_material_unavailable";
     pub const RELATION_KIND_CONTAINS_DERIVED: &'static str = "relation_kind_contains_derived";
     pub const RELATION_KIND_WATCHES_DERIVED: &'static str = "relation_kind_watches_derived";
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
@@ -1199,13 +1186,6 @@ impl ReasonCode {
             Self::ReducerProjectionFailed => Self::REDUCER_PROJECTION_FAILED,
             Self::RefsTooLarge => Self::REFS_TOO_LARGE,
             Self::RelationAlreadyTerminal => Self::RELATION_ALREADY_TERMINAL,
-            Self::RelationConflictBaselineStale => Self::RELATION_CONFLICT_BASELINE_STALE,
-            Self::RelationConflictFanoutExceeded => Self::RELATION_CONFLICT_FANOUT_EXCEEDED,
-            Self::RelationConflictGroupNotVisible => Self::RELATION_CONFLICT_GROUP_NOT_VISIBLE,
-            Self::RelationConflictMaterialPageGap => Self::RELATION_CONFLICT_MATERIAL_PAGE_GAP,
-            Self::RelationConflictMaterialUnavailable => {
-                Self::RELATION_CONFLICT_MATERIAL_UNAVAILABLE
-            }
             Self::RelationKindContainsDerived => Self::RELATION_KIND_CONTAINS_DERIVED,
             Self::RelationKindWatchesDerived => Self::RELATION_KIND_WATCHES_DERIVED,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
@@ -1657,13 +1637,6 @@ impl ReasonCode {
             Self::REDUCER_PROJECTION_FAILED => Self::ReducerProjectionFailed,
             Self::REFS_TOO_LARGE => Self::RefsTooLarge,
             Self::RELATION_ALREADY_TERMINAL => Self::RelationAlreadyTerminal,
-            Self::RELATION_CONFLICT_BASELINE_STALE => Self::RelationConflictBaselineStale,
-            Self::RELATION_CONFLICT_FANOUT_EXCEEDED => Self::RelationConflictFanoutExceeded,
-            Self::RELATION_CONFLICT_GROUP_NOT_VISIBLE => Self::RelationConflictGroupNotVisible,
-            Self::RELATION_CONFLICT_MATERIAL_PAGE_GAP => Self::RelationConflictMaterialPageGap,
-            Self::RELATION_CONFLICT_MATERIAL_UNAVAILABLE => {
-                Self::RelationConflictMaterialUnavailable
-            }
             Self::RELATION_KIND_CONTAINS_DERIVED => Self::RelationKindContainsDerived,
             Self::RELATION_KIND_WATCHES_DERIVED => Self::RelationKindWatchesDerived,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
@@ -3280,31 +3253,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "`ak.relation.tombstone` / `ak.relation.update` / equivalent Relation write rejected because the target Relation is already in the terminal state `tombstone`. In particular, `ak.relation.update` targeting a tombstoned Relation MUST be rejected with this reason_code.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_CONFLICT_BASELINE_STALE,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Sub-reason for failed_precondition when an `ak.relation.resolve` Event does not match the complete candidate set the receiver rebuilds for `payload.conflict_domain` under the Event's frozen predecessor view: a missing member, a superseded head, a duplicate, a member of another domain, a `member_count` / `members_digest` mismatch, or a `retain_candidate` naming an event outside the covered baseline. The Event is rejected with zero typed current result writes; the author re-reads the material through `ak.self.relation_conflicts.read.candidates.v1` and signs a new Event. A byte-identical replay of an already accepted resolve stays idempotent by EventId and MUST NOT be reported with this reason. See zh/models/relation.md §6.4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_CONFLICT_FANOUT_EXCEEDED,
-        applies_to: &["state_resolution"],
-        description: "The number of concurrent candidates (winner + losers) under a single Relation dedupe key exceeded the ordinary conflict fanout limit (v1 public profile: 16, aligned with the sibling fork limit in zh/models/event-and-patch.md §2.6). The reducer keeps every retained candidate and projects no active edge for the whole group; it MUST NOT truncate to the first 16. The limit bounds the ordinary diagnostic and projection surface only, never the repair evidence: reconvergence is one `ak.relation.resolve` covering the complete baseline read through `ak.self.relation_conflicts.read.candidates.v1`, whose `member_count` is not bounded by 16. Once a domain is in this state under the writer's own signed basis, a further `ak.relation.create` into it is rejected with this same reason so the repair material stays bounded by what already converged. See zh/models/relation.md §6.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_CONFLICT_GROUP_NOT_VISIBLE,
-        applies_to: &["service_call", "state_resolution"],
-        description: "Sub-reason for failed_precondition when the caller may read only part of a Relation conflict domain. The Station MUST NOT return a shortened candidate list, a partial baseline or a partial diagnostic, and MUST NOT widen the caller's scope to complete the group; the caller cannot author a complete-set resolution it is not allowed to see. See zh/models/relation.md §6.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_CONFLICT_MATERIAL_PAGE_GAP,
-        applies_to: &["service_call", "client_sync"],
-        description: "Sub-reason for failed_precondition when the paged Relation conflict repair material does not verify as one chain: a skipped or duplicated `page_index`, a `prev_page_digest` that does not equal the previous page's `page_digest`, a non-final page shorter than `page_size`, or a group that changed mid-read. No page takes effect on its own, so the reader discards the partial material and restarts at `page_index=0`. See zh/models/relation.md §6.3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_CONFLICT_MATERIAL_UNAVAILABLE,
-        applies_to: &["service_call"],
-        description: "Sub-reason for failed_precondition when a Station cannot serve the complete frozen Relation conflict repair material it is required to retain. The read fails closed; the Station MUST NOT answer with a truncated list, a recomputed subset or a baseline it cannot back with every member. See zh/models/relation.md §6.3.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RELATION_KIND_CONTAINS_DERIVED,
         applies_to: &["event_envelope", "schema_validation"],
         description: "Sub-reason for schema_violation when a direct ak.relation.create / update / delete targets a derived-projection contains shape (Space(board) -> Space(list) or Space(list) -> Strand). Truth sources are the space_parent and strand_position typed results written via ak.space.parent / ak.strand.move / ak.strand.reorder Events; only the non-derived object-composition contains form is directly writable. See zh/models/relation.md §3.2 and zh/models/realm-and-space.md §3.5-§3.6.",
@@ -3641,7 +3589,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNKNOWN_EVENT_KIND,
         applies_to: &["event_envelope"],
-        description: "Event kind does not appear in any known registry entry; treat per non_critical_extension_rule (preserve canonical bytes, ignore in reducer) unless declared in critical_extensions.",
+        description: "Event kind does not appear in the current registry. Fail closed; an unknown kind is not a non-critical extension and current-v1 has no generic critical_extensions carrier that can make it admissible.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNKNOWN_FIELD,

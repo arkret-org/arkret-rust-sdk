@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-20.11;
-//! sha256=c093a1f819cdd57860a7b85ad7ccc730556d0423082a14317fbaecd0c1cc9fdd Entries: registered=207
+//! Input: registry/operation-registry.json; version=2026-09-20.12;
+//! sha256=07ee387cdb204899005b8870652e6137a94bbc8b3d2211d17361f8d12c1ca055 Entries: registered=206
 
 use serde::{Deserialize, Serialize};
 
@@ -204,7 +204,6 @@ pub enum ServiceOperationId {
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
-    SelfRelationConflictsReadCandidatesV1,
     SelfSecurityTransactionCommandContinueV1,
     SelfSecurityTransactionCommandCreateV1,
     SelfSecurityTransactionResourceGetV1,
@@ -414,7 +413,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
-    ServiceOperationId::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
@@ -666,7 +664,6 @@ impl ServiceOperationId {
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
-        Self::SelfRelationConflictsReadCandidatesV1,
         Self::SelfSecurityTransactionCommandContinueV1,
         Self::SelfSecurityTransactionCommandCreateV1,
         Self::SelfSecurityTransactionResourceGetV1,
@@ -1011,8 +1008,6 @@ impl ServiceOperationId {
         "ak.self.realm_organization.read.list.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
         "ak.self.realm_state_snapshot.read.manifest_head.v1";
-    pub const SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1: &'static str =
-        "ak.self.relation_conflicts.read.candidates.v1";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1: &'static str =
         "ak.self.security_transaction.command.continue.v1";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1: &'static str =
@@ -1332,9 +1327,6 @@ impl ServiceOperationId {
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
-            }
-            Self::SelfRelationConflictsReadCandidatesV1 => {
-                Self::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1
             }
             Self::SelfSecurityTransactionCommandContinueV1 => {
                 Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1
@@ -1738,9 +1730,6 @@ impl ServiceOperationId {
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
-            }
-            Self::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1 => {
-                Some(Self::SelfRelationConflictsReadCandidatesV1)
             }
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1 => {
                 Some(Self::SelfSecurityTransactionCommandContinueV1)
@@ -6244,26 +6233,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some("schemas/realm-state-snapshot.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRelationConflictsReadCandidatesV1,
-        http_method: "QUERY",
-        http_path: "/_arkret/self/relation-conflicts/candidates",
-        grpc: Some("SelfRelationConflicts/Candidates"),
-        mq: Some("self.relation_conflicts.read.candidates"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/relation.schema.json#/$defs/relation_conflict_candidates_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/relation.schema.json#/$defs/relation_conflict_candidates_outcome",
-        ),
         uncertain_outcome: None,
         durable_effect: None,
     },

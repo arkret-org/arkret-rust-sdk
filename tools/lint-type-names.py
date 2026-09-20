@@ -40,8 +40,6 @@ EXCEPTIONS = {
         "External MLS GroupInfo term in the MIMI binding.",
     ("models-collaboration/src/objects/interop.rs", "GroupInfo"):
         "External MLS GroupInfo term in the MIMI binding.",
-    ("models-collaboration/src/objects/relation.rs", "RelationConflictCandidate"):
-        "Domain subject: an Event competing for the same Relation conflict domain.",
     ("models-collaboration/src/objects/productivity.rs", "RsvpResponse"):
         "Domain RSVP answer, not an endpoint response wrapper.",
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-20.16;
-//! sha256=04b7123f5905f7415a42300bd7cb590dc3b28a230075c5623d04c3f8e683163e Entries: registered=150
+//! Input: registry/capability-action-registry.json; version=2026-09-20.17;
+//! sha256=a77238f81a35590a1d00fad5f4c8fdf4e7e562019e940979d9cd592798697a5c Entries: registered=149
 
 use serde::{Deserialize, Serialize};
 
@@ -114,7 +114,6 @@ pub enum CapabilityActionId {
     RealmTombstone,
     ReceiptBroadcast,
     RelationCreate,
-    RelationResolve,
     RelationTombstone,
     RelationUpdate,
     RsvpSet,
@@ -268,7 +267,6 @@ impl CapabilityActionId {
         Self::RealmTombstone,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
-        Self::RelationResolve,
         Self::RelationTombstone,
         Self::RelationUpdate,
         Self::RsvpSet,
@@ -421,7 +419,6 @@ impl CapabilityActionId {
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
-    pub const RELATION_RESOLVE: &'static str = "ak.relation.resolve";
     pub const RELATION_TOMBSTONE: &'static str = "ak.relation.tombstone";
     pub const RELATION_UPDATE: &'static str = "ak.relation.update";
     pub const RSVP_SET: &'static str = "ak.rsvp.set";
@@ -583,7 +580,6 @@ impl CapabilityActionId {
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
             Self::RelationCreate => Self::RELATION_CREATE,
-            Self::RelationResolve => Self::RELATION_RESOLVE,
             Self::RelationTombstone => Self::RELATION_TOMBSTONE,
             Self::RelationUpdate => Self::RELATION_UPDATE,
             Self::RsvpSet => Self::RSVP_SET,
@@ -746,7 +742,6 @@ impl CapabilityActionId {
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),
             Self::RELATION_CREATE => Some(Self::RelationCreate),
-            Self::RELATION_RESOLVE => Some(Self::RelationResolve),
             Self::RELATION_TOMBSTONE => Some(Self::RelationTombstone),
             Self::RELATION_UPDATE => Some(Self::RelationUpdate),
             Self::RSVP_SET => Some(Self::RsvpSet),

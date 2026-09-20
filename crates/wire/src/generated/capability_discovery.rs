@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-20.21;
-//! sha256=1e301594b9502f19e48d8fdb35c34d85d99b5c162cbe4975f2ee9b6c921cb941
+//! Input: registry/contract-registry.json; version=2026-09-20.25;
+//! sha256=75427e307029abe6530b20b2d6df516b7c5fe94836568f8ab82f13d33ef98aaf
 //! Entries: operation_bundles=32 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -941,10 +941,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfRelationConflictsReadCandidatesV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
