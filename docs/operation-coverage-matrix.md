@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 59 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 444
+- Effective profile/operation requirements: 452
 - Complete rows: 5
 - Partial rows: 13
-- Gap rows: 426
+- Gap rows: 434
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -22,6 +22,7 @@
 | `ak.profile.agent_auth.v1` | `server` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.account.read.describe.v1` | `GET /_arkret/self/account/describe` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.committed_event.read.scan.v1` | `POST /_arkret/self/streams/scan` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.committed_event.resource.get.v1` | `GET /_arkret/self/committed-events/{event_id}` | — | — | — | gap |
@@ -153,6 +154,7 @@
 | `ak.profile.draft_sync.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.e2ee_client.v1` | `client` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.blob.resource.get.v1` | `GET /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.e2ee_client.v1` | `client` | `ak.self.blob.upload.create.v1` | `POST /_arkret/self/blob/upload` | — | — | — | gap |
@@ -201,6 +203,7 @@
 | `ak.profile.franking.v1` | `server` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.full_client.v1` | `client` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.blob.resource.get.v1` | `GET /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.blob.upload.create.v1` | `POST /_arkret/self/blob/upload` | — | — | — | gap |
@@ -368,6 +371,7 @@
 | `ak.profile.small_team.v1` | `admin` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.account.read.describe.v1` | `GET /_arkret/self/account/describe` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.small_team.v1` | `admin` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.committed_event.read.scan.v1` | `POST /_arkret/self/streams/scan` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.committed_event.resource.get.v1` | `GET /_arkret/self/committed-events/{event_id}` | — | — | — | gap |
@@ -377,6 +381,7 @@
 | `ak.profile.small_team.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.sovereign_client.v1` | `client` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.blob.resource.get.v1` | `GET /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.blob.upload.create.v1` | `POST /_arkret/self/blob/upload` | — | — | — | gap |
@@ -401,6 +406,7 @@
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.root.identity.registry.read.describe.v1` | `GET /_arkret/root/identity/describe` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.account.read.describe.v1` | `GET /_arkret/self/account/describe` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.committed_event.read.scan.v1` | `POST /_arkret/self/streams/scan` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.committed_event.resource.get.v1` | `GET /_arkret/self/committed-events/{event_id}` | — | — | — | gap |
@@ -424,6 +430,7 @@
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.root.identity.registry.read.describe.v1` | `GET /_arkret/root/identity/describe` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.account.read.describe.v1` | `GET /_arkret/self/account/describe` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.committed_event.read.scan.v1` | `POST /_arkret/self/streams/scan` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.committed_event.resource.get.v1` | `GET /_arkret/self/committed-events/{event_id}` | — | — | — | gap |
@@ -440,6 +447,7 @@
 | `ak.profile.station.v1` | `server` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.account.read.describe.v1` | `GET /_arkret/self/account/describe` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
+| `ak.profile.station.v1` | `server` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.committed_event.read.scan.v1` | `POST /_arkret/self/streams/scan` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.committed_event.resource.get.v1` | `GET /_arkret/self/committed-events/{event_id}` | — | — | — | gap |

@@ -60,6 +60,24 @@ impl Artifact {
             })
             .collect()
     }
+
+    fn with_section_version(mut self, section: &str) -> Result<Self> {
+        self.source.version = self
+            .value
+            .get(section)
+            .and_then(Value::as_object)
+            .with_context(|| format!("{} missing {section} object", self.source.relative_path))?
+            .get("version")
+            .and_then(Value::as_str)
+            .with_context(|| {
+                format!(
+                    "{} missing {section}.version string",
+                    self.source.relative_path
+                )
+            })?
+            .to_owned();
+        Ok(self)
+    }
 }
 
 fn field<'a>(row: &'a Map<String, Value>, key: &str) -> Result<&'a Value> {
@@ -412,10 +430,11 @@ fn collect_preimage_commitments(
 }
 
 fn generate_preimage_commitments(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let event_kinds = Artifact::load(artifacts_dir, "registry/event-kind-registry.json")?;
+    let event_kinds = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
+        .with_section_version("event_kind_registry")?;
     let mut repository = SchemaRepository::default();
     let mut roots = BTreeSet::from(["schemas/event-envelope.schema.json".to_owned()]);
-    for row in event_kinds.array("event_kinds")? {
+    for row in event_kinds.section_array("event_kind_registry", "event_kinds")? {
         roots.insert(string(row, "payload_schema_ref")?.to_owned());
     }
     let mut found = BTreeSet::new();
@@ -635,8 +654,12 @@ fn durable_effect(row: &Map<String, Value>) -> Result<String> {
 }
 
 fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/operation-registry.json")?;
-    let rows = sorted_rows(artifact.array("operations")?, "operation_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
+        .with_section_version("operation_registry")?;
+    let rows = sorted_rows(
+        artifact.section_array("operation_registry", "operations")?,
+        "operation_id",
+    )?;
     validate_unique(&rows, "operation_id", &["ak."])?;
     validate_operation_transport_bindings(&rows)?;
     let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));

@@ -143,7 +143,10 @@ def short_evidence(references: list[str]) -> str:
 
 def generate(artifacts: Path, evidence_path_value: Path) -> str:
     profiles = load_json(artifacts / "profiles" / "conformance-profiles.json")
-    registry = load_json(artifacts / "registry" / "operation-registry.json")
+    contract_registry = load_json(artifacts / "registry" / "contract-registry.json")
+    registry = contract_registry.get("operation_registry")
+    if not isinstance(registry, dict):
+        raise ValueError("contract registry lacks operation_registry")
     operations = {
         entry["operation_id"]: entry
         for entry in registry.get("operations", [])

@@ -9,7 +9,7 @@
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
-        "registry/event-kind-registry.json"
+        "registry/contract-registry.json"
       ],
       "provides": [
         "EventKind"
@@ -45,7 +45,6 @@
       "owner": "arkret-schema",
       "mode": "registered+descriptor",
       "artifacts": [
-        "registry/event-kind-registry.json",
         "registry/contract-registry.json"
       ]
     },
@@ -82,8 +81,6 @@
       "artifacts": [
         "registry/agent-runtime-scope-registry.json",
         "registry/contract-registry.json",
-        "registry/operation-registry.json",
-        "registry/event-kind-registry.json",
         "deployment-probes.json"
       ]
     },
@@ -255,7 +252,7 @@
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
-        "registry/operation-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {
@@ -266,7 +263,7 @@
       "owner": "arkret-wire",
       "mode": "registered+descriptor",
       "artifacts": [
-        "registry/event-kind-registry.json",
+        "registry/contract-registry.json",
         "schemas/*.schema.json"
       ],
       "provides": [
@@ -399,7 +396,8 @@
       "owner": "arkret-wire",
       "mode": "descriptor",
       "artifacts": [
-        "profiles/conformance-profiles.json"
+        "profiles/conformance-profiles.json",
+        "registry/contract-registry.json"
       ]
     }
   ]

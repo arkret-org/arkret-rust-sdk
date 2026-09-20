@@ -77,10 +77,12 @@ impl SpecInputs {
         let id_kinds = contracts.id_kind_registry.clone();
         let schemas_source = contracts_source.clone();
         let schemas = contracts.schema_registry.clone();
-        let (operations_source, operations) =
-            LoadedArtifact::read(artifacts_dir, "registry/operation-registry.json")?;
-        let (event_kinds_source, event_kinds) =
-            LoadedArtifact::read(artifacts_dir, "registry/event-kind-registry.json")?;
+        let mut operations_source = contracts_source.clone();
+        operations_source.version = contracts.operation_registry.version.clone();
+        let operations = contracts.operation_registry.clone();
+        let mut event_kinds_source = contracts_source.clone();
+        event_kinds_source.version = contracts.event_kind_registry.version.clone();
+        let event_kinds = contracts.event_kind_registry.clone();
         let (deployment_probes_source, deployment_probes) =
             LoadedArtifact::read(artifacts_dir, "deployment-probes.json")?;
         Ok(Self {
@@ -218,6 +220,8 @@ pub struct ContractRegistry {
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
     pub http_signature_contract_registry: HttpSignatureContractRegistry,
     pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,
+    pub operation_registry: OperationRegistry,
+    pub event_kind_registry: EventKindRegistry,
 }
 
 #[derive(Debug, Deserialize)]
@@ -313,25 +317,26 @@ pub struct RealmBootstrapFirstContact {
     pub fail_closed_until_complete: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationRegistry {
+    pub version: String,
     pub operations: Vec<OperationRegistration>,
     pub surface_groups: Vec<OperationSurfaceGroup>,
     pub high_security_session_authentication_policy: HighSecuritySessionAuthenticationPolicy,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationRegistration {
     pub operation_id: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct HighSecuritySessionAuthenticationPolicy {
     pub applies_to_operation_id_prefix: String,
     pub unauthenticated_public_projection_operations: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationSurfaceGroup {
     pub surface: String,
     pub surface_class: String,
@@ -339,12 +344,13 @@ pub struct OperationSurfaceGroup {
     pub operations: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct EventKindRegistry {
+    pub version: String,
     pub event_kinds: Vec<EventKindRegistration>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct EventKindRegistration {
     pub event_kind: String,
     pub status: String,

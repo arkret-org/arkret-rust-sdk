@@ -18,7 +18,7 @@ class ProfileRequirementGeneratorTests(unittest.TestCase):
     def test_registered_event_kinds_reuse_generated_constants(self) -> None:
         generated = GENERATOR.generate(
             SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",
-            SPEC_ARTIFACTS / "registry" / "event-kind-registry.json",
+            SPEC_ARTIFACTS / "registry" / "contract-registry.json",
         )
 
         self.assertIn(
@@ -30,7 +30,7 @@ class ProfileRequirementGeneratorTests(unittest.TestCase):
     def test_non_event_wire_scope_selector_remains_a_literal(self) -> None:
         generated = GENERATOR.generate(
             SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",
-            SPEC_ARTIFACTS / "registry" / "event-kind-registry.json",
+            SPEC_ARTIFACTS / "registry" / "contract-registry.json",
         )
 
         self.assertIn('"wire_scope:actor_private_event"', generated)

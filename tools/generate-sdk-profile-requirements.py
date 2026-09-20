@@ -124,10 +124,13 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
     artifact = json.loads(raw)
     if event_kind_registry_path is None:
         event_kind_registry_path = (
-            artifact_path.parent.parent / "registry" / "event-kind-registry.json"
+            artifact_path.parent.parent / "registry" / "contract-registry.json"
         )
     event_kind_raw = event_kind_registry_path.read_bytes()
-    event_kind_registry = json.loads(event_kind_raw)
+    contract_registry = json.loads(event_kind_raw)
+    event_kind_registry = contract_registry.get("event_kind_registry")
+    if not isinstance(event_kind_registry, dict):
+        raise ValueError("contract registry lacks event_kind_registry")
     registered_event_kinds = {
         str(row["event_kind"])
         for row in event_kind_registry.get("event_kinds", [])
@@ -287,7 +290,7 @@ def main() -> int:
     args = parser.parse_args()
     source = args.artifacts_dir / "profiles" / "conformance-profiles.json"
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    event_kind_registry = args.artifacts_dir / "registry" / "event-kind-registry.json"
+    event_kind_registry = args.artifacts_dir / "registry" / "contract-registry.json"
     args.output.write_text(
         generate(source, event_kind_registry), encoding="utf-8", newline="\n"
     )
