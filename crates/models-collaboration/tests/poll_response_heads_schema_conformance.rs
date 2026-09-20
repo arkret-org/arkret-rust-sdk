@@ -2,7 +2,9 @@
 
 use std::fs;
 
-use arkret_models_collaboration::events_payloads::message::{MessageCreatePayload, PollResponseHead};
+use arkret_models_collaboration::events_payloads::message::{
+    MessageCreatePayload, PollResponseHead,
+};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
@@ -13,7 +15,9 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
         &fs::read(artifacts.join("schemas/event-payload.schema.json")).unwrap(),
     )
     .unwrap();
-    registry.register_reference_document(schema.clone()).unwrap();
+    registry
+        .register_reference_document(schema.clone())
+        .unwrap();
     registry
         .register_fragment(
             "test:message-create-poll-heads",
@@ -51,23 +55,41 @@ fn exact_poll_heads_round_trip_and_validate() {
 
     let without: MessageCreatePayload = serde_json::from_value(payload()).unwrap();
     assert!(without.poll_response_heads.is_empty());
-    assert!(serde_json::to_value(without)
-        .unwrap()
-        .get("poll_response_heads")
-        .is_none());
+    assert!(
+        serde_json::to_value(without)
+            .unwrap()
+            .get("poll_response_heads")
+            .is_none()
+    );
 }
 
 #[test]
 fn schema_and_typed_builder_reject_duplicate_or_oversized_heads() {
+    let mut empty = payload();
+    empty["poll_response_heads"] = json!([]);
+    assert!(
+        registry()
+            .validate_value("test:message-create-poll-heads", &empty)
+            .is_err()
+    );
+    assert!(serde_json::from_value::<MessageCreatePayload>(empty).is_err());
+
     let mut duplicate = payload();
     duplicate["poll_response_heads"] = json!([head(), head()]);
-    assert!(registry()
-        .validate_value("test:message-create-poll-heads", &duplicate)
-        .is_err());
+    assert!(
+        registry()
+            .validate_value("test:message-create-poll-heads", &duplicate)
+            .is_err()
+    );
+    assert!(serde_json::from_value::<MessageCreatePayload>(duplicate).is_err());
 
     let typed_head: PollResponseHead = serde_json::from_value(head()).unwrap();
     let base: MessageCreatePayload = serde_json::from_value(payload()).unwrap();
-    assert!(base.clone().with_poll_response_heads(vec![typed_head.clone(); 2]).is_err());
+    assert!(
+        base.clone()
+            .with_poll_response_heads(vec![typed_head.clone(); 2])
+            .is_err()
+    );
     assert!(base.with_poll_response_heads(vec![typed_head; 65]).is_err());
 
     let mut unknown = head();

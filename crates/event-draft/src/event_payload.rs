@@ -230,7 +230,7 @@ event_payload_accessors! {
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::MemberState => (as_member_state, MembershipPayload),
     event_spec::MemberIdentityUpdate => (as_member_identity_update, MemberIdentityUpdatePayload),
-    event_spec::MessageCreate => (as_message_create, MessageCreatePayload),
+    event_spec::MessageCreate => (as_message_create, MessageCreatePayload, MessageCreatePayload::validate_poll_response_heads),
     event_spec::MessageRevise => (as_message_revise, MessageRevisePayload),
     event_spec::MessageRedact => (as_message_redact, MessageRedactPayload),
     event_spec::ReactionAdd => (as_reaction_add, ReactionPayload),
@@ -628,14 +628,19 @@ mod tests {
         .unwrap();
 
         let typed = event.as_realm_authority_reset().unwrap();
-        assert_eq!(typed.realm_id.as_str(), "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5");
+        assert_eq!(
+            typed.realm_id.as_str(),
+            "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5"
+        );
         validate_event_payload(
             &EventKind::RealmAuthorityReset,
             &Value::Object(event.payload.clone().into_iter().collect()),
         )
         .unwrap();
 
-        event.payload.insert("destructive_confirmation".to_owned(), json!("forbidden"));
+        event
+            .payload
+            .insert("destructive_confirmation".to_owned(), json!("forbidden"));
         assert!(event.as_realm_authority_reset().is_err());
     }
 

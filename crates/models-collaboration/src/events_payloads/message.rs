@@ -867,8 +867,36 @@ pub struct MessageCreatePayload {
     pub agent_context: Option<MessageAgentContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mimi_provenance: Option<MimiMessageProvenance>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_poll_response_heads"
+    )]
     pub poll_response_heads: Vec<PollResponseHead>,
+}
+
+fn poll_response_heads_valid(heads: &[PollResponseHead]) -> bool {
+    !heads.is_empty()
+        && heads.len() <= 64
+        && !heads
+            .iter()
+            .enumerate()
+            .any(|(index, head)| heads[..index].contains(head))
+}
+
+fn deserialize_poll_response_heads<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<PollResponseHead>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let heads = Vec::<PollResponseHead>::deserialize(deserializer)?;
+    if !poll_response_heads_valid(&heads) {
+        return Err(serde::de::Error::custom(
+            "poll_response_heads must contain 1..64 unique entries when present",
+        ));
+    }
+    Ok(heads)
 }
 
 impl MessageCreatePayload {
@@ -927,18 +955,25 @@ impl MessageCreatePayload {
     /// Bind the exact accepted response Events this message supersedes.
     /// An empty declaration is represented by omission on the wire.
     pub fn with_poll_response_heads(mut self, heads: Vec<PollResponseHead>) -> Result<Self> {
-        if heads.len() > 64
-            || heads
-                .iter()
-                .enumerate()
-                .any(|(index, head)| heads[..index].contains(head))
-        {
+        if !heads.is_empty() && !poll_response_heads_valid(&heads) {
             return Err(WireError::Protocol(
                 "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
             ));
         }
         self.poll_response_heads = heads;
         Ok(self)
+    }
+
+    pub fn validate_poll_response_heads(&self) -> Result<()> {
+        if self.poll_response_heads.is_empty()
+            || poll_response_heads_valid(&self.poll_response_heads)
+        {
+            Ok(())
+        } else {
+            Err(WireError::Protocol(
+                "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
+            ))
+        }
     }
 
     pub fn with_mls_encrypted_content(
