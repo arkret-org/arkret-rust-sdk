@@ -20,7 +20,7 @@ use arkret_models_collaboration::governance::membership_invite::{
 use arkret_models_collaboration::governance::operation_wire::PolicySetStatePayload;
 use arkret_models_collaboration::governance::plaintext_visibility::PlaintextVisibleServicesPayload;
 use arkret_models_collaboration::governance::realm_governance::{
-    CapabilityDerived, RealmAliasPayload, RealmLinkPayload,
+    RealmAliasPayload, RealmLinkPayload,
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
     CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
@@ -210,7 +210,6 @@ event_payload_accessors! {
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),
     event_spec::RealmMediaService => (as_realm_media_service, RealmMediaServicePayload),
     event_spec::RealmSchema => (as_realm_schema, RealmSchemaPayload),
-    event_spec::RealmInheritancePolicy => (as_realm_inheritance_policy, RealmInheritancePolicyPayload),
     event_spec::RealmArchive => (as_realm_archive, RealmArchivePayload),
     event_spec::RealmRestore => (as_realm_restore, RealmArchivePayload),
     event_spec::RealmFreeze => (as_realm_freeze, RealmFreezePayload),
@@ -281,7 +280,6 @@ event_payload_accessors! {
     event_spec::AgentActionReject => (as_agent_action_reject, AgentActionRejectPayload),
     event_spec::CapabilityGrant => (as_capability_grant, CapabilityGrantPayload),
     event_spec::CapabilityRevoke => (as_capability_revoke, CapabilityRevokePayload),
-    event_spec::CapabilityDerived => (as_capability_derived, CapabilityDerived),
     event_spec::ConsentGrant => (as_consent_grant, ConsentGrantPayload),
     event_spec::ConsentRevoke => (as_consent_revoke, ConsentRevokePayload),
     event_spec::ContactRequested => (as_contact_requested, ContactRequestedPayload),

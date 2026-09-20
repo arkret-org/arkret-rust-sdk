@@ -1,23 +1,18 @@
 //! Realm governance typed payloads introduced by the R1.2 Realm/Space
 //! boundary split (spec rounds R2 / R3).
 //!
-//! These types model the three new wire payloads that compose the
+//! These types model the Realm-link wire payloads that compose the
 //! cross-Realm governance surface:
 //!
-//! - `RealmLink` — `ak.realm.link` payload. Typed link between two Realm boundaries, one of eight
+//! - `RealmLink` — `ak.realm.link` payload. Typed link between two Realm boundaries, one of seven
 //!   canonical [`RealmLinkKind`] values.
-//! - [`RealmInheritancePolicy`] — `ak.realm.inheritance_policy` payload. Declares which policy
-//!   names + capability bundles a child Realm inherits from a parent Realm, capped by `max_depth`.
-//! - [`CapabilityDerived`] — `ak.capability.derived` payload. Records a capability that was derived
-//!   by composing a parent Realm's grant with a child Realm's inheritance declaration.
 //!
-//! All three are wire-shape-only typed structs at this stage; the full
-//! derive evaluation lives in the reducer's audit pipeline.
+//! Realm links do not propagate membership, policy, or capability state.
 
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, DidCoreId, ErrorCode, GrantId, RealmCommitId, RealmId, ReasonCode, Result, WireError,
+    ActorId, DidCoreId, ErrorCode, RealmCommitId, RealmId, ReasonCode, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,7 +22,6 @@ use crate::events_payloads::{
     RealmOrganizationControlScope, RealmOrganizationIssuerRole, RealmOrganizationRelationship,
     RealmOrganizationStatus,
 };
-use crate::governance::grant_constraint::CapabilityGrant;
 use crate::objects::realm_alias::RealmAlias;
 
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_LAYERS: &str =
@@ -39,7 +33,7 @@ pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_POLICY_MERGE_STRATEGY: &str =
     "policy_merge_strategy";
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_MERGE_STRATEGY: &str =
     "organization_policy_merge_strategy";
-/// Canonical link_kind values for `ak.realm.link`. The eight values
+/// Canonical link_kind values for `ak.realm.link`. The seven values
 /// enumerate the typed cross-Realm relations the spec recognises after the
 /// Realm/Space boundary split; link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
@@ -51,12 +45,10 @@ pub enum RealmLinkKind {
     GovernedBy,
     /// Source Realm may be discovered by member_ids of target Realm.
     DiscoverableFrom,
-    /// Source Realm accepts join requests from target Realm's
-    /// authenticated member_ids.
+    /// Source Realm accepts join requests using target Realm membership only
+    /// when both Realms have the same current governing Station. The Station
+    /// resolves authoritative current state during final admission.
     JoinGateFrom,
-    /// Source Realm inherits policy from target Realm (paired with a
-    /// `ak.realm.inheritance_policy` declaration).
-    InheritsPolicyFrom,
     /// Source Realm is a confidential extension (sub-Realm with stricter
     /// confidentiality envelope) of the target Realm.
     ConfidentialExtensionOf,
@@ -77,7 +69,6 @@ impl RealmLinkKind {
             Self::GovernedBy => "governed_by",
             Self::DiscoverableFrom => "discoverable_from",
             Self::JoinGateFrom => "join_gate_from",
-            Self::InheritsPolicyFrom => "inherits_policy_from",
             Self::ConfidentialExtensionOf => "confidential_extension_of",
             Self::MirrorOf => "mirror_of",
             Self::SplitFrom => "split_from",
@@ -90,7 +81,6 @@ impl RealmLinkKind {
             "governed_by" => Self::GovernedBy,
             "discoverable_from" => Self::DiscoverableFrom,
             "join_gate_from" => Self::JoinGateFrom,
-            "inherits_policy_from" => Self::InheritsPolicyFrom,
             "confidential_extension_of" => Self::ConfidentialExtensionOf,
             "mirror_of" => Self::MirrorOf,
             "split_from" => Self::SplitFrom,
@@ -106,7 +96,6 @@ impl RealmLinkKind {
             Self::GovernedBy,
             Self::DiscoverableFrom,
             Self::JoinGateFrom,
-            Self::InheritsPolicyFrom,
             Self::ConfidentialExtensionOf,
             Self::MirrorOf,
             Self::SplitFrom,
@@ -340,25 +329,6 @@ pub struct RealmLinkList {
     pub links: Vec<RealmLinkEntry>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RealmEffectivePolicyInheritanceMode {
-    Explicit,
-    None,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmEffectivePolicyOutcome {
-    pub realm_id: RealmId,
-    pub effective_policy: BTreeMap<String, Value>,
-    #[serde(default)]
-    pub inheritance_chain_ids: Vec<RealmId>,
-    pub inheritance_mode: RealmEffectivePolicyInheritanceMode,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -489,71 +459,6 @@ pub enum RealmOrganizationLifecyclePhase {
     VerifiedActive,
     /// The relationship has been revoked or is outside its validity window.
     RevokedOrExpired,
-}
-
-/// Typed payload for the `ak.realm.inheritance_policy` event.
-///
-/// Projection family: `ak.component.realm.inheritance_policy.v1`.
-/// Declares which policy names and capability bundles a Realm inherits
-/// from a parent (source) Realm. The reducer rejects payloads with
-/// `max_depth > 1` (the wire spec currently caps inheritance at depth 1).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RealmInheritancePolicy {
-    /// Parent Realm whose policies / capabilities are being inherited.
-    pub source_realm_id: RealmId,
-    /// List of policy names (free-form strings per spec; reducer does no
-    /// enum enforcement) inherited from `source_realm_id`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_policies: Vec<String>,
-    /// Capability bundle identifiers inherited from `source_realm_id`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_capability_bundles: Vec<String>,
-    /// Maximum inheritance depth. Wire spec currently caps this at 1;
-    /// the reducer rejects payloads with `max_depth > 1`.
-    #[serde(default = "default_inheritance_max_depth")]
-    pub max_depth: u32,
-}
-
-fn default_inheritance_max_depth() -> u32 {
-    1
-}
-
-impl RealmInheritancePolicy {
-    /// Cap on `max_depth` enforced by the wire validator + soland
-    /// reducer at this stage. Composite inheritance (depth > 1) is outside
-    /// the current v1 cap.
-    pub const MAX_DEPTH_CAP: u32 = 1;
-
-    pub fn validate(&self) -> Result<()> {
-        if self.max_depth == 0 {
-            return Err(WireError::Protocol(
-                "realm.inheritance_policy.max_depth MUST be >= 1".to_owned(),
-            ));
-        }
-        if self.max_depth > Self::MAX_DEPTH_CAP {
-            return Err(WireError::Protocol(format!(
-                "realm.inheritance_policy.max_depth must be <= {} (current wire cap)",
-                Self::MAX_DEPTH_CAP
-            )));
-        }
-        Ok(())
-    }
-}
-
-/// Typed payload for the `ak.capability.derived` event.
-///
-/// Projection family: `ak.component.capability.derived.v1` (keyed by
-/// `grant_id`). The complete projected grant preserves its exact issuer and
-/// subject identities and names its source grant through
-/// `grant.issuer_authority_refs`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityDerived {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub grant: CapabilityGrant,
-    pub grant_id: GrantId,
 }
 
 /// One projected `ak.realm.organization` relationship row surfaced by

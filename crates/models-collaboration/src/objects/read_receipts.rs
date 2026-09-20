@@ -485,8 +485,6 @@ pub struct ReadReceiptPolicy {
     pub visibility: ReadReceiptVisibility,
     #[serde(default = "default_read_receipt_scope_overrides_allowed")]
     pub scope_overrides_allowed: bool,
-    #[serde(default)]
-    pub child_privacy_tightening_against_required: bool,
 }
 
 impl Default for ReadReceiptPolicy {
@@ -495,7 +493,6 @@ impl Default for ReadReceiptPolicy {
             disclosure: ReadReceiptDisclosure::Optional,
             visibility: ReadReceiptVisibility::Members,
             scope_overrides_allowed: true,
-            child_privacy_tightening_against_required: false,
         }
     }
 }
@@ -508,7 +505,6 @@ fn default_read_receipt_scope_overrides_allowed() -> bool {
 pub enum ReadReceiptPolicyChildViolation {
     ScopeOverridesDisabled,
     DisclosurePrivacyLoosened,
-    ComplianceFloorViolated,
     VisibilityLoosened,
 }
 
@@ -520,9 +516,6 @@ impl fmt::Display for ReadReceiptPolicyChildViolation {
             }
             Self::DisclosurePrivacyLoosened => {
                 formatter.write_str("child read-receipt disclosure loosens parent privacy")
-            }
-            Self::ComplianceFloorViolated => {
-                formatter.write_str("child read-receipt policy crosses parent compliance floor")
             }
             Self::VisibilityLoosened => {
                 formatter.write_str("child read-receipt visibility loosens parent visibility")
@@ -551,17 +544,13 @@ impl ReadReceiptPolicy {
     ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
         match (self.disclosure, child) {
             (ReadReceiptDisclosure::Required, ReadReceiptDisclosure::Required)
+            | (
+                ReadReceiptDisclosure::Required,
+                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
+            )
             | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Optional)
             | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Disabled)
             | (ReadReceiptDisclosure::Disabled, ReadReceiptDisclosure::Disabled) => Ok(()),
-            (
-                ReadReceiptDisclosure::Required,
-                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
-            ) if self.child_privacy_tightening_against_required => Ok(()),
-            (
-                ReadReceiptDisclosure::Required,
-                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
-            ) => Err(ReadReceiptPolicyChildViolation::ComplianceFloorViolated),
             _ => Err(ReadReceiptPolicyChildViolation::DisclosurePrivacyLoosened),
         }
     }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.1;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d Entries: registered=206
+//! Input: registry/contract-registry.json; version=2026-09-21.2;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c Entries: registered=205
 
 use serde::{Deserialize, Serialize};
 
@@ -200,7 +200,6 @@ pub enum ServiceOperationId {
     SelfRealmJoinCommandPrepareV1,
     SelfRealmJoinReadApplicationStatusV1,
     SelfRealmJoinReadPreviewV1,
-    SelfRealmLinkReadEffectivePolicyV1,
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
@@ -409,7 +408,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1,
     ServiceOperationId::SELF_REALM_JOIN_READ_PREVIEW_V1,
-    ServiceOperationId::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
@@ -660,7 +658,6 @@ impl ServiceOperationId {
         Self::SelfRealmJoinCommandPrepareV1,
         Self::SelfRealmJoinReadApplicationStatusV1,
         Self::SelfRealmJoinReadPreviewV1,
-        Self::SelfRealmLinkReadEffectivePolicyV1,
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
@@ -1001,8 +998,6 @@ impl ServiceOperationId {
     pub const SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
         "ak.self.realm_join.read.application_status.v1";
     pub const SELF_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.self.realm_join.read.preview.v1";
-    pub const SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1: &'static str =
-        "ak.self.realm_link.read.effective_policy.v1";
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
         "ak.self.realm_organization.read.list.v1";
@@ -1320,9 +1315,6 @@ impl ServiceOperationId {
                 Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1
             }
             Self::SelfRealmJoinReadPreviewV1 => Self::SELF_REALM_JOIN_READ_PREVIEW_V1,
-            Self::SelfRealmLinkReadEffectivePolicyV1 => {
-                Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1
-            }
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
@@ -1721,9 +1713,6 @@ impl ServiceOperationId {
                 Some(Self::SelfRealmJoinReadApplicationStatusV1)
             }
             Self::SELF_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::SelfRealmJoinReadPreviewV1),
-            Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1 => {
-                Some(Self::SelfRealmLinkReadEffectivePolicyV1)
-            }
             Self::SELF_REALM_LINK_READ_LIST_V1 => Some(Self::SelfRealmLinkReadListV1),
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
                 Some(Self::SelfRealmOrganizationReadListV1)
@@ -6176,24 +6165,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/realm-join-intake.schema.json#/$defs/self_preview_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/realms/{realm_id}/effective-policy",
-        grpc: Some("SelfRealmLink/EffectivePolicy"),
-        mq: Some("self.realm_link.query.effective_policy"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

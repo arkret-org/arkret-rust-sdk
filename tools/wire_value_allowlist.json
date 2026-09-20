@@ -993,18 +993,6 @@
       "spec_pointer": "policy.schema.json#/$defs/policy_rule/properties/params"
     },
     {
-      "finding": "crates/models-collaboration/src/governance/realm_governance.rs::RealmEffectivePolicyOutcome.effective_policy",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome/properties/effective_policy",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "realm-link-operations.schema.json#/$defs/realm_effective_policy_outcome/properties/effective_policy"
-    },
-    {
       "finding": "crates/models-collaboration/src/governance/realm_governance.rs::RealmExport.events",
       "classification": "open_json",
       "lifecycle": "retained_boundary",

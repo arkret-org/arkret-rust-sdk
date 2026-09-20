@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-21.2;
-//! sha256=f3bd7e216baff4b50b271c19b6acd0a7d860bf40093becd115398c972889e130
-//! Entries: error_codes=169, reserved_not_emitted=96
+//! Input: registry/error-code-registry.json; version=2026-09-21.3;
+//! sha256=be9eb43fcecb7fe103c3a383eaada503c90aa8b31a415d02f42611ba091f2103
+//! Entries: error_codes=168, reserved_not_emitted=96
 
 use serde::{Deserialize, Serialize};
 
@@ -149,7 +149,6 @@ pub enum ErrorCode {
     QueryInvalid,
     QuotaExceeded,
     RateLimited,
-    ReadReceiptComplianceFloorViolated,
     RealmFrozen,
     RealmStateSnapshotAuthorityUnverified,
     RealmStateSnapshotUnavailable,
@@ -334,7 +333,6 @@ impl ErrorCode {
         Self::QueryInvalid,
         Self::QuotaExceeded,
         Self::RateLimited,
-        Self::ReadReceiptComplianceFloorViolated,
         Self::RealmFrozen,
         Self::RealmStateSnapshotAuthorityUnverified,
         Self::RealmStateSnapshotUnavailable,
@@ -513,8 +511,6 @@ impl ErrorCode {
     pub const QUERY_INVALID: &'static str = "query_invalid";
     pub const QUOTA_EXCEEDED: &'static str = "quota_exceeded";
     pub const RATE_LIMITED: &'static str = "rate_limited";
-    pub const READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &'static str =
-        "read_receipt_compliance_floor_violated";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
     pub const REALM_STATE_SNAPSHOT_AUTHORITY_UNVERIFIED: &'static str =
         "realm_state_snapshot_authority_unverified";
@@ -700,7 +696,6 @@ impl ErrorCode {
             Self::QueryInvalid => "query_invalid",
             Self::QuotaExceeded => "quota_exceeded",
             Self::RateLimited => "rate_limited",
-            Self::ReadReceiptComplianceFloorViolated => "read_receipt_compliance_floor_violated",
             Self::RealmFrozen => "realm_frozen",
             Self::RealmStateSnapshotAuthorityUnverified => {
                 "realm_state_snapshot_authority_unverified"
@@ -892,9 +887,6 @@ impl ErrorCode {
             "query_invalid" => Some(Self::QueryInvalid),
             "quota_exceeded" => Some(Self::QuotaExceeded),
             "rate_limited" => Some(Self::RateLimited),
-            "read_receipt_compliance_floor_violated" => {
-                Some(Self::ReadReceiptComplianceFloorViolated)
-            }
             "realm_frozen" => Some(Self::RealmFrozen),
             "realm_state_snapshot_authority_unverified" => {
                 Some(Self::RealmStateSnapshotAuthorityUnverified)
@@ -2150,16 +2142,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The caller exceeded the current rate limit policy. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ReadReceiptComplianceFloorViolated,
-        type_uri: "https://arkret.org/problems/read_receipt_compliance_floor_violated",
-        title: "Read receipt compliance floor violated",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' â†’ child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Event with this wire code. See zh/discovery/read-receipts.md §2.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFrozen,

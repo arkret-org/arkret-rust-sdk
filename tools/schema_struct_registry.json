@@ -1056,10 +1056,6 @@
       "reason": "Documented pointer is not a direct object node: 'realm_authority_reset_payload'."
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/realm.rs::RealmInheritancePolicyPayloadInherits",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['capability_bundles', 'membership', 'notification_defaults', 'policy_rules'], Spec-only=['inherits', 'max_depth', 'mode', 'reason', 'source_realm_id', 'status']."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/realm.rs::RealmOrganizationAuthorization",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['delegation_ref', 'executed_by', 'issuer_id', 'issuer_role', 'proof', 'signed_at', 'verification_method'], Spec-only=['authorization', 'control_scopes', 'expires_at', 'issued_at', 'not_before', 'organization_id', 'organization_policy_ref', 'realm_frontier_digest', 'realm_id', 'relationship', 'revokes_statement_id', 'statement_id', 'status', 'supersedes_statement_id']."
     },

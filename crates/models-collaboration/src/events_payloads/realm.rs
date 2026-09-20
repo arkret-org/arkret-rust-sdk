@@ -22,16 +22,6 @@ pub struct RealmGovernanceStationChangePayload {
     pub new_governance_station_id: DidCoreId,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum InheritancePolicyStatus {
-    Active,
-    Tombstoned,
-}
-
 /// Patch carried by `ak.realm.owner.transfer`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -511,35 +501,6 @@ impl RealmFreezePayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("realm freeze payload serialize: {err}")))
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_inheritance_policy_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmInheritancePolicyPayloadInherits {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_bundles: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_rules: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notification_defaults: Option<bool>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmInheritancePolicyPayload {
-    pub source_realm_id: RealmId,
-    pub inherits: RealmInheritancePolicyPayloadInherits,
-    pub mode: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_depth: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<InheritancePolicyStatus>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 /// `relationship` discriminator for [`RealmOrganizationPayload`]

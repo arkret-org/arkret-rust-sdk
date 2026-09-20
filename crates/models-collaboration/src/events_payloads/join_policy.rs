@@ -73,6 +73,11 @@ pub enum JoinPolicyGate {
         gate_id: JoinPolicyGateId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         auto_resolve: Option<bool>,
+        /// Every source must have a current active `join_gate_from` link from
+        /// the target Realm and share its current governing Station. The
+        /// Station resolves authoritative current membership in the same
+        /// durable final-admission transaction; callers provide no proof or
+        /// cached authority basis for this gate.
         membership_source_realm_ids: Vec<RealmId>,
         require_min_membership: JoinPolicyRequiredMembership,
     },

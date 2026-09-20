@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.2;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-21.3;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
 //! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
-//! special_forms=15, actions=149, approval_carriers=1, schemas=222, account_data_patterns=24
+//! special_forms=15, actions=148, approval_carriers=1, schemas=222, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -783,21 +783,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "scope_suffix_variant",
-        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
-        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::CapabilityDerived,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CAPABILITY_DERIVED],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
@@ -1802,7 +1787,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_SCHEMA,
-            event_kind_str::REALM_INHERITANCE_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::REALM_SET_DEFAULT_STRAND,
             event_kind_str::APPLET_REGISTRATION,
@@ -2040,7 +2024,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
             event_kind_str::REALM_HISTORY_ACCESS,
-            event_kind_str::REALM_INHERITANCE_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_MEDIA_SERVICE,

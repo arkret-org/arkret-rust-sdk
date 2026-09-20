@@ -106,8 +106,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AppletManagedActorProvision
         | EventKind::AppletRegistration => EventProductClass::Applet,
         EventKind::AuditAccessed | EventKind::AuditErasureReceipt => EventProductClass::Audit,
-        EventKind::CapabilityDerived
-        | EventKind::CapabilityGrant
+        EventKind::CapabilityGrant
         | EventKind::CapabilityRelinquish
         | EventKind::CapabilityRevoke
         | EventKind::RealmOwnerTransfer
@@ -193,7 +192,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmUnfreeze
         | EventKind::RealmAlias
         | EventKind::RealmHistoryAccess
-        | EventKind::RealmInheritancePolicy
         | EventKind::RealmJoinRule
         | EventKind::RealmSetDefaultStrand
         | EventKind::RealmLink

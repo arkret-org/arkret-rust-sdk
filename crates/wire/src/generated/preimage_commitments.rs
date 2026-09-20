@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.1;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d Input: reachable event
+//! Input: registry/contract-registry.json; version=2026-09-21.2;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=ba537b5870f43aa406bb7e02bf5f1faaa28ed1a1db5a6e443d3db8c0eba25345
-//! Entries: preimage_commitments=35
+//! sha256=7dffde85815dce983fa90ee342517044c68de3ddcb80573bb611d44d16ca0362
+//! Entries: preimage_commitments=34
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -47,11 +47,6 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/call-recording-artifact.schema.json",
         json_pointer: "/properties/recording_start_event_id",
-        commitment: PreimageCommitment::FixedEvent,
-    },
-    PreimageCommitmentField {
-        schema_file: "schemas/capability-grant.schema.json",
-        json_pointer: "/properties/authority_root_refs/items/properties/authority_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

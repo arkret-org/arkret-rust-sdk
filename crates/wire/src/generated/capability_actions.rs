@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.2;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d Entries: registered=149
+//! Input: registry/contract-registry.json; version=2026-09-21.3;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c Entries: registered=148
 
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,6 @@ pub enum CapabilityActionId {
     CallScreenShare,
     CallSignalSend,
     CallTranscribe,
-    CapabilityDerived,
     CapabilityGrant,
     CapabilityRelinquish,
     CapabilityRevoke,
@@ -183,7 +182,6 @@ impl CapabilityActionId {
         Self::CallScreenShare,
         Self::CallSignalSend,
         Self::CallTranscribe,
-        Self::CapabilityDerived,
         Self::CapabilityGrant,
         Self::CapabilityRelinquish,
         Self::CapabilityRevoke,
@@ -334,7 +332,6 @@ impl CapabilityActionId {
     pub const CALL_SCREEN_SHARE: &'static str = "ak.call.screen_share";
     pub const CALL_SIGNAL_SEND: &'static str = "ak.call.signal.send";
     pub const CALL_TRANSCRIBE: &'static str = "ak.call.transcribe";
-    pub const CAPABILITY_DERIVED: &'static str = "ak.capability.derived";
     pub const CAPABILITY_GRANT: &'static str = "ak.capability.grant";
     pub const CAPABILITY_RELINQUISH: &'static str = "ak.capability.relinquish";
     pub const CAPABILITY_REVOKE: &'static str = "ak.capability.revoke";
@@ -496,7 +493,6 @@ impl CapabilityActionId {
             Self::CallScreenShare => Self::CALL_SCREEN_SHARE,
             Self::CallSignalSend => Self::CALL_SIGNAL_SEND,
             Self::CallTranscribe => Self::CALL_TRANSCRIBE,
-            Self::CapabilityDerived => Self::CAPABILITY_DERIVED,
             Self::CapabilityGrant => Self::CAPABILITY_GRANT,
             Self::CapabilityRelinquish => Self::CAPABILITY_RELINQUISH,
             Self::CapabilityRevoke => Self::CAPABILITY_REVOKE,
@@ -658,7 +654,6 @@ impl CapabilityActionId {
             Self::CALL_SCREEN_SHARE => Some(Self::CallScreenShare),
             Self::CALL_SIGNAL_SEND => Some(Self::CallSignalSend),
             Self::CALL_TRANSCRIBE => Some(Self::CallTranscribe),
-            Self::CAPABILITY_DERIVED => Some(Self::CapabilityDerived),
             Self::CAPABILITY_GRANT => Some(Self::CapabilityGrant),
             Self::CAPABILITY_RELINQUISH => Some(Self::CapabilityRelinquish),
             Self::CAPABILITY_REVOKE => Some(Self::CapabilityRevoke),

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.1;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d
-//! Entries: active_events=146
+//! Input: registry/contract-registry.json; version=2026-09-21.2;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c
+//! Entries: active_events=144
 
 use arkret_wire::event_kind_str;
 
@@ -126,11 +126,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CALL_SUMMARY,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CAPABILITY_DERIVED,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -501,11 +496,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_HISTORY_ACCESS,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::REALM_INHERITANCE_POLICY,
         id_source: None,
         derived_id_kinds: &[],
     },

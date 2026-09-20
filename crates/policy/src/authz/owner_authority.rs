@@ -95,7 +95,6 @@ mod tests {
         assert!(owner_may_grant(CapabilityActionId::REALM_OWNER).unwrap());
         assert!(!owner_may_grant("ak.realm.destroy").unwrap());
         assert!(!owner_may_grant("ak.realm.tombstone").unwrap());
-        assert!(!owner_may_grant("ak.capability.derived").unwrap());
         assert!(!owner_may_grant("ak.agent.sidecar.write").unwrap());
         assert!(owner_may_grant("ak.rsvp.set").unwrap());
     }
@@ -105,7 +104,6 @@ mod tests {
         for action in [
             "ak.realm.destroy",
             "ak.capability.relinquish",
-            "ak.capability.derived",
             "ak.invite.accept",
             "ak.read_cursor.advance",
             "ak.self.committed_event.read.scan.v1",

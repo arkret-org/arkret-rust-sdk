@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
 //! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
-//! contract-registry.json; version=2026-09-21.2;
-//! sha256=7b027c41ffa57757796082cb4b888a63c05849252a6b18d9c6f609ce9127b92d
+//! contract-registry.json; version=2026-09-21.3;
+//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -455,7 +455,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         profile: None,
         operations: &[
             ServiceOperationId::SelfRealmLinkReadListV1,
-            ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
             ServiceOperationId::SelfRealmOrganizationReadListV1,
         ],
     },
@@ -744,8 +743,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-21.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-21.2";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-21.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-21.2";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-21.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-21.3";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-21.2";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-21.3";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

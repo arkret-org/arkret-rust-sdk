@@ -41,9 +41,12 @@ pub enum MembershipPayloadState {
 
 /// The two join-policy gate kinds that take an applicant-supplied proof.
 ///
-/// `parent_membership`, `principal_admission` and `cooldown` are replayed by
-/// the reducer from accepted state, so a proof item naming one of them has no
-/// meaning and cannot be constructed (`join-policy.md` §4 rule 4).
+/// `principal_admission` and `cooldown` are replayed from target-Realm accepted
+/// state. `parent_membership` is resolved only from authoritative current
+/// membership behind active `join_gate_from` links when source and target share
+/// the current governing Station; that Station performs the reads in the same
+/// durable final-admission transaction. None accepts a caller proof, cached
+/// authority, or SDK-synthesized basis (`join-policy.md` §4 rules 4–6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JoinGateProofKind {
