@@ -28,6 +28,7 @@ use crate::account_status::{AccountStatusReceipt, AccountStatusRecord};
 // account-operations.schema.json#/$defs/account_status_publication (first
 // branch).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusInitialPublication {
     pub record: AccountStatusRecord,
@@ -37,6 +38,7 @@ pub struct AccountStatusInitialPublication {
 // account-operations.schema.json#/$defs/account_status_publication (second
 // branch).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusReceiptedPublication {
     pub record: AccountStatusRecord,
@@ -50,6 +52,7 @@ pub const ACCOUNT_STATUS_PUBLICATION_MAX_RECEIPTS: usize = 32;
 /// byte-identical record plus the prior receiver receipts. No receiver rebuilds
 /// or re-signs the record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
 pub enum AccountStatusPublication {
     Receipted(AccountStatusReceiptedPublication),
@@ -75,6 +78,7 @@ impl AccountStatusPublication {
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/account_status_publication_request_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusPublicationRequestBody {
     pub publication: AccountStatusPublication,
@@ -107,6 +111,7 @@ impl AccountStatusPublicationRequestBody {
 /// `accepted` and `duplicate` are terminal for this receiver; a
 /// `dependency_missing` outcome performs zero writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatusPublicationStatus {
     Accepted,
@@ -115,6 +120,7 @@ pub enum AccountStatusPublicationStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatusPropagationState {
     NotRequired,
@@ -126,6 +132,7 @@ pub enum AccountStatusPropagationState {
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/account_status_publication_outcome.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusPublicationOutcome {
     pub status: AccountStatusPublicationStatus,
@@ -179,6 +186,7 @@ impl AccountStatusPublicationOutcome {
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/account_status_resolve_request_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusResolveRequestBody {
     pub account_authority_id: DidCoreId,
@@ -202,6 +210,7 @@ impl AccountStatusResolveRequestBody {
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/account_status_resolve_outcome.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusResolveOutcome {
     pub account_authority_id: DidCoreId,
@@ -346,9 +355,15 @@ mod tests {
 
     #[cfg(feature = "openapi")]
     #[test]
-    fn session_revoke_outcome_exposes_its_canonical_openapi_schema() {
+    fn canonical_endpoint_carriers_expose_openapi_schemas() {
         fn assert_to_schema<T: salvo_oapi::ToSchema>() {}
 
+        assert_to_schema::<AccountStatusPublicationRequestBody>();
+        assert_to_schema::<AccountStatusPublicationOutcome>();
+        assert_to_schema::<AccountStatusResolveRequestBody>();
+        assert_to_schema::<AccountStatusResolveOutcome>();
+        assert_to_schema::<AccountStatusRecord>();
+        assert_to_schema::<AccountStatusReceipt>();
         assert_to_schema::<SessionRevokeOutcome>();
     }
 

@@ -170,6 +170,7 @@ impl UnsignedAccountStatusRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusRecord {
     pub schema: String,
@@ -255,6 +256,7 @@ impl AccountStatusRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusReceipt {
     pub receipt_id: ReceiptId,
