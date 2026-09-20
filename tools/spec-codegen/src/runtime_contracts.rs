@@ -109,7 +109,15 @@ fn generate_http_signature_contract(inputs: &SpecInputs) -> Result<String> {
 pub enum HttpSignatureScenario {\n",
     );
     for scenario in &registry.scenarios {
-        writeln!(output, "    {},", variant(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"])).expect("write to String");
+        writeln!(
+            output,
+            "    {},",
+            variant(
+                &scenario.scenario_id,
+                &["ak.http_signature.scenario.", ".v1"]
+            )
+        )
+        .expect("write to String");
     }
     output.push_str(
         "}\n\n\
@@ -159,7 +167,10 @@ pub struct HttpSignatureScenarioDescriptor {\n\
     .expect("write to String");
 
     for scenario in &registry.scenarios {
-        let name = associated_name(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
+        let name = associated_name(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
         writeln!(
             output,
             "const {name}_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalComponentDescriptor] = &["
@@ -176,13 +187,26 @@ pub struct HttpSignatureScenarioDescriptor {\n\
         }
         output.push_str("];\n");
     }
-    output.push_str("\npub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[\n");
+    output.push_str(
+        "\npub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[\n",
+    );
     for scenario in &registry.scenarios {
-        let variant_name = variant(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
-        let const_name = associated_name(&scenario.scenario_id, &["ak.http_signature.scenario.", ".v1"]);
+        let variant_name = variant(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
+        let const_name = associated_name(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
         let parent = scenario.extends.as_ref().map_or_else(
             || "None".to_owned(),
-            |parent| format!("Some(HttpSignatureScenario::{})", variant(parent, &["ak.http_signature.scenario.", ".v1"])),
+            |parent| {
+                format!(
+                    "Some(HttpSignatureScenario::{})",
+                    variant(parent, &["ak.http_signature.scenario.", ".v1"])
+                )
+            },
         );
         writeln!(
             output,
@@ -261,7 +285,9 @@ pub struct ProtocolTimeToleranceScenarioDescriptor {\n\
         )
         .expect("write to String");
     }
-    output.push_str("\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n");
+    output.push_str(
+        "\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n",
+    );
     for tolerance in &registry.tolerances {
         writeln!(
             output,
@@ -306,7 +332,10 @@ fn validate_protocol_time_tolerances(
     let mut tolerance_names = BTreeSet::new();
     for tolerance in &registry.tolerances {
         if !tolerance_ids.insert(tolerance.tolerance_id.as_str()) {
-            bail!("duplicate protocol time tolerance id {}", tolerance.tolerance_id);
+            bail!(
+                "duplicate protocol time tolerance id {}",
+                tolerance.tolerance_id
+            );
         }
         if !tolerance_names.insert(tolerance.name.as_str()) {
             bail!("duplicate protocol time tolerance name {}", tolerance.name);
@@ -321,7 +350,10 @@ fn validate_protocol_time_tolerances(
     let mut scenario_ids = BTreeSet::new();
     for scenario in &registry.scenarios {
         if !scenario_ids.insert(scenario.scenario_id.as_str()) {
-            bail!("duplicate protocol time tolerance scenario {}", scenario.scenario_id);
+            bail!(
+                "duplicate protocol time tolerance scenario {}",
+                scenario.scenario_id
+            );
         }
         if !tolerance_ids.contains(scenario.tolerance_id.as_str()) {
             bail!(
@@ -385,11 +417,17 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
     {
         bail!("approval eligibility defaults contain an unknown eligibility kind");
     }
-    if approval.event_mapping_defaults.get("non_event_surface").map(String::as_str)
+    if approval
+        .event_mapping_defaults
+        .get("non_event_surface")
+        .map(String::as_str)
         != Some("ineligible_no_registered_carrier")
-        || approval.event_mapping_defaults.iter().any(|(mapping, eligibility)| {
-            mapping != "non_event_surface" && eligibility != "event_submission_carrier"
-        })
+        || approval
+            .event_mapping_defaults
+            .iter()
+            .any(|(mapping, eligibility)| {
+                mapping != "non_event_surface" && eligibility != "event_submission_carrier"
+            })
     {
         bail!("approval eligibility defaults do not preserve the durable/non-event boundary");
     }
@@ -618,9 +656,7 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             }
             if let Some(expected_revision) = slot.extra.get("expected_revision") {
                 if !expected_revision.is_null() {
-                    bail!(
-                        "realm_bootstrap_registry.{owner} supports only expected_revision=null"
-                    );
+                    bail!("realm_bootstrap_registry.{owner} supports only expected_revision=null");
                 }
             }
             if let Some(condition) = &slot.condition

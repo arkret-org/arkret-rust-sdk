@@ -335,7 +335,10 @@ fn visit_preimage_schema(
         }
         found.insert((file.to_owned(), pointer.to_owned(), commitment.to_owned()));
     }
-    if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
+    if let Some(reference) = object.get("$ref") {
+        let reference = reference
+            .as_str()
+            .with_context(|| format!("{file}#{pointer} $ref is not a string"))?;
         let (target_file, target_pointer) = parse_schema_ref(Some(file), reference)?;
         let target = repository.load_node(artifacts_dir, &target_file, &target_pointer)?;
         visit_preimage_schema(
@@ -2959,9 +2962,14 @@ mod tests {
         .expect("write root schema");
         std::fs::write(
             schemas.join("shared.schema.json"),
-            r#"{"$defs":{"reachable":{"type":"object","properties":{"source_event_id":{"type":"string","description":"description text is not a rule","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"same_unit_sibling"}}}"#,
+            r#"{"$defs":{"reachable":{"$ref":"./leaf.schema.json#/$defs/annotated"},"dead":{"x-arkret-preimage-commitment":"same_unit_sibling"}}}"#,
         )
         .expect("write shared schema");
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"description text is not a rule","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"no_event_identity"}}}"#,
+        )
+        .expect("write leaf schema");
 
         let mut repository = SchemaRepository::default();
         let found =
@@ -2969,10 +2977,100 @@ mod tests {
                 .expect("collect commitments");
         assert_eq!(found.len(), 1);
         assert!(found.contains(&(
-            "schemas/shared.schema.json".to_owned(),
-            "/$defs/reachable/properties/source_event_id".to_owned(),
+            "schemas/leaf.schema.json".to_owned(),
+            "/$defs/annotated/properties/source_event_id".to_owned(),
             "fixed_event".to_owned(),
         )));
+
+        // Human prose is not a protocol input: changing it must preserve the
+        // exact generated commitment tuple.
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"completely rewritten prose","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"no_event_identity"}}}"#,
+        )
+        .expect("rewrite leaf description");
+        let rewritten = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect("collect commitments after prose rewrite");
+        assert_eq!(rewritten, found);
+
+        // Removing the annotation removes the generated rule. The generator
+        // must not infer it from the member name or its description.
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"fixed event commitment"}}}}}"#,
+        )
+        .expect("remove leaf annotation");
+        let without_annotation = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect("collect without annotation");
+        assert!(without_annotation.is_empty());
+        std::fs::remove_dir_all(root).expect("remove isolated fixture tree");
+    }
+
+    #[test]
+    fn preimage_commitment_codegen_rejects_bad_ref_pointer_and_annotation_value() {
+        let root = std::env::temp_dir().join(format!(
+            "arkret-preimage-mutation-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let schemas = root.join("schemas");
+        std::fs::create_dir_all(&schemas).expect("create fixture schemas");
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"$ref":"./shared.schema.json#/$defs/missing"}"#,
+        )
+        .expect("write bad pointer root");
+        std::fs::write(
+            schemas.join("shared.schema.json"),
+            r#"{"$defs":{"reachable":{"type":"string"}}}"#,
+        )
+        .expect("write shared schema");
+
+        let bad_pointer = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("unknown pointer must fail closed");
+        assert!(bad_pointer.to_string().contains("has no JSON Pointer"));
+
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"type":"string","x-arkret-preimage-commitment":"description_inferred"}"#,
+        )
+        .expect("write unknown annotation");
+        let bad_annotation = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("unknown annotation must fail closed");
+        assert!(
+            bad_annotation
+                .to_string()
+                .contains("unknown preimage commitment")
+        );
+
+        std::fs::write(schemas.join("root.schema.json"), r#"{"$ref":false}"#)
+            .expect("write non-string ref");
+        let bad_ref_type = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("non-string ref must fail closed");
+        assert!(bad_ref_type.to_string().contains("$ref is not a string"));
         std::fs::remove_dir_all(root).expect("remove isolated fixture tree");
     }
 
