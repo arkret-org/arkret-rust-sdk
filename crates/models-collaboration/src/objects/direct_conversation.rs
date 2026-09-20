@@ -324,6 +324,7 @@ pub fn direct_conversation_may_found(
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/DirectConversationFoundingAuthorityEvidence
 // (both oneOf branches).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]

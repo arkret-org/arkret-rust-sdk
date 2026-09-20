@@ -6,12 +6,14 @@ use serde::{Deserialize, Serialize};
 use crate::contact_operations::ContactPeer;
 use crate::objects::direct_conversation::DirectConversationFoundingAuthorityEvidence;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationResolveRequestBody {
     pub peer: ContactPeer,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationCoordinates {
@@ -26,6 +28,7 @@ pub struct DirectConversationCoordinates {
 ///
 /// This is a snapshot used to author the four-Event founding unit, not an
 /// authority object and not a member of the self submission carrier.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationFoundingInput {
@@ -35,6 +38,7 @@ pub struct DirectConversationFoundingInput {
 /// Authority-evaluated reasons why an otherwise materialized conversation
 /// cannot currently send. These values intentionally describe current state,
 /// not a peer-reconciliation protocol.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationSendBlocker {
@@ -156,6 +160,7 @@ impl DirectConversationClientLocalBlocker {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectConversationResolveOutcome {
