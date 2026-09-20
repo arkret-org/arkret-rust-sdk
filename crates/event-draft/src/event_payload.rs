@@ -193,6 +193,7 @@ event_payload_accessors! {
     event_spec::IdentityResolutionUpdate => (as_identity_resolution_update, PrincipalResolutionUpdatePayload),
     event_spec::RealmCreate => (as_realm_create, RealmCreatePayload, |payload: &RealmCreatePayload| payload.object.validate()),
     event_spec::RealmGovernanceStationChange => (as_realm_governance_station_change, RealmGovernanceStationChangePayload),
+    event_spec::RealmAuthorityReset => (as_realm_authority_reset, RealmAuthorityResetPayload),
     event_spec::RealmProfile => (as_realm_profile, RealmProfile),
     event_spec::RealmAlias => (as_realm_alias, RealmAliasPayload),
     event_spec::RealmOrganization => (as_realm_organization, RealmOrganizationPayload),
@@ -614,6 +615,28 @@ mod tests {
             &Value::Object(event.payload.clone().into_iter().collect()),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn realm_authority_reset_binds_only_the_formal_closed_payload() {
+        let mut event = base_event();
+        event.kind = EventKind::RealmAuthorityReset;
+        event.payload = serde_json::from_value(json!({
+            "realm_id": "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
+            "expected_state_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }))
+        .unwrap();
+
+        let typed = event.as_realm_authority_reset().unwrap();
+        assert_eq!(typed.realm_id.as_str(), "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5");
+        validate_event_payload(
+            &EventKind::RealmAuthorityReset,
+            &Value::Object(event.payload.clone().into_iter().collect()),
+        )
+        .unwrap();
+
+        event.payload.insert("destructive_confirmation".to_owned(), json!("forbidden"));
+        assert!(event.as_realm_authority_reset().is_err());
     }
 
     #[test]
