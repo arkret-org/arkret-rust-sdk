@@ -32,13 +32,13 @@ fn event_new_sets_content_bound_event_id() {
 }
 
 #[test]
-fn event_digest_is_the_compact_producer_payload_without_id_or_proofs() {
+fn event_digest_is_the_compact_producer_payload_without_id_or_producer_proof() {
     let event = raw_event();
     let payload = event.digest_payload().unwrap();
     let object = payload.as_object().unwrap();
 
     assert!(!object.contains_key("event_id"));
-    assert!(!object.contains_key("proofs"));
+    assert!(!object.contains_key("producer_proof"));
     assert_eq!(payload["kind"], "ak.message.create");
     assert_eq!(payload["realm_id"], realm_id().as_str());
     assert_eq!(payload["scope_ref"]["kind"], "realm");
@@ -77,20 +77,20 @@ fn event_digest_preimage_agrees_with_typed_digest_payload() {
 }
 
 #[test]
-fn event_digest_preimage_drops_exactly_id_and_proofs() {
+fn event_digest_preimage_drops_exactly_id_and_producer_proof() {
     let envelope = json!({
         "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
         "kind": "ak.message.create",
         "actor_id": "ak:did_core:webvh:z6mkfixture",
         "scope_ref": {"kind": "realm", "realm_id": realm_id()},
         "payload": {"body": "hello"},
-        "proofs": [{"kind": "detached_jws"}]
+        "producer_proof": {"kind": "detached_jws"}
     });
 
     let preimage = arkret_wire::event_digest_preimage(&envelope).unwrap();
     let object = preimage.as_object().unwrap();
     assert!(!object.contains_key("event_id"));
-    assert!(!object.contains_key("proofs"));
+    assert!(!object.contains_key("producer_proof"));
     assert_eq!(object.len(), 4);
     assert!(object.contains_key("scope_ref"));
 }

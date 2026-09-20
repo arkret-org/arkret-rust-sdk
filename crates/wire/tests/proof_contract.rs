@@ -224,7 +224,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     };
 
     let mut signed_event = event;
-    signed_event.proofs = vec![proof.into()];
+    signed_event.producer_proof = Some(proof.into());
     assert!(
         signed_event
             .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
@@ -261,7 +261,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     };
 
     let mut signed_event = event;
-    signed_event.proofs = vec![bad_proof.into()];
+    signed_event.producer_proof = Some(bad_proof.into());
     assert!(
         signed_event
             .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
@@ -300,7 +300,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         jws,
     };
     let mut signed_event = event;
-    signed_event.proofs = vec![proof.into()];
+    signed_event.producer_proof = Some(proof.into());
     let error = signed_event
         .validate_proof_bindings_with_context_and_digest_suite(
             Some("ak:trust_domain:example.net".to_owned()),
@@ -315,7 +315,11 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         error.to_string().contains("proof_binding_missing"),
         "{error}"
     );
-    signed_event.proofs[0].domain = Some("ak:trust_domain:example.net".to_owned());
+    signed_event
+        .producer_proof
+        .as_mut()
+        .expect("producer proof")
+        .domain = Some("ak:trust_domain:example.net".to_owned());
     assert!(
         signed_event
             .validate_proof_bindings_with_context_and_digest_suite(

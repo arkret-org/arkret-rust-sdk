@@ -50,13 +50,22 @@ mod tests {
     #[test]
     fn direct_conversation_send_blockers_match_the_closed_wire_literals() {
         let cases = [
-            (DirectConversationSendBlocker::MemberCountInvalid, "member_count_invalid"),
-            (DirectConversationSendBlocker::ContactScopeStale, "contact_scope_stale"),
+            (
+                DirectConversationSendBlocker::MemberCountInvalid,
+                "member_count_invalid",
+            ),
+            (
+                DirectConversationSendBlocker::ContactScopeStale,
+                "contact_scope_stale",
+            ),
             (
                 DirectConversationSendBlocker::GovernanceStationUnavailable,
                 "governance_station_unavailable",
             ),
-            (DirectConversationSendBlocker::UnsupportedProfile, "unsupported_profile"),
+            (
+                DirectConversationSendBlocker::UnsupportedProfile,
+                "unsupported_profile",
+            ),
         ];
         for (blocker, expected) in cases {
             assert_eq!(serde_json::to_value(blocker).unwrap(), expected);

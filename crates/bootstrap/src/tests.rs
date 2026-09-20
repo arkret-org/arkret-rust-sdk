@@ -104,7 +104,7 @@ fn self_principal_builder_emits_only_producer_content() {
         authored.realm_id,
         RealmId::from_event_id(&authored.event_id)
     );
-    assert!(authored.proofs.is_empty());
+    assert!(authored.producer_proof.is_none());
     assert_eq!(authored.refs.len(), 1);
 
     let wire = serde_json::to_value(authored.event()).unwrap();
@@ -187,7 +187,7 @@ fn agent_create_has_no_authority_ordering_fields() {
     .unwrap();
     assert_eq!(authored.scope_ref, ScopeRef::RealmGenesis);
     assert_eq!(authored.executed_by, Some(ActorId::service(controller)));
-    assert!(authored.proofs.is_empty());
+    assert!(authored.producer_proof.is_none());
     let payload: RealmCreatePayload = serde_json::from_value(serde_json::Value::Object(
         authored.payload.clone().into_iter().collect(),
     ))

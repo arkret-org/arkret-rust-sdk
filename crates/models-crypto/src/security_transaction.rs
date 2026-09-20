@@ -1103,9 +1103,10 @@ fn validate_recovery_event_unit(
 }
 
 fn unique_producer_signer(event: &Event) -> Result<&DidUrl> {
-    let [proof]: &[_; 1] = event.proofs.as_slice().try_into().map_err(|_| {
-        WireError::Protocol("recovery Event requires exactly one producer proof".to_owned())
-    })?;
+    let proof = event
+        .producer_proof
+        .as_ref()
+        .ok_or_else(|| WireError::Protocol("recovery Event requires producer_proof".to_owned()))?;
     Ok(&proof.verification_method)
 }
 

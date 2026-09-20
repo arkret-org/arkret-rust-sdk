@@ -113,7 +113,7 @@ pub fn validate_self_principal_pcr_create(
     if require_proof {
         event.validate_for_submit_structural()?;
         event.validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
-    } else if !event.proofs.is_empty() {
+    } else if event.producer_proof.is_some() {
         return Err(WireError::Protocol(
             "self-principal Event builder must return an unsigned Event".to_owned(),
         ));

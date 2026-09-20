@@ -52,7 +52,7 @@ pub fn sign_event<S: EventSigner + ?Sized>(
     event.verify_identity()?;
     let verification_method = arkret_wire::DidUrl::new(signer.verification_method().to_owned())
         .map_err(|error| Error::Protocol(error.to_owned()))?;
-    if let Some(existing) = event.proofs.iter().find(|proof| {
+    if let Some(existing) = event.producer_proof.as_ref().filter(|proof| {
         proof.kind == proof_kind::DETACHED_JWS && proof.verification_method != verification_method
     }) {
         return Err(Error::Protocol(format!(
@@ -116,7 +116,7 @@ mod tests {
             created_at: Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 0).unwrap(),
             refs: Vec::new(),
             payload: BTreeMap::from([("body".to_owned(), json!("hello"))]),
-            proofs: Vec::new(),
+            producer_proof: None,
         };
         let mut authored =
             AuthoredEvent::finalize_with_digest_suite(event, arkret_canonical::DigestSuite::Sha256)
@@ -126,7 +126,7 @@ mod tests {
             "did:web:alice.example#key-1",
         );
         sign_event(&mut authored, &signer, SignEventOptions::new()).unwrap();
-        assert_eq!(authored.proofs.len(), 1);
+        assert!(authored.producer_proof.is_some());
         authored
             .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap();

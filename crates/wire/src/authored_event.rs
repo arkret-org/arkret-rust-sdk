@@ -18,9 +18,9 @@ pub struct AuthoredEvent {
 
 impl AuthoredEvent {
     pub fn finalize_with_digest_suite(mut event: Event, digest_suite: DigestSuite) -> Result<Self> {
-        if !event.proofs.is_empty() {
+        if event.producer_proof.is_some() {
             return Err(WireError::Protocol(
-                "proofs must be attached after Event authoring is finalized".to_owned(),
+                "producer_proof must be attached after Event authoring is finalized".to_owned(),
             ));
         }
         event.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
@@ -58,12 +58,11 @@ impl AuthoredEvent {
     }
 
     pub fn attach_proof(&mut self, proof: ProducerEventProof) {
-        self.event.proofs.clear();
-        self.event.proofs.push(proof);
+        self.event.producer_proof = Some(proof);
     }
 
-    pub fn clear_proofs(&mut self) {
-        self.event.proofs.clear();
+    pub fn clear_producer_proof(&mut self) {
+        self.event.producer_proof = None;
     }
 
     pub fn verify_identity(&self) -> Result<()> {

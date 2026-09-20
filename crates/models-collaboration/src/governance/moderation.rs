@@ -116,7 +116,7 @@ impl ModerationReportRequestBody {
             ));
         }
 
-        if !event.proofs.iter().any(|proof| {
+        if !event.producer_proof.as_ref().is_some_and(|proof| {
             proof_controller_matches_actor(
                 proof.verification_method.as_str(),
                 event.actor_id.signing_principal_id(),

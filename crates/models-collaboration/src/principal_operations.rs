@@ -129,6 +129,8 @@ impl PcrGenesisSubmitRequestBody {
             DeviceOrPrincipalRef::Principal(principal_id)
                 if principal_id == &proof.principal_id
         );
+        let create_proof = create.producer_proof.as_ref();
+        let authorize_proof = authorize.producer_proof.as_ref();
         if authorize_payload.authorization_binding_kind
             != DeviceAuthorizationBindingKind::RegistrationAnchor
             || !authorized_by_root
@@ -136,11 +138,10 @@ impl PcrGenesisSubmitRequestBody {
             || descriptor.device_public_key_did != authorize_payload.device_public_key_did
             || descriptor.hpke_key != authorize_payload.hpke_key
             || descriptor.algorithms != authorize_payload.algorithms
-            || create.proofs.len() != 1
-            || !create.proofs[0].verification_method.starts_with("did:key:")
-            || authorize.proofs.len() != 1
-            || authorize.proofs[0].verification_method.as_str()
-                != expected_authorize_verification_method
+            || create_proof.is_none_or(|proof| !proof.verification_method.starts_with("did:key:"))
+            || authorize_proof.is_none_or(|proof| {
+                proof.verification_method.as_str() != expected_authorize_verification_method
+            })
         {
             return Err(WireError::Protocol(
                 "PCR genesis descriptor and founding device authorization disagree".to_owned(),

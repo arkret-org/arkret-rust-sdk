@@ -93,7 +93,7 @@ fn with_caller_proof(mut event: Event, verification_method: &DidUrl) -> Event {
     )
     .unwrap();
     let jws = arkret_wire::test_support::structural_only_detached_jws(&event_digest);
-    event.proofs.push(ProducerEventProof {
+    event.producer_proof = Some(ProducerEventProof {
         kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
         verification_method: verification_method.clone(),
         event_digest,

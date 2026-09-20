@@ -20,7 +20,14 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
                 "principal_id": "ak:did_core:web:author.example",
                 "station_id": "ak:did_core:web:station.example"}},
             "created_at": "2026-08-31T00:00:00.000Z",
-            "payload": {"value": {}}, "proofs": []
+            "payload": {"value": {}},
+            "producer_proof": {
+                "kind": "detached_jws",
+                "verification_method": "did:web:author.example#device",
+                "event_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                "created_at": "2026-08-31T00:00:00.000Z",
+                "jws": "e30..c2ln"
+            }
         },
         "source_ref_access": {
             "kind": "directory_announce",

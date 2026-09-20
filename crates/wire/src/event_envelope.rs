@@ -159,12 +159,13 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
     pub payload: BTreeMap<String, Value>,
-    pub proofs: Vec<ProducerEventProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_proof: Option<ProducerEventProof>,
 }
 
 /// Minimal accepted-Event facts needed by the registry effect projector.
 ///
-/// This is deliberately not an authorable Event and carries no proofs. It
+/// This is deliberately not an authorable Event and carries no producer proof. It
 /// preserves the accepted authorization
 /// reference needed by registry effects without fabricating a new signed
 /// [`Event`].
@@ -455,7 +456,7 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 ///
 /// The excluded set and the reason each field is in it:
 ///
-/// * `proofs` — the signature cannot cover itself.
+/// * `producer_proof` — the signature cannot cover itself.
 /// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in would put a function of
 ///   the digest inside the digest's own input.
 ///
@@ -468,7 +469,7 @@ pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
     };
     let mut map = map.clone();
     map.remove("event_id");
-    map.remove("proofs");
+    map.remove("producer_proof");
     Ok(Value::Object(map))
 }
 
@@ -504,7 +505,8 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     refs: &'a Vec<EventRef>,
     payload: &'a BTreeMap<String, Value>,
-    proofs: &'a Vec<ProducerEventProof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    producer_proof: &'a Option<ProducerEventProof>,
 }
 
 impl<'a> From<&'a Event> for EventSer<'a> {
@@ -522,7 +524,7 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             created_at: event.created_at,
             refs: &event.refs,
             payload: &event.payload,
-            proofs: &event.proofs,
+            producer_proof: &event.producer_proof,
         }
     }
 }
@@ -559,7 +561,8 @@ struct EventWire {
     #[serde(default)]
     pub refs: Option<Vec<EventRef>>,
     pub payload: BTreeMap<String, Value>,
-    pub proofs: Vec<ProducerEventProof>,
+    #[serde(default)]
+    pub producer_proof: Option<ProducerEventProof>,
 }
 
 impl TryFrom<EventWire> for Event {
@@ -605,7 +608,7 @@ impl TryFrom<EventWire> for Event {
             created_at: wire.created_at,
             refs,
             payload: wire.payload,
-            proofs: wire.proofs,
+            producer_proof: wire.producer_proof,
         };
         event.validate_applet_provenance_invariants()?;
         Ok(event)
@@ -950,7 +953,7 @@ impl Event {
     ///
     /// Prepare drafts intentionally omit fields outside the producer-signed
     /// transcript. This constructor is the only SDK path that restores those
-    /// fields before a caller appends proofs, so downstream clients never need
+    /// fields before a caller attaches the producer proof, so downstream clients never need
     /// to patch JSON objects themselves.
     pub fn from_digest_payload_bytes(
         bytes: &[u8],
@@ -960,14 +963,13 @@ impl Event {
         let object = value.as_object_mut().ok_or_else(|| {
             WireError::Protocol("Event digest payload must be a JSON object".to_owned())
         })?;
-        for forbidden in ["event_id", "proofs"] {
+        for forbidden in ["event_id", "producer_proof"] {
             if object.contains_key(forbidden) {
                 return Err(WireError::Protocol(format!(
                     "Event digest payload must omit {forbidden}"
                 )));
             }
         }
-        object.insert("proofs".to_owned(), Value::Array(Vec::new()));
         // `event_id` is not in the preimage either — section 4.0 derives it
         // *from* this digest — so it cannot be read off these bytes. Reconstruct
         // it the only way there is: seed the parse with a placeholder, then
@@ -1151,9 +1153,9 @@ impl Event {
         validate_event_ref_count(self.refs.len())?;
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
-        let [producer] = self.proofs.as_slice() else {
+        let Some(producer) = self.producer_proof.as_ref() else {
             return Err(WireError::Protocol(
-                "Event must carry exactly one producer proof".to_owned(),
+                "Event must carry producer_proof".to_owned(),
             ));
         };
         producer.validate()?;
@@ -1186,14 +1188,16 @@ impl Event {
     ) -> Result<()> {
         let digest = self.event_digest_with_digest_suite(digest_suite)?;
         let expected_hash = Hash::new(digest)?;
-        for proof in &self.proofs {
-            proof.validate()?;
-            if proof.event_digest != expected_hash {
-                return Err(WireError::Protocol(format!(
-                    "event proof event_digest '{}' does not match event digest '{}'",
-                    proof.event_digest, expected_hash
-                )));
-            }
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Event must carry producer_proof".to_owned()))?;
+        proof.validate()?;
+        if proof.event_digest != expected_hash {
+            return Err(WireError::Protocol(format!(
+                "event proof event_digest '{}' does not match event digest '{}'",
+                proof.event_digest, expected_hash
+            )));
         }
         Ok(())
     }
@@ -1206,17 +1210,19 @@ impl Event {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         let expected_hash = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        for proof in &self.proofs {
-            let expected = SignatureBindingPayload {
-                payload_digest: expected_hash.clone(),
-                actor_id: self.actor_id.clone(),
-                verification_method: proof.verification_method.clone(),
-                created_at: proof.created_at,
-                domain: domain.clone(),
-                audience: audience.clone(),
-            };
-            proof.validate_binding_with_requirements(&expected, requirements)?;
-        }
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Event must carry producer_proof".to_owned()))?;
+        let expected = SignatureBindingPayload {
+            payload_digest: expected_hash,
+            actor_id: self.actor_id.clone(),
+            verification_method: proof.verification_method.clone(),
+            created_at: proof.created_at,
+            domain,
+            audience,
+        };
+        proof.validate_binding_with_requirements(&expected, requirements)?;
         Ok(())
     }
 
@@ -1316,7 +1322,7 @@ impl Event {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            proofs: Vec::new(),
+            producer_proof: None,
         })
     }
 }
@@ -1374,7 +1380,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn digest_payload_round_trips_without_proofs() {
+    fn digest_payload_round_trips_without_producer_proof() {
         let event = base_event();
         let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
         let reconstructed =
@@ -1382,14 +1388,14 @@ mod event_wire_surface_tests {
                 .unwrap();
 
         assert_eq!(reconstructed, event);
-        assert!(reconstructed.proofs.is_empty());
+        assert!(reconstructed.producer_proof.is_none());
     }
 
     #[test]
-    fn digest_payload_rejects_proofs_and_noncanonical_json() {
-        let mut with_proofs = base_event().digest_payload().unwrap();
-        with_proofs["proofs"] = json!([]);
-        let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
+    fn digest_payload_rejects_producer_proof_and_noncanonical_json() {
+        let mut with_producer_proof = base_event().digest_payload().unwrap();
+        with_producer_proof["producer_proof"] = json!({});
+        let bytes = canonical::canonical_json_bytes(&with_producer_proof).unwrap();
         assert!(
             Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
@@ -1403,6 +1409,15 @@ mod event_wire_surface_tests {
             Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn legacy_proofs_array_is_rejected() {
+        let mut value = serde_json::to_value(base_event()).unwrap();
+        value["proofs"] = json!([producer_proof()]);
+        let error = serde_json::from_value::<Event>(value)
+            .expect_err("legacy Event proofs array must be rejected");
+        assert!(error.to_string().contains("proofs"), "{error}");
     }
 
     #[test]
@@ -1473,13 +1488,11 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn structural_validation_requires_exactly_one_producer_proof() {
+    fn structural_validation_requires_producer_proof() {
         let mut event = base_event();
         assert!(event.validate_for_submit_structural().is_err());
-        event.proofs.push(producer_proof());
+        event.producer_proof = Some(producer_proof());
         event.validate_for_submit_structural().unwrap();
-        event.proofs.push(producer_proof());
-        assert!(event.validate_for_submit_structural().is_err());
     }
 
     #[test]

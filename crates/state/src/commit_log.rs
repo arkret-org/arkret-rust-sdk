@@ -267,7 +267,7 @@ mod tests {
             created_at: Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 0).unwrap(),
             refs: Vec::new(),
             payload: Default::default(),
-            proofs: Vec::new(),
+            producer_proof: None,
         }
     }
 

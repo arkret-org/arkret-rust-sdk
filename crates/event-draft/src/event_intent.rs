@@ -221,7 +221,7 @@ impl EventIntent {
             created_at: self.created_at,
             refs: self.refs,
             payload: self.payload,
-            proofs: Vec::new(),
+            producer_proof: None,
         }
     }
 

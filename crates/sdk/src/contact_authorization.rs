@@ -273,8 +273,8 @@ fn verify_agent_holder_binding(
     }
     let candidate = agent_did.cloned().or_else(|| {
         event
-            .proofs
-            .first()
+            .producer_proof
+            .as_ref()
             .map(|p| p.verification_method.as_str())
             .into_iter()
             .chain(event.authorization_ref.as_ref().map(|r| r.as_str()))
@@ -431,8 +431,8 @@ fn verify_holder(
     event
         .verify_event_id_matches_content_with_digest_suite(suite)
         .map_err(invalid)?;
-    let [proof] = event.proofs.as_slice() else {
-        return Err(invalid("Contact requires exactly one producer proof"));
+    let Some(proof) = event.producer_proof.as_ref() else {
+        return Err(invalid("Contact requires producer_proof"));
     };
     proof.validate_production().map_err(invalid)?;
     if proof.created_at != event.created_at

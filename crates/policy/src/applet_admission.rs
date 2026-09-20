@@ -102,7 +102,7 @@ pub fn validate_applet_installation_coordinates(
     {
         return Err(fail());
     }
-    let [producer_proof] = event.proofs.as_slice() else {
+    let Some(producer_proof) = event.producer_proof.as_ref() else {
         return Err(fail());
     };
     if producer == &service

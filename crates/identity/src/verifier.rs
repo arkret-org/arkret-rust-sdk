@@ -1180,7 +1180,7 @@ mod tests {
                 authorization_ref: None,
                 applet_id: None,
                 external_ref: None,
-                proofs: Vec::new(),
+                producer_proof: None,
             }
         }
 

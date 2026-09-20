@@ -90,7 +90,7 @@ fn event_value() -> serde_json::Value {
         "created_at": "2026-05-02T00:00:00.000Z",
         "refs": [],
         "payload": {},
-        "proofs": [],
+        "producer_proof": {},
         "unknown_future_field": true
     })
 }

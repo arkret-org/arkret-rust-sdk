@@ -391,12 +391,12 @@ impl CarrierFixture {
             created_at: self.source.signature.created_at,
             refs: Vec::new(),
             payload: serde_json::from_value(value).unwrap(),
-            proofs: Vec::new(),
+            producer_proof: None,
         };
         self.sign_event(event)
     }
     fn sign_event(&self, mut event: Event) -> Event {
-        event.proofs.clear();
+        event.producer_proof = None;
         let digest = Hash::new(
             event
                 .event_digest_with_digest_suite(DigestSuite::Sha256)
@@ -419,7 +419,7 @@ impl CarrierFixture {
             &self.device_key,
         )
         .unwrap();
-        event.proofs.push(proof);
+        event.producer_proof = Some(proof);
         event
     }
     fn address(&self) -> arkret_models_collaboration::governance::peer_contact::PeerContactAddress {
@@ -553,13 +553,17 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
     assert!(fixture.authenticate(&bad_source).is_err());
     let mut bad_holder = carrier.clone();
     if let PeerContactSubmitRequestBody::Request { signed_event, .. } = &mut bad_holder {
-        signed_event.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
-            &signed_event.proofs[0]
-                .canonical_binding_bytes(&signed_event.actor_id)
-                .unwrap(),
-            &fixture.source.key,
-        )
-        .unwrap();
+        let binding = signed_event
+            .producer_proof
+            .as_ref()
+            .expect("producer proof")
+            .canonical_binding_bytes(&signed_event.actor_id)
+            .unwrap();
+        signed_event
+            .producer_proof
+            .as_mut()
+            .expect("producer proof")
+            .jws = arkret_signatures::jws::sign_jws_ed25519(&binding, &fixture.source.key).unwrap();
     }
     assert!(
         fixture.authenticate(&bad_holder).is_err(),
@@ -650,15 +654,23 @@ fn carrier_projection_binds_exact_method_and_key_without_changing_original_event
         unreachable!()
     };
     let event_id = signed_event.event_id.clone();
-    signed_event.proofs[0].verification_method =
+    signed_event
+        .producer_proof
+        .as_mut()
+        .expect("producer proof")
+        .verification_method =
         DidUrl::new("did:webvh:zfixturealice:alice.example#another-device").unwrap();
-    signed_event.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
-        &signed_event.proofs[0]
-            .canonical_binding_bytes(&signed_event.actor_id)
-            .unwrap(),
-        &fixture.device_key,
-    )
-    .unwrap();
+    let binding = signed_event
+        .producer_proof
+        .as_ref()
+        .expect("producer proof")
+        .canonical_binding_bytes(&signed_event.actor_id)
+        .unwrap();
+    signed_event
+        .producer_proof
+        .as_mut()
+        .expect("producer proof")
+        .jws = arkret_signatures::jws::sign_jws_ed25519(&binding, &fixture.device_key).unwrap();
     assert_eq!(
         signed_event.event_id, event_id,
         "proof metadata is outside the Event content ID"
@@ -684,14 +696,22 @@ fn carrier_history_structure_accepts_producer_events_and_rejects_unrelated_kinds
     unrelated.kind = EventKind::MessageCreate;
     assert!(unrelated.validate_for_contact_history_structural().is_err());
     let mut development_proof = event;
-    development_proof.proofs[0].kind = "dev".to_owned();
-    development_proof.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
-        &development_proof.proofs[0]
-            .canonical_binding_bytes(&development_proof.actor_id)
-            .unwrap(),
-        &fixture.device_key,
-    )
-    .unwrap();
+    development_proof
+        .producer_proof
+        .as_mut()
+        .expect("producer proof")
+        .kind = "dev".to_owned();
+    let binding = development_proof
+        .producer_proof
+        .as_ref()
+        .expect("producer proof")
+        .canonical_binding_bytes(&development_proof.actor_id)
+        .unwrap();
+    development_proof
+        .producer_proof
+        .as_mut()
+        .expect("producer proof")
+        .jws = arkret_signatures::jws::sign_jws_ed25519(&binding, &fixture.device_key).unwrap();
     assert!(
         verify_holder(
             &development_proof,

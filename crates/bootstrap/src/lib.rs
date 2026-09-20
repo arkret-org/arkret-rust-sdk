@@ -59,7 +59,7 @@ fn author_event(
             created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
             refs,
             payload: payload.into_iter().collect(),
-            proofs: Vec::new(),
+            producer_proof: None,
         },
         arkret_canonical::DigestSuite::Sha256,
     )

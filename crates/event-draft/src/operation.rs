@@ -151,11 +151,7 @@ impl ProjectedEventOperation {
 }
 
 fn producer_device_id(event: &Event) -> Option<DeviceId> {
-    let mut producer_proofs = event.proofs.iter();
-    let producer_proof = producer_proofs.next()?;
-    if producer_proofs.next().is_some() {
-        return None;
-    }
+    let producer_proof = event.producer_proof.as_ref()?;
     let (controller, fragment) = producer_proof
         .verification_method
         .as_str()
