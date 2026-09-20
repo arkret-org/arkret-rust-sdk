@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    ActorId, AppletId, CircleId, CommittedEventRef, DidCoreId, EncryptionProfile, EvaluationClass,
-    Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
-    WireResourceSelector, XExtensionMap,
+    ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, EventId, Facet,
+    GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -640,31 +640,29 @@ impl GrantConstraint {
 /// One entry of a grant's `issuer_authority_refs[]`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
     /// A grant the issuer holds. The issuer MUST be its subject and the ref
     /// MUST be active when the child is evaluated.
     Grant { grant_id: GrantId },
-    /// A decision admitted by the current governance Station and anchored to
-    /// an exact Realm-stream commit.
-    RealmAuthority {
+    /// A Realm authority root accepted by the governing Station. The current
+    /// result revision used at acceptance is Station-local state, not wire.
+    RealmRoot {
         realm_id: RealmId,
-        governance_station_id: DidCoreId,
+        authority_event_ref: EventId,
         authority_generation: u64,
-        basis: CommittedEventRef,
     },
 }
 
 /// Identity of one committed Realm authority decision reached by a grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthorityRootRef {
-    RealmAuthority {
+    RealmRoot {
         realm_id: RealmId,
-        governance_station_id: DidCoreId,
+        authority_event_ref: EventId,
         authority_generation: u64,
-        basis: CommittedEventRef,
     },
 }
 
@@ -692,13 +690,20 @@ pub struct CapabilityGrant {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     /// The authority this grant was issued under (`capabilities.md` §10).
-    /// A `realm_authority` entry is a rooted terminal; a `grant` entry is an edge.
+    /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
     /// v1 has one grant shape, so this is the only thing that distinguishes a
     /// root controller's grant from a member re-granting what it holds.
     // Required by capability-grant.schema.json.  Do not add `default` or
     // `skip_serializing_if`: doing so lets a strongly typed grant silently
     // deserialize or serialize without its authority root/parent edge.
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
+    /// Absolute distance from a committed Realm authority root. This is
+    /// reducer-derived and always present on a materialized current result.
+    pub authority_depth: u64,
+    /// Canonically sorted, deduplicated Realm authority roots reached through
+    /// `issuer_authority_refs`. This is reducer-derived and never authored in
+    /// the create body.
+    pub authority_root_refs: Vec<AuthorityRootRef>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     /// Station-derived lifecycle state. Producers cannot author this member;

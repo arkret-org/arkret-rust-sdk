@@ -3,7 +3,11 @@
 use std::fs;
 use std::path::PathBuf;
 
+use arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody;
 use arkret_models_collaboration::governance::authorization::GrantList;
+use arkret_models_collaboration::governance::grant_constraint::{
+    AuthorityRootRef, CapabilityGrant, IssuerAuthorityRef,
+};
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
@@ -62,6 +66,13 @@ fn grant() -> Value {
         "issuer_authority_refs": [{
             "kind": "grant",
             "grant_id": "ak:grant:AU1_A5a8MMz_OdxEleQlWPFn-ljdJteaJv3ZZ9APkcrZ"
+        }],
+        "authority_depth": 2,
+        "authority_root_refs": [{
+            "kind": "realm_root",
+            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            "authority_event_ref": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
+            "authority_generation": 0
         }],
         "issued_at": "2026-09-21T00:00:00.000Z",
         "status": "active"
@@ -143,4 +154,80 @@ fn list_and_row_are_closed_and_list_metadata_is_required() {
         serde_json::from_value::<GrantList>(terminal).is_err(),
         "the effective-list carrier must enforce the operation's active-only semantics"
     );
+}
+
+#[test]
+fn realm_root_is_the_only_root_wire_token_and_is_closed() {
+    let canonical = json!({
+        "kind": "realm_root",
+        "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+        "authority_event_ref": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
+        "authority_generation": 0
+    });
+    let parsed: IssuerAuthorityRef =
+        serde_json::from_value(canonical.clone()).expect("realm_root must deserialize");
+    assert_eq!(serde_json::to_value(parsed).unwrap(), canonical);
+    let parsed_root: AuthorityRootRef = serde_json::from_value(canonical.clone())
+        .expect("materialized realm_root must deserialize");
+    assert_eq!(serde_json::to_value(parsed_root).unwrap(), canonical);
+
+    let legacy = json!({
+        "kind": "realm_authority",
+        "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+        "governance_station_id": "ak:did_core:webvh:z6mkstation",
+        "authority_generation": 0,
+        "basis": {
+            "event_id": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
+            "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            "stream_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+            },
+            "stream_position": 1
+        }
+    });
+    assert!(serde_json::from_value::<IssuerAuthorityRef>(legacy.clone()).is_err());
+    assert!(serde_json::from_value::<AuthorityRootRef>(legacy).is_err());
+
+    let mut extra_basis = canonical;
+    extra_basis["basis"] = json!({"stream_position": 1});
+    assert!(serde_json::from_value::<IssuerAuthorityRef>(extra_basis.clone()).is_err());
+    assert!(serde_json::from_value::<AuthorityRootRef>(extra_basis).is_err());
+}
+
+#[test]
+fn materialized_grant_requires_reducer_derived_authority_fields() {
+    serde_json::from_value::<CapabilityGrant>(grant())
+        .expect("complete materialized grant must deserialize");
+
+    let mut missing_depth = grant();
+    missing_depth
+        .as_object_mut()
+        .unwrap()
+        .remove("authority_depth");
+    assert!(serde_json::from_value::<CapabilityGrant>(missing_depth).is_err());
+
+    let mut missing_roots = grant();
+    missing_roots
+        .as_object_mut()
+        .unwrap()
+        .remove("authority_root_refs");
+    assert!(serde_json::from_value::<CapabilityGrant>(missing_roots).is_err());
+}
+
+#[test]
+fn create_body_excludes_materialized_authority_fields() {
+    let mut value = grant();
+    let object = value.as_object_mut().unwrap();
+    object.remove("id");
+    object.remove("status");
+    object.remove("authority_depth");
+    object.remove("authority_root_refs");
+
+    let parsed: CapabilityGrantCreateBody = serde_json::from_value(value.clone())
+        .expect("create body must accept author-controlled members only");
+    assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+
+    value["authority_depth"] = json!(2);
+    assert!(serde_json::from_value::<CapabilityGrantCreateBody>(value).is_err());
 }

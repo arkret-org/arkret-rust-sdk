@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, CommittedEventRef, DidCoreId, Hash};
+use arkret_wire::{ActorId, AppletId, CircleId, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -48,17 +48,16 @@ use crate::authz::ConstraintDuration;
 /// this" and "someone re-granted what they hold" — v1 carries no separate
 /// separate child-grant event, cell family or wire bit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
     /// A grant the issuer holds. The issuer MUST be its subject, and it MUST
     /// be active at evaluation time.
     Grant { grant_id: String },
-    /// A governance decision anchored to an exact Realm-stream commit.
-    RealmAuthority {
-        realm_id: String,
-        governance_station_id: DidCoreId,
+    /// A Realm authority root accepted by the governing Station.
+    RealmRoot {
+        realm_id: RealmId,
+        authority_event_ref: EventId,
         authority_generation: u64,
-        basis: CommittedEventRef,
     },
 }
 
@@ -68,7 +67,7 @@ impl IssuerAuthorityRef {
     pub fn grant_id(&self) -> Option<&str> {
         match self {
             Self::Grant { grant_id } => Some(grant_id.as_str()),
-            Self::RealmAuthority { .. } => None,
+            Self::RealmRoot { .. } => None,
         }
     }
 
@@ -76,7 +75,7 @@ impl IssuerAuthorityRef {
     #[must_use]
     pub fn authority_generation(&self) -> Option<u64> {
         match self {
-            Self::RealmAuthority {
+            Self::RealmRoot {
                 authority_generation,
                 ..
             } => Some(*authority_generation),
@@ -107,15 +106,13 @@ pub struct Grant {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// The authority this grant was issued under (`capabilities.md` §10).
-    /// A `realm_authority` ref is a rooted terminal; a `grant` ref is an edge, and
+    /// A `realm_root` ref is a rooted terminal; a `grant` ref is an edge, and
     /// revoking the grant it names invalidates this one at read time.
     #[serde(default)]
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     /// Absolute distance from a committed authority decision.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authority_depth: Option<u64>,
+    pub authority_depth: u64,
     /// Committed authority decisions reached by this grant.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authority_root_refs:
         Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
 }
@@ -407,7 +404,7 @@ pub fn validate_applet_authority_binding(
 
 /// Returns `true` iff every ancestor reachable through `issuer_authority_refs`
 /// is still active (not revoked, not expired). A grant whose refs are all
-/// `realm_authority` is trivially intact: it is a terminal, not an edge.
+/// `realm_root` is trivially intact: it is a terminal, not an edge.
 ///
 /// Multiple refs only ever *add* constraints: the grant holds iff **every**
 /// path is intact. An alternate live path MUST NOT launder a revoked one.
@@ -467,7 +464,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{CommitStreamRef, DidCoreId, EventId, RealmCommitId, RealmId};
+    use arkret_wire::{DidCoreId, EventId, RealmId};
     use chrono::Duration;
 
     use super::*;
@@ -494,20 +491,25 @@ mod tests {
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
-            issuer_authority_refs: vec![IssuerAuthorityRef::RealmAuthority {
-                realm_id: "ak:realm:1".to_owned(),
-                governance_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
-                    .unwrap(),
+            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
+                realm_id: realm_id.clone(),
+                authority_event_ref: EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [2; 32],
+                ),
                 authority_generation: 0,
-                basis: CommittedEventRef {
-                    event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [2; 32]),
-                    commit_id: RealmCommitId::from_digest([3; 32]),
-                    stream_ref: CommitStreamRef::Realm { realm_id },
-                    stream_position: 1,
-                },
             }],
-            authority_depth: Some(1),
-            authority_root_refs: Vec::new(),
+            authority_depth: 1,
+            authority_root_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                    realm_id,
+                    authority_event_ref: EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [2; 32],
+                    ),
+                    authority_generation: 0,
+                },
+            ],
         }
     }
 
@@ -542,8 +544,20 @@ mod tests {
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
                 grant_id: parent.to_owned(),
             }],
-            authority_depth: None,
-            authority_root_refs: Vec::new(),
+            authority_depth: 2,
+            authority_root_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                    realm_id: RealmId::from_event_id(&EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [1; 32],
+                    )),
+                    authority_event_ref: EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [2; 32],
+                    ),
+                    authority_generation: 0,
+                },
+            ],
         }
     }
 
