@@ -1,7 +1,13 @@
+use arkret_canonical::DigestSuite;
 use arkret_schema::*;
-use arkret_schema_conformance::spec_json_artifact;
+use arkret_schema_conformance::{
+    schema_registry_from_configured_spec_artifacts, spec_json_artifact,
+};
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, SchemaId};
+use arkret_wire::{
+    AuthoredEvent, BUILT_IN_CONFORMANCE_FIXTURES_VERSION, DidCoreId, DidUrl, Hash,
+    ProducerEventProof, RealmId, SchemaId, ScopeRef,
+};
 use serde_json::json;
 
 fn required_profiles() -> [ConformanceProfile; 11] {
@@ -74,25 +80,43 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
 }
 
 fn event_value() -> serde_json::Value {
-    json!({
-        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg",
-        "kind": "ak.message.create",
-        "realm_id": "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR",
-        "scope_ref": {
-            "kind": "realm",
-            "realm_id": "ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR"
+    let realm_id = RealmId::new("ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR").unwrap();
+    let created_at = "2026-05-02T00:00:00.000Z".parse().unwrap();
+    let event = arkret_wire::test_support::raw_event_at(
+        "ak.message.create",
+        ScopeRef::Realm {
+            realm_id: realm_id.clone(),
         },
-        "actor_id": {
-            "kind": "account",
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
-            "station_id": "ak:did_core:webvh:z6mkstation"
-        },
-        "created_at": "2026-05-02T00:00:00.000Z",
-        "semantic_refs": [],
-        "payload": {},
-        "producer_proof": {},
-        "unknown_future_field": true
-    })
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+        json!({
+            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
+            "track_name": "discussion",
+            "content": {"kind": "ak.content.text", "body": "extension fixture"},
+        }),
+        created_at,
+    )
+    .unwrap();
+    let mut authored =
+        AuthoredEvent::finalize_with_digest_suite(event, DigestSuite::Sha256).unwrap();
+    let event_digest = Hash::new(
+        authored
+            .event()
+            .event_digest_with_digest_suite(DigestSuite::Sha256)
+            .unwrap(),
+    )
+    .unwrap();
+    authored.attach_proof(ProducerEventProof {
+        kind: "detached_jws".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture#key-1").unwrap(),
+        event_digest: event_digest.clone(),
+        created_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
+        jws: arkret_wire::test_support::structural_only_detached_jws(&event_digest),
+    });
+    serde_json::to_value(authored.into_event()).unwrap()
 }
 
 #[test]
@@ -133,19 +157,31 @@ fn schema_registry_exposes_object_shape_metadata_and_uses_full_runtime_for_admis
 
 #[test]
 fn schema_registry_fails_closed_for_unknown_security_extensions() {
-    let mut registry = ProtocolSchemaRegistry::default();
-    let mut event = event_value();
+    let mut registry = schema_registry_from_configured_spec_artifacts().unwrap();
+    let base_event = event_value();
+    registry
+        .validate_value(SchemaId::EVENT_V1, &base_event)
+        .unwrap();
+
+    let mut event = base_event.clone();
     event["x-security-critical"] = json!({"unknown": true});
 
     assert!(registry.validate_value(SchemaId::EVENT_V1, &event).is_err());
     registry.trust_extension_prefix("x-security-critical");
-    registry.validate_value(SchemaId::EVENT_V1, &event).unwrap();
+    assert!(
+        registry.validate_value(SchemaId::EVENT_V1, &event).is_err(),
+        "a trusted prefix does not override the formal Event schema's closed envelope"
+    );
 
-    let mut ordinary = event_value();
+    let mut ordinary = base_event;
     ordinary["x-ui-hint"] = json!({"preserved": true});
-    ProtocolSchemaRegistry::default()
-        .validate_value(SchemaId::EVENT_V1, &ordinary)
-        .unwrap();
+    assert!(
+        schema_registry_from_configured_spec_artifacts()
+            .unwrap()
+            .validate_value(SchemaId::EVENT_V1, &ordinary)
+            .is_err(),
+        "the formal Event envelope rejects every undeclared top-level extension"
+    );
 }
 
 #[test]
