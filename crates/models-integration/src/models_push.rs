@@ -412,9 +412,13 @@ impl PushRegistrationHandoffRequestBody {
                     "push handoff platform must not be empty".to_owned(),
                 ));
             }
-            if app_id.as_deref().is_some_and(str::is_empty) {
+            if app_id
+                .as_deref()
+                .is_some_and(|value| value.is_empty() || value.starts_with("ak:"))
+            {
                 return Err(WireError::Protocol(
-                    "push handoff app_id must not be empty".to_owned(),
+                    "push handoff app_id must be non-empty and outside the ak: namespace"
+                        .to_owned(),
                 ));
             }
             if supersedes_registration_id.as_ref() == Some(registration_id) {
@@ -1326,6 +1330,18 @@ mod tests {
             "push_key": "must-not-survive-a-tombstone"
         });
         assert!(serde_json::from_value::<PushRegistrationHandoffRequestBody>(surplus).is_err());
+
+        let reserved_app_id: PushRegistrationHandoffRequestBody = serde_json::from_value(json!({
+            "registration_id": "registration_0123456789abcdef",
+            "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "state": "active",
+            "push_key": "provider-secret",
+            "app_id": "ak:not-an-external-app-id",
+            "visible_notification_opt_in": false
+        }))
+        .unwrap();
+        assert!(reserved_app_id.validate().is_err());
     }
 
     #[test]
