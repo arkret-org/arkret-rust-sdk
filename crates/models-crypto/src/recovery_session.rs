@@ -490,8 +490,8 @@ pub struct TrustedRecoveryServiceProofBody {
 }
 
 /// Closed signature-independent projection selected by `kind`. Carrier
-/// signatures and commitments are deleted, never replaced by null, before
-/// transcript canonicalization.
+/// signatures are deleted, never replaced by null, before transcript
+/// canonicalization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RecoveryTranscriptProofBody {
