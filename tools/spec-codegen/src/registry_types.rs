@@ -1276,8 +1276,11 @@ fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutp
 }
 
 fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/did-method-adapter-registry.json")?;
-    let rows = sorted_rows(artifact.array("adapters")?, "method_evidence_kind")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("did_method_adapter_registry", "adapters")?,
+        "method_evidence_kind",
+    )?;
     validate_unique(&rows, "method_evidence_kind", &[])?;
     let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));
     output.push_str(

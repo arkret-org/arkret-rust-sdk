@@ -219,7 +219,7 @@
       "owner": "arkret-wire",
       "mode": "enum+property",
       "artifacts": [
-        "registry/did-method-adapter-registry.json"
+        "registry/contract-registry.json"
       ]
     },
     {
