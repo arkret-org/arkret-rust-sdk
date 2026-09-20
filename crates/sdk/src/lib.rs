@@ -84,7 +84,7 @@ pub use arkret_hlc::{
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
-#[cfg(feature = "client")]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 pub use arkret_http_client::service_resolution_fetcher::{
     MaterializedServiceResolution, ServiceResolutionFetcher,
 };

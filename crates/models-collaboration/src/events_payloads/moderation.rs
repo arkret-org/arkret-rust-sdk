@@ -150,6 +150,44 @@ pub struct ModerationDecisionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod moderation_decision_payload_tests {
+    use super::*;
+
+    #[test]
+    fn optional_nullable_expiry_matches_formal_payload() {
+        let base = serde_json::json!({
+            "target_ref": "ak:event:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB",
+            "decision": "quarantine",
+            "issuer_id": "ak:did_core:webvh:z6mkfixtureissuer",
+            "request_canonical_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+        let absent: ModerationDecisionPayload = serde_json::from_value(base.clone()).unwrap();
+        assert!(absent.expires_at.is_none());
+        assert!(serde_json::to_value(&absent)
+            .unwrap()
+            .get("expires_at")
+            .is_none());
+
+        let mut explicit_null = base.clone();
+        explicit_null["expires_at"] = serde_json::Value::Null;
+        let null_value: ModerationDecisionPayload =
+            serde_json::from_value(explicit_null).unwrap();
+        assert!(null_value.expires_at.is_none());
+
+        let mut with_expiry = base;
+        with_expiry["expires_at"] = serde_json::json!("2026-09-21T00:00:00.000Z");
+        let dated: ModerationDecisionPayload = serde_json::from_value(with_expiry).unwrap();
+        assert_eq!(
+            serde_json::to_value(&dated).unwrap()["expires_at"],
+            "2026-09-21T00:00:00.000Z"
+        );
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
