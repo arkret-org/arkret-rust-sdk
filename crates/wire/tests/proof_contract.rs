@@ -28,7 +28,7 @@ fn valid_proof() -> ProducerEventProof {
         domain: None,
         audience: None,
         proof_purpose: None,
-        jws: "header.payload.signature".to_owned(),
+        jws: "header..signature".to_owned(),
     }
 }
 
@@ -52,7 +52,7 @@ fn payload_proof_uses_the_same_compact_jws_syntax_as_event_proof() {
         ("header..signature.extra", false),
         ("header..signature=", false),
         ("header..signature", true),
-        ("header.payload.signature", true),
+        ("header.payload.signature", false),
     ] {
         proof.jws = jws.to_owned();
         assert_eq!(proof.validate().is_ok(), accepted, "{jws}");

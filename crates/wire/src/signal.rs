@@ -478,12 +478,7 @@ impl SignalEnvelope {
         {
             return Err(invalid());
         }
-        let segments = self.proof.jws.split('.').collect::<Vec<_>>();
-        if segments.len() != 3
-            || segments[0].is_empty()
-            || segments[2].is_empty()
-            || segments.iter().any(|segment| !b64_chars(segment))
-        {
+        if !crate::is_compact_detached_jws(&self.proof.jws) {
             return Err(invalid());
         }
         if canonical::canonical_json_bytes(self)?.len() > MAX_SIGNAL_ENVELOPE_BYTES {

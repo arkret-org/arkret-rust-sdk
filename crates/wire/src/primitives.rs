@@ -1366,9 +1366,9 @@ impl PayloadProof {
                 "proof kind must not be empty".to_owned(),
             ));
         }
-        if !is_compact_jws(&self.jws) {
+        if !is_compact_detached_jws(&self.jws) {
             return Err(WireError::Protocol(
-                "proof JWS must use compact JWS syntax".to_owned(),
+                "proof JWS must use compact detached JWS syntax".to_owned(),
             ));
         }
         if self
@@ -1549,9 +1549,9 @@ impl ProducerEventProof {
     /// Rejects empty JWS and kind values. The signature layer validates the
     /// protected JOSE `alg`; the Arkret wrapper deliberately does not repeat it.
     pub fn validate(&self) -> Result<()> {
-        if !is_compact_jws(&self.jws) {
+        if !is_compact_detached_jws(&self.jws) {
             return Err(WireError::Protocol(
-                "proof JWS is not compact JWS".to_owned(),
+                "proof JWS is not compact detached JWS".to_owned(),
             ));
         }
         if self.kind != proof_kind::DETACHED_JWS {
@@ -1662,12 +1662,19 @@ impl ProducerEventProof {
     }
 }
 
-fn is_compact_jws(value: &str) -> bool {
+/// Return whether `value` has the protocol's compact detached-JWS carrier
+/// shape: exactly `protected..signature`, with unpadded base64url segments.
+///
+/// This is deliberately only the wire-shape gate. Cryptographic consumers
+/// must still decode the protected header, require the active `Ed25519`
+/// algorithm, and verify the signature over the registered transcript.
+pub fn is_compact_detached_jws(value: &str) -> bool {
     let mut segments = value.split('.');
     let protected = segments.next().unwrap_or_default();
-    let _payload = segments.next().unwrap_or_default();
+    let payload = segments.next().unwrap_or_default();
     let signature = segments.next().unwrap_or_default();
     !protected.is_empty()
+        && payload.is_empty()
         && !signature.is_empty()
         && segments.next().is_none()
         && value
