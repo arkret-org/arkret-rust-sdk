@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-21.2;
-//! sha256=7b53ca5d03646e3cbcb04b5f6ea3a2b3acbd4a6e501b491eb30627f7f7480b1c
+//! sha256=c962f4351e5f5f0c62c163738ef45996f527f8893174340435f712654f20344f
 //! Entries: active_events=144
 
 use arkret_wire::event_kind_str;

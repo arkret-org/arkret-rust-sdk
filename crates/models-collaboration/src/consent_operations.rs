@@ -18,7 +18,7 @@ use crate::events_payloads::consent::ConsentPeer;
 #[serde(rename_all = "snake_case")]
 pub enum ConsentState {
     Active,
-    NoConsent,
+    Revoked,
 }
 
 // Field declaration order is byte-for-byte the properties order of
@@ -36,12 +36,6 @@ pub struct ConsentView {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub requested_at: Option<DateTime<Utc>>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
     pub revision: CurrentRevision,
@@ -200,6 +194,20 @@ mod tests {
         let parsed: ConsentView = serde_json::from_value(value.clone()).expect("closed view");
         assert_eq!(parsed.state, ConsentState::Active);
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
+
+        let mut revoked = value.clone();
+        revoked["state"] = json!("revoked");
+        let parsed_revoked: ConsentView = serde_json::from_value(revoked.clone()).expect("revoked current view");
+        assert_eq!(parsed_revoked.state, ConsentState::Revoked);
+        assert_eq!(serde_json::to_value(parsed_revoked).unwrap(), revoked);
+
+        let mut retired = value.clone();
+        retired["state"] = json!("no_consent");
+        assert!(serde_json::from_value::<ConsentView>(retired).is_err());
+
+        let mut inferred_pending = value.clone();
+        inferred_pending["requested_at"] = json!("2026-08-09T00:00:00.000Z");
+        assert!(serde_json::from_value::<ConsentView>(inferred_pending).is_err());
 
         let mut unknown = value.clone();
         unknown
