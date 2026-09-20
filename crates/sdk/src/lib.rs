@@ -219,6 +219,7 @@ pub use arkret_models_collaboration::sidecar_operations::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::signal_operations::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
+pub use arkret_models_collaboration::strand_watch_operations::*;
 pub use arkret_models_collaboration::sync_frames::current_results::*;
 pub use arkret_models_collaboration::sync_frames::websocket::*;
 pub use arkret_models_collaboration::{contact_operations, direct_conversation};

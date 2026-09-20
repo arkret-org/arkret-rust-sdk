@@ -44,6 +44,7 @@ pub mod sidecar_operations;
 pub mod signal_message_stream;
 pub mod signal_operations;
 pub mod signal_plaintext;
+pub mod strand_watch_operations;
 pub mod sync_frames;
 
 pub use events_payloads::{

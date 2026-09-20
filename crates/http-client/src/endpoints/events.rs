@@ -14,6 +14,9 @@ use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
 use arkret_models_collaboration::event_query::CommittedEventView;
+use arkret_models_collaboration::strand_watch_operations::{
+    StrandWatchCurrentOutcome, StrandWatchCurrentRequestBody,
+};
 use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame,
 };
@@ -373,6 +376,22 @@ impl Client {
             }
         }
         Ok(snapshot)
+    }
+
+    /// Read one exact watch cell from the governing Station's durable typed
+    /// reducer. A written clear returns `Current` with `value: Cleared(())`,
+    /// distinct from `NeverWritten`.
+    pub async fn strand_watch_current(
+        &self,
+        request: &StrandWatchCurrentRequestBody,
+    ) -> Result<StrandWatchCurrentOutcome> {
+        let outcome: StrandWatchCurrentOutcome = self
+            .post("/_arkret/self/strands/watch/current", request)
+            .await?;
+        outcome
+            .validate_for_request(request)
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+        Ok(outcome)
     }
 
     fn committed_event_subscribe_request(

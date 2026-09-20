@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.5;
-//! sha256=f43620cea46360b14f3bc31565ad2cfdc376f0889a751a9c08ba7f43242d8e8d Entries: registered=205
+//! Input: registry/contract-registry.json; version=2026-09-21.6;
+//! sha256=b8cc91c0bff48f2869a2561f148c14658d6ade331c63878770e4dd48e7469108 Entries: registered=206
 
 use serde::{Deserialize, Serialize};
 
@@ -211,6 +211,7 @@ pub enum ServiceOperationId {
     SelfSignerKeysReadResolveV1,
     SelfSpaceReadListV1,
     SelfStrandReadListV1,
+    SelfStrandWatchReadCurrentV1,
     SelfThirdPartyInviteReadAcceptanceAttestationV1,
     ServerReadDescribeV1,
 }
@@ -419,6 +420,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SPACE_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
+    ServiceOperationId::SELF_STRAND_WATCH_READ_CURRENT_V1,
     ServiceOperationId::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
 ];
@@ -669,6 +671,7 @@ impl ServiceOperationId {
         Self::SelfSignerKeysReadResolveV1,
         Self::SelfSpaceReadListV1,
         Self::SelfStrandReadListV1,
+        Self::SelfStrandWatchReadCurrentV1,
         Self::SelfThirdPartyInviteReadAcceptanceAttestationV1,
         Self::ServerReadDescribeV1,
     ];
@@ -1015,6 +1018,8 @@ impl ServiceOperationId {
         "ak.self.signer_keys.read.resolve.v1";
     pub const SELF_SPACE_READ_LIST_V1: &'static str = "ak.self.space.read.list.v1";
     pub const SELF_STRAND_READ_LIST_V1: &'static str = "ak.self.strand.read.list.v1";
+    pub const SELF_STRAND_WATCH_READ_CURRENT_V1: &'static str =
+        "ak.self.strand.watch.read.current.v1";
     pub const SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1: &'static str =
         "ak.self.third_party_invite.read.acceptance_attestation.v1";
     pub const SERVER_READ_DESCRIBE_V1: &'static str = "ak.server.read.describe.v1";
@@ -1334,6 +1339,7 @@ impl ServiceOperationId {
             Self::SelfSignerKeysReadResolveV1 => Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
             Self::SelfSpaceReadListV1 => Self::SELF_SPACE_READ_LIST_V1,
             Self::SelfStrandReadListV1 => Self::SELF_STRAND_READ_LIST_V1,
+            Self::SelfStrandWatchReadCurrentV1 => Self::SELF_STRAND_WATCH_READ_CURRENT_V1,
             Self::SelfThirdPartyInviteReadAcceptanceAttestationV1 => {
                 Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1
             }
@@ -1734,6 +1740,7 @@ impl ServiceOperationId {
             Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1 => Some(Self::SelfSignerKeysReadResolveV1),
             Self::SELF_SPACE_READ_LIST_V1 => Some(Self::SelfSpaceReadListV1),
             Self::SELF_STRAND_READ_LIST_V1 => Some(Self::SelfStrandReadListV1),
+            Self::SELF_STRAND_WATCH_READ_CURRENT_V1 => Some(Self::SelfStrandWatchReadCurrentV1),
             Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1 => {
                 Some(Self::SelfThirdPartyInviteReadAcceptanceAttestationV1)
             }
@@ -6373,6 +6380,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfStrandWatchReadCurrentV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/strands/watch/current",
+        grpc: Some("SelfStrandWatch/Current"),
+        mq: Some("self.strand.watch.query.current"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(16384),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_exact_current_projection_no_event_or_durable_mutation"),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
