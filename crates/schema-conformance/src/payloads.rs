@@ -720,6 +720,7 @@ mod tests {
             "algorithms": ["ed25519", "x25519-hpke"],
             "device_key_algorithm": "Ed25519",
             "authorized_by": "ak:did_core:webvh:z6mkfixture",
+            "authorized_generation_ref": 1,
             "not_before": "2026-06-30T00:00:00.000Z",
             "authorization_binding_kind": "registration_anchor",
             "device_signature": "c2lnbmF0dXJl"

@@ -248,6 +248,9 @@ pub struct DeviceAuthorizePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<Option<DateTime<Utc>>>,
     pub authorization_binding_kind: DeviceAuthorizationBindingKind,
+    /// PCR-local device generation accepted by the governing Station. This is
+    /// never a DID `versionId`.
+    pub authorized_generation_ref: u64,
     pub device_signature: SignatureMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
@@ -273,6 +276,7 @@ struct DeviceAuthorizePayloadWire {
     #[serde(default)]
     expires_at: Option<Option<DateTime<Utc>>>,
     authorization_binding_kind: DeviceAuthorizationBindingKind,
+    authorized_generation_ref: u64,
     device_signature: SignatureMaterial,
     #[serde(default)]
     recovery_session_id: Option<RecoverySessionId>,
@@ -299,6 +303,7 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             not_before: wire.not_before,
             expires_at: wire.expires_at,
             authorization_binding_kind: wire.authorization_binding_kind,
+            authorized_generation_ref: wire.authorized_generation_ref,
             device_signature: wire.device_signature,
             recovery_session_id: wire.recovery_session_id,
             pairing_challenge_transcript_digest: wire.pairing_challenge_transcript_digest,
@@ -315,6 +320,14 @@ impl DeviceAuthorizePayload {
     pub fn validate_wire_constraints(&self) -> std::result::Result<(), &'static str> {
         if self.device_key_algorithm.as_str() != "Ed25519" {
             return Err("device_authorize_device_key_algorithm_unsupported");
+        }
+        if self.authorized_generation_ref == 0 {
+            return Err("device_authorize_generation_ref_must_be_positive");
+        }
+        if self.authorization_binding_kind == DeviceAuthorizationBindingKind::RegistrationAnchor
+            && self.authorized_generation_ref != 1
+        {
+            return Err("device_authorize_registration_generation_ref_must_be_one");
         }
         if self.algorithms.is_empty()
             || self
@@ -401,6 +414,7 @@ impl DeviceAuthorizePayload {
             "algorithms": self.algorithms,
             "device_key_algorithm": self.device_key_algorithm,
             "authorized_by": authorized_by,
+            "authorized_generation_ref": self.authorized_generation_ref,
             "not_before": self.not_before,
             "expires_at": expires_at,
             "scopes": self.scopes,
@@ -618,6 +632,73 @@ impl DeviceRevokePayload {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod device_authorize_tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn registration_payload_value() -> Value {
+        json!({
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
+            "device_public_key_did": "did:key:z6Mki3devicepublickey",
+            "hpke_key": "z6LSdevicehpke",
+            "algorithms": ["Ed25519", "HPKE-X25519-HKDF-SHA256-AES128GCM"],
+            "device_key_algorithm": "Ed25519",
+            "authorized_by": "ak:did_core:webvh:z6mkcontroller",
+            "not_before": "2026-09-16T00:00:00.000Z",
+            "authorization_binding_kind": "registration_anchor",
+            "authorized_generation_ref": 1,
+            "device_signature": "c2lnbmF0dXJl"
+        })
+    }
+
+    #[test]
+    fn generation_ref_round_trips_and_enters_the_possession_transcript() {
+        let payload: DeviceAuthorizePayload =
+            serde_json::from_value(registration_payload_value()).unwrap();
+        assert_eq!(payload.authorized_generation_ref, 1);
+        assert_eq!(
+            serde_json::to_value(&payload).unwrap(),
+            registration_payload_value()
+        );
+
+        let account_id = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+        );
+        let transcript = payload
+            .device_possession_signature_input(&account_id)
+            .unwrap();
+        let (_, body) =
+            transcript.split_at(transcript.iter().position(|byte| *byte == b'\n').unwrap() + 1);
+        let body: Value = serde_json::from_slice(body).unwrap();
+        assert_eq!(body["authorized_generation_ref"], json!(1));
+    }
+
+    #[test]
+    fn generation_ref_is_required_positive_and_registration_is_one() {
+        let mut missing = registration_payload_value();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("authorized_generation_ref");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(missing).is_err());
+
+        for invalid in [0, 2] {
+            let mut payload = registration_payload_value();
+            payload
+                .as_object_mut()
+                .unwrap()
+                .insert("authorized_generation_ref".to_owned(), json!(invalid));
+            assert!(
+                serde_json::from_value::<DeviceAuthorizePayload>(payload).is_err(),
+                "registration generation {invalid} must fail closed"
+            );
+        }
     }
 }
 

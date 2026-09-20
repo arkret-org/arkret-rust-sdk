@@ -537,6 +537,7 @@ mod tests {
             "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1"],
             "device_key_algorithm": "Ed25519",
             "authorized_by": "ak:did_core:webvh:z6mkfixture:alice.example",
+            "authorized_generation_ref": 1,
             "not_before": "2026-04-26T00:00:00.000Z",
             "authorization_binding_kind": "registration_anchor",
             "device_signature": "cGVuZGluZw"
