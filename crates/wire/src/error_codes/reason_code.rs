@@ -3069,3 +3069,26 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Confirmed fork evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); two byte-distinct signed RealmCommit objects name the same (stream_ref, stream_position); or a profile declares the observed combination non-joinable. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Two different accepted Events by one actor are not by themselves disagreement: an actor may author any number of Events and event-and-patch.md section 2.6 gives ordering precedence to the RealmCommit alone, so only one stream position carrying two distinct commits is equivocation. Raw stream head differences observed across different replication or disclosure scopes also are not disagreement: a consumer only ever observes the heads of the streams it is granted. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay plus an accepted operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn descriptor_and_wire_tables_are_bijective() {
+        for (index, descriptor) in REASON_CODE_DESCRIPTORS.iter().enumerate() {
+            assert!(index == 0 || REASON_CODE_DESCRIPTORS[index - 1].code < descriptor.code);
+            let parsed = ReasonCode::from_wire(descriptor.code);
+            assert_eq!(parsed.as_str(), descriptor.code);
+            assert!(ReasonCode::is_registered(descriptor.code));
+            assert_eq!(parsed.descriptor(), Some(descriptor));
+        }
+        let unknown = ReasonCode::from_wire("reserved_or_unknown");
+        assert_eq!(
+            unknown,
+            ReasonCode::Unknown("reserved_or_unknown".to_owned())
+        );
+        assert!(!ReasonCode::is_registered(unknown.as_str()));
+        assert_eq!(unknown.descriptor(), None);
+    }
+}

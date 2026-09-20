@@ -1614,6 +1614,27 @@ fn active_error_rows<'a>(
                 if condition.trim().is_empty() {
                     bail!("{collection} {code} is reserved without an activation condition");
                 }
+                let applies_to = row
+                    .get("applies_to")
+                    .and_then(Value::as_array)
+                    .with_context(|| {
+                        format!("{collection} {code} is reserved without applies_to[]")
+                    })?;
+                if applies_to.is_empty() {
+                    bail!("{collection} {code} is reserved with empty applies_to[]");
+                }
+                let mut unique = BTreeSet::new();
+                for applies_to in applies_to {
+                    let applies_to = applies_to.as_str().with_context(|| {
+                        format!("{collection} {code} has a non-string applies_to entry")
+                    })?;
+                    if applies_to.trim().is_empty() {
+                        bail!("{collection} {code} has an empty applies_to entry");
+                    }
+                    if !unique.insert(applies_to) {
+                        bail!("{collection} {code} repeats applies_to {applies_to:?}");
+                    }
+                }
             }
             status => bail!("{collection} {code} has unknown status {status:?}"),
         }
@@ -1745,7 +1766,9 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             rust_string(string(row, "description")?)
         )?;
     }
-    output.push_str("];\n");
+    output.push_str(
+        "];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn enum_descriptor_and_wire_tables_are_bijective() {\n        assert_eq!(ErrorCode::ALL.len(), ERROR_CODE_DESCRIPTORS.len());\n        for (index, code) in ErrorCode::ALL.iter().copied().enumerate() {\n            let descriptor = &ERROR_CODE_DESCRIPTORS[index];\n            assert_eq!(descriptor.code, code);\n            assert_eq!(code.descriptor(), descriptor);\n            assert_eq!(ErrorCode::from_wire(code.as_str()), Some(code));\n            assert!(ErrorCode::is_registered(code.as_str()));\n        }\n        assert_eq!(ErrorCode::from_wire(\"reserved_or_unknown\"), None);\n        assert!(!ErrorCode::is_registered(\"reserved_or_unknown\"));\n    }\n}\n",
+    );
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/error_codes/error_code.rs".into(),
         contents: output,
@@ -1820,7 +1843,9 @@ fn generate_reason_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             rust_string(string(row, "description")?)
         )?;
     }
-    output.push_str("];\n");
+    output.push_str(
+        "];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn descriptor_and_wire_tables_are_bijective() {\n        for (index, descriptor) in REASON_CODE_DESCRIPTORS.iter().enumerate() {\n            assert!(index == 0 || REASON_CODE_DESCRIPTORS[index - 1].code < descriptor.code);\n            let parsed = ReasonCode::from_wire(descriptor.code);\n            assert_eq!(parsed.as_str(), descriptor.code);\n            assert!(ReasonCode::is_registered(descriptor.code));\n            assert_eq!(parsed.descriptor(), Some(descriptor));\n        }\n        let unknown = ReasonCode::from_wire(\"reserved_or_unknown\");\n        assert_eq!(unknown, ReasonCode::Unknown(\"reserved_or_unknown\".to_owned()));\n        assert!(!ReasonCode::is_registered(unknown.as_str()));\n        assert_eq!(unknown.descriptor(), None);\n    }\n}\n",
+    );
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/error_codes/reason_code.rs".into(),
         contents: output,
@@ -3138,6 +3163,51 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("must not retain")
+        );
+
+        let reserved = Map::from_iter([
+            (
+                "code".to_owned(),
+                Value::String("reserved_probe".to_owned()),
+            ),
+            ("status".to_owned(), Value::String("reserved".to_owned())),
+            (
+                "activation_condition".to_owned(),
+                Value::String("activate with a producer".to_owned()),
+            ),
+            (
+                "applies_to".to_owned(),
+                Value::Array(vec![Value::String("service_call".to_owned())]),
+            ),
+        ]);
+        assert!(
+            active_error_rows(&[&reserved], "error code")
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut missing_applies_to = reserved.clone();
+        missing_applies_to.remove("applies_to");
+        assert!(
+            active_error_rows(&[&missing_applies_to], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("without applies_to[]")
+        );
+
+        let mut duplicate_applies_to = reserved;
+        duplicate_applies_to.insert(
+            "applies_to".to_owned(),
+            Value::Array(vec![
+                Value::String("service_call".to_owned()),
+                Value::String("service_call".to_owned()),
+            ]),
+        );
+        assert!(
+            active_error_rows(&[&duplicate_applies_to], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("repeats applies_to")
         );
     }
 

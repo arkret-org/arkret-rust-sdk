@@ -2692,3 +2692,22 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md §6.1.",
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enum_descriptor_and_wire_tables_are_bijective() {
+        assert_eq!(ErrorCode::ALL.len(), ERROR_CODE_DESCRIPTORS.len());
+        for (index, code) in ErrorCode::ALL.iter().copied().enumerate() {
+            let descriptor = &ERROR_CODE_DESCRIPTORS[index];
+            assert_eq!(descriptor.code, code);
+            assert_eq!(code.descriptor(), descriptor);
+            assert_eq!(ErrorCode::from_wire(code.as_str()), Some(code));
+            assert!(ErrorCode::is_registered(code.as_str()));
+        }
+        assert_eq!(ErrorCode::from_wire("reserved_or_unknown"), None);
+        assert!(!ErrorCode::is_registered("reserved_or_unknown"));
+    }
+}
