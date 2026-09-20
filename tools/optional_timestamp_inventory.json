@@ -2,8 +2,8 @@
   "version": 2,
   "total": 172,
   "counts": {
-    "internal": 54,
-    "optional_has_default": 114,
+    "internal": 56,
+    "optional_has_default": 112,
     "required": 3,
     "schema_field_unknown": 1
   },
@@ -1354,20 +1354,20 @@
     },
     {
       "file": "crates/models-collaboration/src/session_grants.rs",
-      "line": 599,
-      "struct_name": "SessionGrantIntrospectGrant",
+      "line": 592,
+      "struct_name": "SessionGrantValidationMetadata",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectGrant",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/session_grants.rs",
-      "line": 635,
-      "struct_name": "SessionGrantIntrospectGrantWire",
+      "line": 628,
+      "struct_name": "SessionGrantValidationMetadataWire",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
@@ -1378,15 +1378,15 @@
     },
     {
       "file": "crates/models-collaboration/src/session_grants.rs",
-      "line": 881,
-      "struct_name": "AuthSessionLogoutRequestBody",
+      "line": 861,
+      "struct_name": "AuthSessionTerminationInput",
       "field_name": "validated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/signal_operations.rs",
@@ -1642,7 +1642,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1360,
+      "line": 1245,
       "struct_name": "VerifiedProfileEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1654,7 +1654,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1496,
+      "line": 1381,
       "struct_name": "RateLimitPolicy",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1666,7 +1666,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1499,
+      "line": 1384,
       "struct_name": "RateLimitPolicy",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1678,7 +1678,7 @@
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1564,
+      "line": 1449,
       "struct_name": "RateLimitEntry",
       "field_name": "next_retry_at",
       "field_type": "Option<DateTime<Utc>>",

@@ -1,5 +1,9 @@
 # Authority-commit capability migration
 
+> Historical migration ledger: this document records the SDK surface as it
+> existed during the authority-commit migration. Operation and DTO names in
+> the tables are historical evidence, not the current canonical SDK contract.
+
 `e309b047` removed 162 files and 164,976 lines in one step. Some of that was a
 complete protocol unit leaving; some of it was product capability leaving with
 it, which is why every downstream repository stopped compiling. This file is the
@@ -42,7 +46,7 @@ below cites one of them.
 | Account lifecycle authorization proof | `account-operations.schema.json#/$defs/account_lifecycle_proof` | `crates/models-identity/src/account.rs` (`AccountLifecycleProof`, `AccountLifecycleProofKind`, `SessionGrantAppletSelector`) | `account_lifecycle::tests::account_lifecycle_proof_*` |
 | Holder-private consent self-management | `consent-operations.schema.json`; HTTP face `GET /_arkret/self/consent/results`, `GET /_arkret/self/consent/result` (`zh/sync/service-http-binding.md` L322-326) | `crates/models-collaboration/src/consent_operations.rs` | `consent_operations::tests` (4) |
 | PCR genesis relay (`pcr_genesis_submit_*`) | `principal-operations.schema.json#/$defs/pcr_genesis_submit_{request,outcome}`, `…/pcr_genesis_unit` | `crates/models-collaboration/src/principal_operations.rs`, `PcrGenesisUnit` in `crates/wire/src/authority_commit.rs`, `PCR_GENESIS_UNIT_KINDS` in `crates/models-identity/src/account.rs` | `principal_operations::tests` (3) |
-| Session grant introspection / auth-session logout | `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospect{RequestBody,Outcome,Grant}`, `…/AuthSessionLogout{RequestBody,Outcome}`; ops `ak.gate.account.command.introspect_session_grant.v1`, `ak.gate.account.command.logout_auth_session.v1` | `crates/models-collaboration/src/session_grants.rs` | `session_grants::session_grant_introspection_tests` (3) |
+| Session grant introspection / auth-session logout (historical) | Historical schemas `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospect{RequestBody,Outcome,Grant}`, `…/AuthSessionLogout{RequestBody,Outcome}`; historical ops `ak.gate.account.command.introspect_session_grant.v1`, `ak.gate.account.command.logout_auth_session.v1` | Replaced by operation-neutral deployment-private domain values in `crates/models-collaboration/src/session_grants.rs` | `session_grants::session_grant_private_adapter_tests` (3) |
 | Device revocation gate | `device-revocation-state.schema.json` | `crates/wire/src/device_revocation.rs` | `device_revocation::tests` (16) |
 | Controller-account gate attestation | `zh/identity/key-management.md` §3.7 area; `proof-context-registry.json` domain `ak.controller_account_gate.v1` | `crates/models-identity/src/agent_signer_evidence.rs` | `agent_signer_evidence::tests` (9), including `status == active` iff `eligibility == active` |
 | Realm media service foci | `event-payload.schema.json#/$defs/media_service_focus`; `zh/crypto-media/media-service-binding.md` §2 | `crates/models-collaboration/src/events_payloads/realm.rs` (`MediaServiceFocus`, `RealmMediaServicePayload`) | `realm::tests` media-focus cases (7), including `focus_kind` fail-closed |

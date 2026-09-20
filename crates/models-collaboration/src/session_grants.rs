@@ -1,6 +1,6 @@
-//! Session-grant request DTOs used by the authentication builder, plus the
-//! server-to-server introspection and Auth-side logout wire shapes
-//! (`service-operation-dtos.schema.json`).
+//! Session-grant request DTOs used by the authentication builder, plus domain
+//! values used by deployment-private grant validation and Auth-session
+//! termination adapters.
 
 use arkret_models_identity::{
     CanonicalSessionPublicJwk, SessionGrantAdminIntrospectionStatus, SessionGrantCredentialClass,
@@ -529,20 +529,18 @@ impl HumanSessionGrantRefreshRequest {
     }
 }
 
-// --- Session-grant introspection and Auth-side logout ----------------------
+// --- Deployment-private grant validation and Auth-session termination -----
 //
-// Wire shapes for `POST /_arkret/gate/account/session-grants/introspect`
-// (`ak.gate.account.command.introspect_session_grant.v1`) and
-// `POST /_arkret/gate/account/auth-sessions/logout`
-// (`ak.gate.account.command.logout_auth_session.v1`). The introspection status
-// vocabulary is the closed enum already carried by
+// These domain values deliberately carry no Arkret operation identity. The
+// issuer/resource-server and Account-Authority/Auth-Server boundaries are
+// deployment-private adapters. The validation status vocabulary is the closed
+// enum already carried by
 // `arkret_models_identity::SessionGrantAdminIntrospectionStatus`, which is
 // member-for-member the schema's `status` enum, so it is reused here.
 
 /// Claim-set kind of the JWS carried in
-/// [`SessionGrantIntrospectionProof::proof_jwt`].
-pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_KIND: &str =
-    "ak.session_grant.introspection_proof.v1";
+/// [`SessionGrantHolderProof::proof_jwt`].
+pub const SESSION_GRANT_HOLDER_PROOF_CLAIMS_KIND: &str = "ak.session_grant.introspection_proof.v1";
 
 /// Optional server-to-server holder confirmation signed by the session key
 /// bound into the grant. Stations validating `/_arkret/self/*` grant+DPoP
@@ -550,19 +548,16 @@ pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_KIND: &str =
 /// against the returned `cnf_jkt`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody`
-// member `proof`.
-pub struct SessionGrantIntrospectionProof {
+pub struct SessionGrantHolderProof {
     pub challenge: String,
     pub proof_jwt: String,
 }
 
 /// Claims of the `ak.session_grant.introspection_proof.v1` JWS presented in
-/// [`SessionGrantIntrospectionProof::proof_jwt`].
+/// [`SessionGrantHolderProof::proof_jwt`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantIntrospectionProofClaims {
+pub struct SessionGrantHolderProofClaims {
     pub kind: String,
     pub session_grant_id: String,
     pub grant_jwt_digest: String,
@@ -577,10 +572,8 @@ pub struct SessionGrantIntrospectionProofClaims {
 /// Non-secret grant metadata returned to the validating Station. Never
 /// includes the grant JWT, refresh token, or session private key.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(try_from = "SessionGrantIntrospectGrantWire")]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectGrant`.
-pub struct SessionGrantIntrospectGrant {
+#[serde(try_from = "SessionGrantValidationMetadataWire")]
+pub struct SessionGrantValidationMetadata {
     pub id: SessionGrantId,
     pub issuer_id: DidCoreId,
     pub account_id: AccountId,
@@ -618,7 +611,7 @@ pub struct SessionGrantIntrospectGrant {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SessionGrantIntrospectGrantWire {
+struct SessionGrantValidationMetadataWire {
     id: SessionGrantId,
     issuer_id: DidCoreId,
     account_id: AccountId,
@@ -642,7 +635,7 @@ struct SessionGrantIntrospectGrantWire {
     device_binding: Option<SessionGrantDeviceBinding>,
 }
 
-impl SessionGrantIntrospectGrant {
+impl SessionGrantValidationMetadata {
     /// Exact account bound into this grant.
     #[must_use]
     pub const fn account_id(&self) -> &AccountId {
@@ -750,10 +743,12 @@ impl SessionGrantIntrospectGrant {
     }
 }
 
-impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
+impl TryFrom<SessionGrantValidationMetadataWire> for SessionGrantValidationMetadata {
     type Error = String;
 
-    fn try_from(wire: SessionGrantIntrospectGrantWire) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        wire: SessionGrantValidationMetadataWire,
+    ) -> std::result::Result<Self, Self::Error> {
         let grant = Self {
             id: wire.id,
             issuer_id: wire.issuer_id,
@@ -775,53 +770,42 @@ impl TryFrom<SessionGrantIntrospectGrantWire> for SessionGrantIntrospectGrant {
     }
 }
 
-/// `ak.gate.account.command.introspect_session_grant.v1` request. Exactly one
-/// of `id` / `grant_jwt` identifies the grant.
+/// Deployment-private grant selector. Exactly one of `id` / `grant_jwt`
+/// identifies the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody`,
-// split across the two selector branches of its `oneOf`.
-pub enum SessionGrantIntrospectRequestBody {
-    ById(SessionGrantIntrospectById),
-    ByJwt(SessionGrantIntrospectByJwt),
+pub enum SessionGrantValidationInput {
+    ById(SessionGrantValidationById),
+    ByJwt(SessionGrantValidationByJwt),
 }
 
-/// `id` selector branch of [`SessionGrantIntrospectRequestBody`].
+/// `id` selector branch of [`SessionGrantValidationInput`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody`
-// restricted to the `id` branch of its `oneOf`.
-pub struct SessionGrantIntrospectById {
+pub struct SessionGrantValidationById {
     pub id: SessionGrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SessionGrantIntrospectionProof>,
+    pub proof: Option<SessionGrantHolderProof>,
 }
 
-/// `grant_jwt` selector branch of [`SessionGrantIntrospectRequestBody`].
+/// `grant_jwt` selector branch of [`SessionGrantValidationInput`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectRequestBody`
-// restricted to the `grant_jwt` branch of its `oneOf`.
-pub struct SessionGrantIntrospectByJwt {
+pub struct SessionGrantValidationByJwt {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SessionGrantIntrospectionProof>,
+    pub proof: Option<SessionGrantHolderProof>,
 }
 
-/// `ak.gate.account.command.introspect_session_grant.v1` outcome. READ-ONLY:
-/// introspection never consumes the grant.
+/// Read-only result returned by a deployment-private grant validator.
+/// Validation never consumes the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectOutcome`.
-pub struct SessionGrantIntrospectOutcome {
+pub struct SessionGrantValidationResult {
     /// Whether the grant is currently valid for the requested audience.
     pub active: bool,
     pub status: SessionGrantAdminIntrospectionStatus,
@@ -832,10 +816,10 @@ pub struct SessionGrantIntrospectOutcome {
     /// state.
     pub one_time_use_consumed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant: Option<SessionGrantIntrospectGrant>,
+    pub grant: Option<SessionGrantValidationMetadata>,
 }
 
-impl SessionGrantIntrospectOutcome {
+impl SessionGrantValidationResult {
     /// An `active` outcome MUST carry the grant projection.
     pub fn validate(&self) -> Result<()> {
         match (self.active, &self.grant) {
@@ -848,22 +832,18 @@ impl SessionGrantIntrospectOutcome {
     }
 }
 
-/// Reason the Account Authority logs out an Auth-side session. v1 defines only
-/// `account_logout` for this server-to-server sub-operation.
+/// Reason a deployment-private adapter terminates an Auth-side session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AuthSessionLogoutReasonCode {
+pub enum AuthSessionTerminationReason {
     AccountLogout,
 }
 
-/// `ak.gate.account.command.logout_auth_session.v1` request: the Account
-/// Authority to Auth Server call that logs out the Auth-side session owning an
+/// Deployment-private input for terminating the Auth-side session that owns an
 /// `ak.session.grant` rotation chain.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody`.
-pub struct AuthSessionLogoutRequestBody {
+pub struct AuthSessionTerminationInput {
     /// Session grant used to locate the Auth-side session and its rotation
     /// chain.
     pub grant_jwt: String,
@@ -880,15 +860,13 @@ pub struct AuthSessionLogoutRequestBody {
     )]
     pub validated_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<AuthSessionLogoutReasonCode>,
+    pub reason_code: Option<AuthSessionTerminationReason>,
 }
 
-/// `ak.gate.account.command.logout_auth_session.v1` outcome.
+/// Deployment-private Auth-session termination result.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `service-operation-dtos.schema.json#/$defs/AuthSessionLogoutOutcome`.
-pub struct AuthSessionLogoutOutcome {
+pub struct AuthSessionTerminationResult {
     /// Whether the grant rotation chain is now unable to refresh, including
     /// the already-terminated idempotent case.
     pub grant_chain_terminated: bool,
@@ -898,7 +876,7 @@ pub struct AuthSessionLogoutOutcome {
 }
 
 #[cfg(test)]
-mod session_grant_introspection_tests {
+mod session_grant_private_adapter_tests {
     use serde_json::json;
 
     use super::*;
@@ -968,27 +946,24 @@ mod session_grant_introspection_tests {
                 "proof_jwt": "header.payload.signature"
             }
         });
-        let parsed = serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_id.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationInput>(by_id.clone())
             .expect("id selector parses");
         assert!(matches!(
             parsed,
-            SessionGrantIntrospectRequestBody::ById(ref body)
+            SessionGrantValidationInput::ById(ref body)
                 if body.id.as_str() == GRANT_ID
         ));
         assert_eq!(serde_json::to_value(&parsed).unwrap(), by_id);
 
         let by_jwt = json!({ "grant_jwt": "header.payload.signature" });
-        let parsed = serde_json::from_value::<SessionGrantIntrospectRequestBody>(by_jwt.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationInput>(by_jwt.clone())
             .expect("grant_jwt selector parses");
-        assert!(matches!(
-            parsed,
-            SessionGrantIntrospectRequestBody::ByJwt(_)
-        ));
+        assert!(matches!(parsed, SessionGrantValidationInput::ByJwt(_)));
         assert_eq!(serde_json::to_value(&parsed).unwrap(), by_jwt);
 
         for open in [with_unknown_member(by_id), with_unknown_member(by_jwt)] {
             assert!(
-                serde_json::from_value::<SessionGrantIntrospectRequestBody>(open).is_err(),
+                serde_json::from_value::<SessionGrantValidationInput>(open).is_err(),
                 "an unknown member must be rejected"
             );
         }
@@ -1001,18 +976,17 @@ mod session_grant_introspection_tests {
                 "unknown_member": true
             }
         });
-        assert!(serde_json::from_value::<SessionGrantIntrospectRequestBody>(proof_open).is_err());
+        assert!(serde_json::from_value::<SessionGrantValidationInput>(proof_open).is_err());
 
         for missing_selector in [json!({}), json!({ "audience_id": AUDIENCE_ID })] {
             assert!(
-                serde_json::from_value::<SessionGrantIntrospectRequestBody>(missing_selector)
-                    .is_err(),
+                serde_json::from_value::<SessionGrantValidationInput>(missing_selector).is_err(),
                 "a request without a selector must be rejected"
             );
         }
 
         assert!(
-            serde_json::from_value::<SessionGrantIntrospectRequestBody>(json!({
+            serde_json::from_value::<SessionGrantValidationInput>(json!({
                 "id": GRANT_ID,
                 "grant_jwt": "header.payload.signature"
             }))
@@ -1021,7 +995,7 @@ mod session_grant_introspection_tests {
         );
 
         assert!(
-            serde_json::from_value::<SessionGrantIntrospectionProof>(json!({
+            serde_json::from_value::<SessionGrantHolderProof>(json!({
                 "challenge": "Zm9vYmFyZm9vYmFyZm9vYmFy"
             }))
             .is_err(),
@@ -1038,7 +1012,7 @@ mod session_grant_introspection_tests {
             "one_time_use_consumed": false,
             "grant": human_grant_value()
         });
-        let parsed = serde_json::from_value::<SessionGrantIntrospectOutcome>(active.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationResult>(active.clone())
             .expect("active outcome parses");
         parsed.validate().expect("active outcome carries a grant");
         assert_eq!(
@@ -1054,13 +1028,13 @@ mod session_grant_introspection_tests {
             "proof_required": false,
             "one_time_use_consumed": false
         });
-        let parsed = serde_json::from_value::<SessionGrantIntrospectOutcome>(inactive.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationResult>(inactive.clone())
             .expect("inactive outcome parses");
         parsed.validate().expect("inactive outcome needs no grant");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), inactive);
 
         assert!(
-            serde_json::from_value::<SessionGrantIntrospectOutcome>(with_unknown_member(
+            serde_json::from_value::<SessionGrantValidationResult>(with_unknown_member(
                 active.clone()
             ))
             .is_err(),
@@ -1070,7 +1044,7 @@ mod session_grant_introspection_tests {
         let mut grant_open = active.clone();
         grant_open["grant"] = with_unknown_member(human_grant_value());
         assert!(
-            serde_json::from_value::<SessionGrantIntrospectOutcome>(grant_open).is_err(),
+            serde_json::from_value::<SessionGrantValidationResult>(grant_open).is_err(),
             "the nested grant projection is closed too"
         );
 
@@ -1081,7 +1055,7 @@ mod session_grant_introspection_tests {
             "one_time_use_consumed",
         ] {
             assert!(
-                serde_json::from_value::<SessionGrantIntrospectOutcome>(without_member(
+                serde_json::from_value::<SessionGrantValidationResult>(without_member(
                     active.clone(),
                     member
                 ))
@@ -1093,7 +1067,7 @@ mod session_grant_introspection_tests {
         let mut active_without_grant = without_member(active, "grant");
         active_without_grant["status"] = json!("active");
         let parsed =
-            serde_json::from_value::<SessionGrantIntrospectOutcome>(active_without_grant).unwrap();
+            serde_json::from_value::<SessionGrantValidationResult>(active_without_grant).unwrap();
         assert!(
             parsed.validate().is_err(),
             "an active outcome must carry grant metadata"
@@ -1113,7 +1087,7 @@ mod session_grant_introspection_tests {
             "holder_binding",
         ] {
             assert!(
-                serde_json::from_value::<SessionGrantIntrospectGrant>(without_member(
+                serde_json::from_value::<SessionGrantValidationMetadata>(without_member(
                     human_grant_value(),
                     member
                 ))
@@ -1122,7 +1096,7 @@ mod session_grant_introspection_tests {
             );
         }
 
-        let human = serde_json::from_value::<SessionGrantIntrospectGrant>(human_grant_value())
+        let human = serde_json::from_value::<SessionGrantValidationMetadata>(human_grant_value())
             .expect("human grant parses");
         assert_eq!(
             human
@@ -1141,7 +1115,7 @@ mod session_grant_introspection_tests {
             "verification_method": "did:web:service.example#endpoint-key"
         });
         assert!(
-            serde_json::from_value::<SessionGrantIntrospectGrant>(pairwise).is_err(),
+            serde_json::from_value::<SessionGrantValidationMetadata>(pairwise).is_err(),
             "a pairwise endpoint is not an introspectable grant holder"
         );
     }
@@ -1154,21 +1128,21 @@ mod session_grant_introspection_tests {
             "validated_at": "2026-08-08T12:00:00.000Z",
             "reason_code": "account_logout"
         });
-        let parsed = serde_json::from_value::<AuthSessionLogoutRequestBody>(full.clone())
+        let parsed = serde_json::from_value::<AuthSessionTerminationInput>(full.clone())
             .expect("full request parses");
         assert_eq!(
             parsed.reason_code,
-            Some(AuthSessionLogoutReasonCode::AccountLogout)
+            Some(AuthSessionTerminationReason::AccountLogout)
         );
         assert_eq!(serde_json::to_value(&parsed).unwrap(), full);
 
         let minimal = json!({ "grant_jwt": "header.payload.signature" });
-        let parsed = serde_json::from_value::<AuthSessionLogoutRequestBody>(minimal.clone())
+        let parsed = serde_json::from_value::<AuthSessionTerminationInput>(minimal.clone())
             .expect("minimal request parses");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), minimal);
 
         assert!(
-            serde_json::from_value::<AuthSessionLogoutRequestBody>(with_unknown_member(
+            serde_json::from_value::<AuthSessionTerminationInput>(with_unknown_member(
                 full.clone()
             ))
             .is_err(),
@@ -1176,7 +1150,7 @@ mod session_grant_introspection_tests {
         );
 
         assert!(
-            serde_json::from_value::<AuthSessionLogoutRequestBody>(without_member(
+            serde_json::from_value::<AuthSessionTerminationInput>(without_member(
                 full.clone(),
                 "grant_jwt"
             ))
@@ -1187,14 +1161,14 @@ mod session_grant_introspection_tests {
         let mut open_reason = full.clone();
         open_reason["reason_code"] = json!("session_expired");
         assert!(
-            serde_json::from_value::<AuthSessionLogoutRequestBody>(open_reason).is_err(),
+            serde_json::from_value::<AuthSessionTerminationInput>(open_reason).is_err(),
             "reason_code is a closed vocabulary"
         );
 
         let mut bare_digest = full;
         bare_digest["logout_request_digest"] = json!("1111111111111111");
         assert!(
-            serde_json::from_value::<AuthSessionLogoutRequestBody>(bare_digest).is_err(),
+            serde_json::from_value::<AuthSessionTerminationInput>(bare_digest).is_err(),
             "logout_request_digest must carry its digest suite"
         );
 
@@ -1202,18 +1176,18 @@ mod session_grant_introspection_tests {
             "grant_chain_terminated": true,
             "auth_session_logged_out": true
         });
-        let parsed = serde_json::from_value::<AuthSessionLogoutOutcome>(outcome.clone())
+        let parsed = serde_json::from_value::<AuthSessionTerminationResult>(outcome.clone())
             .expect("outcome parses");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), outcome);
         assert!(
-            serde_json::from_value::<AuthSessionLogoutOutcome>(with_unknown_member(
+            serde_json::from_value::<AuthSessionTerminationResult>(with_unknown_member(
                 outcome.clone()
             ))
             .is_err()
         );
         for member in ["grant_chain_terminated", "auth_session_logged_out"] {
             assert!(
-                serde_json::from_value::<AuthSessionLogoutOutcome>(without_member(
+                serde_json::from_value::<AuthSessionTerminationResult>(without_member(
                     outcome.clone(),
                     member
                 ))

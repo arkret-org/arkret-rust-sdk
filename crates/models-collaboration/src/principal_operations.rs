@@ -1,9 +1,10 @@
-//! Account-Authority-to-Station Principal Control Realm genesis relay.
+//! Principal Control Realm genesis admission semantics.
 //!
-//! The outer service signature authenticates transport only. Content
-//! authorization is exclusively the frozen registration anchor, the
-//! identity-root control proof and the two Event proofs carried by the atomic
-//! genesis unit.
+//! This module defines the domain input and result used by a deployment-private
+//! same-TCB admission path. It deliberately carries no canonical service
+//! operation identity. Content authorization is exclusively the frozen
+//! registration anchor, the identity-root control proof and the two Event
+//! proofs carried by the atomic genesis unit.
 
 use arkret_models_identity::{
     IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS, PrincipalRegistrationAnchor,
@@ -21,11 +22,9 @@ use crate::events_payloads::{
     validate_root_anchored_authorize_payload_digest,
 };
 
-// Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/pcr_genesis_submit_request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrGenesisSubmitRequestBody {
+pub struct PcrGenesisAdmissionInput {
     pub account_authority_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub did: Did,
@@ -40,7 +39,7 @@ pub struct PcrGenesisSubmitRequestBody {
     pub genesis_unit: PcrGenesisUnit,
 }
 
-impl PcrGenesisSubmitRequestBody {
+impl PcrGenesisAdmissionInput {
     pub fn validate(&self) -> Result<()> {
         self.identity_creation_control_proof.validate_shape()?;
         self.principal_registration_anchor.validate()?;
@@ -156,11 +155,9 @@ impl PcrGenesisSubmitRequestBody {
     }
 }
 
-// Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/pcr_genesis_submit_outcome.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrGenesisSubmitOutcome {
+pub struct PcrGenesisAdmissionResult {
     pub principal_id: DidCoreId,
     pub pcr_realm_id: RealmId,
     pub accepted_device_id: DeviceId,
@@ -168,8 +165,8 @@ pub struct PcrGenesisSubmitOutcome {
     pub commits: [RealmCommit; 2],
 }
 
-impl PcrGenesisSubmitOutcome {
-    pub fn validate_against(&self, request: &PcrGenesisSubmitRequestBody) -> Result<()> {
+impl PcrGenesisAdmissionResult {
+    pub fn validate_against(&self, request: &PcrGenesisAdmissionInput) -> Result<()> {
         request.validate()?;
         let create_payload: RealmCreatePayload =
             decode_payload_after_kind_validation(request.genesis_unit.create())?;
@@ -205,13 +202,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pcr_genesis_submit_request_body_is_closed() {
+    fn pcr_genesis_admission_input_is_closed() {
         assert!(
-            serde_json::from_value::<PcrGenesisSubmitRequestBody>(json!({})).is_err(),
+            serde_json::from_value::<PcrGenesisAdmissionInput>(json!({})).is_err(),
             "every relay member is required"
         );
         assert!(
-            serde_json::from_value::<PcrGenesisSubmitRequestBody>(json!({
+            serde_json::from_value::<PcrGenesisAdmissionInput>(json!({
                 "account_authority_id": "ak:did_core:web:authority.example",
                 "unexpected_member": true
             }))
@@ -221,9 +218,9 @@ mod tests {
     }
 
     #[test]
-    fn pcr_genesis_submit_outcome_requires_the_resolution_projection() {
+    fn pcr_genesis_admission_result_requires_the_resolution_projection() {
         assert!(
-            serde_json::from_value::<PcrGenesisSubmitOutcome>(json!({
+            serde_json::from_value::<PcrGenesisAdmissionResult>(json!({
                 "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
                 "pcr_realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
                 "accepted_device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",

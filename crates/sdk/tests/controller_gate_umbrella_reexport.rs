@@ -9,14 +9,14 @@
 //! `admin_grant` and `agent_signer_state`, so a crate depending only on
 //! `arkret` could name the functions and not their parameter.
 //!
-//! This test names every public item of the module through the umbrella, so
-//! the gap cannot reopen silently.
+//! This test names the portable attestation and operation-neutral domain items
+//! through the umbrella, so the gap cannot reopen silently.
 
 use arkret::{
     AgentAuthorizedSigningKey, AgentDetachedJws, AgentSigningPublicKey,
     CONTROLLER_ACCOUNT_GATE_MAX_VALIDITY_SECONDS, ControllerAccountEligibility,
-    ControllerAccountGateAttestation, ControllerAccountGateAttestationIssueOutcome,
-    ControllerAccountGateAttestationIssueRequestBody, ControllerAccountGateBasis,
+    ControllerAccountGateAttestation, ControllerAccountGateBasis,
+    ControllerAccountGateIssuanceInput, ControllerAccountGateIssuanceResult,
     ControllerAccountStatus, sign_controller_account_gate_attestation,
     verify_controller_account_gate_attestation,
 };
@@ -37,8 +37,8 @@ fn gate_argument_types_are_reachable_through_the_umbrella() {
     nameable::<ControllerAccountGateBasis>();
     nameable::<ControllerAccountEligibility>();
     nameable::<ControllerAccountStatus>();
-    nameable::<ControllerAccountGateAttestationIssueRequestBody>();
-    nameable::<ControllerAccountGateAttestationIssueOutcome>();
+    nameable::<ControllerAccountGateIssuanceInput>();
+    nameable::<ControllerAccountGateIssuanceResult>();
 
     assert_eq!(CONTROLLER_ACCOUNT_GATE_MAX_VALIDITY_SECONDS, 300);
 }

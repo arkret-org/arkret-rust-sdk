@@ -1,4 +1,4 @@
-//! Account Authority controller-account gate wire models.
+//! Account Authority controller-account gate evidence and domain models.
 //!
 //! The gate is the Account Authority's signed answer to one question: is the
 //! controller principal behind an Agent key authorization still eligible? It is
@@ -301,28 +301,24 @@ impl AgentAuthorizedSigningKey {
     }
 }
 
-/// Deployment-authenticated request an Agent Authority sends to obtain the
-/// Account Authority-owned controller gate.
+/// Deployment-private input used to obtain an Account Authority-owned
+/// controller gate.
 ///
 /// The body carries no service resolution carrier: caller identity comes from
 /// the authenticated deployment relationship alone, never from a self-asserted
 /// DID, URL, bearer or public key in this object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ControllerAccountGateAttestationIssueRequestBody {
+pub struct ControllerAccountGateIssuanceInput {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
     pub agent_authority_id: DidCoreId,
 }
 
-/// Byte-stable issuance result. A replay of the same `request_id` and canonical
-/// intent returns these original bytes; a different intent is a
-/// `duplicate_conflict` with zero issuance.
+/// Domain result of deployment-private controller-gate issuance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ControllerAccountGateAttestationIssueOutcome {
+pub struct ControllerAccountGateIssuanceResult {
     pub request_id: RequestId,
     pub controller_account_gate_attestation: ControllerAccountGateAttestation,
 }
@@ -509,26 +505,26 @@ mod tests {
     }
 
     #[test]
-    fn issue_request_and_outcome_are_closed() {
+    fn private_issuance_input_and_result_are_closed() {
         let request_json = serde_json::json!({
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "principal_id": "ak:did_core:web:controller.example",
             "agent_authority_id": "ak:did_core:web:authority.example"
         });
-        let request: ControllerAccountGateAttestationIssueRequestBody =
+        let request: ControllerAccountGateIssuanceInput =
             serde_json::from_value(request_json.clone()).unwrap();
         assert_eq!(serde_json::to_value(&request).unwrap(), request_json);
 
         let mut carrier = request_json.clone();
         carrier["source_service_id"] = serde_json::json!("did:web:caller.example");
-        serde_json::from_value::<ControllerAccountGateAttestationIssueRequestBody>(carrier)
+        serde_json::from_value::<ControllerAccountGateIssuanceInput>(carrier)
             .expect_err("no service resolution carrier may enter the request body");
 
         let outcome_json = serde_json::json!({
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "controller_account_gate_attestation": attestation_json()
         });
-        let outcome: ControllerAccountGateAttestationIssueOutcome =
+        let outcome: ControllerAccountGateIssuanceResult =
             serde_json::from_value(outcome_json.clone()).unwrap();
         assert_eq!(serde_json::to_value(&outcome).unwrap(), outcome_json);
     }

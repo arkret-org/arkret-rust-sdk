@@ -1,9 +1,9 @@
-//! Durable device-revocation state and the service-to-service gate contract.
+//! Durable device-revocation state and in-process admission semantics.
 //!
 //! Counterpart for `spec/v1/artifacts/schemas/device-revocation-state.schema.json`.
-//! The durable records fence an exact device generation; the gate request and
-//! its linearization receipt carry the origin Station's decision for one
-//! prepared issuance, claim or write intent.
+//! The durable records fence an exact device generation. Admission inputs and
+//! records are domain values used inside one Station trust boundary; they do
+//! not define a canonical Arkret service operation.
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -13,10 +13,10 @@ use crate::{
     WireError,
 };
 
-/// Hard receipt-use deadline bound: `expires_at` is no later than 30 seconds
+/// Hard admission-use deadline bound: `expires_at` is no later than 30 seconds
 /// after `linearized_at`. It is a freshness bound, not a cache TTL and not a
 /// revocation deadline.
-pub const MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME: Duration = Duration::seconds(30);
+pub const MAX_DEVICE_REVOCATION_ADMISSION_LIFETIME: Duration = Duration::seconds(30);
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -282,10 +282,9 @@ impl DeviceRevocationGateRecord {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DeviceRevocationGateActionClass {
+pub enum DeviceRevocationAdmissionAction {
     SessionGrantIssue,
     ReturningSessionGrantIssue,
     SessionGrantRefresh,
@@ -295,24 +294,21 @@ pub enum DeviceRevocationGateActionClass {
     EventWrite,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `device-revocation-state.schema.json#/$defs/device_revocation_gate_check_request_body`.
-pub struct DeviceRevocationGateCheckRequestBody {
+pub struct DeviceRevocationAdmissionInput {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     /// Issuer-verified binding, never a client-supplied value. Present together
     /// with `expected_device_generation_ref` or not at all, and omittable only
     /// for registration/recovery `SessionGrantIssue` and returning
     /// account-handoff `ReturningSessionGrantIssue`; both learn the current
-    /// binding from the origin's allow receipt.
+    /// binding from the locally linearized allow record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_generation_ref: Option<u64>,
-    pub action_class: DeviceRevocationGateActionClass,
+    pub action_class: DeviceRevocationAdmissionAction,
     /// Digest of the complete immutable issue or refresh intent, including the
     /// exact grant id, jti, subject, device, audience, scope, holder binding,
     /// issued_at and expiry. For `DevicePairingCodeClaim`, the digest binds
@@ -330,25 +326,25 @@ pub struct DeviceRevocationGateCheckRequestBody {
     pub requested_at: DateTime<Utc>,
 }
 
-impl DeviceRevocationGateCheckRequestBody {
+impl DeviceRevocationAdmissionInput {
     pub fn validate(&self) -> Result<()> {
         self.account_id.validate()?;
         match (&self.action_class, &self.accepted_device_possession_proof) {
             (
-                DeviceRevocationGateActionClass::ReturningSessionGrantIssue,
+                DeviceRevocationAdmissionAction::ReturningSessionGrantIssue,
                 Some(AcceptedDevicePossessionProof::Issue(proof)),
             ) => {
                 proof.validate()?;
             }
             (
-                DeviceRevocationGateActionClass::SessionGrantRefresh,
+                DeviceRevocationAdmissionAction::SessionGrantRefresh,
                 Some(AcceptedDevicePossessionProof::Refresh(proof)),
             ) => {
                 proof.validate()?;
             }
             (
-                DeviceRevocationGateActionClass::ReturningSessionGrantIssue
-                | DeviceRevocationGateActionClass::SessionGrantRefresh,
+                DeviceRevocationAdmissionAction::ReturningSessionGrantIssue
+                | DeviceRevocationAdmissionAction::SessionGrantRefresh,
                 _,
             ) => {
                 return Err(WireError::Protocol(
@@ -387,8 +383,8 @@ impl DeviceRevocationGateCheckRequestBody {
             (None, None) => {
                 if !matches!(
                     self.action_class,
-                    DeviceRevocationGateActionClass::SessionGrantIssue
-                        | DeviceRevocationGateActionClass::ReturningSessionGrantIssue
+                    DeviceRevocationAdmissionAction::SessionGrantIssue
+                        | DeviceRevocationAdmissionAction::ReturningSessionGrantIssue
                 ) {
                     return Err(WireError::Protocol(
                         "device revocation gate expected binding is required outside registration or returning session issue"
@@ -407,10 +403,9 @@ impl DeviceRevocationGateCheckRequestBody {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DeviceRevocationGateDecision {
+pub enum DeviceRevocationAdmissionDecision {
     Allow,
     RevocationPending,
     Revoked,
@@ -418,38 +413,30 @@ pub enum DeviceRevocationGateDecision {
     GenerationMismatch,
 }
 
-/// Origin-Station durable decision made under its local device lock.
+/// Station-local durable decision made under its device lock.
 ///
-/// The receipt travels only on the registered deployment-internal
-/// authenticated channel between the account's bound Account Authority and this
-/// exact origin Station, so that channel — not a detached signature — supplies
-/// authenticity and integrity. The shape is closed in both directions:
-/// `deny_unknown_fields` makes a receipt carrying `proof` or
-/// `verification_method` fail to deserialize at all, and a consumer MUST NOT
-/// accept a receipt that did not arrive over that authenticated channel.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// This record remains inside the Station trust boundary. It is not a wire
+/// receipt and carries no canonical operation identity or detached signature.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt`.
-pub struct DeviceRevocationGateDecisionReceipt {
+pub struct DeviceRevocationAdmissionRecord {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     /// Origin-derived current device authorization Event. Present only for
-    /// [`DeviceRevocationGateDecision::Allow`], where it is the sole source for
+    /// [`DeviceRevocationAdmissionDecision::Allow`], where it is the sole source for
     /// the issued grant's device binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_generation_ref: Option<u64>,
-    pub action_class: DeviceRevocationGateActionClass,
+    pub action_class: DeviceRevocationAdmissionAction,
     pub intent_digest: Hash,
     /// SHA-256 of the exact canonical `AcceptedDevicePossessionProof`, present
     /// for a human session-grant issue or refresh once the proof was validated
     /// under the locked current accepted-device key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_device_possession_proof_digest: Option<Hash>,
-    pub decision: DeviceRevocationGateDecision,
+    pub decision: DeviceRevocationAdmissionDecision,
     /// Monotonic sequence from the origin Station's durable
     /// device-revocation log.
     pub linearization_seq: u64,
@@ -458,7 +445,7 @@ pub struct DeviceRevocationGateDecisionReceipt {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     /// Present only when `decision` is
-    /// [`DeviceRevocationGateDecision::Revoked`].
+    /// [`DeviceRevocationAdmissionDecision::Revoked`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_commit_id: Option<RealmCommitId>,
 }
@@ -467,7 +454,7 @@ pub struct DeviceRevocationGateDecisionReceipt {
 /// `generation_mismatch` is what stops a refresh from being re-issued at a
 /// replaced generation.
 fn validate_gate_decision_witness(
-    decision: DeviceRevocationGateDecision,
+    decision: DeviceRevocationAdmissionDecision,
     target_device_authorize_event_id: Option<&EventId>,
     target_device_generation_ref: Option<u64>,
     accepted_commit_id: Option<&RealmCommitId>,
@@ -485,13 +472,15 @@ fn validate_gate_decision_witness(
             ));
         }
     };
-    if derived_binding != matches!(decision, DeviceRevocationGateDecision::Allow) {
+    if derived_binding != matches!(decision, DeviceRevocationAdmissionDecision::Allow) {
         return Err(WireError::Protocol(
             "device revocation gate receipt discloses the derived binding for exactly the allow decision"
                 .to_owned(),
         ));
     }
-    if accepted_commit_id.is_some() != matches!(decision, DeviceRevocationGateDecision::Revoked) {
+    if accepted_commit_id.is_some()
+        != matches!(decision, DeviceRevocationAdmissionDecision::Revoked)
+    {
         return Err(WireError::Protocol(
             "device revocation gate receipt carries the accepted commit for exactly the revoked decision"
                 .to_owned(),
@@ -501,13 +490,13 @@ fn validate_gate_decision_witness(
 }
 
 fn validate_possession_verification_presence(
-    action_class: DeviceRevocationGateActionClass,
+    action_class: DeviceRevocationAdmissionAction,
     proof_digest: Option<&Hash>,
 ) -> Result<()> {
     let required = matches!(
         action_class,
-        DeviceRevocationGateActionClass::ReturningSessionGrantIssue
-            | DeviceRevocationGateActionClass::SessionGrantRefresh
+        DeviceRevocationAdmissionAction::ReturningSessionGrantIssue
+            | DeviceRevocationAdmissionAction::SessionGrantRefresh
     );
     if required != proof_digest.is_some() {
         return Err(WireError::Protocol(
@@ -518,11 +507,9 @@ fn validate_possession_verification_presence(
     Ok(())
 }
 
-impl DeviceRevocationGateDecisionReceipt {
-    /// Every wire invariant the receipt owns on its own, independent of the
-    /// request it answered. Authenticity and integrity come from the
-    /// deployment-internal authenticated channel, so there is nothing
-    /// cryptographic left for this type to check.
+impl DeviceRevocationAdmissionRecord {
+    /// Every invariant the Station-local admission record owns on its own,
+    /// independent of the input it answered.
     pub fn validate(&self) -> Result<()> {
         self.account_id.validate()?;
         validate_possession_verification_presence(
@@ -531,7 +518,7 @@ impl DeviceRevocationGateDecisionReceipt {
         )?;
         if self.linearization_seq == 0
             || self.expires_at <= self.linearized_at
-            || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
+            || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_ADMISSION_LIFETIME
         {
             return Err(WireError::Protocol(
                 "device revocation gate receipt has invalid selector or linearization lifetime"
@@ -554,7 +541,7 @@ impl DeviceRevocationGateDecisionReceipt {
             self.target_device_authorize_event_id.as_ref(),
             self.target_device_generation_ref,
         ) {
-            (DeviceRevocationGateDecision::Allow, Some(event_id), Some(generation))
+            (DeviceRevocationAdmissionDecision::Allow, Some(event_id), Some(generation))
                 if generation > 0 =>
             {
                 Some((event_id, generation))
@@ -563,10 +550,7 @@ impl DeviceRevocationGateDecisionReceipt {
         }
     }
 
-    pub fn validate_for_request(
-        &self,
-        request: &DeviceRevocationGateCheckRequestBody,
-    ) -> Result<()> {
+    pub fn validate_for_request(&self, request: &DeviceRevocationAdmissionInput) -> Result<()> {
         request.validate()?;
         self.validate()?;
         if self.account_id != request.account_id
@@ -591,7 +575,7 @@ impl DeviceRevocationGateDecisionReceipt {
         }
         // An allow answering an expected binding MUST be that same binding: a
         // difference is generation_mismatch, never a silently upgraded allow.
-        if self.decision == DeviceRevocationGateDecision::Allow
+        if self.decision == DeviceRevocationAdmissionDecision::Allow
             && request.expected_device_authorize_event_id.is_some()
             && (self.target_device_authorize_event_id != request.expected_device_authorize_event_id
                 || self.target_device_generation_ref != request.expected_device_generation_ref)
@@ -605,25 +589,16 @@ impl DeviceRevocationGateDecisionReceipt {
     }
 }
 
-/// Response of `ak.peer.device_revocations.command.check.v1`. The origin
-/// Station returns exactly one linearization receipt over the
-/// deployment-internal authenticated channel; the outcome adds no signature
-/// layer of its own.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// In-process result of one device-revocation admission decision.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `device-revocation-state.schema.json#/$defs/device_revocation_gate_check_outcome`.
-pub struct DeviceRevocationGateCheckOutcome {
-    pub decision_receipt: DeviceRevocationGateDecisionReceipt,
+pub struct DeviceRevocationAdmissionResult {
+    pub admission_record: DeviceRevocationAdmissionRecord,
 }
 
-impl DeviceRevocationGateCheckOutcome {
-    pub fn validate_for_request(
-        &self,
-        request: &DeviceRevocationGateCheckRequestBody,
-    ) -> Result<()> {
-        self.decision_receipt.validate_for_request(request)
+impl DeviceRevocationAdmissionResult {
+    pub fn validate_for_request(&self, request: &DeviceRevocationAdmissionInput) -> Result<()> {
+        self.admission_record.validate_for_request(request)
     }
 
     /// Validate the receipt against the request it answered and reduce the
@@ -633,21 +608,21 @@ impl DeviceRevocationGateCheckOutcome {
     /// to local device state.
     pub fn session_grant_admission(
         &self,
-        request: &DeviceRevocationGateCheckRequestBody,
+        request: &DeviceRevocationAdmissionInput,
         now: DateTime<Utc>,
-    ) -> Result<SessionGrantGateAdmission<'_>> {
+    ) -> Result<SessionGrantAdmission<'_>> {
         self.validate_for_request(request)?;
-        if now >= self.decision_receipt.expires_at {
+        if now >= self.admission_record.expires_at {
             return Err(WireError::Protocol(
                 "device revocation gate receipt is no longer fresh".to_owned(),
             ));
         }
-        Ok(match self.decision_receipt.decision {
-            DeviceRevocationGateDecision::Allow => self
-                .decision_receipt
+        Ok(match self.admission_record.decision {
+            DeviceRevocationAdmissionDecision::Allow => self
+                .admission_record
                 .allowed_binding()
                 .map(|(authorization_event_id, device_generation_ref)| {
-                    SessionGrantGateAdmission::Authorized {
+                    SessionGrantAdmission::Authorized {
                         authorization_event_id,
                         device_generation_ref,
                     }
@@ -657,18 +632,20 @@ impl DeviceRevocationGateCheckOutcome {
                         "device revocation gate allow carries no derived binding".to_owned(),
                     )
                 })?,
-            DeviceRevocationGateDecision::AuthorityMismatch => {
-                SessionGrantGateAdmission::DeviceSetupRequired
+            DeviceRevocationAdmissionDecision::AuthorityMismatch => {
+                SessionGrantAdmission::DeviceSetupRequired
             }
-            DeviceRevocationGateDecision::RevocationPending => SessionGrantGateAdmission::Blocked {
-                reason: SessionGrantGateBlockReason::RevocationPending,
+            DeviceRevocationAdmissionDecision::RevocationPending => {
+                SessionGrantAdmission::Blocked {
+                    reason: SessionGrantAdmissionBlockReason::RevocationPending,
+                }
+            }
+            DeviceRevocationAdmissionDecision::Revoked => SessionGrantAdmission::Blocked {
+                reason: SessionGrantAdmissionBlockReason::Revoked,
             },
-            DeviceRevocationGateDecision::Revoked => SessionGrantGateAdmission::Blocked {
-                reason: SessionGrantGateBlockReason::Revoked,
-            },
-            DeviceRevocationGateDecision::GenerationMismatch => {
-                SessionGrantGateAdmission::Blocked {
-                    reason: SessionGrantGateBlockReason::GenerationMismatch,
+            DeviceRevocationAdmissionDecision::GenerationMismatch => {
+                SessionGrantAdmission::Blocked {
+                    reason: SessionGrantAdmissionBlockReason::GenerationMismatch,
                 }
             }
         })
@@ -680,7 +657,7 @@ impl DeviceRevocationGateCheckOutcome {
 /// Only `Authorized` permits issuance. Device setup and each current-device
 /// block are typed control-flow results, never restricted-grant fallbacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SessionGrantGateAdmission<'a> {
+pub enum SessionGrantAdmission<'a> {
     /// The device has an accepted authorization the origin derived. The issued
     /// grant MUST carry exactly this binding.
     Authorized {
@@ -689,12 +666,12 @@ pub enum SessionGrantGateAdmission<'a> {
     },
     DeviceSetupRequired,
     Blocked {
-        reason: SessionGrantGateBlockReason,
+        reason: SessionGrantAdmissionBlockReason,
     },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SessionGrantGateBlockReason {
+pub enum SessionGrantAdmissionBlockReason {
     RevocationPending,
     Revoked,
     GenerationMismatch,
@@ -739,29 +716,29 @@ mod tests {
         RealmCommitId::from_digest([9_u8; 32])
     }
 
-    fn request() -> DeviceRevocationGateCheckRequestBody {
-        DeviceRevocationGateCheckRequestBody {
+    fn request() -> DeviceRevocationAdmissionInput {
+        DeviceRevocationAdmissionInput {
             account_id: account_id(),
             device_id: device_id(),
             expected_device_authorize_event_id: None,
             expected_device_generation_ref: None,
-            action_class: DeviceRevocationGateActionClass::SessionGrantIssue,
+            action_class: DeviceRevocationAdmissionAction::SessionGrantIssue,
             intent_digest: hash('a'),
             accepted_device_possession_proof: None,
             requested_at: at(0),
         }
     }
 
-    fn receipt() -> DeviceRevocationGateDecisionReceipt {
-        DeviceRevocationGateDecisionReceipt {
+    fn receipt() -> DeviceRevocationAdmissionRecord {
+        DeviceRevocationAdmissionRecord {
             account_id: account_id(),
             device_id: device_id(),
             target_device_authorize_event_id: Some(authorize_event()),
             target_device_generation_ref: Some(7),
-            action_class: DeviceRevocationGateActionClass::SessionGrantIssue,
+            action_class: DeviceRevocationAdmissionAction::SessionGrantIssue,
             intent_digest: hash('a'),
             accepted_device_possession_proof_digest: None,
-            decision: DeviceRevocationGateDecision::Allow,
+            decision: DeviceRevocationAdmissionDecision::Allow,
             linearization_seq: 9,
             linearized_at: at(1),
             expires_at: at(31),
@@ -837,7 +814,7 @@ mod tests {
         );
 
         let mut full = request();
-        full.action_class = DeviceRevocationGateActionClass::ReturningSessionGrantIssue;
+        full.action_class = DeviceRevocationAdmissionAction::ReturningSessionGrantIssue;
         full.expected_device_authorize_event_id = Some(authorize_event());
         full.expected_device_generation_ref = Some(7);
         full.accepted_device_possession_proof =
@@ -845,7 +822,7 @@ mod tests {
         full.validate().unwrap();
         let encoded = serde_json::to_value(&full).unwrap();
         assert_eq!(
-            serde_json::from_value::<DeviceRevocationGateCheckRequestBody>(encoded).unwrap(),
+            serde_json::from_value::<DeviceRevocationAdmissionInput>(encoded).unwrap(),
             full,
             "every optional member must survive a round trip too"
         );
@@ -868,13 +845,13 @@ mod tests {
         );
 
         let mut revoked = receipt();
-        revoked.decision = DeviceRevocationGateDecision::Revoked;
+        revoked.decision = DeviceRevocationAdmissionDecision::Revoked;
         revoked.target_device_authorize_event_id = None;
         revoked.target_device_generation_ref = None;
         revoked.accepted_commit_id = Some(accepted_commit_id());
         let encoded = serde_json::to_value(&revoked).unwrap();
         assert_eq!(
-            serde_json::from_value::<DeviceRevocationGateDecisionReceipt>(encoded).unwrap(),
+            serde_json::from_value::<DeviceRevocationAdmissionRecord>(encoded).unwrap(),
             revoked,
             "the revoked branch must survive a round trip with its accepted commit"
         );
@@ -883,10 +860,10 @@ mod tests {
     #[test]
     fn gate_outcome_matches_its_schema_shape() {
         assert_schema_shape(
-            &DeviceRevocationGateCheckOutcome {
-                decision_receipt: receipt(),
+            &DeviceRevocationAdmissionResult {
+                admission_record: receipt(),
             },
-            &["decision_receipt"],
+            &["admission_record"],
         );
     }
 
@@ -918,7 +895,7 @@ mod tests {
             let mut carried = base.clone();
             carried[member] = value;
             assert!(
-                serde_json::from_value::<DeviceRevocationGateDecisionReceipt>(carried).is_err(),
+                serde_json::from_value::<DeviceRevocationAdmissionRecord>(carried).is_err(),
                 "a receipt carrying {member} must be rejected outright"
             );
         }
@@ -972,14 +949,14 @@ mod tests {
         assert!(value.get("expected_device_authorize_event_id").is_none());
 
         let mut write = request();
-        write.action_class = DeviceRevocationGateActionClass::EventWrite;
+        write.action_class = DeviceRevocationAdmissionAction::EventWrite;
         assert!(write.validate().is_err());
         write.expected_device_authorize_event_id = Some(authorize_event());
         write.expected_device_generation_ref = Some(7);
         write.validate().unwrap();
 
         let mut code_claim = request();
-        code_claim.action_class = DeviceRevocationGateActionClass::DevicePairingCodeClaim;
+        code_claim.action_class = DeviceRevocationAdmissionAction::DevicePairingCodeClaim;
         assert!(code_claim.validate().is_err());
         code_claim.expected_device_authorize_event_id = Some(authorize_event());
         code_claim.expected_device_generation_ref = Some(7);
@@ -1000,7 +977,7 @@ mod tests {
     #[test]
     fn returning_issue_requires_a_matching_full_device_possession_proof() {
         let mut returning = request();
-        returning.action_class = DeviceRevocationGateActionClass::ReturningSessionGrantIssue;
+        returning.action_class = DeviceRevocationAdmissionAction::ReturningSessionGrantIssue;
         returning.accepted_device_possession_proof =
             Some(issue_possession_proof(returning.intent_digest.clone()));
         returning.validate().unwrap();
@@ -1026,7 +1003,7 @@ mod tests {
         allow.validate_for_request(&request).unwrap();
 
         let mut mismatch = receipt();
-        mismatch.decision = DeviceRevocationGateDecision::GenerationMismatch;
+        mismatch.decision = DeviceRevocationAdmissionDecision::GenerationMismatch;
         assert!(
             mismatch.validate_for_request(&request).is_err(),
             "a mismatch that still discloses the derived binding is rejected"
@@ -1050,7 +1027,7 @@ mod tests {
     #[test]
     fn allow_must_answer_the_expected_binding_it_was_given() {
         let mut returning = request();
-        returning.action_class = DeviceRevocationGateActionClass::ReturningSessionGrantIssue;
+        returning.action_class = DeviceRevocationAdmissionAction::ReturningSessionGrantIssue;
         returning.accepted_device_possession_proof =
             Some(issue_possession_proof(returning.intent_digest.clone()));
         returning.expected_device_authorize_event_id = Some(authorize_event());
@@ -1058,7 +1035,7 @@ mod tests {
         returning.validate().unwrap();
 
         let mut upgraded = receipt();
-        upgraded.action_class = DeviceRevocationGateActionClass::ReturningSessionGrantIssue;
+        upgraded.action_class = DeviceRevocationAdmissionAction::ReturningSessionGrantIssue;
         upgraded.accepted_device_possession_proof_digest = Some(
             returning
                 .accepted_device_possession_proof
@@ -1077,12 +1054,12 @@ mod tests {
     #[test]
     fn blocked_or_stale_receipts_admit_nothing() {
         let request = request();
-        let outcome = DeviceRevocationGateCheckOutcome {
-            decision_receipt: receipt(),
+        let outcome = DeviceRevocationAdmissionResult {
+            admission_record: receipt(),
         };
         assert_eq!(
             outcome.session_grant_admission(&request, at(2)).unwrap(),
-            SessionGrantGateAdmission::Authorized {
+            SessionGrantAdmission::Authorized {
                 authorization_event_id: &authorize_event(),
                 device_generation_ref: 7,
             }
@@ -1093,25 +1070,22 @@ mod tests {
         );
 
         for decision in [
-            DeviceRevocationGateDecision::RevocationPending,
-            DeviceRevocationGateDecision::Revoked,
-            DeviceRevocationGateDecision::GenerationMismatch,
+            DeviceRevocationAdmissionDecision::RevocationPending,
+            DeviceRevocationAdmissionDecision::Revoked,
+            DeviceRevocationAdmissionDecision::GenerationMismatch,
         ] {
             let mut blocked = receipt();
             blocked.decision = decision;
             blocked.target_device_authorize_event_id = None;
             blocked.target_device_generation_ref = None;
-            if decision == DeviceRevocationGateDecision::Revoked {
+            if decision == DeviceRevocationAdmissionDecision::Revoked {
                 blocked.accepted_commit_id = Some(accepted_commit_id());
             }
-            let outcome = DeviceRevocationGateCheckOutcome {
-                decision_receipt: blocked,
+            let outcome = DeviceRevocationAdmissionResult {
+                admission_record: blocked,
             };
             let admission = outcome.session_grant_admission(&request, at(2)).unwrap();
-            assert!(matches!(
-                admission,
-                SessionGrantGateAdmission::Blocked { .. }
-            ));
+            assert!(matches!(admission, SessionGrantAdmission::Blocked { .. }));
         }
     }
 
@@ -1119,15 +1093,15 @@ mod tests {
     fn authority_mismatch_requires_device_setup_and_never_issues_a_grant() {
         let request = request();
         let mut fresh = receipt();
-        fresh.decision = DeviceRevocationGateDecision::AuthorityMismatch;
+        fresh.decision = DeviceRevocationAdmissionDecision::AuthorityMismatch;
         fresh.target_device_authorize_event_id = None;
         fresh.target_device_generation_ref = None;
-        let outcome = DeviceRevocationGateCheckOutcome {
-            decision_receipt: fresh,
+        let outcome = DeviceRevocationAdmissionResult {
+            admission_record: fresh,
         };
         assert_eq!(
             outcome.session_grant_admission(&request, at(2)).unwrap(),
-            SessionGrantGateAdmission::DeviceSetupRequired
+            SessionGrantAdmission::DeviceSetupRequired
         );
     }
 

@@ -1,9 +1,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, ActorId, DeviceId, DeviceRevocationGateCheckOutcome,
-    DeviceRevocationGateCheckRequestBody, DidCoreId, DidUrl, EventId, RealmId, Result,
-    SessionGrantGateAdmission, SessionGrantId, WireError,
+    AccountId, ActorId, DeviceId, DeviceRevocationAdmissionInput, DeviceRevocationAdmissionResult,
+    DidCoreId, DidUrl, EventId, RealmId, Result, SessionGrantAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -59,10 +58,9 @@ pub enum SessionGrantHolderBinding {
 
 /// Authorization state committed into a standard human-device grant.
 ///
-/// The Account Authority populates it verbatim from the allow receipt of
-/// `ak.peer.device_revocations.command.check.v1`, which is the only source of
-/// the origin-derived authorization Event and generation. That receipt is a
-/// Station-internal linearization decision and deliberately carries no
+/// The Account Authority populates it from a Station-local revocation
+/// admission record, which is the only source of the origin-derived
+/// authorization Event and generation. That record deliberately carries no
 /// RealmCommit witness, so this binding names the authorization Event alone —
 /// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a
 /// local cache or a private lookup.
@@ -80,36 +78,38 @@ pub struct SessionGrantDeviceBinding {
 
 impl SessionGrantDeviceBinding {
     /// The `(expected_device_authorize_event_id, expected_device_generation_ref)`
-    /// pair a gate request carries when the issuer already holds a binding.
+    /// pair an admission input carries when the issuer already holds a binding.
     /// The two members appear together or not at all.
-    pub fn as_expected_gate_binding(&self) -> (Option<EventId>, Option<u64>) {
+    pub fn as_expected_revocation_binding(&self) -> (Option<EventId>, Option<u64>) {
         (
             Some(self.authorization_event_id.clone()),
             Some(self.model_generation_ref),
         )
     }
 
-    /// The only admitted construction: an `allow` receipt that answers this
-    /// exact request and is still fresh at `now`. Every other decision, and a
-    /// stale or mismatched receipt, yields no binding.
-    pub fn from_gate_outcome(
-        outcome: &DeviceRevocationGateCheckOutcome,
-        request: &DeviceRevocationGateCheckRequestBody,
+    /// The only admitted construction: an `allow` record that answers this
+    /// exact input and is still fresh at `now`. Every other decision, and a
+    /// stale or mismatched record, yields no binding.
+    pub fn from_revocation_admission(
+        outcome: &DeviceRevocationAdmissionResult,
+        request: &DeviceRevocationAdmissionInput,
         now: DateTime<Utc>,
     ) -> Result<Self> {
         match outcome.session_grant_admission(request, now)? {
-            SessionGrantGateAdmission::Authorized {
+            SessionGrantAdmission::Authorized {
                 authorization_event_id,
                 device_generation_ref,
             } => Ok(Self {
-                device_id: outcome.decision_receipt.device_id.clone(),
+                device_id: outcome.admission_record.device_id.clone(),
                 authorization_event_id: authorization_event_id.clone(),
                 model_generation_ref: device_generation_ref,
             }),
-            SessionGrantGateAdmission::DeviceSetupRequired
-            | SessionGrantGateAdmission::Blocked { .. } => Err(WireError::Protocol(
-                "session grant device binding requires an allow gate receipt".to_owned(),
-            )),
+            SessionGrantAdmission::DeviceSetupRequired | SessionGrantAdmission::Blocked { .. } => {
+                Err(WireError::Protocol(
+                    "session grant device binding requires an allow revocation admission"
+                        .to_owned(),
+                ))
+            }
         }
     }
 
