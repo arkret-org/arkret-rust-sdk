@@ -44,12 +44,10 @@ fn schema_accepts(value: &Value) -> bool {
 fn non_event_proof_matches_formal_schema_and_sdk() {
     let value = fixture();
     assert!(schema_accepts(&value));
-    let mut parsed: AgentRequestedScopeDisclosure = serde_json::from_value(value.clone()).unwrap();
+    let parsed: AgentRequestedScopeDisclosure = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-    // The fixture's proof digest is illustrative; replace it with the
-    // canonical unsigned-object digest to exercise the runtime binding.
     let computed_digest = parsed.payload_digest().unwrap();
-    parsed.proofs[0].payload_digest = computed_digest.clone();
+    assert_eq!(parsed.proofs[0].payload_digest, computed_digest);
     parsed.validate().unwrap();
     let binding: Value = serde_json::from_slice(
         &parsed

@@ -1,13 +1,14 @@
 //! MIMI interoperability moderation and consent facade.
 
 use std::collections::BTreeMap;
+use std::num::NonZeroU64;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, ActorId, AuditReasonText, CommittedEventRef, ConsentId, DeviceId, DidCoreId,
-    EventCommitSubmission, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, PayloadProof,
-    ProofContextId, ReportId, Result, ServiceOperationId, StrandId, UnsignedPayloadProof,
-    WireError, canonical,
+    AccountId, ActorId, AuditReasonText, CommittedEventRef, ConsentId, DeviceId, DidCoreId, DidUrl,
+    EventCommitSubmission, EventId, EventKind, Hash, MimiRoomUri, MlsGroupId, NonEmptyString,
+    PayloadProof, ProofContextId, RealmId, ReportId, Result, ServiceOperationId, StrandId,
+    UnsignedPayloadProof, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -15,8 +16,175 @@ use serde_json::Value;
 
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiDelivery, MimiDeliveryStatus, MimiFailure,
-    MimiIdentifier, MimiIdentifierMatch, MimiOhttpContext, MimiOpaquePayload,
+    MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
+    MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
+
+/// `mimi-operations.schema.json#/$defs/signature`; distinct from a generic
+/// payload proof because MIMI requires a domain and audience on the wire.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MimiSignatureKind {
+    DetachedJws,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiOperationSignature {
+    pub kind: MimiSignatureKind,
+    pub verification_method: DidUrl,
+    pub payload_digest: Hash,
+    #[serde(with = "canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub domain: NonEmptyString,
+    pub audience: arkret_wire::Audience,
+    pub jws: String,
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_key_material_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiKeyMaterialRequestBody {
+    pub requester_id: DidCoreId,
+    pub strand_id: StrandId,
+    pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mimi_room_uri: Option<MimiRoomUri>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<MlsGroupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_nonempty_identifier_query_proofs"
+    )]
+    pub proofs: Vec<PayloadProof>,
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_key_material_outcome`.
+/// Presence is preserved for the schema's at-least-one branch constraint.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiKeyMaterialOutcome {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keypackages: Option<Vec<MimiKeyPackage>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_info: Option<MimiGroupInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failures: Option<Vec<MimiFailure>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<MimiOperationSignature>,
+}
+
+impl MimiKeyMaterialOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if self.keypackages.is_none() && self.group_info.is_none() && self.failures.is_none() {
+            return Err(WireError::Protocol(
+                "MIMI key material outcome requires keypackages, group_info, or failures"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_room_update_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiRoomUpdateRequestBody {
+    pub mls_group_id: MlsGroupId,
+    pub update: MimiRoomUpdate,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmed_transcript_hash: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_actor_id: Option<ActorId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    // The runtime carrier is the closed EventAdmissionSubmission; the full
+    // Event/approval schema is published by the canonical artifact, not
+    // recreated as an OpenAPI mirror here.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<serde_json::Value>)))]
+    pub room_binding_event: Option<EventCommitSubmission>,
+}
+
+impl MimiRoomUpdateRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if (self.update.kind.as_str() == "ak.mimi.room_binding")
+            != self.room_binding_event.is_some()
+        {
+            return Err(WireError::Protocol(
+                "MIMI room_binding update requires its exact caller-authored Event, and other updates must omit it"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiRoomUpdateOutcome {
+    pub accepted: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub room_state_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rejections: Option<Vec<MimiFailure>>,
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_notify_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiNotifyRequestBody {
+    pub notification: MimiNotification,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_provider_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing: Option<MimiNotificationRouting>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiNotifyOutcome {
+    pub accepted: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = u64)))]
+    pub retry_after_ms: Option<NonZeroU64>,
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_request_consent_outcome`.
+/// The old `status` mirror is not part of the closed outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiRequestConsentOutcome {
+    pub consent_id: ConsentId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge: Option<NonEmptyString>,
+}
+
+/// `mimi-operations.schema.json#/$defs/mimi_update_consent_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiUpdateConsentOutcome {
+    pub consent_id: ConsentId,
+    pub decision: MimiConsentDecision,
+    #[serde(with = "canonical_timestamp")]
+    pub updated_at: DateTime<Utc>,
+    pub event_ref: EventId,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -134,6 +302,7 @@ impl MimiRequestConsentRequestBody {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MimiConsentDecision {
