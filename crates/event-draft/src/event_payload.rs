@@ -194,6 +194,7 @@ event_payload_accessors! {
     event_spec::RealmCreate => (as_realm_create, RealmCreatePayload, |payload: &RealmCreatePayload| payload.object.validate()),
     event_spec::RealmGovernanceStationChange => (as_realm_governance_station_change, RealmGovernanceStationChangePayload),
     event_spec::RealmAuthorityReset => (as_realm_authority_reset, RealmAuthorityResetPayload),
+    event_spec::DirectConversationBound => (as_direct_conversation_bound, DirectConversationBoundPayload, DirectConversationBoundPayload::validate_shape),
     event_spec::RealmProfile => (as_realm_profile, RealmProfile),
     event_spec::RealmAlias => (as_realm_alias, RealmAliasPayload),
     event_spec::RealmOrganization => (as_realm_organization, RealmOrganizationPayload),
