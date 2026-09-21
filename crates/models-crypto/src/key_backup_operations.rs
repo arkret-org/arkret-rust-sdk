@@ -23,6 +23,7 @@ pub struct KeyBackupsListQuery {
     pub limit: Option<u32>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BackupActiveSeriesPointer {
@@ -44,6 +45,7 @@ impl BackupActiveSeriesPointer {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupActiveSeriesState {
@@ -54,6 +56,7 @@ pub struct BackupActiveSeriesState {
     pub secret_storage: BackupActiveSeriesPointer,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupSummaryEncryption {
@@ -62,6 +65,7 @@ pub struct KeyBackupSummaryEncryption {
     pub recipient_key_ref: Option<String>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupSummary {
@@ -85,6 +89,7 @@ pub struct KeyBackupSummary {
     pub series_seq: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsList {
@@ -95,12 +100,14 @@ pub struct KeysBackupsList {
     pub has_more: bool,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsIssueUnlockChallengeRequestBody {
     pub request_id: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsUnlockChallenge {
@@ -122,6 +129,7 @@ pub struct KeysBackupsUnlockChallenge {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum KeyBackupUnlockAuthority {
@@ -134,6 +142,7 @@ pub enum KeyBackupUnlockAuthority {
     },
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupUnlockProofAuthData {
@@ -142,6 +151,7 @@ pub struct KeyBackupUnlockProofAuthData {
     pub signature: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupUnlockProof {
@@ -205,12 +215,14 @@ impl KeyBackupUnlockProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsUnlockRequestBody {
     pub proof: KeyBackupUnlockProof,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupPutStatus {
@@ -218,6 +230,7 @@ pub enum KeyBackupPutStatus {
     Duplicate,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsReplaceOutcome {
@@ -249,12 +262,14 @@ pub struct KeyBackupDeleteQuorumSignature {
     pub proof: PayloadProof,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsIssueDeleteChallengeRequestBody {
     pub request_id: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteChallenge {
@@ -283,6 +298,7 @@ pub struct KeysBackupsDeleteRequestBody {
     pub reason: Option<AuditReasonText>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteOutcome {
