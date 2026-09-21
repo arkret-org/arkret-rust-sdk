@@ -186,6 +186,7 @@ impl AgentRuntimeKeyPossessionProof {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRequestedScopeDisclosure {
@@ -275,12 +276,14 @@ impl AgentRequestedScopeDisclosure {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: OpaqueLocalId,
     pub approval_request_id: OpaqueLocalId,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: Event,
 }
 

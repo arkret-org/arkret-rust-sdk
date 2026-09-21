@@ -186,6 +186,7 @@ pub struct MimiUpdateConsentOutcome {
     pub event_ref: EventId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiReporterAuthority {
@@ -197,13 +198,16 @@ pub struct MimiReporterAuthority {
     pub proof: PayloadProof,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiReportAbuseRequestBody {
     pub reporter_authority: MimiReporterAuthority,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub report_event: EventCommitSubmission,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiReportAbuseOutcome {
@@ -213,6 +217,7 @@ pub struct MimiReportAbuseOutcome {
     pub routed_to_ids: Vec<DidCoreId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MimiReportAbuseStatus {
@@ -227,6 +232,7 @@ pub enum MimiReportAbuseStatus {
 /// current Station or alias table happens to say.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_request_consent_request_body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiRequestConsentRequestBody {
@@ -335,12 +341,14 @@ impl MimiConsentDecision {
 /// submits `consent_event` unchanged through authority Event submission.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_update_consent_request_body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
     pub actor_id: ActorId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub consent_event: EventCommitSubmission,
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]

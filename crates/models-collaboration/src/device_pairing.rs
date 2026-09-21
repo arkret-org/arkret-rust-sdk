@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::events_payloads::{DeviceAuthorizationBindingKind, SignatureMaterial};
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DevicePairingRequestId(String);
@@ -52,6 +53,7 @@ impl std::fmt::Display for DevicePairingRequestId {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DevicePairingCode(String);
@@ -94,6 +96,7 @@ impl std::fmt::Display for DevicePairingCode {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DevicePairingNonce(Base64UrlString);
@@ -267,6 +270,7 @@ pub(crate) fn device_pairing_target_proof_signing_input(
     Ok(bytes)
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingStageRequestBody {
@@ -278,6 +282,7 @@ pub struct DevicePairingStageRequestBody {
     pub device_metadata: Option<DeviceMetadata>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingStageOutcome {
@@ -289,6 +294,7 @@ pub struct DevicePairingStageOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingBootstrap {
@@ -307,6 +313,7 @@ pub struct DevicePairingBootstrap {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DevicePairingState {
@@ -360,6 +367,7 @@ pub struct DevicePairingStatusRequestBody {
     pub pairing_code: DevicePairingCode,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingStatusOutcome {
@@ -384,11 +392,13 @@ impl DevicePairingStatusOutcome {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: EventCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -397,6 +407,7 @@ pub struct AccountDevicePairRequestBody {
     pub device_pairing_request_id: DevicePairingRequestId,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountDevicePairOutcome {
