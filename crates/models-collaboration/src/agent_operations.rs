@@ -74,6 +74,7 @@ string_marker!(AgentProvisionCompleteStatus, Complete, "complete");
 
 /// The controller first presents a PCR-independent accepted DID inception.
 /// The governing Station allocates a handle but does not author a provision Event.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionPrepareRequestBody {
@@ -89,6 +90,7 @@ pub struct AgentProvisionPrepareRequestBody {
 }
 
 /// The controller freezes PCR genesis locally and authors the exact Event.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionCommitRequestBody {
@@ -101,11 +103,13 @@ pub struct AgentProvisionCommitRequestBody {
     pub slug: String,
     pub requested_scope: AgentKeyScope,
     pub allocation_handle: ProtocolOpaqueId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub provision_event: EventCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
@@ -114,6 +118,7 @@ pub enum AgentProvisionRequestBody {
     Commit(AgentProvisionCommitRequestBody),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionAwaitingControllerEvent {
@@ -126,6 +131,7 @@ pub struct AgentProvisionAwaitingControllerEvent {
     pub controller_authorization_ref: DidUrl,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionAwaitingPcrGenesis {
@@ -138,6 +144,7 @@ pub struct AgentProvisionAwaitingPcrGenesis {
     pub controller_authorization_ref: DidUrl,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionAwaitingDidBinding {
@@ -150,6 +157,7 @@ pub struct AgentProvisionAwaitingDidBinding {
     pub controller_authorization_ref: DidUrl,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProvisionComplete {
@@ -167,6 +175,7 @@ pub struct AgentProvisionComplete {
 }
 
 /// Closed four-stage transport result; only `Complete` exposes a pairing handle.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AgentProvisionOutcome {
