@@ -29,6 +29,7 @@ use crate::string_marker;
 /// `key-management.md` §3.6.2.
 pub const AGENT_KEY_PAIRING_REQUEST_BINDING_KIND: &str = "ak.agent.key_pairing_request_binding.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentLifecycleState {
@@ -185,6 +186,7 @@ pub enum AgentProvisionOutcome {
     Complete(AgentProvisionComplete),
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRenewPairingRequestBody {
@@ -192,6 +194,7 @@ pub struct AgentRenewPairingRequestBody {
     pub pairing_ttl_ms: Option<u64>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRenewPairingOutcome {
@@ -205,28 +208,35 @@ pub struct AgentRenewPairingOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPauseRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: EventCommitSubmission,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentResumeRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: EventCommitSubmission,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentDeactivateRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub lifecycle_event: EventCommitSubmission,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentLifecycleOutcome {
@@ -241,6 +251,7 @@ pub struct AgentLifecycleOutcome {
 /// closed (`additionalProperties: false`), so the projection carries no commit
 /// coordinate: durable coordinates reach callers through the operation outcome
 /// that accepted the Event, never through this read projection.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProjection {
@@ -291,6 +302,7 @@ impl AgentRuntimeState {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentReadinessState {
@@ -298,6 +310,7 @@ pub enum AgentReadinessState {
     NotReady,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentReadinessBlocker {
@@ -310,6 +323,7 @@ pub enum AgentReadinessBlocker {
     MlsRejoinRequired,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentReadiness {
@@ -317,6 +331,7 @@ pub struct AgentReadiness {
     pub blockers: Vec<AgentReadinessBlocker>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentPresenceState {
@@ -325,6 +340,7 @@ pub enum AgentPresenceState {
     Unknown,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPresence {
@@ -368,6 +384,7 @@ pub struct AgentPairingResolveRequestBody {
 /// expiry and supersedes in the Event before signing.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_runtime_approval_controller_projection.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalControllerProjection {
@@ -388,6 +405,7 @@ pub struct AgentRuntimeApprovalControllerProjection {
 /// byte.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/key_state/properties/current_signer_evidence.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyStateCurrentSignerEvidence {
@@ -418,6 +436,7 @@ impl KeyStateCurrentSignerEvidence {
 /// exposed only by the pairing poll.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/key_state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyState {
@@ -518,6 +537,7 @@ pub fn agent_key_pairing_request_binding_digest(
 
 /// Field declaration order is byte-for-byte the properties order of
 /// `agent-operations.schema.json#/$defs/agent_list`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentList {
@@ -555,6 +575,7 @@ impl AgentList {
 
 /// Field declaration order is byte-for-byte the properties order of
 /// `agent-operations.schema.json#/$defs/agent_view`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentView {
