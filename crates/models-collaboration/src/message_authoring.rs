@@ -238,8 +238,7 @@ impl MessagePrepareOutcome {
             ));
         }
         if let MessageAuthoringContent::Mls {
-            encryption_context,
-            ..
+            encryption_context, ..
         } = &request.intent.content
             && event.scope_ref != encryption_context.effective_scope
         {
@@ -247,8 +246,7 @@ impl MessagePrepareOutcome {
                 "message prepare draft rewrites the frozen encryption scope".to_owned(),
             ));
         }
-        if serde_json::to_value(&event.payload)?
-            != serde_json::to_value(request.intent.payload())?
+        if serde_json::to_value(&event.payload)? != serde_json::to_value(request.intent.payload())?
         {
             return Err(WireError::Protocol(
                 "message prepare draft rewrites the frozen message payload".to_owned(),
@@ -396,7 +394,13 @@ mod message_prepare_tests {
 
     #[test]
     fn every_request_member_is_required_and_no_other_is_accepted() {
-        for member in ["request_id", "account_id", "realm_id", "intent", "created_at"] {
+        for member in [
+            "request_id",
+            "account_id",
+            "realm_id",
+            "intent",
+            "created_at",
+        ] {
             let mut missing = request_value();
             missing.as_object_mut().unwrap().remove(member);
             assert!(

@@ -73,7 +73,13 @@ fn request_round_trips_and_validates_against_the_formal_fragment() {
 
 #[test]
 fn schema_and_sdk_both_reject_missing_and_unknown_members() {
-    for member in ["request_id", "account_id", "realm_id", "intent", "created_at"] {
+    for member in [
+        "request_id",
+        "account_id",
+        "realm_id",
+        "intent",
+        "created_at",
+    ] {
         let mut missing = request();
         missing.as_object_mut().unwrap().remove(member);
         assert!(
