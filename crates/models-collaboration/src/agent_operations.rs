@@ -4,12 +4,13 @@
 //! authority. There is no prepare/reservation phase and no client-authored
 //! acceptance or history checkpoint.
 
-use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
+use arkret_models_identity::{AuthenticatedSignerResolutionEvidence, ResolutionCommitment};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, AuditReasonText, BlobRef, CommittedEventRef, DidCoreId, DidUrl,
-    EventCommitSubmission, EventId, Hash, NonEmptyString, OpaqueLocalId, RealmId, Result,
-    SignerEvidenceRef, WireError, canonical,
+    AccountId, AuditReasonText, BlobRef, CommittedEventRef, Did, DidCoreId, DidUrl,
+    EventCommitSubmission, EventId, Hash, IdempotencyKey, NonEmptyString, OpaqueLocalId,
+    ProtocolOpaqueId, ProtocolOperationId, RealmId, Result, SignerEvidenceRef, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,7 @@ use crate::agent_sidecar::{
 };
 use crate::events_payloads::agent::{AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope};
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, PublicKey};
+use crate::string_marker;
 
 /// Canonical `kind` of the controller approval binding object defined by
 /// `key-management.md` §3.6.2.
@@ -63,23 +65,115 @@ pub struct AgentKeyPairOutcome {
     pub status: AgentLifecycleState,
 }
 
+string_marker!(AgentProvisionPreparePhase, Prepare, "prepare");
+string_marker!(AgentProvisionCommitPhase, Commit, "commit");
+string_marker!(AgentProvisionAwaitingControllerEventStatus, AwaitingControllerEvent, "awaiting_controller_event");
+string_marker!(AgentProvisionAwaitingPcrGenesisStatus, AwaitingPcrGenesis, "awaiting_pcr_genesis");
+string_marker!(AgentProvisionAwaitingDidBindingStatus, AwaitingDidBinding, "awaiting_did_binding");
+string_marker!(AgentProvisionCompleteStatus, Complete, "complete");
+
+/// The controller first presents a PCR-independent accepted DID inception.
+/// The governing Station allocates a handle but does not author a provision Event.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentProvisionRequestBody {
+pub struct AgentProvisionPrepareRequestBody {
+    pub phase: AgentProvisionPreparePhase,
+    pub operation_id: ProtocolOperationId,
+    pub idempotency_key: IdempotencyKey,
+    pub did: Did,
+    pub slug: String,
+    pub requested_scope: AgentKeyScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_ttl_ms: Option<u64>,
+    pub controller_station_id: DidCoreId,
+}
+
+/// The controller freezes PCR genesis locally and authors the exact Event.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionCommitRequestBody {
+    pub phase: AgentProvisionCommitPhase,
+    pub operation_id: ProtocolOperationId,
+    pub idempotency_key: IdempotencyKey,
+    pub agent_id: DidCoreId,
+    pub did: Did,
+    pub principal_control_realm_id: RealmId,
+    pub slug: String,
+    pub requested_scope: AgentKeyScope,
+    pub allocation_handle: ProtocolOpaqueId,
     pub provision_event: EventCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
+pub enum AgentProvisionRequestBody {
+    Prepare(AgentProvisionPrepareRequestBody),
+    Commit(AgentProvisionCommitRequestBody),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentProvisionOutcome {
+pub struct AgentProvisionAwaitingControllerEvent {
+    pub status: AgentProvisionAwaitingControllerEventStatus,
     pub agent_id: DidCoreId,
-    pub provision_ref: CommittedEventRef,
+    pub did: Did,
+    pub initial_resolution: ResolutionCommitment,
+    pub controller_realm_id: RealmId,
+    pub allocation_handle: ProtocolOpaqueId,
+    pub controller_authorization_ref: DidUrl,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionAwaitingPcrGenesis {
+    pub status: AgentProvisionAwaitingPcrGenesisStatus,
+    pub agent_id: DidCoreId,
+    pub did: Did,
+    pub initial_resolution: ResolutionCommitment,
+    pub principal_control_realm_id: RealmId,
+    pub allocation_handle: ProtocolOpaqueId,
+    pub controller_authorization_ref: DidUrl,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionAwaitingDidBinding {
+    pub status: AgentProvisionAwaitingDidBindingStatus,
+    pub agent_id: DidCoreId,
+    pub did: Did,
+    pub initial_resolution: ResolutionCommitment,
+    pub principal_control_realm_id: RealmId,
+    pub allocation_handle: ProtocolOpaqueId,
+    pub controller_authorization_ref: DidUrl,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionComplete {
+    pub status: AgentProvisionCompleteStatus,
+    pub agent_id: DidCoreId,
+    pub did: Did,
+    pub initial_resolution: ResolutionCommitment,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: DidUrl,
     pub pairing_request_id: OpaqueLocalId,
-    pub pairing_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
     #[serde(with = "canonical_timestamp")]
-    pub pairing_expires_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Closed four-stage transport result; only `Complete` exposes a pairing handle.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AgentProvisionOutcome {
+    AwaitingControllerEvent(AgentProvisionAwaitingControllerEvent),
+    AwaitingPcrGenesis(AgentProvisionAwaitingPcrGenesis),
+    AwaitingDidBinding(AgentProvisionAwaitingDidBinding),
+    Complete(AgentProvisionComplete),
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -636,8 +730,8 @@ mod tests {
     }
 
     /// The projection is a read view, not a commit coordinate carrier: the
-    /// closed schema has no `provision_ref`, and a durable coordinate reaches
-    /// callers through the provisioning outcome instead.
+    /// closed schema has no `provision_ref`; callers track their own accepted
+    /// Event/RealmCommit coordinates from the governance submit path.
     #[test]
     fn an_agent_projection_carries_no_commit_coordinate() {
         serde_json::from_value::<AgentProjection>(agent_projection_value())
