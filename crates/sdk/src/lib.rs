@@ -173,10 +173,10 @@ pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
     RealmJoinBootstrapAssembly, RealmJoinBootstrapStreamScan,
 };
 pub use arkret_models_collaboration::governance::realm_join_intake::{
-    AuthorityLocatorHint, AuthorityLocatorSource, PeerRealmJoinBootstrapOutcome,
-    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
-    PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus, RealmJoinApplicationStatusOutcome,
-    RealmJoinApplicationStatusRequest, RealmJoinIntent, RealmJoinTarget, RealmPublicPreview,
+    AuthorityLocatorSource, PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody,
+    PeerRealmJoinPreviewOutcome, PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus,
+    RealmJoinApplicationStatusOutcome, RealmJoinApplicationStatusRequest, RealmJoinCandidate,
+    RealmJoinCandidateServiceKind, RealmJoinIntent, RealmJoinTarget, RealmPublicPreview,
     SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome,
     SelfRealmJoinPreviewRequestBody,
 };
@@ -266,10 +266,12 @@ pub use arkret_models_discovery::presence::{
     validate_status_message,
 };
 pub use arkret_models_discovery::realm_join_preview::{
-    AuthorityLocatorHint as PreviewAuthorityLocatorHint,
-    AuthorityLocatorSource as PreviewAuthorityLocatorSource, RealmJoinPeerPreviewOutcome,
-    RealmJoinPeerPreviewRequestBody, RealmJoinSelfPreviewOutcome, RealmJoinSelfPreviewRequestBody,
-    RealmJoinTarget as PreviewRealmJoinTarget, RealmPublicPreview as PreviewRealmPublicPreview,
+    AuthorityLocatorSource as PreviewAuthorityLocatorSource,
+    RealmJoinCandidate as PreviewRealmJoinCandidate,
+    RealmJoinCandidateServiceKind as PreviewRealmJoinCandidateServiceKind,
+    RealmJoinPeerPreviewOutcome, RealmJoinPeerPreviewRequestBody, RealmJoinSelfPreviewOutcome,
+    RealmJoinSelfPreviewRequestBody, RealmJoinTarget as PreviewRealmJoinTarget,
+    RealmPublicPreview as PreviewRealmPublicPreview,
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{

@@ -19,30 +19,6 @@ pub enum AuthorityLocatorSource {
     Cache,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthorityLocatorHint {
-    pub service_id: DidCoreId,
-    pub source: AuthorityLocatorSource,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint_url: Option<String>,
-}
-
-impl AuthorityLocatorHint {
-    pub fn validate(&self) -> Result<()> {
-        if self
-            .endpoint_url
-            .as_ref()
-            .is_some_and(|url| !url.starts_with("https://"))
-        {
-            return Err(WireError::Protocol(
-                "authority locator endpoint_url must use https".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinTarget {
@@ -51,7 +27,7 @@ pub struct RealmJoinTarget {
     pub invite_id: Option<InviteId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_token: Option<String>,
-    pub authority_locator_hints: Vec<AuthorityLocatorHint>,
+    pub authority_locator_hints: Vec<RealmJoinCandidate>,
 }
 
 impl RealmJoinTarget {
@@ -66,8 +42,17 @@ impl RealmJoinTarget {
                 "invite_id and invite_token must appear together".to_owned(),
             ));
         }
-        for hint in &self.authority_locator_hints {
+        for (index, hint) in self.authority_locator_hints.iter().enumerate() {
             hint.validate()?;
+            if index > 0
+                && self.authority_locator_hints[index - 1].service_id.as_str()
+                    >= hint.service_id.as_str()
+            {
+                return Err(WireError::Protocol(
+                    "authority locator hints must be strictly sorted by service_id with no duplicate identity"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -231,14 +216,28 @@ pub enum RealmJoinCandidateServiceKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinCandidate {
-    pub realm_id: RealmId,
     pub service_kind: RealmJoinCandidateServiceKind,
     pub service_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
     pub source: AuthorityLocatorSource,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: chrono::DateTime<chrono::Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl RealmJoinCandidate {
+    /// Validates the locator-local constraints of the closed current-v1 core.
+    ///
+    /// Realm scope and freshness deliberately belong to the enclosing carrier;
+    /// callers must not infer either from this untrusted locator.
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .endpoint_url
+            .as_ref()
+            .is_some_and(|url| !url.starts_with("https://"))
+        {
+            return Err(WireError::Protocol(
+                "Realm join candidate endpoint_url must use https".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }

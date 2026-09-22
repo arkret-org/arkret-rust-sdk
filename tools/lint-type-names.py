@@ -20,7 +20,9 @@ EXCEPTIONS = {
         "Generated Event-kind marker for moving a domain item, not a wrapper.",
     ("wire/src/platform.rs", "WasmHttpResponseBody"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
-    ("models-discovery/src/directory.rs", "RealmJoinCandidate"):
+    ("models-collaboration/src/governance/realm_join_intake.rs", "RealmJoinCandidate"):
+        "Domain subject: a candidate service for joining a Realm.",
+    ("models-discovery/src/realm_join_preview.rs", "RealmJoinCandidate"):
         "Domain subject: a candidate service for joining a Realm.",
     ("models-collaboration/src/call_signal.rs", "IceCandidate"):
         "External ICE candidate term.",

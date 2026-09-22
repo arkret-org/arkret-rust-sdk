@@ -1,5 +1,5 @@
 use arkret_models_collaboration::governance::realm_join_intake::{
-    AuthorityLocatorHint, AuthorityLocatorSource, RealmJoinTarget,
+    AuthorityLocatorSource, RealmJoinCandidate, RealmJoinCandidateServiceKind, RealmJoinTarget,
 };
 use arkret_models_collaboration::objects::realm::Realm;
 use arkret_wire::{ActorId, CircleId, CommitStreamRef, DidCoreId, RealmId, TrustDomainId};
@@ -32,7 +32,8 @@ fn join_locator_is_only_a_bounded_https_hint() {
         realm_id: realm_id(),
         invite_id: None,
         invite_token: None,
-        authority_locator_hints: vec![AuthorityLocatorHint {
+        authority_locator_hints: vec![RealmJoinCandidate {
+            service_kind: RealmJoinCandidateServiceKind::Station,
             service_id: station_id(),
             source: AuthorityLocatorSource::Invite,
             endpoint_url: Some("https://station.example".to_owned()),

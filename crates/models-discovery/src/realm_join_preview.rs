@@ -4,8 +4,6 @@
 //! after the caller validates the nonce-bound authority bundle from Realm
 //! genesis through the current authority generation.
 
-use std::collections::BTreeSet;
-
 use arkret_wire::{
     AccountId, DidCoreId, HistoryAccess, InviteId, JoinRule, RealmAuthorityBundle, RealmId,
     RequestId, Result, WireError,
@@ -20,16 +18,23 @@ pub enum AuthorityLocatorSource {
     Cache,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthorityLocatorHint {
-    pub service_id: DidCoreId,
-    pub source: AuthorityLocatorSource,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint_url: Option<String>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinCandidateServiceKind {
+    Station,
 }
 
-impl AuthorityLocatorHint {
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinCandidate {
+    pub service_kind: RealmJoinCandidateServiceKind,
+    pub service_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint_url: Option<String>,
+    pub source: AuthorityLocatorSource,
+}
+
+impl RealmJoinCandidate {
     pub fn validate(&self) -> Result<()> {
         if self
             .endpoint_url
@@ -52,7 +57,7 @@ pub struct RealmJoinTarget {
     pub invite_id: Option<InviteId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_token: Option<String>,
-    pub authority_locator_hints: Vec<AuthorityLocatorHint>,
+    pub authority_locator_hints: Vec<RealmJoinCandidate>,
 }
 
 impl RealmJoinTarget {
@@ -64,14 +69,17 @@ impl RealmJoinTarget {
                 "Realm join target has invalid invite or locator cardinality".to_owned(),
             ));
         }
-        let unique = self.authority_locator_hints.iter().collect::<BTreeSet<_>>();
-        if unique.len() != self.authority_locator_hints.len() {
-            return Err(WireError::Protocol(
-                "authority locator hints must be unique".to_owned(),
-            ));
-        }
-        for hint in &self.authority_locator_hints {
+        for (index, hint) in self.authority_locator_hints.iter().enumerate() {
             hint.validate()?;
+            if index > 0
+                && self.authority_locator_hints[index - 1].service_id.as_str()
+                    >= hint.service_id.as_str()
+            {
+                return Err(WireError::Protocol(
+                    "authority locator hints must be strictly sorted by service_id with no duplicate identity"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -218,7 +226,8 @@ mod tests {
                 InviteId::new("ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G").unwrap(),
             ),
             invite_token: Some("srv-01HYZ8Z000000000000000".to_owned()),
-            authority_locator_hints: vec![AuthorityLocatorHint {
+            authority_locator_hints: vec![RealmJoinCandidate {
+                service_kind: RealmJoinCandidateServiceKind::Station,
                 service_id: DidCoreId::new("ak:did_core:web:station.example").unwrap(),
                 source: AuthorityLocatorSource::Directory,
                 endpoint_url: Some("https://station.example".to_owned()),
