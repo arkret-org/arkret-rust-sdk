@@ -1478,13 +1478,9 @@ fn verify_source_signature_at(
         signature.verification_method.as_str(),
     )
     .map_err(invalid)?;
-    if !arkret_signatures::proof::verify_detached_ed25519_signature(
-        &key.public_key,
-        bytes,
-        signature.jws.as_str(),
-    ) {
-        return Err(invalid("source signature is invalid"));
-    }
+    arkret_signatures::Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(&signature.jws, bytes, &key.public_key)
+        .map_err(|_| invalid("source signature is invalid"))?;
     Ok(())
 }
 

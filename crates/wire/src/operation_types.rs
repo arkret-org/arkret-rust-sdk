@@ -5,9 +5,7 @@ use std::fmt;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{
-    ActorId, AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, RealmId,
-};
+use crate::{ActorId, AuthorizationRef, DidCoreId, DidUrl, Event, EventId, RealmId};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -164,14 +162,42 @@ impl<'de> Deserialize<'de> for ProtocolOperationId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProtocolSignature {
     pub verification_method: DidUrl,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub jws: Base64UrlString,
+    pub jws: String,
+}
+
+impl<'de> Deserialize<'de> for ProtocolSignature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireSignature {
+            verification_method: DidUrl,
+            #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+            created_at: DateTime<Utc>,
+            jws: String,
+        }
+
+        let value = WireSignature::deserialize(deserializer)?;
+        if !crate::is_compact_detached_jws(&value.jws) {
+            return Err(de::Error::custom(
+                "protocol signature jws must be protected..signature compact detached JWS",
+            ));
+        }
+        Ok(Self {
+            verification_method: value.verification_method,
+            created_at: value.created_at,
+            jws: value.jws,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

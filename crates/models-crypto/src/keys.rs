@@ -903,7 +903,7 @@ mod device_generation_tests {
                 "proof": {
                     "verification_method": "did:webvh:z6mkfixtureps:ps.example#signing-1",
                     "created_at": "2026-08-15T00:00:00.000Z",
-                    "jws": "c2ln"
+                    "jws": "eyJhbGciOiJFZDI1NTE5In0..c2ln"
                 }
             }
         })

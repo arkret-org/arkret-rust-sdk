@@ -4,9 +4,11 @@ use arkret_models_identity::{
     DidDocument, PrincipalResolutionProjectionAttestation,
     PrincipalResolutionProjectionAttestationCore, PublicPrincipalResolution,
 };
-use arkret_wire::{Base64UrlString, Did, DidCoreId, DidUrl, ProtocolSignature};
+use arkret_wire::{Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
+use ed25519_dalek::{SigningKey, VerifyingKey};
+
+use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
 /// Sign the Station projection attestation that makes the public
 /// resolution surface verifiable without disclosing any PCR material.
@@ -24,7 +26,9 @@ pub fn sign_principal_resolution_projection_attestation(
         proof: placeholder_proof(verification_method, core.issued_at)?,
         attestation: core,
     };
-    attestation.proof.jws = signature_value(signing_key, &attestation.proof_signing_bytes()?)?;
+    attestation.proof.jws =
+        sign_ed25519_detached_jws(signing_key, &attestation.proof_signing_bytes()?)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     Ok(attestation)
 }
 
@@ -87,18 +91,8 @@ fn placeholder_proof(
     Ok(ProtocolSignature {
         verification_method,
         created_at,
-        jws: base64_value("AA".to_owned())?,
+        jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
     })
-}
-
-fn signature_value(signing_key: &SigningKey, bytes: &[u8]) -> arkret_wire::Result<Base64UrlString> {
-    base64_value(arkret_canonical::base64url_encode(
-        signing_key.sign(bytes).to_bytes(),
-    ))
-}
-
-fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
-    Base64UrlString::new(value).map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))
 }
 
 fn verify_document_signature(
@@ -109,16 +103,19 @@ fn verify_document_signature(
 ) -> arkret_wire::Result<VerifyingKey> {
     require_assertion_method(document, &proof.verification_method)?;
     let material = lookup_key_material(document, &proof.verification_method)?;
-    let bytes = crate::proof::PublicKeyMaterial::Ed25519Multibase { value: material }
+    let bytes = PublicKeyMaterial::Ed25519Multibase { value: material }
         .ed25519_bytes()
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     let key = VerifyingKey::from_bytes(&bytes)
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    let signature_bytes = arkret_canonical::base64url_decode(proof.jws.as_str())
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    let signature = Signature::from_slice(&signature_bytes)
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    key.verify(signing_bytes, &signature)
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(
+            &proof.jws,
+            signing_bytes,
+            &PublicKeyMaterial::Ed25519Raw {
+                bytes: key.to_bytes().to_vec(),
+            },
+        )
         .map_err(|_| arkret_wire::WireError::Protocol(invalid_message.to_owned()))?;
     Ok(key)
 }

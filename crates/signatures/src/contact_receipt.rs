@@ -2,7 +2,8 @@
 
 use arkret_models_collaboration::contact_operations::RequestAcceptanceReceipt;
 use arkret_wire::{EventId, Result, WireError};
-use ed25519_dalek::Signature;
+
+use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial};
 
 /// Canonical bytes signed by the source service for a Contact request
 /// acceptance receipt. The non-recursive `receipt_digest` covers `core`; the
@@ -30,19 +31,13 @@ pub fn verify_contact_request_acceptance_receipt(
             "Contact request receipt does not bind the exact request Event".to_owned(),
         ));
     }
-    let signature_bytes = arkret_canonical::base64url_decode(receipt.signature.jws.as_str())
-        .map_err(|error| {
-            WireError::Protocol(format!("invalid Contact receipt signature: {error}"))
-        })?;
-    let signature = Signature::from_slice(&signature_bytes).map_err(|_| {
-        WireError::Protocol(
-            "Contact receipt signature must contain exactly 64 Ed25519 bytes".to_owned(),
-        )
-    })?;
-    verifying_key
-        .verify_strict(
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(
+            &receipt.signature.jws,
             &contact_request_acceptance_receipt_signing_bytes(receipt)?,
-            &signature,
+            &PublicKeyMaterial::Ed25519Raw {
+                bytes: verifying_key.to_bytes().to_vec(),
+            },
         )
         .map_err(|_| WireError::Protocol("Contact request receipt signature is invalid".to_owned()))
 }
@@ -107,7 +102,6 @@ mod tests {
     #[test]
     fn contact_current_proof_builder_returns_a_real_signature_over_its_exact_fields() {
         use arkret_models_collaboration::contact_operations::ContactCurrentProof;
-        use ed25519_dalek::Signer;
         let fixture = fixture();
         let seed: [u8; 32] = arkret_canonical::base64url_decode(
             fixture["producer_signer_kat"]["source_private_seed_b64u"]
@@ -131,31 +125,33 @@ mod tests {
             receipt.core.accepted_at + chrono::Duration::minutes(1),
             |bytes| {
                 let mut signature = signature_metadata;
-                signature.jws = Base64UrlString::new(arkret_canonical::base64url_encode(
-                    key.sign(bytes).to_bytes(),
-                ))
-                .unwrap();
+                signature.jws = crate::sign_ed25519_detached_jws(&key, bytes).unwrap();
                 Ok(signature)
             },
         )
         .unwrap();
-        let signature = Signature::from_slice(
-            &arkret_canonical::base64url_decode(current.signature.jws.as_str()).unwrap(),
-        )
-        .unwrap();
         let mut fields = serde_json::to_value(&current).unwrap();
         fields.as_object_mut().unwrap().remove("signature");
-        key.verifying_key()
-            .verify_strict(
+        Ed25519DetachedJwsVerifier::new()
+            .verify_detached_jws(
+                &current.signature.jws,
                 &arkret_canonical::canonical_json_bytes(&fields).unwrap(),
-                &signature,
+                &PublicKeyMaterial::Ed25519Raw {
+                    bytes: key.verifying_key().to_bytes().to_vec(),
+                },
             )
             .unwrap();
         let mut changed = current;
         changed.complete_through += 1;
         assert!(
-            key.verifying_key()
-                .verify_strict(&changed.canonical_signing_bytes().unwrap(), &signature)
+            Ed25519DetachedJwsVerifier::new()
+                .verify_detached_jws(
+                    &changed.signature.jws,
+                    &changed.canonical_signing_bytes().unwrap(),
+                    &PublicKeyMaterial::Ed25519Raw {
+                        bytes: key.verifying_key().to_bytes().to_vec(),
+                    },
+                )
                 .is_err()
         );
     }
@@ -169,11 +165,11 @@ mod tests {
         .unwrap();
         assert!(verify_contact_request_acceptance_receipt(&receipt, &wrong_event, &key).is_err());
         let mut tampered = receipt.clone();
-        let mut signature =
-            arkret_canonical::base64url_decode(tampered.signature.jws.as_str()).unwrap();
-        signature[0] ^= 1;
-        tampered.signature.jws =
-            Base64UrlString::new(arkret_canonical::base64url_encode(signature)).unwrap();
+        let last = tampered.signature.jws.pop().unwrap();
+        tampered
+            .signature
+            .jws
+            .push(if last == 'A' { 'B' } else { 'A' });
         assert!(
             verify_contact_request_acceptance_receipt(
                 &tampered,

@@ -16,9 +16,11 @@
 use arkret_models_crypto::{
     DeviceProjectionAttestation, DeviceProjectionAttestationCore, DeviceStatus,
 };
-use arkret_wire::{Base64UrlString, Did, DidCoreId, DidUrl, ProtocolSignature};
+use arkret_wire::{Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
+use ed25519_dalek::{SigningKey, VerifyingKey};
+
+use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
 /// Sign one device projection attestation.
 ///
@@ -59,14 +61,13 @@ pub fn sign_device_projection_attestation(
         proof: ProtocolSignature {
             verification_method,
             created_at,
-            jws: base64_value("AA".to_owned())?,
+            jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
         },
         attestation: core,
     };
     let bytes = attestation.proof_signing_bytes()?;
-    attestation.proof.jws = base64_value(arkret_canonical::base64url_encode(
-        signing_key.sign(&bytes).to_bytes(),
-    ))?;
+    attestation.proof.jws = sign_ed25519_detached_jws(signing_key, &bytes)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     Ok(attestation)
 }
 
@@ -120,12 +121,14 @@ pub fn verify_device_projection_attestation(
             "device projection attestation may only attest an active device".to_owned(),
         ));
     }
-    let signature_bytes = arkret_canonical::base64url_decode(attestation.proof.jws.as_str())
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    let signature = Signature::from_slice(&signature_bytes)
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    station_key
-        .verify(&attestation.proof_signing_bytes()?, &signature)
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(
+            &attestation.proof.jws,
+            &attestation.proof_signing_bytes()?,
+            &PublicKeyMaterial::Ed25519Raw {
+                bytes: station_key.to_bytes().to_vec(),
+            },
+        )
         .map_err(|_| {
             arkret_wire::WireError::Protocol(
                 "invalid device projection attestation proof".to_owned(),
@@ -183,7 +186,7 @@ pub fn authenticate_device_projection_for_caching(
 
 pub fn verify_device_projection_with_key_material(
     attestation: &DeviceProjectionAttestation,
-    station_key: &crate::proof::PublicKeyMaterial,
+    station_key: &PublicKeyMaterial,
     at: DateTime<Utc>,
 ) -> arkret_wire::Result<()> {
     if at < attestation.attestation.attested_at {
@@ -212,10 +215,6 @@ fn proof_controller(verification_method: &DidUrl) -> arkret_wire::Result<DidCore
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     arkret_wire::project_did_to_core_id(&did)
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
-}
-
-fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
-    Base64UrlString::new(value).map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))
 }
 
 #[cfg(test)]
@@ -409,7 +408,7 @@ mod tests {
         let expiry = core.expires_at;
         let attestation =
             sign_device_projection_attestation(core, verification_method(), &signing_key).unwrap();
-        let material = crate::proof::PublicKeyMaterial::Ed25519Raw {
+        let material = PublicKeyMaterial::Ed25519Raw {
             bytes: signing_key.verifying_key().to_bytes().to_vec(),
         };
         verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
@@ -424,7 +423,7 @@ mod tests {
         assert!(
             verify_device_projection_with_key_material(&attestation, &material, expiry).is_err()
         );
-        let foreign_key = crate::proof::PublicKeyMaterial::Ed25519Raw {
+        let foreign_key = PublicKeyMaterial::Ed25519Raw {
             bytes: SigningKey::from_bytes(&[16_u8; 32])
                 .verifying_key()
                 .to_bytes()

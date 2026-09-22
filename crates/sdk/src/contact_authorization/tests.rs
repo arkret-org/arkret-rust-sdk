@@ -4,7 +4,7 @@ use arkret_models_identity::IdentityLogListOutcome;
 use arkret_signatures::webvh::{ServiceInceptionInput, prepare_service_inception};
 use arkret_wire::{AccountId, Base64UrlString, Did, DidUrl};
 use chrono::{Duration, TimeZone as _};
-use ed25519_dalek::{Signer as _, SigningKey};
+use ed25519_dalek::SigningKey;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng as _;
 
@@ -57,7 +57,7 @@ impl Fixture {
             signature: ProtocolSignature {
                 verification_method: DidUrl::new(inception.did_key_id.clone()).unwrap(),
                 created_at: at,
-                jws: Base64UrlString::new("AA").unwrap(),
+                jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
             },
             issuer: ContactPeer::Human {
                 account_id: AccountId::new(
@@ -74,11 +74,8 @@ impl Fixture {
             round: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
         }
     }
-    fn sign(&self, bytes: &[u8]) -> Base64UrlString {
-        Base64UrlString::new(arkret_canonical::base64url_encode(
-            self.key.sign(bytes).to_bytes(),
-        ))
-        .unwrap()
+    fn sign(&self, bytes: &[u8]) -> String {
+        arkret_signatures::sign_ed25519_detached_jws(&self.key, bytes).unwrap()
     }
     fn lineage(&self, version: u8, scopes: &[ContactScope], terminal: bool) -> ContactLineage {
         let mut lineage = ContactLineage {
@@ -547,8 +544,10 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
         request_receipt, ..
     } = &mut bad_source
     {
-        request_receipt.signature.jws =
-            Base64UrlString::new(arkret_canonical::base64url_encode([0; 64])).unwrap();
+        request_receipt.signature.jws = format!(
+            "eyJhbGciOiJFZDI1NTE5In0..{}",
+            arkret_canonical::base64url_encode([0; 64])
+        );
     }
     assert!(fixture.authenticate(&bad_source).is_err());
     let mut bad_holder = carrier.clone();
