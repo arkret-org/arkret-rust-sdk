@@ -265,6 +265,34 @@ impl RecoveryPolicy {
     }
 }
 
+/// Build the formal RecoveryPolicy signature transcript.
+///
+/// The v1 transcript is
+/// `UTF8("ak.identity.recovery_policy.signature.v1\n") || RFC8785_JCS(policy
+/// without the top-level auth_data member)`. Every present optional and `x_*`
+/// top-level member remains covered; only `auth_data` is excluded as one whole
+/// top-level member.
+pub fn recovery_policy_signature_transcript_bytes(policy: &RecoveryPolicy) -> Result<Vec<u8>> {
+    policy.validate_shape()?;
+    let mut value = serde_json::to_value(policy)?;
+    let removed = value
+        .as_object_mut()
+        .ok_or_else(|| WireError::Protocol("recovery policy must be an object".to_owned()))?
+        .remove("auth_data");
+    if removed.is_none() {
+        return Err(WireError::Protocol(
+            "recovery policy is missing auth_data".to_owned(),
+        ));
+    }
+    let canonical = arkret_canonical::canonical_json_bytes(&value)?;
+    let domain = arkret_wire::RECOVERY_POLICY_SIGNATURE_TYPE.as_bytes();
+    let mut transcript = Vec::with_capacity(domain.len() + 1 + canonical.len());
+    transcript.extend_from_slice(domain);
+    transcript.push(b'\n');
+    transcript.extend(canonical);
+    Ok(transcript)
+}
+
 // Field declaration order is byte-for-byte the properties order of
 // recovery-policy.schema.json#/$defs/recovery_policy_set_payload.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -536,6 +564,71 @@ mod tests {
             .insert("x_deployment_note".to_owned(), json!("staged"));
         let parsed: RecoveryPolicy = serde_json::from_value(value.clone()).expect("x_ extension");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
+    }
+
+    #[test]
+    fn recovery_policy_signature_transcript_matches_the_formal_known_answer() {
+        use ed25519_dalek::{Signer as _, SigningKey, Verifier as _};
+
+        let mut value = fixtures::policy();
+        value["methods"] = json!([]);
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("cooldown_seconds".to_owned(), json!(0));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("x_deployment_note".to_owned(), json!("covered"));
+        let policy: RecoveryPolicy = serde_json::from_value(value).unwrap();
+        let transcript = recovery_policy_signature_transcript_bytes(&policy).unwrap();
+        assert_eq!(
+            String::from_utf8(transcript.clone()).unwrap(),
+            concat!(
+                "ak.identity.recovery_policy.signature.v1\n",
+                "{\"account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixture:alice.example\",",
+                "\"station_id\":\"ak:did_core:web:station.example\"},\"cooldown_seconds\":0,",
+                "\"issued_at\":\"2026-08-01T00:00:00.000Z\",\"methods\":[],",
+                "\"policy_id\":\"ak:policy:0198ff00-0000-7000-8000-000000000001\",",
+                "\"schema\":\"ak.schema.recovery_policy.v1\",\"supersedes_id\":null,",
+                "\"trust_domain\":\"ak:trust_domain:example.net\",\"version\":1,",
+                "\"x_deployment_note\":\"covered\"}"
+            )
+        );
+
+        let signing_key = SigningKey::from_bytes(&[0x42; 32]);
+        let signature = signing_key.sign(&transcript);
+        assert_eq!(
+            arkret_canonical::base64url_encode(signature.to_bytes()),
+            "wx6-ox_ks4tQQj3sXRRMwQYZmbFIXne2C-UhfGEf3sOQW7Ex8jBfzbzNoxtwjSDgJdhsrOuY2fN1QbQDF8R_Bw"
+        );
+        signing_key
+            .verifying_key()
+            .verify(&transcript, &signature)
+            .unwrap();
+
+        let mut changed_auth = policy.clone();
+        changed_auth.auth_data.verification_method =
+            DidUrl::new("did:web:ignored.example#other".to_owned()).unwrap();
+        changed_auth.auth_data.signature = Base64UrlString::new("aGVsbG8").unwrap();
+        assert_eq!(
+            recovery_policy_signature_transcript_bytes(&changed_auth).unwrap(),
+            transcript,
+            "the whole top-level auth_data member is excluded"
+        );
+
+        let mut tampered = policy;
+        tampered
+            .extra
+            .insert("x_deployment_note".to_owned(), json!("tampered"))
+            .unwrap();
+        let tampered_transcript = recovery_policy_signature_transcript_bytes(&tampered).unwrap();
+        assert!(
+            signing_key
+                .verifying_key()
+                .verify(&tampered_transcript, &signature)
+                .is_err()
+        );
     }
 
     #[test]
