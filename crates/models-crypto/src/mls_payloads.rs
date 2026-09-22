@@ -110,7 +110,7 @@ impl MlsGovernanceBindingPayload {
                 return protocol("MLS genesis binding must be epoch zero without a base state");
             }
         } else if self.base_group_state_ref.is_none()
-            || self.next_epoch != self.previous_epoch.saturating_add(1)
+            || self.previous_epoch.checked_add(1) != Some(self.next_epoch)
         {
             return protocol("MLS transition binding requires its immediate base group state");
         }

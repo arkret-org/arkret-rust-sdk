@@ -66,6 +66,22 @@ fn transition_case_uses_the_typed_production_gate() {
 }
 
 #[test]
+fn epoch_overflow_is_rejected_without_a_verified_effect() {
+    let fixture = fixture();
+    let mut binding_value = fixture["cases"][1]["samples"][0]["binding"].clone();
+    binding_value["previous_epoch"] = Value::from(u64::MAX);
+    binding_value["next_epoch"] = Value::from(u64::MAX);
+    let binding = binding(&binding_value);
+
+    let result = verify_governance_binding_transition(&binding, u64::MAX);
+    assert_eq!(
+        result.as_ref().unwrap_err(),
+        &MlsGovernanceBindingRejection::GovernanceBindingMismatch
+    );
+    assert_eq!(result.ok().into_iter().count(), 0);
+}
+
+#[test]
 fn public_state_and_payload_case_requires_field_for_field_equality() {
     let fixture = fixture();
     let case = &fixture["cases"][2];
