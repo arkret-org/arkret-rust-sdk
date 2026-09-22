@@ -14,6 +14,9 @@ use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
 use arkret_models_collaboration::event_query::CommittedEventView;
+use arkret_models_collaboration::exact_current_results::{
+    ExactCurrentResultsReadOutcome, ExactCurrentResultsReadRequestBody,
+};
 use arkret_models_collaboration::strand_watch_operations::{
     StrandWatchCurrentOutcome, StrandWatchCurrentRequestBody,
 };
@@ -391,6 +394,25 @@ impl Client {
         outcome
             .validate_for_request(request)
             .map_err(|error| Error::Protocol(error.to_owned()))?;
+        Ok(outcome)
+    }
+
+    /// Read one exact Relation primary-domain or moderation-target current
+    /// result from the governing Station's durable reducer cut.
+    pub async fn exact_current_result(
+        &self,
+        request: &ExactCurrentResultsReadRequestBody,
+        expected_governance_generation: u64,
+    ) -> Result<ExactCurrentResultsReadOutcome> {
+        request
+            .validate()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let outcome: ExactCurrentResultsReadOutcome = self
+            .post("/_arkret/self/current-results/exact", request)
+            .await?;
+        outcome
+            .validate_for_request(request, expected_governance_generation)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
         Ok(outcome)
     }
 
