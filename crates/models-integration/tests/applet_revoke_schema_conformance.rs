@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use arkret_models_integration::AppletRevokePlan;
+use arkret_models_integration::{AppletRevokePlan, AppletRevokeStep};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
@@ -38,6 +38,33 @@ fn schema_accepts(value: &Value) -> bool {
         .unwrap();
     registry
         .validate_value("test:applet-revoke-plan", value)
+        .is_ok()
+}
+
+fn step_schema_accepts(value: &Value) -> bool {
+    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+    let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
+    let schema: Value = serde_json::from_slice(
+        &fs::read(
+            artifacts
+                .join("schemas")
+                .join("applet-install-operations.schema.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    registry
+        .register_reference_document(schema.clone())
+        .unwrap();
+    registry
+        .register_fragment(
+            "test:applet-revoke-step",
+            schema,
+            "#/$defs/applet_revoke_step",
+        )
+        .unwrap();
+    registry
+        .validate_value("test:applet-revoke-step", value)
         .is_ok()
 }
 
@@ -95,4 +122,35 @@ fn missing_untyped_or_unknown_revision_carriers_are_rejected() {
         json!("ak:event:AXKJvMpMFIFTD9GYNEzOeImU-2ytvLCtsCq3Mrq9-Ci8");
     assert!(!schema_accepts(&unknown));
     assert!(serde_json::from_value::<AppletRevokePlan>(unknown).is_err());
+}
+
+#[test]
+fn formal_step_reference_matrix_round_trips_through_closed_sdk_union() {
+    let fixture = fixture();
+    let cases = fixture["step_reference_kat"].as_object().unwrap();
+    for name in [
+        "submitted_pending",
+        "submitted_rejected",
+        "committed_accepted",
+        "local_pending",
+    ] {
+        let value = cases[name].clone();
+        assert!(step_schema_accepts(&value), "formal schema rejected {name}");
+        let step: AppletRevokeStep = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(step).unwrap(), value, "{name}");
+    }
+}
+
+#[test]
+fn invalid_status_reference_combinations_and_event_disguises_are_rejected() {
+    let fixture = fixture();
+    for case in fixture["invalid_step_reference_cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let value = &case["value"];
+        assert!(!step_schema_accepts(value), "formal schema accepted {name}");
+        assert!(
+            serde_json::from_value::<AppletRevokeStep>(value.clone()).is_err(),
+            "SDK accepted {name}"
+        );
+    }
 }

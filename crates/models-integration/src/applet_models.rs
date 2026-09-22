@@ -13,7 +13,7 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
 };
 use arkret_wire::{
     ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef,
-    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash,
+    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventCommitSubmission, EventId, GrantId, Hash,
     PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope,
     SignerEvidenceRef, WireError, canonical,
 };
@@ -463,22 +463,104 @@ pub enum AppletRevokeSagaStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AppletRevokeStepStatus {
+pub enum AppletRevokeEventEffectKind {
+    CapabilityRevokeEvent,
+    MembershipStateEvent,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeLocalEffectKind {
+    WidgetTokenInvalidation,
+    DelegatedSessionRevocation,
+    LocalAppletFence,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeSubmittedEventStatus {
     Pending,
-    Accepted,
-    Duplicate,
     Rejected,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AppletRevokeEffectKind {
-    CapabilityRevokeEvent,
-    MembershipStateEvent,
-    WidgetTokenInvalidation,
-    DelegatedSessionRevocation,
-    LocalAppletFence,
+pub enum AppletRevokeCommittedEventStatus {
+    Accepted,
+    Duplicate,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRevokeLocalEffectStatus {
+    Pending,
+    Accepted,
+    Duplicate,
+    Rejected,
+}
+
+/// Service-local revoke effect identity. Event and RealmCommit identifiers
+/// are rejected because only Event admission can produce the corresponding
+/// committed effect coordinate.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct AppletRevokeLocalEffectRef(String);
+
+impl AppletRevokeLocalEffectRef {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let Some(rest) = value.strip_prefix("ak:") else {
+            return Err(WireError::Protocol(
+                "Applet revoke local effect ref must start with ak:".to_owned(),
+            ));
+        };
+        let Some((kind, payload)) = rest.split_once(':') else {
+            return Err(WireError::Protocol(
+                "Applet revoke local effect ref must contain a typed payload".to_owned(),
+            ));
+        };
+        let valid_kind = !kind.is_empty()
+            && kind != "event"
+            && kind != "realm_commit"
+            && kind.bytes().enumerate().all(|(index, byte)| {
+                byte.is_ascii_lowercase() || (index > 0 && (byte.is_ascii_digit() || byte == b'_'))
+            });
+        let valid_payload = !payload.is_empty()
+            && payload.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric()
+                    || matches!(byte, b'.' | b'_' | b'~' | b':' | b'/' | b'-')
+            });
+        if !valid_kind || !valid_payload {
+            return Err(WireError::Protocol(
+                "Applet revoke local effect ref must be a non-Event typed resource".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<String> for AppletRevokeLocalEffectRef {
+    type Error = WireError;
+
+    fn try_from(value: String) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl From<AppletRevokeLocalEffectRef> for String {
+    fn from(value: AppletRevokeLocalEffectRef) -> Self {
+        value.0
+    }
 }
 
 /// Durable effect reference returned by an Applet revoke saga.
@@ -490,18 +572,49 @@ pub enum AppletRevokeEffectKind {
 #[serde(untagged)]
 pub enum AppletRevokeEffectRef {
     CommittedEvent(CommittedEventRef),
-    TypedResource(String),
+    TypedResource(AppletRevokeLocalEffectRef),
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletRevokeStep {
-    pub effect_kind: AppletRevokeEffectKind,
-    pub effect_ref: AppletRevokeEffectRef,
-    pub status: AppletRevokeStepStatus,
+pub struct AppletRevokeSubmittedEventStep {
+    pub effect_kind: AppletRevokeEventEffectKind,
+    pub submitted_event_id: EventId,
+    pub status: AppletRevokeSubmittedEventStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<ReasonCode>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokeCommittedEventStep {
+    pub effect_kind: AppletRevokeEventEffectKind,
+    pub committed_event_ref: CommittedEventRef,
+    pub status: AppletRevokeCommittedEventStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokeLocalEffectStep {
+    pub effect_kind: AppletRevokeLocalEffectKind,
+    pub effect_ref: AppletRevokeLocalEffectRef,
+    pub status: AppletRevokeLocalEffectStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletRevokeStep {
+    SubmittedEvent(AppletRevokeSubmittedEventStep),
+    CommittedEvent(AppletRevokeCommittedEventStep),
+    LocalEffect(AppletRevokeLocalEffectStep),
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
