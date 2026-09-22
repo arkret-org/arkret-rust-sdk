@@ -580,7 +580,6 @@ mod ed25519_jws {
     use arkret_canonical::base64url::{base64url_decode, base64url_encode};
     use arkret_canonical::canonical;
     use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
-    use serde::Deserialize;
 
     /// SDK-canonical detached-JWS protected header (`{"alg":"Ed25519"}`).
     ///
@@ -589,7 +588,10 @@ mod ed25519_jws {
     /// `typ`; the default v1 proof profile does not declare one.
     pub(super) const PROTECTED_HEADER_ED25519: &str = r#"{"alg":"Ed25519"}"#;
 
-    use super::{EventSigner, EventVerifier, PublicKeyMaterial, SignerError, VerifierError};
+    use super::{
+        DetachedJwsProtectedHeader, EventSigner, EventVerifier, PublicKeyMaterial, SignerError,
+        VerifierError,
+    };
 
     /// Production Ed25519 [`EventSigner`] producing RFC 7797 detached
     /// JWS bytes (header.payload-stripped.signature).
@@ -665,22 +667,6 @@ mod ed25519_jws {
         }
     }
 
-    #[derive(Debug, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct JwsProtectedHeader {
-        alg: String,
-        #[serde(default)]
-        kid: Option<String>,
-        #[serde(default)]
-        typ: Option<String>,
-        /// RFC 7515 §4.1.11 `crit`. Arkret v1 understands no critical
-        /// extensions, so any present `crit` member MUST be rejected
-        /// (`deny_unknown_fields` already rejects unrecognized members; this
-        /// field makes the rejection explicit and self-documenting).
-        #[serde(default)]
-        crit: Option<serde_json::Value>,
-    }
-
     impl Ed25519DetachedJwsVerifier {
         pub fn new() -> Self {
             Self
@@ -706,6 +692,17 @@ mod ed25519_jws {
                 .map(|_| ())
         }
 
+        /// Parse the SDK-owned protected header and return its untrusted key id.
+        ///
+        /// This is the resolver seam for callers whose public key is selected by
+        /// RFC 7515 `kid`. The returned value is not authenticated until the
+        /// caller resolves that key and calls [`Self::verify_detached_jws`] or
+        /// [`Self::verify_detached_jws_with_metadata`] over the same JWS.
+        pub fn detached_jws_key_id(&self, jws: &str) -> Result<Option<String>, VerifierError> {
+            let (_, header, _) = parse_detached_jws(jws)?;
+            Ok(header.kid)
+        }
+
         /// Verify a generic detached JWS and return validated protected-header
         /// metadata needed by protocol callers, such as the signing key id.
         pub fn verify_detached_jws_with_metadata(
@@ -714,38 +711,7 @@ mod ed25519_jws {
             canonical_bytes: &[u8],
             public_key: &PublicKeyMaterial,
         ) -> Result<VerifiedDetachedJws, VerifierError> {
-            let parts: Vec<&str> = jws.split('.').collect();
-            if parts.len() != 3 || !parts[1].is_empty() {
-                return Err(VerifierError::Encoding(
-                    "detached JWS must be header..signature with empty payload segment".to_owned(),
-                ));
-            }
-            let header_bytes = base64url_decode(parts[0])
-                .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
-            let header: JwsProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
-                .map_err(|err| {
-                    VerifierError::Encoding(format!("invalid protected header: {err}"))
-                })?;
-            if header.alg != "Ed25519" {
-                return Err(VerifierError::Backend(format!(
-                    "Ed25519 verifier received non-Ed25519 protected alg '{}'",
-                    header.alg
-                )));
-            }
-            // RFC 7515 §4.1.11 — we recognise no critical extensions, so any
-            // `crit` member fails closed.
-            if header.crit.is_some() {
-                return Err(VerifierError::Encoding(
-                    "detached JWS declares unsupported `crit` extensions".to_owned(),
-                ));
-            }
-            if let Some(typ) = header.typ.as_deref() {
-                return Err(VerifierError::Encoding(format!(
-                    "unsupported detached JWS typ '{typ}'"
-                )));
-            }
-            let sig_bytes = base64url_decode(parts[2])
-                .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+            let (parts, header, sig_bytes) = parse_detached_jws(jws)?;
             let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
             self.verify_signing_input(&signing_input, &sig_bytes, public_key)?;
             Ok(VerifiedDetachedJws { key_id: header.kid })
@@ -782,6 +748,48 @@ mod ed25519_jws {
                 })?;
             Ok(())
         }
+    }
+
+    fn parse_detached_jws(
+        jws: &str,
+    ) -> Result<(Vec<&str>, DetachedJwsProtectedHeader, Vec<u8>), VerifierError> {
+        let parts: Vec<&str> = jws.split('.').collect();
+        if parts.len() != 3 || !parts[1].is_empty() {
+            return Err(VerifierError::Encoding(
+                "detached JWS must be header..signature with empty payload segment".to_owned(),
+            ));
+        }
+        let header_bytes = base64url_decode(parts[0])
+            .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
+        let header: DetachedJwsProtectedHeader =
+            canonical::from_canonical_json_slice(&header_bytes).map_err(|err| {
+                VerifierError::Encoding(format!("invalid protected header: {err}"))
+            })?;
+        if header.alg != "Ed25519" {
+            return Err(VerifierError::Backend(format!(
+                "Ed25519 verifier received non-Ed25519 protected alg '{}'",
+                header.alg
+            )));
+        }
+        if header.crit.is_some() {
+            return Err(VerifierError::Encoding(
+                "detached JWS declares unsupported `crit` extensions".to_owned(),
+            ));
+        }
+        if let Some(typ) = header.typ.as_deref() {
+            return Err(VerifierError::Encoding(format!(
+                "unsupported detached JWS typ '{typ}'"
+            )));
+        }
+        let signature = base64url_decode(parts[2])
+            .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+        if signature.len() != 64 {
+            return Err(VerifierError::Encoding(format!(
+                "Ed25519 signature must be 64 bytes, got {}",
+                signature.len()
+            )));
+        }
+        Ok((parts, header, signature))
     }
 
     impl EventVerifier for Ed25519DetachedJwsVerifier {
@@ -932,6 +940,22 @@ mod tests {
                 .split('.')
                 .count(),
             3
+        );
+
+        let verifier = Ed25519DetachedJwsVerifier::new();
+        let with_kid = ed25519_detached_jws_from_signature(
+            &[0_u8; 64],
+            Some("did:web:alice.example#device-1"),
+        )
+        .unwrap();
+        assert_eq!(
+            verifier.detached_jws_key_id(&with_kid).unwrap().as_deref(),
+            Some("did:web:alice.example#device-1")
+        );
+        assert!(
+            verifier
+                .detached_jws_key_id(&with_kid.replacen("..", ".YQ.", 1))
+                .is_err()
         );
     }
 
