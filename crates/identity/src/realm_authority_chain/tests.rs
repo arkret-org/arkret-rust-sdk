@@ -379,6 +379,52 @@ fn a_real_two_generation_chain_verifies_and_authorises_its_own_commits() {
         .expect("a commit made under generation 1 must verify against generation 1");
 }
 
+#[test]
+fn identical_verified_results_from_multiple_locators_converge() {
+    let first_chain = chain();
+    let mut second_chain = chain();
+    second_chain.bundle.bundle_issued_at += Duration::seconds(1);
+    let first = verify(&first_chain).expect("the first locator's chain must verify");
+    let second =
+        verify(&second_chain).expect("a fresh envelope over the same chain and cut must verify");
+
+    let locator_results = [first, second];
+    let converged = converge_verified_realm_authorities(&locator_results)
+        .expect("two locators returning the same verified chain must converge");
+    assert_eq!(converged.current_service_id(), &core_id(STATION_B));
+}
+
+#[test]
+fn no_verified_locator_result_fails_closed() {
+    assert_eq!(
+        converge_verified_realm_authorities(&[]),
+        Err(RealmAuthorityConvergenceError::NoVerifiedAuthority)
+    );
+}
+
+#[test]
+fn mutually_exclusive_verified_chains_fail_closed() {
+    let first_chain = chain();
+    let mut conflicting_chain = chain();
+    let transition = &mut conflicting_chain.bundle.authority_transitions[0];
+    transition.handoff.snapshot_digest = hash('c');
+    transition.handoff = seal_handoff(
+        transition.handoff.clone(),
+        DetachedSignatureContext::RealmAuthorityHandoffOld,
+        DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+        &signing_key(0xA1),
+        &signing_key(0xB2),
+    );
+
+    let first = verify(&first_chain).expect("the first chain must verify independently");
+    let conflicting = verify(&conflicting_chain)
+        .expect("the equivocated handoff is also cryptographically valid on its own");
+    assert_eq!(
+        converge_verified_realm_authorities(&[first, conflicting]),
+        Err(RealmAuthorityConvergenceError::ConflictingVerifiedAuthorities)
+    );
+}
+
 /// Matching coordinates are not authority. The commit below is structurally
 /// perfect and `CommittedEventRef::matches` would accept it; it is signed by
 /// the wrong Station, which is the only thing that matters.

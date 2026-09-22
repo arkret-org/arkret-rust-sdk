@@ -86,6 +86,23 @@ pub enum RealmAuthorityChainError {
     NotFresh(String),
 }
 
+/// Fail-closed outcomes when several untrusted locators have each produced a
+/// cryptographically verified authority result.
+///
+/// A locator is intentionally absent from this API. Only
+/// [`VerifiedRealmAuthority`] values returned by
+/// [`verify_realm_authority_bundle`] can participate in convergence.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum RealmAuthorityConvergenceError {
+    /// No locator produced a complete, fresh, nonce-bound verified chain.
+    #[error("no verified Realm authority chain is available")]
+    NoVerifiedAuthority,
+    /// Individually valid results disagree on the authority history or the
+    /// current Realm-stream cut. Choosing either would create a split brain.
+    #[error("verified Realm authority chains conflict")]
+    ConflictingVerifiedAuthorities,
+}
+
 type ChainResult<T> = Result<T, RealmAuthorityChainError>;
 
 use RealmAuthorityChainError as E;
@@ -225,6 +242,12 @@ pub struct VerifiedRealmAuthority {
     current_generation: u64,
     current_service_id: DidCoreId,
     generations: BTreeMap<u64, GenerationAuthority>,
+    /// Exact canonical bytes of the verified genesis, handoff history, and
+    /// current stream cut. This is an internal equality witness, not a wire
+    /// digest or a substitute proof. Keeping the complete bytes makes a
+    /// same-id handoff equivocation or a same-generation different cut
+    /// visible to convergence instead of collapsing both to coordinates.
+    chain_and_cut_identity: Vec<u8>,
 }
 
 impl VerifiedRealmAuthority {
@@ -312,6 +335,36 @@ impl VerifiedRealmAuthority {
     }
 }
 
+/// Converge authority results obtained through one or more untrusted
+/// locators.
+///
+/// Every input has already passed genesis verification, continuous handoff
+/// verification, current-route binding, and the caller-supplied nonce and
+/// freshness checks because [`VerifiedRealmAuthority`] has no public
+/// constructor. The results are accepted only when their exact verified
+/// authority history and current Realm-stream cut agree. Empty input and any
+/// disagreement fail closed.
+///
+/// `RealmJoinCandidate` deliberately cannot be passed here: reachability,
+/// source, endpoint metadata, and a locator's own signature never establish
+/// authority.
+pub fn converge_verified_realm_authorities(
+    authorities: &[VerifiedRealmAuthority],
+) -> Result<&VerifiedRealmAuthority, RealmAuthorityConvergenceError> {
+    let first = authorities
+        .first()
+        .ok_or(RealmAuthorityConvergenceError::NoVerifiedAuthority)?;
+    if authorities.iter().skip(1).any(|candidate| {
+        candidate.realm_id != first.realm_id
+            || candidate.current_generation != first.current_generation
+            || candidate.current_service_id != first.current_service_id
+            || candidate.chain_and_cut_identity != first.chain_and_cut_identity
+    }) {
+        return Err(RealmAuthorityConvergenceError::ConflictingVerifiedAuthorities);
+    }
+    Ok(first)
+}
+
 /// Verify a [`RealmAuthorityBundle`] end to end and return the authority it
 /// establishes.
 ///
@@ -334,11 +387,24 @@ pub fn verify_realm_authority_bundle(
         .map_err(|error| E::ChainBroken(error.to_string()))?;
     let resolution = verify_route_record(bundle, freshness.now)?;
     verify_chain_signatures(bundle, keys, &resolution)?;
+    // Deliberately excludes the online assertion, route material, nonce, and
+    // bundle issue time: two fetches of the same chain and cut may carry
+    // different fresh assertion envelopes. Everything that installs
+    // authority, plus the current cut whose equivocation must freeze the
+    // Realm, remains in the comparison identity.
+    let chain_and_cut_identity = canonical::canonical_json_bytes(&(
+        &bundle.genesis_event,
+        &bundle.genesis_commit,
+        &bundle.authority_transitions,
+        &bundle.realm_stream_head,
+    ))
+    .map_err(|error| E::ChainBroken(format!("cannot encode verified authority chain: {error}")))?;
     Ok(VerifiedRealmAuthority {
         realm_id: bundle.realm_id.clone(),
         current_generation: bundle.current_generation,
         current_service_id: bundle.current_service_id.clone(),
         generations,
+        chain_and_cut_identity,
     })
 }
 

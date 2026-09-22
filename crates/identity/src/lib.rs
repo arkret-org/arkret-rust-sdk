@@ -77,9 +77,9 @@ pub use error::{IdentityError, Result};
 /// re-implementing address tables (STA-05-001).
 pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
 pub use realm_authority_chain::{
-    RealmAuthorityChainError, RealmAuthorityFreshness, RealmAuthorityKeyDirectory,
-    RealmAuthorityKeyLookup, RealmAuthorityKeyMap, VerifiedRealmAuthority,
-    verify_realm_authority_bundle,
+    RealmAuthorityChainError, RealmAuthorityConvergenceError, RealmAuthorityFreshness,
+    RealmAuthorityKeyDirectory, RealmAuthorityKeyLookup, RealmAuthorityKeyMap,
+    VerifiedRealmAuthority, converge_verified_realm_authorities, verify_realm_authority_bundle,
 };
 pub use records::*;
 pub use registration_anchor::validate_principal_registration_anchor;
