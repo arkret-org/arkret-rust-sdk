@@ -4,7 +4,8 @@ use aes_gcm::aead::{Aead, Payload};
 use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
-    EncryptedPayload, EventContentPreEncryptionHeader, MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+    EncryptedPayload, EventContentPreEncryptionHeader, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+    MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
     MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsCommitPayload,
     MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsGroupStateRecord, MlsGroupStateSink,
     MlsKeyPackageRecord, MlsProposalEnvelope, REQUIRED_ARKRET_GROUP_CAPABILITIES,
@@ -14,14 +15,15 @@ use arkret_models_crypto::{
 use arkret_wire::{
     ActorId, Base64UrlString, CommitStreamRef, CommittedEventFullView, DidCoreId,
     EncryptedPayloadScheme, EventId, EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES,
-    MlsGroupId, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, ReasonCode, ScopeRef, canonical,
+    MlsGroupCurrent, MlsGroupId, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, ReasonCode,
+    ScopeRef, canonical,
 };
 use chrono::Utc;
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
     GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
     MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
-    RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
+    RequiredCapabilitiesExtension, StagedCommit, StagedWelcome, UnknownExtension,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
@@ -33,7 +35,9 @@ use crate::identity::{
     ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
     ArkretMlsIdentityProfile, decode_key_package,
 };
-use crate::{MlsError as Error, Result};
+use crate::{
+    MlsError as Error, MlsGovernanceBindingPublicState, Result, VerifiedMlsGovernanceBinding,
+};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
@@ -604,20 +608,9 @@ impl ArkretMlsGroup {
     pub fn verify_governance_binding_for_next_epoch(
         &self,
         binding: &MlsGovernanceBindingPayload,
-    ) -> std::result::Result<
-        crate::VerifiedMlsGovernanceBinding,
-        crate::MlsGovernanceBindingRejection,
-    > {
+    ) -> std::result::Result<VerifiedMlsGovernanceBinding, crate::MlsGovernanceBindingRejection>
+    {
         crate::verify_next_epoch_governance_binding(&self.group_id(), self.epoch(), binding)
-    }
-
-    fn validate_governance_binding_for_next_epoch(
-        &self,
-        binding: &MlsGovernanceBindingPayload,
-    ) -> Result<()> {
-        self.verify_governance_binding_for_next_epoch(binding)
-            .map(|_| ())
-            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
     }
 
     /// Derive an MLS RFC 9420 §8.5 exporter secret bound to the current
@@ -1020,6 +1013,13 @@ impl ArkretMlsGroup {
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
+        let governance_extensions = governance_binding
+            .map(|binding| {
+                self.verify_governance_binding_for_next_epoch(binding)
+                    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                    .and_then(group_context_extensions_for_verified_binding)
+            })
+            .transpose()?;
         let mut keypackages = Vec::with_capacity(member_key_packages.len());
         let required_capabilities = self.required_keypackage_capabilities()?;
         for member_key_package in member_key_packages {
@@ -1094,14 +1094,17 @@ impl ArkretMlsGroup {
                 ratchet_tree: ratchet_tree.clone(),
             });
         }
-        if let Some(binding) = governance_binding {
-            self.validate_governance_binding_for_next_epoch(binding)?;
-        }
-        let bundle = self
+        let mut commit_builder = self
             .group
             .commit_builder()
             .consume_proposal_store(true)
-            .force_self_update(true)
+            .force_self_update(true);
+        if let Some(extensions) = governance_extensions {
+            commit_builder = commit_builder
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?;
+        }
+        let bundle = commit_builder
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
             .build(
@@ -1267,6 +1270,13 @@ impl ArkretMlsGroup {
         leaves: &[LeafNodeIndex],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
+        let governance_extensions = governance_binding
+            .map(|binding| {
+                self.verify_governance_binding_for_next_epoch(binding)
+                    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                    .and_then(group_context_extensions_for_verified_binding)
+            })
+            .transpose()?;
         // Capture the complete actor before commit so we can report
         // which Station-bound member owned each removed leaf even after it
         // is gone from the post-commit group state.
@@ -1312,13 +1322,13 @@ impl ArkretMlsGroup {
             });
         }
 
-        if let Some(binding) = governance_binding {
-            self.validate_governance_binding_for_next_epoch(binding)?;
+        let mut commit_builder = self.group.commit_builder().consume_proposal_store(true);
+        if let Some(extensions) = governance_extensions {
+            commit_builder = commit_builder
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?;
         }
-        let (commit, _welcome_opt, _) = self
-            .group
-            .commit_builder()
-            .consume_proposal_store(true)
+        let (commit, _welcome_opt, _) = commit_builder
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
             .build(
@@ -1449,13 +1459,25 @@ impl ArkretMlsGroup {
                 "MLS Welcome authenticated group state differs from the accepted Commit".to_owned(),
             ));
         }
-        Self::join_staged_welcome(identity, &delivery.effective_scope, staged_welcome)
+        let authenticated_binding = decode_group_context_governance_binding(context)?;
+        let verified = crate::verify_historical_governance_binding(
+            &authenticated_binding,
+            commit_payload.governance_binding(),
+        )
+        .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        Self::join_staged_welcome(
+            identity,
+            &delivery.effective_scope,
+            staged_welcome,
+            verified,
+        )
     }
 
     fn join_staged_welcome(
         identity: ArkretMlsIdentity,
         scope: &ScopeRef,
         staged_welcome: StagedWelcome,
+        _verified: VerifiedMlsGovernanceBinding,
     ) -> Result<Self> {
         let context = staged_welcome.group_context();
         // The joiner is told which scope it is joining; it cannot read that
@@ -1599,7 +1621,14 @@ impl ArkretMlsGroup {
 
     /// Install an MLS Commit only after the containing Event has an accepted
     /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
-    pub fn install_accepted_commit(&mut self, item: &CommittedEventFullView) -> Result<u64> {
+    /// `current` is the exact Station `MlsGroupCurrent` base result pinned
+    /// before this transition; callers must not reconstruct it from the Event
+    /// payload being verified.
+    pub fn install_accepted_commit(
+        &mut self,
+        item: &CommittedEventFullView,
+        current: &MlsGroupCurrent,
+    ) -> Result<u64> {
         item.validate_shape()?;
         if item.event.kind != EventKind::MlsCommit {
             return Err(Error::Protocol(
@@ -1621,10 +1650,25 @@ impl ArkretMlsGroup {
                 "accepted MLS Commit payload differs from its independent Event stream".to_owned(),
             ));
         }
-        self.merge_accepted_commit_envelope(&payload.commit_envelope()?)
+        let public_state = MlsGovernanceBindingPublicState::new(
+            current.effective_scope.clone(),
+            Some(current.current_mls_commit_event_ref.clone()),
+            current.epoch,
+            current.current_key_access_revision,
+        );
+        self.merge_accepted_commit_envelope(
+            &payload.commit_envelope()?,
+            &public_state,
+            payload.governance_binding(),
+        )
     }
 
-    fn merge_accepted_commit_envelope(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
+    fn merge_accepted_commit_envelope(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        public_state: &MlsGovernanceBindingPublicState,
+        event_payload_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<u64> {
         if envelope.group_id != self.group_id() {
             return Err(Error::Protocol(
                 "MLS Commit group_id does not match the local group".to_owned(),
@@ -1658,19 +1702,20 @@ impl ArkretMlsGroup {
 
         match processed.into_content() {
             ProcessedMessageContent::OwnPendingCommit => {
-                // OpenMLS authenticated the echoed Commit and matched its
-                // confirmation tag against the exact locally staged commit.
-                self.group
-                    .merge_pending_commit(&self.identity.provider)
-                    .map_err(mls_error)?;
-                let applied_epoch = self.epoch();
-                if applied_epoch != envelope.epoch {
-                    return Err(Error::Protocol(
-                        "pending MLS Commit epoch mismatch".to_owned(),
-                    ));
-                }
-                self.leaf_bindings.clear();
-                Ok(applied_epoch)
+                let verified = self
+                    .group
+                    .pending_commit()
+                    .ok_or_else(|| {
+                        Error::Protocol("own MLS Commit has no pending state".to_owned())
+                    })
+                    .and_then(|pending| {
+                        verify_group_context_governance_binding(
+                            pending.group_context(),
+                            public_state,
+                            event_payload_binding,
+                        )
+                    })?;
+                self.merge_verified_pending_commit(envelope, verified)
             }
             ProcessedMessageContent::StagedCommitMessage(commit) => {
                 validate_staged_commit_capability_floor(
@@ -1678,25 +1723,59 @@ impl ArkretMlsGroup {
                     &self.identity.provider,
                     &commit,
                 )?;
-                self.group
-                    .merge_staged_commit(&self.identity.provider, *commit)
-                    .map_err(mls_error)?;
-                let applied_epoch = self.epoch();
-                if applied_epoch != envelope.epoch {
-                    return Err(Error::Protocol(format!(
-                        "MLS Commit entered epoch {applied_epoch}, envelope declared {}",
-                        envelope.epoch
-                    )));
-                }
-                // A transition may add, remove, or replace occupied leaves.
-                // The old map is never a valid compatibility fallback; the
-                // caller must install the every-and-only accepted-transition
-                // binding before any roster API can succeed.
-                self.leaf_bindings.clear();
-                Ok(applied_epoch)
+                let verified = verify_group_context_governance_binding(
+                    commit.group_context(),
+                    public_state,
+                    event_payload_binding,
+                )?;
+                self.merge_verified_staged_commit(envelope, *commit, verified)
             }
             _ => Err(Error::Protocol("expected MLS Commit".to_owned())),
         }
+    }
+
+    fn merge_verified_pending_commit(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        _verified: VerifiedMlsGovernanceBinding,
+    ) -> Result<u64> {
+        // OpenMLS authenticated the echoed Commit and matched its confirmation
+        // tag against the exact locally staged commit. The typed governance
+        // effect is consumed before the epoch mutation.
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
+        let applied_epoch = self.epoch();
+        if applied_epoch != envelope.epoch {
+            return Err(Error::Protocol(
+                "pending MLS Commit epoch mismatch".to_owned(),
+            ));
+        }
+        self.leaf_bindings.clear();
+        Ok(applied_epoch)
+    }
+
+    fn merge_verified_staged_commit(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        commit: StagedCommit,
+        _verified: VerifiedMlsGovernanceBinding,
+    ) -> Result<u64> {
+        self.group
+            .merge_staged_commit(&self.identity.provider, commit)
+            .map_err(mls_error)?;
+        let applied_epoch = self.epoch();
+        if applied_epoch != envelope.epoch {
+            return Err(Error::Protocol(format!(
+                "MLS Commit entered epoch {applied_epoch}, envelope declared {}",
+                envelope.epoch
+            )));
+        }
+        // A transition may add, remove, or replace occupied leaves. The old
+        // map is never a valid compatibility fallback; the caller must install
+        // the every-and-only accepted-transition binding before roster access.
+        self.leaf_bindings.clear();
+        Ok(applied_epoch)
     }
 
     /// Stage an incoming by-reference MLS proposal so a subsequent
@@ -1766,7 +1845,7 @@ pub(super) fn restore_provider_storage(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DeviceId;
+    use arkret_wire::{DeviceId, RealmId};
 
     use super::*;
 
@@ -1783,11 +1862,67 @@ mod tests {
 
     fn realm_scope() -> ScopeRef {
         ScopeRef::Realm {
-            realm_id: arkret_wire::RealmId::new(
-                "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
-            )
-            .unwrap(),
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+                .unwrap(),
         }
+    }
+
+    fn second_identity() -> ArkretMlsIdentity {
+        ArkretMlsIdentity::new_test_human_device(
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls-member.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000072").unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn event(byte: u8) -> EventId {
+        EventId::from_event_digest(&Hash::new(canonical::sha256_digest([byte])).unwrap()).unwrap()
+    }
+
+    fn genesis_binding(scope: &ScopeRef) -> MlsGovernanceBindingPayload {
+        let ScopeRef::Realm { realm_id } = scope else {
+            panic!("test scope is Realm")
+        };
+        MlsGovernanceBindingPayload::realm(realm_id.clone(), None, 0, 0, 0).unwrap()
+    }
+
+    fn transition_binding(
+        scope: &ScopeRef,
+        base: EventId,
+        revision: u64,
+    ) -> MlsGovernanceBindingPayload {
+        binding_for_epochs(scope, base, 0, 1, revision)
+    }
+
+    fn binding_for_epochs(
+        scope: &ScopeRef,
+        base: EventId,
+        previous_epoch: u64,
+        next_epoch: u64,
+        revision: u64,
+    ) -> MlsGovernanceBindingPayload {
+        let ScopeRef::Realm { realm_id } = scope else {
+            panic!("test scope is Realm")
+        };
+        MlsGovernanceBindingPayload::realm(
+            realm_id.clone(),
+            Some(base),
+            previous_epoch,
+            next_epoch,
+            revision,
+        )
+        .unwrap()
+    }
+
+    fn claimed_keypackage(identity: &ArkretMlsIdentity) -> MlsKeyPackageRecord {
+        let mut record = identity.key_package_record().unwrap();
+        record.state = arkret_models_crypto::MlsKeyPackageState::Claimed;
+        record.claim_id =
+            Some("ak:keypackage_claim:01904100-0000-7000-8000-000000000073".to_owned());
+        record
     }
 
     #[test]
@@ -1826,8 +1961,7 @@ mod tests {
     #[test]
     fn scope_groups_keep_independent_handshake_policies() {
         let realm_id =
-            arkret_wire::RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
-                .unwrap();
+            RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV").unwrap();
         for scope in [
             realm_scope(),
             ScopeRef::Circle {
@@ -1870,6 +2004,158 @@ mod tests {
     }
 
     #[test]
+    fn governed_group_authenticates_the_genesis_binding_extension() {
+        let scope = realm_scope();
+        let binding = genesis_binding(&scope);
+        let group = identity()
+            .create_group_with_governance_binding(&scope, &binding)
+            .unwrap();
+        let extension = group
+            .group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .expect("governed group has the registered binding extension");
+        assert_eq!(
+            MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0).unwrap(),
+            binding
+        );
+    }
+
+    #[test]
+    fn rejected_binding_does_not_queue_add_proposals() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let record = claimed_keypackage(&second_identity());
+        let wrong_scope = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FW")
+                .unwrap(),
+        };
+        let wrong_binding = transition_binding(&wrong_scope, event(1), 1);
+        let storage_before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        let proposals_before = group.group.pending_proposals().count();
+
+        assert!(
+            group
+                .add_member_with_governance_binding(&record, &wrong_binding)
+                .is_err()
+        );
+        assert_eq!(group.group.pending_proposals().count(), proposals_before);
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            storage_before
+        );
+        assert_eq!(group.epoch(), 0);
+    }
+
+    #[test]
+    fn rejected_binding_does_not_queue_remove_proposals() {
+        let scope = realm_scope();
+        let base = event(1);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let member = second_identity();
+        let add = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
+            .unwrap();
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 1);
+        group
+            .merge_accepted_commit_envelope(&add.commit, &public_state, &binding)
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                member.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let wrong_scope = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FW")
+                .unwrap(),
+        };
+        let wrong_binding = binding_for_epochs(&wrong_scope, event(2), 1, 2, 2);
+        let storage_before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        let snapshot_before = group.export_state_record().unwrap().serialized_state;
+        let proposals_before = group.group.pending_proposals().count();
+
+        assert!(
+            group
+                .remove_members_by_actor_with_governance_binding(
+                    std::slice::from_ref(&member.actor_id),
+                    &wrong_binding,
+                )
+                .is_err()
+        );
+        assert_eq!(group.group.pending_proposals().count(), proposals_before);
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            storage_before
+        );
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            snapshot_before
+        );
+        assert_eq!(group.epoch(), 1);
+    }
+
+    #[test]
+    fn missing_or_mismatched_authenticated_binding_never_advances_epoch() {
+        let scope = realm_scope();
+        let base = event(1);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let public_state =
+            MlsGovernanceBindingPublicState::new(scope.clone(), Some(base.clone()), 0, 1);
+
+        let mut unbound = identity().create_group(&scope).unwrap();
+        let unbound_commit = unbound.self_update_commit().unwrap();
+        let unbound_storage_before = snapshot_provider_storage(&unbound.identity.provider).unwrap();
+        let unbound_snapshot_before = unbound.export_state_record().unwrap().serialized_state;
+        assert!(
+            unbound
+                .merge_accepted_commit_envelope(&unbound_commit, &public_state, &binding)
+                .is_err()
+        );
+        assert_eq!(unbound.epoch(), 0);
+        assert_eq!(
+            snapshot_provider_storage(&unbound.identity.provider).unwrap(),
+            unbound_storage_before
+        );
+        assert_eq!(
+            unbound.export_state_record().unwrap().serialized_state,
+            unbound_snapshot_before
+        );
+
+        let mut governed = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let add = governed
+            .add_member_with_governance_binding(&claimed_keypackage(&second_identity()), &binding)
+            .unwrap();
+        let mismatched = transition_binding(&scope, base.clone(), 2);
+        let mismatched_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 2);
+        let governed_storage_before =
+            snapshot_provider_storage(&governed.identity.provider).unwrap();
+        let governed_snapshot_before = governed.export_state_record().unwrap().serialized_state;
+        assert!(
+            governed
+                .merge_accepted_commit_envelope(&add.commit, &mismatched_state, &mismatched)
+                .is_err()
+        );
+        assert_eq!(governed.epoch(), 0);
+        assert_eq!(
+            snapshot_provider_storage(&governed.identity.provider).unwrap(),
+            governed_storage_before
+        );
+        assert_eq!(
+            governed.export_state_record().unwrap().serialized_state,
+            governed_snapshot_before
+        );
+    }
+
+    #[test]
     fn outbound_commit_stays_pending_until_authority_acceptance() {
         let mut group = identity().create_group(&realm_scope()).unwrap();
         let base_epoch = group.epoch();
@@ -1889,9 +2175,37 @@ pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
     Ok(base64url_decode(value)?)
 }
 
+fn verify_group_context_governance_binding(
+    context: &GroupContext,
+    public_state: &MlsGovernanceBindingPublicState,
+    event_payload_binding: &MlsGovernanceBindingPayload,
+) -> Result<VerifiedMlsGovernanceBinding> {
+    let binding = decode_group_context_governance_binding(context)?;
+    crate::verify_governance_binding_against_public_state_and_payload(
+        &binding,
+        public_state,
+        event_payload_binding,
+    )
+    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+}
+
+fn decode_group_context_governance_binding(
+    context: &GroupContext,
+) -> Result<MlsGovernanceBindingPayload> {
+    let extension = context
+        .extensions()
+        .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("MLS governance binding GroupContext extension is missing".to_owned())
+        })?;
+    MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
 pub(super) fn arkret_required_capabilities_extension() -> Extension {
     Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
         &[
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
         ],
@@ -1903,6 +2217,7 @@ pub(super) fn arkret_required_capabilities_extension() -> Extension {
 pub(super) fn arkret_openmls_capabilities() -> Capabilities {
     Capabilities::builder()
         .extensions(vec![
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
         ])
@@ -1930,12 +2245,26 @@ fn required_keypackage_capabilities_group_context_extension() -> Result<Extensio
     ))
 }
 
-pub(super) fn arkret_group_context_extensions() -> Result<Extensions<GroupContext>> {
-    Extensions::from_vec(vec![
+pub(super) fn arkret_group_context_extensions(
+    governance_binding: Option<&MlsGovernanceBindingPayload>,
+) -> Result<Extensions<GroupContext>> {
+    let mut extensions = vec![
         arkret_required_capabilities_extension(),
         required_keypackage_capabilities_group_context_extension()?,
-    ])
-    .map_err(mls_error)
+    ];
+    if let Some(binding) = governance_binding {
+        extensions.push(Extension::Unknown(
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+            UnknownExtension(binding.to_deterministic_cbor()?),
+        ));
+    }
+    Extensions::from_vec(extensions).map_err(mls_error)
+}
+
+fn group_context_extensions_for_verified_binding(
+    verified: VerifiedMlsGovernanceBinding,
+) -> Result<Extensions<GroupContext>> {
+    arkret_group_context_extensions(Some(verified.binding()))
 }
 
 fn validate_keypackage_capability_binding(
@@ -1986,7 +2315,7 @@ fn validate_group_capability_floor(group: &MlsGroup, required: &[String]) -> Res
 fn validate_staged_commit_capability_floor(
     current_group: &MlsGroup,
     provider: &OpenMlsRustCrypto,
-    staged: &openmls::prelude::StagedCommit,
+    staged: &StagedCommit,
 ) -> Result<()> {
     let extension = staged
         .group_context()

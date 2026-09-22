@@ -11,6 +11,9 @@ const MLS_GOVERNANCE_BINDING_MAX_INPUT_BYTES: usize = 16_384;
 const MLS_GOVERNANCE_BINDING_MAX_NESTING_DEPTH: usize = 8;
 const MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS: u64 = 64;
 
+/// Arkret v1 RFC 9420 GroupContext extension carrying the governance binding.
+pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
+
 use crate::mls_envelopes::MlsCommitEnvelope;
 
 /// Authority-selected MLS group state coordinates carried in every transition.

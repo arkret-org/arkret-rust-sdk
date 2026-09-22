@@ -656,7 +656,7 @@ impl ArkretMlsIdentity {
             .wire_format_policy(crate::group::handshake_policy(scope)?)
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(arkret_openmls_capabilities())
-            .with_group_context_extensions(arkret_group_context_extensions()?)
+            .with_group_context_extensions(arkret_group_context_extensions(None)?)
             .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
             .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
@@ -712,7 +712,7 @@ impl ArkretMlsIdentity {
             .wire_format_policy(crate::group::handshake_policy(scope)?)
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(arkret_openmls_capabilities())
-            .with_group_context_extensions(arkret_group_context_extensions()?)
+            .with_group_context_extensions(arkret_group_context_extensions(Some(binding))?)
             .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
             .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
