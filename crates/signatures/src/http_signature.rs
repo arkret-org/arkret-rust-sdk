@@ -184,6 +184,28 @@ pub struct VerifiedHttpMessageSignature {
     pub canonical_message: Vec<u8>,
 }
 
+/// Headers and canonical bytes produced by the canonical HTTP-message signer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedHttpMessage {
+    /// Complete RFC 9421 `Signature-Input` header value.
+    pub signature_input_header: String,
+    /// Complete RFC 9421 `Signature` header value.
+    pub signature_header: String,
+    /// Exact bytes covered by the Ed25519 signature.
+    pub canonical_message: Vec<u8>,
+}
+
+/// Failure while constructing a canonical signed HTTP message.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum HttpMessageSigningError {
+    /// Scenario/component policy could not be constructed or validated.
+    #[error(transparent)]
+    Policy(#[from] SignaturePolicyError),
+    /// RFC 9421 formatting or canonicalization failed.
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
+}
+
 // =====================================================================
 // SignatureInput — parsed `Signature-Input` header
 // =====================================================================
@@ -451,6 +473,58 @@ pub fn http_signature_scenario_components(
     let mut seen = BTreeSet::new();
     required.retain(|component| seen.insert(component.canonical_name()));
     Ok(required)
+}
+
+/// Sign one HTTP request under a generated Arkret HTTP-signature scenario.
+///
+/// This is the production authoring counterpart to
+/// [`verify_signed_http_message`]. It owns the generated component set, the
+/// registered validity-window ceiling, the exact `Signature-Input` formatting,
+/// RFC 9421 canonicalization, Ed25519 signing, and the `Signature` envelope.
+/// Framework adapters only provide [`SignedRequestParts`] and copy the two
+/// returned headers onto the request.
+#[allow(clippy::too_many_arguments)]
+pub fn sign_http_message_for_scenario(
+    request: &SignedRequestParts,
+    scenario: HttpSignatureScenario,
+    applicable_conditional_components: &[&str],
+    label: &str,
+    key_id: &str,
+    created: i64,
+    signing_key: &SigningKey,
+) -> Result<SignedHttpMessage, HttpMessageSigningError> {
+    let covered = http_signature_scenario_components(scenario, applicable_conditional_components)?;
+    if !is_valid_signature_label(label) {
+        return Err(SignatureError::MalformedSignatureInput.into());
+    }
+    let key_id = key_id.trim();
+    if key_id.is_empty()
+        || !key_id
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && !matches!(byte, b'"' | b'\\' | b';'))
+    {
+        return Err(SignatureError::InvalidSignatureInputParameter("keyid").into());
+    }
+    let expires = created.saturating_add(HTTP_SIGNATURE_MAX_LIFETIME_SECONDS);
+    let covered_wire = covered
+        .iter()
+        .map(|component| format!("\"{}\"", component.canonical_name()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let signature_input_header = format!(
+        "{label}=({covered_wire});created={created};expires={expires};keyid=\"{key_id}\";alg=\"ed25519\""
+    );
+    let signature_input = parse_signature_input(&signature_input_header)?;
+    SignatureVerificationPolicy::for_scenario(scenario, applicable_conditional_components)?
+        .validate(&signature_input, request.body_digest.as_deref(), created)?;
+    let canonical_message = canonical_message(request, &signature_input)?;
+    let signature = sign_message(&canonical_message, signing_key);
+    let signature_header = format_signature_header(label, &signature)?;
+    Ok(SignedHttpMessage {
+        signature_input_header,
+        signature_header,
+        canonical_message,
+    })
 }
 
 /// Parse a `Signature-Input` header value. Accepts the format emitted
@@ -1343,6 +1417,103 @@ mod tests {
         // And the body digest re-verifies against the body.
         let parsed_digest = ContentDigest::parse(&digest.wire_value).unwrap();
         verify_content_digest(&parsed_digest, body).expect("digest matches");
+    }
+
+    #[test]
+    fn scenario_signer_owns_headers_and_rejects_body_tampering() {
+        let signing_key = signing_key_from_seed(&TEST_SEED);
+        let body = br#"{"op":"peer"}"#;
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+        let request = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "https://station.example/_arkret/peer/invites".to_owned(),
+            authority: "station.example".to_owned(),
+            path: "/_arkret/peer/invites".to_owned(),
+            headers: vec![
+                ("source-service-id".to_owned(), "source".to_owned()),
+                (
+                    "destination-service-id".to_owned(),
+                    "destination".to_owned(),
+                ),
+                (
+                    "source-trust-domain".to_owned(),
+                    "ak:trust_domain:source.example".to_owned(),
+                ),
+                (
+                    "destination-trust-domain".to_owned(),
+                    "ak:trust_domain:destination.example".to_owned(),
+                ),
+                (
+                    "arkret-operation".to_owned(),
+                    "ak.peer.invites.command.submit.v1".to_owned(),
+                ),
+            ],
+            body_digest: Some(digest.wire_value.clone()),
+        };
+        let created = 1_715_990_000;
+        let signed = sign_http_message_for_scenario(
+            &request,
+            HttpSignatureScenario::ServiceToServiceV1,
+            &[
+                "content-digest",
+                "source-trust-domain",
+                "destination-trust-domain",
+            ],
+            "sig1",
+            "did:web:auth.example#account-authority",
+            created,
+            &signing_key,
+        )
+        .unwrap();
+        let headers = vec![
+            ("Signature-Input", signed.signature_input_header.as_str()),
+            ("Signature", signed.signature_header.as_str()),
+            ("Content-Digest", digest.wire_value.as_str()),
+            ("Source-Service-ID", "source"),
+            ("Destination-Service-ID", "destination"),
+            ("Source-Trust-Domain", "ak:trust_domain:source.example"),
+            (
+                "Destination-Trust-Domain",
+                "ak:trust_domain:destination.example",
+            ),
+            ("Arkret-Operation", "ak.peer.invites.command.submit.v1"),
+        ];
+        let policy = SignatureVerificationPolicy::for_scenario(
+            HttpSignatureScenario::ServiceToServiceV1,
+            &[
+                "content-digest",
+                "source-trust-domain",
+                "destination-trust-domain",
+            ],
+        )
+        .unwrap();
+        let verified = verify_signed_http_message(
+            "POST",
+            &request.target_uri,
+            &request.authority,
+            &request.path,
+            headers.clone(),
+            body,
+            &signing_key.verifying_key(),
+            &policy,
+            created,
+        )
+        .unwrap();
+        assert_eq!(verified.canonical_message, signed.canonical_message);
+        assert!(
+            verify_signed_http_message(
+                "POST",
+                &request.target_uri,
+                &request.authority,
+                &request.path,
+                headers,
+                br#"{"op":"tampered"}"#,
+                &signing_key.verifying_key(),
+                &policy,
+                created,
+            )
+            .is_err()
+        );
     }
 
     #[test]
