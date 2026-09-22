@@ -9,6 +9,7 @@
 
 pub mod artifacts_keys;
 pub mod authority_set_policy;
+pub mod current_key_derivations;
 pub mod encrypted_attachment;
 pub mod encrypted_envelope;
 pub mod high_risk_authority_proof;
@@ -30,6 +31,7 @@ pub mod security_transaction;
 
 pub use artifacts_keys::*;
 pub use authority_set_policy::*;
+pub use current_key_derivations::*;
 pub use encrypted_attachment::*;
 pub use encrypted_envelope::*;
 pub use high_risk_authority_proof::*;

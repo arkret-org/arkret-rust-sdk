@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.8;
-//! sha256=35485bb3455de904e069a46b9bfdf681730a12179d5fe69440918478a4c6a748 Entries: schema_ids=222,
-//! active=222
+//! Input: registry/contract-registry.json; version=2026-09-22.2;
+//! sha256=30ff56c429e964981509fb09d40947f9972423135a1c8b2c59b67ef1e0832217 Entries: schema_ids=223,
+//! active=223
 
 use serde::{Deserialize, Serialize};
 
@@ -98,6 +98,7 @@ pub enum SchemaId {
     ErasureVerificationStubV1,
     EventV1,
     EventPayloadV1,
+    ExactCurrentResultsReadV1,
     ExtensionManifestV1,
     FileTransferV1,
     GrantConstraintV1,
@@ -324,6 +325,7 @@ impl SchemaId {
         Self::ErasureVerificationStubV1,
         Self::EventV1,
         Self::EventPayloadV1,
+        Self::ExactCurrentResultsReadV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -550,6 +552,7 @@ impl SchemaId {
         Self::ErasureVerificationStubV1,
         Self::EventV1,
         Self::EventPayloadV1,
+        Self::ExactCurrentResultsReadV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -967,6 +970,10 @@ impl SchemaId {
     pub const ERASURE_VERIFICATION_STUB_V1: &'static str = "ak.schema.erasure_verification_stub.v1";
     pub const EVENT_V1: &'static str = "ak.schema.event.v1";
     pub const EVENT_PAYLOAD_V1: &'static str = "ak.schema.event_payload.v1";
+    /// Closed authenticated request/outcome carrier for one exact Relation primary-domain or
+    /// moderation-target current result at a governing-Station durable cut.
+    pub const EXACT_CURRENT_RESULTS_READ_V1: &'static str =
+        "ak.schema.exact_current_results_read.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for
@@ -1447,6 +1454,7 @@ impl SchemaId {
             Self::ErasureVerificationStubV1 => Self::ERASURE_VERIFICATION_STUB_V1,
             Self::EventV1 => Self::EVENT_V1,
             Self::EventPayloadV1 => Self::EVENT_PAYLOAD_V1,
+            Self::ExactCurrentResultsReadV1 => Self::EXACT_CURRENT_RESULTS_READ_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
@@ -1718,6 +1726,7 @@ impl SchemaId {
             Self::ErasureVerificationStubV1 => "schemas/erasure-verification-stub.schema.json",
             Self::EventV1 => "schemas/event-envelope.schema.json",
             Self::EventPayloadV1 => "schemas/event-payload.schema.json",
+            Self::ExactCurrentResultsReadV1 => "schemas/exact-current-results-read.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
@@ -1993,6 +2002,7 @@ impl SchemaId {
             Self::ERASURE_VERIFICATION_STUB_V1 => Some(Self::ErasureVerificationStubV1),
             Self::EVENT_V1 => Some(Self::EventV1),
             Self::EVENT_PAYLOAD_V1 => Some(Self::EventPayloadV1),
+            Self::EXACT_CURRENT_RESULTS_READ_V1 => Some(Self::ExactCurrentResultsReadV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),

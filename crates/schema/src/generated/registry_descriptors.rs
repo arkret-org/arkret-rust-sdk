@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.8;
-//! sha256=35485bb3455de904e069a46b9bfdf681730a12179d5fe69440918478a4c6a748 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-22.2;
+//! sha256=30ff56c429e964981509fb09d40947f9972423135a1c8b2c59b67ef1e0832217 Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
 //! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
-//! special_forms=15, actions=148, approval_carriers=1, schemas=222, account_data_patterns=24
+//! special_forms=15, actions=148, approval_carriers=1, schemas=223, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3317,6 +3317,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::EVENT_PAYLOAD_V1,
         file: "schemas/event-payload.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::EXACT_CURRENT_RESULTS_READ_V1,
+        file: "schemas/exact-current-results-read.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::EXTENSION_MANIFEST_V1,

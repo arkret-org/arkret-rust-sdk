@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-21.6;
-//! sha256=35485bb3455de904e069a46b9bfdf681730a12179d5fe69440918478a4c6a748 Entries: registered=206
+//! Input: registry/contract-registry.json; version=2026-09-22.1;
+//! sha256=30ff56c429e964981509fb09d40947f9972423135a1c8b2c59b67ef1e0832217 Entries: registered=207
 
 use serde::{Deserialize, Serialize};
 
@@ -159,6 +159,7 @@ pub enum ServiceOperationId {
     SelfContactCommandTombstoneV1,
     SelfContactReadListV1,
     SelfCurrentPrincipalReadResolveV1,
+    SelfCurrentResultsReadExactV1,
     SelfDeviceMessagesCommandAckV1,
     SelfDeviceMessagesCommandSendV1,
     SelfDeviceMessagesReadListV1,
@@ -368,6 +369,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE_V1,
     ServiceOperationId::SELF_CONTACT_READ_LIST_V1,
     ServiceOperationId::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
+    ServiceOperationId::SELF_CURRENT_RESULTS_READ_EXACT_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -619,6 +621,7 @@ impl ServiceOperationId {
         Self::SelfContactCommandTombstoneV1,
         Self::SelfContactReadListV1,
         Self::SelfCurrentPrincipalReadResolveV1,
+        Self::SelfCurrentResultsReadExactV1,
         Self::SelfDeviceMessagesCommandAckV1,
         Self::SelfDeviceMessagesCommandSendV1,
         Self::SelfDeviceMessagesReadListV1,
@@ -932,6 +935,8 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_READ_LIST_V1: &'static str = "ak.self.contact.read.list.v1";
     pub const SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1: &'static str =
         "ak.self.current_principal.read.resolve.v1";
+    pub const SELF_CURRENT_RESULTS_READ_EXACT_V1: &'static str =
+        "ak.self.current_results.read.exact.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK_V1: &'static str =
         "ak.self.device_messages.command.ack.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND_V1: &'static str =
@@ -1259,6 +1264,7 @@ impl ServiceOperationId {
             Self::SelfContactCommandTombstoneV1 => Self::SELF_CONTACT_COMMAND_TOMBSTONE_V1,
             Self::SelfContactReadListV1 => Self::SELF_CONTACT_READ_LIST_V1,
             Self::SelfCurrentPrincipalReadResolveV1 => Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
+            Self::SelfCurrentResultsReadExactV1 => Self::SELF_CURRENT_RESULTS_READ_EXACT_V1,
             Self::SelfDeviceMessagesCommandAckV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
             Self::SelfDeviceMessagesCommandSendV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
             Self::SelfDeviceMessagesReadListV1 => Self::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -1640,6 +1646,7 @@ impl ServiceOperationId {
             Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1 => {
                 Some(Self::SelfCurrentPrincipalReadResolveV1)
             }
+            Self::SELF_CURRENT_RESULTS_READ_EXACT_V1 => Some(Self::SelfCurrentResultsReadExactV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1 => Some(Self::SelfDeviceMessagesCommandAckV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1 => {
                 Some(Self::SelfDeviceMessagesCommandSendV1)
@@ -4599,7 +4606,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,
-            rationale: Some("query_only_recomputed_revoke_plan"),
+            rationale: Some("query_only_recomputed_revoke_plan_from_one_durable_current_snapshot"),
             branch_contract_json: None,
         }),
     },
@@ -5250,6 +5257,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCurrentResultsReadExactV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/current-results/exact",
+        grpc: Some("SelfCurrentResults/ReadExact"),
+        mq: Some("self.current_results.query.exact"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/exact-current-results-read.schema.json#/$defs/exact_current_results_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/exact-current-results-read.schema.json#/$defs/exact_current_results_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_exact_current_projection_no_event_or_durable_mutation"),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAckV1,
