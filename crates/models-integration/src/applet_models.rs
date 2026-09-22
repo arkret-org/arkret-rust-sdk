@@ -12,10 +12,10 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
     AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef, Did,
-    DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash, PayloadSigner,
-    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, SignerEvidenceRef,
-    WireError, canonical,
+    ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef,
+    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash,
+    PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope,
+    SignerEvidenceRef, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -360,6 +360,10 @@ pub struct AppletRevokePreviewRequestBody {
 pub struct AppletCapabilityRevokeIntent {
     pub event_kind: String,
     pub grant_id: GrantId,
+    /// Exact revision of the same active Grant selected by the governing
+    /// Station's preview snapshot. This value is covered by the canonical
+    /// revoke-plan digest and copied unchanged into the signed revoke Event.
+    pub expected_revision: CurrentRevision,
     pub registration_epoch: Hash,
     pub reason_code: ReasonCode,
 }
