@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-22.1;
-//! sha256=93ce23494be7ae398cf36f60c82703d2e814fa876985464870fa8de596c6b3e5
-//! Entries: error_codes=163, reserved_not_emitted=94
+//! Input: registry/error-code-registry.json; version=2026-09-22.2;
+//! sha256=88a0062b26ffe39a11904aaa81eddffdd1a58c60a17dc314d2f013a69ef0d31d
+//! Entries: error_codes=162, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -112,7 +112,6 @@ pub enum ErrorCode {
     MimiE2eeBoundaryUnmarked,
     MimiRoomBindingEventInvalid,
     MlsGenesisBindingProposalMismatch,
-    MlsGenesisBindingProposalRequired,
     MorphKindImmutable,
     MorphProfileWidensSchemaRef,
     NotFound,
@@ -291,7 +290,6 @@ impl ErrorCode {
         Self::MimiE2eeBoundaryUnmarked,
         Self::MimiRoomBindingEventInvalid,
         Self::MlsGenesisBindingProposalMismatch,
-        Self::MlsGenesisBindingProposalRequired,
         Self::MorphKindImmutable,
         Self::MorphProfileWidensSchemaRef,
         Self::NotFound,
@@ -459,8 +457,6 @@ impl ErrorCode {
     pub const MIMI_ROOM_BINDING_EVENT_INVALID: &'static str = "mimi_room_binding_event_invalid";
     pub const MLS_GENESIS_BINDING_PROPOSAL_MISMATCH: &'static str =
         "mls_genesis_binding_proposal_mismatch";
-    pub const MLS_GENESIS_BINDING_PROPOSAL_REQUIRED: &'static str =
-        "mls_genesis_binding_proposal_required";
     pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
     pub const MORPH_PROFILE_WIDENS_SCHEMA_REF: &'static str = "morph_profile_widens_schema_ref";
     pub const NOT_FOUND: &'static str = "not_found";
@@ -635,7 +631,6 @@ impl ErrorCode {
             Self::MimiE2eeBoundaryUnmarked => "mimi_e2ee_boundary_unmarked",
             Self::MimiRoomBindingEventInvalid => "mimi_room_binding_event_invalid",
             Self::MlsGenesisBindingProposalMismatch => "mls_genesis_binding_proposal_mismatch",
-            Self::MlsGenesisBindingProposalRequired => "mls_genesis_binding_proposal_required",
             Self::MorphKindImmutable => "morph_kind_immutable",
             Self::MorphProfileWidensSchemaRef => "morph_profile_widens_schema_ref",
             Self::NotFound => "not_found",
@@ -816,9 +811,6 @@ impl ErrorCode {
             "mimi_room_binding_event_invalid" => Some(Self::MimiRoomBindingEventInvalid),
             "mls_genesis_binding_proposal_mismatch" => {
                 Some(Self::MlsGenesisBindingProposalMismatch)
-            }
-            "mls_genesis_binding_proposal_required" => {
-                Some(Self::MlsGenesisBindingProposalRequired)
             }
             "morph_kind_immutable" => Some(Self::MorphKindImmutable),
             "morph_profile_widens_schema_ref" => Some(Self::MorphProfileWidensSchemaRef),
@@ -1742,16 +1734,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The proposed_group_genesis_binding differs from the signed Genesis binding, from the winning concurrently accepted Genesis binding, or is supplied after an accepted Genesis already exists. The losing caller MUST discard the proposal-bound proof, re-query without a proposal against the winning immutable binding, and MUST NOT reuse the old query/cache entry.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MlsGenesisBindingProposalRequired,
-        type_uri: "https://arkret.org/problems/mls_genesis_binding_proposal_required",
-        title: "MLS genesis binding proposal required",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A 0 -> 0 group_key_access_revision query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MorphKindImmutable,

@@ -7,6 +7,7 @@
 
 mod error;
 pub mod exporter_kdf;
+mod governance_binding;
 mod group;
 mod identity;
 mod message;
@@ -30,6 +31,7 @@ pub use exporter_kdf::{
     expand_with_label, expand_with_registered_label, export_registered_secret,
     mls_exporter_from_secret,
 };
+pub use governance_binding::*;
 pub use group::*;
 pub use identity::*;
 pub use message::*;

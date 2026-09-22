@@ -599,23 +599,25 @@ impl ArkretMlsGroup {
             .map_err(|error| Error::Protocol(error.to_string()))
     }
 
+    /// Verify the same next-epoch governance-binding coordinates used by the
+    /// live add/remove Commit path and return an opaque typed success effect.
+    pub fn verify_governance_binding_for_next_epoch(
+        &self,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> std::result::Result<
+        crate::VerifiedMlsGovernanceBinding,
+        crate::MlsGovernanceBindingRejection,
+    > {
+        crate::verify_next_epoch_governance_binding(&self.group_id(), self.epoch(), binding)
+    }
+
     fn validate_governance_binding_for_next_epoch(
         &self,
         binding: &MlsGovernanceBindingPayload,
     ) -> Result<()> {
-        binding.validate()?;
-        if binding.mls_group_id()? != self.group_id() {
-            return Err(Error::Protocol(
-                "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
-            ));
-        }
-        if binding.previous_epoch() != self.epoch() || binding.next_epoch() != self.epoch() + 1 {
-            return Err(Error::Protocol(
-                "mls_governance_binding epoch does not match current MLS group".to_owned(),
-            ));
-        }
-
-        Ok(())
+        self.verify_governance_binding_for_next_epoch(binding)
+            .map(|_| ())
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
     }
 
     /// Derive an MLS RFC 9420 §8.5 exporter secret bound to the current

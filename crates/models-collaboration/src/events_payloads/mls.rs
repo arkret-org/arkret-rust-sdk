@@ -4,11 +4,72 @@ pub use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_crypto::{MlsGovernanceBindingPayload, MlsKeyPackageState};
 pub use arkret_wire::MlsCommitSubmission;
 use arkret_wire::{
-    ActorId, BlobRef, DeviceId, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, MlsWelcomeDelivery,
-    MlsWelcomeRecipientEndpoint, NonEmptyString, ObjectRef, RealmId, Result, ScopeRef, WireError,
+    ActorId, BlobRef, DeviceId, DidCoreId, DidUrl, ErrorCode, EventId, EventKind, Hash, MlsGroupId,
+    MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, NonEmptyString, ObjectRef, RealmId, Result,
+    ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Closed client-local carrier for the immutable pre-Genesis governance
+/// proposal. This is not a wire endpoint body and deliberately has no partial
+/// form: missing members fail decoding before MLS semantics run.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsGenesisBindingProposalCarrier {
+    event_kind: EventKind,
+    proposal_kind: String,
+    sender_actor_id: ActorId,
+    target_scope: ScopeRef,
+    proposed_group_genesis_binding: MlsGovernanceBindingPayload,
+}
+
+impl MlsGenesisBindingProposalCarrier {
+    pub const PROPOSAL_KIND: &'static str = "group_genesis_binding";
+
+    pub fn new(
+        sender_actor_id: ActorId,
+        target_scope: ScopeRef,
+        proposed_group_genesis_binding: MlsGovernanceBindingPayload,
+    ) -> Self {
+        Self {
+            event_kind: EventKind::MlsGenesis,
+            proposal_kind: Self::PROPOSAL_KIND.to_owned(),
+            sender_actor_id,
+            target_scope,
+            proposed_group_genesis_binding,
+        }
+    }
+
+    /// Decode the closed formal carrier. Missing or unknown members are
+    /// reported as `schema_violation`; no partial carrier is constructed.
+    pub fn from_json_slice(encoded: &[u8]) -> Result<Self> {
+        serde_json::from_slice(encoded).map_err(|error| WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: format!("MLS Genesis binding proposal violates its closed schema: {error}"),
+        })
+    }
+
+    pub const fn event_kind(&self) -> &EventKind {
+        &self.event_kind
+    }
+
+    pub fn proposal_kind(&self) -> &str {
+        &self.proposal_kind
+    }
+
+    pub fn sender_actor_id(&self) -> &ActorId {
+        &self.sender_actor_id
+    }
+
+    pub fn target_scope(&self) -> &ScopeRef {
+        &self.target_scope
+    }
+
+    pub fn proposed_group_genesis_binding(&self) -> &MlsGovernanceBindingPayload {
+        &self.proposed_group_genesis_binding
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

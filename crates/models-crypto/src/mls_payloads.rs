@@ -1,9 +1,15 @@
 //! MLS governance and Commit Event payloads for the authority-commit protocol.
 
 use arkret_wire::{
-    BlobRef, CircleId, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId, WireError,
+    BlobRef, CircleId, ErrorCode, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId,
+    WireError,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Number, Value};
+
+const MLS_GOVERNANCE_BINDING_MAX_INPUT_BYTES: usize = 16_384;
+const MLS_GOVERNANCE_BINDING_MAX_NESTING_DEPTH: usize = 8;
+const MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS: u64 = 64;
 
 use crate::mls_envelopes::MlsCommitEnvelope;
 
@@ -17,7 +23,6 @@ use crate::mls_envelopes::MlsCommitEnvelope;
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceBindingPayload {
     effective_scope: ScopeRef,
-    #[serde(default)]
     base_group_state_ref: Option<EventId>,
     previous_epoch: u64,
     next_epoch: u64,
@@ -143,6 +148,242 @@ impl MlsGovernanceBindingPayload {
 
     pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.effective_scope.canonical_mls_group_id()
+    }
+
+    /// Decode the exact deterministic-CBOR v1 representation registered for
+    /// the MLS GroupContext governance-binding extension.
+    ///
+    /// This is the schema boundary: malformed, non-deterministic, unknown or
+    /// missing-member input is rejected with `schema_violation` before any
+    /// state or payload comparison runs.
+    pub fn from_deterministic_cbor(encoded: &[u8]) -> Result<Self> {
+        if encoded.len() > MLS_GOVERNANCE_BINDING_MAX_INPUT_BYTES {
+            return schema_violation("MLS governance binding exceeds the input byte limit");
+        }
+        let mut decoder = DeterministicCborDecoder::new(encoded);
+        let value = decoder.decode_value(1)?;
+        if decoder.offset != encoded.len() {
+            return schema_violation("MLS governance binding contains trailing bytes");
+        }
+        let json = cbor_value_to_json(value)?;
+        serde_json::from_value(json).map_err(|error| WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: format!("MLS governance binding violates its closed schema: {error}"),
+        })
+    }
+
+    /// Encode the exact deterministic-CBOR v1 representation used by the MLS
+    /// GroupContext governance-binding extension.
+    pub fn to_deterministic_cbor(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let value = serde_json::to_value(self)?;
+        let mut encoded = Vec::new();
+        encode_deterministic_cbor(&value, &mut encoded)?;
+        Ok(encoded)
+    }
+}
+
+#[derive(Debug)]
+enum DecodedCborValue {
+    Null,
+    Unsigned(u64),
+    Text(String),
+    Map(Vec<(String, DecodedCborValue)>),
+}
+
+struct DeterministicCborDecoder<'a> {
+    encoded: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> DeterministicCborDecoder<'a> {
+    const fn new(encoded: &'a [u8]) -> Self {
+        Self { encoded, offset: 0 }
+    }
+
+    fn decode_value(&mut self, depth: usize) -> Result<DecodedCborValue> {
+        if depth > MLS_GOVERNANCE_BINDING_MAX_NESTING_DEPTH {
+            return schema_violation("MLS governance binding exceeds the nesting limit");
+        }
+        let initial = self.read_byte()?;
+        let major = initial >> 5;
+        let additional = initial & 0x1f;
+        match major {
+            0 => Ok(DecodedCborValue::Unsigned(
+                self.decode_argument(additional)?,
+            )),
+            3 => self.decode_text(additional).map(DecodedCborValue::Text),
+            5 => self.decode_map(additional, depth),
+            7 if additional == 22 => Ok(DecodedCborValue::Null),
+            _ => schema_violation("MLS governance binding uses an unsupported CBOR type"),
+        }
+    }
+
+    fn decode_map(&mut self, additional: u8, depth: usize) -> Result<DecodedCborValue> {
+        let count = self.decode_argument(additional)?;
+        if count > MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS {
+            return schema_violation("MLS governance binding exceeds the collection item limit");
+        }
+        let mut entries = Vec::with_capacity(count as usize);
+        let mut previous_key_encoding: Option<&[u8]> = None;
+        for _ in 0..count {
+            let key_start = self.offset;
+            let initial = self.read_byte()?;
+            if initial >> 5 != 3 {
+                return schema_violation("MLS governance binding map keys must be text");
+            }
+            let key = self.decode_text(initial & 0x1f)?;
+            let key_encoding = &self.encoded[key_start..self.offset];
+            if previous_key_encoding.is_some_and(|previous| previous >= key_encoding) {
+                return schema_violation(
+                    "MLS governance binding map keys are duplicate or not in deterministic order",
+                );
+            }
+            previous_key_encoding = Some(key_encoding);
+            entries.push((key, self.decode_value(depth + 1)?));
+        }
+        Ok(DecodedCborValue::Map(entries))
+    }
+
+    fn decode_text(&mut self, additional: u8) -> Result<String> {
+        let length = self.decode_argument(additional)?;
+        let length = usize::try_from(length)
+            .map_err(|_| schema_violation_error("CBOR text length exceeds this platform"))?;
+        let end = self
+            .offset
+            .checked_add(length)
+            .filter(|end| *end <= self.encoded.len())
+            .ok_or_else(|| schema_violation_error("CBOR text length exceeds remaining input"))?;
+        let text = std::str::from_utf8(&self.encoded[self.offset..end])
+            .map_err(|_| schema_violation_error("CBOR text is not UTF-8"))?
+            .to_owned();
+        self.offset = end;
+        Ok(text)
+    }
+
+    fn decode_argument(&mut self, additional: u8) -> Result<u64> {
+        match additional {
+            value @ 0..=23 => Ok(u64::from(value)),
+            24 => {
+                let value = u64::from(self.read_byte()?);
+                if value < 24 {
+                    return schema_violation("CBOR integer or length is not minimally encoded");
+                }
+                Ok(value)
+            }
+            25 => self.decode_fixed_argument(2, 0x100),
+            26 => self.decode_fixed_argument(4, 0x1_0000),
+            27 => self.decode_fixed_argument(8, 0x1_0000_0000),
+            _ => schema_violation("indefinite or reserved CBOR arguments are forbidden"),
+        }
+    }
+
+    fn decode_fixed_argument(&mut self, width: usize, minimum: u64) -> Result<u64> {
+        let end = self
+            .offset
+            .checked_add(width)
+            .filter(|end| *end <= self.encoded.len())
+            .ok_or_else(|| schema_violation_error("CBOR argument exceeds remaining input"))?;
+        let mut bytes = [0_u8; 8];
+        bytes[8 - width..].copy_from_slice(&self.encoded[self.offset..end]);
+        self.offset = end;
+        let value = u64::from_be_bytes(bytes);
+        if value < minimum {
+            return schema_violation("CBOR integer or length is not minimally encoded");
+        }
+        Ok(value)
+    }
+
+    fn read_byte(&mut self) -> Result<u8> {
+        let byte = self
+            .encoded
+            .get(self.offset)
+            .copied()
+            .ok_or_else(|| schema_violation_error("CBOR input is truncated"))?;
+        self.offset += 1;
+        Ok(byte)
+    }
+}
+
+fn cbor_value_to_json(value: DecodedCborValue) -> Result<Value> {
+    match value {
+        DecodedCborValue::Null => Ok(Value::Null),
+        DecodedCborValue::Unsigned(value) => Ok(Value::Number(Number::from(value))),
+        DecodedCborValue::Text(value) => Ok(Value::String(value)),
+        DecodedCborValue::Map(entries) => {
+            let mut object = Map::new();
+            for (key, value) in entries {
+                if object.insert(key, cbor_value_to_json(value)?).is_some() {
+                    return schema_violation("MLS governance binding contains a duplicate map key");
+                }
+            }
+            Ok(Value::Object(object))
+        }
+    }
+}
+
+fn encode_deterministic_cbor(value: &Value, encoded: &mut Vec<u8>) -> Result<()> {
+    match value {
+        Value::Null => encoded.push(0xf6),
+        Value::Number(number) => encode_cbor_head(
+            0,
+            number
+                .as_u64()
+                .ok_or_else(|| schema_violation_error("CBOR value is not an unsigned integer"))?,
+            encoded,
+        ),
+        Value::String(text) => {
+            encode_cbor_head(3, text.len() as u64, encoded);
+            encoded.extend_from_slice(text.as_bytes());
+        }
+        Value::Object(object) => {
+            let mut entries = object
+                .iter()
+                .map(|(key, value)| {
+                    let mut encoded_key = Vec::new();
+                    encode_deterministic_cbor(&Value::String(key.clone()), &mut encoded_key)?;
+                    Ok((encoded_key, value))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            entries.sort_by(|left, right| left.0.cmp(&right.0));
+            encode_cbor_head(5, entries.len() as u64, encoded);
+            for (key, value) in entries {
+                encoded.extend_from_slice(&key);
+                encode_deterministic_cbor(value, encoded)?;
+            }
+        }
+        _ => return schema_violation("unsupported MLS governance binding CBOR value"),
+    }
+    Ok(())
+}
+
+fn encode_cbor_head(major: u8, value: u64, encoded: &mut Vec<u8>) {
+    match value {
+        0..=23 => encoded.push((major << 5) | value as u8),
+        24..=0xff => encoded.extend_from_slice(&[(major << 5) | 24, value as u8]),
+        0x100..=0xffff => {
+            encoded.push((major << 5) | 25);
+            encoded.extend_from_slice(&(value as u16).to_be_bytes());
+        }
+        0x1_0000..=0xffff_ffff => {
+            encoded.push((major << 5) | 26);
+            encoded.extend_from_slice(&(value as u32).to_be_bytes());
+        }
+        _ => {
+            encoded.push((major << 5) | 27);
+            encoded.extend_from_slice(&value.to_be_bytes());
+        }
+    }
+}
+
+fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
+    Err(schema_violation_error(message))
+}
+
+fn schema_violation_error(message: impl Into<String>) -> WireError {
+    WireError::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: message.into(),
     }
 }
 
