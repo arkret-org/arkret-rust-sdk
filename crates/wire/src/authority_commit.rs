@@ -5,7 +5,8 @@
 
 use arkret_identifiers::{
     CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MlsWelcomeDeliveryId,
-    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, SidecarId, StrandId,
+    PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, SidecarId,
+    StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
@@ -803,15 +804,170 @@ pub struct CurrentRevision {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
+    RealmProfile,
+    RealmPolicy,
+    Policy {
+        policy_id: PolicyId,
+    },
+    PolicyAction {
+        #[serde(flatten)]
+        subject: PolicyActionSelector,
+    },
+    MemberState {
+        actor_id: ActorId,
+    },
+    Strand {
+        strand_id: StrandId,
+    },
+    MessageReactions {
+        event_id: EventId,
+    },
+    MlsGroup {
+        scope_ref: ScopeRef,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum LegacyCurrentSelector {
     RealmProfile,
     RealmPolicy,
     MemberState { actor_id: ActorId },
     Strand { strand_id: StrandId },
     MessageReactions { event_id: EventId },
     MlsGroup { scope_ref: ScopeRef },
+}
+
+impl<'de> Deserialize<'de> for CurrentSelector {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut wire = serde_json::Map::<String, Value>::deserialize(deserializer)?;
+        match wire.get("kind").and_then(Value::as_str) {
+            Some("policy") => {
+                wire.remove("kind");
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct PolicySubject {
+                    policy_id: PolicyId,
+                }
+                let subject = serde_json::from_value::<PolicySubject>(Value::Object(wire))
+                    .map_err(serde::de::Error::custom)?;
+                Ok(Self::Policy {
+                    policy_id: subject.policy_id,
+                })
+            }
+            Some("policy_action") => {
+                wire.remove("kind");
+                let subject = serde_json::from_value::<PolicyActionSelector>(Value::Object(wire))
+                    .map_err(serde::de::Error::custom)?;
+                Ok(Self::PolicyAction { subject })
+            }
+            _ => {
+                let legacy = serde_json::from_value::<LegacyCurrentSelector>(Value::Object(wire))
+                    .map_err(serde::de::Error::custom)?;
+                Ok(match legacy {
+                    LegacyCurrentSelector::RealmProfile => Self::RealmProfile,
+                    LegacyCurrentSelector::RealmPolicy => Self::RealmPolicy,
+                    LegacyCurrentSelector::MemberState { actor_id } => {
+                        Self::MemberState { actor_id }
+                    }
+                    LegacyCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    LegacyCurrentSelector::MessageReactions { event_id } => {
+                        Self::MessageReactions { event_id }
+                    }
+                    LegacyCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
+                })
+            }
+        }
+    }
+}
+
+/// The two `policy_action` subject namespaces cannot share one optional-field
+/// shape: a Policy's action token and a Realm-local action id have different
+/// identities and never coalesce.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "branch", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PolicyActionSelector {
+    PolicyRef {
+        policy_id: PolicyId,
+        action: PolicyActionName,
+    },
+    RealmAction {
+        action_id: RealmPolicyActionId,
+    },
+}
+
+/// The action token grammar of `policy_action_document.action`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct PolicyActionName(String);
+
+impl PolicyActionName {
+    pub fn new(value: impl Into<String>) -> std::result::Result<Self, &'static str> {
+        let value = value.into();
+        let Some(rest) = value.strip_prefix("ak.") else {
+            return Err("policy action must start with ak.");
+        };
+        if rest.split('.').any(|segment| {
+            segment.is_empty()
+                || !segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        }) {
+            return Err("policy action has an invalid segment");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for PolicyActionName {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// A Realm-local configuration name, explicitly outside the `ak:` typed-id
+/// namespace as required by `non_typed_identifier_floor`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct RealmPolicyActionId(String);
+
+impl RealmPolicyActionId {
+    pub fn new(value: impl Into<String>) -> std::result::Result<Self, &'static str> {
+        let value = value.into();
+        if value.is_empty() || value.starts_with("ak:") {
+            return Err("realm action id must be non-empty and outside ak: namespace");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for RealmPolicyActionId {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1229,6 +1385,94 @@ mod tests {
 
     use super::*;
     use crate::{DidCoreId, EventKind, test_support};
+
+    #[test]
+    fn policy_current_selectors_round_trip_exact_closed_branches() {
+        let policy_id = PolicyId::new("ak:policy:01904100-0000-7000-8000-000000000001").unwrap();
+        let cases = [
+            (
+                CurrentSelector::Policy {
+                    policy_id: policy_id.clone(),
+                },
+                json!({"kind":"policy","policy_id":policy_id}),
+            ),
+            (
+                CurrentSelector::PolicyAction {
+                    subject: PolicyActionSelector::PolicyRef {
+                        policy_id: policy_id.clone(),
+                        action: PolicyActionName::new("ak.message.send").unwrap(),
+                    },
+                },
+                json!({"kind":"policy_action","branch":"policy_ref","policy_id":policy_id,"action":"ak.message.send"}),
+            ),
+            (
+                CurrentSelector::PolicyAction {
+                    subject: PolicyActionSelector::RealmAction {
+                        action_id: RealmPolicyActionId::new("local_approval").unwrap(),
+                    },
+                },
+                json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval"}),
+            ),
+        ];
+        for (selector, wire) in cases {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+    }
+
+    #[test]
+    fn policy_current_selectors_reject_missing_mixed_and_unknown_fields() {
+        let policy = "ak:policy:01904100-0000-7000-8000-000000000001";
+        for invalid in [
+            json!({"kind":"policy"}),
+            json!({"kind":"policy","policy_id":policy,"action":"ak.message.send"}),
+            json!({"kind":"policy_action","branch":"policy_ref","policy_id":policy}),
+            json!({"kind":"policy_action","branch":"policy_ref","policy_id":policy,"action":"ak.message.send","action_id":"local_approval"}),
+            json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval","policy_id":policy}),
+            json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval","action":"ak.message.send"}),
+            json!({"kind":"policy_action","branch":"realm_action","action_id":"ak:policy:typed"}),
+            json!({"kind":"policy_action","branch":"realm_action","action_id":""}),
+            json!({"kind":"policy_action","branch":"policy_ref","policy_id":policy,"action":"ak.Message.Send"}),
+            json!({"kind":"policy_action","branch":"policy_ref","policy_id":policy,"action":"ak.message..send"}),
+            json!({"kind":"policy_action","branch":"other","action_id":"local_approval"}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[cfg(feature = "openapi")]
+    #[test]
+    fn policy_action_openapi_shape_uses_flat_branch_fields() {
+        let mut components = salvo_oapi::Components::new();
+        let schema = <CurrentSelector as salvo_oapi::ToSchema>::to_schema(&mut components);
+        let rendered = serde_json::to_value(&schema).unwrap();
+        assert_eq!(
+            rendered["$ref"],
+            "#/components/schemas/arkret_wire.authority_commit.CurrentSelector"
+        );
+        let components = serde_json::to_value(components).unwrap();
+        let selector = &components["schemas"]["arkret_wire.authority_commit.CurrentSelector"];
+        let action = &selector["oneOf"][3];
+        assert_eq!(
+            action["allOf"][2]["properties"]["kind"]["enum"][0],
+            "policy_action"
+        );
+        assert!(action.to_string().contains("PolicyActionSelector"));
+        assert!(!action.to_string().contains("subject"));
+        let branches =
+            &components["schemas"]["arkret_wire.authority_commit.PolicyActionSelector"]["oneOf"];
+        assert_eq!(branches[0]["properties"]["branch"]["enum"][0], "policy_ref");
+        assert_eq!(
+            branches[1]["properties"]["branch"]["enum"][0],
+            "realm_action"
+        );
+    }
 
     fn realm(seed: u8) -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(

@@ -1147,9 +1147,106 @@ pub(super) fn registry_entry<'a>(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
+    use arkret_wire::{CurrentSelector, ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
 
     use super::*;
+
+    #[test]
+    fn policy_selector_branches_match_the_formal_current_result_schema() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        registry
+            .register_fragment(
+                "test:policy_result",
+                schema.clone(),
+                "#/$defs/policy_result",
+            )
+            .unwrap();
+        registry
+            .register_fragment(
+                "test:policy_action_result",
+                schema,
+                "#/$defs/policy_action_result",
+            )
+            .unwrap();
+
+        let policy = serde_json::json!({
+            "kind": "policy",
+            "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001"
+        });
+        let policy_ref = serde_json::json!({
+            "kind": "policy_action",
+            "branch": "policy_ref",
+            "policy_id": policy["policy_id"],
+            "action": "ak.message.send"
+        });
+        let realm_action = serde_json::json!({
+            "kind": "policy_action",
+            "branch": "realm_action",
+            "action_id": "local_approval"
+        });
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
+            "stream_position": 2
+        });
+        let policy_value = serde_json::json!({
+            "id": policy["policy_id"],
+            "schema": "ak.schema.policy.v1",
+            "policy_kind": "access",
+            "rules": [{"rule_id":"allow_send","kind":"action","effect":"allow","actions":["ak.message.send"]}],
+            "default_effect": "deny",
+            "created_by": {"kind":"account","account_id": {
+                "principal_id":"ak:did_core:web:alice.example",
+                "station_id":"ak:did_core:web:station.example"
+            }},
+            "created_at":"2026-09-23T00:00:00.000Z"
+        });
+        let action_value = serde_json::json!({
+            "action":"ak.message.send",
+            "approval_required":true,
+            "approval_quorum":1,
+            "policy_scope":"did:web:example.com"
+        });
+        for (schema_id, selector, value) in [
+            ("test:policy_result", policy, policy_value),
+            (
+                "test:policy_action_result",
+                policy_ref,
+                action_value.clone(),
+            ),
+            (
+                "test:policy_action_result",
+                realm_action,
+                action_value.clone(),
+            ),
+        ] {
+            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let selector: CurrentSelector =
+                serde_json::from_value(wire["selector"].clone()).unwrap();
+            assert_eq!(serde_json::to_value(selector).unwrap(), wire["selector"]);
+        }
+        for invalid in [
+            serde_json::json!({"kind":"policy_action","branch":"policy_ref","policy_id":"ak:policy:01904100-0000-7000-8000-000000000001","action":"ak.message.send","action_id":"local_approval"}),
+            serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval","policy_id":"ak:policy:01904100-0000-7000-8000-000000000001"}),
+            serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"ak:policy:typed"}),
+        ] {
+            let wire =
+                serde_json::json!({"selector":invalid,"revision":revision,"value":action_value});
+            assert!(
+                registry
+                    .validate_value("test:policy_action_result", &wire)
+                    .is_err()
+            );
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
 
     #[test]
     fn active_registry_entries_missing_from_generated_coverage_fail_closed() {
