@@ -49,6 +49,7 @@
 pub mod contact_authorization;
 mod keypackage_claim_receipt;
 pub mod managed_actor_authoring;
+mod push_registration_receipt;
 mod sdk_error;
 
 pub use arkret_auth as auth;
@@ -450,6 +451,7 @@ pub use managed_actor_authoring::{
     AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,
     applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
 };
+pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};
 
 pub mod events {

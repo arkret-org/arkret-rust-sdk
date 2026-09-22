@@ -69,6 +69,7 @@ arkret-signatures = { workspace = true, features = [
 arkret-state = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true }
+ed25519-dalek = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -77,7 +78,6 @@ url = { workspace = true, features = ["serde"], optional = true }
 [dev-dependencies]
 arkret-signatures = { workspace = true, features = ["signer"] }
 arkret-wire = { workspace = true, features = ["test-support"] }
-ed25519-dalek = { workspace = true }
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
 

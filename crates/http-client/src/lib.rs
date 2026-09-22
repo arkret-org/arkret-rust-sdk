@@ -78,6 +78,8 @@ pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 pub const HEADER_OPERATION: &str = "Arkret-Operation";
+pub const HEADER_SOURCE_SERVICE_ID: &str = "Source-Service-ID";
+pub const HEADER_DESTINATION_SERVICE_ID: &str = "Destination-Service-ID";
 
 /// Default total request timeout applied per request when
 /// [`ClientBuilder::timeout`] is not called. reqwest itself defaults to
@@ -182,13 +184,14 @@ impl DpopAuth {
     }
 }
 
-/// Optional RFC 9421 HTTP message signer for account-client requests.
+/// Optional RFC 9421 HTTP message signer for typed client requests.
 ///
 /// The signer is applied immediately before a request is executed so retry
 /// attempts get fresh `created` / `expires` values. It is intentionally
-/// separate from [`Auth`]: Arkret account-client calls commonly present both a
-/// DPoP session grant and an HTTP message signature bound to the grant's
-/// signing key.
+/// separate from [`Auth`]: account-client calls may present both a DPoP session
+/// grant and an HTTP message signature, while service-to-service calls such as
+/// public Push Gateway handoff must use this signer without forwarding the
+/// account authorization.
 #[derive(Clone)]
 pub struct HttpMessageSigner {
     key_id: String,
