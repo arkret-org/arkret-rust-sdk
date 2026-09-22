@@ -212,6 +212,7 @@ impl RealmCommit {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommitStreamHead {
@@ -460,6 +461,7 @@ impl RealmAuthorityBundle {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamHistoryFloor {
@@ -467,6 +469,7 @@ pub struct StreamHistoryFloor {
     pub oldest_position: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RetentionAndHistoryFloor {
@@ -474,6 +477,7 @@ pub struct RetentionAndHistoryFloor {
     pub stream_floors: Vec<StreamHistoryFloor>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmStateSnapshot {
@@ -798,6 +802,7 @@ pub struct CurrentRevision {
     pub stream_position: u64,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
@@ -830,6 +835,7 @@ pub struct MemberStateCurrent {
     pub joined_at: Option<DateTime<Utc>>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReactionCurrent {
@@ -852,6 +858,7 @@ pub struct MlsGroupCurrent {
 /// Closed selector union for snapshot/current reads. Complex domain values
 /// remain their canonical schema JSON until their owning model crates expose a
 /// dependency-safe shared representation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TypedCurrentResult {
