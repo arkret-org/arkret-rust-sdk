@@ -1170,8 +1170,8 @@ pub enum PayloadProofPurpose {
     HolderAcceptance,
     StatusAttestation,
     RevocationAuthorization,
-    /// `discovery-directory.md` §8.7.1 write-surface authorization by the
-    /// resource governance key (`DirectoryGovernanceProof`).
+    /// Resource-governance authorization for an object-family contract that
+    /// explicitly makes this purpose load-bearing.
     GovernanceAuthorization,
 }
 

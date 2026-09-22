@@ -226,8 +226,9 @@ fn agent_path_component(value: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn agent_path_component_percent_encodes_did_and_grant_id() {

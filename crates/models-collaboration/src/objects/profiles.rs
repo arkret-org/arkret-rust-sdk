@@ -11,7 +11,6 @@ use arkret_wire::{
     ObjectStage, ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId,
     WireError, canonical, project_did_to_core_id,
 };
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

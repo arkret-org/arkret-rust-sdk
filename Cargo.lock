@@ -506,7 +506,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "url",
- "uuid",
 ]
 
 [[package]]

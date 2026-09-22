@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-21.4;
-//! sha256=feb985bc0ece698d5e86fa2d227389bb64677e713febdb3638ca23c39a5aa17c
-//! Entries: error_codes=170, reserved_not_emitted=94
+//! Input: registry/error-code-registry.json; version=2026-09-22.1;
+//! sha256=93ce23494be7ae398cf36f60c82703d2e814fa876985464870fa8de596c6b3e5
+//! Entries: error_codes=163, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,6 @@ impl std::fmt::Display for ErrorStatusContext {
 #[repr(usize)]
 pub enum ErrorCode {
     AadDigestMismatch,
-    AcceptPolicyDenied,
     AccountDeactivated,
     AccountErased,
     AccountLocked,
@@ -87,15 +86,12 @@ pub enum ErrorCode {
     DidRevoked,
     DigestMismatch,
     DirectConversationUnavailable,
-    DirectoryGovernanceProofSignatureInvalid,
-    DirectoryUnauthorized,
     DuplicateConflict,
     E2eeRequired,
     EpochMismatch,
     FailedPlane,
     FailedPrecondition,
     FrankingProofUnavailable,
-    GovernanceKeyInvalid,
     GrantAlreadyConsumed,
     HistoricalDidEvidenceInvalid,
     HistoricalOnly,
@@ -173,19 +169,16 @@ pub enum ErrorCode {
     SignalRailUnavailable,
     SignalTtlOutOfRange,
     SignatureInvalid,
-    SignatureStale,
     SignatureWindowInvalid,
     SoftLoggedOut,
     SourceRefsUnverifiable,
     StateMismatch,
     StreamDropped,
     StreamResyncRequired,
-    TakedownInForce,
     TemporarilyUnavailable,
     Timeout,
     TooLarge,
     TrackDisabled,
-    TtlOutOfRange,
     TurnCredentialExpired,
     Unauthenticated,
     UnrecognizedEndpoint,
@@ -221,7 +214,6 @@ pub struct ErrorCodeDescriptor {
 impl ErrorCode {
     pub const ALL: &'static [Self] = &[
         Self::AadDigestMismatch,
-        Self::AcceptPolicyDenied,
         Self::AccountDeactivated,
         Self::AccountErased,
         Self::AccountLocked,
@@ -273,15 +265,12 @@ impl ErrorCode {
         Self::DidRevoked,
         Self::DigestMismatch,
         Self::DirectConversationUnavailable,
-        Self::DirectoryGovernanceProofSignatureInvalid,
-        Self::DirectoryUnauthorized,
         Self::DuplicateConflict,
         Self::E2eeRequired,
         Self::EpochMismatch,
         Self::FailedPlane,
         Self::FailedPrecondition,
         Self::FrankingProofUnavailable,
-        Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
         Self::HistoricalDidEvidenceInvalid,
         Self::HistoricalOnly,
@@ -359,19 +348,16 @@ impl ErrorCode {
         Self::SignalRailUnavailable,
         Self::SignalTtlOutOfRange,
         Self::SignatureInvalid,
-        Self::SignatureStale,
         Self::SignatureWindowInvalid,
         Self::SoftLoggedOut,
         Self::SourceRefsUnverifiable,
         Self::StateMismatch,
         Self::StreamDropped,
         Self::StreamResyncRequired,
-        Self::TakedownInForce,
         Self::TemporarilyUnavailable,
         Self::Timeout,
         Self::TooLarge,
         Self::TrackDisabled,
-        Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
         Self::UnrecognizedEndpoint,
@@ -393,7 +379,6 @@ impl ErrorCode {
     ];
 
     pub const AAD_DIGEST_MISMATCH: &'static str = "aad_digest_mismatch";
-    pub const ACCEPT_POLICY_DENIED: &'static str = "accept_policy_denied";
     pub const ACCOUNT_DEACTIVATED: &'static str = "account_deactivated";
     pub const ACCOUNT_ERASED: &'static str = "account_erased";
     pub const ACCOUNT_LOCKED: &'static str = "account_locked";
@@ -447,16 +432,12 @@ impl ErrorCode {
     pub const DID_REVOKED: &'static str = "did_revoked";
     pub const DIGEST_MISMATCH: &'static str = "digest_mismatch";
     pub const DIRECT_CONVERSATION_UNAVAILABLE: &'static str = "direct_conversation_unavailable";
-    pub const DIRECTORY_GOVERNANCE_PROOF_SIGNATURE_INVALID: &'static str =
-        "directory_governance_proof_signature_invalid";
-    pub const DIRECTORY_UNAUTHORIZED: &'static str = "directory_unauthorized";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
     pub const E2EE_REQUIRED: &'static str = "e2ee_required";
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const FAILED_PLANE: &'static str = "failed_plane";
     pub const FAILED_PRECONDITION: &'static str = "failed_precondition";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
-    pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
     pub const HISTORICAL_ONLY: &'static str = "historical_only";
@@ -542,19 +523,16 @@ impl ErrorCode {
     pub const SIGNAL_RAIL_UNAVAILABLE: &'static str = "signal_rail_unavailable";
     pub const SIGNAL_TTL_OUT_OF_RANGE: &'static str = "signal_ttl_out_of_range";
     pub const SIGNATURE_INVALID: &'static str = "signature_invalid";
-    pub const SIGNATURE_STALE: &'static str = "signature_stale";
     pub const SIGNATURE_WINDOW_INVALID: &'static str = "signature_window_invalid";
     pub const SOFT_LOGGED_OUT: &'static str = "soft_logged_out";
     pub const SOURCE_REFS_UNVERIFIABLE: &'static str = "source_refs_unverifiable";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
     pub const STREAM_DROPPED: &'static str = "stream_dropped";
     pub const STREAM_RESYNC_REQUIRED: &'static str = "stream_resync_required";
-    pub const TAKEDOWN_IN_FORCE: &'static str = "takedown_in_force";
     pub const TEMPORARILY_UNAVAILABLE: &'static str = "temporarily_unavailable";
     pub const TIMEOUT: &'static str = "timeout";
     pub const TOO_LARGE: &'static str = "too_large";
     pub const TRACK_DISABLED: &'static str = "track_disabled";
-    pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
     pub const UNRECOGNIZED_ENDPOINT: &'static str = "unrecognized_endpoint";
@@ -578,7 +556,6 @@ impl ErrorCode {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AadDigestMismatch => "aad_digest_mismatch",
-            Self::AcceptPolicyDenied => "accept_policy_denied",
             Self::AccountDeactivated => "account_deactivated",
             Self::AccountErased => "account_erased",
             Self::AccountLocked => "account_locked",
@@ -632,17 +609,12 @@ impl ErrorCode {
             Self::DidRevoked => "did_revoked",
             Self::DigestMismatch => "digest_mismatch",
             Self::DirectConversationUnavailable => "direct_conversation_unavailable",
-            Self::DirectoryGovernanceProofSignatureInvalid => {
-                "directory_governance_proof_signature_invalid"
-            }
-            Self::DirectoryUnauthorized => "directory_unauthorized",
             Self::DuplicateConflict => "duplicate_conflict",
             Self::E2eeRequired => "e2ee_required",
             Self::EpochMismatch => "epoch_mismatch",
             Self::FailedPlane => "failed_plane",
             Self::FailedPrecondition => "failed_precondition",
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
-            Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
             Self::HistoricalOnly => "historical_only",
@@ -728,19 +700,16 @@ impl ErrorCode {
             Self::SignalRailUnavailable => "signal_rail_unavailable",
             Self::SignalTtlOutOfRange => "signal_ttl_out_of_range",
             Self::SignatureInvalid => "signature_invalid",
-            Self::SignatureStale => "signature_stale",
             Self::SignatureWindowInvalid => "signature_window_invalid",
             Self::SoftLoggedOut => "soft_logged_out",
             Self::SourceRefsUnverifiable => "source_refs_unverifiable",
             Self::StateMismatch => "state_mismatch",
             Self::StreamDropped => "stream_dropped",
             Self::StreamResyncRequired => "stream_resync_required",
-            Self::TakedownInForce => "takedown_in_force",
             Self::TemporarilyUnavailable => "temporarily_unavailable",
             Self::Timeout => "timeout",
             Self::TooLarge => "too_large",
             Self::TrackDisabled => "track_disabled",
-            Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
             Self::UnrecognizedEndpoint => "unrecognized_endpoint",
@@ -767,7 +736,6 @@ impl ErrorCode {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             "aad_digest_mismatch" => Some(Self::AadDigestMismatch),
-            "accept_policy_denied" => Some(Self::AcceptPolicyDenied),
             "account_deactivated" => Some(Self::AccountDeactivated),
             "account_erased" => Some(Self::AccountErased),
             "account_locked" => Some(Self::AccountLocked),
@@ -821,17 +789,12 @@ impl ErrorCode {
             "did_revoked" => Some(Self::DidRevoked),
             "digest_mismatch" => Some(Self::DigestMismatch),
             "direct_conversation_unavailable" => Some(Self::DirectConversationUnavailable),
-            "directory_governance_proof_signature_invalid" => {
-                Some(Self::DirectoryGovernanceProofSignatureInvalid)
-            }
-            "directory_unauthorized" => Some(Self::DirectoryUnauthorized),
             "duplicate_conflict" => Some(Self::DuplicateConflict),
             "e2ee_required" => Some(Self::E2eeRequired),
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "failed_plane" => Some(Self::FailedPlane),
             "failed_precondition" => Some(Self::FailedPrecondition),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
-            "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
             "historical_only" => Some(Self::HistoricalOnly),
@@ -923,19 +886,16 @@ impl ErrorCode {
             "signal_rail_unavailable" => Some(Self::SignalRailUnavailable),
             "signal_ttl_out_of_range" => Some(Self::SignalTtlOutOfRange),
             "signature_invalid" => Some(Self::SignatureInvalid),
-            "signature_stale" => Some(Self::SignatureStale),
             "signature_window_invalid" => Some(Self::SignatureWindowInvalid),
             "soft_logged_out" => Some(Self::SoftLoggedOut),
             "source_refs_unverifiable" => Some(Self::SourceRefsUnverifiable),
             "state_mismatch" => Some(Self::StateMismatch),
             "stream_dropped" => Some(Self::StreamDropped),
             "stream_resync_required" => Some(Self::StreamResyncRequired),
-            "takedown_in_force" => Some(Self::TakedownInForce),
             "temporarily_unavailable" => Some(Self::TemporarilyUnavailable),
             "timeout" => Some(Self::Timeout),
             "too_large" => Some(Self::TooLarge),
             "track_disabled" => Some(Self::TrackDisabled),
-            "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
             "unrecognized_endpoint" => Some(Self::UnrecognizedEndpoint),
@@ -1006,16 +966,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Encrypted envelope AAD digest does not match the canonical normalized AAD.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::AcceptPolicyDenied,
-        type_uri: "https://arkret.org/problems/accept_policy_denied",
-        title: "Accept policy denied",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected the resource because it is outside the directory's advertised accept policy.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AccountDeactivated,
@@ -1534,26 +1484,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Opaque failed_precondition sub-reason for direct-conversation resolution when the peer, either directional Contact head/scope, trust-domain binding, or no-create binding state cannot be disclosed. Consent is not queried. Requester-visible status, body and timing MUST NOT distinguish those causes; detail is holder-private audit only.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::DirectoryGovernanceProofSignatureInvalid,
-        type_uri: "https://arkret.org/problems/directory_governance_proof_signature_invalid",
-        title: "Directory governance proof signature invalid",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected a resource governance proof because its detached signature is invalid or cannot be canonicalized.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DirectoryUnauthorized,
-        type_uri: "https://arkret.org/problems/directory_unauthorized",
-        title: "Directory unauthorized",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected an announce or withdraw because the signed resource payload does not authorize this Directory service DID.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::DuplicateConflict,
         type_uri: "https://arkret.org/problems/duplicate_conflict",
         title: "Duplicate conflict",
@@ -1612,16 +1542,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "E2EE franking proof cannot be produced for the requested ciphertext (sender did not include franking sidecar). See zh/governance/content-moderation.md §3.4.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::GovernanceKeyInvalid,
-        type_uri: "https://arkret.org/problems/governance_key_invalid",
-        title: "Governance key invalid",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected a governance proof because the signing key is not valid for the resource DID document's current epoch.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GrantAlreadyConsumed,
@@ -2021,7 +1941,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "Directory ingest rejected an announce because policy_revision or as_of is older than the indexed entry.",
+        description: "A reducer rejected a Realm policy update because policy_revision is older than the current accepted revision.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyStale,
@@ -2394,16 +2314,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A required signature or proof does not verify.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::SignatureStale,
-        type_uri: "https://arkret.org/problems/signature_stale",
-        title: "Signature stale",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected a signed payload because its as_of timestamp is outside the configured freshness window.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::SignatureWindowInvalid,
         type_uri: "https://arkret.org/problems/signature_window_invalid",
         title: "Signature window invalid",
@@ -2464,16 +2374,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A subscription stream cannot safely continue from the supplied cursor; the client must resync from a fresh cursor or snapshot.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::TakedownInForce,
-        type_uri: "https://arkret.org/problems/takedown_in_force",
-        title: "Takedown in force",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Directory ingest rejected an announce because an active withdrawal or operator takedown blocks acceptance of the resource.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::TemporarilyUnavailable,
         type_uri: "https://arkret.org/problems/temporarily_unavailable",
         title: "Temporarily unavailable",
@@ -2512,16 +2412,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The target Strand track has enabled=false and does not accept new writes (synthesis edits or track-scoped patches). Generic freeze code for any track; discussion_track_disabled is the discussion-track-specific specialization for ak.message.* writes. See zh/models/strand-and-message.md §4.1 / §4.7.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::TtlOutOfRange,
-        type_uri: "https://arkret.org/problems/ttl_out_of_range",
-        title: "Ttl out of range",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "A service-call TTL is outside the operation's allowed range, including directory ttl_seconds outside [1, max_ttl_seconds] or ephemeral ttl_ms beyond the advertised kind-specific limit.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TurnCredentialExpired,

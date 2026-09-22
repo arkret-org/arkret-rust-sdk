@@ -563,9 +563,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[ProfileId::DIRECTORY_SERVICE_V1];
 pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "account_status_record",
     "actor_profile",
-    "announce",
     "applet",
-    "authorization_lease",
     "backup",
     "backup_series",
     "batch",

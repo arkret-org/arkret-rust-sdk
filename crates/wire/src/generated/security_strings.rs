@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-20.5;
-//! sha256=01f1a49ad1c8eb0a85c1a3cfbf622e416d77b3abc7b6dade872017982784054d Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-22.1;
+//! sha256=875782a6c70e6812c1caafb6081f388e225ae9010bcbe6d1f62d1b593872d077 Input: registry/
 //! exporter-label-registry.json; version=2026-09-19.1;
 //! sha256=30b6f19c7a78d8f53f222ceb33867fc2216db73c3f9113d03ab89235ddffe68d Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -16,7 +16,7 @@
 //! sha256=b365def7af189e665ea8631f9ce218658cc5a08b1e0f9c4d634fbbc04736c544 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=40, exporter_labels=7, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=39, exporter_labels=7, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -35,7 +35,6 @@ pub enum ProofContextId {
     AppletPackageProofV1,
     DeviceProjectionAttestationProofV1,
     DidWebvhWitnessReceiptProofV1,
-    DirectoryGovernanceRequestProofV1,
     EventProofV1,
     ExtensionManifestProofV1,
     HandleClaimProofV1,
@@ -79,7 +78,6 @@ impl ProofContextId {
         Self::AppletPackageProofV1,
         Self::DeviceProjectionAttestationProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
-        Self::DirectoryGovernanceRequestProofV1,
         Self::EventProofV1,
         Self::ExtensionManifestProofV1,
         Self::HandleClaimProofV1,
@@ -129,8 +127,6 @@ impl ProofContextId {
         "ak.device_projection_attestation_proof.v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did_webvh_witness_receipt_proof.v1";
-    pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_governance_request_proof.v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event_proof.v1";
     pub const EXTENSION_MANIFEST_PROOF_V1: &'static str = "ak.extension_manifest_proof.v1";
     pub const HANDLE_CLAIM_PROOF_V1: &'static str = "ak.handle_claim_proof.v1";
@@ -197,7 +193,6 @@ impl ProofContextId {
                 Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1
             }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
-            Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
             Self::EventProofV1 => Self::EVENT_PROOF_V1,
             Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
             Self::HandleClaimProofV1 => Self::HANDLE_CLAIM_PROOF_V1,
@@ -270,9 +265,6 @@ impl ProofContextId {
                 Some(Self::DeviceProjectionAttestationProofV1)
             }
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
-            Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryGovernanceRequestProofV1)
-            }
             Self::EVENT_PROOF_V1 => Some(Self::EventProofV1),
             Self::EXTENSION_MANIFEST_PROOF_V1 => Some(Self::ExtensionManifestProofV1),
             Self::HANDLE_CLAIM_PROOF_V1 => Some(Self::HandleClaimProofV1),
@@ -976,21 +968,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/did-webvh-witness-receipt.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectoryGovernanceRequestProofV1,
-        context: "ak.directory_governance_request_proof.v1",
-        object_family: "directory_governance_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "operation_id",
-            "verification_method",
-            "created_at",
-            "proof_purpose",
-            "audience_id",
-        ],
-        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
     },
     ProofContextDescriptor {
         id: ProofContextId::EventProofV1,

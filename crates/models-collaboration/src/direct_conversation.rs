@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::contact_operations::ContactPeer;
 use crate::events_payloads::{RealmCreatePayload, StrandCreatePayload};
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
-use crate::objects::direct_conversation::DirectConversationFoundingAuthorityEvidence;
-use crate::objects::direct_conversation::DirectConversationRealmRole;
+use crate::objects::direct_conversation::{
+    DirectConversationFoundingAuthorityEvidence, DirectConversationRealmRole,
+};
 
 /// Coordinates derived from the exact four caller-authored founding Events.
 /// The caller must supply accepted Events; this pure derivation does not assert

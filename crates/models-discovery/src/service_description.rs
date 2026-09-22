@@ -956,7 +956,7 @@ mod tests {
             profile_bindings: BTreeMap::new(),
             supported_operation_bundles: vec![
                 "ak.operation_bundle.directory_service.describe.v1".to_owned(),
-                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
+                "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
                 base_url: "https://directory.example".to_owned(),
@@ -1011,7 +1011,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_public_read_bundle_does_not_advertise_writes() {
+    fn directory_public_read_bundle_advertises_only_current_read_operations() {
         let mut description = directory_description();
         description.supported_operation_bundles = vec![
             "ak.operation_bundle.directory_service.describe.v1".to_owned(),
@@ -1019,17 +1019,12 @@ mod tests {
         ];
 
         description.validate().unwrap();
+        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadDescribeV1));
         assert!(
             description.supports_operation(ServiceOperationId::FindDirectoryReadSearchRealmsV1)
         );
         assert!(
             description.supports_operation(ServiceOperationId::FindDirectoryReadResolveRealmV1)
-        );
-        assert!(
-            !description.supports_operation(ServiceOperationId::FindDirectoryCommandAnnounceV1)
-        );
-        assert!(
-            !description.supports_operation(ServiceOperationId::FindDirectoryCommandWithdrawV1)
         );
     }
 

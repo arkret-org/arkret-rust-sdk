@@ -6,13 +6,14 @@
 //! [`arkret_wire::RealmCommit`] records. No authority-side protocol carrier or
 //! producer-side ordering coordinate is carried here.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use arkret_wire::{
     AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CanonicalPublicMaterial,
     CommitStreamRef, DeviceId, DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId,
-    PolicyId, RealmCommitId, RealmId, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId,
-    Result, SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
+    PolicyId, RealmCommitId, RealmId, ReasonCode, ReceiptId, RecoveryCompletionAttestation,
+    RecoverySessionId, Result, SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError,
+    XExtensionMap,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -261,6 +262,222 @@ pub struct SecurityRotationPlan {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupSeriesEraseStatus {
+    Partial,
+    Complete,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupSeriesEraseRowStatus {
+    Pending,
+    FailedRetryable,
+    Erased,
+}
+
+/// Exact transaction-bound request for erasing the old `secret_storage` series.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseRequestBody {
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub erase_confirmation_digest: Hash,
+    pub series: Vec<BackupRotationBinding>,
+    pub authority_commit_id: RealmCommitId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseRow {
+    pub backup_kind: BackupRotationKind,
+    pub previous_series_id: BackupSeriesId,
+    pub new_series_id: BackupSeriesId,
+    pub status: BackupSeriesEraseRowStatus,
+    pub erased_backups: Vec<BackupObjectRef>,
+    pub remaining_backups: Vec<BackupObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseConfirmation {
+    pub schema: SchemaId,
+    pub transaction_id: TransactionId,
+    pub transaction_request_digest: Hash,
+    pub prepared_plan_digest: Hash,
+    pub series: Vec<BackupRotationBinding>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupSeriesEraseOutcome {
+    pub transaction_id: TransactionId,
+    pub request_digest: Hash,
+    pub status: BackupSeriesEraseStatus,
+    pub series_records: Vec<BackupSeriesEraseRow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmation: Option<BackupSeriesEraseConfirmation>,
+}
+
+fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
+    if refs.len() > 512 {
+        return protocol(format!("{label} exceeds 512 backup object references"));
+    }
+    let mut backup_ids = BTreeSet::new();
+    if refs
+        .iter()
+        .any(|object| !backup_ids.insert(object.backup_id.clone()))
+    {
+        return protocol(format!("{label} backup object references must be unique"));
+    }
+    Ok(())
+}
+
+fn validate_canonical_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
+    validate_backup_object_refs(refs, label)?;
+    if refs
+        .windows(2)
+        .any(|pair| pair[0].backup_id.as_str() >= pair[1].backup_id.as_str())
+    {
+        return protocol(format!("{label} must be canonical backup-id sorted"));
+    }
+    Ok(())
+}
+
+fn validate_erase_rotation_bindings(series: &[BackupRotationBinding]) -> Result<()> {
+    let [binding]: &[_; 1] = series.try_into().map_err(|_| {
+        WireError::Protocol(
+            "backup-series erase requires exactly one secret_storage series".to_owned(),
+        )
+    })?;
+    if binding.backup_kind != BackupRotationKind::SecretStorage
+        || binding.previous_series_id == binding.new_series_id
+        || binding.new_backups.is_empty()
+        || binding.old_backups.is_empty()
+    {
+        return protocol(
+            "backup-series erase binding requires one changed secret_storage series with non-empty backup sets",
+        );
+    }
+    validate_backup_object_refs(&binding.new_backups, "new_backups")?;
+    validate_backup_object_refs(&binding.old_backups, "old_backups")
+}
+
+impl BackupSeriesEraseRequestBody {
+    pub fn validate_structural(&self) -> Result<()> {
+        validate_erase_rotation_bindings(&self.series)?;
+        if self.erase_confirmation_digest
+            != security_rotation_erase_confirmation_digest(&self.transaction_id, &self.series)?
+        {
+            return protocol(
+                "backup-series erase confirmation digest changed its fixed projection",
+            );
+        }
+        Ok(())
+    }
+}
+
+impl BackupSeriesEraseConfirmation {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.schema != SchemaId::BackupSeriesEraseConfirmationV1 {
+            return protocol("backup-series erase confirmation schema is invalid");
+        }
+        validate_erase_rotation_bindings(&self.series)
+    }
+}
+
+impl BackupSeriesEraseOutcome {
+    pub fn validate_structural(&self) -> Result<()> {
+        let [record]: &[_; 1] = self.series_records.as_slice().try_into().map_err(|_| {
+            WireError::Protocol(
+                "backup-series erase outcome requires exactly one secret_storage record".to_owned(),
+            )
+        })?;
+        if record.backup_kind != BackupRotationKind::SecretStorage
+            || record.previous_series_id == record.new_series_id
+        {
+            return protocol("backup-series erase record has an invalid series binding");
+        }
+        validate_canonical_backup_object_refs(&record.erased_backups, "erased_backups")?;
+        validate_canonical_backup_object_refs(&record.remaining_backups, "remaining_backups")?;
+        match record.status {
+            BackupSeriesEraseRowStatus::Erased
+                if !record.remaining_backups.is_empty() || record.reason_code.is_some() =>
+            {
+                return protocol(
+                    "erased backup series requires no remaining backups or reason code",
+                );
+            }
+            BackupSeriesEraseRowStatus::Pending if record.reason_code.is_some() => {
+                return protocol("pending backup series cannot carry a reason code");
+            }
+            BackupSeriesEraseRowStatus::FailedRetryable if record.reason_code.is_none() => {
+                return protocol("failed-retryable backup series requires a reason code");
+            }
+            _ => {}
+        }
+        match (self.status, self.confirmation.as_ref()) {
+            (BackupSeriesEraseStatus::Complete, Some(confirmation)) => {
+                confirmation.validate_structural()
+            }
+            (BackupSeriesEraseStatus::Partial, None) => Ok(()),
+            _ => protocol("only a complete erase outcome carries one confirmation"),
+        }
+    }
+
+    pub fn validate_for_request(&self, request: &BackupSeriesEraseRequestBody) -> Result<()> {
+        self.validate_structural()?;
+        request.validate_structural()?;
+        let request_digest = arkret_canonical::canonical::canonical_sha256(request)?;
+        let record = &self.series_records[0];
+        let binding = &request.series[0];
+        let mut reported_backups = record.erased_backups.clone();
+        reported_backups.extend(record.remaining_backups.clone());
+        reported_backups
+            .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
+        let mut planned_backups = binding.old_backups.clone();
+        planned_backups
+            .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
+        if self.transaction_id != request.transaction_id
+            || self.request_digest.as_str() != request_digest
+            || record.backup_kind != binding.backup_kind
+            || record.previous_series_id != binding.previous_series_id
+            || record.new_series_id != binding.new_series_id
+            || reported_backups != planned_backups
+        {
+            return protocol(
+                "backup-series erase outcome changed the transaction, request, or target binding",
+            );
+        }
+        if let Some(confirmation) = &self.confirmation
+            && (confirmation.transaction_id != request.transaction_id
+                || confirmation.transaction_request_digest != request.transaction_request_digest
+                || confirmation.prepared_plan_digest != request.prepared_plan_digest
+                || confirmation.series != request.series
+                || request.erase_confirmation_digest
+                    != security_rotation_erase_confirmation_digest(
+                        &confirmation.transaction_id,
+                        &confirmation.series,
+                    )?)
+        {
+            return protocol(
+                "backup-series erase confirmation changed the reserved transaction plan",
+            );
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
@@ -312,6 +529,8 @@ pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorizing_device_id: Option<DeviceId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -373,8 +592,16 @@ impl SecurityTransaction {
             &self.prepared_plan_digest,
         )?;
         match &self.prepared_plan {
-            SecurityTransactionPreparedPlan::Recovery(plan) => plan.validate(&self.account_id)?,
+            SecurityTransactionPreparedPlan::Recovery(plan) => {
+                if self.authorizing_device_id.is_some() {
+                    return protocol("recovery transaction forbids authorizing_device_id");
+                }
+                plan.validate(&self.account_id)?
+            }
             SecurityTransactionPreparedPlan::SecurityRotation(plan) => {
+                if self.authorizing_device_id.is_none() {
+                    return protocol("security rotation requires authorizing_device_id");
+                }
                 validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?
             }
         }
@@ -518,6 +745,7 @@ pub struct SecurityRotationTransactionCreateRequest {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
+    pub authorizing_device_id: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub prepared_plan: SecurityRotationPlan,
@@ -527,6 +755,7 @@ impl SecurityRotationTransactionCreateRequest {
     pub fn from_prepared_rotations(
         transaction_id: TransactionId,
         account_id: AccountId,
+        authorizing_device_id: DeviceId,
         expires_at: DateTime<Utc>,
         revoke_unit: PreparedEventUnit,
         new_secret_commitment: Hash,
@@ -550,12 +779,19 @@ impl SecurityRotationTransactionCreateRequest {
             new_secret_commitment,
             backup_rotations,
         };
-        Self::new(transaction_id, account_id, expires_at, prepared_plan)
+        Self::new(
+            transaction_id,
+            account_id,
+            authorizing_device_id,
+            expires_at,
+            prepared_plan,
+        )
     }
 
     pub fn new(
         transaction_id: TransactionId,
         account_id: AccountId,
+        authorizing_device_id: DeviceId,
         expires_at: DateTime<Utc>,
         prepared_plan: SecurityRotationPlan,
     ) -> Result<Self> {
@@ -564,6 +800,7 @@ impl SecurityRotationTransactionCreateRequest {
             transaction_id,
             kind: SecurityTransactionKind::SecurityRotation,
             account_id,
+            authorizing_device_id,
             expires_at,
             prepared_plan,
         })
@@ -612,33 +849,37 @@ impl SecurityTransactionCreateRequest {
         let request_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
             &canonical_request,
         ))?;
-        let (transaction_id, kind, account_id, expires_at) = match (&self, &prepared_plan) {
-            (Self::Recovery(request), SecurityTransactionPreparedPlan::Recovery(plan)) => {
-                validate_prepared_plan_matches_intent(&request.recovery_intent, plan)?;
+        let (transaction_id, kind, account_id, authorizing_device_id, expires_at) =
+            match (&self, &prepared_plan) {
+                (Self::Recovery(request), SecurityTransactionPreparedPlan::Recovery(plan)) => {
+                    validate_prepared_plan_matches_intent(&request.recovery_intent, plan)?;
+                    (
+                        request.transaction_id.clone(),
+                        request.kind,
+                        request.account_id.clone(),
+                        None,
+                        request.expires_at,
+                    )
+                }
                 (
+                    Self::SecurityRotation(request),
+                    SecurityTransactionPreparedPlan::SecurityRotation(plan),
+                ) if canonical_equal(&request.prepared_plan, plan)? => (
                     request.transaction_id.clone(),
                     request.kind,
                     request.account_id.clone(),
+                    Some(request.authorizing_device_id.clone()),
                     request.expires_at,
-                )
-            }
-            (
-                Self::SecurityRotation(request),
-                SecurityTransactionPreparedPlan::SecurityRotation(plan),
-            ) if canonical_equal(&request.prepared_plan, plan)? => (
-                request.transaction_id.clone(),
-                request.kind,
-                request.account_id.clone(),
-                request.expires_at,
-            ),
-            _ => return protocol("create request and prepared plan disagree"),
-        };
+                ),
+                _ => return protocol("create request and prepared plan disagree"),
+            };
         let prepared_plan_digest =
             digest_value(arkret_canonical::DigestSuite::Sha256, &prepared_plan)?;
         let resource = SecurityTransaction {
             transaction_id,
             kind,
             account_id,
+            authorizing_device_id,
             expires_at,
             created_at,
             request_digest,
@@ -1279,6 +1520,45 @@ fn protocol<T>(message: impl Into<String>) -> Result<T> {
 mod tests {
     use super::*;
 
+    fn erase_binding() -> BackupRotationBinding {
+        serde_json::from_value(serde_json::json!({
+            "backup_kind": "secret_storage",
+            "previous_series_id": "ak:backup_series:019a7400-0000-7000-8000-000000000001",
+            "new_series_id": "ak:backup_series:019a7400-0000-7000-8000-000000000002",
+            "new_backups": [{
+                "backup_id": "ak:backup:019a7400-0000-7000-8000-000000000003",
+                "ciphertext_digest": format!("sha256:{}", "a".repeat(64))
+            }],
+            "active_series_event_id": "ak:event:AWKDhmQTc5zyfilaLwPF3xnhoZAjxSha7Z-6grioN9aW",
+            "old_backups": [{
+                "backup_id": "ak:backup:019a7400-0000-7000-8000-000000000005",
+                "ciphertext_digest": format!("sha256:{}", "b".repeat(64))
+            }]
+        }))
+        .unwrap()
+    }
+
+    fn erase_request() -> BackupSeriesEraseRequestBody {
+        let transaction_id =
+            TransactionId::new("ak:transaction:019a7400-0000-7000-8000-000000000006").unwrap();
+        let series = vec![erase_binding()];
+        BackupSeriesEraseRequestBody {
+            erase_confirmation_digest: security_rotation_erase_confirmation_digest(
+                &transaction_id,
+                &series,
+            )
+            .unwrap(),
+            transaction_id,
+            transaction_request_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            prepared_plan_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
+            series,
+            authority_commit_id: RealmCommitId::new(
+                "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            )
+            .unwrap(),
+        }
+    }
+
     #[test]
     fn recovery_commit_intent_is_exactly_two_sha256_event_digests() {
         let realm_id = RealmId::from_event_id(&EventId::from_digest(
@@ -1310,5 +1590,74 @@ mod tests {
             "expected_accepted_step_count": 0
         });
         assert!(serde_json::from_value::<SecurityTransactionContinueRequest>(value).is_err());
+    }
+
+    #[test]
+    fn backup_series_erase_request_requires_one_series_and_no_lease() {
+        let request = erase_request();
+        request.validate_structural().unwrap();
+
+        let mut empty = request.clone();
+        empty.series.clear();
+        assert!(empty.validate_structural().is_err());
+
+        let mut duplicate = request.clone();
+        duplicate.series.push(erase_binding());
+        assert!(duplicate.validate_structural().is_err());
+
+        let mut legacy = serde_json::to_value(request).unwrap();
+        legacy.as_object_mut().unwrap().insert(
+            "authorization_lease".to_owned(),
+            serde_json::json!({"lease_id": "removed"}),
+        );
+        assert!(serde_json::from_value::<BackupSeriesEraseRequestBody>(legacy).is_err());
+    }
+
+    #[test]
+    fn backup_series_erase_outcome_requires_one_record_and_confirmation_by_status() {
+        let request = erase_request();
+        let request_digest =
+            Hash::new(arkret_canonical::canonical::canonical_sha256(&request).unwrap()).unwrap();
+        let binding = request.series[0].clone();
+        let record = BackupSeriesEraseRow {
+            backup_kind: binding.backup_kind,
+            previous_series_id: binding.previous_series_id,
+            new_series_id: binding.new_series_id,
+            status: BackupSeriesEraseRowStatus::Pending,
+            erased_backups: Vec::new(),
+            remaining_backups: binding.old_backups,
+            reason_code: None,
+        };
+        let mut outcome = BackupSeriesEraseOutcome {
+            transaction_id: request.transaction_id.clone(),
+            request_digest,
+            status: BackupSeriesEraseStatus::Partial,
+            series_records: vec![record],
+            confirmation: None,
+        };
+        outcome.validate_for_request(&request).unwrap();
+
+        outcome.series_records.clear();
+        assert!(outcome.validate_structural().is_err());
+        outcome.series_records.push(BackupSeriesEraseRow {
+            backup_kind: BackupRotationKind::SecretStorage,
+            previous_series_id: request.series[0].previous_series_id.clone(),
+            new_series_id: request.series[0].new_series_id.clone(),
+            status: BackupSeriesEraseRowStatus::Erased,
+            erased_backups: request.series[0].old_backups.clone(),
+            remaining_backups: Vec::new(),
+            reason_code: None,
+        });
+        outcome.status = BackupSeriesEraseStatus::Complete;
+        assert!(outcome.validate_structural().is_err());
+
+        outcome.confirmation = Some(BackupSeriesEraseConfirmation {
+            schema: SchemaId::BackupSeriesEraseConfirmationV1,
+            transaction_id: request.transaction_id.clone(),
+            transaction_request_digest: request.transaction_request_digest.clone(),
+            prepared_plan_digest: request.prepared_plan_digest.clone(),
+            series: request.series.clone(),
+        });
+        outcome.validate_for_request(&request).unwrap();
     }
 }

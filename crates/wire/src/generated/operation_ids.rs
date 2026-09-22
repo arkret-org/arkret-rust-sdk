@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-22.1;
-//! sha256=30ff56c429e964981509fb09d40947f9972423135a1c8b2c59b67ef1e0832217 Entries: registered=207
+//! Input: registry/contract-registry.json; version=2026-09-22.2;
+//! sha256=c6adf6dedbed287f02a2f0a370c5e8d7236af40e5bf8def07a6252ebd057a7d8 Entries: registered=205
 
 use serde::{Deserialize, Serialize};
 
@@ -21,8 +21,6 @@ pub enum ServiceOperationId {
     EdgePushCommandNotifyV1,
     EdgePushCommandRegisterDeviceV1,
     EdgePushCommandUnregisterDeviceV1,
-    FindDirectoryCommandAnnounceV1,
-    FindDirectoryCommandWithdrawV1,
     FindDirectoryReadDescribeV1,
     FindDirectoryReadResolveRealmV1,
     FindDirectoryReadSearchRealmsV1,
@@ -231,8 +229,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
-    ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
-    ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_REALM_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS_V1,
@@ -483,8 +479,6 @@ impl ServiceOperationId {
         Self::EdgePushCommandNotifyV1,
         Self::EdgePushCommandRegisterDeviceV1,
         Self::EdgePushCommandUnregisterDeviceV1,
-        Self::FindDirectoryCommandAnnounceV1,
-        Self::FindDirectoryCommandWithdrawV1,
         Self::FindDirectoryReadDescribeV1,
         Self::FindDirectoryReadResolveRealmV1,
         Self::FindDirectoryReadSearchRealmsV1,
@@ -702,10 +696,6 @@ impl ServiceOperationId {
         "ak.edge.push.command.register_device.v1";
     pub const EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1: &'static str =
         "ak.edge.push.command.unregister_device.v1";
-    pub const FIND_DIRECTORY_COMMAND_ANNOUNCE_V1: &'static str =
-        "ak.find.directory.command.announce.v1";
-    pub const FIND_DIRECTORY_COMMAND_WITHDRAW_V1: &'static str =
-        "ak.find.directory.command.withdraw.v1";
     pub const FIND_DIRECTORY_READ_DESCRIBE_V1: &'static str = "ak.find.directory.read.describe.v1";
     pub const FIND_DIRECTORY_READ_RESOLVE_REALM_V1: &'static str =
         "ak.find.directory.read.resolve_realm.v1";
@@ -1052,8 +1042,6 @@ impl ServiceOperationId {
             Self::EdgePushCommandNotifyV1 => Self::EDGE_PUSH_COMMAND_NOTIFY_V1,
             Self::EdgePushCommandRegisterDeviceV1 => Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
             Self::EdgePushCommandUnregisterDeviceV1 => Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
-            Self::FindDirectoryCommandAnnounceV1 => Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
-            Self::FindDirectoryCommandWithdrawV1 => Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
             Self::FindDirectoryReadDescribeV1 => Self::FIND_DIRECTORY_READ_DESCRIBE_V1,
             Self::FindDirectoryReadResolveRealmV1 => Self::FIND_DIRECTORY_READ_RESOLVE_REALM_V1,
             Self::FindDirectoryReadSearchRealmsV1 => Self::FIND_DIRECTORY_READ_SEARCH_REALMS_V1,
@@ -1382,8 +1370,6 @@ impl ServiceOperationId {
             Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1 => {
                 Some(Self::EdgePushCommandUnregisterDeviceV1)
             }
-            Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1 => Some(Self::FindDirectoryCommandAnnounceV1),
-            Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1 => Some(Self::FindDirectoryCommandWithdrawV1),
             Self::FIND_DIRECTORY_READ_DESCRIBE_V1 => Some(Self::FindDirectoryReadDescribeV1),
             Self::FIND_DIRECTORY_READ_RESOLVE_REALM_V1 => {
                 Some(Self::FindDirectoryReadResolveRealmV1)
@@ -2118,56 +2104,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/push-operations.schema.json#/$defs/push_unregister_device_request_body",
         ),
         response_schema_ref: None,
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryCommandAnnounceV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/announce",
-        grpc: Some("FindDirectory/Announce"),
-        mq: Some("find.directory.command.announce"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryAnnounceOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryCommandWithdrawV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/withdraw",
-        grpc: Some("FindDirectory/Withdraw"),
-        mq: Some("find.directory.command.withdraw"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DirectoryWithdrawOutcome",
-        ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,

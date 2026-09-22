@@ -343,8 +343,8 @@ macro_rules! declare_event_token_id_kinds {
 /// `KIND_PREFIX` is an inherent associated const with no registry behind it —
 /// so the spec-coverage constants in `arkret-schema` had to repeat the kind
 /// list as hand-written strings. That copy silently fell five kinds behind the
-/// registry (`authorization_lease`, `invite_locator`, `message_stream`,
-/// `sidecar`). [`DECLARED_UUID_ID_KIND_PREFIXES`]
+/// registry (`invite_locator`, `message_stream`, `sidecar`).
+/// [`DECLARED_UUID_ID_KIND_PREFIXES`]
 /// closes that gap: it is derived from the same literals the types validate
 /// against, so it cannot disagree with them.
 ///
@@ -873,7 +873,6 @@ declare_uuid_id_kinds! {
     // Key-backup hardening (B-C) typed ids.
     BackupSeriesId, "ak:backup_series:", UUID_VERSION_PRODUCER_ALLOCATED;
     RecoverySessionId, "ak:recovery_session:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AnnounceId, "ak:announce:", UUID_VERSION_PRODUCER_ALLOCATED;
     AppletId, "ak:applet:", UUID_VERSION_PRODUCER_ALLOCATED;
     BackupId, "ak:backup:", UUID_VERSION_PRODUCER_ALLOCATED;
     BatchId, "ak:batch:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -894,7 +893,6 @@ declare_uuid_id_kinds! {
     FrameId, "ak:frame:", UUID_VERSION_PRODUCER_ALLOCATED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuthorizationLeaseId, "ak:authorization_lease:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceId, "ak:device:", UUID_VERSION_PRODUCER_ALLOCATED;
     NotificationId, "ak:notification:", UUID_VERSION_PRODUCER_ALLOCATED;
     PolicyId, "ak:policy:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1664,7 +1662,6 @@ mod tests {
         assert_id!(RtcParticipantId, "ak:rtc_participant:");
         assert_id!(BackupSeriesId, "ak:backup_series:");
         assert_id!(RecoverySessionId, "ak:recovery_session:");
-        assert_id!(AnnounceId, "ak:announce:");
         assert_id!(AppletId, "ak:applet:");
         assert_id!(BackupId, "ak:backup:");
         assert_id!(BatchId, "ak:batch:");
@@ -1688,7 +1685,6 @@ mod tests {
         assert_id!(MessageStreamId, "ak:message_stream:");
         assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
         assert_id!(MorphId, "ak:morph:");
-        assert_id!(AuthorizationLeaseId, "ak:authorization_lease:");
         assert_id!(NotificationId, "ak:notification:");
         assert_id!(RealmId, "ak:realm:");
         assert_id!(SpaceId, "ak:space:");

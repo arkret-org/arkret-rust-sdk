@@ -547,10 +547,10 @@ impl<'de> Deserialize<'de> for SignerKeyQueryResult {
                     selector: wire.selector,
                 })
             }
-            (SignerKeyQueryStatus::Resolved, _, _) => Err(serde::de::Error::custom(
+            (SignerKeyQueryStatus::Resolved, ..) => Err(serde::de::Error::custom(
                 "resolved signer-key result has fields inconsistent with verification_mode",
             )),
-            (SignerKeyQueryStatus::Unavailable, _, _) => Err(serde::de::Error::custom(
+            (SignerKeyQueryStatus::Unavailable, ..) => Err(serde::de::Error::custom(
                 "unavailable signer-key result must not carry key or accepted_at",
             )),
         }

@@ -500,14 +500,6 @@
       "schema": "keys-operations.schema.json#/$defs/peer_query_account_device_entries/items"
     },
     {
-      "rust_type": "crates/models-discovery/src/directory.rs::DirectoryGovernanceProof",
-      "schema": "service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/directory.rs::DirectoryWithdrawRequestBody",
-      "schema": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody"
-    },
-    {
       "rust_type": "crates/models-discovery/src/directory_artifacts.rs::ObjectPreview",
       "schema": "directory-operations.schema.json#/$defs/object_preview"
     },

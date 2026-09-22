@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-22.2;
-//! sha256=30ff56c429e964981509fb09d40947f9972423135a1c8b2c59b67ef1e0832217 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-22.3;
+//! sha256=c6adf6dedbed287f02a2f0a370c5e8d7236af40e5bf8def07a6252ebd057a7d8 Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
-//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=50,
+//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=48,
 //! special_forms=15, actions=148, approval_carriers=1, schemas=223, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
@@ -108,19 +108,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:actor_profile:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "announce",
-        category: "discovery",
-        wire_form: "ak:announce:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "applet",
         category: "extension",
         wire_form: "ak:applet:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "authorization_lease",
-        category: "authz",
-        wire_form: "ak:authorization_lease:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "backup",

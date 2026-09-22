@@ -239,7 +239,7 @@ mod tests {
             calendar_tzdb_versions: vec![],
             supported_operation_bundles: vec![
                 "ak.operation_bundle.directory_service.describe.v1".to_owned(),
-                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
+                "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
                 base_url: "https://directory.example".to_owned(),
