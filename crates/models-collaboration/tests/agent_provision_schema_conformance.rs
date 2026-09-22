@@ -16,12 +16,22 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
         &fs::read(artifacts.join("schemas/agent-operations.schema.json")).unwrap(),
     )
     .unwrap();
-    registry.register_reference_document(schema.clone()).unwrap();
     registry
-        .register_fragment("test:agent-provision-request", schema.clone(), "#/$defs/agent_provision_request_body")
+        .register_reference_document(schema.clone())
         .unwrap();
     registry
-        .register_fragment("test:agent-provision-outcome", schema, "#/$defs/agent_provision_outcome")
+        .register_fragment(
+            "test:agent-provision-request",
+            schema.clone(),
+            "#/$defs/agent_provision_request_body",
+        )
+        .unwrap();
+    registry
+        .register_fragment(
+            "test:agent-provision-outcome",
+            schema,
+            "#/$defs/agent_provision_outcome",
+        )
         .unwrap();
     registry
 }
@@ -56,16 +66,28 @@ fn outcome(status: &str) -> Value {
     let map = value.as_object_mut().unwrap();
     match status {
         "awaiting_controller_event" => {
-            map.insert("controller_realm_id".into(), json!("ak:realm:ATH75ame6bMfYpXtcoLOVb7FKmgpWVniZZqVBz1dUdQa"));
+            map.insert(
+                "controller_realm_id".into(),
+                json!("ak:realm:ATH75ame6bMfYpXtcoLOVb7FKmgpWVniZZqVBz1dUdQa"),
+            );
             map.insert("allocation_handle".into(), json!("allocation_handle_01"));
         }
         "awaiting_pcr_genesis" | "awaiting_did_binding" => {
-            map.insert("principal_control_realm_id".into(), json!("ak:realm:AYj1hkGaeWVFOEdto3Hsqc1nmIwSKd3TswkkqrnOkPa-"));
+            map.insert(
+                "principal_control_realm_id".into(),
+                json!("ak:realm:AYj1hkGaeWVFOEdto3Hsqc1nmIwSKd3TswkkqrnOkPa-"),
+            );
             map.insert("allocation_handle".into(), json!("allocation_handle_01"));
         }
         "complete" => {
-            map.insert("principal_control_realm_id".into(), json!("ak:realm:AYj1hkGaeWVFOEdto3Hsqc1nmIwSKd3TswkkqrnOkPa-"));
-            map.insert("pairing_request_id".into(), json!("pairing_request:01964137-0000-7000-8000-000000000000"));
+            map.insert(
+                "principal_control_realm_id".into(),
+                json!("ak:realm:AYj1hkGaeWVFOEdto3Hsqc1nmIwSKd3TswkkqrnOkPa-"),
+            );
+            map.insert(
+                "pairing_request_id".into(),
+                json!("pairing_request:01964137-0000-7000-8000-000000000000"),
+            );
             map.insert("pairing_code".into(), json!("AAAAAAAAAAAAAAAAAAAAAA"));
             map.insert("expires_at".into(), json!("2026-07-17T13:50:07.734Z"));
         }
@@ -78,30 +100,56 @@ fn outcome(status: &str) -> Value {
 fn prepare_request_round_trips_and_forbids_commit_only_members() {
     let registry = registry();
     let value = prepare_request();
-    registry.validate_value("test:agent-provision-request", &value).unwrap();
+    registry
+        .validate_value("test:agent-provision-request", &value)
+        .unwrap();
     let typed: AgentProvisionRequestBody = serde_json::from_value(value.clone()).unwrap();
     assert!(matches!(typed, AgentProvisionRequestBody::Prepare(_)));
     assert_eq!(serde_json::to_value(typed).unwrap(), value);
 
-    for member in ["provision_event", "allocation_handle", "principal_control_realm_id", "requested_scope_digest"] {
+    for member in [
+        "provision_event",
+        "allocation_handle",
+        "principal_control_realm_id",
+        "requested_scope_digest",
+    ] {
         let mut invalid = value.clone();
         invalid[member] = json!("stale");
-        assert!(registry.validate_value("test:agent-provision-request", &invalid).is_err(), "{member}");
-        assert!(serde_json::from_value::<AgentProvisionRequestBody>(invalid).is_err(), "{member}");
+        assert!(
+            registry
+                .validate_value("test:agent-provision-request", &invalid)
+                .is_err(),
+            "{member}"
+        );
+        assert!(
+            serde_json::from_value::<AgentProvisionRequestBody>(invalid).is_err(),
+            "{member}"
+        );
     }
 }
 
 #[test]
 fn four_outcomes_round_trip_flat_and_reject_cross_stage_members() {
     let registry = registry();
-    for status in ["awaiting_controller_event", "awaiting_pcr_genesis", "awaiting_did_binding", "complete"] {
+    for status in [
+        "awaiting_controller_event",
+        "awaiting_pcr_genesis",
+        "awaiting_did_binding",
+        "complete",
+    ] {
         let value = outcome(status);
-        registry.validate_value("test:agent-provision-outcome", &value).unwrap();
+        registry
+            .validate_value("test:agent-provision-outcome", &value)
+            .unwrap();
         let typed: AgentProvisionOutcome = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(typed).unwrap(), value, "{status}");
         let mut invalid = value;
         invalid["provision_ref"] = json!("retired");
-        assert!(registry.validate_value("test:agent-provision-outcome", &invalid).is_err());
+        assert!(
+            registry
+                .validate_value("test:agent-provision-outcome", &invalid)
+                .is_err()
+        );
         assert!(serde_json::from_value::<AgentProvisionOutcome>(invalid).is_err());
     }
 }
@@ -111,11 +159,19 @@ fn awaiting_did_binding_cannot_claim_pairing_and_complete_cannot_keep_allocation
     let registry = registry();
     let mut premature = outcome("awaiting_did_binding");
     premature["pairing_request_id"] = json!("pairing_request:01964137-0000-7000-8000-000000000000");
-    assert!(registry.validate_value("test:agent-provision-outcome", &premature).is_err());
+    assert!(
+        registry
+            .validate_value("test:agent-provision-outcome", &premature)
+            .is_err()
+    );
     assert!(serde_json::from_value::<AgentProvisionOutcome>(premature).is_err());
 
     let mut stale = outcome("complete");
     stale["allocation_handle"] = json!("allocation_handle_01");
-    assert!(registry.validate_value("test:agent-provision-outcome", &stale).is_err());
+    assert!(
+        registry
+            .validate_value("test:agent-provision-outcome", &stale)
+            .is_err()
+    );
     assert!(serde_json::from_value::<AgentProvisionOutcome>(stale).is_err());
 }

@@ -169,15 +169,16 @@ mod moderation_decision_payload_tests {
         });
         let absent: ModerationDecisionPayload = serde_json::from_value(base.clone()).unwrap();
         assert!(absent.expires_at.is_none());
-        assert!(serde_json::to_value(&absent)
-            .unwrap()
-            .get("expires_at")
-            .is_none());
+        assert!(
+            serde_json::to_value(&absent)
+                .unwrap()
+                .get("expires_at")
+                .is_none()
+        );
 
         let mut explicit_null = base.clone();
         explicit_null["expires_at"] = serde_json::Value::Null;
-        let null_value: ModerationDecisionPayload =
-            serde_json::from_value(explicit_null).unwrap();
+        let null_value: ModerationDecisionPayload = serde_json::from_value(explicit_null).unwrap();
         assert!(null_value.expires_at.is_none());
 
         let mut with_expiry = base;

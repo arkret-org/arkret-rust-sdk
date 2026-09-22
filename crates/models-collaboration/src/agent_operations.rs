@@ -68,9 +68,21 @@ pub struct AgentKeyPairOutcome {
 
 string_marker!(AgentProvisionPreparePhase, Prepare, "prepare");
 string_marker!(AgentProvisionCommitPhase, Commit, "commit");
-string_marker!(AgentProvisionAwaitingControllerEventStatus, AwaitingControllerEvent, "awaiting_controller_event");
-string_marker!(AgentProvisionAwaitingPcrGenesisStatus, AwaitingPcrGenesis, "awaiting_pcr_genesis");
-string_marker!(AgentProvisionAwaitingDidBindingStatus, AwaitingDidBinding, "awaiting_did_binding");
+string_marker!(
+    AgentProvisionAwaitingControllerEventStatus,
+    AwaitingControllerEvent,
+    "awaiting_controller_event"
+);
+string_marker!(
+    AgentProvisionAwaitingPcrGenesisStatus,
+    AwaitingPcrGenesis,
+    "awaiting_pcr_genesis"
+);
+string_marker!(
+    AgentProvisionAwaitingDidBindingStatus,
+    AwaitingDidBinding,
+    "awaiting_did_binding"
+);
 string_marker!(AgentProvisionCompleteStatus, Complete, "complete");
 
 /// The controller first presents a PCR-independent accepted DID inception.

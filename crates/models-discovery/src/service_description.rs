@@ -1019,10 +1019,18 @@ mod tests {
         ];
 
         description.validate().unwrap();
-        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadSearchRealmsV1));
-        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadResolveRealmV1));
-        assert!(!description.supports_operation(ServiceOperationId::FindDirectoryCommandAnnounceV1));
-        assert!(!description.supports_operation(ServiceOperationId::FindDirectoryCommandWithdrawV1));
+        assert!(
+            description.supports_operation(ServiceOperationId::FindDirectoryReadSearchRealmsV1)
+        );
+        assert!(
+            description.supports_operation(ServiceOperationId::FindDirectoryReadResolveRealmV1)
+        );
+        assert!(
+            !description.supports_operation(ServiceOperationId::FindDirectoryCommandAnnounceV1)
+        );
+        assert!(
+            !description.supports_operation(ServiceOperationId::FindDirectoryCommandWithdrawV1)
+        );
     }
 
     #[test]

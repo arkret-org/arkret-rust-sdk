@@ -13,7 +13,9 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
         &fs::read(artifacts.join("schemas/agent-operations.schema.json")).unwrap(),
     )
     .unwrap();
-    registry.register_reference_document(schema.clone()).unwrap();
+    registry
+        .register_reference_document(schema.clone())
+        .unwrap();
     registry
         .register_fragment(
             "test:agent-renew-pairing-outcome",
@@ -55,9 +57,11 @@ fn missing_binding_fields_fail_closed_in_schema_and_sdk() {
     ] {
         let mut missing = outcome();
         missing.as_object_mut().unwrap().remove(field);
-        assert!(registry()
-            .validate_value("test:agent-renew-pairing-outcome", &missing)
-            .is_err());
+        assert!(
+            registry()
+                .validate_value("test:agent-renew-pairing-outcome", &missing)
+                .is_err()
+        );
         assert!(serde_json::from_value::<AgentRenewPairingOutcome>(missing).is_err());
     }
 }

@@ -197,7 +197,8 @@ mod tests {
 
         let mut revoked = value.clone();
         revoked["state"] = json!("revoked");
-        let parsed_revoked: ConsentView = serde_json::from_value(revoked.clone()).expect("revoked current view");
+        let parsed_revoked: ConsentView =
+            serde_json::from_value(revoked.clone()).expect("revoked current view");
         assert_eq!(parsed_revoked.state, ConsentState::Revoked);
         assert_eq!(serde_json::to_value(parsed_revoked).unwrap(), revoked);
 
