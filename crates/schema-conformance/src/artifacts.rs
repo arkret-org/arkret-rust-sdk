@@ -1249,6 +1249,91 @@ mod tests {
     }
 
     #[test]
+    fn device_selectors_match_formal_complete_current_results() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        for (name, fragment) in [
+            (
+                "test:device_authorization_result",
+                "#/$defs/device_authorization_result",
+            ),
+            (
+                "test:device_generation_result",
+                "#/$defs/device_generation_result",
+            ),
+            (
+                "test:device_revocation_proposals_result",
+                "#/$defs/device_revocation_proposals_result",
+            ),
+        ] {
+            registry
+                .register_fragment(name, schema.clone(), fragment)
+                .unwrap();
+        }
+        let device = "ak:device:019a0000-0000-7000-8000-000000000001";
+        let fixture = read_spec_json_artifact("fixtures/pcr-genesis-fixture.json").unwrap();
+        let mut authorization = fixture["founding_authorize"]["payload"].clone();
+        authorization.as_object_mut().unwrap().remove("device_id");
+        authorization["device_authorize_event_id"] =
+            serde_json::json!("ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM");
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
+            "stream_position": 2
+        });
+        let samples = [
+            (
+                "test:device_authorization_result",
+                serde_json::json!({"kind":"device_authorization","device_id":device}),
+                authorization,
+            ),
+            (
+                "test:device_generation_result",
+                serde_json::json!({"kind":"device_generation"}),
+                serde_json::json!({"current_device_generation_ref":1}),
+            ),
+            (
+                "test:device_revocation_proposals_result",
+                serde_json::json!({"kind":"device_revocation_proposals","device_id":device}),
+                serde_json::json!({"proposals":[]}),
+            ),
+        ];
+        for (schema_id, selector, value) in samples {
+            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
+            assert_eq!(serde_json::to_value(typed).unwrap(), selector);
+            let mut mirrored = wire.clone();
+            mirrored["selector"]["account_id"] = serde_json::json!({
+                "principal_id":"ak:did_core:web:alice.example",
+                "station_id":"ak:did_core:web:station.example"
+            });
+            assert!(registry.validate_value(schema_id, &mirrored).is_err());
+            assert!(
+                serde_json::from_value::<CurrentSelector>(mirrored["selector"].clone()).is_err()
+            );
+        }
+        let wrong_singleton = serde_json::json!({
+            "selector":{"kind":"device_generation","device_id":device},
+            "revision":revision,
+            "value":{"current_device_generation_ref":1}
+        });
+        assert!(
+            registry
+                .validate_value("test:device_generation_result", &wrong_singleton)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CurrentSelector>(wrong_singleton["selector"].clone()).is_err()
+        );
+    }
+
+    #[test]
     fn active_registry_entries_missing_from_generated_coverage_fail_closed() {
         let registry = serde_json::json!({
             "schemas": [

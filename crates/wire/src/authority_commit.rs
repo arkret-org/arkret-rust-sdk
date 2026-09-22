@@ -816,6 +816,13 @@ pub enum CurrentSelector {
         #[serde(flatten)]
         subject: PolicyActionSelector,
     },
+    DeviceAuthorization {
+        device_id: DeviceId,
+    },
+    DeviceGeneration,
+    DeviceRevocationProposals {
+        device_id: DeviceId,
+    },
     MemberState {
         actor_id: ActorId,
     },
@@ -832,9 +839,11 @@ pub enum CurrentSelector {
 
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-enum LegacyCurrentSelector {
+enum FlatCurrentSelector {
     RealmProfile,
     RealmPolicy,
+    DeviceAuthorization { device_id: DeviceId },
+    DeviceRevocationProposals { device_id: DeviceId },
     MemberState { actor_id: ActorId },
     Strand { strand_id: StrandId },
     MessageReactions { event_id: EventId },
@@ -867,20 +876,32 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     .map_err(serde::de::Error::custom)?;
                 Ok(Self::PolicyAction { subject })
             }
+            Some("device_generation") => {
+                if wire.len() != 1 {
+                    return Err(serde::de::Error::custom(
+                        "device_generation selector has no subject fields",
+                    ));
+                }
+                Ok(Self::DeviceGeneration)
+            }
             _ => {
-                let legacy = serde_json::from_value::<LegacyCurrentSelector>(Value::Object(wire))
+                let flat = serde_json::from_value::<FlatCurrentSelector>(Value::Object(wire))
                     .map_err(serde::de::Error::custom)?;
-                Ok(match legacy {
-                    LegacyCurrentSelector::RealmProfile => Self::RealmProfile,
-                    LegacyCurrentSelector::RealmPolicy => Self::RealmPolicy,
-                    LegacyCurrentSelector::MemberState { actor_id } => {
-                        Self::MemberState { actor_id }
+                Ok(match flat {
+                    FlatCurrentSelector::RealmProfile => Self::RealmProfile,
+                    FlatCurrentSelector::RealmPolicy => Self::RealmPolicy,
+                    FlatCurrentSelector::DeviceAuthorization { device_id } => {
+                        Self::DeviceAuthorization { device_id }
                     }
-                    LegacyCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
-                    LegacyCurrentSelector::MessageReactions { event_id } => {
+                    FlatCurrentSelector::DeviceRevocationProposals { device_id } => {
+                        Self::DeviceRevocationProposals { device_id }
+                    }
+                    FlatCurrentSelector::MemberState { actor_id } => Self::MemberState { actor_id },
+                    FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::MessageReactions { event_id } => {
                         Self::MessageReactions { event_id }
                     }
-                    LegacyCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
+                    FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
                 })
             }
         }
@@ -1446,9 +1467,58 @@ mod tests {
         }
     }
 
+    #[test]
+    fn device_current_selectors_round_trip_exact_closed_shapes() {
+        let device_id = DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000001").unwrap();
+        for (selector, wire) in [
+            (
+                CurrentSelector::DeviceAuthorization {
+                    device_id: device_id.clone(),
+                },
+                json!({"kind":"device_authorization","device_id":device_id}),
+            ),
+            (
+                CurrentSelector::DeviceGeneration,
+                json!({"kind":"device_generation"}),
+            ),
+            (
+                CurrentSelector::DeviceRevocationProposals {
+                    device_id: device_id.clone(),
+                },
+                json!({"kind":"device_revocation_proposals","device_id":device_id}),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+    }
+
+    #[test]
+    fn device_current_selectors_reject_missing_mirrored_and_unknown_fields() {
+        let device = "ak:device:019a0000-0000-7000-8000-000000000001";
+        for invalid in [
+            json!({"kind":"device_authorization"}),
+            json!({"kind":"device_authorization","device_id":device,"account_id":"extra"}),
+            json!({"kind":"device_authorization","device_id":"not-a-device"}),
+            json!({"kind":"device_generation","device_id":device}),
+            json!({"kind":"device_generation","device_generation_status":"active"}),
+            json!({"kind":"device_revocation_proposals"}),
+            json!({"kind":"device_revocation_proposals","device_id":device,"principal_id":"extra"}),
+            json!({"kind":"device_revocation_proposals","device_id":null}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
     #[cfg(feature = "openapi")]
     #[test]
-    fn policy_action_openapi_shape_uses_flat_branch_fields() {
+    fn current_selector_openapi_shape_uses_flat_branch_fields() {
         let mut components = salvo_oapi::Components::new();
         let schema = <CurrentSelector as salvo_oapi::ToSchema>::to_schema(&mut components);
         let rendered = serde_json::to_value(&schema).unwrap();
@@ -1472,6 +1542,17 @@ mod tests {
             branches[1]["properties"]["branch"]["enum"][0],
             "realm_action"
         );
+        for (index, kind, fields) in [
+            (4, "device_authorization", 2),
+            (5, "device_generation", 1),
+            (6, "device_revocation_proposals", 2),
+        ] {
+            let branch = &selector["oneOf"][index];
+            assert_eq!(branch["properties"]["kind"]["enum"][0], kind);
+            assert_eq!(branch["required"].as_array().unwrap().len(), fields);
+            assert!(branch["properties"].get("account_id").is_none());
+            assert!(branch["properties"].get("device_status").is_none());
+        }
     }
 
     fn realm(seed: u8) -> RealmId {
