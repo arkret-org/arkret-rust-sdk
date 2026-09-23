@@ -7,7 +7,7 @@
 
 use arkret_wire::{
     AccountId, ConsentId, ConsentRequestScope, ConsentScope, CurrentRevision,
-    EventCommitSubmission, EventKind, Result, WireError,
+    EventAdmissionSubmission, EventKind, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ impl ConsentList {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentGrantRequestBody {
-    pub grant_event: EventCommitSubmission,
+    pub grant_event: EventAdmissionSubmission,
 }
 
 impl ConsentGrantRequestBody {
@@ -91,7 +91,7 @@ impl ConsentGrantRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentRevokeRequestBody {
-    pub revoke_event: EventCommitSubmission,
+    pub revoke_event: EventAdmissionSubmission,
 }
 
 impl ConsentRevokeRequestBody {
@@ -101,7 +101,7 @@ impl ConsentRevokeRequestBody {
 }
 
 fn validate_consent_command_event(
-    submission: &EventCommitSubmission,
+    submission: &EventAdmissionSubmission,
     expected: EventKind,
 ) -> Result<()> {
     submission.event.validate_for_submit_structural()?;

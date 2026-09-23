@@ -65,6 +65,17 @@ pub struct Realm {
 impl Realm {
     pub const SCHEMA: &'static str = SchemaId::REALM_V1;
 
+    /// Enforce the current Realm policy relationship after the effective
+    /// federation policy has been projected from its authoritative source.
+    pub fn validate_kind_invariants(&self) -> Result<(), &'static str> {
+        if self.security_class == Some(SecurityClass::HighAssurance)
+            && self.federation_policy == Some(FederationPolicy::Open)
+        {
+            return Err("high_assurance Realm forbids federation_policy=open");
+        }
+        Ok(())
+    }
+
     pub fn new(
         id: RealmId,
         title: impl Into<String>,
@@ -98,5 +109,30 @@ impl Realm {
             updated_by: None,
             updated_at: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_wire::AccountId;
+
+    use super::*;
+
+    #[test]
+    fn high_assurance_realm_rejects_open_federation() {
+        let principal = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let mut realm = Realm::new(
+            RealmId::new("ak:realm:AWdkiR5jlnGgdx6sVlaEmGK5CATkDmi21Mn8gxnUmrZe").unwrap(),
+            "Compliance Vault",
+            ActorId::account(AccountId::new(principal, station.clone())),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            station,
+        );
+        realm.security_class = Some(SecurityClass::HighAssurance);
+        realm.federation_policy = Some(FederationPolicy::Open);
+        assert!(realm.validate_kind_invariants().is_err());
+        realm.federation_policy = Some(FederationPolicy::Restricted);
+        assert!(realm.validate_kind_invariants().is_ok());
     }
 }

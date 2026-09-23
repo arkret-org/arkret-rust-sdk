@@ -5,8 +5,11 @@
 //! `arkret-wire`; this module adds the registered aggregate and replication
 //! branches without inventing a generic federation envelope.
 
+use arkret_schema::{
+    RealmBootstrapPresence, RealmBootstrapProfile, realm_bootstrap_profile_descriptor,
+};
 use arkret_wire::{
-    ActorId, CommitStreamRef, DidCoreId, DidUrl, EventCommitSubmission, EventId, EventKind,
+    ActorId, CommitStreamRef, DidCoreId, DidUrl, EventAdmissionSubmission, EventId, EventKind,
     MembershipCompensationAction, MembershipCompensationDelegationRef, MlsCommitSubmission,
     RealmCommit, RealmCommitId, RealmId, Result, UuidV7, WireError,
 };
@@ -55,7 +58,7 @@ pub struct OperationSignature {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommittedEventSubmission {
-    pub event_submission: EventCommitSubmission,
+    pub event_submission: EventAdmissionSubmission,
     pub source_commit: RealmCommit,
 }
 
@@ -95,6 +98,70 @@ pub struct ReplicatedCommittedEventSubmission {
     pub recipient_witnesses: Vec<ReplicationRecipientWitness>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OrdinaryRealmBootstrapUnitKind {
+    #[serde(rename = "ordinary_realm_bootstrap")]
+    OrdinaryRealmBootstrap,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrdinaryRealmBootstrapUnitSubmission {
+    pub unit_kind: OrdinaryRealmBootstrapUnitKind,
+    pub idempotency_key: UuidV7,
+    pub events: Vec<EventAdmissionSubmission>,
+}
+
+impl OrdinaryRealmBootstrapUnitSubmission {
+    pub fn validate(&self) -> Result<()> {
+        let slots =
+            realm_bootstrap_profile_descriptor(RealmBootstrapProfile::OrdinaryCollaboration)
+                .ordered_slots;
+        let mut events = self.events.iter().peekable();
+        let first = self.events.first().ok_or_else(|| {
+            WireError::Protocol(
+                "ordinary Realm bootstrap requires the complete registered unit".to_owned(),
+            )
+        })?;
+        if first.event.realm_id != RealmId::from_event_id(&first.event.event_id) {
+            return Err(WireError::Protocol(
+                "ordinary Realm bootstrap Realm ID must derive from its genesis Event".to_owned(),
+            ));
+        }
+        for slot in slots {
+            if events
+                .peek()
+                .is_some_and(|event| event.event.kind.as_str() == slot.event_kind)
+            {
+                events.next();
+            } else if slot.presence == RealmBootstrapPresence::Required {
+                return Err(WireError::Protocol(
+                    "ordinary Realm bootstrap Events must follow the registered required slot order"
+                        .to_owned(),
+                ));
+            }
+        }
+        if events.next().is_some() {
+            return Err(WireError::Protocol(
+                "ordinary Realm bootstrap contains an unregistered or out-of-order Event"
+                    .to_owned(),
+            ));
+        }
+        for event in &self.events {
+            event.validate()?;
+            if event.event.realm_id != first.event.realm_id
+                || event.event.actor_id != first.event.actor_id
+            {
+                return Err(WireError::Protocol(
+                    "ordinary Realm bootstrap Events must bind one Realm and one initiating actor"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl ReplicatedCommittedEventSubmission {
     pub fn validate(&self) -> Result<()> {
         self.committed_event.validate()?;
@@ -119,7 +186,7 @@ impl ReplicatedCommittedEventSubmission {
 pub struct DirectConversationFoundingUnitSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub idempotency_key: UuidV7,
-    pub events: [EventCommitSubmission; 4],
+    pub events: [EventAdmissionSubmission; 4],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,7 +201,7 @@ impl DirectConversationFoundingUnitSubmission {
     }
 }
 
-fn validate_direct_conversation_event_order(events: &[EventCommitSubmission; 4]) -> Result<()> {
+fn validate_direct_conversation_event_order(events: &[EventAdmissionSubmission; 4]) -> Result<()> {
     let expected = [
         EventKind::RealmCreate,
         EventKind::MemberState,
@@ -281,7 +348,7 @@ impl MembershipCompensationEvidence {
 #[serde(deny_unknown_fields)]
 pub struct MembershipCompensationUnitSubmission {
     pub unit_kind: MembershipCompensationUnitKind,
-    pub event_submission: EventCommitSubmission,
+    pub event_submission: EventAdmissionSubmission,
     pub membership_compensation_evidence: MembershipCompensationEvidence,
 }
 
@@ -316,8 +383,9 @@ impl MembershipCompensationFederationSubmission {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SelfAuthoritySubmitRequest {
-    Event(EventCommitSubmission),
+    Event(EventAdmissionSubmission),
     MlsCommit(MlsCommitSubmission),
+    OrdinaryRealmBootstrap(OrdinaryRealmBootstrapUnitSubmission),
     DirectConversationFounding(DirectConversationFoundingUnitSubmission),
     MembershipCompensation(MembershipCompensationUnitSubmission),
 }
@@ -327,6 +395,7 @@ impl SelfAuthoritySubmitRequest {
         match self {
             Self::Event(value) => value.validate(),
             Self::MlsCommit(value) => value.validate(),
+            Self::OrdinaryRealmBootstrap(value) => value.validate(),
             Self::DirectConversationFounding(value) => value.validate(),
             Self::MembershipCompensation(value) => value.validate(),
         }
@@ -353,7 +422,7 @@ impl PeerRegisteredAtomicUnit {
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardEventRequest {
     pub branch: AuthorityForwardBranch,
-    pub event_submission: EventCommitSubmission,
+    pub event_submission: EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -417,6 +486,53 @@ pub enum AggregateAcceptanceStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct OrdinaryRealmBootstrapAcceptanceOutcome {
+    pub unit_kind: OrdinaryRealmBootstrapUnitKind,
+    pub status: AggregateAcceptanceStatus,
+    pub commits: Vec<RealmCommit>,
+}
+
+impl OrdinaryRealmBootstrapAcceptanceOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if !(7..=9).contains(&self.commits.len()) {
+            return Err(WireError::Protocol(
+                "ordinary Realm bootstrap outcome requires 7..=9 RealmCommits".to_owned(),
+            ));
+        }
+        let first = &self.commits[0];
+        if first.stream_position != 0
+            || !matches!(
+                &first.stream_ref,
+                CommitStreamRef::Realm { realm_id } if realm_id == &first.realm_id
+            )
+        {
+            return Err(WireError::Protocol(
+                "ordinary Realm bootstrap must begin at position zero in its Realm stream"
+                    .to_owned(),
+            ));
+        }
+        for commit in &self.commits {
+            commit.validate_shape()?;
+            if commit.realm_id != first.realm_id || commit.stream_ref != first.stream_ref {
+                return Err(WireError::Protocol(
+                    "ordinary Realm bootstrap RealmCommits must share one Realm stream".to_owned(),
+                ));
+            }
+        }
+        if !self.commits.windows(2).all(|pair| {
+            pair[1].stream_position == pair[0].stream_position.saturating_add(1)
+                && pair[1].previous_commit_ref == Some(pair[0].commit_id.clone())
+        }) {
+            return Err(WireError::Protocol(
+                "ordinary Realm bootstrap RealmCommits must be consecutive".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectConversationFoundingAcceptanceOutcome {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub status: AggregateAcceptanceStatus,
@@ -458,6 +574,7 @@ impl MembershipCompensationAcceptanceOutcome {
 #[serde(untagged)]
 pub enum SelfAuthoritySubmitOutcome {
     Ordinary(arkret_wire::AuthoritySubmitOutcome),
+    OrdinaryRealmBootstrap(OrdinaryRealmBootstrapAcceptanceOutcome),
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
 }
@@ -466,6 +583,7 @@ impl SelfAuthoritySubmitOutcome {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Ordinary(value) => value.validate_shape(),
+            Self::OrdinaryRealmBootstrap(value) => value.validate(),
             Self::DirectConversationFounding(value) => value.validate(),
             Self::MembershipCompensation(value) => value.validate(),
         }
@@ -480,6 +598,9 @@ impl SelfAuthoritySubmitOutcome {
                 SelfAuthoritySubmitRequest::Event(_) | SelfAuthoritySubmitRequest::MlsCommit(_),
                 Self::Ordinary(_)
             ) | (
+                SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(_),
+                Self::OrdinaryRealmBootstrap(_)
+            ) | (
                 SelfAuthoritySubmitRequest::DirectConversationFounding(_),
                 Self::DirectConversationFounding(_)
             ) | (
@@ -488,6 +609,24 @@ impl SelfAuthoritySubmitOutcome {
             )
         );
         if branch_matches {
+            if let (
+                SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(request),
+                Self::OrdinaryRealmBootstrap(outcome),
+            ) = (request, self)
+            {
+                if request.events.len() != outcome.commits.len()
+                    || !request
+                        .events
+                        .iter()
+                        .zip(&outcome.commits)
+                        .all(|(event, commit)| event.event.event_id == commit.event_ref)
+                {
+                    return Err(WireError::Protocol(
+                        "ordinary Realm bootstrap outcome must commit each submitted Event in order"
+                            .to_owned(),
+                    ));
+                }
+            }
             Ok(())
         } else {
             Err(WireError::Protocol(

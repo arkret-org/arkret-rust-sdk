@@ -36,6 +36,7 @@ pub mod mimi_operations;
 pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod objects;
+pub mod poll;
 pub mod prepared_event_draft;
 pub mod principal_operations;
 mod serde_absence;

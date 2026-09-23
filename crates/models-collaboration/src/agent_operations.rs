@@ -8,7 +8,7 @@ use arkret_models_identity::{AuthenticatedSignerResolutionEvidence, ResolutionCo
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, AuditReasonText, BlobRef, CommittedEventRef, Did, DidCoreId, DidUrl,
-    EventCommitSubmission, EventId, Hash, IdempotencyKey, NonEmptyString, OpaqueLocalId,
+    EventAdmissionSubmission, EventId, Hash, IdempotencyKey, NonEmptyString, OpaqueLocalId,
     ProtocolOpaqueId, ProtocolOperationId, RealmId, Result, SignerEvidenceRef, WireError,
     canonical,
 };
@@ -59,11 +59,21 @@ impl AgentLifecycleState {
     }
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyPairOutcome {
-    pub authorize_ref: CommittedEventRef,
-    pub status: AgentLifecycleState,
+    pub activation_state: AgentKeyPairActivationState,
+    pub authorize_event_ref: EventId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentKeyPairActivationState {
+    AwaitingSourceCommit,
+    Active,
+    Cancelled,
 }
 
 string_marker!(AgentProvisionPreparePhase, Prepare, "prepare");
@@ -117,7 +127,7 @@ pub struct AgentProvisionCommitRequestBody {
     pub requested_scope: AgentKeyScope,
     pub allocation_handle: ProtocolOpaqueId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub provision_event: EventCommitSubmission,
+    pub provision_event: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
 }
@@ -227,7 +237,7 @@ pub struct AgentPauseRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventCommitSubmission,
+    pub lifecycle_event: EventAdmissionSubmission,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -235,7 +245,7 @@ pub struct AgentPauseRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AgentResumeRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventCommitSubmission,
+    pub lifecycle_event: EventAdmissionSubmission,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -245,7 +255,7 @@ pub struct AgentDeactivateRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub lifecycle_event: EventCommitSubmission,
+    pub lifecycle_event: EventAdmissionSubmission,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -286,6 +296,7 @@ pub struct AgentProjection {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentRuntimeState {
     PendingRuntimeKey,
     Ready,
@@ -363,6 +374,7 @@ pub struct AgentPresence {
     pub refresh_after: DateTime<Utc>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingRuntimeIdentity {
@@ -370,6 +382,7 @@ pub struct AgentPairingRuntimeIdentity {
     pub verification_method: DidUrl,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingBootstrap {
@@ -382,6 +395,41 @@ pub struct AgentPairingBootstrap {
     pub pairing_expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_identity: Option<AgentPairingRuntimeIdentity>,
+}
+
+impl AgentPairingBootstrap {
+    pub const SCHEMA: &'static str = arkret_wire::SchemaId::AGENT_PAIRING_BOOTSTRAP_V1;
+
+    pub fn validated_runtime_identity(
+        &self,
+    ) -> std::result::Result<&AgentPairingRuntimeIdentity, String> {
+        let identity = self.runtime_identity.as_ref().ok_or_else(|| {
+            "Pairing service did not provide runtime identity; resolve a new pairing link"
+                .to_owned()
+        })?;
+        identity
+            .controller_account_id
+            .validate()
+            .map_err(|error| error.to_string())?;
+        let (controller, _) = identity
+            .verification_method
+            .as_str()
+            .rsplit_once('#')
+            .filter(|(_, fragment)| !fragment.is_empty())
+            .ok_or_else(|| {
+                "Pairing runtime verification method must be a complete DID URL".to_owned()
+            })?;
+        let did = Did::new(controller.to_owned()).map_err(|error| error.to_string())?;
+        if arkret_wire::project_did_to_core_id(&did).map_err(|error| error.to_string())?
+            != self.agent_id
+        {
+            return Err(
+                "Pairing runtime verification method does not belong to the paired Agent"
+                    .to_owned(),
+            );
+        }
+        Ok(identity)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -408,6 +456,93 @@ pub struct AgentRuntimeApprovalControllerProjection {
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     pub approval_request_id: OpaqueLocalId,
     pub runtime_key_binding_digest: Hash,
+}
+
+/// Runtime receipt for submitting a stable pending key candidate.
+/// agent-operations.schema.json#/$defs/agent_runtime_approval_outcome.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalOutcome {
+    pub approval_request_id: OpaqueLocalId,
+    pub status: AgentLifecycleState,
+}
+
+/// Runtime-side status credential; all three members are required in the
+/// body, never a URL path or query parameter.
+/// agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusRequestBody {
+    pub pairing_request_id: OpaqueLocalId,
+    pub pairing_code: NonEmptyString,
+    pub agent_id: DidCoreId,
+}
+
+impl AgentRuntimeApprovalStatusRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        let code = self.pairing_code.as_str();
+        if !(22..=128).contains(&code.len())
+            || !code
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
+            return Err(WireError::Protocol(
+                "Agent pairing secret does not match the closed pairing_secret shape".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Operation-local status; key activation requires the complete authenticated
+/// signer root in addition to the provenance Event reference.
+/// agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusOutcome {
+    pub lifecycle: AgentLifecycleState,
+    pub runtime_state: AgentRuntimeState,
+    pub readiness: AgentReadiness,
+    pub presence: AgentPresence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<OpaqueLocalId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_verification_method: Option<DidUrl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_public_key_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_signer_evidence: Option<KeyStateCurrentSignerEvidence>,
+}
+
+impl AgentRuntimeApprovalStatusOutcome {
+    pub fn validate_signer_evidence_delivery(&self) -> Result<()> {
+        let all = [
+            self.authorized_event_ref.is_some(),
+            self.authorized_verification_method.is_some(),
+            self.authorized_public_key_digest.is_some(),
+            self.signer_resolution_evidence_ref.is_some(),
+            self.current_signer_evidence.is_some(),
+        ];
+        if all.iter().any(|present| *present != all[0]) {
+            return Err(WireError::Protocol(
+                "Agent runtime approval status must carry the complete authorization and signer evidence closure".to_owned(),
+            ));
+        }
+        if let (Some(reference), Some(evidence)) = (
+            &self.signer_resolution_evidence_ref,
+            &self.current_signer_evidence,
+        ) {
+            evidence.validate_against(reference)?;
+        }
+        Ok(())
+    }
 }
 
 /// Complete content-addressed Agent signer root for the currently authorized
@@ -606,6 +741,7 @@ pub struct AgentView {
 /// into either array.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_sidecar_view.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarView {
@@ -617,8 +753,27 @@ pub struct AgentSidecarView {
     pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliation>,
 }
 
+impl AgentSidecarView {
+    pub fn validate(&self) -> Result<()> {
+        self.sidecar.validate_shape()?;
+        self.mls_context.validate_shape()?;
+        let desired: std::collections::BTreeSet<_> = self.desired_agent_ids.iter().collect();
+        let effective: std::collections::BTreeSet<_> = self.effective_agent_ids.iter().collect();
+        if desired.len() != self.desired_agent_ids.len()
+            || effective.len() != self.effective_agent_ids.len()
+            || !effective.is_subset(&desired)
+        {
+            return Err(WireError::Protocol(
+                "Sidecar effective Agents must be a unique subset of desired Agents".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_sidecar_list.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarList {
@@ -630,6 +785,56 @@ pub struct AgentSidecarList {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_approval_status_requires_complete_authorization_closure() {
+        let now = Utc::now();
+        let mut outcome = AgentRuntimeApprovalStatusOutcome {
+            lifecycle: AgentLifecycleState::Active,
+            runtime_state: AgentRuntimeState::PairingExpired,
+            readiness: AgentReadiness {
+                state: AgentReadinessState::NotReady,
+                blockers: vec![AgentReadinessBlocker::RuntimeKeyMissing],
+            },
+            presence: AgentPresence {
+                state: AgentPresenceState::Unknown,
+                expires_at: now,
+                refresh_after: now,
+            },
+            approval_request_id: None,
+            authorized_event_ref: None,
+            authorized_verification_method: None,
+            authorized_public_key_digest: None,
+            signer_resolution_evidence_ref: None,
+            current_signer_evidence: None,
+        };
+        outcome.validate_signer_evidence_delivery().unwrap();
+        outcome.authorized_event_ref = Some(EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x44; 32],
+        ));
+        assert!(outcome.validate_signer_evidence_delivery().is_err());
+    }
+
+    #[test]
+    fn runtime_approval_status_request_requires_closed_pairing_secret() {
+        let request = |pairing_code: &str| -> AgentRuntimeApprovalStatusRequestBody {
+            serde_json::from_value(serde_json::json!({
+                "pairing_request_id": "pairing_request:01964137-0000-7000-8000-000000000000",
+                "pairing_code": pairing_code,
+                "agent_id": "ak:did_core:webvh:z6mkagent"
+            }))
+            .unwrap()
+        };
+        request("ABCDEFGHIJKLMNOPQRSTUV").validate().unwrap();
+        for rejected in [
+            "too-short",
+            "ABCDEFGHIJKLMNOPQRSTU+",
+            "ABCDEFGHIJKLMNOPQRSTUV/",
+        ] {
+            assert!(request(rejected).validate().is_err(), "{rejected}");
+        }
+    }
 
     /// `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
     /// `ak.vector.agent.runtime_key_binding.v1`.

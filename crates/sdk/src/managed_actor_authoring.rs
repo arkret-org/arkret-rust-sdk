@@ -2,7 +2,7 @@
 //!
 //! Package-build authorities use this for the first managed Bot and running
 //! Applet services use it for Ghost identities. Callers retain key custody,
-//! durable replay persistence and the accepted registration commit coordinate;
+//! durable replay persistence and the signed registration Event ID;
 //! this module owns the canonical Event / payload / proof construction so those
 //! authorities cannot drift.
 //!
@@ -10,7 +10,7 @@
 //! `ak.applet.managed_actor.provision`, the `applet_managed_control`
 //! `ak.realm.create` genesis, `ak.identity.accountability_grant` and
 //! `ak.profile.create`. Each one reaches the receiving Station as an
-//! [`EventCommitSubmission`]; the Station alone decides acceptance and signs the
+//! [`EventAdmissionSubmission`]; the Station alone decides acceptance and signs the
 //! authority-side commit that carries stream position and predecessor.
 
 use std::collections::BTreeMap;
@@ -32,10 +32,10 @@ use arkret_models_integration::{
 };
 use arkret_signatures::{EventSigner, SignEventOptions, sign_event};
 use arkret_wire::{
-    AccountId, ActorId, ActorKind, AppletId, AuthorizationRef, CommittedEventRef, DidCoreId,
-    Discoverability, Event, EventCommitSubmission, EventKind, GenesisSalt, GrantId, Hash,
-    HistoryAccess, JoinRule, PayloadProof, PayloadSigner, RealmId, SchemaId, ScopeRef,
-    SecurityClass, SemanticRef, TrustDomainId, event_spec, proof_kind,
+    AccountId, ActorId, ActorKind, AppletId, AuthorizationRef, DidCoreId, Discoverability, Event,
+    EventAdmissionSubmission, EventId, EventKind, GenesisSalt, GrantId, Hash, HistoryAccess,
+    JoinRule, PayloadProof, PayloadSigner, RealmId, SchemaId, ScopeRef, SecurityClass, SemanticRef,
+    TrustDomainId, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -66,8 +66,8 @@ pub fn applet_managed_actor_unit_event_kinds() -> [EventKind; 4] {
 /// Runtime inputs that are deliberately outside the signed authoring request.
 ///
 /// The Station supplies the signed branch basis. The authoring authority
-/// supplies the independently held actor identity, the accepted registration
-/// commit coordinate and the PCR policy selected by its deployment.
+/// supplies the independently held actor identity, the signed registration
+/// Event ID and the PCR policy selected by its deployment.
 #[derive(Clone, Debug)]
 pub struct AppletManagedActorBundleAuthoringInput {
     /// Core id of the managed principal. Its account Station is the
@@ -77,12 +77,12 @@ pub struct AppletManagedActorBundleAuthoringInput {
     /// Complete `did:webvh` history. Non-rotatable snapshots are rejected by the
     /// provision payload carrier.
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
-    /// Accepted commit coordinate of the exact active Applet registration.
+    /// Event ID of the exact Applet registration in the signed basis.
     ///
     /// The Ghost branch carries this inside its signed basis and the value
-    /// supplied here MUST match it verbatim; the install-Bot basis carries only
-    /// the registration Event, so its accepted coordinate arrives here.
-    pub registration_ref: CommittedEventRef,
+    /// supplied here MUST match it verbatim; the install-Bot basis carries the
+    /// signed registration Event before its atomic acceptance.
+    pub registration_ref: EventId,
     pub digest_suite: DigestSuite,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
@@ -101,7 +101,7 @@ struct Branch {
     service_id: DidCoreId,
     station_id: DidCoreId,
     applet_id: AppletId,
-    registration_ref: CommittedEventRef,
+    registration_ref: EventId,
     authorization_ref: GrantId,
     role: AppletManagedActorRole,
     external_ref: Option<GhostExternalTuple>,
@@ -112,7 +112,7 @@ struct Branch {
 ///
 /// The returned bundle carries the four producer-signed Events in their fixed
 /// order. Use [`applet_managed_actor_unit_submissions`] to obtain the
-/// [`EventCommitSubmission`] carriers handed to the receiving Station.
+/// [`EventAdmissionSubmission`] carriers handed to the receiving Station.
 pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Sized>(
     request: &AppletManagedActorAuthoringRequest,
     input: AppletManagedActorBundleAuthoringInput,
@@ -292,7 +292,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
 pub fn applet_managed_actor_unit_submissions(
     bundle: &AppletManagedActorAuthoringBundle,
     request: &AppletManagedActorAuthoringRequest,
-) -> Result<[EventCommitSubmission; 4]> {
+) -> Result<[EventAdmissionSubmission; 4]> {
     let events = [
         &bundle.managed_actor_provision_event,
         &bundle.pcr_genesis_event,
@@ -407,10 +407,10 @@ pub fn applet_managed_actor_unit_submissions(
 
     bundle.validate_bindings(request)?;
     Ok([
-        EventCommitSubmission::new(bundle.managed_actor_provision_event.clone()),
-        EventCommitSubmission::new(bundle.pcr_genesis_event.clone()),
-        EventCommitSubmission::new(bundle.accountability_grant_event.clone()),
-        EventCommitSubmission::new(bundle.profile_event.clone()),
+        EventAdmissionSubmission::new(bundle.managed_actor_provision_event.clone()),
+        EventAdmissionSubmission::new(bundle.pcr_genesis_event.clone()),
+        EventAdmissionSubmission::new(bundle.accountability_grant_event.clone()),
+        EventAdmissionSubmission::new(bundle.profile_event.clone()),
     ])
 }
 

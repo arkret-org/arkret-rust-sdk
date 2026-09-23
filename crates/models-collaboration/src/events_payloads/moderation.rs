@@ -1,11 +1,143 @@
 //! Moderation event payloads.
 
 use arkret_wire::{
-    CurrentRevision, DidCoreId, DidUrl, EventId, Hash, ObjectRef, RealmId, Result, ScopeRef,
-    WireError,
+    ActorId, CurrentRevision, DeviceId, DidCoreId, DidUrl, EventId, Hash, NonEmptyString,
+    ObjectRef, PolicyId, RealmId, Result, ScopeRef, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// The sole v1 Organization moderation-policy family, keyed by Organization DID.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationModerationPolicyStatePayload {
+    pub organization_id: DidCoreId,
+    pub value: OrganizationModerationPolicyDocument,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationModerationPolicyDocument {
+    pub policy_id: PolicyId,
+    pub policy_scope: OrganizationModerationPolicyScope,
+    pub rules: Vec<OrganizationModerationPolicyRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl OrganizationModerationPolicyDocument {
+    pub fn validate(&self) -> Result<()> {
+        self.policy_scope.validate()?;
+        if self.rules.is_empty() {
+            return Err(WireError::Protocol(
+                "Organization moderation policy requires rules".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationModerationPolicyScope {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_ids: Option<Vec<RealmId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_ids: Option<Vec<DidCoreId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applies_to_owned_realms: Option<bool>,
+}
+
+impl OrganizationModerationPolicyScope {
+    pub fn validate(&self) -> Result<()> {
+        if self.realm_ids.is_none()
+            && self.service_ids.is_none()
+            && self.applies_to_owned_realms.is_none()
+        {
+            return Err(WireError::Protocol(
+                "Organization moderation policy scope must name a target".to_owned(),
+            ));
+        }
+        if self.realm_ids.as_ref().is_some_and(|ids| {
+            ids.is_empty()
+                || ids.iter().collect::<std::collections::BTreeSet<_>>().len() != ids.len()
+        }) || self.service_ids.as_ref().is_some_and(|ids| {
+            ids.is_empty()
+                || ids.iter().collect::<std::collections::BTreeSet<_>>().len() != ids.len()
+        }) {
+            return Err(WireError::Protocol(
+                "Organization moderation policy scope lists must be nonempty and unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationModerationPolicyRule {
+    pub target: ModerationPolicyTarget,
+    pub action: OrganizationModerationAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<ActorId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganizationModerationAction {
+    DenyJoin,
+    DenyRestrictedJoin,
+    DenyInvite,
+    DenyWrite,
+    DenyFederation,
+    QuarantineMessage,
+    RequireReview,
+    RedactOnAccept,
+    ShadowCollapse,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ModerationPolicyTarget {
+    Actor {
+        actor_id: ActorId,
+    },
+    Organization {
+        organization_id: DidCoreId,
+    },
+    Device {
+        device_id: DeviceId,
+    },
+    Service {
+        service_id: DidCoreId,
+    },
+    Domain {
+        domain: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        match_subdomains: Option<bool>,
+    },
+    TrustDomain {
+        trust_domain: TrustDomainId,
+    },
+    ClaimSelector {
+        claim_kind: NonEmptyString,
+        issuer_id: DidCoreId,
+    },
+    MediaDigest {
+        digest: Hash,
+    },
+    ContentLabel {
+        label: NonEmptyString,
+    },
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::account_subscribe_projections::AgentRuntimeApprovalNotificationData;
-use crate::device_messages::DeviceMessageEnvelope;
+use crate::device_messages::RecipientDelivery;
 use crate::events_payloads::account_data::parse_agent_draft_account_data_key;
 use crate::events_payloads::agent::{AgentActionTarget, AgentDraftContentHandoff};
 use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionContent};
@@ -172,7 +172,7 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<AccountSubscribeRealms>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_device: Option<DeviceMessageContainer>,
+    pub to_device: Option<RecipientDeliveryContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -585,9 +585,9 @@ pub struct EventContainer {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessageContainer {
+pub struct RecipientDeliveryContainer {
     #[serde(default)]
-    pub messages: Vec<DeviceMessageEnvelope>,
+    pub deliveries: Vec<RecipientDelivery>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

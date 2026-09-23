@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-22.2;
-//! sha256=c6adf6dedbed287f02a2f0a370c5e8d7236af40e5bf8def07a6252ebd057a7d8 Entries: registered=205
+//! Input: registry/contract-registry.json; version=2026-09-23.4;
+//! sha256=68136a421dee7fd05a814b4fbefef612c2445b298754b60a1001ab23dfcb2d7b Entries: registered=205
 
 use serde::{Deserialize, Serialize};
 
@@ -2809,15 +2809,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
         ),
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_outcome",
         ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),

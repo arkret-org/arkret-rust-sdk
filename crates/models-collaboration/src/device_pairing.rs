@@ -1,8 +1,8 @@
 //! Device-pairing challenge and target-possession DTOs.
 
 use arkret_wire::{
-    AccountId, Base64UrlString, CommittedEventRef, DeviceId, DidKey, EventCommitSubmission, Hash,
-    NonEmptyString, Result, WireError, canonical,
+    AccountId, Base64UrlString, CommittedEventRef, DeviceId, DidKey, EventAdmissionSubmission,
+    Hash, NonEmptyString, Result, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -399,7 +399,7 @@ pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub authorize_event: EventCommitSubmission,
+    pub authorize_event: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -3,15 +3,16 @@
 //! `zh/extensions/applet-integration.md` section 9.1 and
 //! `zh/identity/key-management.md` section 3.6.3 both require the producer to
 //! call this unified authoring API and to hand the receiving Station exactly
-//! four cross-bound Events, each in the single `EventCommitSubmission` carrier.
+//! four cross-bound Events, each in the single `EventAdmissionSubmission` carrier.
 
 use arkret::{
     APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
     AppletDidMethodVersionEvidence, AppletGhostAuthoringRequestBasis,
     AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest,
-    AppletManagedActorBundleAuthoringInput, AppletManagedActorPurpose,
-    AppletRegistrationEpochEvidence, GhostExternalTuple, applet_managed_actor_unit_event_kinds,
-    applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
+    AppletManagedActorBundleAuthoringInput, AppletManagedActorProvisionPayload,
+    AppletManagedActorPurpose, AppletRegistrationEpochEvidence, GhostExternalTuple,
+    applet_managed_actor_unit_event_kinds, applet_managed_actor_unit_submissions,
+    author_applet_managed_actor_bundle,
 };
 use arkret_canonical::DigestSuite;
 use arkret_models_identity::did_document::DidDocument;
@@ -22,9 +23,8 @@ use arkret_models_identity::{
 };
 use arkret_signatures::Ed25519PayloadSigner;
 use arkret_wire::{
-    AppletId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Discoverability, EventId,
-    GenesisSalt, GrantId, Hash, HistoryAccess, JoinRule, RealmCommitId, RealmId, SecurityClass,
-    TrustDomainId,
+    AppletId, Did, DidCoreId, DidUrl, Discoverability, EventId, GenesisSalt, GrantId, Hash,
+    HistoryAccess, JoinRule, RealmId, SecurityClass, TrustDomainId,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use ed25519_dalek::SigningKey;
@@ -70,15 +70,8 @@ fn hash(byte: u8) -> Hash {
     Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
 }
 
-fn registration_ref() -> CommittedEventRef {
-    CommittedEventRef {
-        event_id: EventId::from_digest(DigestSuite::Sha256, [0x44; 32]),
-        commit_id: RealmCommitId::from_digest([0x45; 32]),
-        stream_ref: CommitStreamRef::Realm {
-            realm_id: realm_id(),
-        },
-        stream_position: 7,
-    }
+fn registration_ref() -> EventId {
+    EventId::from_digest(DigestSuite::Sha256, [0x44; 32])
 }
 
 fn external_ref() -> GhostExternalTuple {
@@ -238,6 +231,23 @@ fn every_event_of_the_unit_shares_one_authorization_ref() {
 }
 
 #[test]
+fn provision_registration_ref_is_a_precommit_event_id_on_the_wire() {
+    let (_, bundle) = authored_unit();
+    let payload: AppletManagedActorProvisionPayload = serde_json::from_value(
+        serde_json::to_value(&bundle.managed_actor_provision_event.payload).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(payload.registration_ref, registration_ref());
+    let mut encoded = serde_json::to_value(&payload).unwrap();
+    assert_eq!(encoded["registration_ref"], registration_ref().as_str());
+    let restored: AppletManagedActorProvisionPayload =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(restored, payload);
+    encoded["registration_ref"] = serde_json::json!({"event_id": registration_ref()});
+    assert!(serde_json::from_value::<AppletManagedActorProvisionPayload>(encoded).is_err());
+}
+
+#[test]
 fn the_unit_cross_binds_provision_genesis_accountability_and_profile() {
     let (_, bundle) = authored_unit();
 
@@ -338,16 +348,9 @@ fn a_registration_ref_outside_the_signed_basis_is_rejected() {
     let request = ghost_authoring_request();
     let service = signer(0x22, SERVICE_DID);
     let mut input = authoring_input();
-    input.registration_ref = CommittedEventRef {
-        event_id: EventId::from_digest(DigestSuite::Sha256, [0xaa; 32]),
-        commit_id: RealmCommitId::from_digest([0xab; 32]),
-        stream_ref: CommitStreamRef::Realm {
-            realm_id: realm_id(),
-        },
-        stream_position: 9,
-    };
+    input.registration_ref = EventId::from_digest(DigestSuite::Sha256, [0xaa; 32]);
     let error = author_applet_managed_actor_bundle(&request, input, &service)
-        .expect_err("an unpinned registration coordinate must fail closed");
+        .expect_err("an unpinned registration Event ID must fail closed");
     assert!(error.to_string().contains("registration_ref"), "{error}");
 }
 

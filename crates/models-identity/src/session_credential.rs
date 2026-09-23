@@ -37,7 +37,6 @@ pub enum SessionGrantHolderBinding {
     },
     AgentRuntime {
         agent_id: DidCoreId,
-        device_id: DeviceId,
         /// Event id of the accepted `ak.agent.key.authorize`. The request body
         /// carries the same event id, so the two surfaces stay comparable.
         agent_key_authorization_ref: EventId,

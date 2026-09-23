@@ -13,9 +13,9 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
 };
 use arkret_wire::{
     ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef,
-    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventCommitSubmission, EventId, GrantId, Hash,
-    PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope,
-    SignerEvidenceRef, WireError, canonical,
+    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventAdmissionSubmission, EventId, GrantId,
+    Hash, PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef,
+    SignalEnvelope, SignerEvidenceRef, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -265,9 +265,9 @@ pub struct AppletRevokeRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revoke_mode: AppletRevokeMode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub capability_revoke_events: Vec<EventCommitSubmission>,
+    pub capability_revoke_events: Vec<EventAdmissionSubmission>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub membership_state_events: Vec<EventCommitSubmission>,
+    pub membership_state_events: Vec<EventAdmissionSubmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub proof: Option<AccountLifecycleProof>,
@@ -844,7 +844,7 @@ pub struct AppletGhostAuthoringRequestBasis {
     pub external_ref: GhostExternalTuple,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    pub registration_event_ref: CommittedEventRef,
+    pub registration_event_ref: EventId,
     pub authorization_ref: GrantId,
     pub registration_epoch_evidence: AppletRegistrationEpochEvidence,
     pub package_digest: Hash,

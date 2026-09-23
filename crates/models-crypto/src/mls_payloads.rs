@@ -30,6 +30,18 @@ pub struct MlsGovernanceBindingPayload {
     previous_epoch: u64,
     next_epoch: u64,
     key_access_revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    participant_authority_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    authority_stream_head: Option<Vec<EventId>>,
+}
+
+/// The Sidecar-only authority coordinates inside a signed MLS binding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SidecarMlsBinding {
+    pub sidecar_id: SidecarId,
+    pub participant_authority_digest: Hash,
+    pub authority_stream_head: Vec<EventId>,
 }
 
 impl MlsGovernanceBindingPayload {
@@ -76,9 +88,11 @@ impl MlsGovernanceBindingPayload {
         previous_epoch: u64,
         next_epoch: u64,
         key_access_revision: u64,
+        participant_authority_digest: Hash,
+        authority_stream_head: Vec<EventId>,
     ) -> Result<Self> {
-        Self::new(
-            ScopeRef::Sidecar {
+        let value = Self {
+            effective_scope: ScopeRef::Sidecar {
                 realm_id,
                 sidecar_id,
             },
@@ -86,7 +100,11 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             key_access_revision,
-        )
+            participant_authority_digest: Some(participant_authority_digest),
+            authority_stream_head: Some(authority_stream_head),
+        };
+        value.validate()?;
+        Ok(value)
     }
 
     pub fn new(
@@ -102,12 +120,43 @@ impl MlsGovernanceBindingPayload {
             previous_epoch,
             next_epoch,
             key_access_revision,
+            participant_authority_digest: None,
+            authority_stream_head: None,
         };
         value.validate()?;
         Ok(value)
     }
 
     pub fn validate(&self) -> Result<()> {
+        match &self.effective_scope {
+            ScopeRef::Sidecar { .. } => {
+                if self.participant_authority_digest.is_none() {
+                    return schema_violation(
+                        "Sidecar MLS binding requires participant authority digest",
+                    );
+                }
+                let Some(head) = &self.authority_stream_head else {
+                    return schema_violation("Sidecar MLS binding requires authority stream head");
+                };
+                if head.is_empty()
+                    || head
+                        .windows(2)
+                        .any(|pair| pair[0].as_str() >= pair[1].as_str())
+                {
+                    return schema_violation(
+                        "Sidecar MLS authority stream head must be nonempty and sorted unique",
+                    );
+                }
+            }
+            _ if self.participant_authority_digest.is_some()
+                || self.authority_stream_head.is_some() =>
+            {
+                return schema_violation(
+                    "Realm and Circle MLS bindings forbid Sidecar authority fields",
+                );
+            }
+            _ => {}
+        }
         if self.next_epoch == 0 {
             if self.previous_epoch != 0 || self.base_group_state_ref.is_some() {
                 return protocol("MLS genesis binding must be epoch zero without a base state");
@@ -148,6 +197,25 @@ impl MlsGovernanceBindingPayload {
     pub const fn key_access_revision(&self) -> u64 {
         self.key_access_revision
     }
+    pub fn participant_authority_digest(&self) -> Option<&Hash> {
+        self.participant_authority_digest.as_ref()
+    }
+    pub fn authority_stream_head(&self) -> Option<&[EventId]> {
+        self.authority_stream_head.as_deref()
+    }
+    pub fn sidecar_id(&self) -> Option<&SidecarId> {
+        match &self.effective_scope {
+            ScopeRef::Sidecar { sidecar_id, .. } => Some(sidecar_id),
+            _ => None,
+        }
+    }
+    pub fn sidecar_binding(&self) -> Option<SidecarMlsBinding> {
+        Some(SidecarMlsBinding {
+            sidecar_id: self.sidecar_id()?.clone(),
+            participant_authority_digest: self.participant_authority_digest.clone()?,
+            authority_stream_head: self.authority_stream_head.clone()?,
+        })
+    }
 
     pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.effective_scope.canonical_mls_group_id()
@@ -169,10 +237,13 @@ impl MlsGovernanceBindingPayload {
             return schema_violation("MLS governance binding contains trailing bytes");
         }
         let json = cbor_value_to_json(value)?;
-        serde_json::from_value(json).map_err(|error| WireError::ProtocolCode {
-            code: ErrorCode::SchemaViolation,
-            message: format!("MLS governance binding violates its closed schema: {error}"),
-        })
+        let binding: Self =
+            serde_json::from_value(json).map_err(|error| WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: format!("MLS governance binding violates its closed schema: {error}"),
+            })?;
+        binding.validate()?;
+        Ok(binding)
     }
 
     /// Encode the exact deterministic-CBOR v1 representation used by the MLS
@@ -182,6 +253,9 @@ impl MlsGovernanceBindingPayload {
         let value = serde_json::to_value(self)?;
         let mut encoded = Vec::new();
         encode_deterministic_cbor(&value, &mut encoded)?;
+        if encoded.len() > MLS_GOVERNANCE_BINDING_MAX_INPUT_BYTES {
+            return schema_violation("MLS governance binding exceeds the input byte limit");
+        }
         Ok(encoded)
     }
 }
@@ -191,6 +265,7 @@ enum DecodedCborValue {
     Null,
     Unsigned(u64),
     Text(String),
+    Array(Vec<DecodedCborValue>),
     Map(Vec<(String, DecodedCborValue)>),
 }
 
@@ -216,10 +291,23 @@ impl<'a> DeterministicCborDecoder<'a> {
                 self.decode_argument(additional)?,
             )),
             3 => self.decode_text(additional).map(DecodedCborValue::Text),
+            4 => self.decode_array(additional, depth),
             5 => self.decode_map(additional, depth),
             7 if additional == 22 => Ok(DecodedCborValue::Null),
             _ => schema_violation("MLS governance binding uses an unsupported CBOR type"),
         }
+    }
+
+    fn decode_array(&mut self, additional: u8, depth: usize) -> Result<DecodedCborValue> {
+        let count = self.decode_argument(additional)?;
+        if count > MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS {
+            return schema_violation("MLS governance binding exceeds the collection item limit");
+        }
+        let mut items = Vec::with_capacity(count as usize);
+        for _ in 0..count {
+            items.push(self.decode_value(depth + 1)?);
+        }
+        Ok(DecodedCborValue::Array(items))
     }
 
     fn decode_map(&mut self, additional: u8, depth: usize) -> Result<DecodedCborValue> {
@@ -313,6 +401,11 @@ fn cbor_value_to_json(value: DecodedCborValue) -> Result<Value> {
         DecodedCborValue::Null => Ok(Value::Null),
         DecodedCborValue::Unsigned(value) => Ok(Value::Number(Number::from(value))),
         DecodedCborValue::Text(value) => Ok(Value::String(value)),
+        DecodedCborValue::Array(items) => items
+            .into_iter()
+            .map(cbor_value_to_json)
+            .collect::<Result<Vec<_>>>()
+            .map(Value::Array),
         DecodedCborValue::Map(entries) => {
             let mut object = Map::new();
             for (key, value) in entries {
@@ -339,7 +432,23 @@ fn encode_deterministic_cbor(value: &Value, encoded: &mut Vec<u8>) -> Result<()>
             encode_cbor_head(3, text.len() as u64, encoded);
             encoded.extend_from_slice(text.as_bytes());
         }
+        Value::Array(items) => {
+            if items.len() as u64 > MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS {
+                return schema_violation(
+                    "MLS governance binding exceeds the collection item limit",
+                );
+            }
+            encode_cbor_head(4, items.len() as u64, encoded);
+            for item in items {
+                encode_deterministic_cbor(item, encoded)?;
+            }
+        }
         Value::Object(object) => {
+            if object.len() as u64 > MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS {
+                return schema_violation(
+                    "MLS governance binding exceeds the collection item limit",
+                );
+            }
             let mut entries = object
                 .iter()
                 .map(|(key, value)| {
@@ -564,9 +673,88 @@ mod tests {
             1,
             2,
             0,
+            Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
+            vec![event(2)],
         )
         .unwrap();
         binding.validate().unwrap();
         assert!(binding.validate_realm_or_circle_scope().is_err());
+    }
+
+    #[test]
+    fn sidecar_authority_fields_are_closed_and_bound_by_cbor() {
+        let mut head = vec![event(1), event(2)];
+        head.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        let binding = MlsGovernanceBindingPayload::sidecar(
+            RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+            SidecarId::new("ak:sidecar:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap(),
+            None,
+            0,
+            0,
+            0,
+            Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
+            head.clone(),
+        )
+        .unwrap();
+        let encoded = binding.to_deterministic_cbor().unwrap();
+        assert_eq!(
+            MlsGovernanceBindingPayload::from_deterministic_cbor(&encoded).unwrap(),
+            binding
+        );
+        let mut trailing = encoded.clone();
+        trailing.push(0);
+        assert!(MlsGovernanceBindingPayload::from_deterministic_cbor(&trailing).is_err());
+        let mut missing = serde_json::to_value(&binding).unwrap();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("authority_stream_head");
+        assert!(
+            serde_json::from_value::<MlsGovernanceBindingPayload>(missing)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        let mut missing_digest = serde_json::to_value(&binding).unwrap();
+        missing_digest
+            .as_object_mut()
+            .unwrap()
+            .remove("participant_authority_digest");
+        assert!(
+            serde_json::from_value::<MlsGovernanceBindingPayload>(missing_digest)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        let mut unsorted = serde_json::to_value(&binding).unwrap();
+        head.reverse();
+        unsorted["authority_stream_head"] = serde_json::json!(head);
+        assert!(
+            serde_json::from_value::<MlsGovernanceBindingPayload>(unsorted)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        let mut duplicate = serde_json::to_value(&binding).unwrap();
+        duplicate["authority_stream_head"] = serde_json::json!([event(1), event(1)]);
+        assert!(
+            serde_json::from_value::<MlsGovernanceBindingPayload>(duplicate)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+        let mut realm = MlsGovernanceBindingPayload::realm(
+            RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+            None,
+            0,
+            0,
+            0,
+        )
+        .unwrap();
+        realm.participant_authority_digest = binding.participant_authority_digest.clone();
+        assert!(realm.validate().is_err());
+        realm.participant_authority_digest = None;
+        realm.authority_stream_head = binding.authority_stream_head.clone();
+        assert!(realm.validate().is_err());
     }
 }

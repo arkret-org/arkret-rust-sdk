@@ -4,8 +4,8 @@ use std::fs;
 
 use arkret_models_collaboration::mimi_operations::{
     MimiKeyMaterialOutcome, MimiKeyMaterialRequestBody, MimiNotifyOutcome, MimiNotifyRequestBody,
-    MimiRequestConsentOutcome, MimiRoomUpdateOutcome, MimiRoomUpdateRequestBody,
-    MimiUpdateConsentOutcome,
+    MimiReportAbuseRequestBody, MimiRequestConsentOutcome, MimiRoomUpdateOutcome,
+    MimiRoomUpdateRequestBody, MimiUpdateConsentOutcome,
 };
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde::Serialize;
@@ -84,6 +84,75 @@ fn key_material_request_and_outcome_are_closed() {
         &empty_proofs
     ));
     assert!(serde_json::from_value::<MimiKeyMaterialRequestBody>(empty_proofs).is_err());
+}
+
+#[test]
+fn report_abuse_claim_and_full_commit_refs_are_closed() {
+    use arkret_wire::{
+        AccountId, ActorId, CommitStreamRef, CommittedEventRef, DidCoreId, EventId, RealmCommitId,
+        RealmId, ScopeRef,
+    };
+
+    let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
+    let actor = ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:reporter.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    ));
+    let reference = |byte, position| CommittedEventRef {
+        event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32]),
+        commit_id: RealmCommitId::from_digest([byte; 32]),
+        stream_ref: CommitStreamRef::Realm {
+            realm_id: realm_id.clone(),
+        },
+        stream_position: position,
+    };
+    let mut value = json!({
+        "reporter_authority": {
+            "actor_id": actor,
+            "membership_ref": reference(0x11, 7),
+            "room_binding_ref": reference(0x22, 8),
+            "expires_at": "2026-09-23T13:40:00.000Z",
+            "proof": {
+                "kind": "detached_jws",
+                "verification_method": "did:web:reporter.example#device-1",
+                "payload_digest": format!("sha256:{}", "0".repeat(64)),
+                "created_at": "2026-09-23T13:30:00.000Z",
+                "domain": "ak.mimi_reporter_authority_proof.v1",
+                "audience": "ak:did_core:web:facade.example",
+                "jws": "eyJhbGciOiJFZERTQSJ9..c2ln"
+            }
+        },
+        "report_claim": {
+            "realm_id": realm_id,
+            "scope_ref": ScopeRef::Realm { realm_id: realm_id.clone() },
+            "target_ref": EVENT,
+            "report_reason_code": "spam"
+        }
+    });
+    assert_closed_roundtrip::<MimiReportAbuseRequestBody>(
+        "mimi_report_abuse_request_body",
+        value.clone(),
+    );
+    let mut request: MimiReportAbuseRequestBody = serde_json::from_value(value.clone()).unwrap();
+    request.reporter_authority.proof.payload_digest = request.payload_digest().unwrap();
+    request.validate().unwrap();
+    let signed_bytes = request.reporter_authority_binding_bytes().unwrap();
+    request.report_claim.target_ref =
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x33; 32]).to_string();
+    assert!(request.validate().is_err());
+    assert!(request.reporter_authority_binding_bytes().is_err());
+    request.reporter_authority.proof.payload_digest = request.payload_digest().unwrap();
+    assert_ne!(
+        signed_bytes,
+        request.reporter_authority_binding_bytes().unwrap()
+    );
+    value["report_event"] = json!({});
+    assert!(!schema_accepts("mimi_report_abuse_request_body", &value));
+    assert!(serde_json::from_value::<MimiReportAbuseRequestBody>(value.clone()).is_err());
+    value.as_object_mut().unwrap().remove("report_event");
+    value["reporter_authority"]["membership_ref"] = json!(EVENT);
+    assert!(!schema_accepts("mimi_report_abuse_request_body", &value));
+    assert!(serde_json::from_value::<MimiReportAbuseRequestBody>(value).is_err());
 }
 
 #[test]

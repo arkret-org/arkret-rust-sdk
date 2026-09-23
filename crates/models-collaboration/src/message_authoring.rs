@@ -2,8 +2,8 @@
 
 use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
-    AccountId, EncryptedPayloadScheme, EventCommitSubmission, EventKind, Hash, RealmId, RequestId,
-    Result, ScopeRef, StrandId, WireError,
+    AccountId, EncryptedPayloadScheme, EventAdmissionSubmission, EventKind, Hash, RealmId,
+    RequestId, Result, ScopeRef, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ impl MessageAuthoringIntent {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageSubmitRequestBody {
-    pub submission: EventCommitSubmission,
+    pub submission: EventAdmissionSubmission,
 }
 
 impl MessageSubmitRequestBody {

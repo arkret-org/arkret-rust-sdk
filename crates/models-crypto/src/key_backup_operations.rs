@@ -1,12 +1,13 @@
 //! Typed request and response models for the encrypted key-backup service.
 
 use arkret_wire::{
-    AccountId, ActorId, AuditReasonText, BackupId, BackupSeriesId, Base64UrlString,
-    CommittedEventRef, Cursor, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, PayloadProof,
+    AccountId, ActorId, AuditReasonText, BackupId, BackupSeriesId, Base64UrlString, Cursor,
+    DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, PayloadProof, RealmCommitId,
     RecoverySessionId,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{BackupKind, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm};
 
@@ -51,8 +52,7 @@ impl BackupActiveSeriesPointer {
 pub struct BackupActiveSeriesState {
     pub account_id: AccountId,
     pub control_realm_id: arkret_wire::RealmId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_commit_ref: Option<CommittedEventRef>,
+    pub authority_commit_id: RealmCommitId,
     pub secret_storage: BackupActiveSeriesPointer,
 }
 
@@ -152,8 +152,7 @@ pub struct KeyBackupUnlockProofAuthData {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize)]
 pub struct KeyBackupUnlockProof {
     pub schema: String,
     #[serde(flatten)]
@@ -172,6 +171,83 @@ pub struct KeyBackupUnlockProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
+}
+
+// Serde cannot combine `deny_unknown_fields` with a flattened internally tagged
+// enum on deserialization. Decode the closed common object and the closed
+// authority branch separately, preserving the single-object wire shape.
+impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object_mut()
+            .ok_or_else(|| D::Error::custom("backup unlock proof must be an object"))?;
+        let kind = object
+            .remove("kind")
+            .ok_or_else(|| D::Error::missing_field("kind"))?;
+        let authority = match kind.as_str() {
+            Some("current_device") => {
+                let challenge_id = object
+                    .remove("challenge_id")
+                    .ok_or_else(|| D::Error::missing_field("challenge_id"))?;
+                let nonce = object
+                    .remove("nonce")
+                    .ok_or_else(|| D::Error::missing_field("nonce"))?;
+                KeyBackupUnlockAuthority::CurrentDevice {
+                    challenge_id: serde_json::from_value(challenge_id).map_err(D::Error::custom)?,
+                    nonce: serde_json::from_value(nonce).map_err(D::Error::custom)?,
+                }
+            }
+            Some("recovery_session") => {
+                let recovery_session_id = object
+                    .remove("recovery_session_id")
+                    .ok_or_else(|| D::Error::missing_field("recovery_session_id"))?;
+                KeyBackupUnlockAuthority::RecoverySession {
+                    recovery_session_id: serde_json::from_value(recovery_session_id)
+                        .map_err(D::Error::custom)?,
+                }
+            }
+            _ => return Err(D::Error::custom("invalid backup unlock authority kind")),
+        };
+        let common: KeyBackupUnlockProofCommon =
+            serde_json::from_value(value).map_err(D::Error::custom)?;
+        Ok(Self {
+            schema: common.schema,
+            authority,
+            account_id: common.account_id,
+            requesting_device_id: common.requesting_device_id,
+            backup_id: common.backup_id,
+            backup_kind: common.backup_kind,
+            series_id: common.series_id,
+            ciphertext_digest: common.ciphertext_digest,
+            challenge: common.challenge,
+            service_id: common.service_id,
+            audience: common.audience,
+            issued_at: common.issued_at,
+            expires_at: common.expires_at,
+            auth_data: common.auth_data,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyBackupUnlockProofCommon {
+    schema: String,
+    account_id: AccountId,
+    requesting_device_id: DeviceId,
+    backup_id: BackupId,
+    backup_kind: BackupKind,
+    series_id: BackupSeriesId,
+    ciphertext_digest: Hash,
+    challenge: Base64UrlString,
+    service_id: DidCoreId,
+    audience: NonEmptyString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    auth_data: KeyBackupUnlockProofAuthData,
 }
 
 impl KeyBackupUnlockProof {
@@ -286,6 +362,35 @@ pub struct KeysBackupsDeleteChallenge {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+}
+
+impl KeysBackupsDeleteChallenge {
+    /// The single signed transcript for every high-risk backup-delete proof
+    /// branch (key-management.md §7.8.1). A missing reason is an explicit null.
+    pub fn delete_intent_transcript(&self, reason: Option<&str>) -> serde_json::Value {
+        let mut transcript = serde_json::to_value(self)
+            .expect("typed backup-delete challenge always serializes")
+            .as_object()
+            .expect("backup-delete challenge serializes as an object")
+            .clone();
+        transcript.insert(
+            "context".to_owned(),
+            serde_json::Value::String("ak.key_backup_delete_proof.v1".to_owned()),
+        );
+        transcript.insert(
+            "reason".to_owned(),
+            reason.map_or(serde_json::Value::Null, |value| {
+                serde_json::Value::String(value.to_owned())
+            }),
+        );
+        serde_json::Value::Object(transcript)
+    }
+
+    pub fn delete_intent_digest(&self, reason: Option<&str>) -> arkret_wire::Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical_sha256(
+            &self.delete_intent_transcript(reason),
+        )?)?)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -13,7 +13,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, Event, EventCommitSubmission, EventId, Hash, RealmId, Result, WireError,
+    AccountId, ActorId, Event, EventAdmissionSubmission, EventId, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -210,7 +210,7 @@ pub enum AgentMembershipCascadeMode {
 /// One registered `agent_membership_cascade` unit.
 ///
 /// Every Event inside it is an ordinary caller-signed shared durable Event
-/// submitted to the current governance Station as an [`EventCommitSubmission`].
+/// submitted to the current governance Station as an [`EventAdmissionSubmission`].
 /// The unit adds only the exact-set and all-or-nothing boundary.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -219,9 +219,9 @@ pub struct AgentMembershipCascadeSubmission {
     pub unit_kind: AgentMembershipCascadeUnitKind,
     pub cascade_mode: AgentMembershipCascadeMode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub controller_transition: EventCommitSubmission,
+    pub controller_transition: EventAdmissionSubmission,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub agent_transitions: Vec<EventCommitSubmission>,
+    pub agent_transitions: Vec<EventAdmissionSubmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cleanup_intent_digest: Option<Hash>,
 }

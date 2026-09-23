@@ -64,9 +64,10 @@ impl Client {
         &self,
         request: &AgentKeyPairRequestBody,
     ) -> Result<AgentKeyPairOutcome> {
-        let builder = self
-            .request(Method::POST, AGENT_KEY_PAIR_PATH)?
-            .header("Idempotency-Key", request.authorize_event.event_id.as_str());
+        let builder = self.request(Method::POST, AGENT_KEY_PAIR_PATH)?.header(
+            "Idempotency-Key",
+            request.authorize_event.event.event_id.as_str(),
+        );
         let builder = self.canonical_json_body(builder, request)?;
         self.send_json(builder).await
     }

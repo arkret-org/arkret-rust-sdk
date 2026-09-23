@@ -945,7 +945,7 @@ fn account_frame_field_order_matches_the_schema() {
         "kind": "delta",
         "cursor": "ak:cursor:abc",
         "realms": {},
-        "to_device": {"messages": []},
+        "to_device": {"deliveries": []},
         "device_lists": {"changed_ids": [], "left_ids": []},
         "account_data": {"events": []},
         "agent_draft_pending_intents": {

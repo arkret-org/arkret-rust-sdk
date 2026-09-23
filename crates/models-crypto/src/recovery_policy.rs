@@ -6,8 +6,8 @@
 //! DID-root factor the currently accepted policy does not allow.
 
 use arkret_wire::{
-    AccountId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Event, EventCommitSubmission, EventId,
-    EventKind, Hash, PolicyId, RealmCommitId, Result, SchemaId, TrustDomainId, WireError,
+    AccountId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Event, EventAdmissionSubmission,
+    EventId, EventKind, Hash, PolicyId, RealmCommitId, Result, SchemaId, TrustDomainId, WireError,
     XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -790,13 +790,13 @@ mod tests {
 /// Counterpart for
 /// `recovery-policy.schema.json#/$defs/recovery_policy_publish_request`.
 ///
-/// The schema is `EventCommitSubmission` narrowed to `ak.policy.set` carrying
+/// The schema is `EventAdmissionSubmission` narrowed to `ak.policy.set` carrying
 /// a `recovery_policy_set_payload`, so publication uses the ordinary
 /// first-publication Event ingress rather than a dedicated recovery endpoint.
 /// The newtype keeps that narrowing on the deserialization path: a submission
 /// of any other kind, or one whose payload is not a recovery policy, never
 /// becomes a publish request.
-// The single member is the `EventCommitSubmission` the schema composes with;
+// The single member is the `EventAdmissionSubmission` the schema composes with;
 // `recovery-policy.schema.json#/$defs/recovery_policy_publish_request` adds no
 // property of its own.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -804,18 +804,18 @@ mod tests {
 #[serde(transparent)]
 pub struct RecoveryPolicyPublishRequest {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    submission: EventCommitSubmission,
+    submission: EventAdmissionSubmission,
 }
 
 impl RecoveryPolicyPublishRequest {
-    pub fn new(submission: EventCommitSubmission) -> Result<Self> {
+    pub fn new(submission: EventAdmissionSubmission) -> Result<Self> {
         let request = Self { submission };
         request.validate()?;
         Ok(request)
     }
 
     #[must_use]
-    pub fn submission(&self) -> &EventCommitSubmission {
+    pub fn submission(&self) -> &EventAdmissionSubmission {
         &self.submission
     }
 
@@ -824,7 +824,7 @@ impl RecoveryPolicyPublishRequest {
         &self.submission.event
     }
 
-    pub fn into_submission(self) -> EventCommitSubmission {
+    pub fn into_submission(self) -> EventAdmissionSubmission {
         self.submission
     }
 
@@ -862,7 +862,7 @@ impl<'de> Deserialize<'de> for RecoveryPolicyPublishRequest {
     where
         D: serde::Deserializer<'de>,
     {
-        Self::new(EventCommitSubmission::deserialize(deserializer)?)
+        Self::new(EventAdmissionSubmission::deserialize(deserializer)?)
             .map_err(serde::de::Error::custom)
     }
 }
