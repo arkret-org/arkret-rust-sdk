@@ -382,12 +382,21 @@ pub enum InviteCancelTargetState {
     Revoked,
 }
 
+/// Closed source states for accept and cancel transitions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InvitePreviousState {
+    Pending,
+    Claimed,
+}
+
 /// Directed-invite cancel/reject payload. It deliberately carries the stored
 /// invitee so the Invite lifecycle and member-state transitions are atomic.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
+    pub previous_state: InvitePreviousState,
     pub invitee_account_id: AccountId,
     pub target_state: InviteCancelTargetState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -397,11 +406,13 @@ pub struct InviteCancelPayload {
 impl InviteCancelPayload {
     pub fn new(
         invite_id: InviteId,
+        previous_state: InvitePreviousState,
         invitee_account_id: AccountId,
         target_state: InviteCancelTargetState,
     ) -> Self {
         Self {
             invite_id,
+            previous_state,
             invitee_account_id,
             target_state,
             reason: None,
@@ -436,6 +447,15 @@ pub enum InviteRevokeTargetState {
     InvalidatedByRateLimit,
 }
 
+/// Closed source states for a revoke transition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteRevokePreviousState {
+    Pending,
+    Claimed,
+    SendFailed,
+}
+
 impl InviteRevokeTargetState {
     /// Whether this transition releases the invitee's Realm live-target slot.
     ///
@@ -451,6 +471,7 @@ impl InviteRevokeTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
+    pub previous_state: InviteRevokePreviousState,
     /// Present exactly when the target Invite stores one and `target_state` is
     /// not `send_failed`: it is the only signed source the
     /// `ak.component.invite.live_target.v1` subject can be derived from.
@@ -477,6 +498,13 @@ impl InviteRevokePayload {
                     .to_owned(),
             ));
         }
+        if self.target_state == InviteRevokeTargetState::SendFailed
+            && self.previous_state != InviteRevokePreviousState::Pending
+        {
+            return Err(WireError::Protocol(
+                "invite revoke send_failed requires previous_state pending".to_owned(),
+            ));
+        }
         if let Some(invitee_account_id) = &self.invitee_account_id {
             invitee_account_id.validate()?;
         }
@@ -491,18 +519,11 @@ impl InviteRevokePayload {
 }
 
 /// `ak.invite.accept` payload. The accepting subject is the Event actor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum InviteAcceptPreviousState {
-    Pending,
-    Claimed,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteAcceptPayload {
     pub invite_id: InviteId,
     /// Exact invite_lifecycle state observed before this transition.
-    pub previous_state: InviteAcceptPreviousState,
+    pub previous_state: InvitePreviousState,
     /// Present exactly when the target Invite stores one, that is for a
     /// directed invite and never for a third-party invite.
     ///
@@ -517,7 +538,7 @@ pub struct InviteAcceptPayload {
 }
 
 impl InviteAcceptPayload {
-    pub fn new(invite_id: InviteId, previous_state: InviteAcceptPreviousState) -> Self {
+    pub fn new(invite_id: InviteId, previous_state: InvitePreviousState) -> Self {
         Self {
             invite_id,
             previous_state,
@@ -531,7 +552,7 @@ impl InviteAcceptPayload {
     pub fn directed(
         invite_id: InviteId,
         invitee_account_id: AccountId,
-        previous_state: InviteAcceptPreviousState,
+        previous_state: InvitePreviousState,
     ) -> Self {
         Self {
             invite_id,
@@ -999,8 +1020,8 @@ mod invite_accept_payload_tests {
         let invite_id =
             InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
         for (state, wire) in [
-            (InviteAcceptPreviousState::Pending, "pending"),
-            (InviteAcceptPreviousState::Claimed, "claimed"),
+            (InvitePreviousState::Pending, "pending"),
+            (InvitePreviousState::Claimed, "claimed"),
         ] {
             let payload = InviteAcceptPayload::new(invite_id.clone(), state);
             let value = payload.to_value().unwrap();
@@ -1017,5 +1038,71 @@ mod invite_accept_payload_tests {
             }
             assert!(serde_json::from_value::<InviteAcceptPayload>(value).is_err());
         }
+    }
+
+    #[test]
+    fn cancel_and_revoke_previous_states_match_registered_branches() {
+        let invite_id =
+            InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let invitee = AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        for state in [InvitePreviousState::Pending, InvitePreviousState::Claimed] {
+            let payload = InviteCancelPayload::new(
+                invite_id.clone(),
+                state,
+                invitee.clone(),
+                InviteCancelTargetState::Revoked,
+            );
+            let value = payload.to_value().unwrap();
+            assert_eq!(
+                serde_json::from_value::<InviteCancelPayload>(value).unwrap(),
+                payload
+            );
+        }
+        let mut missing = serde_json::json!({
+            "invite_id": invite_id,
+            "invitee_account_id": invitee,
+            "target_state": "revoked"
+        });
+        assert!(serde_json::from_value::<InviteCancelPayload>(missing.clone()).is_err());
+        missing["previous_state"] = serde_json::json!("send_failed");
+        assert!(serde_json::from_value::<InviteCancelPayload>(missing).is_err());
+
+        for state in [
+            InviteRevokePreviousState::Pending,
+            InviteRevokePreviousState::Claimed,
+            InviteRevokePreviousState::SendFailed,
+        ] {
+            let payload = InviteRevokePayload {
+                invite_id: invite_id.clone(),
+                previous_state: state,
+                invitee_account_id: None,
+                target_state: InviteRevokeTargetState::Revoked,
+                reason: None,
+            };
+            let value = payload.to_value().unwrap();
+            assert_eq!(
+                serde_json::from_value::<InviteRevokePayload>(value).unwrap(),
+                payload
+            );
+        }
+        let mut missing = serde_json::json!({
+            "invite_id": invite_id,
+            "target_state": "revoked"
+        });
+        assert!(serde_json::from_value::<InviteRevokePayload>(missing.clone()).is_err());
+        missing["previous_state"] = serde_json::json!("accepted");
+        assert!(serde_json::from_value::<InviteRevokePayload>(missing).is_err());
+
+        let invalid = InviteRevokePayload {
+            invite_id,
+            previous_state: InviteRevokePreviousState::Claimed,
+            invitee_account_id: None,
+            target_state: InviteRevokeTargetState::SendFailed,
+            reason: None,
+        };
+        assert!(invalid.validate().is_err());
     }
 }
