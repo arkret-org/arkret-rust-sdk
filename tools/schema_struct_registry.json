@@ -684,10 +684,6 @@
       "schema": "sdk-conformance-claim.schema.json#/$defs/issuer"
     },
     {
-      "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
-      "schema": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope"
-    },
-    {
       "rust_type": "crates/wire/src/pairwise_endpoint_possession.rs::PairwiseEndpointPossessionProof",
       "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
     },
@@ -1032,6 +1028,10 @@
     {
       "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiUpdateConsentOutcome",
       "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/direct_conversation.rs::DirectConversationBoundPayload",
+      "schema": "event-payload.schema.json#/$defs/direct_conversation_bound_payload"
     }
   ],
   "exemptions": [
