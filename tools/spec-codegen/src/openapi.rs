@@ -4,6 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::runtime_contracts::GeneratedOutput;
 
@@ -14,6 +15,11 @@ pub fn generate(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let source = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     let document: Value =
         serde_saphyr::from_str(&source).with_context(|| format!("parse {}", path.display()))?;
+    let version = document
+        .pointer("/info/version")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .context("OpenAPI document has no nonempty info.version")?;
     let paths = document
         .get("paths")
         .and_then(Value::as_object)
@@ -66,8 +72,10 @@ pub fn generate(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         pending.extend(nested);
     }
 
-    let mut output =
-        String::from("//! @generated; do not edit by hand.\n//! Generator: tools/spec-codegen\n\n");
+    let mut output = format!(
+        "//! @generated; do not edit by hand.\n//! Generator: tools/spec-codegen\n//! Input: {OPENAPI_PATH}; version={version}; sha256={}\n\n",
+        hex::encode(Sha256::digest(source.as_bytes()))
+    );
     output.push_str("pub fn openapi_query_operations() -> Vec<(&'static str, serde_json::Value)> {\n    vec![\n");
     for (path, operation) in &operations {
         output.push_str("        (");
