@@ -491,9 +491,18 @@ impl InviteRevokePayload {
 }
 
 /// `ak.invite.accept` payload. The accepting subject is the Event actor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InviteAcceptPreviousState {
+    Pending,
+    Claimed,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteAcceptPayload {
     pub invite_id: InviteId,
+    /// Exact invite_lifecycle state observed before this transition.
+    pub previous_state: InviteAcceptPreviousState,
     /// Present exactly when the target Invite stores one, that is for a
     /// directed invite and never for a third-party invite.
     ///
@@ -508,9 +517,10 @@ pub struct InviteAcceptPayload {
 }
 
 impl InviteAcceptPayload {
-    pub fn new(invite_id: InviteId) -> Self {
+    pub fn new(invite_id: InviteId, previous_state: InviteAcceptPreviousState) -> Self {
         Self {
             invite_id,
+            previous_state,
             invitee_account_id: None,
             extensions: XExtensionMap::default(),
         }
@@ -518,9 +528,14 @@ impl InviteAcceptPayload {
 
     /// Directed form: carry the stored invitee so the slot release write is
     /// derivable from this Event alone.
-    pub fn directed(invite_id: InviteId, invitee_account_id: AccountId) -> Self {
+    pub fn directed(
+        invite_id: InviteId,
+        invitee_account_id: AccountId,
+        previous_state: InviteAcceptPreviousState,
+    ) -> Self {
         Self {
             invite_id,
+            previous_state,
             invitee_account_id: Some(invitee_account_id),
             extensions: XExtensionMap::default(),
         }
@@ -973,4 +988,34 @@ pub fn invite_subject_proof_transcript_digest(
             binding_proof_digest,
         )?,
     ))?)
+}
+
+#[cfg(test)]
+mod invite_accept_payload_tests {
+    use super::*;
+
+    #[test]
+    fn previous_state_is_required_and_closed_on_the_wire() {
+        let invite_id =
+            InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        for (state, wire) in [
+            (InviteAcceptPreviousState::Pending, "pending"),
+            (InviteAcceptPreviousState::Claimed, "claimed"),
+        ] {
+            let payload = InviteAcceptPayload::new(invite_id.clone(), state);
+            let value = payload.to_value().unwrap();
+            assert_eq!(value["previous_state"], wire);
+            assert_eq!(
+                serde_json::from_value::<InviteAcceptPayload>(value).unwrap(),
+                payload
+            );
+        }
+        for invalid in [None, Some("accepted"), Some("send_failed")] {
+            let mut value = serde_json::json!({"invite_id": invite_id});
+            if let Some(state) = invalid {
+                value["previous_state"] = serde_json::json!(state);
+            }
+            assert!(serde_json::from_value::<InviteAcceptPayload>(value).is_err());
+        }
+    }
 }
