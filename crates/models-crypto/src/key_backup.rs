@@ -277,8 +277,27 @@ impl KeyBackupEncryption {
                     || self.hpke_suite.is_some()
                     || self.aead.nonce.is_none()
                     || self.aead.nonce_salt.is_none()
+                    || self.aead.name != KeyBackupAeadName::Xchacha20Poly1305
+                    || self.key_commitment.is_none()
+                    || self
+                        .key_commitment
+                        .as_ref()
+                        .is_some_and(|hash| !hash.as_str().starts_with("sha256:"))
                 {
                     return protocol("passphrase_kdf has inconsistent encryption fields");
+                }
+                if self.aead.nonce.as_ref().is_none_or(|nonce| {
+                    arkret_canonical::base64url_decode(nonce.as_str()).map_or(true, |bytes| {
+                        bytes.len() != 24
+                            || arkret_canonical::base64url_encode(&bytes) != nonce.as_str()
+                    })
+                }) || self.aead.nonce_salt.as_ref().is_none_or(|salt| {
+                    arkret_canonical::base64url_decode(salt.as_str()).map_or(true, |bytes| {
+                        bytes.len() < 16
+                            || arkret_canonical::base64url_encode(&bytes) != salt.as_str()
+                    })
+                }) {
+                    return protocol("passphrase_kdf nonce length is invalid");
                 }
             }
             KeyBackupRecipientMethod::SecretStorageKey => {
@@ -379,6 +398,11 @@ pub struct KeyBackupKdf {
 
 impl KeyBackupKdf {
     pub fn validate(&self) -> std::result::Result<(), String> {
+        if arkret_canonical::base64url_decode(self.salt.as_str()).map_or(true, |bytes| {
+            bytes.len() != 16 || arkret_canonical::base64url_encode(&bytes) != self.salt.as_str()
+        }) {
+            return Err("passphrase KDF salt must be exactly 16 bytes".to_owned());
+        }
         match self.name {
             KeyBackupKdfName::Argon2id
                 if self.params.memory_kib.is_none_or(|v| v < 65_536)
@@ -386,6 +410,12 @@ impl KeyBackupKdf {
                     || self.params.parallelism.is_none_or(|v| v < 1) =>
             {
                 Err("argon2id parameters are below the v1 floor".to_owned())
+            }
+            KeyBackupKdfName::Argon2id
+                if self.params.digest_algorithm.is_some()
+                    || self.degraded_profile_reason.is_some() =>
+            {
+                Err("argon2id has PBKDF2-only fields".to_owned())
             }
             KeyBackupKdfName::Pbkdf2
                 if self.params.iterations.is_none_or(|v| v < 600_000)
@@ -396,6 +426,11 @@ impl KeyBackupKdf {
                         .is_none_or(str::is_empty) =>
             {
                 Err("pbkdf2 requires the degraded profile floor and reason".to_owned())
+            }
+            KeyBackupKdfName::Pbkdf2
+                if self.params.memory_kib.is_some() || self.params.parallelism.is_some() =>
+            {
+                Err("pbkdf2 has Argon2id-only parameters".to_owned())
             }
             _ => Ok(()),
         }

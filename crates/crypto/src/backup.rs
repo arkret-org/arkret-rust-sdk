@@ -32,7 +32,7 @@ use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use serde_json::{Map, Value, json};
-use sha2::Sha256;
+use sha2::{Sha256, Sha384, Sha512};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::errors::KeyBackupError;
@@ -61,6 +61,12 @@ pub struct VaultKek {
     pub t: u32,
     #[zeroize(skip)]
     pub p: u32,
+    #[zeroize(skip)]
+    pub kdf_name: KeyBackupKdfName,
+    #[zeroize(skip)]
+    pub digest_algorithm: Option<arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm>,
+    #[zeroize(skip)]
+    pub degraded_profile_reason: Option<String>,
 }
 
 impl std::fmt::Debug for VaultKek {
@@ -72,6 +78,7 @@ impl std::fmt::Debug for VaultKek {
             .field("m_kib", &self.m_kib)
             .field("t", &self.t)
             .field("p", &self.p)
+            .field("kdf_name", &self.kdf_name)
             .finish()
     }
 }
@@ -97,6 +104,8 @@ pub fn derive_vault_kek_with_salt(
     passphrase: &[u8],
     salt: &[u8; VAULT_SALT_LEN],
 ) -> Result<VaultKek> {
+    std::str::from_utf8(passphrase)
+        .map_err(|_| KeyBackupError::InvalidInput("passphrase must be UTF-8".to_owned()))?;
     let params = Params::new(VAULT_ARGON2_M_KIB, VAULT_ARGON2_T, VAULT_ARGON2_P, None)
         .map_err(|error| KeyBackupError::Kdf(format!("argon2 params: {error}")))?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
@@ -110,7 +119,92 @@ pub fn derive_vault_kek_with_salt(
         m_kib: VAULT_ARGON2_M_KIB,
         t: VAULT_ARGON2_T,
         p: VAULT_ARGON2_P,
+        kdf_name: KeyBackupKdfName::Argon2id,
+        digest_algorithm: None,
+        degraded_profile_reason: None,
     })
+}
+
+pub fn derive_vault_kek_from_kdf(passphrase: &[u8], kdf: &KeyBackupKdf) -> Result<VaultKek> {
+    std::str::from_utf8(passphrase)
+        .map_err(|_| KeyBackupError::InvalidInput("passphrase must be UTF-8".to_owned()))?;
+    kdf.validate().map_err(KeyBackupError::InvalidInput)?;
+    let salt: [u8; VAULT_SALT_LEN] = base64url_decode(kdf.salt.as_str())
+        .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?
+        .try_into()
+        .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
+    match kdf.name {
+        KeyBackupKdfName::Argon2id => {
+            let m = u32::try_from(kdf.params.memory_kib.unwrap())
+                .map_err(|_| KeyBackupError::Kdf("argon2 memory_kib overflows u32".to_owned()))?;
+            let t = u32::try_from(kdf.params.iterations.unwrap())
+                .map_err(|_| KeyBackupError::Kdf("argon2 iterations overflows u32".to_owned()))?;
+            let p = u32::try_from(kdf.params.parallelism.unwrap())
+                .map_err(|_| KeyBackupError::Kdf("argon2 parallelism overflows u32".to_owned()))?;
+            let params = Params::new(m, t, p, Some(VAULT_KDF_OUTPUT_LEN))
+                .map_err(|error| KeyBackupError::Kdf(format!("argon2 params: {error}")))?;
+            let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
+            Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
+                .hash_password_into(passphrase, &salt, &mut key)
+                .map_err(|error| KeyBackupError::Kdf(format!("argon2 hash: {error}")))?;
+            Ok(VaultKek {
+                key,
+                salt,
+                m_kib: m,
+                t,
+                p,
+                kdf_name: KeyBackupKdfName::Argon2id,
+                digest_algorithm: None,
+                degraded_profile_reason: None,
+            })
+        }
+        KeyBackupKdfName::Pbkdf2 => {
+            let iterations = u32::try_from(kdf.params.iterations.unwrap())
+                .map_err(|_| KeyBackupError::Kdf("pbkdf2 iterations overflows u32".to_owned()))?;
+            let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
+            macro_rules! pbkdf2_hmac {
+                ($digest:ty) => {{
+                    let mut mac = <Hmac<$digest> as KeyInit>::new_from_slice(passphrase)
+                        .map_err(|error| KeyBackupError::Kdf(format!("pbkdf2 key: {error}")))?;
+                    Mac::update(&mut mac, &salt);
+                    Mac::update(&mut mac, &1u32.to_be_bytes());
+                    let mut u = mac.finalize().into_bytes().to_vec();
+                    let mut block = u.clone();
+                    for _ in 1..iterations {
+                        let mut mac = <Hmac<$digest> as KeyInit>::new_from_slice(passphrase)
+                            .map_err(|error| KeyBackupError::Kdf(format!("pbkdf2 key: {error}")))?;
+                        Mac::update(&mut mac, &u);
+                        u = mac.finalize().into_bytes().to_vec();
+                        for (dst, src) in block.iter_mut().zip(&u) {
+                            *dst ^= src;
+                        }
+                    }
+                    key.copy_from_slice(&block[..VAULT_KDF_OUTPUT_LEN]);
+                }};
+            }
+            match kdf.params.digest_algorithm.unwrap() {
+                arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm::Sha256 => {
+                    pbkdf2_hmac!(Sha256)
+                }
+                arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm::Sha384 => {
+                    pbkdf2_hmac!(Sha384)
+                }
+                arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm::Sha512 => {
+                    pbkdf2_hmac!(Sha512)
+                }
+            }
+            Ok(VaultKek {
+                key,
+                salt,
+                m_kib: 0,
+                t: iterations,
+                p: 0,
+                kdf_name: KeyBackupKdfName::Pbkdf2,
+                digest_algorithm: kdf.params.digest_algorithm,
+                degraded_profile_reason: kdf.degraded_profile_reason.clone(),
+            })
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -292,20 +386,42 @@ pub fn decrypt_vault(
         .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?
         .try_into()
         .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
+    let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
+    decrypt_vault_with_root(&kek.key, binding, nonce_b64, nonce_salt_b64, ciphertext_b64)
+}
+
+pub fn decrypt_vault_with_kdf(
+    passphrase: &[u8],
+    kdf: &KeyBackupKdf,
+    binding: &VaultBinding,
+    nonce_b64: &str,
+    nonce_salt_b64: &str,
+    ciphertext_b64: &str,
+) -> Result<Zeroizing<Vec<u8>>> {
+    let kek = derive_vault_kek_from_kdf(passphrase, kdf)?;
+    decrypt_vault_with_root(&kek.key, binding, nonce_b64, nonce_salt_b64, ciphertext_b64)
+}
+
+fn decrypt_vault_with_root(
+    root: &[u8; VAULT_KDF_OUTPUT_LEN],
+    binding: &VaultBinding,
+    nonce_b64: &str,
+    nonce_salt_b64: &str,
+    ciphertext_b64: &str,
+) -> Result<Zeroizing<Vec<u8>>> {
     let nonce: [u8; VAULT_NONCE_LEN] = base64url_decode(nonce_b64.trim_end_matches('='))
         .map_err(|error| KeyBackupError::Encoding(format!("nonce base64: {error}")))?
         .try_into()
         .map_err(|_| KeyBackupError::Encoding(format!("nonce must be {VAULT_NONCE_LEN} bytes")))?;
     let ciphertext = base64url_decode(ciphertext_b64.trim_end_matches('='))
         .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
-    let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
-    if binding.derive_nonce(&kek.key, nonce_salt_b64)? != nonce {
+    if binding.derive_nonce(root, nonce_salt_b64)? != nonce {
         return Err(KeyBackupError::Aead(
             "vault decrypt failed: nonce derivation mismatch".to_owned(),
         ));
     }
 
-    let mut aead_key = binding.subkey(&kek.key, &binding.subdomain);
+    let mut aead_key = binding.subkey(root, &binding.subdomain);
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
     let aad = binding.aad()?;
     let plaintext = cipher
@@ -484,11 +600,6 @@ fn decrypt_key_backup_envelope_bytes(
     let kdf = envelope.encryption.kdf.as_ref().ok_or_else(|| {
         KeyBackupError::InvalidInput("passphrase_kdf envelope is missing kdf".to_owned())
     })?;
-    if kdf.name != KeyBackupKdfName::Argon2id {
-        return Err(KeyBackupError::InvalidInput(
-            "this module only opens the Argon2id passphrase profile".to_owned(),
-        ));
-    }
     if envelope.encryption.aead.name != KeyBackupAeadName::Xchacha20Poly1305 {
         return Err(KeyBackupError::InvalidInput(
             "passphrase_kdf envelopes use the XChaCha20-Poly1305 AEAD profile".to_owned(),
@@ -515,11 +626,7 @@ fn decrypt_key_backup_envelope_bytes(
         ));
     }
 
-    let salt: [u8; VAULT_SALT_LEN] = base64url_decode(kdf.salt.as_str().trim_end_matches('='))
-        .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?
-        .try_into()
-        .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
-    let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
+    let kek = derive_vault_kek_from_kdf(passphrase, kdf)?;
     if envelope.encryption.key_commitment.as_ref()
         != Some(&key_commitment_value(&kek.key, envelope.backup_kind)?)
     {
@@ -528,10 +635,9 @@ fn decrypt_key_backup_envelope_bytes(
         ));
     }
 
-    decrypt_vault(
-        passphrase,
+    decrypt_vault_with_root(
+        &kek.key,
         &vault_binding_from_envelope(envelope)?,
-        kdf.salt.as_str(),
         nonce.as_str(),
         nonce_salt.as_str(),
         envelope.ciphertext.as_str(),
@@ -777,16 +883,18 @@ fn build_key_backup_envelope_in_series(
         // recovery_public_key, so the symmetric path omits it.
         hpke_suite: None,
         kdf: Some(KeyBackupKdf {
-            name: KeyBackupKdfName::Argon2id,
+            name: kek.kdf_name,
             salt: base64url_field(&ciphertext.salt_b64)?,
             params: KeyBackupKdfParams {
-                memory_kib: Some(u64::from(kek.m_kib)),
+                memory_kib: (kek.kdf_name == KeyBackupKdfName::Argon2id)
+                    .then_some(u64::from(kek.m_kib)),
                 iterations: Some(u64::from(kek.t)),
-                parallelism: Some(u64::from(kek.p)),
-                digest_algorithm: None,
+                parallelism: (kek.kdf_name == KeyBackupKdfName::Argon2id)
+                    .then_some(u64::from(kek.p)),
+                digest_algorithm: kek.digest_algorithm,
                 extra: XExtensionMap::default(),
             },
-            degraded_profile_reason: None,
+            degraded_profile_reason: kek.degraded_profile_reason.clone(),
             extra: XExtensionMap::default(),
         }),
         aead: KeyBackupAead {
@@ -1016,6 +1124,36 @@ mod tests {
 
         // A different passphrase must fail before the AEAD, on the commitment.
         assert!(decrypt_key_backup_envelope(b"wrong passphrase", &envelope).is_err());
+    }
+
+    #[test]
+    fn pbkdf2_envelope_uses_wire_parameters_and_commitment() {
+        let kdf = KeyBackupKdf {
+            name: KeyBackupKdfName::Pbkdf2,
+            salt: Base64UrlString::new("AAECAwQFBgcICQoLDA0ODw").unwrap(),
+            params: KeyBackupKdfParams {
+                memory_kib: None,
+                iterations: Some(600_000),
+                parallelism: None,
+                digest_algorithm: Some(
+                    arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm::Sha512,
+                ),
+                extra: XExtensionMap::default(),
+            },
+            degraded_profile_reason: Some("platform_memory_hard_kdf_unavailable".to_owned()),
+            extra: XExtensionMap::default(),
+        };
+        let kek = derive_vault_kek_from_kdf(PASSPHRASE, &kdf).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &envelope).is_ok());
+        let mut changed = envelope.clone();
+        changed.encryption.kdf.as_mut().unwrap().params.iterations = Some(600_001);
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &changed).is_err());
+        let mut changed = envelope;
+        changed.encryption.key_commitment =
+            Some(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap());
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &changed).is_err());
     }
 
     #[test]
