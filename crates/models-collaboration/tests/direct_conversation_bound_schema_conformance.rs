@@ -27,20 +27,80 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
 }
 
 fn fixture_payload() -> Value {
+    let vector = binding_vector();
+    let mut payload = vector["input"].clone();
+    payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
+    payload
+}
+
+fn binding_vector() -> Value {
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
     let fixture: Value = serde_json::from_slice(
         &fs::read(artifacts.join("fixtures/encoding-fixture.json")).unwrap(),
     )
     .unwrap();
-    let vector = fixture["vectors"]
+    fixture["vectors"]
         .as_array()
         .unwrap()
         .iter()
         .find(|vector| vector["vector_id"] == "ak.vector.direct_conversation.binding_digest.v1")
-        .unwrap();
+        .unwrap()
+        .clone()
+}
+
+#[test]
+fn binding_digest_matches_domain_separated_canonical_vector() {
+    let vector = binding_vector();
+    let payload: DirectConversationBoundPayload =
+        serde_json::from_value(fixture_payload()).unwrap();
+    let canonical = payload.binding_object_canonical_bytes().unwrap();
+    assert_eq!(
+        std::str::from_utf8(&canonical).unwrap(),
+        vector["expected_canonical_bytes_utf8"].as_str().unwrap()
+    );
+    let mut preimage = vector["domain_separator_utf8"]
+        .as_str()
+        .unwrap()
+        .as_bytes()
+        .to_vec();
+    preimage.extend_from_slice(&canonical);
+    let preimage_hex: String = preimage.iter().map(|byte| format!("{byte:02x}")).collect();
+    assert_eq!(preimage_hex, vector["digest_input_hex"].as_str().unwrap());
+    assert_eq!(
+        payload.binding_digest().unwrap().as_str(),
+        vector["expected_digest"].as_str().unwrap()
+    );
+
+    for case in vector["normalization_cases"].as_array().unwrap() {
+        let normalized: DirectConversationBoundPayload =
+            serde_json::from_value(case["payload"].clone()).unwrap();
+        assert_eq!(
+            normalized.binding_digest().unwrap().as_str(),
+            case["expected_digest"].as_str().unwrap()
+        );
+    }
+    for case in vector["mutation_cases"].as_array().unwrap() {
+        if let Some(input) = case.get("input") {
+            let mut payload = input.clone();
+            payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
+            let changed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
+            assert_eq!(
+                changed.binding_digest().unwrap().as_str(),
+                case["expected_digest"].as_str().unwrap()
+            );
+            assert_ne!(
+                changed.binding_digest().unwrap(),
+                payload_binding_digest(&vector)
+            );
+        }
+    }
+}
+
+fn payload_binding_digest(vector: &Value) -> arkret_wire::Hash {
     let mut payload = vector["input"].clone();
     payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
-    payload
+    let payload: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
+    payload.binding_digest().unwrap()
 }
 
 #[test]

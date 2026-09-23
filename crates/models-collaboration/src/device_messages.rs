@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
-use arkret_wire::{AccountId, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, ProtocolKind};
+use arkret_wire::{AccountId, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, MlsWelcomeDelivery, ProtocolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
@@ -235,7 +235,7 @@ pub struct DeviceMessagesSendOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessagesGetOutcome {
-    pub messages: Vec<DeviceMessageEnvelope>,
+    pub deliveries: Vec<RecipientDelivery>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -245,6 +245,21 @@ pub struct DeviceMessagesGetOutcome {
     pub limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lost: Option<bool>,
+}
+
+/// One item from the recipient-private queue shared by device messages and
+/// producer-signed MLS Welcome deliveries. The original payload is preserved
+/// byte-for-byte at the object boundary; it is never rewrapped as the other
+/// protocol object.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "delivery_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RecipientDelivery {
+    DeviceMessage {
+        device_message: DeviceMessageEnvelope,
+    },
+    MlsWelcome {
+        mls_welcome: MlsWelcomeDelivery,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

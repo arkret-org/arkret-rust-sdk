@@ -37,13 +37,9 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Freeze every input of one join attempt: the verified governance facts,
-    /// the exact Event kind, the canonical payload and the preconditions.
-    ///
-    /// The caller checks target, purpose, request binding and the bytes it is
-    /// about to sign, then signs and submits. It never fetches remote
-    /// governance evidence or selects a candidate endpoint. The nonce-bound
-    /// authority bundle is the sole source of the current Station identity.
+    /// Return the verified, nonce-bound authority bundle and current Realm
+    /// stream head for one join attempt. This read neither reserves a commit
+    /// position nor authorizes admission of a later producer-signed Event.
     pub async fn self_realm_join_prepare(
         &self,
         request: &SelfRealmJoinPrepareRequestBody,
@@ -83,12 +79,9 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Fetch the bounded material required to author and verify exactly one
-    /// join attempt from an existing member Station.
-    ///
-    /// The returned facts are not trusted as they stand: the caller verifies
-    /// them by complete governance replay and its own accepted state before
-    /// preparing anything from them.
+    /// Fetch one signed snapshot and the stream heads visible after the
+    /// membership Commit. The caller verifies the authority bundle and
+    /// snapshot, then scans each permitted stream to its advertised head.
     pub async fn peer_realm_join_bootstrap(
         &self,
         request: &PeerRealmJoinBootstrapRequestBody,

@@ -434,6 +434,35 @@ pub struct KeysBackupsDeleteChallenge {
     pub expires_at: DateTime<Utc>,
 }
 
+impl KeysBackupsDeleteChallenge {
+    /// The single signed transcript for every high-risk backup-delete proof
+    /// branch (key-management.md §7.8.1). A missing reason is an explicit null.
+    pub fn delete_intent_transcript(&self, reason: Option<&str>) -> serde_json::Value {
+        let mut transcript = serde_json::to_value(self)
+            .expect("typed backup-delete challenge always serializes")
+            .as_object()
+            .expect("backup-delete challenge serializes as an object")
+            .clone();
+        transcript.insert(
+            "context".to_owned(),
+            serde_json::Value::String("ak.key_backup_delete_proof.v1".to_owned()),
+        );
+        transcript.insert(
+            "reason".to_owned(),
+            reason.map_or(serde_json::Value::Null, |value| {
+                serde_json::Value::String(value.to_owned())
+            }),
+        );
+        serde_json::Value::Object(transcript)
+    }
+
+    pub fn delete_intent_digest(&self, reason: Option<&str>) -> arkret_wire::Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical_sha256(
+            &self.delete_intent_transcript(reason),
+        )?)?)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteRequestBody {

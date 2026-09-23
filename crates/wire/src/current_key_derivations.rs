@@ -15,6 +15,7 @@ const AGENT_STATUS_DOMAIN: &str = "ak.current_key.agent_status.v1";
 const AGENT_KEY_DOMAIN: &str = "ak.current_key.agent_key.v1";
 
 /// Closed `agent_key_id` scalar used by the Agent-key current-row derivation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AgentKeyId(String);
 

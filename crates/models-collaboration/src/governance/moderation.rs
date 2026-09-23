@@ -1,7 +1,7 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    AccountId, Did, DidCoreId, EventCommitSubmission, EventKind, RealmId, ReportId, Result,
+    AccountId, Did, DidCoreId, EventAdmissionSubmission, EventKind, RealmId, ReportId, Result,
     SchemaId, ScopeRef, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -58,7 +58,7 @@ pub enum ModerationAction {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub report_event: EventCommitSubmission,
+    pub report_event: EventAdmissionSubmission,
 }
 
 /// Accepted target facts used only at the report-authoring boundary.

@@ -280,12 +280,11 @@ impl ResolvedSignerKey {
     ) -> Result<()> {
         selector.validate(realm_id)?;
         self.validate()?;
-        if self.authorization_ref.stream_ref.realm_id() != realm_id {
-            return Err(self_signer_error(
-                ErrorCode::StateMismatch,
-                "signing-key authorization Event belongs to another Realm",
-            ));
-        }
+        // `realm_id` scopes the queried producer Event. An Agent's key
+        // authorization lives in its own PCR, and a device authorization can
+        // likewise live outside the target collaboration Realm. The result's
+        // revision is validated against that authorization stream, never the
+        // target Event's stream.
         Ok(())
     }
 
@@ -854,18 +853,13 @@ mod tests {
         foreign_authorization.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm,
         };
-        let authorization_error = SignerKeyQueryResult::HistoricalResolved {
+        SignerKeyQueryResult::HistoricalResolved {
             selector: historical_agent_selector(committed_ref(12, 0x11)),
             key: resolved_key(foreign_authorization, 15),
             accepted_at: accepted_at(),
         }
         .validate(&realm_id())
-        .expect_err("an authorization coordinate from another Realm must fail closed");
-        assert!(
-            authorization_error
-                .to_string()
-                .contains("authorization Event")
-        );
+        .expect("Agent PCR authorization may be in another Realm than its target Event");
     }
 
     /// A Station key names its authorization by bare `event_id`. Lifting it

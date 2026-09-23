@@ -104,3 +104,53 @@ impl DevicePushRoutePayload {
         }
     }
 }
+
+/// Shared decision for an account-private `server_revision_cas` effect.
+///
+/// The durable owner must compare and write in one transaction. This pure
+/// decision is shared by the owner projection and conformance runner so they
+/// use the same revision and overflow rule.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ServerRevisionCasDecision {
+    Accepted { next_revision: u64 },
+    Conflict,
+    Overflow,
+}
+
+pub fn decide_server_revision_cas(
+    current_revision: Option<u64>,
+    expected_server_revision: u64,
+) -> ServerRevisionCasDecision {
+    if current_revision.unwrap_or(0) != expected_server_revision {
+        return ServerRevisionCasDecision::Conflict;
+    }
+    match expected_server_revision.checked_add(1) {
+        Some(next_revision) => ServerRevisionCasDecision::Accepted { next_revision },
+        None => ServerRevisionCasDecision::Overflow,
+    }
+}
+
+#[cfg(test)]
+mod revision_cas_tests {
+    use super::{ServerRevisionCasDecision, decide_server_revision_cas};
+
+    #[test]
+    fn accepts_create_successor_and_retained_tombstone_high_water() {
+        assert_eq!(
+            decide_server_revision_cas(None, 0),
+            ServerRevisionCasDecision::Accepted { next_revision: 1 }
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(1), 1),
+            ServerRevisionCasDecision::Accepted { next_revision: 2 }
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(3), 0),
+            ServerRevisionCasDecision::Conflict
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(u64::MAX), u64::MAX),
+            ServerRevisionCasDecision::Overflow
+        );
+    }
+}

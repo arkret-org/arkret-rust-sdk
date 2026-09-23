@@ -18,8 +18,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::websocket_binding::{
-    validate_websocket_channel_id, validate_websocket_opaque_id, validate_websocket_ping_id,
-    validate_websocket_session_grant,
+    WEBSOCKET_HARD_MAX_FRAME_BYTES, WebSocketCloseCode, validate_websocket_channel_id,
+    validate_websocket_opaque_id, validate_websocket_ping_id, validate_websocket_session_grant,
 };
 use arkret_wire::{
     ActorId, RealmId, Result, SignalStreamFrame, WebSocketOperationId, WebSocketTransportError,
@@ -27,6 +27,226 @@ use arkret_wire::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Failure at the WebSocket message ingress boundary. The close code is
+/// selected before JSON parsing so an oversize message always closes as 1009.
+#[derive(Clone, Debug)]
+pub struct WebSocketIngressFailure {
+    pub close_code: Option<WebSocketCloseCode>,
+    pub message: String,
+}
+
+/// Bounded, direction-aware decoder for one complete WebSocket text message.
+/// The transport must call `accepts_accumulated` while assembling fragments.
+#[derive(Clone, Copy, Debug)]
+pub struct WebSocketFrameIngress {
+    effective_max_bytes: usize,
+}
+
+/// Transport decision after a socket closes or its upgrade fails.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebSocketTransportAction {
+    RetryWebSocket { after_ms: u32 },
+    FallbackHttp,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebSocketUpgradeFailure {
+    UpgradeStatusNotSwitchingProtocols,
+    SubprotocolNotSelected,
+    ProxyBlocked,
+}
+
+/// §8.1 bounded reconnect policy. `welcomed` marks a successfully
+/// authenticated socket, which resets the consecutive pre-welcome budget.
+#[derive(Clone, Debug, Default)]
+pub struct WebSocketReconnectPolicy {
+    welcomed: bool,
+    prewelcome_failures: u8,
+    policy_retry_used: bool,
+}
+
+impl WebSocketReconnectPolicy {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn welcomed(&mut self) {
+        self.welcomed = true;
+        self.prewelcome_failures = 0;
+    }
+
+    pub fn on_handshake_failure(
+        &mut self,
+        _failure: WebSocketUpgradeFailure,
+    ) -> WebSocketTransportAction {
+        WebSocketTransportAction::FallbackHttp
+    }
+
+    pub fn on_close(
+        &mut self,
+        code: WebSocketCloseCode,
+        reconnect_after_ms: Option<u32>,
+    ) -> WebSocketTransportAction {
+        if code.forces_http_fallback() {
+            return WebSocketTransportAction::FallbackHttp;
+        }
+        match code {
+            WebSocketCloseCode::PolicyViolation if !self.policy_retry_used => {
+                self.policy_retry_used = true;
+                WebSocketTransportAction::RetryWebSocket { after_ms: 0 }
+            }
+            WebSocketCloseCode::PolicyViolation => WebSocketTransportAction::FallbackHttp,
+            WebSocketCloseCode::GoingAway | WebSocketCloseCode::ServiceRestart => {
+                if !self.welcomed {
+                    self.prewelcome_failures = self.prewelcome_failures.saturating_add(1);
+                    if self.prewelcome_failures >= 3 {
+                        return WebSocketTransportAction::FallbackHttp;
+                    }
+                }
+                self.welcomed = false;
+                WebSocketTransportAction::RetryWebSocket {
+                    after_ms: reconnect_after_ms.unwrap_or(0),
+                }
+            }
+            _ => WebSocketTransportAction::FallbackHttp,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebSocketConsumerOwner {
+    WebSocket,
+    Http,
+}
+
+/// Exclusive owner switch for account/events/signal consumers. A switch can
+/// occur only after the old socket and its channels stop and durable cursors
+/// have been persisted.
+#[derive(Clone, Debug, Default)]
+pub struct WebSocketConsumerTransition {
+    owner: Option<WebSocketConsumerOwner>,
+    stopped: bool,
+    cursors_persisted: bool,
+}
+
+impl WebSocketConsumerTransition {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn owner(&self) -> Option<WebSocketConsumerOwner> {
+        self.owner
+    }
+
+    pub fn start(&mut self, owner: WebSocketConsumerOwner) -> Result<()> {
+        if self.owner.is_some() {
+            return Err(protocol_error("a consumer already owns the stream"));
+        }
+        self.owner = Some(owner);
+        self.stopped = false;
+        self.cursors_persisted = false;
+        Ok(())
+    }
+
+    pub fn stop(&mut self) {
+        self.stopped = true;
+    }
+
+    pub fn persist_cursors(&mut self) {
+        self.cursors_persisted = true;
+    }
+
+    pub fn switch_to(&mut self, owner: WebSocketConsumerOwner) -> Result<()> {
+        if !self.stopped || !self.cursors_persisted {
+            return Err(protocol_error(
+                "consumer switch requires old owner stop and durable cursor persistence",
+            ));
+        }
+        self.owner = Some(owner);
+        self.stopped = false;
+        self.cursors_persisted = false;
+        Ok(())
+    }
+}
+
+impl WebSocketFrameIngress {
+    pub fn new(discovery_max_frame_bytes: u32, welcome_max_frame_bytes: Option<u32>) -> Self {
+        let effective_max_bytes = usize::try_from(discovery_max_frame_bytes)
+            .unwrap_or(WEBSOCKET_HARD_MAX_FRAME_BYTES)
+            .min(
+                welcome_max_frame_bytes
+                    .map_or(WEBSOCKET_HARD_MAX_FRAME_BYTES, |value| value as usize),
+            )
+            .min(WEBSOCKET_HARD_MAX_FRAME_BYTES);
+        Self {
+            effective_max_bytes,
+        }
+    }
+
+    pub const fn accepts_accumulated(&self, bytes: usize) -> bool {
+        bytes <= self.effective_max_bytes
+    }
+
+    pub fn reject_binary_message(&self) -> WebSocketIngressFailure {
+        WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: "binary WebSocket messages are forbidden".to_owned(),
+        }
+    }
+
+    fn decode<T: for<'de> Deserialize<'de>>(
+        &self,
+        bytes: &[u8],
+    ) -> std::result::Result<T, WebSocketIngressFailure> {
+        if !self.accepts_accumulated(bytes.len()) {
+            return Err(WebSocketIngressFailure {
+                close_code: Some(WebSocketCloseCode::MessageTooBig),
+                message: "WebSocket text message exceeds the effective byte limit".to_owned(),
+            });
+        }
+        let value = arkret_canonical::parse_json_rejecting_duplicate_keys_within(
+            bytes,
+            self.effective_max_bytes,
+        )
+        .map_err(|error| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: format!("WebSocket text message is not strict JSON: {error}"),
+        })?;
+        serde_json::from_value(value).map_err(|error| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: format!("WebSocket frame violates its direction schema: {error}"),
+        })
+    }
+
+    pub fn decode_client_frame(
+        &self,
+        bytes: &[u8],
+    ) -> std::result::Result<WebSocketClientFrame, WebSocketIngressFailure> {
+        let frame: WebSocketClientFrame = self.decode(bytes)?;
+        frame.validate().map_err(|error| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: error.to_string(),
+        })?;
+        Ok(frame)
+    }
+
+    pub fn decode_server_frame(
+        &self,
+        bytes: &[u8],
+    ) -> std::result::Result<WebSocketServerFrame, WebSocketIngressFailure> {
+        let frame: WebSocketServerFrame = self.decode(bytes)?;
+        frame.validate().map_err(|error| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: error.to_string(),
+        })?;
+        Ok(frame)
+    }
+
+    pub fn encode<T: Serialize>(&self, frame: &T) -> Result<String> {
+        Ok(serde_json::to_string(frame)?)
+    }
+}
 
 use crate::string_marker;
 use crate::sync_frames::account_subscribe::{
@@ -308,8 +528,18 @@ impl WebSocketDataPayload {
 
 /// The channel-scoped `control` payload: any non-positional frame of the rail.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WebSocketChannelHeartbeat {
+    Heartbeat,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WebSocketChannelControlPayload {
+    /// All three rails encode a heartbeat as the same closed object. Decode it
+    /// before the rail-specific variants so untagged matching cannot assign
+    /// the Signal heartbeat to the Account operation.
+    Heartbeat(WebSocketChannelHeartbeat),
     Account(Box<AccountSubscribeFrame>),
     Events(Box<CommittedEventSubscribeFrame>),
     Signal(Box<SignalStreamFrame>),
@@ -318,6 +548,7 @@ pub enum WebSocketChannelControlPayload {
 impl WebSocketChannelControlPayload {
     pub fn validate(&self) -> Result<()> {
         match self {
+            Self::Heartbeat(_) => {}
             Self::Account(frame) => {
                 frame.validate()?;
                 if frame.kind == AccountSubscribeFrameKind::Delta {
@@ -347,6 +578,7 @@ impl WebSocketChannelControlPayload {
     /// True for a payload after which the channel is finished.
     pub fn is_terminal(&self) -> bool {
         match self {
+            Self::Heartbeat(_) => false,
             Self::Account(frame) => matches!(
                 frame.kind,
                 AccountSubscribeFrameKind::Dropped
@@ -1173,6 +1405,11 @@ impl WebSocketConnectionState {
             } => {
                 let cursor = data_payload_cursor(payload);
                 let channel = self.require_open_channel_mut(channel_id)?;
+                if data_payload_operation(payload) != channel.operation_id {
+                    return Err(protocol_error(
+                        "data payload does not match channel operation",
+                    ));
+                }
                 if let Some(cursor) = cursor {
                     channel.resume_cursor = Some(cursor);
                 }
@@ -1185,6 +1422,13 @@ impl WebSocketConnectionState {
                 let cursor = channel_control_cursor(payload);
                 let terminal = payload.is_terminal();
                 let channel = self.require_open_channel_mut(channel_id)?;
+                if channel_control_operation(payload)
+                    .is_some_and(|operation| operation != channel.operation_id)
+                {
+                    return Err(protocol_error(
+                        "control payload does not match channel operation",
+                    ));
+                }
                 if let Some(cursor) = cursor {
                     channel.resume_cursor = Some(cursor);
                 }
@@ -1257,8 +1501,34 @@ fn data_payload_cursor(payload: &WebSocketDataPayload) -> Option<String> {
     }
 }
 
+fn data_payload_operation(payload: &WebSocketDataPayload) -> WebSocketOperationId {
+    match payload {
+        WebSocketDataPayload::Account(_) => WebSocketOperationId::AccountStreamSubscribe,
+        WebSocketDataPayload::Events(_) => WebSocketOperationId::CommittedEventStreamSubscribe,
+        WebSocketDataPayload::Signal(_) => WebSocketOperationId::SignalStreamSubscribe,
+    }
+}
+
+fn channel_control_operation(
+    payload: &WebSocketChannelControlPayload,
+) -> Option<WebSocketOperationId> {
+    match payload {
+        WebSocketChannelControlPayload::Heartbeat(_) => None,
+        WebSocketChannelControlPayload::Account(_) => {
+            Some(WebSocketOperationId::AccountStreamSubscribe)
+        }
+        WebSocketChannelControlPayload::Events(_) => {
+            Some(WebSocketOperationId::CommittedEventStreamSubscribe)
+        }
+        WebSocketChannelControlPayload::Signal(_) => {
+            Some(WebSocketOperationId::SignalStreamSubscribe)
+        }
+    }
+}
+
 fn channel_control_cursor(payload: &WebSocketChannelControlPayload) -> Option<String> {
     match payload {
+        WebSocketChannelControlPayload::Heartbeat(_) => None,
         WebSocketChannelControlPayload::Account(frame) => frame.cursor.clone(),
         WebSocketChannelControlPayload::Events(frame) => frame.cursor.clone(),
         WebSocketChannelControlPayload::Signal(_) => None,
@@ -1525,6 +1795,13 @@ mod tests {
 
     #[test]
     fn a_control_payload_may_not_be_a_positional_frame() {
+        let decoded: WebSocketChannelControlPayload =
+            serde_json::from_str(r#"{"kind":"heartbeat"}"#).unwrap();
+        assert!(matches!(
+            decoded,
+            WebSocketChannelControlPayload::Heartbeat(_)
+        ));
+
         let payload =
             WebSocketChannelControlPayload::Events(Box::new(CommittedEventSubscribeFrame {
                 kind: CommittedEventSubscribeFrameKind::Heartbeat,
@@ -1620,5 +1897,123 @@ mod tests {
             open["operation_id"],
             json!("ak.self.committed_event.stream.subscribe.v1")
         );
+    }
+
+    #[test]
+    fn ingress_enforces_bytes_before_json_and_rejects_duplicate_members() {
+        let ingress = WebSocketFrameIngress::new(1024, Some(2048));
+        assert_eq!(
+            ingress.reject_binary_message().close_code,
+            Some(WebSocketCloseCode::ProtocolError)
+        );
+        assert_eq!(
+            ingress
+                .decode_client_frame(&vec![b' '; 1025])
+                .unwrap_err()
+                .close_code,
+            Some(WebSocketCloseCode::MessageTooBig)
+        );
+        let duplicate =
+            br#"{"kind":"pong","ping_id":"ping-0000000000001","ping_id":"ping-0000000000002"}"#;
+        assert_eq!(
+            ingress
+                .decode_client_frame(duplicate)
+                .unwrap_err()
+                .close_code,
+            Some(WebSocketCloseCode::ProtocolError)
+        );
+        let parsed = ingress
+            .decode_client_frame(br#"{"kind":"pong","ping_id":"ping-0000000000001"}"#)
+            .unwrap();
+        assert!(matches!(parsed, WebSocketClientFrame::Pong { .. }));
+    }
+
+    #[test]
+    fn a_channel_rejects_control_payload_from_another_operation() {
+        let mut state = ready();
+        state
+            .observe_client(&WebSocketClientFrame::Open {
+                channel_id: "signal-1".to_owned(),
+                operation_id: WebSocketOperationId::SignalStreamSubscribe,
+                parameters: WebSocketOpenParameters::Signal(Default::default()),
+            })
+            .unwrap();
+        let frame = WebSocketServerFrame::ChannelControl {
+            frame_scope: WebSocketChannelScope::Channel,
+            channel_id: "signal-1".to_owned(),
+            payload: WebSocketChannelControlPayload::Events(Box::new(
+                CommittedEventSubscribeFrame {
+                    kind: CommittedEventSubscribeFrameKind::Checkpoint,
+                    realm_id: None,
+                    cursor: Some("ak:cursor:ZXZlbnRzLWN1cnNvci0wMDAx".to_owned()),
+                    payload: None,
+                    reconnect_after_ms: None,
+                },
+            )),
+        };
+        assert!(
+            state
+                .observe_server(&frame)
+                .unwrap_err()
+                .to_string()
+                .contains("channel operation")
+        );
+        assert!(!state.channel("signal-1").unwrap().closed);
+
+        let heartbeat = br#"{"channel_id":"signal-1","frame_scope":"channel","kind":"control","payload":{"kind":"heartbeat"}}"#;
+        let parsed = WebSocketFrameIngress::new(4096, None)
+            .decode_server_frame(heartbeat)
+            .unwrap();
+        state.observe_server(&parsed).unwrap();
+
+        let wire = br#"{"channel_id":"signal-1","frame_scope":"channel","kind":"control","payload":{"kind":"resync_required"}}"#;
+        let parsed = WebSocketFrameIngress::new(4096, None)
+            .decode_server_frame(wire)
+            .unwrap();
+        assert!(state.observe_server(&parsed).is_err());
+
+        let unopened = br#"{"channel_id":"never-opened","kind":"data","payload":{"cursor":"ak:cursor:YWNjountY3Vyc29yLTAwMDE","kind":"delta"}}"#;
+        let parsed = WebSocketFrameIngress::new(4096, None)
+            .decode_server_frame(unopened)
+            .unwrap();
+        assert!(state.observe_server(&parsed).is_err());
+    }
+
+    #[test]
+    fn fallback_and_consumer_switch_follow_closed_budgets() {
+        let mut policy = WebSocketReconnectPolicy::new();
+        for _ in 0..2 {
+            assert!(matches!(
+                policy.on_close(WebSocketCloseCode::ServiceRestart, None),
+                WebSocketTransportAction::RetryWebSocket { .. }
+            ));
+        }
+        assert_eq!(
+            policy.on_close(WebSocketCloseCode::ServiceRestart, None),
+            WebSocketTransportAction::FallbackHttp
+        );
+        assert_eq!(
+            WebSocketReconnectPolicy::new()
+                .on_handshake_failure(WebSocketUpgradeFailure::ProxyBlocked),
+            WebSocketTransportAction::FallbackHttp
+        );
+        let mut policy = WebSocketReconnectPolicy::new();
+        assert!(matches!(
+            policy.on_close(WebSocketCloseCode::PolicyViolation, None),
+            WebSocketTransportAction::RetryWebSocket { .. }
+        ));
+        assert_eq!(
+            policy.on_close(WebSocketCloseCode::PolicyViolation, None),
+            WebSocketTransportAction::FallbackHttp
+        );
+
+        let mut owner = WebSocketConsumerTransition::new();
+        owner.start(WebSocketConsumerOwner::WebSocket).unwrap();
+        assert!(owner.switch_to(WebSocketConsumerOwner::Http).is_err());
+        owner.stop();
+        assert!(owner.switch_to(WebSocketConsumerOwner::Http).is_err());
+        owner.persist_cursors();
+        owner.switch_to(WebSocketConsumerOwner::Http).unwrap();
+        assert_eq!(owner.owner(), Some(WebSocketConsumerOwner::Http));
     }
 }

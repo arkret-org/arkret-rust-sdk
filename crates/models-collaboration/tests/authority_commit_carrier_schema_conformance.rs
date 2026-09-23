@@ -9,7 +9,7 @@ use arkret_models_collaboration::authority_commit::{
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{ApprovalSignature, EventCommitSubmission};
+use arkret_wire::{ApprovalSignature, EventAdmissionSubmission};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -63,7 +63,7 @@ fn approved_event_submission() -> Value {
 #[test]
 fn event_submission_sidecar_and_both_endpoint_unions_reuse_one_shape() {
     let submission = approved_event_submission();
-    assert_schema_and_serde::<EventCommitSubmission>(
+    assert_schema_and_serde::<EventAdmissionSubmission>(
         "authority-commit-operations.schema.json",
         "#/$defs/committed_event_submission/properties/event_submission",
         submission.clone(),
@@ -135,7 +135,7 @@ fn peer_registered_unit_rejection_has_no_open_or_cross_branch_form() {
 fn empty_approval_sidecar_and_unknown_union_members_fail_closed() {
     let mut submission = approved_event_submission();
     submission["approval_signatures"] = json!([]);
-    let parsed: EventCommitSubmission = serde_json::from_value(submission).unwrap();
+    let parsed: EventAdmissionSubmission = serde_json::from_value(submission).unwrap();
     assert!(parsed.validate().is_err());
 
     let unknown = json!({"branch": "future_branch", "event_submission": {}});

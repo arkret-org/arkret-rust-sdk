@@ -253,7 +253,7 @@ pub fn merge_read_cursors<'a>(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorAdvanceRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub advance_event: arkret_wire::EventCommitSubmission,
+    pub advance_event: arkret_wire::EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -26,7 +26,7 @@ below cites one of them.
   exactly one `event_ref` (`realm-commit.schema.json`).
 - Realm, each Circle and each Sidecar own independent commit streams. There is
   no global chain and no global position.
-- The single submission DTO is `EventCommitSubmission { event }`
+- The single submission DTO is `EventAdmissionSubmission { event }`
   (`crates/wire/src/authority_commit.rs`).
 - Welcome is a producer-signed recipient delivery object
   (`ak:mls_welcome_delivery:<uuidv7>`), not an Event. The only shared MLS Events
@@ -162,7 +162,7 @@ Each entry is the whole unit, with no product type left inside it.
   `device_authorization_event_id` and checks the terminal receipt's
   `reanchor_event_id`.
 - **Event authoring keeps its domain builders and submits
-  `EventCommitSubmission { event }`.** `PcrGenesisUnit`, the applet managed-actor
+  `EventAdmissionSubmission { event }`.** `PcrGenesisUnit`, the applet managed-actor
   unit and the consent grant/revoke bodies all cross the submission boundary
   through that one DTO.
 - **Capability revoke/relinquish moved from a cell head to a revision.**

@@ -160,7 +160,7 @@ pub struct SignalAeadBinding<'a> {
     pub sender_device_id: Option<&'a DeviceId>,
     /// Exact head of this scope's independent commit stream used for current
     /// sender authorization.
-    pub stream_head_ref: &'a RealmCommitId,
+    pub authority_commit_id: &'a RealmCommitId,
     pub signal_class: SignalClass,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -249,8 +249,8 @@ impl SignalAeadBinding<'_> {
             );
         }
         object.insert(
-            "stream_head_ref".to_owned(),
-            Value::String(self.stream_head_ref.as_str().to_owned()),
+            "authority_commit_id".to_owned(),
+            Value::String(self.authority_commit_id.as_str().to_owned()),
         );
         object.insert(
             "signal_class".to_owned(),
@@ -324,7 +324,7 @@ pub struct SignalEnvelope {
         deserialize_with = "deserialize_present_proof_value"
     )]
     pub sender_device_id: Option<DeviceId>,
-    pub stream_head_ref: RealmCommitId,
+    pub authority_commit_id: RealmCommitId,
     pub signal_class: SignalClass,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -383,7 +383,7 @@ impl SignalEnvelope {
             scope_ref: &self.scope_ref,
             sender_actor_id: &self.sender_actor_id,
             sender_device_id: self.sender_device_id.as_ref(),
-            stream_head_ref: &self.stream_head_ref,
+            authority_commit_id: &self.authority_commit_id,
             signal_class: self.signal_class,
             sent_at: self.sent_at,
             expires_at: self.expires_at,
@@ -495,7 +495,7 @@ impl SignalEnvelope {
     /// Every check the sender, ingress, relay and receiver share, except the
     /// signature verification and the current-directory device authorization
     /// lookup, which need key material and accepted state. The two are separate
-    /// state domains: `stream_head_ref` selects the Realm/scope basis only, never the
+    /// state domains: `authority_commit_id` selects the Realm/scope basis only, never the
     /// device checkpoint (`signal.md` §1).
     ///
     /// Notably absent by design: any inspection of a product `signal_kind`,
@@ -790,7 +790,7 @@ mod tests {
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             sender_actor_id: actor(),
             sender_device_id: Some(device()),
-            stream_head_ref: RealmCommitId::from_digest([0xaa; 32]),
+            authority_commit_id: RealmCommitId::from_digest([0xaa; 32]),
             signal_class,
             sent_at: sent_at(),
             expires_at: sent_at() + Duration::seconds(ttl_seconds),

@@ -1,13 +1,13 @@
 //! Agent key-pairing canonical binding helpers.
 
 use arkret_canonical::{base64url_decode, canonical};
+use arkret_models_collaboration::agent_operations::AgentPairingBootstrap;
 /// The immutable provision ceiling commitment digest is defined with the
 /// agent lifecycle models and surfaced by the signature owner.
 pub use arkret_models_collaboration::agent_scope::agent_requested_scope_digest;
 use arkret_models_collaboration::agent_scope::{
-    AgentKeyPairRequestBody, AgentPairingBootstrap, AgentRequestedScopeDisclosure,
-    AgentRuntimeApprovalRequestBody, AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof,
-    AgentRuntimeKeyPossessionProofKind,
+    AgentKeyPairRequestBody, AgentRequestedScopeDisclosure, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof, AgentRuntimeKeyPossessionProofKind,
     agent_runtime_key_binding_digest as model_agent_runtime_key_binding_digest,
 };
 use arkret_models_collaboration::events_payloads::agent::{
@@ -207,7 +207,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
                 pairing_request_id: self.bootstrap.pairing_request_id.clone(),
                 approval_request_id,
                 requested_scope_disclosure,
-                authorize_event,
+                authorize_event: arkret_wire::EventAdmissionSubmission::new(authorize_event),
             },
         })
     }
@@ -810,15 +810,15 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_value(approval.body.public_key).unwrap(),
-            pairing.body.authorize_event.payload["public_key"]
+            pairing.body.authorize_event.event.payload["public_key"]
         );
         assert_eq!(
-            pairing.body.authorize_event.payload["agent_id"],
+            pairing.body.authorize_event.event.payload["agent_id"],
             serde_json::to_value(agent_actor_id).unwrap()
         );
         assert_eq!(approval.body.verification_method, verification_method);
         assert_eq!(
-            pairing.body.authorize_event.payload["verification_method"],
+            pairing.body.authorize_event.event.payload["verification_method"],
             serde_json::to_value(verification_method).unwrap()
         );
     }

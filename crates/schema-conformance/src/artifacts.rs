@@ -1337,6 +1337,54 @@ mod tests {
     }
 
     #[test]
+    fn agent_selectors_match_formal_complete_current_results() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        for (name, fragment) in [
+            ("test:agent_key_result", "#/$defs/agent_key_result"),
+            ("test:agent_status_result", "#/$defs/agent_status_result"),
+        ] {
+            registry
+                .register_fragment(name, schema.clone(), fragment)
+                .unwrap();
+        }
+        let agent_id = "ak:did_core:web:agent.example";
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x55; 32]),
+            "stream_position": 2
+        });
+        for (schema_id, selector, value) in [
+            (
+                "test:agent_key_result",
+                serde_json::json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":"runtime_key-1"}),
+                serde_json::json!({"authorizations":[]}),
+            ),
+            (
+                "test:agent_status_result",
+                serde_json::json!({"kind":"agent_status","agent_id":agent_id}),
+                serde_json::json!("active"),
+            ),
+        ] {
+            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
+            assert_eq!(serde_json::to_value(typed).unwrap(), selector);
+            let mut unknown = wire.clone();
+            unknown["selector"]["account_id"] = serde_json::json!(agent_id);
+            assert!(registry.validate_value(schema_id, &unknown).is_err());
+            assert!(
+                serde_json::from_value::<CurrentSelector>(unknown["selector"].clone()).is_err()
+            );
+        }
+    }
+
+    #[test]
     fn active_registry_entries_missing_from_generated_coverage_fail_closed() {
         let registry = serde_json::json!({
             "schemas": [

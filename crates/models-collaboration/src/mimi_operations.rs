@@ -6,9 +6,9 @@ use std::num::NonZeroU64;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, CommittedEventRef, ConsentId, DeviceId, DidCoreId, DidUrl,
-    EventCommitSubmission, EventId, EventKind, Hash, MimiRoomUri, MlsGroupId, NonEmptyString,
-    PayloadProof, ProofContextId, RealmId, ReportId, Result, ServiceOperationId, StrandId,
-    UnsignedPayloadProof, WireError, canonical,
+    DomainSeparationId, EventAdmissionSubmission, EventId, EventKind, Hash, MimiRoomUri,
+    MlsGroupId, NonEmptyString, ObjectRef, PayloadProof, ProofContextId, RealmId, ReportId, Result,
+    ScopeRef, ServiceOperationId, StrandId, UnsignedPayloadProof, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -67,6 +67,36 @@ pub struct MimiKeyMaterialRequestBody {
     pub proofs: Vec<PayloadProof>,
 }
 
+impl MimiKeyMaterialRequestBody {
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        mimi_unsigned_body_without_proofs(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    /// Bind one actor proof to the exact unsigned key-material request.
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    pub fn unsigned_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
+            Some(serde_json::to_value(&self.requester_id)?),
+            vec![
+                ("strand_id", serde_json::to_value(&self.strand_id)?),
+                ("device_id", serde_json::to_value(&self.device_id)?),
+            ],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
+}
+
 /// `mimi-operations.schema.json#/$defs/mimi_key_material_outcome`.
 /// Presence is preserved for the schema's at-least-one branch constraint.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,6 +123,52 @@ impl MimiKeyMaterialOutcome {
         }
         Ok(())
     }
+
+    /// The service signature covers the complete outcome with only `signature`
+    /// omitted, under its own registered proof context.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        mimi_payload_digest(&mimi_unsigned_body_without_signature(self)?)
+    }
+
+    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    pub fn unsigned_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
+        mimi_proof_binding_bytes(
+            ProofContextId::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
+            None,
+            vec![],
+            &self.payload_digest()?,
+            proof,
+        )
+    }
+
+    pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
+        let signature = self.signature.as_ref().ok_or_else(|| {
+            WireError::Protocol("MIMI key material outcome signature is missing".to_owned())
+        })?;
+        let proof = UnsignedPayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: signature.verification_method.clone(),
+            payload_digest: signature.payload_digest.clone(),
+            created_at: signature.created_at,
+            domain: Some(signature.domain.as_str().to_owned()),
+            audience: Some(signature.audience.clone()),
+            proof_purpose: None,
+        };
+        if signature.kind != MimiSignatureKind::DetachedJws
+            || signature.payload_digest != self.payload_digest()?
+        {
+            return Err(WireError::Protocol(
+                "MIMI key material outcome signature metadata mismatch".to_owned(),
+            ));
+        }
+        self.unsigned_proof_binding_bytes(&proof)
+    }
 }
 
 /// `mimi-operations.schema.json#/$defs/mimi_room_update_request_body`.
@@ -113,7 +189,7 @@ pub struct MimiRoomUpdateRequestBody {
     // Event/approval schema is published by the canonical artifact, not
     // recreated as an OpenAPI mirror here.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<serde_json::Value>)))]
-    pub room_binding_event: Option<EventCommitSubmission>,
+    pub room_binding_event: Option<EventAdmissionSubmission>,
 }
 
 impl MimiRoomUpdateRequestBody {
@@ -195,7 +271,38 @@ pub struct MimiReporterAuthority {
     pub room_binding_ref: CommittedEventRef,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub proof: PayloadProof,
+    pub proof: MimiOperationSignature,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct MimiReportClaim {
+    pub realm_id: RealmId,
+    pub scope_ref: ScopeRef,
+    pub target_ref: ObjectRef,
+    pub report_reason_code: MimiReportReasonCode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_package: Option<crate::events_payloads::ModerationEvidencePackage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub franking_proof: Option<crate::events_payloads::FrankingProof>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum MimiReportReasonCode {
+    Spam,
+    Harassment,
+    HateSpeech,
+    Nsfw,
+    Illegal,
+    Misinformation,
+    Other,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -203,8 +310,145 @@ pub struct MimiReporterAuthority {
 #[serde(deny_unknown_fields)]
 pub struct MimiReportAbuseRequestBody {
     pub reporter_authority: MimiReporterAuthority,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub report_event: EventCommitSubmission,
+    pub report_claim: MimiReportClaim,
+}
+
+impl MimiReportAbuseRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.report_claim.scope_ref.realm_id() != &self.report_claim.realm_id
+            || !matches!(
+                &self.report_claim.scope_ref,
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            )
+            || !arkret_wire::is_object_ref(&self.report_claim.target_ref)
+            || self
+                .report_claim
+                .evidence_refs
+                .iter()
+                .any(|reference| !arkret_wire::is_object_ref(reference))
+            || self
+                .report_claim
+                .evidence_refs
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != self.report_claim.evidence_refs.len()
+            || self
+                .report_claim
+                .description
+                .as_ref()
+                .is_some_and(|description| {
+                    arkret_wire::string_profiles::validate_short_text(description, 4096).is_err()
+                })
+            || (self.report_claim.report_reason_code == MimiReportReasonCode::Other
+                && self
+                    .report_claim
+                    .description
+                    .as_ref()
+                    .is_none_or(|description| description.trim().is_empty()))
+        {
+            return Err(WireError::Protocol(
+                "MIMI report claim shape is invalid".to_owned(),
+            ));
+        }
+        if self
+            .report_claim
+            .evidence_package
+            .as_ref()
+            .is_some_and(|package| {
+                package
+                    .validate_for_target(&self.report_claim.target_ref)
+                    .is_err()
+            })
+            || self
+                .report_claim
+                .franking_proof
+                .as_ref()
+                .is_some_and(|proof| proof.realm_id != self.report_claim.realm_id)
+        {
+            return Err(WireError::Protocol(
+                "MIMI report evidence does not bind the claim".to_owned(),
+            ));
+        }
+        if self.reporter_authority.actor_id.as_account_id().is_none()
+            || self.reporter_authority.membership_ref.stream_ref.realm_id()
+                != &self.report_claim.realm_id
+            || self
+                .reporter_authority
+                .room_binding_ref
+                .stream_ref
+                .realm_id()
+                != &self.report_claim.realm_id
+            || self.reporter_authority.proof.jws.trim().is_empty()
+        {
+            return Err(WireError::Protocol(
+                "MIMI reporter authority shape is invalid".to_owned(),
+            ));
+        }
+        self.reporter_authority_binding_bytes()?;
+        Ok(())
+    }
+
+    /// Canonical request covered by the holder proof; only the nested proof is omitted.
+    pub fn unsigned_payload(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .get_mut("reporter_authority")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| WireError::Protocol("MIMI reporter_authority is invalid".to_owned()))?
+            .remove("proof");
+        Ok(value)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        mimi_payload_digest(&self.unsigned_payload()?)
+    }
+
+    pub fn reporter_authority_binding_bytes(&self) -> Result<Vec<u8>> {
+        let proof = &self.reporter_authority.proof;
+        let unsigned_payload = self.unsigned_payload()?;
+        let expires_at = unsigned_payload
+            .get("reporter_authority")
+            .and_then(|authority| authority.get("expires_at"))
+            .cloned()
+            .ok_or_else(|| WireError::Protocol("MIMI reporter expires_at is missing".to_owned()))?;
+        if proof.kind != MimiSignatureKind::DetachedJws
+            || proof.domain.as_str() != DomainSeparationId::MIMI_REPORTER_AUTHORITY_PROOF_V1
+        {
+            return Err(WireError::Protocol(
+                "MIMI reporter authority proof domain is invalid".to_owned(),
+            ));
+        }
+        let unsigned = UnsignedPayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: proof.verification_method.clone(),
+            payload_digest: proof.payload_digest.clone(),
+            created_at: proof.created_at,
+            domain: Some(proof.domain.as_str().to_owned()),
+            audience: Some(proof.audience.clone()),
+            proof_purpose: None,
+        };
+        unsigned.validate_production()?;
+        mimi_proof_binding_bytes(
+            DomainSeparationId::MIMI_REPORTER_AUTHORITY_PROOF_V1,
+            ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1,
+            Some(serde_json::to_value(&self.reporter_authority.actor_id)?),
+            vec![
+                ("report_claim", serde_json::to_value(&self.report_claim)?),
+                (
+                    "membership_ref",
+                    serde_json::to_value(&self.reporter_authority.membership_ref)?,
+                ),
+                (
+                    "room_binding_ref",
+                    serde_json::to_value(&self.reporter_authority.room_binding_ref)?,
+                ),
+                ("expires_at", expires_at),
+            ],
+            &mimi_payload_digest(&unsigned_payload)?,
+            &unsigned,
+        )
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -212,16 +456,8 @@ pub struct MimiReportAbuseRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct MimiReportAbuseOutcome {
     pub report_id: ReportId,
-    pub status: MimiReportAbuseStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to_ids: Vec<DidCoreId>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MimiReportAbuseStatus {
-    Queued,
 }
 
 /// Ask a named Arkret holder to grant consent to a named Arkret Actor.
@@ -349,7 +585,7 @@ pub struct MimiUpdateConsentRequestBody {
     pub decision: MimiConsentDecision,
     pub actor_id: ActorId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub consent_event: EventCommitSubmission,
+    pub consent_event: EventAdmissionSubmission,
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
@@ -508,12 +744,12 @@ mod tests {
         }
     }
 
-    fn consent_event(kind: EventKind, payload: Value) -> EventCommitSubmission {
+    fn consent_event(kind: EventKind, payload: Value) -> EventAdmissionSubmission {
         let realm_id = RealmId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [0x21; 32],
         ));
-        EventCommitSubmission::new(
+        EventAdmissionSubmission::new(
             test_support::raw_event_for_actor_at(
                 kind.as_str(),
                 ScopeRef::Realm { realm_id },
@@ -967,6 +1203,51 @@ mod mimi_relay_tests {
     const EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
     const DIGEST: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+
+    #[test]
+    fn key_material_request_proof_binds_exact_device_and_unsigned_body() {
+        let original: MimiKeyMaterialRequestBody = serde_json::from_value(json!({
+            "requester_id": "ak:did_core:web:provider.example",
+            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
+            "device_id": DEVICE,
+            "epoch": 3
+        }))
+        .unwrap();
+        let proof = PayloadProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:web:provider.example#key-1").unwrap(),
+            payload_digest: original.payload_digest().unwrap(),
+            created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
+            domain: Some(ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1.to_owned()),
+            audience: Some(arkret_wire::Audience::Single(
+                "ak:did_core:web:station.example".to_owned(),
+            )),
+            proof_purpose: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
+        };
+        let original_bytes = original.proof_binding_bytes(&proof).unwrap();
+        let transcript = String::from_utf8(original_bytes.clone()).unwrap();
+        assert!(transcript.contains(ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1));
+        assert!(
+            transcript.contains(ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1)
+        );
+        assert!(transcript.contains("\"device_id\""));
+
+        let changed: MimiKeyMaterialRequestBody = serde_json::from_value(json!({
+            "requester_id": "ak:did_core:web:provider.example",
+            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
+            "device_id": "ak:device:0198ff00-0000-7000-8000-000000000002",
+            "epoch": 3
+        }))
+        .unwrap();
+        assert!(changed.proof_binding_bytes(&proof).is_err());
+        let mut changed_proof = proof;
+        changed_proof.payload_digest = changed.payload_digest().unwrap();
+        assert_ne!(
+            original_bytes,
+            changed.proof_binding_bytes(&changed_proof).unwrap()
+        );
+    }
 
     fn identifier_query_request_value() -> Value {
         json!({

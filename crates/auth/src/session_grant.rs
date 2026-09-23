@@ -50,7 +50,6 @@ pub fn human_session_grant_refresh_request(
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_proof_session_grant_request(
     principal_id: DidCoreId,
-    device_id: DeviceId,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: EventId,
     agent_scope_request: SessionGrantAgentScopeRequest,
@@ -65,7 +64,6 @@ pub fn agent_key_proof_session_grant_request(
 ) -> crate::Result<SessionGrantRequestBody> {
     let request = UnsignedAgentSessionGrantRequest::new(
         principal_id,
-        device_id,
         requested_scope,
         agent_key_authorization_ref,
         agent_scope_request,
@@ -93,7 +91,6 @@ mod tests {
     fn empty_agent_scope_is_rejected() {
         let error = agent_key_proof_session_grant_request(
             DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             Vec::new(),
             EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap(),
             SessionGrantAgentScopeRequest {

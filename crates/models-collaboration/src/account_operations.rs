@@ -6,7 +6,7 @@ use arkret_models_identity::{
     HandleClaim, IdentityCreationRegistration,
 };
 use arkret_wire::{
-    Did, DidCoreId, EventCommitSubmission, EventKind, Hash, RealmCommit, Result, WireError,
+    Did, DidCoreId, EventAdmissionSubmission, EventKind, Hash, RealmCommit, Result, WireError,
     project_did_to_core_id,
 };
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,7 @@ impl AccountRegisterOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
-    pub profile_event: EventCommitSubmission,
+    pub profile_event: EventAdmissionSubmission,
 }
 
 impl AccountUpdateProfileRequestBody {

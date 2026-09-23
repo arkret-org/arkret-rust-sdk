@@ -2,8 +2,8 @@
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, Base64UrlString, Did, DidCoreId, DidUrl, Event, Hash, NonEmptyString, OpaqueLocalId,
-    PayloadProof, ProofContextId, RequestId, Result, SchemaId, WireError, canonical,
+    Base64UrlString, Did, DidCoreId, DidUrl, EventAdmissionSubmission, Hash, NonEmptyString,
+    OpaqueLocalId, PayloadProof, ProofContextId, RequestId, Result, SchemaId, WireError, canonical,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -17,18 +17,21 @@ pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
     ProofContextId::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1;
 pub const AGENT_RUNTIME_KEY_BINDING_KIND: &str = "ak.agent.runtime_key_binding.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentRuntimeKeyPossessionProofKind {
     #[serde(rename = "agent_runtime_key_possession")]
     AgentRuntimeKeyPossession,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentRuntimeKeyAlgorithm {
     #[serde(rename = "Ed25519")]
     Ed25519,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeKeyPossessionProof {
@@ -284,9 +287,10 @@ pub struct AgentKeyPairRequestBody {
     pub approval_request_id: OpaqueLocalId,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub authorize_event: Event,
+    pub authorize_event: EventAdmissionSubmission,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalRequestBody {
@@ -300,57 +304,19 @@ pub struct AgentRuntimeApprovalRequestBody {
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentPairingBootstrap {
-    pub arkret_base_url: String,
-    pub service_id: DidCoreId,
-    pub agent_id: DidCoreId,
-    pub pairing_request_id: OpaqueLocalId,
-    pub pairing_code: String,
-    #[serde(with = "canonical_timestamp")]
-    pub pairing_expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_identity: Option<AgentPairingRuntimeIdentity>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentPairingRuntimeIdentity {
-    pub controller_account_id: AccountId,
-    pub verification_method: DidUrl,
-}
-
-impl AgentPairingBootstrap {
-    pub const SCHEMA: &'static str = SchemaId::AGENT_PAIRING_BOOTSTRAP_V1;
-
-    pub fn validated_runtime_identity(
-        &self,
-    ) -> std::result::Result<&AgentPairingRuntimeIdentity, String> {
-        let identity = self.runtime_identity.as_ref().ok_or_else(|| {
-            "Pairing service did not provide runtime identity; resolve a new pairing link"
-                .to_owned()
-        })?;
-        identity
-            .controller_account_id
-            .validate()
-            .map_err(|error| error.to_string())?;
-        let (controller, _) = identity
-            .verification_method
-            .as_str()
-            .rsplit_once('#')
-            .filter(|(_, fragment)| !fragment.is_empty())
-            .ok_or_else(|| {
-                "Pairing runtime verification method must be a complete DID URL".to_owned()
-            })?;
-        let did = Did::new(controller.to_owned()).map_err(|error| error.to_string())?;
-        if project_did_to_core_id(&did).map_err(|error| error.to_string())? != self.agent_id {
-            return Err(
-                "Pairing runtime verification method does not belong to the paired Agent"
-                    .to_owned(),
-            );
+impl AgentRuntimeApprovalRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        let code = self.pairing_code.as_str();
+        if !(22..=128).contains(&code.len())
+            || !code
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
+            return Err(WireError::Protocol(
+                "Agent pairing secret does not match the closed pairing_secret shape".to_owned(),
+            ));
         }
-        Ok(identity)
+        Ok(())
     }
 }
 

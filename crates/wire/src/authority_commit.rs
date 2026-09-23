@@ -15,8 +15,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    ActorId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event, HistoryAccess, Result,
-    ScopeRef, WireError,
+    ActorId, AgentKeyId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event,
+    HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -517,6 +517,17 @@ pub struct MlsWelcomeDelivery {
 
 impl MlsWelcomeDelivery {
     pub fn validate_shape(&self) -> Result<()> {
+        let ciphertext =
+            crate::base64url::base64url_decode(self.ciphertext_b64.as_str()).map_err(|_| {
+                WireError::Protocol("MLS Welcome ciphertext is not base64url".to_owned())
+            })?;
+        if ciphertext.is_empty()
+            || crate::base64url::base64url_encode(&ciphertext) != self.ciphertext_b64.as_str()
+        {
+            return Err(WireError::Protocol(
+                "MLS Welcome ciphertext must be canonical unpadded base64url".to_owned(),
+            ));
+        }
         if self.effective_scope == ScopeRef::RealmGenesis
             || self.effective_scope.realm_id_opt() != Some(&self.realm_id)
         {
@@ -535,13 +546,13 @@ impl MlsWelcomeDelivery {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventCommitSubmission {
+pub struct EventAdmissionSubmission {
     pub event: Event,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_signatures: Option<Vec<ApprovalSignature>>,
 }
 
-impl EventCommitSubmission {
+impl EventAdmissionSubmission {
     #[must_use]
     pub fn new(event: Event) -> Self {
         Self {
@@ -827,6 +838,16 @@ pub enum CurrentSelector {
     MemberState {
         actor_id: ActorId,
     },
+    AgentKey {
+        agent_id: DidCoreId,
+        agent_key_id: AgentKeyId,
+    },
+    AgentStatus {
+        agent_id: DidCoreId,
+    },
+    MimiRoomBinding {
+        mimi_room_uri: MimiRoomUri,
+    },
     Strand {
         strand_id: StrandId,
     },
@@ -843,12 +864,34 @@ pub enum CurrentSelector {
 enum FlatCurrentSelector {
     RealmProfile,
     RealmPolicy,
-    DeviceAuthorization { device_id: DeviceId },
-    DeviceRevocationProposals { device_id: DeviceId },
-    MemberState { actor_id: ActorId },
-    Strand { strand_id: StrandId },
-    MessageReactions { event_id: EventId },
-    MlsGroup { scope_ref: ScopeRef },
+    DeviceAuthorization {
+        device_id: DeviceId,
+    },
+    DeviceRevocationProposals {
+        device_id: DeviceId,
+    },
+    MemberState {
+        actor_id: ActorId,
+    },
+    AgentKey {
+        agent_id: DidCoreId,
+        agent_key_id: AgentKeyId,
+    },
+    AgentStatus {
+        agent_id: DidCoreId,
+    },
+    MimiRoomBinding {
+        mimi_room_uri: MimiRoomUri,
+    },
+    Strand {
+        strand_id: StrandId,
+    },
+    MessageReactions {
+        event_id: EventId,
+    },
+    MlsGroup {
+        scope_ref: ScopeRef,
+    },
 }
 
 impl<'de> Deserialize<'de> for CurrentSelector {
@@ -898,6 +941,17 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::DeviceRevocationProposals { device_id }
                     }
                     FlatCurrentSelector::MemberState { actor_id } => Self::MemberState { actor_id },
+                    FlatCurrentSelector::AgentKey {
+                        agent_id,
+                        agent_key_id,
+                    } => Self::AgentKey {
+                        agent_id,
+                        agent_key_id,
+                    },
+                    FlatCurrentSelector::AgentStatus { agent_id } => Self::AgentStatus { agent_id },
+                    FlatCurrentSelector::MimiRoomBinding { mimi_room_uri } => {
+                        Self::MimiRoomBinding { mimi_room_uri }
+                    }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
                     FlatCurrentSelector::MessageReactions { event_id } => {
                         Self::MessageReactions { event_id }
@@ -1055,7 +1109,7 @@ pub enum TypedCurrentResult {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AuthoritySubmitRequest {
-    Event(EventCommitSubmission),
+    Event(EventAdmissionSubmission),
     MlsCommit(MlsCommitSubmission),
 }
 
@@ -1684,6 +1738,45 @@ mod tests {
             json!({"kind":"device_revocation_proposals"}),
             json!({"kind":"device_revocation_proposals","device_id":device,"principal_id":"extra"}),
             json!({"kind":"device_revocation_proposals","device_id":null}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn agent_current_selectors_round_trip_closed_shapes() {
+        let agent_id = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
+        let agent_key_id = AgentKeyId::new("runtime_key-1").unwrap();
+        for (selector, wire) in [
+            (
+                CurrentSelector::AgentKey {
+                    agent_id: agent_id.clone(),
+                    agent_key_id: agent_key_id.clone(),
+                },
+                json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":agent_key_id}),
+            ),
+            (
+                CurrentSelector::AgentStatus {
+                    agent_id: agent_id.clone(),
+                },
+                json!({"kind":"agent_status","agent_id":agent_id}),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        for invalid in [
+            json!({"kind":"agent_key","agent_id":agent_id}),
+            json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":""}),
+            json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":"runtime_key-1","account_id":"extra"}),
+            json!({"kind":"agent_status"}),
+            json!({"kind":"agent_status","agent_id":agent_id,"agent_key_id":"runtime_key-1"}),
         ] {
             assert!(
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),

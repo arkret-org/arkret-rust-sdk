@@ -24,7 +24,7 @@ use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame,
 };
 use arkret_wire::{
-    ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventCommitSubmission, EventId,
+    ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventAdmissionSubmission, EventId,
     MlsCommitSubmission, RealmId, RealmStateSnapshot, StreamScanOutcome, StreamScanRequest,
 };
 use reqwest::header::CONTENT_TYPE;
@@ -217,13 +217,13 @@ impl CommittedEventSubscribeFrameStream {
 }
 
 impl Client {
-    /// Submit one producer-signed Event as `EventCommitSubmission { event }`.
+    /// Submit one producer-signed Event as `EventAdmissionSubmission { event }`.
     ///
     /// The Event itself carries no ordering: the returned outcome's
     /// `RealmCommit` is what places it at one `stream_position` of one stream.
     pub async fn submit_event(
         &self,
-        submission: &EventCommitSubmission,
+        submission: &EventAdmissionSubmission,
     ) -> Result<AuthoritySubmitOutcome> {
         self.submit_event_with_options(submission, &ClientRequestOptions::default())
             .await
@@ -231,7 +231,7 @@ impl Client {
 
     pub async fn submit_event_with_options(
         &self,
-        submission: &EventCommitSubmission,
+        submission: &EventAdmissionSubmission,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
         let request = SelfAuthoritySubmitRequest::Event(submission.clone());

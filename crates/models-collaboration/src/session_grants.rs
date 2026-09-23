@@ -135,7 +135,6 @@ impl HumanSessionGrantRequest {
 #[serde(deny_unknown_fields)]
 pub struct AgentSessionGrantRequest {
     pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
     pub requested_scope: Vec<String>,
     /// Event id of the accepted `ak.agent.key.authorize` that authorized the
     /// runtime key. The Spec pins it to the `ak:event:` form, and
@@ -297,7 +296,6 @@ pub struct UnsignedAgentSessionGrantProof {
 #[derive(Clone, Debug)]
 pub struct UnsignedAgentSessionGrantRequest {
     pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
     pub requested_scope: Vec<String>,
     /// Event id of the accepted `ak.agent.key.authorize` that authorized the
     /// runtime key. The Spec pins it to the `ak:event:` form, and
@@ -315,7 +313,6 @@ impl UnsignedAgentSessionGrantRequest {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         principal_id: DidCoreId,
-        device_id: DeviceId,
         requested_scope: Vec<String>,
         agent_key_authorization_ref: EventId,
         agent_scope_request: SessionGrantAgentScopeRequest,
@@ -335,7 +332,6 @@ impl UnsignedAgentSessionGrantRequest {
         }
         Ok(Self {
             principal_id,
-            device_id,
             requested_scope,
             agent_key_authorization_ref,
             agent_scope_request,
@@ -354,7 +350,6 @@ impl UnsignedAgentSessionGrantRequest {
         let request_canonical_digest = self.canonical_request_digest()?;
         Ok(SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
             principal_id: self.principal_id,
-            device_id: self.device_id,
             requested_scope: self.requested_scope,
             agent_key_authorization_ref: self.agent_key_authorization_ref,
             agent_scope_request: self.agent_scope_request,
@@ -377,7 +372,6 @@ impl UnsignedAgentSessionGrantRequest {
     fn unsigned_request_value(&self) -> Value {
         let mut value = serde_json::json!({
             "principal_id": &self.principal_id,
-            "device_id": &self.device_id,
             "requested_scope": &self.requested_scope,
             "agent_key_authorization_ref": &self.agent_key_authorization_ref,
             "agent_scope_request": &self.agent_scope_request,
@@ -1141,7 +1135,6 @@ mod tests {
     fn unsigned_agent_request() -> UnsignedAgentSessionGrantRequest {
         UnsignedAgentSessionGrantRequest::new(
             DidCoreId::new(PRINCIPAL).unwrap(),
-            DeviceId::new(DEVICE).unwrap(),
             vec!["ak.self.committed_event.read.scan.v1".to_owned()],
             EventId::new(AUTHORIZATION).unwrap(),
             SessionGrantAgentScopeRequest {
@@ -1198,6 +1191,14 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("agent_key_authorization_ref".to_owned(), json!("not-an-id"));
+        assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
+    }
+
+    #[test]
+    fn agent_session_request_rejects_device_id() {
+        let mut encoded = serde_json::to_value(signed_agent_request()).unwrap();
+        assert!(encoded.get("device_id").is_none());
+        encoded["device_id"] = json!(DEVICE);
         assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
     }
 

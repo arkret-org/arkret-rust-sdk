@@ -141,12 +141,12 @@ impl ArkretMlsGroup {
         envelope: &SignalEnvelope,
         current_authority: SignalSenderAuthority<'_>,
         accepted_group_state_ref: &str,
-        accepted_stream_head_ref: &RealmCommitId,
+        accepted_authority_commit_id: &RealmCommitId,
         replay: &mut AeadNonceReplayTracker,
     ) -> Result<Vec<u8>> {
         envelope.validate_structural()?;
         if envelope.encrypted_payload.key_ref.group_state_ref != accepted_group_state_ref
-            || &envelope.stream_head_ref != accepted_stream_head_ref
+            || &envelope.authority_commit_id != accepted_authority_commit_id
         {
             return Err(Error::Protocol(
                 "signal does not bind the accepted MLS state and independent stream head"

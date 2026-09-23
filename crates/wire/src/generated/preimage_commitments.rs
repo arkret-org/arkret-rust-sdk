@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-22.1;
-//! sha256=c6adf6dedbed287f02a2f0a370c5e8d7236af40e5bf8def07a6252ebd057a7d8 Input: reachable event
+//! sha256=68136a421dee7fd05a814b4fbefef612c2445b298754b60a1001ab23dfcb2d7b Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=74096e445f144f2f97e7175dc1df830b0aaf0be6d1656651247f93afb653fdcb
-//! Entries: preimage_commitments=34
+//! sha256=c02db4d646fdd8b76ed01c01081d306f43f681604cf7084b896f2fa436f01569
+//! Entries: preimage_commitments=36
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -137,6 +137,16 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/member_identity_update_payload/properties/replaces/items/properties/event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/mimi_room_binding_migration_proof/properties/migrating_event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/mimi_room_binding_migration_proof/properties/previous_accepted_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

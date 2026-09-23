@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::account_subscribe_projections::AgentRuntimeApprovalNotificationData;
-use crate::device_messages::DeviceMessageEnvelope;
+use crate::device_messages::RecipientDelivery;
 use crate::events_payloads::account_data::parse_agent_draft_account_data_key;
 use crate::events_payloads::agent::{AgentActionTarget, AgentDraftContentHandoff};
 use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionContent};
@@ -172,7 +172,7 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<AccountSubscribeRealms>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_device: Option<DeviceMessageContainer>,
+    pub to_device: Option<RecipientDeliveryContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -583,9 +583,9 @@ pub struct EventContainer {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct DeviceMessageContainer {
+pub struct RecipientDeliveryContainer {
     #[serde(default)]
-    pub messages: Vec<DeviceMessageEnvelope>,
+    pub deliveries: Vec<RecipientDelivery>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -600,7 +600,7 @@ pub struct DeviceMessageContainer {
 mod open_container_tests {
     use serde_json::json;
 
-    use super::{DeviceMessageContainer, EventContainer};
+    use super::{RecipientDeliveryContainer, EventContainer};
 
     #[test]
     fn account_subscribe_open_containers_accept_extensions_without_re_emitting_them() {
@@ -612,21 +612,21 @@ mod open_container_tests {
         assert!(events.events.is_empty());
         assert_eq!(serde_json::to_value(events).unwrap(), json!({"events": []}));
 
-        let messages: DeviceMessageContainer = serde_json::from_value(json!({
-            "messages": [],
+        let messages: RecipientDeliveryContainer = serde_json::from_value(json!({
+            "deliveries": [],
             "limited": false,
             "x_future_queue_hint": 1
         }))
         .unwrap();
-        assert!(messages.messages.is_empty());
+        assert!(messages.deliveries.is_empty());
         assert_eq!(
             serde_json::to_value(messages).unwrap(),
-            json!({"messages": [], "limited": false})
+            json!({"deliveries": [], "limited": false})
         );
 
         assert!(serde_json::from_value::<EventContainer>(json!({"events": false})).is_err());
         assert!(
-            serde_json::from_value::<DeviceMessageContainer>(json!({"messages": false})).is_err()
+            serde_json::from_value::<RecipientDeliveryContainer>(json!({"deliveries": false})).is_err()
         );
     }
 }

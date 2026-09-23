@@ -517,7 +517,7 @@ pub struct AgentSidecarMlsContext {
     /// ownership, Agent lifecycle/runtime-key authorization, and exact Realm
     /// membership. Action grants, participation selections and key-readiness
     /// results are excluded.
-    pub authority_stream_head: Vec<String>,
+    pub authority_stream_head: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -535,6 +535,15 @@ impl AgentSidecarMlsContext {
         if self.authority_stream_head.is_empty() {
             return Err(WireError::Protocol(
                 "sidecar MLS context carries at least one authority ref".to_owned(),
+            ));
+        }
+        if self
+            .authority_stream_head
+            .windows(2)
+            .any(|pair| pair[0].as_str() >= pair[1].as_str())
+        {
+            return Err(WireError::Protocol(
+                "sidecar MLS authority refs must be sorted and unique".to_owned(),
             ));
         }
         let present = usize::from(self.mls_group_id.is_some())
@@ -848,7 +857,7 @@ mod tests {
     fn mls_context_group_members_travel_together() {
         let value = json!({
             "participant_authority_digest": format!("sha256:{}", "cd".repeat(32)),
-            "authority_stream_head": ["ak:event:fixture-authority-ref"],
+            "authority_stream_head": [event_id(8)],
             "current_controller_device_ready": false
         });
         let parsed: AgentSidecarMlsContext =

@@ -6,8 +6,8 @@ use arkret_models_identity::{
     ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, CommittedEventRef, Did, DidCoreId, DidUrl, EventKind, GrantId, Hash,
-    PayloadSigner, ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    ActorId, AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
+    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -90,7 +90,7 @@ pub struct AppletManagedActorProvisionPayload {
     pub actor_role: AppletManagedActorRole,
     pub initial_resolution: ResolutionCommitment,
     pub method_history_evidence: AppletManagedActorMethodHistoryEvidence,
-    pub registration_ref: CommittedEventRef,
+    pub registration_ref: EventId,
     pub applet_authority_ref: GrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<GhostExternalTuple>,

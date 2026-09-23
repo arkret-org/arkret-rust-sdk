@@ -621,8 +621,6 @@ mod tests {
     fn session_grant_request() -> SessionGrantRequestBody {
         SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
             principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
-            device_id: arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000041")
-                .unwrap(),
             requested_scope: vec!["ak.message.create".to_owned()],
             agent_key_authorization_ref: arkret_wire::EventId::new(
                 "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",

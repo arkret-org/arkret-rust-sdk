@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=ad9e3571f3c43649bb5526ff46e83266879f0a1ace86db4cdf917b85208df890
+//! sha256=80f4e8ff6463ded688190f3092213a43e6b00896116a144123256f58d6a17c99
 //! Entries: forbidden_wire_fields=245
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,20 +25,6 @@ pub struct ForbiddenWireFieldDescriptor {
 
 pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     ForbiddenWireFieldDescriptor {
-        id: "events",
-        context: "account_subscribe_device_message_container",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "account-subscribe-frame.schema.json#/$defs/device_message_container",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["events"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "space_entry",
         context: "account_subscribe_frame_schema_def",
         rejection_level: "hard_reject",
@@ -50,6 +36,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["space_entry"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "events",
+        context: "account_subscribe_recipient_delivery_container",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "account-subscribe-frame.schema.json#/$defs/recipient_delivery_container",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["events"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

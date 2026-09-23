@@ -12,7 +12,7 @@
 
 use arkret_models_identity::SessionGrantCredentialClass;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, RequestId, Result, SessionGrantId,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, RequestId, Result, SessionGrantId,
     WireError, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -70,7 +70,8 @@ pub struct AgentSessionGrantRefreshRequest {
     /// When present, it must equal the predecessor grant audience.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience_id: Option<DidCoreId>,
-    pub device_id: DeviceId,
+    pub principal_id: DidCoreId,
+    pub agent_key_authorization_ref: EventId,
     pub agent_session_refresh_proof: AgentSessionRefreshProof,
 }
 
@@ -197,7 +198,7 @@ struct AgentSessionRefreshRequestDigestInput<'a> {
     operation: &'static str,
     grant_jwt_digest: String,
     principal_id: &'a DidCoreId,
-    device_id: &'a DeviceId,
+    agent_key_authorization_ref: &'a EventId,
     audience_id: &'a DidCoreId,
     verification_method: &'a DidUrl,
 }
@@ -209,7 +210,7 @@ struct AgentSessionRefreshRequestDigestInput<'a> {
 pub fn agent_session_refresh_request_digest(
     grant_jwt: &str,
     principal_id: &DidCoreId,
-    device_id: &DeviceId,
+    agent_key_authorization_ref: &EventId,
     audience_id: &DidCoreId,
     verification_method: &DidUrl,
 ) -> Result<Hash> {
@@ -218,7 +219,7 @@ pub fn agent_session_refresh_request_digest(
             operation: AGENT_SESSION_REFRESH_OPERATION,
             grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
             principal_id,
-            device_id,
+            agent_key_authorization_ref,
             audience_id,
             verification_method,
         },
@@ -275,6 +276,7 @@ mod tests {
     const PRINCIPAL: &str = "ak:did_core:web:alice.example";
     const AUDIENCE: &str = "ak:did_core:web:station.example";
     const VERIFICATION_METHOD: &str = "did:web:agent.example#key-1";
+    const AUTHORIZATION: &str = "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g";
 
     fn signature() -> String {
         "A".repeat(86)
@@ -296,7 +298,8 @@ mod tests {
         json!({
             "grant_jwt": "header.body.signature",
             "audience_id": AUDIENCE,
-            "device_id": DEVICE,
+            "principal_id": PRINCIPAL,
+            "agent_key_authorization_ref": AUTHORIZATION,
             "agent_session_refresh_proof": refresh_proof_value()
         })
     }
@@ -381,8 +384,16 @@ mod tests {
         assert_rejects_unknown_member::<AgentSessionGrantRefreshRequest>(agent_refresh_value());
         assert_rejects_each_omitted_required_member::<AgentSessionGrantRefreshRequest>(
             agent_refresh_value(),
-            &["grant_jwt", "device_id", "agent_session_refresh_proof"],
+            &[
+                "grant_jwt",
+                "principal_id",
+                "agent_key_authorization_ref",
+                "agent_session_refresh_proof",
+            ],
         );
+        let mut with_device = agent_refresh_value();
+        with_device["device_id"] = json!(DEVICE);
+        assert!(serde_json::from_value::<AgentSessionGrantRefreshRequest>(with_device).is_err());
     }
 
     #[test]
@@ -485,13 +496,13 @@ mod tests {
     #[test]
     fn refresh_request_digest_hashes_the_predecessor_grant() {
         let principal_id = DidCoreId::new(PRINCIPAL).unwrap();
-        let device_id = DeviceId::new(DEVICE).unwrap();
+        let authorization_ref = EventId::new(AUTHORIZATION).unwrap();
         let audience_id = DidCoreId::new(AUDIENCE).unwrap();
         let verification_method = DidUrl::new(VERIFICATION_METHOD).unwrap();
         let first = agent_session_refresh_request_digest(
             "header.body.signature",
             &principal_id,
-            &device_id,
+            &authorization_ref,
             &audience_id,
             &verification_method,
         )
@@ -499,18 +510,30 @@ mod tests {
         let second = agent_session_refresh_request_digest(
             "header.body.other",
             &principal_id,
-            &device_id,
+            &authorization_ref,
             &audience_id,
             &verification_method,
         )
         .unwrap();
         assert_ne!(first, second);
+        let other_ref = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x55; 32]);
+        assert_ne!(
+            first,
+            agent_session_refresh_request_digest(
+                "header.body.signature",
+                &principal_id,
+                &other_ref,
+                &audience_id,
+                &verification_method,
+            )
+            .unwrap()
+        );
         assert_eq!(
             first,
             agent_session_refresh_request_digest(
                 "header.body.signature",
                 &principal_id,
-                &device_id,
+                &authorization_ref,
                 &audience_id,
                 &verification_method,
             )

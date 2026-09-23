@@ -3,13 +3,13 @@
 //!
 //! A shared durable Event is handed to the current governance Station, which
 //! answers with an authority-signed `RealmCommit`. The only submission shape
-//! is [`EventCommitSubmission`]: these bodies carry producer Events and
+//! is [`EventAdmissionSubmission`]: these bodies carry producer Events and
 //! nothing else, and never a predecessor pointer or stream position of their
 //! own.
 
 use serde::{Deserialize, Serialize};
 
-use crate::authority_commit::EventCommitSubmission;
+use crate::authority_commit::EventAdmissionSubmission;
 use crate::error::{Result, WireError};
 use crate::event_envelope::Event;
 
@@ -44,8 +44,8 @@ impl EventSubmitEnvelope {
 
     /// Lift this envelope into the sole Station submission shape.
     #[must_use]
-    pub fn into_commit_submission(self) -> EventCommitSubmission {
-        EventCommitSubmission::new(self.0)
+    pub fn into_commit_submission(self) -> EventAdmissionSubmission {
+        EventAdmissionSubmission::new(self.0)
     }
 }
 
@@ -55,14 +55,14 @@ impl From<Event> for EventSubmitEnvelope {
     }
 }
 
-impl From<EventSubmitEnvelope> for EventCommitSubmission {
+impl From<EventSubmitEnvelope> for EventAdmissionSubmission {
     fn from(envelope: EventSubmitEnvelope) -> Self {
         envelope.into_commit_submission()
     }
 }
 
-impl From<EventCommitSubmission> for EventSubmitEnvelope {
-    fn from(submission: EventCommitSubmission) -> Self {
+impl From<EventAdmissionSubmission> for EventSubmitEnvelope {
+    fn from(submission: EventAdmissionSubmission) -> Self {
         Self(submission.event)
     }
 }
@@ -73,11 +73,11 @@ impl From<EventCommitSubmission> for EventSubmitEnvelope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventsSubmitBatchRequestBody {
-    pub events: Vec<EventCommitSubmission>,
+    pub events: Vec<EventAdmissionSubmission>,
 }
 
 impl EventsSubmitBatchRequestBody {
-    pub fn new(events: Vec<EventCommitSubmission>) -> Result<Self> {
+    pub fn new(events: Vec<EventAdmissionSubmission>) -> Result<Self> {
         let body = Self { events };
         body.validate()?;
         Ok(body)
@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn submit_envelope_is_the_only_commit_submission_shape() {
         let envelope = EventSubmitEnvelope::from(fixture_event());
-        let submission = EventCommitSubmission::from(envelope.clone());
+        let submission = EventAdmissionSubmission::from(envelope.clone());
         assert_eq!(submission.event, *envelope.event());
         assert_eq!(EventSubmitEnvelope::from(submission), envelope);
     }
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn batch_body_round_trips_over_commit_submissions() {
         let body =
-            EventsSubmitBatchRequestBody::new(vec![EventCommitSubmission::new(fixture_event())])
+            EventsSubmitBatchRequestBody::new(vec![EventAdmissionSubmission::new(fixture_event())])
                 .unwrap();
         let encoded = serde_json::to_value(&body).unwrap();
         assert!(encoded["events"][0].get("event").is_some());
@@ -202,7 +202,7 @@ mod tests {
     fn batch_body_bounds_the_event_count() {
         assert!(EventsSubmitBatchRequestBody::new(Vec::new()).is_err());
         let oversized = (0..=EVENTS_SUBMIT_BATCH_MAX_EVENTS)
-            .map(|_| EventCommitSubmission::new(fixture_event()))
+            .map(|_| EventAdmissionSubmission::new(fixture_event()))
             .collect::<Vec<_>>();
         assert!(EventsSubmitBatchRequestBody::new(oversized).is_err());
     }

@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 /// types from this module.
 pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{ActorId, EventCommitSubmission, HistoryAccess, RealmId, SchemaId};
+use arkret_wire::{ActorId, EventAdmissionSubmission, HistoryAccess, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -241,7 +241,7 @@ pub struct CircleCreateRequestBody {
     /// bytes through ordinary Event admission and MUST NOT co-sign, rebuild or
     /// synthesize the Event.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub create_event: EventCommitSubmission,
+    pub create_event: EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -286,7 +286,7 @@ pub struct CircleMemberRequestBody {
     /// closed, and the `ak.circle.member.manage` decision is the admission path's,
     /// evaluated against projected grants rather than asserted by the request.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub member_event: EventCommitSubmission,
+    pub member_event: EventAdmissionSubmission,
 }
 
 /// Request body for `ak.self.circle.member.resource.delete.v1`.
@@ -299,7 +299,7 @@ pub struct CircleMemberRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMemberDeleteRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub member_event: EventCommitSubmission,
+    pub member_event: EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
