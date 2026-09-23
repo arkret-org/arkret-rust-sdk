@@ -256,7 +256,6 @@ pub use arkret_models_crypto::recovery_session::*;
 pub use arkret_models_crypto::secret_share::*;
 pub use arkret_models_crypto::security_transaction::*;
 pub use arkret_models_discovery::directory::*;
-pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
 pub use arkret_models_discovery::ops;
 pub use arkret_models_discovery::presence::{

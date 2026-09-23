@@ -1,16 +1,16 @@
 {
   "summary": {
-    "total": 1294,
+    "total": 1293,
     "by_classification": {
       "A": 4,
       "B": 712,
       "C_violation": 2,
-      "needs_review": 576
+      "needs_review": 575
     },
     "by_openness": {
       "closed": 716,
       "open": 2,
-      "unresolved": 575,
+      "unresolved": 574,
       "unspecified": 1
     },
     "by_crate": {
@@ -20,7 +20,7 @@
       "mls": 4,
       "models-collaboration": 734,
       "models-crypto": 162,
-      "models-discovery": 23,
+      "models-discovery": 22,
       "models-identity": 131,
       "models-integration": 90,
       "policy": 1,
@@ -12066,19 +12066,6 @@
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_resolve_realm_request_body",
       "schema_openness": "closed",
       "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-discovery/src/directory_artifacts.rs::ObjectPreview",
-      "crate": "models-discovery",
-      "file": "crates/models-discovery/src/directory_artifacts.rs",
-      "line": 12,
-      "kind": "struct",
-      "value_kind": "ObjectPreview",
-      "spec_pointer": "directory-operations.schema.json#/$defs/object_preview",
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
       "cfg_gated": false,
       "flatten_extra": false
     },
