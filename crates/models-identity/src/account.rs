@@ -1,8 +1,8 @@
 use arkret_wire::{
-    AppletId, CommittedEventRef, DetachedSignatureAlgorithm, DeviceId, Did, DidCoreId, DidUrl,
-    Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId, ScopeRef,
-    ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
-    project_did_to_core_id,
+    AppletId, DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId,
+    DidUrl, EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result,
+    SchemaId, ScopeRef, ServiceOperationId, SessionGrantId, SignerEvidenceRef, TrustDomainId,
+    WebOrigin, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -243,15 +243,16 @@ pub struct AccountDataDeleteOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_source: Option<DeviceSummaryVerificationSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
+    pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub authorization_ref: Option<CommittedEventRef>,
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<DateTime<Utc>>,
@@ -261,14 +262,19 @@ pub struct AccountDeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
 }
 
 impl AccountDeviceSummary {
     pub fn validate(&self) -> Result<()> {
         validate_device_summary_evidence(
+            self.status,
             self.verification_state,
             self.verification_source,
-            self.authorization_ref.as_ref(),
+            self.authorized_event_ref.as_ref(),
+            self.signer_resolution_evidence_ref.as_ref(),
+            self.revocation_states.as_deref(),
         )
     }
 }
@@ -1845,7 +1851,7 @@ mod account_data_tests {
     }
 
     #[test]
-    fn verified_device_summary_requires_exact_committed_authorization() {
+    fn verified_device_summary_requires_exact_authorization_and_signer_evidence() {
         let mut value = json!({
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "status": "active",
@@ -1855,17 +1861,18 @@ mod account_data_tests {
         let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
         assert!(summary.validate().is_err());
 
-        value["authorization_ref"] = json!({
-            "event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
-            "commit_id": arkret_wire::RealmCommitId::from_digest([7; 32]),
-            "stream_ref": {
-                "kind": "realm",
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            },
-            "stream_position": 1
-        });
+        value["authorized_event_ref"] =
+            json!("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e");
         let summary: AccountDeviceSummary = serde_json::from_value(value).unwrap();
+        assert!(summary.validate().is_err());
+
+        let mut value = serde_json::to_value(summary).unwrap();
+        value["signer_resolution_evidence_ref"] =
+            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
         summary.validate().unwrap();
+        value["authorization_ref"] = json!("retired");
+        assert!(serde_json::from_value::<AccountDeviceSummary>(value).is_err());
     }
 }
 
