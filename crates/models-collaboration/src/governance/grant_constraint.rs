@@ -459,8 +459,6 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_reject_on_timeout: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_morph_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub approver_ids: Vec<DidCoreId>,
@@ -582,7 +580,6 @@ impl GrantConstraint {
             approval_relation: None,
             timeout: None,
             auto_reject_on_timeout: None,
-            proposal_morph_kind: None,
             approval_threshold: None,
             approver_ids: Vec::new(),
             accountability_required: None,
@@ -725,4 +722,29 @@ pub struct CapabilityGrant {
         with = "optional_canonical_timestamp"
     )]
     pub revoked_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grant_constraint_rejects_retired_proposal_morph_kind() {
+        let mut constraint = GrantConstraint::new(
+            GrantConstraintKind::ClaimBased,
+            GrantConstraintEffect::RequireReview,
+        );
+        constraint
+            .extensions
+            .insert("x_review_note", Value::Bool(true))
+            .unwrap();
+        let wire = serde_json::to_value(&constraint).unwrap();
+        assert!(wire.get("proposal_morph_kind").is_none());
+        assert_eq!(wire["x_review_note"], true);
+        assert!(serde_json::from_value::<GrantConstraint>(wire.clone()).is_ok());
+
+        let mut retired = wire;
+        retired["proposal_morph_kind"] = Value::String("old_proposal".to_owned());
+        assert!(serde_json::from_value::<GrantConstraint>(retired).is_err());
+    }
 }
