@@ -1024,6 +1024,10 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/direct_conversation.rs::DirectConversationBoundPayload",
       "schema": "event-payload.schema.json#/$defs/direct_conversation_bound_payload"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup_operations.rs::BackupActiveSeriesState",
+      "schema": "keys-operations.schema.json#/$defs/backup_active_series_state"
     }
   ],
   "exemptions": [

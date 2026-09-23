@@ -1,8 +1,8 @@
 //! Typed request and response models for the encrypted key-backup service.
 
 use arkret_wire::{
-    AccountId, ActorId, AuditReasonText, BackupId, BackupSeriesId, Base64UrlString,
-    CommittedEventRef, Cursor, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, PayloadProof,
+    AccountId, ActorId, AuditReasonText, BackupId, BackupSeriesId, Base64UrlString, Cursor,
+    DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, PayloadProof, RealmCommitId,
     RecoverySessionId,
 };
 use chrono::{DateTime, Utc};
@@ -51,9 +51,65 @@ impl BackupActiveSeriesPointer {
 pub struct BackupActiveSeriesState {
     pub account_id: AccountId,
     pub control_realm_id: arkret_wire::RealmId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_commit_ref: Option<CommittedEventRef>,
+    pub authority_commit_id: RealmCommitId,
     pub secret_storage: BackupActiveSeriesPointer,
+}
+
+#[cfg(test)]
+mod active_series_state_tests {
+    use serde_json::{Value, json};
+
+    use super::BackupActiveSeriesState;
+
+    fn state() -> Value {
+        json!({
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "control_realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            "authority_commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            "secret_storage": {"state": "absent"}
+        })
+    }
+
+    #[test]
+    fn active_series_state_has_the_closed_confirmed_basis_shape() {
+        let value = state();
+        let parsed: BackupActiveSeriesState = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+
+        for member in [
+            "account_id",
+            "control_realm_id",
+            "authority_commit_id",
+            "secret_storage",
+        ] {
+            let mut missing = state();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<BackupActiveSeriesState>(missing).is_err(),
+                "{member}"
+            );
+        }
+
+        let mut old_alias = state();
+        old_alias
+            .as_object_mut()
+            .unwrap()
+            .remove("authority_commit_id");
+        old_alias["source_commit_ref"] = json!({"realm_commit_id": value["authority_commit_id"]});
+        assert!(serde_json::from_value::<BackupActiveSeriesState>(old_alias).is_err());
+
+        let mut unknown = state();
+        unknown["unregistered"] = json!(true);
+        assert!(serde_json::from_value::<BackupActiveSeriesState>(unknown).is_err());
+
+        let mut wrong_id = state();
+        wrong_id["authority_commit_id"] =
+            json!("ak:event:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4");
+        assert!(serde_json::from_value::<BackupActiveSeriesState>(wrong_id).is_err());
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
