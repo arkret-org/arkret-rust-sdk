@@ -700,6 +700,59 @@ mod device_authorize_tests {
             );
         }
     }
+
+    #[test]
+    fn only_the_accepted_device_target_proof_omits_the_generation_ref() {
+        let account_id = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+        );
+        let transcript = |generation: u64| {
+            let mut value = registration_payload_value();
+            let object = value.as_object_mut().unwrap();
+            object.insert(
+                "authorized_by".to_owned(),
+                json!("ak:device:01964137-0000-7000-8000-000000000002"),
+            );
+            object.insert(
+                "authorization_binding_kind".to_owned(),
+                json!("accepted_device"),
+            );
+            object.insert(
+                "pairing_challenge_transcript_digest".to_owned(),
+                json!(format!("sha256:{}", "a".repeat(64))),
+            );
+            object.insert("authorized_generation_ref".to_owned(), json!(generation));
+            serde_json::from_value::<DeviceAuthorizePayload>(value)
+                .unwrap()
+                .device_possession_signature_input(&account_id)
+                .unwrap()
+        };
+        assert_eq!(transcript(2), transcript(3));
+
+        let mut recovery = registration_payload_value();
+        let object = recovery.as_object_mut().unwrap();
+        object.insert(
+            "authorization_binding_kind".to_owned(),
+            json!("pcr_recovery"),
+        );
+        object.insert(
+            "recovery_session_id".to_owned(),
+            json!("ak:recovery_session:01964137-0000-7000-8000-000000000003"),
+        );
+        let recovery_transcript = |generation: u64| {
+            let mut value = recovery.clone();
+            value
+                .as_object_mut()
+                .unwrap()
+                .insert("authorized_generation_ref".to_owned(), json!(generation));
+            serde_json::from_value::<DeviceAuthorizePayload>(value)
+                .unwrap()
+                .device_possession_signature_input(&account_id)
+                .unwrap()
+        };
+        assert_ne!(recovery_transcript(2), recovery_transcript(3));
+    }
 }
 
 #[cfg(test)]

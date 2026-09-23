@@ -142,7 +142,7 @@ pub struct RealmJoinApplicationStatusRequest {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinApplicationStatus {
-    Queued,
+    Pending,
     Committed,
     Rejected,
 }
@@ -161,7 +161,7 @@ pub struct RealmJoinApplicationStatusOutcome {
 impl RealmJoinApplicationStatusOutcome {
     pub fn validate(&self) -> Result<()> {
         let valid = match self.status {
-            RealmJoinApplicationStatus::Queued => {
+            RealmJoinApplicationStatus::Pending => {
                 self.commit.is_none() && self.reason_code.is_none()
             }
             RealmJoinApplicationStatus::Committed => {

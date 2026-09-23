@@ -4,7 +4,8 @@
 use std::fs;
 
 use arkret_models_collaboration::governance::realm_join_intake::{
-    RealmJoinCandidate, RealmJoinTarget,
+    RealmJoinApplicationStatus, RealmJoinApplicationStatusOutcome, RealmJoinCandidate,
+    RealmJoinTarget,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
@@ -123,5 +124,43 @@ fn join_target_requires_strict_service_id_order_and_unique_identity() {
         target(json!([a, candidate("ak:did_core:web:a.example", "cache")]))
             .validate()
             .is_err()
+    );
+}
+
+#[test]
+fn application_status_serializes_exactly_the_published_enum() {
+    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
+        .expect("the arkret-spec artifacts checkout must be reachable");
+    let path = artifacts
+        .join("schemas")
+        .join("realm-join-intake.schema.json");
+    let schema: Value = serde_json::from_str(
+        &fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display())),
+    )
+    .expect("realm join intake schema must be valid JSON");
+    let published =
+        schema["$defs"]["application_status_outcome"]["properties"]["status"]["enum"].clone();
+    let sdk = json!([
+        RealmJoinApplicationStatus::Pending,
+        RealmJoinApplicationStatus::Committed,
+        RealmJoinApplicationStatus::Rejected,
+    ]);
+    assert_eq!(sdk, published);
+
+    let pending: RealmJoinApplicationStatusOutcome = serde_json::from_value(json!({
+        "request_id": "ak:request:01999999-0000-7000-8000-000000000001",
+        "status": "pending"
+    }))
+    .expect("pending is the published non-terminal status");
+    pending
+        .validate()
+        .expect("pending carries no commit or reason");
+    assert!(
+        serde_json::from_value::<RealmJoinApplicationStatusOutcome>(json!({
+            "request_id": "ak:request:01999999-0000-7000-8000-000000000001",
+            "status": "queued"
+        }))
+        .is_err()
     );
 }
