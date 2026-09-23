@@ -292,7 +292,7 @@ impl Client {
         let request = StreamScanRequest {
             realm_id,
             stream_ref,
-            after_position,
+            direction: arkret_wire::StreamScanDirection::After(after_position),
             limit,
         };
         self.scan_commit_stream(&request).await
@@ -313,6 +313,7 @@ impl Client {
         let mut cursor = after_position;
         let mut collected = StreamScanOutcome {
             committed_events: Vec::new(),
+            readable_floor: None,
             truncated: false,
         };
         loop {
@@ -323,6 +324,18 @@ impl Client {
                 .committed_events
                 .last()
                 .map(|item| item.commit().stream_position);
+            if let Some(floor) = page.readable_floor {
+                if collected
+                    .readable_floor
+                    .as_ref()
+                    .is_some_and(|previous| previous != &floor)
+                {
+                    return Err(Error::Protocol(
+                        "stream scan readable floor changed across pages".to_owned(),
+                    ));
+                }
+                collected.readable_floor = Some(floor);
+            }
             collected.committed_events.extend(page.committed_events);
             match (page.truncated, last_position) {
                 (true, Some(position)) => cursor = Some(position),

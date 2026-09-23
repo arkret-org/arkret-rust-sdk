@@ -4,7 +4,8 @@ use std::sync::Mutex;
 use arkret_identifiers::{EventId, RealmCommitId};
 use arkret_wire::{
     CommitStreamHead, CommitStreamRef, CommittedEventFullView, CommittedEventView, Event,
-    RealmCommit, StreamScanOutcome, StreamScanRequest,
+    ReadableFloor, ReadableFloorReason, RealmCommit, StreamScanDirection, StreamScanOutcome,
+    StreamScanRequest,
 };
 use thiserror::Error;
 
@@ -156,11 +157,11 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
         request
             .validate()
             .map_err(|error| CommitLogError::InvalidCommit(error.to_string()))?;
-        let first_position = request.after_position.map_or(0, |position| position + 1);
         let inner = self.inner.lock().expect("authority commit store poisoned");
         let Some(head_id) = inner.heads.get(&request.stream_ref) else {
             return Ok(StreamScanOutcome {
                 committed_events: Vec::new(),
+                readable_floor: None,
                 truncated: false,
             });
         };
@@ -169,17 +170,39 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
             .get(head_id)
             .expect("stream head points to an existing commit")
             .stream_position;
-        if first_position > head_position {
-            return Ok(StreamScanOutcome {
-                committed_events: Vec::new(),
-                truncated: false,
-            });
-        }
-        let end_exclusive = first_position
-            .saturating_add(u64::from(request.limit))
-            .min(head_position.saturating_add(1));
-        let mut committed_events = Vec::with_capacity((end_exclusive - first_position) as usize);
-        for position in first_position..end_exclusive {
+        let floor_commit_id = inner
+            .by_stream_position
+            .get(&(request.stream_ref.clone(), 0))
+            .expect("linear stream begins at position zero")
+            .clone();
+        let readable_floor = Some(ReadableFloor {
+            oldest_position: 0,
+            floor_commit_id,
+            floor_reason: ReadableFloorReason::StreamStart,
+        });
+        let (positions, truncated): (Vec<u64>, bool) = match request.direction {
+            StreamScanDirection::After(bound) => {
+                let start = bound.map_or(0, |position| position.saturating_add(1));
+                if start > head_position || bound == Some(u64::MAX) {
+                    (Vec::new(), false)
+                } else {
+                    let end = start
+                        .saturating_add(u64::from(request.limit) - 1)
+                        .min(head_position);
+                    ((start..=end).collect(), end < head_position)
+                }
+            }
+            StreamScanDirection::Before(Some(0)) => (Vec::new(), false),
+            StreamScanDirection::Before(bound) => {
+                let start = bound
+                    .map_or(head_position, |position| position - 1)
+                    .min(head_position);
+                let end = start.saturating_sub(u64::from(request.limit) - 1);
+                ((end..=start).rev().collect(), end > 0)
+            }
+        };
+        let mut committed_events = Vec::with_capacity(positions.len());
+        for position in positions {
             let commit_id = inner
                 .by_stream_position
                 .get(&(request.stream_ref.clone(), position))
@@ -201,7 +224,8 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
         }
         Ok(StreamScanOutcome {
             committed_events,
-            truncated: end_exclusive <= head_position,
+            readable_floor,
+            truncated,
         })
     }
 }
@@ -308,6 +332,66 @@ mod tests {
             store.stream_head(&circle_stream).unwrap().stream_position,
             0
         );
+    }
+
+    #[test]
+    fn scan_supports_both_directions_and_reports_physical_floor() {
+        let store = MemoryAuthorityCommitStore::default();
+        let stream_ref = CommitStreamRef::Realm { realm_id: realm() };
+        let mut previous = None;
+        for position in 0..3 {
+            let item = event(position as u8 + 30, ScopeRef::Realm { realm_id: realm() });
+            let sealed = commit(
+                position as u8 + 40,
+                &item,
+                stream_ref.clone(),
+                position,
+                previous,
+            );
+            previous = Some(sealed.commit_id.clone());
+            store.append(&item, sealed).unwrap();
+        }
+        let request = |direction| StreamScanRequest {
+            realm_id: realm(),
+            stream_ref: stream_ref.clone(),
+            direction,
+            limit: 2,
+        };
+        let newer = request(StreamScanDirection::After(None));
+        let first = store.scan(&newer).unwrap();
+        assert_eq!(
+            first
+                .committed_events
+                .iter()
+                .map(|row| row.commit().stream_position)
+                .collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        assert!(first.truncated);
+        first.validate_for_request(&newer).unwrap();
+        let older = request(StreamScanDirection::Before(None));
+        let first = store.scan(&older).unwrap();
+        assert_eq!(
+            first
+                .committed_events
+                .iter()
+                .map(|row| row.commit().stream_position)
+                .collect::<Vec<_>>(),
+            vec![2, 1]
+        );
+        assert!(first.truncated);
+        first.validate_for_request(&older).unwrap();
+        let final_page_request = request(StreamScanDirection::Before(Some(1)));
+        let final_page = store.scan(&final_page_request).unwrap();
+        assert_eq!(final_page.committed_events[0].commit().stream_position, 0);
+        assert!(!final_page.truncated);
+        assert_eq!(
+            final_page.readable_floor.as_ref().unwrap().oldest_position,
+            0
+        );
+        final_page
+            .validate_for_request(&final_page_request)
+            .unwrap();
     }
 
     #[test]

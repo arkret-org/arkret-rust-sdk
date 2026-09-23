@@ -9,7 +9,8 @@ use arkret_identifiers::{
     StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -782,7 +783,7 @@ impl UuidV7 {
 impl<'de> Deserialize<'de> for UuidV7 {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let raw = String::deserialize(deserializer)?;
         let uuid = Uuid::parse_str(&raw).map_err(serde::de::Error::custom)?;
@@ -853,7 +854,7 @@ enum FlatCurrentSelector {
 impl<'de> Deserialize<'de> for CurrentSelector {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let mut wire = serde_json::Map::<String, Value>::deserialize(deserializer)?;
         match wire.get("kind").and_then(Value::as_str) {
@@ -955,7 +956,7 @@ impl PolicyActionName {
 impl<'de> Deserialize<'de> for PolicyActionName {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
@@ -985,7 +986,7 @@ impl RealmPolicyActionId {
 impl<'de> Deserialize<'de> for RealmPolicyActionId {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
@@ -1130,13 +1131,90 @@ impl AuthoritySubmitOutcome {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StreamScanRequest {
     pub realm_id: RealmId,
     pub stream_ref: CommitStreamRef,
-    pub after_position: Option<u64>,
+    pub direction: StreamScanDirection,
     pub limit: u16,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamScanDirection {
+    After(Option<u64>),
+    Before(Option<u64>),
+}
+
+impl Serialize for StreamScanRequest {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(4))?;
+        map.serialize_entry("realm_id", &self.realm_id)?;
+        map.serialize_entry("stream_ref", &self.stream_ref)?;
+        match self.direction {
+            StreamScanDirection::After(position) => {
+                map.serialize_entry("after_position", &position)?
+            }
+            StreamScanDirection::Before(position) => {
+                map.serialize_entry("before_position", &position)?
+            }
+        }
+        map.serialize_entry("limit", &self.limit)?;
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for StreamScanRequest {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Raw {
+            realm_id: RealmId,
+            stream_ref: CommitStreamRef,
+            #[serde(default)]
+            after_position: Option<Value>,
+            #[serde(default)]
+            before_position: Option<Value>,
+            limit: u16,
+        }
+        let value = Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| D::Error::custom("stream scan request must be an object"))?;
+        let has_after = object.contains_key("after_position");
+        let has_before = object.contains_key("before_position");
+        if has_after == has_before {
+            return Err(D::Error::custom(
+                "stream scan requires exactly one position direction",
+            ));
+        }
+        let raw: Raw = serde_json::from_value(value).map_err(D::Error::custom)?;
+        let parse_position = |value: Option<Value>| -> std::result::Result<Option<u64>, D::Error> {
+            match value {
+                None | Some(Value::Null) => Ok(None),
+                Some(value) => serde_json::from_value::<u64>(value)
+                    .map(Some)
+                    .map_err(D::Error::custom),
+            }
+        };
+        let direction = if has_after {
+            StreamScanDirection::After(parse_position(raw.after_position)?)
+        } else {
+            StreamScanDirection::Before(parse_position(raw.before_position)?)
+        };
+        Ok(Self {
+            realm_id: raw.realm_id,
+            stream_ref: raw.stream_ref,
+            direction,
+            limit: raw.limit,
+        })
+    }
 }
 
 impl StreamScanRequest {
@@ -1265,7 +1343,26 @@ impl CommittedEventRef {
 #[serde(deny_unknown_fields)]
 pub struct StreamScanOutcome {
     pub committed_events: Vec<CommittedEventView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readable_floor: Option<ReadableFloor>,
     pub truncated: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReadableFloorReason {
+    StreamStart,
+    MembershipJoin,
+    HistoryAccessPolicy,
+    RetentionPruned,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadableFloor {
+    pub oldest_position: u64,
+    pub floor_commit_id: RealmCommitId,
+    pub floor_reason: ReadableFloorReason,
 }
 
 impl StreamScanOutcome {
@@ -1274,6 +1371,18 @@ impl StreamScanOutcome {
         if self.committed_events.len() > usize::from(request.limit) {
             return Err(WireError::Protocol(
                 "stream scan returned more items than requested".to_owned(),
+            ));
+        }
+        if self.committed_events.is_empty() && self.truncated {
+            return Err(WireError::Protocol(
+                "empty stream scan cannot be truncated".to_owned(),
+            ));
+        }
+        if self.readable_floor.as_ref().is_some_and(|floor| {
+            (floor.floor_reason == ReadableFloorReason::StreamStart) != (floor.oldest_position == 0)
+        }) {
+            return Err(WireError::Protocol(
+                "stream scan floor reason does not match its position".to_owned(),
             ));
         }
         for item in &self.committed_events {
@@ -1287,18 +1396,85 @@ impl StreamScanOutcome {
             }
         }
         if let Some(first) = self.committed_events.first() {
-            let expected_first_position = request
-                .after_position
-                .map_or(0, |position| position.saturating_add(1));
-            if first.commit().stream_position != expected_first_position {
-                return Err(WireError::Protocol(
-                    "stream scan did not start at genesis or immediately after after_position"
-                        .to_owned(),
-                ));
+            match request.direction {
+                StreamScanDirection::After(Some(position)) => {
+                    let next = position.checked_add(1);
+                    let starts_at_floor = self.readable_floor.as_ref().is_some_and(|floor| {
+                        position < floor.oldest_position
+                            && first.commit().stream_position == floor.oldest_position
+                    });
+                    if next != Some(first.commit().stream_position) && !starts_at_floor {
+                        return Err(WireError::Protocol(
+                            "after_position scan skipped or repeated a readable position"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                StreamScanDirection::Before(Some(position))
+                    if first.commit().stream_position >= position =>
+                {
+                    return Err(WireError::Protocol(
+                        "before_position scan returned a newer position".to_owned(),
+                    ));
+                }
+                StreamScanDirection::After(None)
+                    if self.readable_floor.as_ref().is_none_or(|floor| {
+                        first.commit().stream_position != floor.oldest_position
+                    }) =>
+                {
+                    return Err(WireError::Protocol(
+                        "after_position null scan must start at readable floor".to_owned(),
+                    ));
+                }
+                _ => {}
             }
         }
         for pair in self.committed_events.windows(2) {
-            pair[1].commit().validate_successor_of(pair[0].commit())?;
+            match request.direction {
+                StreamScanDirection::After(_) => {
+                    pair[1].commit().validate_successor_of(pair[0].commit())?
+                }
+                StreamScanDirection::Before(_) => {
+                    pair[0].commit().validate_successor_of(pair[1].commit())?
+                }
+            }
+        }
+        if let Some(floor) = &self.readable_floor {
+            for item in &self.committed_events {
+                let commit = item.commit();
+                if commit.stream_position < floor.oldest_position
+                    || (commit.stream_position == floor.oldest_position
+                        && commit.commit_id != floor.floor_commit_id)
+                {
+                    return Err(WireError::Protocol(
+                        "stream scan row conflicts with readable floor".to_owned(),
+                    ));
+                }
+            }
+        }
+        if let StreamScanDirection::Before(_) = request.direction {
+            if let Some(last) = self.committed_events.last() {
+                if self.truncated
+                    && self
+                        .readable_floor
+                        .as_ref()
+                        .is_some_and(|floor| last.commit().stream_position == floor.oldest_position)
+                {
+                    return Err(WireError::Protocol(
+                        "before_position scan cannot truncate at readable floor".to_owned(),
+                    ));
+                }
+                if !self.truncated
+                    && self
+                        .readable_floor
+                        .as_ref()
+                        .is_none_or(|floor| last.commit().stream_position != floor.oldest_position)
+                {
+                    return Err(WireError::Protocol(
+                        "before_position scan reached floor without its anchor".to_owned(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1635,14 +1811,116 @@ mod tests {
         let request = StreamScanRequest {
             realm_id: realm_id.clone(),
             stream_ref: circle_item(realm_id.clone(), 0).commit.stream_ref,
-            after_position: None,
+            direction: StreamScanDirection::After(None),
             limit: 10,
         };
         let outcome = StreamScanOutcome {
             committed_events: vec![CommittedEventView::Full(circle_item(realm_id, 1))],
+            readable_floor: None,
             truncated: false,
         };
         assert!(outcome.validate_for_request(&request).is_err());
+    }
+
+    #[test]
+    fn scan_request_has_exactly_one_present_direction_even_when_null() {
+        let realm_id = realm(0x10);
+        let stream_ref = circle_item(realm_id.clone(), 0).commit.stream_ref;
+        for direction in [
+            StreamScanDirection::After(None),
+            StreamScanDirection::Before(None),
+        ] {
+            let request = StreamScanRequest {
+                realm_id: realm_id.clone(),
+                stream_ref: stream_ref.clone(),
+                direction,
+                limit: 3,
+            };
+            let wire = serde_json::to_value(&request).unwrap();
+            assert_eq!(
+                wire.get("after_position").is_some(),
+                matches!(direction, StreamScanDirection::After(_))
+            );
+            assert_eq!(
+                wire.get("before_position").is_some(),
+                matches!(direction, StreamScanDirection::Before(_))
+            );
+            assert_eq!(
+                serde_json::from_value::<StreamScanRequest>(wire).unwrap(),
+                request
+            );
+        }
+        let base = serde_json::to_value(StreamScanRequest {
+            realm_id,
+            stream_ref,
+            direction: StreamScanDirection::After(None),
+            limit: 3,
+        })
+        .unwrap();
+        let mut both = base.clone();
+        both["before_position"] = Value::Null;
+        assert!(serde_json::from_value::<StreamScanRequest>(both).is_err());
+        let mut neither = base.clone();
+        neither.as_object_mut().unwrap().remove("after_position");
+        assert!(serde_json::from_value::<StreamScanRequest>(neither).is_err());
+        let mut unknown = base.clone();
+        unknown["direction"] = serde_json::json!("after");
+        assert!(serde_json::from_value::<StreamScanRequest>(unknown).is_err());
+        let mut negative = base;
+        negative["after_position"] = serde_json::json!(-1);
+        assert!(serde_json::from_value::<StreamScanRequest>(negative).is_err());
+    }
+
+    #[test]
+    fn before_scan_requires_descending_chain_and_verifiable_floor() {
+        let realm_id = realm(0x10);
+        let rows = [6, 5, 4]
+            .map(|position| CommittedEventView::Full(circle_item(realm_id.clone(), position)));
+        let request = StreamScanRequest {
+            realm_id: realm_id.clone(),
+            stream_ref: rows[0].commit().stream_ref.clone(),
+            direction: StreamScanDirection::Before(None),
+            limit: 3,
+        };
+        let floor = ReadableFloor {
+            oldest_position: 4,
+            floor_commit_id: rows[2].commit().commit_id.clone(),
+            floor_reason: ReadableFloorReason::MembershipJoin,
+        };
+        let outcome = StreamScanOutcome {
+            committed_events: rows.to_vec(),
+            readable_floor: Some(floor.clone()),
+            truncated: false,
+        };
+        outcome.validate_for_request(&request).unwrap();
+        let mut missing_floor = outcome.clone();
+        missing_floor.readable_floor = None;
+        assert!(missing_floor.validate_for_request(&request).is_err());
+        let mut bad_anchor = outcome.clone();
+        bad_anchor.readable_floor.as_mut().unwrap().floor_commit_id =
+            rows[0].commit().commit_id.clone();
+        assert!(bad_anchor.validate_for_request(&request).is_err());
+        let mut false_truncation = outcome.clone();
+        false_truncation.truncated = true;
+        assert!(false_truncation.validate_for_request(&request).is_err());
+        let mut ascending = outcome;
+        ascending.committed_events.reverse();
+        assert!(ascending.validate_for_request(&request).is_err());
+        let forward = StreamScanRequest {
+            direction: StreamScanDirection::After(None),
+            ..request
+        };
+        let forward_page = StreamScanOutcome {
+            committed_events: rows.into_iter().rev().collect(),
+            readable_floor: Some(floor),
+            truncated: true,
+        };
+        forward_page.validate_for_request(&forward).unwrap();
+        let skipped = StreamScanRequest {
+            direction: StreamScanDirection::After(Some(4)),
+            ..forward
+        };
+        assert!(forward_page.validate_for_request(&skipped).is_err());
     }
 
     #[test]
