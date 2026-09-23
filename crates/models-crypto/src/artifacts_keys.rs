@@ -27,10 +27,7 @@ impl KeyBackupPlaintext {
         }
         for (secret, index) in self.items.iter().zip(contents) {
             secret.validate()?;
-            if secret.item_kind != index.item_kind
-                || index.secret_id.as_deref() != Some(secret.secret_id.as_str())
-                || index.secret_version != secret.secret_version()?
-            {
+            if secret.item_kind != index.item_kind || index.secret_id != secret.secret_id {
                 return protocol("secret_storage keybag metadata differs from its public index");
             }
         }
@@ -65,15 +62,6 @@ impl SecretStorageSecret {
             return protocol("secret_storage secret bytes must not be empty");
         }
         Ok(())
-    }
-
-    pub fn secret_version(&self) -> Result<Option<u32>> {
-        self.secret_generation
-            .map(|generation| {
-                u32::try_from(generation)
-                    .map_err(|_| WireError::Protocol("secret generation exceeds u32".to_owned()))
-            })
-            .transpose()
     }
 }
 

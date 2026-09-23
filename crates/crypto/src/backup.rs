@@ -736,10 +736,7 @@ fn build_key_backup_envelope_in_series(
                 .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
             Ok(SecretStorageContentIndex {
                 item_kind: item.item_kind,
-                secret_id: Some(item.secret_id.clone()),
-                secret_version: item
-                    .secret_version()
-                    .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?,
+                secret_id: item.secret_id.clone(),
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -1019,6 +1016,41 @@ mod tests {
 
         // A different passphrase must fail before the AEAD, on the commitment.
         assert!(decrypt_key_backup_envelope(b"wrong passphrase", &envelope).is_err());
+    }
+
+    #[test]
+    fn contents_index_is_required_nonempty_and_closed() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+        let wire = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(wire["contents"][0]["secret_id"], "account.state");
+        assert!(wire["contents"][0].get("secret_version").is_none());
+        assert!(serde_json::from_value::<KeyBackup>(wire.clone()).is_ok());
+
+        let mut missing = wire.clone();
+        missing.as_object_mut().unwrap().remove("contents");
+        assert!(serde_json::from_value::<KeyBackup>(missing).is_err());
+
+        let mut empty = wire.clone();
+        empty["contents"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<KeyBackup>(empty).is_err());
+        let mut empty = envelope.clone();
+        empty.contents.clear();
+        assert!(empty.validate().is_err());
+        assert!(empty.signing_payload_bytes().is_err());
+        assert!(serde_json::to_value(&empty).is_err());
+
+        let mut unregistered = wire.clone();
+        unregistered["contents"][0]["secret_version"] = serde_json::json!(3);
+        assert!(serde_json::from_value::<KeyBackup>(unregistered).is_err());
+
+        let mut no_identity = wire;
+        no_identity["contents"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("secret_id");
+        assert!(serde_json::from_value::<KeyBackup>(no_identity).is_err());
     }
 
     #[test]

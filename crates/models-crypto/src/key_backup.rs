@@ -11,13 +11,41 @@ use arkret_wire::{
     SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::ser::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::RecoveryPolicyRef;
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+fn serialize_nonempty_contents<S>(
+    contents: &[SecretStorageContentIndex],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    if contents.is_empty() {
+        return Err(S::Error::custom("key backup contents must be non-empty"));
+    }
+    contents.serialize(serializer)
+}
+
+fn deserialize_nonempty_contents<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<SecretStorageContentIndex>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let contents = Vec::<SecretStorageContentIndex>::deserialize(deserializer)?;
+    if contents.is_empty() {
+        return Err(D::Error::custom("key backup contents must be non-empty"));
+    }
+    Ok(contents)
 }
 
 /// The only backup class in the authority-commit core.
@@ -77,7 +105,10 @@ pub struct KeyBackup {
     pub expires_at: Option<DateTime<Utc>>,
     pub encryption: KeyBackupEncryption,
     pub domain_separation: KeyBackupDomainSeparation,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        serialize_with = "serialize_nonempty_contents",
+        deserialize_with = "deserialize_nonempty_contents"
+    )]
     pub contents: Vec<SecretStorageContentIndex>,
     pub ciphertext: Base64UrlString,
     pub ciphertext_digest: Hash,
@@ -104,6 +135,9 @@ impl KeyBackup {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_V1;
 
     pub fn validate(&self) -> Result<()> {
+        if self.contents.is_empty() {
+            return protocol("key backup contents must be non-empty");
+        }
         if !self.backup_version.starts_with("kb_") || self.backup_version.len() < 4 {
             return protocol("key backup backup_version must use the kb_ profile");
         }
@@ -400,16 +434,18 @@ pub enum SecretStorageItemKind {
 #[serde(deny_unknown_fields)]
 pub struct SecretStorageContentIndex {
     pub item_kind: SecretStorageItemKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub secret_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub secret_version: Option<u32>,
+    pub secret_id: String,
 }
 
 impl SecretStorageContentIndex {
     pub fn validate(&self) -> Result<()> {
-        if self.secret_id.as_deref().is_some_and(str::is_empty) {
-            return protocol("secret storage content secret_id must be non-empty");
+        if self.secret_id.is_empty()
+            || !self
+                .secret_id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-'))
+        {
+            return protocol("secret storage content secret_id is invalid");
         }
         Ok(())
     }
