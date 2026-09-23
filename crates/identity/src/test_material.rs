@@ -222,6 +222,101 @@ mod tests {
         }
     }
 
+    /// `identity_examples` is the closed did:webvh occurrence inventory. Each
+    /// value is matched by its own terminal: a bare DID by the `did` rule and a
+    /// DID URL by the `key_id` fragment rule, independently of the DID it hangs
+    /// under. Only `test_material` may enter the reserved namespace, and each
+    /// `derived_positive` must recompute from its fixture JSON Pointer.
+    #[test]
+    fn identity_example_inventory_roles_follow_the_formal_policy() {
+        const ROLES: [&str; 3] = [
+            "test_material",
+            "deployment_like_example",
+            "derived_positive",
+        ];
+        let spec_root =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec");
+        let registry = registry();
+        let rows = registry["identity_examples"].as_array().unwrap();
+        assert!(!rows.is_empty());
+
+        let mut roles_present = std::collections::BTreeSet::new();
+        let mut values = std::collections::BTreeSet::new();
+        for row in rows {
+            let row = row.as_object().unwrap();
+            let value = row["value"].as_str().unwrap();
+            let role = row["role"].as_str().unwrap();
+            assert!(ROLES.contains(&role), "{value}: unknown role {role}");
+            assert!(values.insert(value), "{value}: duplicate inventory value");
+            roles_present.insert(role);
+
+            let mut expected_keys = std::collections::BTreeSet::from(["role", "sources", "value"]);
+            if role == "derived_positive" {
+                expected_keys.insert("derivation_ref");
+            }
+            assert_eq!(
+                row.keys()
+                    .map(String::as_str)
+                    .collect::<std::collections::BTreeSet<_>>(),
+                expected_keys,
+                "{value}: inventory row key set"
+            );
+            assert!(value.starts_with("did:webvh:"), "{value}: not did:webvh");
+            assert!(
+                !row["sources"].as_array().unwrap().is_empty(),
+                "{value}: sources must name every occurrence"
+            );
+
+            let (did, key_id) = if value.contains('#') {
+                (None, Some(DidUrl::new(value).unwrap()))
+            } else {
+                (Some(Did::new(value).unwrap()), None)
+            };
+            let decision =
+                enforce_formal_test_material_policy(None, did.as_ref(), key_id.as_ref(), None);
+            if role == "test_material" {
+                let Err(FormalTestMaterialPolicyError::Denied(denial)) = decision else {
+                    panic!("{value}: test_material must be denied as reserved test material")
+                };
+                assert_eq!(denial.published_key_fingerprint, None);
+                assert_eq!(
+                    denial.reserved_identifiers,
+                    ReservedIdentifierMatches {
+                        did: did.is_some(),
+                        key_id: key_id.is_some(),
+                        trust_domain: false,
+                    },
+                    "{value}: exactly its own terminal rule must match"
+                );
+            } else {
+                assert_eq!(
+                    decision,
+                    Ok(()),
+                    "{value}: {role} must not enter the reserved namespace"
+                );
+            }
+
+            if role == "derived_positive" {
+                let reference = row["derivation_ref"].as_str().unwrap();
+                let (file, pointer) = reference
+                    .split_once('#')
+                    .unwrap_or_else(|| panic!("{value}: derivation_ref lacks a JSON Pointer"));
+                assert!(pointer.starts_with('/'), "{value}: pointer {pointer}");
+                let fixture: Value =
+                    serde_json::from_slice(&std::fs::read(spec_root.join(file)).unwrap()).unwrap();
+                assert_eq!(
+                    fixture.pointer(pointer).and_then(Value::as_str),
+                    Some(value),
+                    "{value}: derivation_ref {reference} must recompute the value"
+                );
+            }
+        }
+        assert_eq!(
+            roles_present,
+            ROLES.into_iter().collect::<std::collections::BTreeSet<_>>()
+        );
+    }
+
     fn matches_identifier(kind: &str, value: &str) -> bool {
         match kind {
             "did" => Did::new(value).is_ok_and(|value| is_reserved_test_did(&value)),
