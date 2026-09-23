@@ -916,10 +916,33 @@ mod tests {
                 },
                 "x_method_note": 7
             }],
+            "did_binding_methods": ["session_dpop", "did_http_signature"],
             "x_auth_note": {"display": true}
         });
         let metadata: AuthMetadata = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            metadata.did_binding_methods,
+            vec![
+                DidBindingMethod::SessionDpop,
+                DidBindingMethod::DidHttpSignature
+            ]
+        );
         assert_eq!(serde_json::to_value(metadata).unwrap(), value);
+
+        for invalid in ["password", "session_grant", "did:webvh"] {
+            assert!(
+                serde_json::from_value::<AuthMetadata>(json!({
+                    "did_binding_methods": [invalid]
+                }))
+                .is_err()
+            );
+        }
+        assert!(
+            serde_json::from_value::<AuthMetadata>(json!({
+                "did_binding_methods": ["session_dpop", "session_dpop"]
+            }))
+            .is_err()
+        );
 
         assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "vendor"})).is_err());
         assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "vendor"})).is_err());
@@ -1047,6 +1070,31 @@ mod tests {
     }
 }
 
+/// Closed `auth_metadata.did_binding_methods[]` vocabulary.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DidBindingMethod {
+    SessionDpop,
+    SessionHttpSignature,
+    DidHttpSignature,
+}
+
+fn deserialize_did_binding_methods<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<DidBindingMethod>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let methods = Vec::<DidBindingMethod>::deserialize(deserializer)?;
+    if methods.iter().copied().collect::<BTreeSet<_>>().len() != methods.len() {
+        return Err(serde::de::Error::custom(
+            "did_binding_methods must contain unique values",
+        ));
+    }
+    Ok(methods)
+}
+
 /// Strongly-typed `auth_metadata` block of the service-describe response.
 /// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
 /// declared field is optional or defaulted so a conforming service that sends
@@ -1059,8 +1107,12 @@ pub struct AuthMetadata {
     pub account_authority: Option<AccountAuthority>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub methods: Vec<AuthMethod>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub did_binding_methods: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_did_binding_methods"
+    )]
+    pub did_binding_methods: Vec<DidBindingMethod>,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
