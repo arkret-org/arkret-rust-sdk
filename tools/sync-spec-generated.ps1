@@ -31,6 +31,11 @@ if ($duplicates.Count -ne 0) {
     throw "generation manifest declares duplicate outputs: $($duplicates.Name -join ', ')"
 }
 
+& python (Join-Path $PSScriptRoot 'check-spec-generation-inputs.py') --artifacts-dir $artifacts --manifest $manifestPath
+if ($LASTEXITCODE -ne 0) {
+    throw 'generation manifest includes an invalid or derived artifact input'
+}
+
 # Both modes generate into a scratch tree first. A generator that fails part
 # way through - an artifact the Rust codegen rejects, a rustfmt error, an
 # output a generator did not write - must not leave the checkout holding some
