@@ -258,6 +258,19 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/wire/src/generated/operation_errors.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/operations-error-mapping.json",
+        "registry/contract-registry.json",
+        "registry/error-code-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/generated/preimage_commitments.rs"
       ],
       "owner": "arkret-wire",

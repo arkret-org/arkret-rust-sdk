@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-22.2;
-//! sha256=88a0062b26ffe39a11904aaa81eddffdd1a58c60a17dc314d2f013a69ef0d31d
-//! Entries: reason_codes=308, reserved_not_emitted=73
+//! Input: registry/error-code-registry.json; version=2026-09-23.1;
+//! sha256=ce028d9c78062a63889863b8a9f5e7b31205f57195ed5784bb920709ff9dea85
+//! Entries: reason_codes=310, reserved_not_emitted=72
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -36,6 +36,7 @@ pub enum ReasonCode {
     AppletManagedPcrGenesisRequiresClosedAggregate,
     AppletNamespaceMismatch,
     ApprovalAlreadyConsumed,
+    ApprovalCarrierUnregistered,
     ApprovalNonceReused,
     ApprovalRequired,
     AudienceMismatch,
@@ -264,6 +265,7 @@ pub enum ReasonCode {
     SessionMissing,
     SidecarCreateDenied,
     SignalPlaintextForbidden,
+    SnapshotCapacityExceeded,
     SpaceAlreadyTerminal,
     SpaceHasLiveDependents,
     SpaceNotActive,
@@ -368,6 +370,7 @@ impl ReasonCode {
         "applet_managed_pcr_genesis_requires_closed_aggregate";
     pub const APPLET_NAMESPACE_MISMATCH: &'static str = "applet_namespace_mismatch";
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
+    pub const APPROVAL_CARRIER_UNREGISTERED: &'static str = "approval_carrier_unregistered";
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
     pub const APPROVAL_REQUIRED: &'static str = "approval_required";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
@@ -634,6 +637,7 @@ impl ReasonCode {
     pub const SESSION_MISSING: &'static str = "session_missing";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
+    pub const SNAPSHOT_CAPACITY_EXCEEDED: &'static str = "snapshot_capacity_exceeded";
     pub const SPACE_ALREADY_TERMINAL: &'static str = "space_already_terminal";
     pub const SPACE_HAS_LIVE_DEPENDENTS: &'static str = "space_has_live_dependents";
     pub const SPACE_NOT_ACTIVE: &'static str = "space_not_active";
@@ -739,6 +743,7 @@ impl ReasonCode {
             }
             Self::AppletNamespaceMismatch => Self::APPLET_NAMESPACE_MISMATCH,
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
+            Self::ApprovalCarrierUnregistered => Self::APPROVAL_CARRIER_UNREGISTERED,
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
             Self::ApprovalRequired => Self::APPROVAL_REQUIRED,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
@@ -1003,6 +1008,7 @@ impl ReasonCode {
             Self::SessionMissing => Self::SESSION_MISSING,
             Self::SidecarCreateDenied => Self::SIDECAR_CREATE_DENIED,
             Self::SignalPlaintextForbidden => Self::SIGNAL_PLAINTEXT_FORBIDDEN,
+            Self::SnapshotCapacityExceeded => Self::SNAPSHOT_CAPACITY_EXCEEDED,
             Self::SpaceAlreadyTerminal => Self::SPACE_ALREADY_TERMINAL,
             Self::SpaceHasLiveDependents => Self::SPACE_HAS_LIVE_DEPENDENTS,
             Self::SpaceNotActive => Self::SPACE_NOT_ACTIVE,
@@ -1113,6 +1119,7 @@ impl ReasonCode {
             }
             Self::APPLET_NAMESPACE_MISMATCH => Self::AppletNamespaceMismatch,
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
+            Self::APPROVAL_CARRIER_UNREGISTERED => Self::ApprovalCarrierUnregistered,
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
             Self::APPROVAL_REQUIRED => Self::ApprovalRequired,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
@@ -1377,6 +1384,7 @@ impl ReasonCode {
             Self::SESSION_MISSING => Self::SessionMissing,
             Self::SIDECAR_CREATE_DENIED => Self::SidecarCreateDenied,
             Self::SIGNAL_PLAINTEXT_FORBIDDEN => Self::SignalPlaintextForbidden,
+            Self::SNAPSHOT_CAPACITY_EXCEEDED => Self::SnapshotCapacityExceeded,
             Self::SPACE_ALREADY_TERMINAL => Self::SpaceAlreadyTerminal,
             Self::SPACE_HAS_LIVE_DEPENDENTS => Self::SpaceHasLiveDependents,
             Self::SPACE_NOT_ACTIVE => Self::SpaceNotActive,
@@ -1649,6 +1657,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::APPROVAL_ALREADY_CONSUMED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "An agent draft/action approval has already been consumed by a successful publish attempt. Replaying the same approval MUST fail closed instead of publishing twice. See zh/conformance/conformance-vectors.md.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::APPROVAL_CARRIER_UNREGISTERED,
+        applies_to: &["auth_decision", "event_envelope"],
+        description: "A grant approval constraint or ak.policy.action approval requirement targets a capability action whose approval_requirement_eligibility is ineligible_no_registered_carrier. The governance Station rejects the authoring Event at write admission with top-level schema_violation (HTTP 422), this reason_code, and zero Event/RealmCommit/current-result effects. The canonical eligibility registry is capability-action-registry.json; the direct producers are ak.self.events.command.submit.v1 and ak.peer.events.command.submit.v1 authority_forward, with ak.self.applet.command.install.v1 covering its grant Event. See zh/authz/constraint-schema.md section 9.1 and zh/models/governance-objects.md section 3.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_NONCE_REUSED,
@@ -2802,6 +2815,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,
         applies_to: &["service_call", "client_sync"],
         description: "Sub-reason for failed_precondition when any plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/sync/signal.md §1 and §3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SNAPSHOT_CAPACITY_EXCEEDED,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "The candidate RealmCommit would make the maximal-disclosure, current governance Station-signed inline Realm State Snapshot exceed 8 MiB of complete RFC 8785 canonical signed bytes. Every operation branch that first admits an Event and signs a RealmCommit rechecks the final durable cut in the same transaction; overflow returns top-level failed_precondition (HTTP 409) with this reason_code and zero Event, RealmCommit, typed current, and snapshot writes. Exact 8 MiB is allowed. See zh/conformance/scalability-constraints.md section 4.1 and fixtures/scalability-limits-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_ALREADY_TERMINAL,

@@ -1147,7 +1147,10 @@ pub(super) fn registry_entry<'a>(
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{CurrentSelector, ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
+    use arkret_wire::{
+        CurrentSelector, ErrorCode, ErrorStatusContext, OperationSpecificError,
+        REASON_CODE_DESCRIPTORS, ServiceOperationId,
+    };
 
     use super::*;
 
@@ -1529,6 +1532,41 @@ mod tests {
         live.sort_unstable();
         generated.sort_unstable();
         assert_eq!(generated, live);
+    }
+
+    #[test]
+    fn generated_operation_errors_match_configured_mapping() {
+        let mapping = read_spec_json_artifact("registry/operations-error-mapping.json")
+            .expect("configured operations-error-mapping must load");
+        let entries = mapping
+            .get("operations")
+            .and_then(Value::as_array)
+            .expect("configured operations-error-mapping missing operations");
+        assert_eq!(entries.len(), ServiceOperationId::ALL.len());
+        for entry in entries {
+            let wire = entry
+                .get("operation_id")
+                .and_then(Value::as_str)
+                .expect("mapping entry missing operation_id");
+            let operation = ServiceOperationId::from_wire(wire)
+                .unwrap_or_else(|| panic!("mapping contains unknown operation {wire}"));
+            let expected: Vec<&str> = entry
+                .get("operation_specific")
+                .and_then(Value::as_array)
+                .expect("mapping entry missing operation_specific")
+                .iter()
+                .map(|value| value.as_str().expect("mapping error is not a string"))
+                .collect();
+            let generated: Vec<&str> = operation
+                .operation_specific_errors()
+                .iter()
+                .map(|error| match error {
+                    OperationSpecificError::Code(code) => code.as_str(),
+                    OperationSpecificError::Reason(reason) => reason.as_str(),
+                })
+                .collect();
+            assert_eq!(generated, expected, "operation error mapping drift: {wire}");
+        }
     }
 
     #[test]

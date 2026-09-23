@@ -180,6 +180,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_digest_suite_codes(artifacts_dir)?,
         generate_error_codes(artifacts_dir)?,
         generate_reason_codes(artifacts_dir)?,
+        generate_operation_errors(artifacts_dir)?,
         generate_capability_discovery(artifacts_dir)?,
         generate_security_strings(artifacts_dir)?,
         generate_operations(artifacts_dir)?,
@@ -760,6 +761,89 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     output.push_str("];\n\nfn http_path_template_matches(template: &str, path: &str) -> bool {\n    let mut template_segments = template.split('/');\n    let mut path_segments = path.split('/');\n    loop { match (template_segments.next(), path_segments.next()) {\n        (None, None) => return true,\n        (Some(expected), Some(actual)) => { let placeholder = expected.starts_with('{') && expected.ends_with('}') && expected.len() > 2; if (placeholder && actual.is_empty()) || (!placeholder && expected != actual) { return false; } },\n        _ => return false,\n    } }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/operation_ids.rs".into(),
+        contents: output,
+    })
+}
+
+fn generate_operation_errors(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let mapping = Artifact::load(artifacts_dir, "registry/operations-error-mapping.json")?;
+    let operations = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let errors = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
+    let operation_rows = sorted_rows(
+        operations.section_array("operation_registry", "operations")?,
+        "operation_id",
+    )?;
+    let mapping_rows = sorted_rows(mapping.array("operations")?, "operation_id")?;
+    validate_unique(&mapping_rows, "operation_id", &["ak."])?;
+    let operation_ids = operation_rows
+        .iter()
+        .map(|row| string(row, "operation_id").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let mapped_ids = mapping_rows
+        .iter()
+        .map(|row| string(row, "operation_id").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    if operation_ids != mapped_ids {
+        bail!("operations-error-mapping operation set differs from operation registry");
+    }
+    let operation_http = operation_rows
+        .iter()
+        .map(|row| Ok((string(row, "operation_id")?, string(row, "http")?)))
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    let top_level = active_error_rows(&sorted_rows(errors.array("codes")?, "code")?, "error code")?
+        .iter()
+        .map(|row| string(row, "code").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let reasons = active_error_rows(
+        &sorted_rows(errors.array("reason_codes")?, "code")?,
+        "reason code",
+    )?
+    .iter()
+    .map(|row| string(row, "code").map(str::to_owned))
+    .collect::<Result<BTreeSet<_>>>()?;
+    let mut output = header(
+        &[&mapping.source, &operations.source, &errors.source],
+        &format!("operations={}", mapping_rows.len()),
+    );
+    output.push_str("use crate::{ErrorCode, ReasonCode, ServiceOperationId};\n\n#[derive(Clone, Debug, PartialEq, Eq)]\npub enum OperationSpecificError {\n    Code(ErrorCode),\n    Reason(ReasonCode),\n}\n\nimpl ServiceOperationId {\n    pub fn operation_specific_errors(self) -> &'static [OperationSpecificError] {\n        OPERATION_SPECIFIC_ERRORS[self as usize]\n    }\n}\n\npub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[\n");
+    for row in &mapping_rows {
+        let operation_id = string(row, "operation_id")?;
+        if string(row, "http_alias")? != operation_http[operation_id] {
+            bail!("{operation_id} error mapping HTTP alias differs from operation registry");
+        }
+        let entries = field(row, "operation_specific")?
+            .as_array()
+            .with_context(|| format!("{operation_id} operation_specific is not an array"))?;
+        let mut seen = BTreeSet::new();
+        output.push_str("    &[\n");
+        for entry in entries {
+            let code = entry
+                .as_str()
+                .with_context(|| format!("{operation_id} has a non-string error entry"))?;
+            if !seen.insert(code) {
+                bail!("{operation_id} repeats operation-specific error {code}");
+            }
+            if top_level.contains(code) {
+                writeln!(
+                    output,
+                    "        OperationSpecificError::Code(ErrorCode::{}),",
+                    variant(code, &[])
+                )?;
+            } else if reasons.contains(code) {
+                writeln!(
+                    output,
+                    "        OperationSpecificError::Reason(ReasonCode::{}),",
+                    variant(code, &[])
+                )?;
+            } else {
+                bail!("{operation_id} references unregistered or inactive error {code}");
+            }
+        }
+        output.push_str("    ],\n");
+    }
+    output.push_str("];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn every_operation_has_a_typed_error_mapping() {\n        assert_eq!(ServiceOperationId::ALL.len(), OPERATION_SPECIFIC_ERRORS.len());\n        for (index, operation) in ServiceOperationId::ALL.iter().copied().enumerate() {\n            assert_eq!(operation as usize, index);\n            for error in operation.operation_specific_errors() {\n                match error {\n                    OperationSpecificError::Code(code) => assert!(ErrorCode::is_registered(code.as_str())),\n                    OperationSpecificError::Reason(reason) => assert!(ReasonCode::is_registered(reason.as_str())),\n                }\n            }\n        }\n    }\n}\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/operation_errors.rs".into(),
         contents: output,
     })
 }
@@ -2856,11 +2940,12 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 24);
+        assert_eq!(outputs.len(), 25);
         for required in [
             "crates/wire/src/generated/reducer_managed_patch_paths.rs",
             "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
+            "crates/wire/src/generated/operation_errors.rs",
             "crates/wire/src/generated/security_strings.rs",
             "crates/wire/src/generated/preimage_commitments.rs",
             "crates/wire/src/error_codes/error_code.rs",
