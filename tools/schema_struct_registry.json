@@ -1008,6 +1008,30 @@
     {
       "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiProxyDownloadOutcome",
       "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiKeyMaterialRequestBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_key_material_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiKeyMaterialOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_key_material_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiRoomUpdateRequestBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_room_update_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiNotifyRequestBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_notify_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiRequestConsentOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_request_consent_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiUpdateConsentOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_outcome"
     }
   ],
   "exemptions": [
