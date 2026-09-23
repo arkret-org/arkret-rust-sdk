@@ -67,7 +67,7 @@ pub enum IdentifierError {
 }
 
 macro_rules! id_type {
-    ($(#[$meta:meta])* $name:ident, $expect:expr) => {
+    ($(#[$meta:meta])* $name:ident, $expect:expr $(, $validate:expr)?) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -76,6 +76,7 @@ macro_rules! id_type {
         impl $name {
             pub fn new(value: impl Into<String>) -> Result<Self> {
                 let value = value.into();
+                $( $validate(&value)?; )?
                 if !$expect(&value) {
                     return Err(IdentifierError::InvalidId(value));
                 }
@@ -208,11 +209,17 @@ const DIGEST_SUITE_LOW_NIBBLE_MASK: u8 = 0x0F;
 fn event_digest_suite_from_header(header: u8) -> Result<DigestSuiteCode> {
     let reserved = header >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT;
     if reserved != EVENT_RESERVED_HIGH_NIBBLE {
-        return Err(IdentifierError::InvalidId(format!(
-            "Event reserved header nibble must be zero, got 0x{reserved:x}"
+        return Err(IdentifierError::Protocol(format!(
+            "schema_violation: Event reserved header nibble must be zero, got 0x{reserved:x}"
         )));
     }
-    DigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
+    let suite = header & DIGEST_SUITE_LOW_NIBBLE_MASK;
+    if suite != DigestSuiteCode::Sha256.as_u8() {
+        return Err(IdentifierError::Protocol(format!(
+            "unsupported_digest_algorithm: Event token suite code 0x{suite:02x}"
+        )));
+    }
+    Ok(DigestSuiteCode::Sha256)
 }
 
 /// Parsed form of an [`EventId`]'s complete cryptographic identity.
@@ -231,6 +238,10 @@ impl EventIdentityKey {
     }
 
     pub const fn new(suite: DigestSuiteCode, digest: [u8; 32]) -> Self {
+        assert!(
+            matches!(suite, DigestSuiteCode::Sha256),
+            "v1 Event identity is fixed to SHA-256"
+        );
         Self { suite, digest }
     }
 
@@ -267,6 +278,12 @@ pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
 /// spelling, and leads with an active v1 digest suite code whose high nibble is
 /// zero.
 pub fn decode_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+    let bytes = decode_raw_digest_token(value, prefix)?;
+    DigestSuiteCode::try_from(bytes[0]).ok()?;
+    Some(bytes)
+}
+
+fn decode_raw_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix(prefix)?;
     if payload.len() != 44
         || !payload
@@ -281,7 +298,6 @@ pub fn decode_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     if URL_SAFE_NO_PAD.encode(bytes) != payload {
         return None;
     }
-    DigestSuiteCode::try_from(bytes[0]).ok()?;
     Some(bytes)
 }
 
@@ -295,9 +311,23 @@ fn is_event_token_id(value: &str, prefix: &str) -> bool {
     decode_event_token(value, prefix).is_some()
 }
 
+fn validate_event_token(value: &str, prefix: &str) -> Result<()> {
+    let bytes = decode_raw_digest_token(value, prefix).ok_or_else(|| {
+        IdentifierError::Protocol(format!(
+            "schema_violation: invalid Event token encoding: {value}"
+        ))
+    })?;
+    event_digest_suite_from_header(bytes[0])?;
+    Ok(())
+}
+
 macro_rules! event_token_id_type {
     ($name:ident, $prefix:literal) => {
-        id_type!($name, |value: &str| is_event_token_id(value, $prefix));
+        id_type!(
+            $name,
+            |value: &str| is_event_token_id(value, $prefix),
+            |value: &str| validate_event_token(value, $prefix)
+        );
 
         impl $name {
             pub const KIND_PREFIX: &'static str = $prefix;
@@ -1206,6 +1236,11 @@ impl EventId {
     }
 
     pub fn from_digest(suite: arkret_canonical::DigestSuite, digest: [u8; 32]) -> Self {
+        assert_eq!(
+            suite,
+            arkret_canonical::DigestSuite::Sha256,
+            "v1 Event identity is fixed to SHA-256"
+        );
         Self::from_identity(EventIdentityKey::new(
             DigestSuiteCode::from_digest_suite(suite),
             digest,
@@ -1297,8 +1332,11 @@ impl EventIdentityKey {
             .ok_or_else(|| IdentifierError::InvalidId(value.as_str().to_owned()))?;
         let suite = match suite {
             "sha256" => DigestSuiteCode::Sha256,
-            "blake3" => DigestSuiteCode::Blake3,
-            _ => return Err(IdentifierError::InvalidId(value.as_str().to_owned())),
+            _ => {
+                return Err(IdentifierError::Protocol(
+                    "unsupported_digest_algorithm: Event digest suite must be sha256".to_owned(),
+                ));
+            }
         };
         let mut digest = [0_u8; 32];
         for (index, octet) in digest.iter_mut().enumerate() {
@@ -1733,8 +1771,16 @@ mod tests {
         );
         assert!(SessionGrantId::new(blake3_token).is_err());
 
-        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
-        assert!(EventId::new(blake3_event.as_str()).is_ok());
+        let mut blake3_event =
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]).token_bytes();
+        blake3_event[0] = DigestSuiteCode::Blake3.as_u8();
+        let error =
+            EventId::new(encode_event_token(EventId::KIND_PREFIX, blake3_event)).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .starts_with("unsupported_digest_algorithm:")
+        );
     }
 
     #[test]
@@ -1751,9 +1797,9 @@ mod tests {
 
     #[test]
     fn strand_id_accepts_active_strand_prefix() {
-        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x23; 32]);
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x23; 32]);
         let strand_id = StrandId::from_event_id(&event_id);
-        assert_eq!(strand_id.digest_suite_code(), DigestSuiteCode::Blake3);
+        assert_eq!(strand_id.digest_suite_code(), DigestSuiteCode::Sha256);
         assert!(StrandId::new(strand_id.as_str()).is_ok());
         assert!(StrandId::new(format!("ak:space:{}", &strand_id.as_str()[10..])).is_err());
         assert!(StrandId::new("ak:strand:01js0ke000000000000000000").is_err());
@@ -1798,8 +1844,9 @@ mod tests {
         assert!(RealmId::new(encode_event_token("ak:realm:", reserved)).is_err());
 
         assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_err());
-        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
-        let blake3_retyped = encode_event_token("ak:realm:", blake3_event.token_bytes());
+        let mut blake3_token = event_id.token_bytes();
+        blake3_token[0] = DigestSuiteCode::Blake3.as_u8();
+        let blake3_retyped = encode_event_token("ak:realm:", blake3_token);
         assert!(
             RealmId::new(blake3_retyped).is_err(),
             "v1 Realm IDs reject non-SHA-256 Event suites"
@@ -1876,11 +1923,21 @@ mod tests {
 
         let mut unknown_suite = valid.token_bytes();
         unknown_suite[0] = 0x03;
-        assert!(EventId::new(encode_event_token("ak:event:", unknown_suite)).is_err());
+        for suite in [0x00, 0x02, 0x03, 0x04] {
+            unknown_suite[0] = suite;
+            let error = EventId::new(encode_event_token("ak:event:", unknown_suite)).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .starts_with("unsupported_digest_algorithm:")
+            );
+        }
 
         let mut nonzero_reserved_nibble = valid.token_bytes();
         nonzero_reserved_nibble[0] = 0x11;
-        assert!(EventId::new(encode_event_token("ak:event:", nonzero_reserved_nibble)).is_err());
+        let error =
+            EventId::new(encode_event_token("ak:event:", nonzero_reserved_nibble)).unwrap_err();
+        assert!(error.to_string().starts_with("schema_violation:"));
         assert!(
             MessageId::new(encode_event_token("ak:message:", nonzero_reserved_nibble)).is_err(),
             "every Event-derived kind must reject a non-zero Event reserved nibble"
@@ -1899,20 +1956,19 @@ mod tests {
             *byte = index as u8;
         }
         let sha = EventIdentityKey::new(DigestSuiteCode::Sha256, digest);
-        let blake = EventIdentityKey::new(DigestSuiteCode::Blake3, digest);
         assert_eq!(
             sha.event_id().as_str(),
             "ak:event:AQABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
         );
-        assert_eq!(
-            blake.event_id().as_str(),
-            "ak:event:AgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
-        );
         assert_eq!(sha.event_id().digest_bytes(), digest);
         assert_eq!(sha.event_id().identity_key(), sha);
         assert_eq!(sha.event_id().event_digest(), sha.event_digest());
-        assert_eq!(blake.event_id().event_digest(), blake.event_digest());
-        assert_ne!(blake.event_id(), sha.event_id());
+        assert!(
+            EventIdentityKey::from_event_digest(
+                &Hash::new(format!("blake3:{}", "00".repeat(32))).unwrap()
+            )
+            .is_err()
+        );
         assert_eq!(
             EventIdentityKey::from_event_digest(&sha.event_digest()).unwrap(),
             sha

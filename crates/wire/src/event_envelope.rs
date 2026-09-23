@@ -1028,7 +1028,7 @@ impl Event {
         Ok(())
     }
 
-    /// Derive this Event's `event_id` under the Realm's declared digest suite.
+    /// Derive this Event's `event_id` under the fixed v1 content-address suite.
     pub fn derive_event_id_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
@@ -1078,15 +1078,19 @@ impl Event {
         }
     }
 
-    /// Compute the Event digest with the trusted Realm digest suite.
+    /// Compute the Event digest with the fixed v1 content-address suite.
     ///
-    /// The suite is supplied by the caller because the Event is not trusted
-    /// until its proof has been verified; it must not be inferred from the
-    /// Event payload.
+    /// The caller supplies the selected suite, which must be SHA-256 for an
+    /// Event even when other digest domains support another active suite.
     pub fn event_digest_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<String> {
+        if digest_suite != arkret_canonical::DigestSuite::Sha256 {
+            return Err(WireError::Protocol(
+                "unsupported_digest_algorithm: Event digest suite must be sha256".to_owned(),
+            ));
+        }
         let bytes = canonical::canonical_json_bytes(&self.digest_payload()?)?;
         Ok(canonical::digest(digest_suite, &bytes))
     }
@@ -1395,6 +1399,15 @@ mod event_wire_surface_tests {
             "2026-04-26T00:00:00.000Z".parse().unwrap(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn event_digest_rejects_blob_only_suite() {
+        let event = base_event();
+        let error = event
+            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Blake3)
+            .unwrap_err();
+        assert!(error.to_string().contains("unsupported_digest_algorithm"));
     }
 
     #[test]
