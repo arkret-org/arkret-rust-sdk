@@ -43,6 +43,11 @@ use serde_json::Value;
 """
 
 
+def write_text(path: Path, value: str, *, encoding: str, newline: str) -> None:
+    with path.open("w", encoding=encoding, newline=newline) as output:
+        output.write(value)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--crate", default="models-discovery")
@@ -61,12 +66,12 @@ def main() -> int:
     newtypes, conflicts = bindings_module.learn(types, mappings, resolver)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "mapping.json").write_text(
+    write_text(args.out / "mapping.json",
         json.dumps([entry.__dict__ for entry in mappings], indent=2),
         encoding="utf-8",
         newline="\n",
     )
-    (args.out / "bindings.json").write_text(
+    write_text(args.out / "bindings.json",
         json.dumps(
             {"version": 1, "bindings": newtypes, "conflicts": conflicts}, indent=2
         ),
@@ -124,7 +129,7 @@ def main() -> int:
             )
         )
 
-    (args.out / "generated.rs").write_text(
+    write_text(args.out / "generated.rs",
         PREAMBLE + "\n" + "\n\n".join(rendered[key] for key in sorted(rendered)) + "\n",
         encoding="utf-8",
         newline="\n",
@@ -135,7 +140,7 @@ def main() -> int:
         for comparison in comparisons
         for difference in comparison.differences
     ]
-    (args.out / "differences.json").write_text(
+    write_text(args.out / "differences.json",
         json.dumps(
             {
                 "attempted": len(comparisons),

@@ -577,14 +577,12 @@ impl RealmDetailBaseline {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct EventContainer {
     #[serde(default)]
     pub events: Vec<Event>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct DeviceMessageContainer {
     #[serde(default)]
     pub messages: Vec<DeviceMessageEnvelope>,
@@ -596,6 +594,41 @@ pub struct DeviceMessageContainer {
     pub limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+}
+
+#[cfg(test)]
+mod open_container_tests {
+    use serde_json::json;
+
+    use super::{DeviceMessageContainer, EventContainer};
+
+    #[test]
+    fn account_subscribe_open_containers_accept_extensions_without_re_emitting_them() {
+        let events: EventContainer = serde_json::from_value(json!({
+            "events": [],
+            "x_future_delivery_hint": {"enabled": true}
+        }))
+        .unwrap();
+        assert!(events.events.is_empty());
+        assert_eq!(serde_json::to_value(events).unwrap(), json!({"events": []}));
+
+        let messages: DeviceMessageContainer = serde_json::from_value(json!({
+            "messages": [],
+            "limited": false,
+            "x_future_queue_hint": 1
+        }))
+        .unwrap();
+        assert!(messages.messages.is_empty());
+        assert_eq!(
+            serde_json::to_value(messages).unwrap(),
+            json!({"messages": [], "limited": false})
+        );
+
+        assert!(serde_json::from_value::<EventContainer>(json!({"events": false})).is_err());
+        assert!(
+            serde_json::from_value::<DeviceMessageContainer>(json!({"messages": false})).is_err()
+        );
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
