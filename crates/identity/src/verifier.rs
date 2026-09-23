@@ -76,7 +76,8 @@ use crate::binding::{
 };
 use crate::binding_digest::{DigestError, EvidenceReceipt};
 use crate::binding_store::{
-    AcceptedDidBinding, BindingFreshness, BindingStoreError, VerifiedDidBindingStore,
+    AcceptedDidBinding, BindingFreshness, BindingInvalidation, BindingStoreError,
+    VerifiedDidBindingStore,
 };
 use crate::test_material::{
     FormalTestMaterialPolicyError, PublicKeyFingerprintInput, enforce_formal_test_material_policy,
@@ -698,6 +699,129 @@ impl BindingResolveRequest {
     }
 }
 
+fn evict_binding_key(store: &dyn VerifiedDidBindingStore, key: &VerifiedDidBindingKey) {
+    let mut selector = BindingInvalidation::for_did(key.did.clone())
+        .with_trust_domain(key.trust_domain.clone())
+        .with_purpose(key.purpose)
+        .with_policy_digest(key.policy_digest.clone());
+    if let Some(method) = &key.verification_method {
+        selector = selector.with_verification_method(method.clone());
+    }
+    store.invalidate(&selector);
+}
+
+fn enforce_document_test_material_policy(
+    document: &DidDocument,
+    trust_domain: &TrustDomainId,
+) -> Result<(), BindingResolveError> {
+    enforce_formal_test_material_policy(None, Some(&document.id), None, Some(trust_domain))?;
+    for (method_id, material) in &document.verification_methods {
+        let absolute = if method_id.starts_with("did:") {
+            method_id.clone()
+        } else {
+            format!("{}#{}", document.id, method_id.trim_start_matches('#'))
+        };
+        let key_id = DidUrl::new(absolute)
+            .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))?;
+        enforce_formal_test_material_policy(
+            None,
+            Some(&document.id),
+            Some(&key_id),
+            Some(trust_domain),
+        )?;
+
+        let material = material
+            .trim()
+            .strip_prefix("did:key:")
+            .unwrap_or(material.trim());
+        if material.starts_with('z') {
+            if let Ok(bytes) = arkret_canonical::decode_ed25519_multibase(material) {
+                enforce_formal_test_material_policy(
+                    Some(&PublicKeyFingerprintInput::Ed25519Rfc8032(&bytes)),
+                    Some(&document.id),
+                    Some(&key_id),
+                    Some(trust_domain),
+                )?;
+            }
+            continue;
+        }
+        if !material.starts_with('{') {
+            continue;
+        }
+        let jwk: serde_json::Value = serde_json::from_str(material)
+            .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))?;
+        match (
+            jwk.get("kty").and_then(serde_json::Value::as_str),
+            jwk.get("crv").and_then(serde_json::Value::as_str),
+        ) {
+            (Some("OKP"), Some("Ed25519")) => {
+                let bytes = PublicKeyMaterial::Jwk { value: jwk }
+                    .ed25519_bytes()
+                    .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))?;
+                enforce_formal_test_material_policy(
+                    Some(&PublicKeyFingerprintInput::Ed25519Rfc8032(&bytes)),
+                    Some(&document.id),
+                    Some(&key_id),
+                    Some(trust_domain),
+                )?;
+            }
+            (Some("EC"), Some("P-256")) => {
+                let decode = |member: &str| -> Result<Vec<u8>, BindingResolveError> {
+                    let value = jwk
+                        .get(member)
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or_else(|| {
+                            BindingResolveError::PublicKeyMaterial(format!(
+                                "P-256 JWK missing {member}"
+                            ))
+                        })?;
+                    arkret_canonical::base64url::base64url_decode(value)
+                        .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))
+                };
+                let x = decode("x")?;
+                let y = decode("y")?;
+                if x.len() != 32 || y.len() != 32 {
+                    return Err(BindingResolveError::PublicKeyMaterial(
+                        "P-256 JWK coordinates must each be 32 bytes".to_owned(),
+                    ));
+                }
+                let mut bytes = Vec::with_capacity(65);
+                bytes.push(0x04);
+                bytes.extend(x);
+                bytes.extend(y);
+                enforce_formal_test_material_policy(
+                    Some(&PublicKeyFingerprintInput::P256Sec1Uncompressed(&bytes)),
+                    Some(&document.id),
+                    Some(&key_id),
+                    Some(trust_domain),
+                )?;
+            }
+            (Some("AKP"), _)
+                if jwk.get("alg").and_then(serde_json::Value::as_str) == Some("ML-DSA-65") =>
+            {
+                let encoded = jwk
+                    .get("pub")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| {
+                        BindingResolveError::PublicKeyMaterial(
+                            "ML-DSA-65 JWK missing pub".to_owned(),
+                        )
+                    })?;
+                let bytes = arkret_canonical::base64url::base64url_decode(encoded)
+                    .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))?;
+                enforce_formal_test_material_policy(
+                    Some(&PublicKeyFingerprintInput::MlDsa65Fips204(&bytes)),
+                    Some(&document.id),
+                    Some(&key_id),
+                    Some(trust_domain),
+                )?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Typed failures of the authority path.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -721,6 +845,12 @@ pub enum BindingResolveError {
         did: Did,
         available: Vec<String>,
     },
+    /// The selected DID document contains published test signing material or a reserved identifier.
+    #[error(transparent)]
+    TestMaterial(#[from] FormalTestMaterialPolicyError),
+    /// A recognized public-key encoding cannot be decoded to algorithm-defined bytes.
+    #[error("DID verification method public key material rejected: {0}")]
+    PublicKeyMaterial(String),
     /// The canonical evidence receipt could not be built or digested.
     #[error("evidence receipt failed for `{did}`: {source}")]
     Evidence {
@@ -742,11 +872,12 @@ pub enum BindingResolveError {
 /// Order of operations:
 ///
 /// 1. read the binding store under `request.key()`;
-/// 2. on a hit that satisfies the request's freshness profile, return it **without calling the
-///    resolver**;
-/// 3. otherwise call `resolver.resolve_did` **exactly once**, verify the document belongs to the
-///    requested DID (and carries the requested verification method), build the §5.2 evidence
-///    receipt from the resolution, and `accept()` the binding back into the store.
+/// 2. reject and evict a cached binding whose pinned document contains registered test material;
+/// 3. on a remaining hit that satisfies the request's freshness profile, return it **without
+///    calling the resolver**;
+/// 4. otherwise call `resolver.resolve_did` **exactly once**, verify the document belongs to the
+///    requested DID (and carries the requested verification method), reject registered test
+///    material before building the §5.2 evidence receipt or calling `accept()`.
 ///
 /// A hard-expired or invalidated entry reads as a miss, so the next authority
 /// call resolves again — exactly once.
@@ -767,6 +898,13 @@ where
     let requirement = request.freshness.requirement();
     let key = request.key();
     let (hit, freshness) = store.get_with_freshness(&key, now);
+    if let Some(accepted) = &hit
+        && let Err(error) =
+            enforce_document_test_material_policy(accepted.document(), &request.trust_domain)
+    {
+        evict_binding_key(store, &key);
+        return Err(error);
+    }
     if let Some(accepted) = hit
         && freshness_satisfies(&freshness, &requirement)
         && accepted
@@ -804,6 +942,11 @@ where
             did: request.did.clone(),
             available: document.verification_methods.keys().cloned().collect(),
         });
+    }
+
+    if let Err(error) = enforce_document_test_material_policy(&document, &request.trust_domain) {
+        evict_binding_key(store, &key);
+        return Err(error);
     }
 
     let evidence = |source| BindingResolveError::Evidence {
@@ -894,6 +1037,23 @@ mod tests {
 
     fn signing_key() -> SigningKey {
         SigningKey::from_bytes(&[9u8; 32])
+    }
+
+    fn published_fixture_signing_key() -> SigningKey {
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../arkret-spec/spec/v1/artifacts/fixtures/crypto-signature-fixture.json",
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let seed = arkret_canonical::base64url::base64url_decode(
+            fixture["vectors"][0]["test_private_key_jwk"]["d"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        SigningKey::from_bytes(seed.as_slice().try_into().unwrap())
     }
 
     fn did() -> Did {
@@ -1781,6 +1941,131 @@ mod tests {
         }
     }
 
+    #[test]
+    fn authority_rejects_published_key_before_accepting_a_new_binding() {
+        let fixture_key = published_fixture_signing_key();
+        let claim = br#"{"claim":"valid-published-key"}"#;
+        let jws = sign_jws_ed25519(claim, &fixture_key).unwrap();
+        Ed25519DetachedJwsVerifier::new()
+            .verify_detached_jws(
+                &jws,
+                claim,
+                &PublicKeyMaterial::Ed25519Raw {
+                    bytes: fixture_key.verifying_key().as_bytes().to_vec(),
+                },
+            )
+            .expect("the publicly known private key makes a valid signature");
+
+        let x = arkret_canonical::base64url_encode(fixture_key.verifying_key().as_bytes());
+        let jwk = format!(r#"{{"x":"{x}","crv":"Ed25519","kty":"OKP"}}"#);
+        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            fixture_key.verifying_key().as_bytes(),
+        );
+        for material in [jwk, multibase] {
+            let mut pinned = document(verification_method().as_str());
+            pinned
+                .verification_methods
+                .insert(verification_method().as_str().to_owned(), material);
+            let resolver = OneShotResolver::new(pinned);
+            let store = InMemoryVerifiedDidBindingStore::default();
+            let error = resolve_and_verify_binding(&resolver, &store, &request(), protocol_now())
+                .expect_err("published material must not become an accepted binding");
+            let BindingResolveError::TestMaterial(FormalTestMaterialPolicyError::Denied(denial)) =
+                error
+            else {
+                panic!("expected the exact test-material denial")
+            };
+            assert_eq!(
+                denial.published_key_fingerprint.as_deref(),
+                Some(crate::test_material::PUBLISHED_TEST_KEY_FINGERPRINTS[0])
+            );
+            assert!(!denial.reserved_identifiers.any());
+            assert_eq!(resolver.calls(), 1);
+            assert!(store.snapshot().is_empty());
+        }
+    }
+
+    #[test]
+    fn authority_evicts_a_previously_cached_published_key_without_fallback() {
+        let fixture_key = published_fixture_signing_key();
+        let material = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            fixture_key.verifying_key().as_bytes(),
+        );
+        let mut pinned = document(verification_method().as_str());
+        pinned
+            .verification_methods
+            .insert(verification_method().as_str().to_owned(), material);
+        let store = InMemoryVerifiedDidBindingStore::default();
+        store.accept(accepted(&pinned)).unwrap();
+        assert_eq!(store.len(), 1);
+        let resolver = OneShotResolver::new(document(verification_method().as_str()));
+
+        let error = resolve_and_verify_binding(&resolver, &store, &request(), protocol_now())
+            .expect_err("a cached published key cannot remain an authority basis");
+        assert!(matches!(
+            error,
+            BindingResolveError::TestMaterial(FormalTestMaterialPolicyError::Denied(_))
+        ));
+        assert_eq!(
+            resolver.calls(),
+            0,
+            "rejection must not retry a weaker path"
+        );
+        assert!(
+            store.snapshot().is_empty(),
+            "the old binding must be removed"
+        );
+        assert!(store.get(&request().key(), protocol_now()).is_none());
+    }
+
+    #[test]
+    fn authority_checks_the_registered_p256_and_mldsa_public_key_encodings() {
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../arkret-spec/spec/v1/artifacts/fixtures/crypto-signature-fixture.json",
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let p256 = &fixture["vectors"][1]["did_document_fragment"]["publicKeyJwk"];
+        let mldsa_public = fixture["vectors"][2]["public_key_b64u"].as_str().unwrap();
+        let materials = [
+            (
+                serde_json::json!({"kty":"EC", "crv":"P-256", "x":p256["x"], "y":p256["y"]})
+                    .to_string(),
+                crate::test_material::PUBLISHED_TEST_KEY_FINGERPRINTS[1],
+            ),
+            (
+                serde_json::json!({"kty":"AKP", "alg":"ML-DSA-65", "pub":mldsa_public}).to_string(),
+                crate::test_material::PUBLISHED_TEST_KEY_FINGERPRINTS[2],
+            ),
+        ];
+        for (material, fingerprint) in materials {
+            let mut pinned = document(verification_method().as_str());
+            pinned
+                .verification_methods
+                .insert(verification_method().as_str().to_owned(), material);
+            let store = InMemoryVerifiedDidBindingStore::default();
+            let error = resolve_and_verify_binding(
+                &OneShotResolver::new(pinned),
+                &store,
+                &request(),
+                protocol_now(),
+            )
+            .unwrap_err();
+            let BindingResolveError::TestMaterial(FormalTestMaterialPolicyError::Denied(denial)) =
+                error
+            else {
+                panic!("registered P-256 and ML-DSA keys must be denied")
+            };
+            assert_eq!(
+                denial.published_key_fingerprint.as_deref(),
+                Some(fingerprint)
+            );
+            assert!(store.snapshot().is_empty());
+        }
+    }
+
     fn webvh_evidence() -> MethodEvidence {
         MethodEvidence {
             proofs: vec![crate::MethodEvidenceProof::WebvhLog(
@@ -1847,7 +2132,7 @@ mod tests {
             vec![witness.clone()]
         );
         assert_eq!(
-            store.invalidate(&crate::BindingInvalidation {
+            store.invalidate(&BindingInvalidation {
                 evidence_witness_did: Some(witness),
                 ..Default::default()
             }),
