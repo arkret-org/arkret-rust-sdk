@@ -532,7 +532,8 @@ pub fn public_key_material_from_document(
 /// 2. `proof.verification_method` is controlled by the bound DID;
 /// 3. it is the exact method the binding accepted, when the binding is key-specific;
 /// 4. the pinned document still hashes to the binding's `document_digest`;
-/// 5. the Event proof verifies under the Event profile.
+/// 5. the resolved key and bound identifiers are not registered test material;
+/// 6. the Event proof verifies under the Event profile.
 ///
 /// `actor_id` is the **Event envelope's** `actor_id` — the value folded into the
 /// canonical binding object — which may differ from the signing actor
@@ -585,6 +586,20 @@ pub fn verify_event_proof_with_binding(
     }
 
     let public_key = public_key_material_from_binding(accepted, presented)?;
+    let public_key_bytes =
+        public_key
+            .ed25519_bytes()
+            .map_err(|error| BindingVerifyError::PublicKeyMaterial {
+                reason: error.to_string(),
+            })?;
+    enforce_formal_test_material_policy(
+        Some(&PublicKeyFingerprintInput::Ed25519Rfc8032(
+            &public_key_bytes,
+        )),
+        Some(binding.did()),
+        Some(presented),
+        Some(binding.trust_domain()),
+    )?;
     arkret_signatures::verify_ed25519_detached_jws_proof(
         proof,
         envelope_bytes,
@@ -1351,6 +1366,84 @@ mod tests {
                 &accepted,
             )
             .expect("an accepted binding verifies an Event proof");
+        }
+
+        #[test]
+        fn published_fixture_key_cannot_authorize_a_valid_event_proof_after_rehosting() {
+            let fixture: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                    "../../../arkret-spec/spec/v1/artifacts/fixtures/crypto-signature-fixture.json",
+                ))
+                .unwrap(),
+            )
+            .unwrap();
+            let vector = &fixture["vectors"][0];
+            let seed = arkret_canonical::base64url::base64url_decode(
+                vector["test_private_key_jwk"]["d"].as_str().unwrap(),
+            )
+            .unwrap();
+            let fixture_key = SigningKey::from_bytes(seed.as_slice().try_into().unwrap());
+            let x = vector["did_document_fragment"]["publicKeyJwk"]["x"]
+                .as_str()
+                .unwrap();
+            assert_eq!(
+                arkret_canonical::base64url::base64url_decode(x).unwrap(),
+                fixture_key.verifying_key().as_bytes()
+            );
+            let event = event();
+            let envelope = envelope_bytes(&event);
+            let mut proof = unsigned_proof(&event);
+            let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
+            proof.jws = sign_ed25519_detached_jws(&fixture_key, &binding_bytes).unwrap();
+            let public_key = PublicKeyMaterial::Ed25519Raw {
+                bytes: fixture_key.verifying_key().as_bytes().to_vec(),
+            };
+            arkret_signatures::verify_ed25519_detached_jws_proof(
+                &proof,
+                &envelope,
+                &event.actor_id,
+                &public_key,
+            )
+            .expect("the published fixture signature satisfies the Event proof profile");
+
+            let jwk = format!(r#"{{"x":"{x}","crv":"Ed25519","kty":"OKP"}}"#);
+            let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                fixture_key.verifying_key().as_bytes(),
+            );
+            for material in [jwk, multibase] {
+                let mut pinned = document(verification_method().as_str());
+                pinned
+                    .verification_methods
+                    .insert(verification_method().as_str().to_owned(), material);
+                let accepted = accepted(&pinned);
+                let error =
+                    verify_event_proof_with_binding(&proof, &envelope, &event.actor_id, &accepted)
+                        .expect_err("published signing material must not authorize an Event");
+                let BindingVerifyError::TestMaterial(FormalTestMaterialPolicyError::Denied(denial)) =
+                    error
+                else {
+                    panic!("expected exact test-material denial")
+                };
+                assert_eq!(
+                    denial.published_key_fingerprint.as_deref(),
+                    Some(crate::test_material::PUBLISHED_TEST_KEY_FINGERPRINTS[0])
+                );
+                assert!(!denial.reserved_identifiers.any());
+                assert!(matches!(
+                    verify_event_proof_with_binding(
+                        &ProducerEventProof {
+                            jws: "malformed-jws".to_owned(),
+                            ..proof.clone()
+                        },
+                        &envelope,
+                        &event.actor_id,
+                        &accepted,
+                    ),
+                    Err(BindingVerifyError::TestMaterial(
+                        FormalTestMaterialPolicyError::Denied(_)
+                    ))
+                ));
+            }
         }
 
         #[test]
