@@ -400,7 +400,6 @@ pub use arkret_wire::mls_transition::mls_genesis_transition_digest;
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::object_ref::is_object_ref;
 pub use arkret_wire::operation_types::*;
-pub use arkret_wire::pairwise_endpoint_possession::*;
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;

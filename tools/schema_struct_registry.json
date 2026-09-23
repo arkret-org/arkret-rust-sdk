@@ -684,10 +684,6 @@
       "schema": "sdk-conformance-claim.schema.json#/$defs/issuer"
     },
     {
-      "rust_type": "crates/wire/src/pairwise_endpoint_possession.rs::PairwiseEndpointPossessionProof",
-      "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
-    },
-    {
       "rust_type": "crates/models-crypto/src/authority_set_policy.rs::AuthoritySetPolicy",
       "schema": "authority-set-policy.schema.json"
     },
@@ -928,10 +924,6 @@
     {
       "rust_type": "crates/models-collaboration/src/session_grants.rs::HumanSessionGrantRequest",
       "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequest"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::PairwiseEndpointSessionGrantRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointSessionGrantRequest"
     },
     {
       "rust_type": "crates/models-collaboration/src/session_grants.rs::HumanSessionGrantRefreshRequest",

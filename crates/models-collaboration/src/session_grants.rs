@@ -9,8 +9,8 @@ use arkret_models_identity::{
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
     AcceptedDevicePossessionProof, AccountId, AppletId, DeviceId, DidCoreId, DidUrl, EventId, Hash,
-    NonEmptyString, PairwiseEndpointPossessionProof, RealmId, RequestId, Result, ScopeRef,
-    SessionGrantId, StrandId, WireError, canonical,
+    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -66,8 +66,7 @@ pub fn human_session_grant_intent_digest(
     .map_err(Into::into)
 }
 
-/// Closed returning-human, Agent runtime, minimal-metadata pairwise endpoint
-/// or fresh-device recovery issuance union
+/// Closed returning-human, Agent runtime or fresh-device recovery issuance union
 /// (`service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`).
 /// OIDC authorization codes are consumed only by the account-handoff body.
 ///
@@ -81,7 +80,6 @@ pub enum SessionGrantRequestBody {
     Recovery(RecoverySessionGrantRequest),
     Human(HumanSessionGrantRequest),
     Agent(AgentSessionGrantRequest),
-    PairwiseEndpoint(PairwiseEndpointSessionGrantRequest),
 }
 
 impl SessionGrantRequestBody {
@@ -90,7 +88,6 @@ impl SessionGrantRequestBody {
             Self::Recovery(request) => request.validate(),
             Self::Human(request) => request.validate(),
             Self::Agent(request) => request.validate(),
-            Self::PairwiseEndpoint(request) => request.validate(),
         }
     }
 }
@@ -131,67 +128,6 @@ impl HumanSessionGrantRequest {
             ));
         }
         Ok(())
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PairwiseEndpointSessionGrantRequest {
-    pub request_id: RequestId,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub audience_id: DidCoreId,
-    pub accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
-    pub pairwise_endpoint_possession_proof: PairwiseEndpointPossessionProof,
-}
-
-impl PairwiseEndpointSessionGrantRequest {
-    pub fn validate(&self) -> Result<()> {
-        let accepted = &self.accepted_device_possession_proof;
-        AcceptedDevicePossessionProof::Issue(accepted.clone()).validate()?;
-        if accepted.request_id != self.request_id
-            || accepted.account_id.principal_id != self.principal_id
-            || accepted.device_id != self.device_id
-            || accepted.audience_id != self.audience_id
-        {
-            return Err(WireError::Protocol(
-                "accepted-device issue proof does not bind the session request".into(),
-            ));
-        }
-        let expected = human_session_grant_intent_digest(
-            &self.request_id,
-            &self.principal_id,
-            &self.device_id,
-            &self.audience_id,
-            &accepted.holder_jkt,
-        )?;
-        if accepted.session_intent_digest != expected {
-            return Err(WireError::Protocol(
-                "accepted-device issue proof has the wrong session intent digest".into(),
-            ));
-        }
-        let pairwise = &self.pairwise_endpoint_possession_proof;
-        pairwise.validate()?;
-        if pairwise.request_id != self.request_id
-            || pairwise.account_id != accepted.account_id
-            || pairwise.audience_id != self.audience_id
-            || pairwise.holder_jkt != accepted.holder_jkt
-            || pairwise.session_intent_digest != expected
-        {
-            return Err(WireError::Protocol(
-                "pairwise endpoint possession proof does not bind the same issuance intent".into(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn expected_holder_binding(&self) -> SessionGrantHolderBinding {
-        let proof = &self.pairwise_endpoint_possession_proof;
-        SessionGrantHolderBinding::MinimalMetadataPairwise {
-            realm_id: proof.realm_id.clone(),
-            actor_id: proof.actor_id.clone(),
-            verification_method: proof.verification_method.clone(),
-        }
     }
 }
 
@@ -659,12 +595,6 @@ impl SessionGrantValidationMetadata {
             (SessionGrantHolderBinding::AgentRuntime { .. }, _) => Err(WireError::Protocol(
                 "Agent request context must use delegated runtime authority".to_owned(),
             )),
-            (SessionGrantHolderBinding::MinimalMetadataPairwise { .. }, _) => {
-                Err(WireError::Protocol(
-                    "minimal-metadata pairwise endpoint is not an introspectable grant holder"
-                        .to_owned(),
-                ))
-            }
         }
     }
 
@@ -729,12 +659,6 @@ impl SessionGrantValidationMetadata {
             (SessionGrantHolderBinding::AgentRuntime { .. }, ..) => {
                 return Err(WireError::Protocol(
                     "agent session grant introspection must not contain human device binding"
-                        .to_owned(),
-                ));
-            }
-            (SessionGrantHolderBinding::MinimalMetadataPairwise { .. }, ..) => {
-                return Err(WireError::Protocol(
-                    "minimal-metadata pairwise endpoint is not an introspectable grant holder"
                         .to_owned(),
                 ));
             }
@@ -1200,6 +1124,9 @@ mod session_grant_private_adapter_tests {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::{
+        AcceptedDeviceIssuePossessionPurpose, AcceptedDevicePossessionProofContext, Base64UrlString,
+    };
     use serde_json::json;
 
     use super::*;
@@ -1359,6 +1286,62 @@ mod tests {
         // A body with the human proof member is not a recovery request, and a
         // malformed proof leaves no branch to fall into.
         assert!(serde_json::from_value::<SessionGrantRequestBody>(human_issue_value()).is_err());
+    }
+
+    #[test]
+    fn issuance_union_accepts_only_the_three_registered_branches() {
+        let request_id = RequestId::new(REQUEST).unwrap();
+        let principal_id = DidCoreId::new(PRINCIPAL).unwrap();
+        let device_id = DeviceId::new(DEVICE).unwrap();
+        let audience_id = DidCoreId::new(AUDIENCE).unwrap();
+        let holder_jkt = "A".repeat(43);
+        let proof = AcceptedDeviceIssuePossessionProof {
+            context: AcceptedDevicePossessionProofContext::V1,
+            purpose: AcceptedDeviceIssuePossessionPurpose::SessionGrantIssue,
+            request_id: request_id.clone(),
+            account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            account_handoff_grant_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
+            account_id: AccountId::new(principal_id.clone(), audience_id.clone()),
+            device_id: device_id.clone(),
+            audience_id: audience_id.clone(),
+            holder_jkt: holder_jkt.clone(),
+            session_intent_digest: human_session_grant_intent_digest(
+                &request_id,
+                &principal_id,
+                &device_id,
+                &audience_id,
+                &holder_jkt,
+            )
+            .unwrap(),
+            issued_at: "2026-08-15T00:00:00Z".parse().unwrap(),
+            expires_at: "2026-08-15T00:04:00Z".parse().unwrap(),
+            verification_method: DidUrl::new("did:web:alice.example#device-1").unwrap(),
+            signature: Base64UrlString::new(arkret_wire::base64url::base64url_encode([7u8; 64]))
+                .unwrap(),
+        };
+        let human = SessionGrantRequestBody::Human(HumanSessionGrantRequest {
+            request_id,
+            principal_id,
+            device_id,
+            audience_id,
+            accepted_device_possession_proof: proof,
+        });
+        let mut old_fourth_branch = serde_json::to_value(&human).unwrap();
+        for body in [
+            human,
+            SessionGrantRequestBody::Agent(signed_agent_request()),
+            serde_json::from_value(recovery_value()).unwrap(),
+        ] {
+            body.validate().unwrap();
+            let parsed: SessionGrantRequestBody =
+                serde_json::from_value(serde_json::to_value(&body).unwrap()).unwrap();
+            parsed.validate().unwrap();
+        }
+
+        old_fourth_branch["pairwise_endpoint_possession_proof"] = json!({
+            "context": "ak.session_grant_pairwise_endpoint_possession_proof.v1"
+        });
+        assert!(serde_json::from_value::<SessionGrantRequestBody>(old_fourth_branch).is_err());
     }
 
     #[test]

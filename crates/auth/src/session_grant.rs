@@ -6,14 +6,11 @@
 use arkret_models_collaboration::agent_scope::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grants::{
     AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof,
-    HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, PairwiseEndpointSessionGrantRequest,
-    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody,
-    SessionGrantRequestBody, UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
+    HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, SessionGrantAgentScopeRequest,
+    SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
 };
-use arkret_wire::{
-    DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, PairwiseEndpointPossessionProof,
-    RequestId,
-};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
 
 pub fn human_session_grant_request(
@@ -32,30 +29,6 @@ pub fn human_session_grant_request(
     };
     request.validate()?;
     Ok(SessionGrantRequestBody::Human(request))
-}
-
-/// Standard issuance for a Realm-local minimal-metadata pairwise endpoint.
-///
-/// The account-side basis is unchanged; the extra endpoint possession proof is
-/// what makes the issued grant carry a `minimal_metadata_pairwise` holder.
-pub fn pairwise_endpoint_session_grant_request(
-    request_id: RequestId,
-    principal_id: DidCoreId,
-    device_id: DeviceId,
-    audience_id: DidCoreId,
-    accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
-    pairwise_endpoint_possession_proof: PairwiseEndpointPossessionProof,
-) -> crate::Result<SessionGrantRequestBody> {
-    let request = PairwiseEndpointSessionGrantRequest {
-        request_id,
-        principal_id,
-        device_id,
-        audience_id,
-        accepted_device_possession_proof,
-        pairwise_endpoint_possession_proof,
-    };
-    request.validate()?;
-    Ok(SessionGrantRequestBody::PairwiseEndpoint(request))
 }
 
 pub fn human_session_grant_refresh_request(
