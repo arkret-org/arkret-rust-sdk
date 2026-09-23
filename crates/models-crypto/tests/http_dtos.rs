@@ -56,7 +56,7 @@ fn human_claim_account_station_is_bound() {
 #[test]
 fn keypackage_claim_record_rejects_schema_invalid_scalars_and_mixed_authority() {
     let valid = json!({
-        "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
+        "claim_id": "ak:keypackage_claim:0199cccc-cccc-7ccc-8ccc-cccccccccccc",
         "keypackage_ref": "ak:mls:keypackage:test-01",
         "actor_id": {"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}},
         "principal_id": "ak:did_core:webvh:z6mkfixture",
@@ -99,7 +99,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let outcome = json!({
         "claim_request_id": "Y2xhaW0tbm9uY2U",
         "claims": [{
-            "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
+            "claim_id": "ak:keypackage_claim:0199cccc-cccc-7ccc-8ccc-cccccccccccc",
             "keypackage_ref": "ak:mls:keypackage:test-01",
             "actor_id": {"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}},
             "principal_id": "ak:did_core:webvh:z6mkfixture",

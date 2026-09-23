@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
     AccountId, ActorId, Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash,
-    NonEmptyString, ReasonCode, Result, WireError, XExtensionMap,
+    KeypackageClaimId, NonEmptyString, ReasonCode, Result, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -188,10 +188,8 @@ impl<'de> Deserialize<'de> for KeyPackageClaimRecord {
 
 impl KeyPackageClaimRecord {
     pub fn validate_shape(&self) -> std::result::Result<(), &'static str> {
-        NonEmptyString::new(self.claim_id.clone())?;
-        if self.claim_id.starts_with("ak:") {
-            return Err("claim_id must not use the ak namespace");
-        }
+        KeypackageClaimId::new(self.claim_id.clone())
+            .map_err(|_| "claim_id must be a KeypackageClaimId")?;
         NonEmptyString::new(self.keypackage_ref.clone())?;
         Base64UrlString::new(self.keypackage.clone())?;
         self.actor_id

@@ -14,7 +14,7 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
 use arkret_wire::{
     ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef,
     CurrentRevision, Did, DidCoreId, DidUrl, Event, EventAdmissionSubmission, EventId, GrantId,
-    Hash, PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef,
+    Hash, PayloadSigner, ProtocolOperationId, RealmCommit, RealmId, ReasonCode, Result, ScopeRef,
     SignalEnvelope, SignerEvidenceRef, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -59,8 +59,8 @@ pub struct AppletTransactionOutcome {
     pub retry_after_ms: Option<u64>,
 }
 
-/// Current Applet edge transaction. Durable Events are producer-authored
-/// Events; the receiving governance Station decides and signs finality.
+/// Current Applet edge transaction. Producer submissions and committed
+/// deliveries are separate directional branches.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -102,15 +102,44 @@ pub struct AppletEventTransactionRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub committed_events: Vec<AppletCommittedEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub signals: Vec<SignalEnvelope>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletCommittedEvent {
+    pub commit: RealmCommit,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub event: Event,
+}
+
+impl AppletCommittedEvent {
+    pub fn validate_shape(&self) -> Result<()> {
+        arkret_wire::CommittedEventFullView {
+            commit: self.commit.clone(),
+            event: self.event.clone(),
+        }
+        .validate_shape()
+    }
 }
 
 impl AppletEventTransactionRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.events.is_empty() && self.signals.is_empty() {
+        if self.events.is_empty() && self.committed_events.is_empty() && self.signals.is_empty() {
             return Err(WireError::Protocol(
                 "applet transaction requires at least one Event or Signal".into(),
             ));
+        }
+        if !self.events.is_empty() && !self.committed_events.is_empty() {
+            return Err(WireError::Protocol(
+                "applet transaction cannot mix producer Events and committed Events".into(),
+            ));
+        }
+        for pair in &self.committed_events {
+            pair.validate_shape()?;
         }
         Ok(())
     }

@@ -12,7 +12,7 @@ use arkret_models_crypto::{
     mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
 };
 use arkret_wire::{
-    ActorId, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, ScopeRef, canonical,
+    ActorId, DeviceId, DidCoreId, DidUrl, Hash, KeypackageClaimId, RealmId, ScopeRef, canonical,
 };
 use chrono::{Duration, Utc};
 use openmls::prelude::{
@@ -498,7 +498,7 @@ impl ArkretMlsIdentity {
     /// the required durable receipt. No Account/Device mirror is introduced.
     pub fn signed_key_packages_consume_request(
         &self,
-        claim_id: NonEmptyString,
+        claim_id: KeypackageClaimId,
         recipient_durable_receipt: RecipientMlsDurableReceipt,
     ) -> Result<KeyPackagesConsumeRequestBody> {
         let unsigned = KeyPackagesConsumeUnsignedRequest {

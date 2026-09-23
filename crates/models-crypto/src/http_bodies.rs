@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl,
-    DomainSeparationId, EventId, Hash, KeyPackageRef, MlsGroupId, MlsWelcomeDeliveryId,
-    NonEmptyString, RealmId, StrandId,
+    DomainSeparationId, EventId, Hash, KeyPackageRef, KeypackageClaimId, MlsGroupId,
+    MlsWelcomeDeliveryId, NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -1495,7 +1495,7 @@ impl RecipientMlsDurableReceipt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeRequestBody {
-    pub claim_id: NonEmptyString,
+    pub claim_id: KeypackageClaimId,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
     pub signature: KeyOperationSignature,
 }
@@ -1504,7 +1504,7 @@ pub struct KeyPackagesConsumeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesConsumeUnsignedRequest {
-    pub claim_id: NonEmptyString,
+    pub claim_id: KeypackageClaimId,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
 }
 
@@ -1569,7 +1569,7 @@ pub fn keypackages_consume_signing_input(
 pub struct KeyPackageConsumeReceipt {
     pub domain: NonEmptyString,
     pub request_digest: Hash,
-    pub claim_id: NonEmptyString,
+    pub claim_id: KeypackageClaimId,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub consumed_at: DateTime<Utc>,
