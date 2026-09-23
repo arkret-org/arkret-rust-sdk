@@ -374,10 +374,6 @@ impl RealmDestroyPayload {
 #[serde(deny_unknown_fields)]
 pub struct ObjectLifecyclePayload {
     pub target_ref: ObjectRef,
-    /// Intended lifecycle result (e.g. `archived` / `active`); descriptive
-    /// only — it cannot replace `target_ref`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -386,14 +382,8 @@ impl ObjectLifecyclePayload {
     pub fn new(target_ref: impl Into<ObjectRef>) -> Self {
         Self {
             target_ref: target_ref.into(),
-            target_state: None,
             reason: None,
         }
-    }
-
-    pub fn with_target_state(mut self, target_state: impl Into<String>) -> Self {
-        self.target_state = Some(target_state.into());
-        self
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -405,6 +395,38 @@ impl ObjectLifecyclePayload {
         serde_json::to_value(self).map_err(|err| {
             WireError::Protocol(format!("object lifecycle payload serialize: {err}"))
         })
+    }
+}
+
+#[cfg(test)]
+mod object_lifecycle_tests {
+    use serde_json::json;
+
+    use super::ObjectLifecyclePayload;
+
+    #[test]
+    fn lifecycle_state_is_derived_from_event_kind() {
+        let target_ref = "ak:strand:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let payload: ObjectLifecyclePayload = serde_json::from_value(json!({
+            "target_ref": target_ref,
+            "reason": "archived by owner"
+        }))
+        .unwrap();
+        assert_eq!(payload.reason.as_deref(), Some("archived by owner"));
+        assert_eq!(
+            payload.to_value().unwrap(),
+            json!({
+                "target_ref": target_ref,
+                "reason": "archived by owner"
+            })
+        );
+        assert!(
+            serde_json::from_value::<ObjectLifecyclePayload>(json!({
+                "target_ref": target_ref,
+                "target_state": "active"
+            }))
+            .is_err()
+        );
     }
 }
 
