@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-23.1;
-//! sha256=ce028d9c78062a63889863b8a9f5e7b31205f57195ed5784bb920709ff9dea85
-//! Entries: reason_codes=310, reserved_not_emitted=72
+//! Input: registry/error-code-registry.json; version=2026-09-24.1;
+//! sha256=cf443ccc66c9050ce1eca02ff11228fc1934bd80917d2838ea41ac130cf56332
+//! Entries: reason_codes=312, reserved_not_emitted=71
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -162,7 +162,9 @@ pub enum ReasonCode {
     MemberIdentityUnknownSegment,
     MimiGovernanceBindingMismatch,
     MimiGovernanceBindingMissing,
+    MimiObserverWriteForbidden,
     MimiPolicyRevisionMismatch,
+    MimiRoomBindingMigrationProofInvalid,
     MimiRoomBindingStatusTransitionInvalid,
     MimiRoomStateIncompatible,
     MinimalDisclosureViolation,
@@ -520,7 +522,10 @@ impl ReasonCode {
     pub const MEMBER_IDENTITY_UNKNOWN_SEGMENT: &'static str = "member_identity_unknown_segment";
     pub const MIMI_GOVERNANCE_BINDING_MISMATCH: &'static str = "mimi_governance_binding_mismatch";
     pub const MIMI_GOVERNANCE_BINDING_MISSING: &'static str = "mimi_governance_binding_missing";
+    pub const MIMI_OBSERVER_WRITE_FORBIDDEN: &'static str = "mimi_observer_write_forbidden";
     pub const MIMI_POLICY_REVISION_MISMATCH: &'static str = "mimi_policy_revision_mismatch";
+    pub const MIMI_ROOM_BINDING_MIGRATION_PROOF_INVALID: &'static str =
+        "mimi_room_binding_migration_proof_invalid";
     pub const MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID: &'static str =
         "mimi_room_binding_status_transition_invalid";
     pub const MIMI_ROOM_STATE_INCOMPATIBLE: &'static str = "mimi_room_state_incompatible";
@@ -893,7 +898,11 @@ impl ReasonCode {
             Self::MemberIdentityUnknownSegment => Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT,
             Self::MimiGovernanceBindingMismatch => Self::MIMI_GOVERNANCE_BINDING_MISMATCH,
             Self::MimiGovernanceBindingMissing => Self::MIMI_GOVERNANCE_BINDING_MISSING,
+            Self::MimiObserverWriteForbidden => Self::MIMI_OBSERVER_WRITE_FORBIDDEN,
             Self::MimiPolicyRevisionMismatch => Self::MIMI_POLICY_REVISION_MISMATCH,
+            Self::MimiRoomBindingMigrationProofInvalid => {
+                Self::MIMI_ROOM_BINDING_MIGRATION_PROOF_INVALID
+            }
             Self::MimiRoomBindingStatusTransitionInvalid => {
                 Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID
             }
@@ -1269,7 +1278,11 @@ impl ReasonCode {
             Self::MEMBER_IDENTITY_UNKNOWN_SEGMENT => Self::MemberIdentityUnknownSegment,
             Self::MIMI_GOVERNANCE_BINDING_MISMATCH => Self::MimiGovernanceBindingMismatch,
             Self::MIMI_GOVERNANCE_BINDING_MISSING => Self::MimiGovernanceBindingMissing,
+            Self::MIMI_OBSERVER_WRITE_FORBIDDEN => Self::MimiObserverWriteForbidden,
             Self::MIMI_POLICY_REVISION_MISMATCH => Self::MimiPolicyRevisionMismatch,
+            Self::MIMI_ROOM_BINDING_MIGRATION_PROOF_INVALID => {
+                Self::MimiRoomBindingMigrationProofInvalid
+            }
             Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID => {
                 Self::MimiRoomBindingStatusTransitionInvalid
             }
@@ -2285,7 +2298,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MIMI_GOVERNANCE_BINDING_MISMATCH,
         applies_to: &["service_call", "state_resolution"],
-        description: "A MIMI facade found a governance binding, but its realm_id, strand_id, mls_group_id, provider DID, or endpoint digest does not match the incoming MIMI room state. Receiver MUST quarantine or reject fail-closed. See zh/extensions/mimi-interop.md §4.1.",
+        description: "A MIMI facade found a governance binding, but its authenticated GroupInfo/GroupContext group id, room-binding group id, group id derived from current accepted MlsGroupCurrent.effective_scope, fixed binding fields, provider DID or target Realm/Strand do not agree. Receiver MUST quarantine or reject with zero projection writes. See zh/extensions/mimi-interop.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MIMI_GOVERNANCE_BINDING_MISSING,
@@ -2293,9 +2306,19 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A MIMI facade attempted to project room state, groupInfo, key material, or message data into a Arkret Realm without a verifiable Arkret MLS governance binding. Receiver MUST quarantine or reject fail-closed instead of accepting unauthenticated MIMI state as Realm authority. See zh/extensions/mimi-interop.md §4.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::MIMI_OBSERVER_WRITE_FORBIDDEN,
+        applies_to: &["service_call", "authz"],
+        description: "The current accepted MIMI room binding has local_provider_role=observer during ak.open.mimi.command.submit_message.v1. The registered observer_role_guard rejects the whole request before Event construction, persistence, receipt or fanout, with zero write effect. Producer path: contract-registry.json operation_registry admission_guards. See zh/extensions/mimi-interop.md §7.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::MIMI_POLICY_REVISION_MISMATCH,
         applies_to: &["service_call", "state_resolution"],
         description: "A MIMI room policy component does not match the accepted Arkret ak.realm.policy_bundle revision. Facade MUST reject the update until a fresh policy projection is available. See zh/extensions/mimi-interop.md §4.1.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::MIMI_ROOM_BINDING_MIGRATION_PROOF_INVALID,
+        applies_to: &["state_resolution"],
+        description: "A structurally valid ak.mimi.room_binding Event carries migration fields on another transition, its committed Event/RealmCommit lineage is not the same-room adjacent accepted->migrating current source, its asserted topology conflicts with the selected outcome, or its target MLS group conflicts with current accepted authenticated public state. Authority Event admission MUST reject with zero durable effects; missing or unpaired fields fail schema_violation first. See zh/extensions/mimi-interop.md §4.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID,
@@ -3014,7 +3037,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_HPKE_SUITE,
         applies_to: &["service_call", "auth_decision"],
-        description: "HPKE suite id on an application-layer committed surface (key-backup recipient_method=recovery_public_key, ak.secret.send, member-application encryption_envelope, file-transfer key_envelope) is not an active row in artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.2.",
+        description: "HPKE suite id on an application-layer committed surface (key-backup recipient_method=recovery_public_key, member-application encryption_envelope, file-transfer key_envelope) is not an active row in artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROFILE,

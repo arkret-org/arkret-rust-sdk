@@ -98,16 +98,42 @@ fn declared_special_kinds() -> BTreeSet<&'static str> {
             arkret_wire::SignerEvidenceRef::ID_KIND,
             arkret_wire::MembershipCompensationDelegationRef::ID_KIND,
         ])
+        .chain(
+            [
+                arkret_identifiers::RealmAuthorityHandoffId::KIND_PREFIX,
+                arkret_identifiers::RealmCommitId::KIND_PREFIX,
+                arkret_identifiers::RealmSnapshotId::KIND_PREFIX,
+            ]
+            .map(|prefix| {
+                prefix
+                    .strip_prefix("ak:")
+                    .and_then(|rest| rest.strip_suffix(':'))
+                    .expect("special-form type has ak:<kind>: prefix")
+            }),
+        )
         .collect()
 }
 
 fn declared_kinds() -> BTreeSet<&'static str> {
     DECLARED_UUID_ID_KIND_PREFIXES
         .iter()
-        .chain(DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES)
-        .chain(DECLARED_PRODUCER_ALLOCATED_ID_KIND_PREFIXES)
-        .chain(DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES)
-        .chain(std::iter::once(&"ak:realm:"))
+        .copied()
+        .chain(DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES.iter().copied())
+        .chain(DECLARED_PRODUCER_ALLOCATED_ID_KIND_PREFIXES.iter().copied())
+        .chain(
+            DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES
+                .iter()
+                .copied()
+                .filter(|prefix| {
+                    ![
+                        arkret_identifiers::RealmAuthorityHandoffId::KIND_PREFIX,
+                        arkret_identifiers::RealmCommitId::KIND_PREFIX,
+                        arkret_identifiers::RealmSnapshotId::KIND_PREFIX,
+                    ]
+                    .contains(prefix)
+                }),
+        )
+        .chain(std::iter::once("ak:realm:"))
         .map(|prefix| {
             prefix
                 .strip_prefix("ak:")
@@ -202,6 +228,7 @@ fn both_sides_of_the_comparison_are_populated() {
             + DECLARED_EVENT_TOKEN_ID_KIND_PREFIXES.len()
             + DECLARED_PRODUCER_ALLOCATED_ID_KIND_PREFIXES.len()
             + DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES.len()
+            - 3 // RealmCommit, RealmAuthorityHandoff, RealmSnapshot are special forms.
             + 1,
         "two typed ids share an `ak:<kind>:` prefix; each prefix must belong to exactly one type"
     );
@@ -215,7 +242,7 @@ fn both_sides_of_the_comparison_are_populated() {
     );
     assert_eq!(
         declared_special_forms.len(),
-        DECLARED_SPECIAL_FORM_ID_KINDS.len() + 2,
+        DECLARED_SPECIAL_FORM_ID_KINDS.len() + 5,
         "two special-form types claim the same registry kind; each kind must belong to exactly \
          one type"
     );
