@@ -266,8 +266,8 @@ event_payload_accessors! {
     event_spec::RelationTombstone => (as_relation_tombstone, RelationTombstonePayload),
     event_spec::ContainerMoveItem => (as_container_move_item, ContainerMoveItemPayload, ContainerMoveItemPayload::validate),
     event_spec::ContainerRebalance => (as_container_rebalance, ContainerRebalancePayload, ContainerRebalancePayload::validate),
-    event_spec::ViewCreate => (as_view_create, ViewPayload, ViewPayload::validate_for_create),
-    event_spec::ViewUpdate => (as_view_update, ViewPayload, ViewPayload::validate_for_update),
+    event_spec::ViewCreate => (as_view_create, ViewCreatePayload, ViewCreatePayload::validate),
+    event_spec::ViewUpdate => (as_view_update, ViewUpdatePayload, ViewUpdatePayload::validate),
     event_spec::ViewReconcile => (as_view_reconcile, ViewReconcilePayload, ViewReconcilePayload::validate),
     event_spec::AgentKeyAuthorize => (as_agent_key_authorize, AgentKeyAuthorizePayload),
     event_spec::AgentKeyRevoke => (as_agent_key_revoke, AgentKeyRevokePayload),
@@ -376,10 +376,27 @@ mod tests {
 
     #[test]
     fn view_payload_accessors_enforce_their_distinct_write_shapes() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/view-write-contract-fixture.json"
+        ))
+        .unwrap();
+        let instance = |name: &str| {
+            fixture["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|case| case["name"] == name)
+                .unwrap()["instance"]
+                .clone()
+        };
         let mut event = base_event();
         event.kind = EventKind::ViewCreate;
         event.payload = serde_json::from_value(json!({"definition": {}})).unwrap();
         assert!(event.as_view_create().is_err());
+        event.payload =
+            serde_json::from_value(instance("create_payload_accepts_the_author_definition"))
+                .unwrap();
+        assert!(event.as_view_create().is_ok());
 
         event.kind = EventKind::ViewUpdate;
         assert!(event.as_view_update().is_err());
@@ -392,6 +409,10 @@ mod tests {
 
         event.kind = EventKind::ViewReconcile;
         assert!(event.as_view_reconcile().is_err());
+        event.payload =
+            serde_json::from_value(instance("reconcile_payload_accepts_the_author_definition"))
+                .unwrap();
+        assert!(event.as_view_reconcile().is_ok());
     }
 
     #[test]

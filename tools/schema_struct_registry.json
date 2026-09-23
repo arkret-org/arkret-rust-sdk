@@ -290,14 +290,18 @@
       "schema": "event-payload.schema.json#/$defs/strand_watch_set_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload",
-      "schema": "event-payload.schema.json#/$defs/view_payload"
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreatePayload",
+      "schema": "event-payload.schema.json#/$defs/view_create_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject",
-      "schema": "view.schema.json",
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewUpdatePayload",
+      "schema": "event-payload.schema.json#/$defs/view_update_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewDefinition",
+      "schema": "view.schema.json#/$defs/view_definition",
       "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+      "reason": "serde(flatten) carries only validated x_* extensions."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewReconcilePayload",
