@@ -49,7 +49,7 @@ pub enum PublicKeyMaterial {
         #[serde(with = "key_bytes")]
         bytes: Vec<u8>,
     },
-    /// `z<base58-btc>` multibase-encoded Ed25519 verifying key.
+    /// `z<base58-btc(0xed 0x01 || key)>` Ed25519 multikey.
     Ed25519Multibase { value: String },
     /// JSON Web Key (`OKP` + `crv=Ed25519`). Accepted for resolver
     /// interop; consumed by parsing the embedded `x` parameter.
@@ -61,7 +61,9 @@ impl PublicKeyMaterial {
     pub fn ed25519_bytes(&self) -> Result<[u8; 32]> {
         let raw = match self {
             Self::Ed25519Raw { bytes } => bytes.clone(),
-            Self::Ed25519Multibase { value } => decode_multibase_btc58(value)?,
+            Self::Ed25519Multibase { value } => {
+                arkret_canonical::decode_ed25519_multibase(value)?.to_vec()
+            }
             Self::Jwk { value } => decode_jwk_ed25519(value)?,
         };
         if raw.len() != 32 {
@@ -83,24 +85,6 @@ impl PublicKeyMaterial {
     pub fn raw_ed25519_digest(&self) -> Result<Hash> {
         Hash::new(canonical::sha256_digest(self.ed25519_bytes()?)).map_err(Into::into)
     }
-}
-
-/// Decode a `did:key` Ed25519 multibase string into raw key bytes.
-///
-/// Tolerates either the standard 2-byte multicodec prefix (`0xed 0x01`) or a
-/// bare 32-byte payload. The base58btc primitive comes from
-/// [`arkret_canonical::multibase`] — the single base58 home shared with `sdk`.
-fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
-    let decoded = canonical_decode_multibase(value)?;
-    if decoded.len() == 34 && decoded[0] == 0xed && decoded[1] == 0x01 {
-        Ok(decoded[2..].to_vec())
-    } else {
-        Ok(decoded)
-    }
-}
-
-fn canonical_decode_multibase(value: &str) -> Result<Vec<u8>> {
-    Ok(arkret_canonical::decode_multibase_base58btc(value)?)
 }
 
 mod key_bytes {
@@ -995,6 +979,56 @@ mod tests {
         let key = PublicKeyMaterial::Jwk { value };
         let raw = key.ed25519_bytes().unwrap();
         assert_eq!(raw.len(), 32);
+    }
+
+    #[test]
+    fn did_key_multibase_requires_the_ed25519_multicodec_even_for_a_valid_signature() {
+        use ed25519_dalek::{Signer as _, SigningKey};
+
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../arkret-spec/spec/v1/artifacts/fixtures/did-webvh-witness-fixture.json",
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let witness = &fixture["cryptographic_vectors"][0]["public_fixture_keys"][0];
+        let multibase = witness["public_key_multibase"].as_str().unwrap();
+        let raw = arkret_canonical::decode_ed25519_multibase(multibase).unwrap();
+        assert_eq!(
+            PublicKeyMaterial::Ed25519Multibase {
+                value: multibase.to_owned(),
+            }
+            .ed25519_bytes()
+            .unwrap(),
+            raw,
+        );
+        assert_eq!(
+            format!("sha256:{}", arkret_canonical::sha256_hex(raw)),
+            witness["fingerprint"].as_str().unwrap(),
+        );
+
+        let signer = SigningKey::from_bytes(&[7u8; 32]);
+        let raw = signer.verifying_key().to_bytes();
+        let message = b"formal did:key multicodec boundary";
+        let signature = base64url_encode(signer.sign(message).to_bytes());
+        let valid = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&raw);
+        assert!(verify_detached_ed25519_signature(
+            &PublicKeyMaterial::Ed25519Multibase { value: valid },
+            message,
+            &signature,
+        ));
+
+        for invalid in [
+            arkret_canonical::encode_multibase_base58btc(raw),
+            arkret_canonical::encode_multibase_base58btc([vec![0xec, 0x01], raw.to_vec()].concat()),
+        ] {
+            let material = PublicKeyMaterial::Ed25519Multibase { value: invalid };
+            assert!(material.ed25519_bytes().is_err());
+            assert!(!verify_detached_ed25519_signature(
+                &material, message, &signature,
+            ));
+        }
     }
 
     #[cfg(feature = "signer")]
