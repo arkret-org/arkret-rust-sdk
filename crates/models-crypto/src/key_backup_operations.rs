@@ -6,7 +6,7 @@ use arkret_wire::{
     RecoverySessionId,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{BackupKind, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm};
 
@@ -152,8 +152,7 @@ pub struct KeyBackupUnlockProofAuthData {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize)]
 pub struct KeyBackupUnlockProof {
     pub schema: String,
     #[serde(flatten)]
@@ -172,6 +171,97 @@ pub struct KeyBackupUnlockProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
+}
+
+#[derive(Deserialize)]
+struct KeyBackupUnlockProofFields {
+    schema: String,
+    #[serde(flatten)]
+    authority: KeyBackupUnlockAuthority,
+    account_id: AccountId,
+    requesting_device_id: DeviceId,
+    backup_id: BackupId,
+    backup_kind: BackupKind,
+    series_id: BackupSeriesId,
+    ciphertext_digest: Hash,
+    challenge: Base64UrlString,
+    service_id: DidCoreId,
+    audience: NonEmptyString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    auth_data: KeyBackupUnlockProofAuthData,
+}
+
+impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| D::Error::custom("unlock proof must be an object"))?;
+        const FIELDS: &[&str] = &[
+            "schema",
+            "kind",
+            "challenge_id",
+            "nonce",
+            "recovery_session_id",
+            "account_id",
+            "requesting_device_id",
+            "backup_id",
+            "backup_kind",
+            "series_id",
+            "ciphertext_digest",
+            "challenge",
+            "service_id",
+            "audience",
+            "issued_at",
+            "expires_at",
+            "auth_data",
+        ];
+        if let Some(key) = object.keys().find(|key| !FIELDS.contains(&key.as_str())) {
+            return Err(D::Error::custom(format!(
+                "unknown unlock proof field {key}"
+            )));
+        }
+        match object.get("kind").and_then(serde_json::Value::as_str) {
+            Some("current_device")
+                if object.contains_key("challenge_id")
+                    && object.contains_key("nonce")
+                    && !object.contains_key("recovery_session_id") => {}
+            Some("recovery_session")
+                if object.contains_key("recovery_session_id")
+                    && !object.contains_key("challenge_id")
+                    && !object.contains_key("nonce") => {}
+            _ => {
+                return Err(D::Error::custom(
+                    "unlock proof authority branch is incomplete or mixed",
+                ));
+            }
+        }
+        let fields: KeyBackupUnlockProofFields =
+            serde_json::from_value(value).map_err(D::Error::custom)?;
+        let proof = Self {
+            schema: fields.schema,
+            authority: fields.authority,
+            account_id: fields.account_id,
+            requesting_device_id: fields.requesting_device_id,
+            backup_id: fields.backup_id,
+            backup_kind: fields.backup_kind,
+            series_id: fields.series_id,
+            ciphertext_digest: fields.ciphertext_digest,
+            challenge: fields.challenge,
+            service_id: fields.service_id,
+            audience: fields.audience,
+            issued_at: fields.issued_at,
+            expires_at: fields.expires_at,
+            auth_data: fields.auth_data,
+        };
+        proof.validate().map_err(D::Error::custom)?;
+        Ok(proof)
+    }
 }
 
 impl KeyBackupUnlockProof {
@@ -305,4 +395,71 @@ pub struct KeysBackupsDeleteOutcome {
     pub deleted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backup_id: Option<BackupId>,
+}
+
+#[cfg(test)]
+mod unlock_proof_wire_tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn proof() -> Value {
+        json!({
+            "schema": KeyBackupUnlockProof::SCHEMA,
+            "kind": "current_device",
+            "challenge_id": "AAAAAAAAAAAAAAAAAAAAAA",
+            "nonce": "AAAAAAAAAAAAAAAAAAAAAA",
+            "account_id": {
+                "principal_id": "ak:did_core:web:alice.example",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "requesting_device_id": "ak:device:0196419b-0000-7000-8000-000000000003",
+            "backup_id": "ak:backup:0196419b-0000-7000-8000-000000000001",
+            "backup_kind": "secret_storage",
+            "series_id": "ak:backup_series:0196419b-0000-7000-8000-000000000002",
+            "ciphertext_digest": format!("sha256:{}", "aa".repeat(32)),
+            "challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "service_id": "ak:did_core:web:station.example",
+            "audience": "https://station.example",
+            "issued_at": "2026-09-23T00:00:00.000Z",
+            "expires_at": "2026-09-23T00:05:00.000Z",
+            "auth_data": {
+                "verification_method": "did:web:alice.example#key-1",
+                "signature_algorithm": "Ed25519",
+                "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            }
+        })
+    }
+
+    #[test]
+    fn flattened_authority_round_trips_without_losing_signed_fields() {
+        let value = proof();
+        let parsed: KeyBackupUnlockProof = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+
+        let mut recovery = proof();
+        recovery["kind"] = json!("recovery_session");
+        recovery.as_object_mut().unwrap().remove("challenge_id");
+        recovery.as_object_mut().unwrap().remove("nonce");
+        recovery["recovery_session_id"] =
+            json!("ak:recovery_session:0198ff00-0000-7000-8000-00000000000c");
+        let parsed: KeyBackupUnlockProof = serde_json::from_value(recovery.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), recovery);
+    }
+
+    #[test]
+    fn closed_authority_rejects_unknown_mixed_and_missing_fields() {
+        let mut unknown = proof();
+        unknown["unregistered"] = json!(true);
+        assert!(serde_json::from_value::<KeyBackupUnlockProof>(unknown).is_err());
+
+        let mut mixed = proof();
+        mixed["recovery_session_id"] =
+            json!("ak:recovery_session:0198ff00-0000-7000-8000-00000000000c");
+        assert!(serde_json::from_value::<KeyBackupUnlockProof>(mixed).is_err());
+
+        let mut missing = proof();
+        missing.as_object_mut().unwrap().remove("nonce");
+        assert!(serde_json::from_value::<KeyBackupUnlockProof>(missing).is_err());
+    }
 }
