@@ -104,14 +104,19 @@ pub(crate) fn validate_self_signer_bytes<T: Serialize>(
     request: bool,
 ) -> Result<()> {
     if arkret_canonical::canonical_json_bytes(value)?.len() > maximum {
-        return Err(self_signer_error(
-            ErrorCode::LimitExceeded,
-            if request {
-                "signer-key query exceeds its canonical byte limit"
-            } else {
-                "signer-key result exceeds its canonical byte limit"
-            },
-        ));
+        // An oversized request is payload_too_large; only a response or one of
+        // its items exceeding its budget is limit_exceeded.
+        return Err(if request {
+            self_signer_error(
+                ErrorCode::PayloadTooLarge,
+                "signer-key query exceeds its canonical byte limit",
+            )
+        } else {
+            self_signer_error(
+                ErrorCode::LimitExceeded,
+                "signer-key result exceeds its canonical byte limit",
+            )
+        });
     }
     Ok(())
 }
@@ -179,6 +184,17 @@ mod tests {
     /// `station_signing_key` is closed over four members. A revision inside the
     /// key is exactly the shape the Spec forbids, and the deduplicated type
     /// cannot represent it at all.
+    #[test]
+    fn oversized_requests_and_results_use_distinct_registered_codes() {
+        let code = |request| match validate_self_signer_bytes(&"x".repeat(8), 4, request) {
+            Err(WireError::ProtocolCode { code, .. }) => code,
+            other => panic!("expected a coded rejection, got {other:?}"),
+        };
+        assert_eq!(code(true), ErrorCode::PayloadTooLarge);
+        assert_eq!(code(false), ErrorCode::LimitExceeded);
+        assert!(validate_self_signer_bytes(&"x", 3, true).is_ok());
+    }
+
     #[test]
     fn a_signing_key_carrying_a_revision_is_not_representable() {
         let mut value = serde_json::to_value(signing_key()).unwrap();
