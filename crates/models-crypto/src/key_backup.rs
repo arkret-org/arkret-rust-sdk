@@ -85,7 +85,6 @@ pub struct KeyBackupSourceCommitRef {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeyBackup {
     pub backup_id: BackupId,
     pub actor_id: ActorId,
@@ -205,6 +204,35 @@ impl KeyBackup {
             .ok_or_else(|| WireError::Protocol("missing key backup auth_data".to_owned()))?
             .remove("signature");
         Ok(arkret_canonical::canonical_json_bytes(&value)?)
+    }
+}
+
+#[cfg(test)]
+mod key_backup_extension_tests {
+    use serde_json::{Value, json};
+
+    use super::KeyBackup;
+
+    #[test]
+    fn envelope_accepts_only_registered_extension_keys() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/key-backup-hardening-fixture.json"
+        ))
+        .unwrap();
+        let mut envelope = fixture["cases"][1]["envelope"].clone();
+        envelope["x_vendor_hint"] = json!({"display_only": true});
+        let backup: KeyBackup = serde_json::from_value(envelope.clone()).unwrap();
+        assert_eq!(serde_json::to_value(backup).unwrap(), envelope);
+
+        for key in ["vendor_hint", "x_Vendor", "x_"] {
+            let mut invalid = envelope.clone();
+            invalid.as_object_mut().unwrap().remove("x_vendor_hint");
+            invalid[key] = json!(true);
+            assert!(
+                serde_json::from_value::<KeyBackup>(invalid).is_err(),
+                "{key}"
+            );
+        }
     }
 }
 

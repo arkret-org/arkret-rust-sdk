@@ -37,7 +37,6 @@ impl KeyBackupPlaintext {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct SecretStorageSecret {
     pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
@@ -62,6 +61,37 @@ impl SecretStorageSecret {
             return protocol("secret_storage secret bytes must not be empty");
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod secret_storage_extension_tests {
+    use serde_json::json;
+
+    use super::SecretStorageSecret;
+
+    #[test]
+    fn secret_storage_item_accepts_only_registered_extension_keys() {
+        let value = json!({
+            "item_kind": "private_account_state",
+            "secret_id": "account.state",
+            "secret_b64u": "YQ",
+            "secret_generation": 3,
+            "x_vendor_hint": {"key": true}
+        });
+        let item: SecretStorageSecret = serde_json::from_value(value.clone()).unwrap();
+        item.validate().unwrap();
+        assert_eq!(serde_json::to_value(item).unwrap(), value);
+
+        for key in ["vendor_hint", "x_Vendor", "x_"] {
+            let mut invalid = value.clone();
+            invalid.as_object_mut().unwrap().remove("x_vendor_hint");
+            invalid[key] = json!(true);
+            assert!(
+                serde_json::from_value::<SecretStorageSecret>(invalid).is_err(),
+                "{key}"
+            );
+        }
     }
 }
 
