@@ -26,19 +26,11 @@ pub enum RealmJoinRuleValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinRulePayload {
     pub value: RealmJoinRuleValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl RealmJoinRulePayload {
     pub fn new(value: RealmJoinRuleValue) -> Self {
-        Self {
-            value,
-            state: None,
-            reason: None,
-        }
+        Self { value }
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -147,10 +139,6 @@ pub struct RealmDiscoveryValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmDiscoveryPayload {
     pub value: RealmDiscoveryValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl RealmDiscoveryPayload {
@@ -163,8 +151,6 @@ impl RealmDiscoveryPayload {
                 directory_ids: Vec::new(),
                 anti_enumeration: None,
             },
-            state: None,
-            reason: None,
         }
     }
 
