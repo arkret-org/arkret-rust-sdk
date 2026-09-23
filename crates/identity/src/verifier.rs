@@ -78,6 +78,9 @@ use crate::binding_digest::{DigestError, EvidenceReceipt};
 use crate::binding_store::{
     AcceptedDidBinding, BindingFreshness, BindingStoreError, VerifiedDidBindingStore,
 };
+use crate::test_material::{
+    FormalTestMaterialPolicyError, PublicKeyFingerprintInput, enforce_formal_test_material_policy,
+};
 use crate::{DidDocument, DidResolver, ResolvedDid};
 
 // ============================================================================
@@ -141,6 +144,9 @@ pub enum BindingVerifyError {
     /// The stored verification material is not a usable Ed25519 public key.
     #[error("verification method public key material rejected: {reason}")]
     PublicKeyMaterial { reason: String },
+    /// Published signing material or a reserved identifier cannot authorize a claim.
+    #[error(transparent)]
+    TestMaterial(#[from] FormalTestMaterialPolicyError),
     /// JWS shape / header / signature rejected.
     #[error("detached JWS rejected: {source}")]
     Proof {
@@ -201,7 +207,8 @@ impl DidVerificationRelationship {
 ///    [`crate::resolve_verification_method_key_from_document`], because DID Document
 ///    `verificationMethod[].id` entries are commonly relative `#key-1` references);
 /// 5. the material decodes to an Ed25519 key (multibase or JWK);
-/// 6. the detached JWS verifies over `canonical_bytes`.
+/// 6. the key fingerprint, DID and key id are not registered test material;
+/// 7. the detached JWS verifies over `canonical_bytes`.
 pub fn verify_jws_with_document(
     canonical_bytes: &[u8],
     jws: &str,
@@ -283,6 +290,14 @@ fn verify_jws_against_document_key(
                 reason: error.to_string(),
             }
         })?;
+    enforce_formal_test_material_policy(
+        Some(&PublicKeyFingerprintInput::Ed25519Rfc8032(
+            verifying_key.as_bytes(),
+        )),
+        Some(&document.id),
+        Some(verification_method),
+        None,
+    )?;
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: verifying_key.to_bytes().to_vec(),
     };
@@ -867,7 +882,8 @@ mod tests {
     }
 
     fn did() -> Did {
-        Did::new("did:webvh:z6mkfixture:verifier.example".to_owned()).expect("valid did")
+        Did::new("did:webvh:QmS1gUenXyfWpb5krKbJbiZ93L1yJ6wJFBrf8zNNste4v9:server.example")
+            .expect("valid did")
     }
 
     fn document(key_id: &str) -> DidDocument {
@@ -927,6 +943,85 @@ mod tests {
             &document(&format!("{}#key-1", did())),
         )
         .expect("verify");
+    }
+
+    #[test]
+    fn published_fixture_key_cannot_verify_a_claim_after_renaming_or_reencoding() {
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../arkret-spec/spec/v1/artifacts/fixtures/crypto-signature-fixture.json",
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let vector = &fixture["vectors"][0];
+        let seed = arkret_canonical::base64url::base64url_decode(
+            vector["test_private_key_jwk"]["d"].as_str().unwrap(),
+        )
+        .unwrap();
+        let signing_key = SigningKey::from_bytes(seed.as_slice().try_into().unwrap());
+        let canonical = br#"{"claim":"accepted-only-after-verification"}"#;
+        let jws = sign_jws_ed25519(canonical, &signing_key).unwrap();
+        let raw_key = PublicKeyMaterial::Ed25519Raw {
+            bytes: signing_key.verifying_key().to_bytes().to_vec(),
+        };
+        Ed25519DetachedJwsVerifier::new()
+            .verify_detached_jws(&jws, canonical, &raw_key)
+            .expect("the published fixture signature is cryptographically valid");
+
+        let method = DidUrl::new(format!("{}#live-key", did())).unwrap();
+        let jwk = serde_json::json!({
+            "x": vector["did_document_fragment"]["publicKeyJwk"]["x"],
+            "kty": "OKP",
+            "crv": "Ed25519"
+        });
+        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            signing_key.verifying_key().as_bytes(),
+        );
+        for material in [jwk.to_string(), multibase] {
+            let document = DidDocument {
+                id: did(),
+                verification_methods: BTreeMap::from([(method.as_str().to_owned(), material)]),
+                also_known_as: Vec::new(),
+                updated_at: None,
+                raw_properties: BTreeMap::new(),
+            };
+            let error = verify_jws_with_document(canonical, &jws, &method, &did(), &document)
+                .expect_err("published key must not authorize the claim");
+            let BindingVerifyError::TestMaterial(FormalTestMaterialPolicyError::Denied(denial)) =
+                error
+            else {
+                panic!("expected the exact test-material denial")
+            };
+            assert_eq!(
+                denial.published_key_fingerprint.as_deref(),
+                Some(crate::test_material::PUBLISHED_TEST_KEY_FINGERPRINTS[0])
+            );
+            assert!(!denial.reserved_identifiers.any());
+            assert!(matches!(
+                verify_jws_with_document(canonical, "malformed-jws", &method, &did(), &document),
+                Err(BindingVerifyError::TestMaterial(
+                    FormalTestMaterialPolicyError::Denied(_)
+                ))
+            ));
+        }
+    }
+
+    #[test]
+    fn reserved_key_id_rejects_an_otherwise_valid_unlisted_claim_key() {
+        let canonical = br#"{"claim":"ordinary-key"}"#;
+        let jws = sign_jws_ed25519(canonical, &signing_key()).unwrap();
+        let method = DidUrl::new(format!("{}#claim-fixture", did())).unwrap();
+        let document = document(method.as_str());
+        let error = verify_jws_with_document(canonical, &jws, &method, &did(), &document)
+            .expect_err("reserved key id must not authorize the claim");
+        let BindingVerifyError::TestMaterial(FormalTestMaterialPolicyError::Denied(denial)) = error
+        else {
+            panic!("expected the exact test-material denial")
+        };
+        assert_eq!(denial.published_key_fingerprint, None);
+        assert!(denial.reserved_identifiers.key_id);
+        assert!(!denial.reserved_identifiers.did);
     }
 
     #[test]

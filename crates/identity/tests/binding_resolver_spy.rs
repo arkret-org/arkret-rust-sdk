@@ -40,7 +40,13 @@ fn signing_key() -> SigningKey {
 }
 
 fn did() -> Did {
-    Did::new("did:webvh:z6mkfixture:spy.example".to_owned()).expect("valid did")
+    Did::new(format!(
+        "did:key:{}",
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            signing_key().verifying_key().as_bytes()
+        )
+    ))
+    .expect("valid did")
 }
 
 fn verification_method() -> DidUrl {
