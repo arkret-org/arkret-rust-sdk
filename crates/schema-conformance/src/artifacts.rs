@@ -1194,6 +1194,11 @@ mod tests {
             "branch": "realm_action",
             "action_id": "local_approval"
         });
+        // Realm-level policy rows are committed on the owning Realm's stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:AeI0Z4D734iPt9RpF51PAg0CRjLSQmxPqv9NgUmBJiQi"
+        });
         let revision = serde_json::json!({
             "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
             "stream_position": 2
@@ -1229,7 +1234,7 @@ mod tests {
                 action_value.clone(),
             ),
         ] {
-            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
             registry.validate_value(schema_id, &wire).unwrap();
             let selector: CurrentSelector =
                 serde_json::from_value(wire["selector"].clone()).unwrap();
@@ -1240,8 +1245,7 @@ mod tests {
             serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval","policy_id":"ak:policy:01904100-0000-7000-8000-000000000001"}),
             serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"ak:policy:typed"}),
         ] {
-            let wire =
-                serde_json::json!({"selector":invalid,"revision":revision,"value":action_value});
+            let wire = serde_json::json!({"selector":invalid,"source_stream_ref":source_stream_ref,"revision":revision,"value":action_value});
             assert!(
                 registry
                     .validate_value("test:policy_action_result", &wire)
@@ -1285,6 +1289,12 @@ mod tests {
         authorization.as_object_mut().unwrap().remove("device_id");
         authorization["device_authorize_event_id"] =
             serde_json::json!("ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM");
+        // Device facts live in the principal control Realm, so every row's
+        // covering Commit is on that Realm's stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": fixture["identity_creation_control_transcript"]["signed_object"]["pcr_realm_id"]
+        });
         let revision = serde_json::json!({
             "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
             "stream_position": 2
@@ -1307,7 +1317,7 @@ mod tests {
             ),
         ];
         for (schema_id, selector, value) in samples {
-            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
             registry.validate_value(schema_id, &wire).unwrap();
             let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
             assert_eq!(serde_json::to_value(typed).unwrap(), selector);
@@ -1323,7 +1333,7 @@ mod tests {
         }
         let wrong_singleton = serde_json::json!({
             "selector":{"kind":"device_generation","device_id":device},
-            "revision":revision,
+            "source_stream_ref":source_stream_ref,"revision":revision,
             "value":{"current_device_generation_ref":1}
         });
         assert!(
@@ -1355,6 +1365,12 @@ mod tests {
                 .unwrap();
         }
         let agent_id = "ak:did_core:web:agent.example";
+        // Agent key and lifecycle projections are written by `ak.agent.provision`
+        // in the controller's principal control Realm, so they sit on its Realm stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:ARn9Y97Ha81FH12YY8HLiDixId_wA5Wx2c25p82mJcJ5"
+        });
         let revision = serde_json::json!({
             "commit_id": arkret_wire::RealmCommitId::from_digest([0x55; 32]),
             "stream_position": 2
@@ -1371,7 +1387,7 @@ mod tests {
                 serde_json::json!("active"),
             ),
         ] {
-            let wire = serde_json::json!({"selector":selector,"revision":revision,"value":value});
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
             registry.validate_value(schema_id, &wire).unwrap();
             let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
             assert_eq!(serde_json::to_value(typed).unwrap(), selector);
