@@ -828,6 +828,7 @@ pub enum CurrentSelector {
     RealmDiscovery,
     RealmAlias,
     RealmPlaintextVisibleServices,
+    RealmSetDefaultStrand,
     RealmPolicy,
     Policy {
         policy_id: PolicyId,
@@ -879,6 +880,7 @@ enum FlatCurrentSelector {
     RealmDiscovery,
     RealmAlias,
     RealmPlaintextVisibleServices,
+    RealmSetDefaultStrand,
     RealmPolicy,
     DeviceAuthorization {
         device_id: DeviceId,
@@ -954,6 +956,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_discovery"
                 | "realm_alias"
                 | "realm_plaintext_visible_services"
+                | "realm_set_default_strand"
                 | "realm_policy"),
             ) => {
                 if wire.len() != 1 {
@@ -971,6 +974,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_discovery" => Self::RealmDiscovery,
                     "realm_alias" => Self::RealmAlias,
                     "realm_plaintext_visible_services" => Self::RealmPlaintextVisibleServices,
+                    "realm_set_default_strand" => Self::RealmSetDefaultStrand,
                     "realm_policy" => Self::RealmPolicy,
                     _ => unreachable!(),
                 })
@@ -990,6 +994,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmPlaintextVisibleServices => {
                         Self::RealmPlaintextVisibleServices
                     }
+                    FlatCurrentSelector::RealmSetDefaultStrand => Self::RealmSetDefaultStrand,
                     FlatCurrentSelector::RealmPolicy => Self::RealmPolicy,
                     FlatCurrentSelector::DeviceAuthorization { device_id } => {
                         Self::DeviceAuthorization { device_id }
@@ -1725,6 +1730,17 @@ mod tests {
                 .is_err()
             );
         }
+    }
+
+    #[test]
+    fn realm_set_default_strand_selector_is_exact_singleton() {
+        let selector = CurrentSelector::RealmSetDefaultStrand;
+        let wire = json!({"kind":"realm_set_default_strand"});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(serde_json::from_value::<CurrentSelector>(wire).unwrap(), selector);
+        assert!(serde_json::from_value::<CurrentSelector>(
+            json!({"kind":"realm_set_default_strand","strand_id":"ak:strand:forged"})
+        ).is_err());
     }
 
     #[test]
