@@ -26,14 +26,43 @@ use crate::mls_envelopes::MlsCommitEnvelope;
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceBindingPayload {
     effective_scope: ScopeRef,
+    #[serde(deserialize_with = "deserialize_present_nullable")]
     base_group_state_ref: Option<EventId>,
     previous_epoch: u64,
     next_epoch: u64,
     key_access_revision: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_non_null_optional"
+    )]
     participant_authority_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_non_null_optional"
+    )]
     authority_stream_head: Option<Vec<EventId>>,
+}
+
+fn deserialize_present_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+fn deserialize_non_null_optional<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 /// The Sidecar-only authority coordinates inside a signed MLS binding.
@@ -139,12 +168,13 @@ impl MlsGovernanceBindingPayload {
                     return schema_violation("Sidecar MLS binding requires authority stream head");
                 };
                 if head.is_empty()
+                    || head.len() as u64 > MLS_GOVERNANCE_BINDING_MAX_COLLECTION_ITEMS
                     || head
                         .windows(2)
                         .any(|pair| pair[0].as_str() >= pair[1].as_str())
                 {
                     return schema_violation(
-                        "Sidecar MLS authority stream head must be nonempty and sorted unique",
+                        "Sidecar MLS authority stream head must hold 1..=64 sorted unique refs",
                     );
                 }
             }
@@ -756,5 +786,96 @@ mod tests {
         realm.participant_authority_digest = None;
         realm.authority_stream_head = binding.authority_stream_head.clone();
         assert!(realm.validate().is_err());
+    }
+
+    #[test]
+    fn sidecar_binding_encodes_members_in_schema_map_key_order() {
+        let binding = MlsGovernanceBindingPayload::sidecar(
+            RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+            SidecarId::new("ak:sidecar:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap(),
+            Some(event(1)),
+            1,
+            2,
+            3,
+            Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
+            vec![event(2)],
+        )
+        .unwrap();
+        let encoded = binding.to_deterministic_cbor().unwrap();
+        assert_eq!(encoded[0], 0xa7);
+        let order = [
+            "next_epoch",
+            "previous_epoch",
+            "effective_scope",
+            "key_access_revision",
+            "base_group_state_ref",
+            "authority_stream_head",
+            "participant_authority_digest",
+        ];
+        let positions = order
+            .iter()
+            .map(|key| {
+                let mut encoded_key = Vec::new();
+                encode_deterministic_cbor(&Value::String((*key).to_owned()), &mut encoded_key)
+                    .unwrap();
+                encoded
+                    .windows(encoded_key.len())
+                    .position(|window| window == encoded_key.as_slice())
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+    }
+
+    #[test]
+    fn sidecar_authority_stream_head_is_bounded_by_the_decoder_limit() {
+        let mut head = (0..=64_u8).map(event).collect::<Vec<_>>();
+        head.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        let sidecar = |head: Vec<EventId>| {
+            MlsGovernanceBindingPayload::sidecar(
+                RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+                SidecarId::new("ak:sidecar:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap(),
+                None,
+                0,
+                0,
+                0,
+                Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
+                head,
+            )
+        };
+        let error = sidecar(head.clone()).unwrap_err();
+        assert_eq!(error.error_code(), Some(ErrorCode::SchemaViolation));
+        head.pop();
+        let binding = sidecar(head).unwrap();
+        let encoded = binding.to_deterministic_cbor().unwrap();
+        assert_eq!(
+            MlsGovernanceBindingPayload::from_deterministic_cbor(&encoded).unwrap(),
+            binding
+        );
+    }
+
+    #[test]
+    fn binding_members_reject_null_or_absent_spellings() {
+        let realm = MlsGovernanceBindingPayload::realm(
+            RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+            None,
+            0,
+            0,
+            0,
+        )
+        .unwrap();
+        let value = serde_json::to_value(&realm).unwrap();
+        assert_eq!(value["base_group_state_ref"], Value::Null);
+        let mut absent_base = value.clone();
+        absent_base
+            .as_object_mut()
+            .unwrap()
+            .remove("base_group_state_ref");
+        assert!(serde_json::from_value::<MlsGovernanceBindingPayload>(absent_base).is_err());
+        for member in ["participant_authority_digest", "authority_stream_head"] {
+            let mut null_member = value.clone();
+            null_member[member] = Value::Null;
+            assert!(serde_json::from_value::<MlsGovernanceBindingPayload>(null_member).is_err());
+        }
     }
 }

@@ -214,12 +214,14 @@ pub enum DeviceMessageDeliveredStatus {
     Delivered,
 }
 
+/// A target the recipient Station cannot deliver to and will not enumerate.
+/// Presence in `unknown_devices` is the whole signal; sender-side `expires_at`
+/// defects fail the entire send request instead of producing a row.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessageUnknownRow {
     pub device_message_id: DeviceMessageId,
     pub status: DeviceMessageUnknownStatus,
-    pub reason_code: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -363,5 +365,18 @@ mod tests {
         station["sender_id"] = json!("ak:did_core:web:station.example");
         station["kind"] = json!("ak.secret.request");
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(station).is_err());
+    }
+
+    #[test]
+    fn unknown_device_row_carries_no_reason_code() {
+        let row = json!({
+            "device_message_id": "ak:device_message:01964137-0000-7000-8000-000000000001",
+            "status": "unknown"
+        });
+        let parsed: DeviceMessageUnknownRow = serde_json::from_value(row.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), row);
+        let mut retired = row;
+        retired["reason_code"] = json!("device_result_unavailable");
+        assert!(serde_json::from_value::<DeviceMessageUnknownRow>(retired).is_err());
     }
 }

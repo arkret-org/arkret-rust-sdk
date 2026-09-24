@@ -1,8 +1,8 @@
 use arkret_wire::{
     AppletId, DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId,
     DidUrl, EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result,
-    SchemaId, ScopeRef, ServiceOperationId, SessionGrantId, SignerEvidenceRef, TrustDomainId,
-    WebOrigin, WireError, canonical, project_did_to_core_id,
+    SchemaId, ScopeRef, ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError,
+    canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -252,8 +252,6 @@ pub struct AccountDeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -273,7 +271,6 @@ impl AccountDeviceSummary {
             self.verification_state,
             self.verification_source,
             self.authorized_event_ref.as_ref(),
-            self.signer_resolution_evidence_ref.as_ref(),
             self.revocation_states.as_deref(),
         )
     }
@@ -1851,7 +1848,7 @@ mod account_data_tests {
     }
 
     #[test]
-    fn verified_device_summary_requires_exact_authorization_and_signer_evidence() {
+    fn verified_device_summary_requires_exact_authorization_provenance() {
         let mut value = json!({
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "status": "active",
@@ -1863,14 +1860,13 @@ mod account_data_tests {
 
         value["authorized_event_ref"] =
             json!("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e");
-        let summary: AccountDeviceSummary = serde_json::from_value(value).unwrap();
-        assert!(summary.validate().is_err());
-
-        let mut value = serde_json::to_value(summary).unwrap();
-        value["signer_resolution_evidence_ref"] =
-            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
         let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
         summary.validate().unwrap();
+
+        let mut retired = value.clone();
+        retired["signer_resolution_evidence_ref"] =
+            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+        assert!(serde_json::from_value::<AccountDeviceSummary>(retired).is_err());
         value["authorization_ref"] = json!("retired");
         assert!(serde_json::from_value::<AccountDeviceSummary>(value).is_err());
     }

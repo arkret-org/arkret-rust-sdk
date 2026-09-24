@@ -12,8 +12,8 @@
 //! sha256=a1740d80a9fe630e2d3f32a75f3cd4a270fed17dfb573d119c71365f22e1aafd Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-09-19.1;
 //! sha256=537db5f0e28f156755dfe617a235812eb236e938e9e7d7739e22ab675a63a0ae Input: registry/
-//! mls-extension-registry.json; version=2026-09-19.1;
-//! sha256=b365def7af189e665ea8631f9ce218658cc5a08b1e0f9c4d634fbbc04736c544 Input: registry/
+//! mls-extension-registry.json; version=2026-09-24.1;
+//! sha256=f30aa623670389336a25fae1c5e0dc3b0ba1fd3b80468dba57fb984c685996b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=39, exporter_labels=7, digest_suites=3, signature_algorithms=4,

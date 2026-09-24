@@ -3,9 +3,7 @@
 //! The account-subscribe sync frame containers stay in the `arkret` umbrella
 //! (`models/artifacts/account_sync.rs`).
 
-use arkret_wire::{
-    DeviceId, DeviceRevocationGateRecord, EventId, Result, SignerEvidenceRef, WireError,
-};
+use arkret_wire::{DeviceId, DeviceRevocationGateRecord, EventId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -61,8 +59,6 @@ pub struct DeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,7 +78,6 @@ impl DeviceSummary {
             self.verification_state,
             self.verification_source,
             self.authorized_event_ref.as_ref(),
-            self.signer_resolution_evidence_ref.as_ref(),
             self.revocation_states.as_deref(),
         )
     }
@@ -93,7 +88,6 @@ pub fn validate_device_summary_evidence(
     verification_state: DeviceSummaryVerificationState,
     verification_source: Option<DeviceSummaryVerificationSource>,
     authorized_event_ref: Option<&EventId>,
-    signer_resolution_evidence_ref: Option<&SignerEvidenceRef>,
     revocation_states: Option<&[DeviceRevocationGateRecord]>,
 ) -> Result<()> {
     // `device-lifecycle.md` §10.1: the provenance is present exactly when a
@@ -125,13 +119,6 @@ pub fn validate_device_summary_evidence(
     } else if authorized_event_ref.is_some() {
         return Err(WireError::Protocol(
             "an unresolved device summary must not expose an authorization reference".to_owned(),
-        ));
-    }
-    if verification_state == DeviceSummaryVerificationState::Verified
-        && signer_resolution_evidence_ref.is_none()
-    {
-        return Err(WireError::Protocol(
-            "verified device summary requires signer resolution evidence".to_owned(),
         ));
     }
     match status {

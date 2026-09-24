@@ -503,6 +503,10 @@ pub struct PendingSidecarAccessReconciliation {
     pub provisioning_phase: SidecarAccessProvisioningPhase,
 }
 
+/// Upper bound of `authority_stream_head`, equal to the MLS governance binding
+/// decoder `maximum_collection_items`.
+pub const SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS: usize = 64;
+
 /// MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
 /// own accepted `ak.mls.genesis` and irreversibly activates to standard
 /// RFC 9420 afterwards.
@@ -532,9 +536,11 @@ pub struct AgentSidecarMlsContext {
 
 impl AgentSidecarMlsContext {
     pub fn validate_shape(&self) -> Result<()> {
-        if self.authority_stream_head.is_empty() {
+        if self.authority_stream_head.is_empty()
+            || self.authority_stream_head.len() > SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS
+        {
             return Err(WireError::Protocol(
-                "sidecar MLS context carries at least one authority ref".to_owned(),
+                "sidecar MLS context carries 1..=64 authority refs".to_owned(),
             ));
         }
         if self
@@ -884,6 +890,25 @@ mod tests {
             .unwrap()
             .remove("current_controller_device_ready");
         assert!(serde_json::from_value::<AgentSidecarMlsContext>(missing).is_err());
+    }
+
+    #[test]
+    fn mls_context_authority_stream_head_is_bounded() {
+        let mut head = (0..=64_u8).map(event_id).collect::<Vec<_>>();
+        head.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        let mut context = AgentSidecarMlsContext {
+            participant_authority_digest: Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
+            authority_stream_head: head,
+            mls_group_id: None,
+            epoch: None,
+            genesis_event_ref: None,
+            current_controller_device_ready: false,
+        };
+        assert!(context.validate_shape().is_err());
+        context.authority_stream_head.pop();
+        context
+            .validate_shape()
+            .expect("64 refs fit the decoder bound");
     }
 
     #[test]

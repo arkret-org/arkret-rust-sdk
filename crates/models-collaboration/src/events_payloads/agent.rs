@@ -140,9 +140,20 @@ pub struct AgentActionApprovePayload {
     pub draft_content_digest: Option<Hash>,
     pub approval_nonce: String,
     #[serde(with = "canonical_timestamp")]
-    pub approved_at: DateTime<Utc>,
-    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+}
+
+impl AgentActionApprovePayload {
+    /// Whether an Event covered by a RealmCommit with `committed_at` falls
+    /// inside this approval window.
+    ///
+    /// The governing Station's signed `committed_at` is the only clock: both
+    /// the approval Event and the approved Event are admitted exactly when
+    /// their covering `committed_at <= expires_at`, inclusive and with zero
+    /// tolerance. Envelope `created_at` and the current time never participate.
+    pub fn admits_commit_at(&self, committed_at: DateTime<Utc>) -> bool {
+        committed_at <= self.expires_at
+    }
 }
 
 /// Counterpart for
@@ -523,4 +534,41 @@ pub struct AgentResumePayload {
     pub status_changed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Duration;
+    use serde_json::json;
+
+    use super::*;
+
+    fn approve_value() -> Value {
+        json!({
+            "approval_id": "approval-1",
+            "agent_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+            "proposed_action": "publish",
+            "target": { "kind": "event" },
+            "approved_event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
+            "approval_nonce": "AAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-09-24T08:00:00.000Z"
+        })
+    }
+
+    #[test]
+    fn action_approve_carries_only_expires_at() {
+        let payload: AgentActionApprovePayload = serde_json::from_value(approve_value()).unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), approve_value());
+        let mut retired = approve_value();
+        retired["approved_at"] = json!("2026-09-24T07:00:00.000Z");
+        assert!(serde_json::from_value::<AgentActionApprovePayload>(retired).is_err());
+    }
+
+    #[test]
+    fn action_approve_window_is_inclusive_on_covering_commit_time() {
+        let payload: AgentActionApprovePayload = serde_json::from_value(approve_value()).unwrap();
+        assert!(payload.admits_commit_at(payload.expires_at));
+        assert!(payload.admits_commit_at(payload.expires_at - Duration::milliseconds(1)));
+        assert!(!payload.admits_commit_at(payload.expires_at + Duration::milliseconds(1)));
+    }
 }

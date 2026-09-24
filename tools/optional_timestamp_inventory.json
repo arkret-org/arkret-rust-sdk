@@ -202,7 +202,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/agent.rs",
-      "line": 413,
+      "line": 424,
       "struct_name": "AgentKeyAuthorizePayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1690,7 +1690,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 258,
+      "line": 256,
       "struct_name": "AccountDeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1702,7 +1702,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 261,
+      "line": 259,
       "struct_name": "AccountDeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1714,7 +1714,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 264,
+      "line": 262,
       "struct_name": "AccountDeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1726,7 +1726,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 959,
+      "line": 956,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1762,7 +1762,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 67,
+      "line": 63,
       "struct_name": "DeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1774,7 +1774,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 70,
+      "line": 66,
       "struct_name": "DeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1786,7 +1786,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 73,
+      "line": 69,
       "struct_name": "DeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",

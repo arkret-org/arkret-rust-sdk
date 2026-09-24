@@ -88,12 +88,6 @@ impl AccountDeviceSignerEvidence {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        DidDocument, ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-        ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
-        normalized_did_document_digest,
-    };
     use arkret_models_crypto::{
         DeviceAuthorizationWindow, DeviceProjectionAttestationCore, DeviceStatus,
     };
@@ -101,6 +95,13 @@ mod tests {
     use chrono::{TimeZone as _, Utc};
     use serde_json::json;
     use sha2::{Digest as _, Sha256};
+
+    use super::*;
+    use crate::{
+        DidDocument, ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
+        ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
+        normalized_did_document_digest,
+    };
 
     fn evidence() -> AccountDeviceSignerEvidence {
         let did = Did::new("did:web:station.example").unwrap();

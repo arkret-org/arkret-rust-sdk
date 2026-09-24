@@ -36,8 +36,7 @@ fn verified_device_summary_uses_exact_published_fields() {
         "status": "active",
         "verification_state": "verified",
         "verification_source": "pairing_code",
-        "authorized_event_ref": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
-        "signer_resolution_evidence_ref": format!("ak:signer_evidence:sha256:{}", "a".repeat(64))
+        "authorized_event_ref": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e"
     });
     assert!(validates_schema(&value));
     let identity: DeviceSummary = serde_json::from_value(value.clone()).unwrap();
@@ -47,14 +46,21 @@ fn verified_device_summary_uses_exact_published_fields() {
     account.validate().unwrap();
     assert_eq!(serde_json::to_value(account).unwrap(), value);
 
-    let mut missing_evidence = value.clone();
-    missing_evidence
+    let mut missing_authorization = value.clone();
+    missing_authorization
         .as_object_mut()
         .unwrap()
-        .remove("signer_resolution_evidence_ref");
-    assert!(!validates_schema(&missing_evidence));
-    let parsed: AccountDeviceSummary = serde_json::from_value(missing_evidence).unwrap();
+        .remove("authorized_event_ref");
+    assert!(!validates_schema(&missing_authorization));
+    let parsed: AccountDeviceSummary = serde_json::from_value(missing_authorization).unwrap();
     assert!(parsed.validate().is_err());
+
+    let mut removed_evidence = value.clone();
+    removed_evidence["signer_resolution_evidence_ref"] =
+        json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+    assert!(!validates_schema(&removed_evidence));
+    assert!(serde_json::from_value::<DeviceSummary>(removed_evidence.clone()).is_err());
+    assert!(serde_json::from_value::<AccountDeviceSummary>(removed_evidence).is_err());
 
     let mut retired = value;
     retired["authorization_ref"] = json!("retired");
