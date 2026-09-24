@@ -4,9 +4,9 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MlsWelcomeDeliveryId,
-    PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, SidecarId,
-    StrandId,
+    CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MessageId,
+    MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
+    RealmSnapshotId, SidecarId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -860,6 +860,9 @@ pub enum CurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    MessageRevision {
+        message_id: MessageId,
+    },
     MessageReactions {
         event_id: EventId,
     },
@@ -903,6 +906,9 @@ enum FlatCurrentSelector {
     },
     Strand {
         strand_id: StrandId,
+    },
+    MessageRevision {
+        message_id: MessageId,
     },
     MessageReactions {
         event_id: EventId,
@@ -1015,6 +1021,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::MessageRevision { message_id } => {
+                        Self::MessageRevision { message_id }
+                    }
                     FlatCurrentSelector::MessageReactions { event_id } => {
                         Self::MessageReactions { event_id }
                     }
@@ -1737,10 +1746,43 @@ mod tests {
         let selector = CurrentSelector::RealmSetDefaultStrand;
         let wire = json!({"kind":"realm_set_default_strand"});
         assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
-        assert_eq!(serde_json::from_value::<CurrentSelector>(wire).unwrap(), selector);
-        assert!(serde_json::from_value::<CurrentSelector>(
-            json!({"kind":"realm_set_default_strand","strand_id":"ak:strand:forged"})
-        ).is_err());
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        assert!(
+            serde_json::from_value::<CurrentSelector>(
+                json!({"kind":"realm_set_default_strand","strand_id":"ak:strand:forged"})
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn message_revision_selector_is_exact_derived_identity() {
+        let event_id = EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(b"message revision selector"),
+        );
+        let message_id = MessageId::from_event_id(&event_id);
+        let selector = CurrentSelector::MessageRevision {
+            message_id: message_id.clone(),
+        };
+        let wire = json!({"kind":"message_revision","message_id":message_id});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        assert!(
+            serde_json::from_value::<CurrentSelector>(
+                json!({"kind":"message_revision","message_id":message_id,"strand_id":"forged"})
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CurrentSelector>(json!({"kind":"message_revision"})).is_err()
+        );
     }
 
     #[test]
