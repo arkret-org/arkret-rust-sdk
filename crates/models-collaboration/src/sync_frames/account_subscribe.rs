@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
     AccountId, ActorId, CommitStreamRef, CommittedEventView, Cursor, DidCoreId, Event, EventId,
-    Hash, RealmId, Result, SchemaId, StrandId, WireError, canonical,
+    Hash, RealmId, Result, SchemaId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -121,12 +121,6 @@ pub struct AccountFilter {
         deserialize_with = "present_member",
         skip_serializing_if = "Option::is_none"
     )]
-    pub strand_ids: Option<Vec<StrandId>>,
-    #[serde(
-        default,
-        deserialize_with = "present_member",
-        skip_serializing_if = "Option::is_none"
-    )]
     pub stream_refs: Option<Vec<CommitStreamRef>>,
     #[serde(
         default,
@@ -146,18 +140,6 @@ pub struct AccountFilter {
         skip_serializing_if = "Option::is_none"
     )]
     pub include_redundant_members: Option<bool>,
-    #[serde(
-        default,
-        deserialize_with = "present_member",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub event_kinds: Option<Vec<String>>,
-    #[serde(
-        default,
-        deserialize_with = "present_member",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub not_event_kinds: Option<Vec<String>>,
 }
 
 /// A member that is present must carry a value of its type: `null` is not an
@@ -170,41 +152,12 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// `websocket-frame.schema.json#/$defs/event_kind`:
-/// `^ak\.[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$`, at most 128 bytes.
-fn validate_filter_event_kind(value: &str, field: &str) -> Result<()> {
-    let valid = value.len() <= 128
-        && value.strip_prefix("ak.").is_some_and(|suffix| {
-            let segments = suffix.split('.').collect::<Vec<_>>();
-            segments.len() >= 2
-                && segments.iter().all(|segment| {
-                    let mut bytes = segment.bytes();
-                    bytes.next().is_some_and(|first| first.is_ascii_lowercase())
-                        && bytes.all(|byte| {
-                            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
-                        })
-                })
-        });
-    if valid {
-        Ok(())
-    } else {
-        Err(protocol_error(format!(
-            "{field} contains an invalid Event kind"
-        )))
-    }
-}
-
 impl AccountFilter {
     pub fn validate(&self) -> Result<()> {
         bounded_unique(
             self.realm_ids.as_deref().unwrap_or_default(),
             16,
             "filter.realm_ids",
-        )?;
-        bounded_unique(
-            self.strand_ids.as_deref().unwrap_or_default(),
-            32,
-            "filter.strand_ids",
         )?;
         if let Some(stream_refs) = &self.stream_refs {
             bounded_unique(stream_refs, 64, "filter.stream_refs")?;
@@ -220,16 +173,6 @@ impl AccountFilter {
         }
         if self.window_limit.is_some_and(|limit| limit > 100) {
             return Err(protocol_error("filter.window_limit must be <= 100"));
-        }
-        for (field, values) in [
-            ("filter.event_kinds", &self.event_kinds),
-            ("filter.not_event_kinds", &self.not_event_kinds),
-        ] {
-            let values = values.as_deref().unwrap_or_default();
-            bounded_unique(values, 64, field)?;
-            for value in values {
-                validate_filter_event_kind(value, field)?;
-            }
         }
         Ok(())
     }

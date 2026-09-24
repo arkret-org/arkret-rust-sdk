@@ -222,8 +222,8 @@ pub struct KeyBackupSummaryEncryption {
 /// Field order is the schema `properties` order. Optional members are absent
 /// or carry a value; only the schema's tristate members (`supersedes_id`,
 /// `expires_at`) accept an explicit `null`, which round-trips as `Some(None)`.
-/// `source_commit_ref`, `recovery_policy_ref` and `retention` are open objects
-/// in this schema and are carried verbatim.
+/// Only `retention` is an open object and is carried verbatim. Source and
+/// recovery-policy references are read from the complete signed envelope.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -253,20 +253,6 @@ pub struct KeyBackupSummary {
         deserialize_with = "deserialize_present"
     )]
     pub supersedes_digest: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
-    )]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
-    pub source_commit_ref: Option<serde_json::Map<String, serde_json::Value>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
-    )]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
-    pub recovery_policy_ref: Option<serde_json::Map<String, serde_json::Value>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

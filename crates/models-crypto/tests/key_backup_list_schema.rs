@@ -188,14 +188,6 @@ fn full_metadata() -> Value {
         "series_seq": 1,
         "supersedes_id": "ak:backup:01964137-2000-7000-8000-000000000001",
         "supersedes_digest": DIGEST,
-        "source_commit_ref": {
-            "realm_commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
-            "device_generation_ref": 3
-        },
-        "recovery_policy_ref": {
-            "policy_id": "ak:policy:01964137-3000-7000-8000-000000000001",
-            "policy_version": 2
-        },
         "expires_at": "2027-09-09T00:00:00.000Z",
         "created_at": "2026-09-09T00:00:00.000Z",
         "updated_at": "2026-09-10T00:00:00.000Z",
@@ -226,10 +218,9 @@ fn schema_and_dto_accept_every_backup_metadata_shape_and_round_trip_it() {
     nulls["expires_at"] = json!(null);
     accepted.push(nulls);
 
-    // Open objects carry any member verbatim.
+    // Retention is the only open summary object and carries members verbatim.
     let mut open = full_metadata();
     open["retention"] = json!({"legal_hold": true, "x_note": {"k": [1, 2]}});
-    open["recovery_policy_ref"] = json!({});
     accepted.push(open);
 
     for method in [
@@ -338,14 +329,7 @@ fn schema_and_dto_reject_envelope_members_nulls_and_malformed_metadata() {
     rejected.push(("missing recipient_method".to_owned(), no_method));
 
     // Only the tristate members admit null.
-    for member in [
-        "device_id",
-        "supersedes_digest",
-        "source_commit_ref",
-        "recovery_policy_ref",
-        "updated_at",
-        "retention",
-    ] {
+    for member in ["device_id", "supersedes_digest", "updated_at", "retention"] {
         let mut value = full_metadata();
         value[member] = json!(null);
         rejected.push((format!("null {member}"), value));
@@ -360,9 +344,14 @@ fn schema_and_dto_reject_envelope_members_nulls_and_malformed_metadata() {
         ("string series_seq", "series_seq", json!("0")),
         ("mls_history class", "backup_kind", json!("mls_history")),
         (
-            "string source_commit_ref",
+            "retired source_commit_ref",
             "source_commit_ref",
-            json!("ak:realm_commit:x"),
+            json!({"realm_commit_id": "ak:realm_commit:x"}),
+        ),
+        (
+            "retired recovery_policy_ref",
+            "recovery_policy_ref",
+            json!({"policy_id": "ak:policy:01964137-3000-7000-8000-000000000001"}),
         ),
         ("array retention", "retention", json!([])),
         (

@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
 //! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
-//! contract-registry.json; version=2026-09-24.2;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19
+//! contract-registry.json; version=2026-09-24.7;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -561,7 +561,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfKeysBackupsCommandIssueDeleteChallengeV1,
             ServiceOperationId::SelfKeysBackupsCommandIssueUnlockChallengeV1,
             ServiceOperationId::SelfKeysBackupsResourceDeleteV1,
-            ServiceOperationId::SelfKeysBackupSeriesCommandEraseV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -745,7 +744,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-23.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-24.2";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-24.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-24.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-24.7";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-24.2";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-24.7";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

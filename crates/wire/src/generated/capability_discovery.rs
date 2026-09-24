@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-24.2;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19
-//! Entries: operation_bundles=33 features=12
+//! Input: registry/contract-registry.json; version=2026-09-24.7;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4
+//! Entries: operation_bundles=36 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -324,6 +324,20 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.account_gate_pairing.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.agent_pairing_handoff.v1",
         service_kind: ServiceKind::Station,
         members: &[
@@ -504,13 +518,9 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.station.http_core.v1",
+        operation_bundle_id: "ak.operation_bundle.station.http_core_current.v1",
         service_kind: ServiceKind::Station,
         members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
-                binding_kind: BindingKind::HttpJson,
-            },
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandLogoutV1,
                 binding_kind: BindingKind::HttpJson,
@@ -524,15 +534,15 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::OpenIdentityReadResolutionV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::OpenInviteLocatorReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenRealmAuthorityReadBundleV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -788,6 +798,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfEventsReadDeliveryStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfIdentityReadResolutionAuditV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -809,10 +823,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfInviteReceivePolicyResourceReplaceV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfKeysBackupSeriesCommandEraseV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -974,6 +984,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.invite_delivery.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::SelfInvitesCommandDispatchV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.mimi_interop.v1",
         service_kind: ServiceKind::Station,
         members: &[
@@ -1032,6 +1050,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
         ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.realm_authority_handoff.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.snapshot_exact_read.v1",

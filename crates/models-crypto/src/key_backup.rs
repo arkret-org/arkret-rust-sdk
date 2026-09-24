@@ -84,7 +84,7 @@ pub struct KeyBackupSourceCommitRef {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackup {
     pub backup_id: BackupId,
     pub actor_id: ActorId,
@@ -246,7 +246,7 @@ pub enum KeyBackupRecipientMethod {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -333,7 +333,7 @@ impl KeyBackupEncryption {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupDomainSeparation {
     pub subdomain: String,
@@ -373,7 +373,7 @@ pub enum KeyBackupKdfDigestAlgorithm {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupKdfParams {
     pub memory_kib: Option<u64>,
     pub iterations: Option<u64>,
@@ -384,7 +384,7 @@ pub struct KeyBackupKdfParams {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupKdf {
     pub name: KeyBackupKdfName,
     pub salt: Base64UrlString,
@@ -447,7 +447,7 @@ pub enum KeyBackupAeadName {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupAead {
     #[serde(rename = "name")]
     pub name: KeyBackupAeadName,
@@ -515,7 +515,7 @@ impl SecretStorageContentIndex {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupAuthData {
     pub device_id: DeviceId,
@@ -536,7 +536,7 @@ pub enum KeyBackupSignatureAlgorithm {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupRetention {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

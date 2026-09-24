@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-24.2;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Entries: registered=149
+//! Input: registry/contract-registry.json; version=2026-09-24.7;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4 Entries: registered=148
 
 use serde::{Deserialize, Serialize};
 
@@ -132,7 +132,6 @@ pub enum CapabilityActionId {
     SelfBlobUploadCreateV1,
     SelfCommittedEventReadScanV1,
     SelfCommittedEventStreamSubscribeV1,
-    SelfKeysBackupSeriesCommandEraseV1,
     SelfRealmStateSnapshotReadByRefV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
     SpaceArchive,
@@ -285,7 +284,6 @@ impl CapabilityActionId {
         Self::SelfBlobUploadCreateV1,
         Self::SelfCommittedEventReadScanV1,
         Self::SelfCommittedEventStreamSubscribeV1,
-        Self::SelfKeysBackupSeriesCommandEraseV1,
         Self::SelfRealmStateSnapshotReadByRefV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
@@ -444,8 +442,6 @@ impl CapabilityActionId {
         "ak.self.committed_event.read.scan.v1";
     pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
         "ak.self.committed_event.stream.subscribe.v1";
-    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
-        "ak.self.keys.backup_series.command.erase.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1: &'static str =
         "ak.self.realm_state_snapshot.read.by_ref.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
@@ -602,9 +598,6 @@ impl CapabilityActionId {
             Self::SelfCommittedEventReadScanV1 => Self::SELF_COMMITTED_EVENT_READ_SCAN_V1,
             Self::SelfCommittedEventStreamSubscribeV1 => {
                 Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
-            }
-            Self::SelfKeysBackupSeriesCommandEraseV1 => {
-                Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
             }
             Self::SelfRealmStateSnapshotReadByRefV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1
@@ -768,9 +761,6 @@ impl CapabilityActionId {
             Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
             Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
                 Some(Self::SelfCommittedEventStreamSubscribeV1)
-            }
-            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
-                Some(Self::SelfKeysBackupSeriesCommandEraseV1)
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadByRefV1)

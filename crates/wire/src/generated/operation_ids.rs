@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-24.1;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Entries: registered=206
+//! Input: registry/contract-registry.json; version=2026-09-24.2;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4 Entries: registered=205
 
 use serde::{Deserialize, Serialize};
 
@@ -171,7 +171,6 @@ pub enum ServiceOperationId {
     SelfInviteReceivePolicyResourceGetV1,
     SelfInviteReceivePolicyResourceReplaceV1,
     SelfInvitesCommandDispatchV1,
-    SelfKeysBackupSeriesCommandEraseV1,
     SelfKeysBackupsCommandIssueDeleteChallengeV1,
     SelfKeysBackupsCommandIssueUnlockChallengeV1,
     SelfKeysBackupsCommandUnlockV1,
@@ -380,7 +379,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET_V1,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1,
     ServiceOperationId::SELF_INVITES_COMMAND_DISPATCH_V1,
-    ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
@@ -631,7 +629,6 @@ impl ServiceOperationId {
         Self::SelfInviteReceivePolicyResourceGetV1,
         Self::SelfInviteReceivePolicyResourceReplaceV1,
         Self::SelfInvitesCommandDispatchV1,
-        Self::SelfKeysBackupSeriesCommandEraseV1,
         Self::SelfKeysBackupsCommandIssueDeleteChallengeV1,
         Self::SelfKeysBackupsCommandIssueUnlockChallengeV1,
         Self::SelfKeysBackupsCommandUnlockV1,
@@ -955,8 +952,6 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.replace.v1";
     pub const SELF_INVITES_COMMAND_DISPATCH_V1: &'static str =
         "ak.self.invites.command.dispatch.v1";
-    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
-        "ak.self.keys.backup_series.command.erase.v1";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1: &'static str =
         "ak.self.keys.backups.command.issue_delete_challenge.v1";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1: &'static str =
@@ -1277,9 +1272,6 @@ impl ServiceOperationId {
                 Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1
             }
             Self::SelfInvitesCommandDispatchV1 => Self::SELF_INVITES_COMMAND_DISPATCH_V1,
-            Self::SelfKeysBackupSeriesCommandEraseV1 => {
-                Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
-            }
             Self::SelfKeysBackupsCommandIssueDeleteChallengeV1 => {
                 Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1
             }
@@ -1670,9 +1662,6 @@ impl ServiceOperationId {
                 Some(Self::SelfInviteReceivePolicyResourceReplaceV1)
             }
             Self::SELF_INVITES_COMMAND_DISPATCH_V1 => Some(Self::SelfInvitesCommandDispatchV1),
-            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
-                Some(Self::SelfKeysBackupSeriesCommandEraseV1)
-            }
             Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1 => {
                 Some(Self::SelfKeysBackupsCommandIssueDeleteChallengeV1)
             }
@@ -5528,31 +5517,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
             ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfKeysBackupSeriesCommandEraseV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/keys/backup-series/erase",
-        grpc: Some("SelfKeys/BackupSeriesErase"),
-        mq: Some("self.keys.backup_series.command.erase"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/backup_series_erase_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/backup_series_erase_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
             branch_contract_json: None,
         }),
     },

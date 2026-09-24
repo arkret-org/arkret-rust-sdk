@@ -41,8 +41,8 @@ fn alternate_carrier_membership_is_typed() {
 }
 
 #[test]
-fn station_http_core_advertises_service_resolution() {
-    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1")
+fn station_http_core_current_advertises_service_resolution() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core_current.v1")
         .expect("Station HTTP core bundle must be registered");
 
     assert_eq!(bundle.service_kind, ServiceKind::Station);
@@ -70,6 +70,38 @@ fn station_device_pairing_handoff_bundle_closes_all_three_open_operations() {
     ));
     assert!(bundle.contains(
         ServiceOperationId::OpenDevicePairingReadStatusV1,
+        BindingKind::HttpJson,
+    ));
+}
+
+#[test]
+fn current_station_bundles_have_exact_optional_members() {
+    assert!(operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1").is_none());
+    for (bundle_id, member) in [
+        (
+            "ak.operation_bundle.station.invite_delivery.v1",
+            ServiceOperationId::SelfInvitesCommandDispatchV1,
+        ),
+        (
+            "ak.operation_bundle.station.realm_authority_handoff.v1",
+            ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
+        ),
+    ] {
+        let bundle = operation_bundle_descriptor(bundle_id).unwrap();
+        assert_eq!(bundle.service_kind, ServiceKind::Station);
+        assert_eq!(bundle.members.len(), 1);
+        assert!(bundle.contains(member, BindingKind::HttpJson));
+    }
+    let pairing =
+        operation_bundle_descriptor("ak.operation_bundle.station.account_gate_pairing.v1").unwrap();
+    assert_eq!(pairing.service_kind, ServiceKind::Station);
+    assert_eq!(pairing.members.len(), 2);
+    assert!(pairing.contains(
+        ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
+        BindingKind::HttpJson,
+    ));
+    assert!(pairing.contains(
+        ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
         BindingKind::HttpJson,
     ));
 }

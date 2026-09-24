@@ -9,14 +9,15 @@
 use std::collections::{BTreeSet, HashSet};
 
 use arkret_wire::{
-    AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CanonicalPublicMaterial,
-    CommitStreamRef, DeviceId, DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId,
-    PolicyId, RealmCommitId, RealmId, ReasonCode, ReceiptId, RecoveryCompletionAttestation,
-    RecoverySessionId, Result, SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError,
-    XExtensionMap,
+    AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CommitStreamRef, DeviceId,
+    DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId, PolicyId, RealmCommitId,
+    RealmId, ReasonCode, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId, Result,
+    SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::KeyBackup;
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
 pub const MAX_STEP_OUTPUT_REF_CHARS: usize = 2048;
@@ -78,10 +79,7 @@ pub enum SecurityTransactionAcceptor {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AcceptedSecurityTransactionStep {
-    pub prepared_material_digest: Hash,
     pub acceptor: SecurityTransactionAcceptor,
-    pub output_ref: String,
-    pub output_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
 }
@@ -246,7 +244,7 @@ pub struct BackupRotationBinding {
 #[serde(deny_unknown_fields)]
 pub struct BackupRotationPlan {
     pub binding: BackupRotationBinding,
-    pub encrypted_backup_material: CanonicalPublicMaterial,
+    pub new_backup_envelopes: Vec<KeyBackup>,
     pub active_series_unit: PreparedEventUnit,
 }
 
@@ -278,7 +276,8 @@ pub enum BackupSeriesEraseRowStatus {
     Erased,
 }
 
-/// Exact transaction-bound request for erasing the old `secret_storage` series.
+/// Closed internal worker carrier for erasing the old `secret_storage` series.
+/// This is not a public operation or HTTP request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -710,10 +709,6 @@ impl SecurityTransaction {
         if self.accepted_steps.len() > order.len() {
             return protocol("accepted_steps exceeds the transaction's fixed step order");
         }
-        for step in &self.accepted_steps {
-            validate_step_output_ref(&step.output_ref)?;
-        }
-
         match &self.terminal_outcome {
             None if self.accepted_steps.len() == order.len() => {
                 protocol("non-terminal transaction exhausted its fixed step order")
@@ -769,7 +764,7 @@ impl SecurityTransaction {
     ) -> Result<()> {
         attestation.validate_structural()?;
         let binding = &plan.binding;
-        let last = self.accepted_steps.last().ok_or_else(|| {
+        self.accepted_steps.last().ok_or_else(|| {
             WireError::Protocol("completed recovery is missing its accepted step".to_owned())
         })?;
         if receipt_id != &binding.terminal_receipt_id
@@ -784,8 +779,6 @@ impl SecurityTransaction {
             || attestation.device_authorization_event_ref.event_id != binding.authorize_event_id
             || attestation.result_model_generation_ref != plan.result_model_generation_ref
             || attestation.completed_at != completed_at
-            || last.output_ref != receipt_id.as_str()
-            || last.output_digest != attestation.terminal_receipt_digest
             || attestation.reanchor_event_ref.stream_ref
                 != (CommitStreamRef::Realm {
                     realm_id: plan.reanchor_commit_intent.realm_id.clone(),
@@ -1495,7 +1488,29 @@ fn validate_security_rotation_plan(
         {
             return protocol("security rotation backup binding has invalid fixed shape");
         }
-        rotation.encrypted_backup_material.validate_structural()?;
+        if rotation.new_backup_envelopes.len() != binding.new_backups.len() {
+            return protocol("security rotation backup envelope count differs from binding");
+        }
+        for (index, (envelope, reference)) in rotation
+            .new_backup_envelopes
+            .iter()
+            .zip(&binding.new_backups)
+            .enumerate()
+        {
+            envelope.validate()?;
+            if envelope.backup_id != reference.backup_id
+                || envelope.ciphertext_digest != reference.ciphertext_digest
+                || envelope.series_id != binding.new_series_id
+                || envelope.backup_kind != crate::BackupKind::SecretStorage
+                || (index > 0
+                    && rotation.new_backup_envelopes[index - 1].backup_id.as_str()
+                        >= envelope.backup_id.as_str())
+            {
+                return protocol(
+                    "security rotation backup envelopes differ from canonical binding",
+                );
+            }
+        }
         rotation.active_series_unit.validate()?;
         let [active_series]: &[_; 1] = rotation
             .active_series_unit
@@ -1647,27 +1662,6 @@ mod tests {
         .unwrap()
     }
 
-    fn erase_request() -> BackupSeriesEraseRequestBody {
-        let transaction_id =
-            TransactionId::new("ak:transaction:019a7400-0000-7000-8000-000000000006").unwrap();
-        let series = vec![erase_binding()];
-        BackupSeriesEraseRequestBody {
-            erase_confirmation_digest: security_rotation_erase_confirmation_digest(
-                &transaction_id,
-                &series,
-            )
-            .unwrap(),
-            transaction_id,
-            transaction_request_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            prepared_plan_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
-            series,
-            authority_commit_id: RealmCommitId::new(
-                "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
-            )
-            .unwrap(),
-        }
-    }
-
     /// Known-answer vectors for the two non-circular reserved digests of
     /// security-transactions.md §3. The expected values were computed
     /// independently of this crate (RFC 8785 JCS + SHA-256) from the
@@ -1765,71 +1759,20 @@ mod tests {
     }
 
     #[test]
-    fn backup_series_erase_request_requires_one_series_and_no_lease() {
-        let request = erase_request();
-        request.validate_structural().unwrap();
-
-        let mut empty = request.clone();
-        empty.series.clear();
-        assert!(empty.validate_structural().is_err());
-
-        let mut duplicate = request.clone();
-        duplicate.series.push(erase_binding());
-        assert!(duplicate.validate_structural().is_err());
-
-        let mut legacy = serde_json::to_value(request).unwrap();
-        legacy.as_object_mut().unwrap().insert(
-            "authorization_lease".to_owned(),
-            serde_json::json!({"lease_id": "removed"}),
-        );
-        assert!(serde_json::from_value::<BackupSeriesEraseRequestBody>(legacy).is_err());
-    }
-
-    #[test]
-    fn backup_series_erase_outcome_requires_one_record_and_confirmation_by_status() {
-        let request = erase_request();
-        let request_digest =
-            Hash::new(arkret_canonical::canonical::canonical_sha256(&request).unwrap()).unwrap();
-        let binding = request.series[0].clone();
-        let record = BackupSeriesEraseRow {
-            backup_kind: binding.backup_kind,
-            previous_series_id: binding.previous_series_id,
-            new_series_id: binding.new_series_id,
-            status: BackupSeriesEraseRowStatus::Pending,
-            erased_backups: Vec::new(),
-            remaining_backups: binding.old_backups,
-            reason_code: None,
-        };
-        let mut outcome = BackupSeriesEraseOutcome {
-            transaction_id: request.transaction_id.clone(),
-            request_digest,
-            status: BackupSeriesEraseStatus::Partial,
-            series_records: vec![record],
-            confirmation: None,
-        };
-        outcome.validate_for_request(&request).unwrap();
-
-        outcome.series_records.clear();
-        assert!(outcome.validate_structural().is_err());
-        outcome.series_records.push(BackupSeriesEraseRow {
-            backup_kind: BackupRotationKind::SecretStorage,
-            previous_series_id: request.series[0].previous_series_id.clone(),
-            new_series_id: request.series[0].new_series_id.clone(),
-            status: BackupSeriesEraseRowStatus::Erased,
-            erased_backups: request.series[0].old_backups.clone(),
-            remaining_backups: Vec::new(),
-            reason_code: None,
+    fn accepted_step_carries_only_acceptor_and_time() {
+        let value = serde_json::json!({
+            "acceptor": {
+                "kind": "device",
+                "device_id": "ak:device:019a7400-0000-7000-8000-000000000003"
+            },
+            "accepted_at": "2026-09-24T00:00:00.000Z"
         });
-        outcome.status = BackupSeriesEraseStatus::Complete;
-        assert!(outcome.validate_structural().is_err());
-
-        outcome.confirmation = Some(BackupSeriesEraseConfirmation {
-            schema: SchemaId::BackupSeriesEraseConfirmationV1,
-            transaction_id: request.transaction_id.clone(),
-            transaction_request_digest: request.transaction_request_digest.clone(),
-            prepared_plan_digest: request.prepared_plan_digest.clone(),
-            series: request.series.clone(),
-        });
-        outcome.validate_for_request(&request).unwrap();
+        let step: AcceptedSecurityTransactionStep = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(step).unwrap(), value);
+        for field in ["prepared_material_digest", "output_ref", "output_digest"] {
+            let mut legacy = value.clone();
+            legacy[field] = serde_json::json!("retired");
+            assert!(serde_json::from_value::<AcceptedSecurityTransactionStep>(legacy).is_err());
+        }
     }
 }

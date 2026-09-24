@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-24.2;
-//! sha256=fc26fc0028b259083cea2a702bb487fface96484b36cb219885c35f39c0c7faa Input: registry/
-//! contract-registry.json; version=2026-09-24.2;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-24.3;
+//! sha256=8678f1f67b849ce4bdac2063b05be1a8dd0a2f8d4e86f9aaf4cc9463e6da9668 Input: registry/
+//! contract-registry.json; version=2026-09-24.7;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4 Input: registry/
 //! error-code-registry.json; version=2026-09-24.2;
-//! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62 Entries: operations=206
+//! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62 Entries: operations=205
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -683,12 +683,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
-    &[
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Reason(ReasonCode::BackupRevisionStale),
-        OperationSpecificError::Code(ErrorCode::NotFound),
-    ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[
@@ -753,7 +747,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
         OperationSpecificError::Code(ErrorCode::EpochMismatch),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),

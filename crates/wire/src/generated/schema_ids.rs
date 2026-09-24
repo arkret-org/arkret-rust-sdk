@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-24.2;
-//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Entries: schema_ids=225,
-//! active=225
+//! Input: registry/contract-registry.json; version=2026-09-24.7;
+//! sha256=a39431e6f28167cba26b64029e06f41fc38f9f40ffb15f328ffcdcf399fef8c4 Entries: schema_ids=226,
+//! active=226
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +15,7 @@ pub enum SchemaId {
     AccountCurrentResultV1,
     AccountDataEncryptedValueV1,
     AccountDataOperationsV1,
+    AccountDeviceSignerEvidenceV1,
     AccountOperationsV1,
     AccountStatusRecordV1,
     AccountSubscribeFrameV1,
@@ -244,6 +245,7 @@ impl SchemaId {
         Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
+        Self::AccountDeviceSignerEvidenceV1,
         Self::AccountOperationsV1,
         Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
@@ -473,6 +475,7 @@ impl SchemaId {
         Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
+        Self::AccountDeviceSignerEvidenceV1,
         Self::AccountOperationsV1,
         Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
@@ -706,6 +709,10 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface actor-private account_data operations
     /// (ak.self.account_data.*); see zh/discovery/client-preferences.md.
     pub const ACCOUNT_DATA_OPERATIONS_V1: &'static str = "ak.schema.account_data_operations.v1";
+    /// Closed content-addressed ordinary account-device signer evidence retaining the exact origin
+    /// attestation and full method-native Service resolution.
+    pub const ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1: &'static str =
+        "ak.schema.account_device_signer_evidence.v1";
     /// Closed request/response DTO bundle for account self-service operations: viewer, register,
     /// profile update, and session revocation.
     pub const ACCOUNT_OPERATIONS_V1: &'static str = "ak.schema.account_operations.v1";
@@ -1362,6 +1369,7 @@ impl SchemaId {
             Self::AccountCurrentResultV1 => Self::ACCOUNT_CURRENT_RESULT_V1,
             Self::AccountDataEncryptedValueV1 => Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
             Self::AccountDataOperationsV1 => Self::ACCOUNT_DATA_OPERATIONS_V1,
+            Self::AccountDeviceSignerEvidenceV1 => Self::ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1,
             Self::AccountOperationsV1 => Self::ACCOUNT_OPERATIONS_V1,
             Self::AccountStatusRecordV1 => Self::ACCOUNT_STATUS_RECORD_V1,
             Self::AccountSubscribeFrameV1 => Self::ACCOUNT_SUBSCRIBE_FRAME_V1,
@@ -1624,6 +1632,9 @@ impl SchemaId {
             Self::AccountCurrentResultV1 => "schemas/account-current-result.schema.json",
             Self::AccountDataEncryptedValueV1 => "schemas/account-data-encrypted-value.schema.json",
             Self::AccountDataOperationsV1 => "schemas/account-data-operations.schema.json",
+            Self::AccountDeviceSignerEvidenceV1 => {
+                "schemas/account-device-signer-evidence.schema.json"
+            }
             Self::AccountOperationsV1 => "schemas/account-operations.schema.json",
             Self::AccountStatusRecordV1 => "schemas/account-operations.schema.json",
             Self::AccountSubscribeFrameV1 => "schemas/account-subscribe-frame.schema.json",
@@ -1904,6 +1915,7 @@ impl SchemaId {
             Self::ACCOUNT_CURRENT_RESULT_V1 => Some(Self::AccountCurrentResultV1),
             Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1 => Some(Self::AccountDataEncryptedValueV1),
             Self::ACCOUNT_DATA_OPERATIONS_V1 => Some(Self::AccountDataOperationsV1),
+            Self::ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1 => Some(Self::AccountDeviceSignerEvidenceV1),
             Self::ACCOUNT_OPERATIONS_V1 => Some(Self::AccountOperationsV1),
             Self::ACCOUNT_STATUS_RECORD_V1 => Some(Self::AccountStatusRecordV1),
             Self::ACCOUNT_SUBSCRIBE_FRAME_V1 => Some(Self::AccountSubscribeFrameV1),

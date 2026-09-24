@@ -1336,7 +1336,6 @@ fn sidecar_id(seed: u8) -> String {
 fn full_account_filter() -> Value {
     json!({
         "realm_ids": [REALM_A, REALM_B],
-        "strand_ids": [STRAND],
         "stream_refs": [
             {"kind": "realm", "realm_id": REALM_A},
             {"kind": "circle", "realm_id": REALM_B, "circle_id": CIRCLE_B},
@@ -1344,8 +1343,6 @@ fn full_account_filter() -> Value {
         "window_limit": 100,
         "lazy_load_members": false,
         "include_redundant_members": true,
-        "event_kinds": ["ak.message.create"],
-        "not_event_kinds": ["ak.realm.set_default_strand"],
     })
 }
 
@@ -1426,13 +1423,14 @@ fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
             "non-boolean include_redundant_members",
             with("include_redundant_members", json!("yes")),
         ),
+        ("retired strand_ids", with("strand_ids", json!([STRAND]))),
         (
-            "single-segment event kind",
-            with("event_kinds", json!(["ak.message"])),
+            "retired event_kinds",
+            with("event_kinds", json!(["ak.message.create"])),
         ),
         (
-            "digit-led event kind segment",
-            with("not_event_kinds", json!(["ak.message.1create"])),
+            "retired not_event_kinds",
+            with("not_event_kinds", json!(["ak.message.create"])),
         ),
         (
             "duplicate realm_ids",

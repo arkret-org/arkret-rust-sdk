@@ -178,7 +178,6 @@ impl StateAtWindowStart {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StreamWindowAnchorKind {
-    StreamGenesis,
     AfterCommittedPrefix,
     BeforeReadableFloor,
 }
@@ -190,10 +189,8 @@ pub enum StreamWindowAnchorKind {
 #[serde(deny_unknown_fields)]
 pub struct StreamWindowStartBasis {
     pub anchor_kind: StreamWindowAnchorKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anchor_position: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anchor_commit_ref: Option<RealmCommitId>,
+    pub anchor_position: u64,
+    pub anchor_commit_ref: RealmCommitId,
     pub snapshot_ref: RealmSnapshotId,
     pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,30 +199,6 @@ pub struct StreamWindowStartBasis {
 
 impl StreamWindowStartBasis {
     pub fn validate(&self) -> Result<()> {
-        let anchored = self.anchor_position.is_some() && self.anchor_commit_ref.is_some();
-        match self.anchor_kind {
-            StreamWindowAnchorKind::StreamGenesis if anchored => {
-                return Err(protocol_error(
-                    "stream genesis basis must not carry an anchor position or commit",
-                ));
-            }
-            StreamWindowAnchorKind::StreamGenesis
-                if self.anchor_position.is_some() || self.anchor_commit_ref.is_some() =>
-            {
-                return Err(protocol_error(
-                    "stream genesis basis must not carry a partial anchor",
-                ));
-            }
-            StreamWindowAnchorKind::AfterCommittedPrefix
-            | StreamWindowAnchorKind::BeforeReadableFloor
-                if !anchored =>
-            {
-                return Err(protocol_error(
-                    "non-genesis stream basis requires anchor_position and anchor_commit_ref",
-                ));
-            }
-            _ => {}
-        }
         if self
             .accepted_dependency_refs
             .as_ref()
@@ -363,6 +336,15 @@ mod tests {
         let state = parse(value.clone());
         state.validate().unwrap();
         assert_eq!(serde_json::to_value(&state).unwrap(), value);
+    }
+
+    #[test]
+    fn stream_genesis_is_not_a_window_start_anchor() {
+        assert!(serde_json::from_value::<StreamWindowAnchorKind>(json!("stream_genesis")).is_err());
+        assert_eq!(
+            serde_json::to_value(StreamWindowAnchorKind::AfterCommittedPrefix).unwrap(),
+            json!("after_committed_prefix")
+        );
     }
 
     #[test]

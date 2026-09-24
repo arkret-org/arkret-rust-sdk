@@ -781,7 +781,7 @@ mod tests {
             ServiceKind::Station,
             vec![
                 "ak.operation_bundle.station.describe.v1".to_owned(),
-                "ak.operation_bundle.station.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.http_core_current.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://service.example".to_owned(),
@@ -798,7 +798,7 @@ mod tests {
             vec![
                 "ak.operation_bundle.station.describe.v1".to_owned(),
                 "ak.operation_bundle.station.account_authority_support.v1".to_owned(),
-                "ak.operation_bundle.station.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.http_core_current.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://auth.example".to_owned(),
