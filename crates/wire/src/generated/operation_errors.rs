@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-24.4;
-//! sha256=e2f8da48068aa09ee016b88d96614d06a614d864f252b4688c6ea3c90f295fa4 Input: registry/
-//! contract-registry.json; version=2026-09-24.9;
-//! sha256=8082412aa2d3a960600679042320d5e0468162295a973f55f4302eb8ca54bfa0 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-25.1;
+//! sha256=64f4fa91a72d224371846204ac30510bf073353f23732b92bc68f6757f3be065 Input: registry/
+//! contract-registry.json; version=2026-09-25.1;
+//! sha256=b14e589565e09be68036a213d65712eae9421cfeb60e899a808b9350326f23a8 Input: registry/
 //! error-code-registry.json; version=2026-09-24.2;
 //! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62 Entries: operations=205
 
@@ -299,6 +299,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::UnknownEventKind),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
         OperationSpecificError::Reason(ReasonCode::ApprovalCarrierUnregistered),
+        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
+        OperationSpecificError::Code(ErrorCode::DeviceRevoked),
+        OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
+        OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -668,6 +672,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::UnknownEventKind),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
         OperationSpecificError::Reason(ReasonCode::ApprovalCarrierUnregistered),
+        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
+        OperationSpecificError::Code(ErrorCode::DeviceRevoked),
+        OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
+        OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[OperationSpecificError::Code(ErrorCode::ParamInvalid)],

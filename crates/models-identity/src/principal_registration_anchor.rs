@@ -1,9 +1,9 @@
 //! Closed, adapter-discriminated registration anchor for a v1 human principal.
 //!
-//! This is the single primary method-native material that human registration,
-//! PCR genesis and the portable `account_device_control` root all consume. One
-//! v1 supports exactly one active `human_principal_anchor` adapter:
-//! `did:webvh:1.0`, selected by the registered `registration_anchor_kind`.
+//! This is the single primary method-native material that human registration
+//! and PCR genesis both consume. v1 supports exactly one active
+//! `human_principal_anchor` adapter: `did:webvh:1.0`, selected by the
+//! registered `registration_anchor_kind`.
 //! Every other DID method is rejected before method-specific parsing.
 //!
 //! The shape checks here are the closed-form ones a wire model can own. The
@@ -192,8 +192,8 @@ impl PrincipalRegistrationAnchor {
 }
 
 /// Everything a registration anchor authenticates. Only this struct - never the
-/// anchor's own members - is compared against PCR genesis coordinates, a
-/// registration control proof or a portable Control root.
+/// anchor's own members - is compared against PCR genesis coordinates or a
+/// registration control proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ValidatedRegistrationAnchor {
     /// Registered `registration_anchor_kind` the branch selected.

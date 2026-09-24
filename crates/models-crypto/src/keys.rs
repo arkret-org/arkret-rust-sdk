@@ -156,6 +156,13 @@ pub enum DeviceStatus {
     Revoked,
 }
 
+impl DeviceStatus {
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        matches!(self, Self::Active)
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -986,9 +993,9 @@ mod device_generation_tests {
         assert!(projection.get("device_id").is_none());
     }
 
-    /// A self row exposes no material from which a caller could assemble
-    /// `CurrentSignerEvidence::AccountDevice`, whose `AccountDevice` branch
-    /// requires a complete signed `DeviceProjectionAttestation`.
+    /// A self row exposes no material from which a caller could assemble an
+    /// `AccountDeviceSignerEvidence`, which requires a complete signed
+    /// `DeviceProjectionAttestation`.
     #[test]
     fn a_self_row_offers_no_signed_evidence_to_reconstruct() {
         let record: QueryDeviceRecord = serde_json::from_value(self_row(7)).unwrap();

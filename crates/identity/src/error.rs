@@ -40,3 +40,14 @@ pub enum IdentityError {
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }
+
+impl IdentityError {
+    /// Stable protocol error code when this failure carries one.
+    #[must_use]
+    pub const fn error_code(&self) -> Option<arkret_wire::ErrorCode> {
+        match self {
+            Self::Wire(error) => error.error_code(),
+            _ => None,
+        }
+    }
+}

@@ -958,6 +958,63 @@ mod scope_mls_group_id_tests {
 /// only has to parse.
 const PLACEHOLDER_EVENT_ID: &str = "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+/// Verification-method fragment prefix that marks a human Account device key.
+pub const HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
+
+/// Human Account device that actually signed an Event.
+///
+/// It exists exactly when the actual signer (`executed_by`, else `actor_id`)
+/// is an Account and the producer proof method fragment is an `ak:device:`
+/// id. Every human-device producer, whatever the Event kind, resolves through
+/// this one rule; there is no Control / Data split.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HumanDeviceProducer {
+    pub account_id: crate::AccountId,
+    pub device_id: arkret_identifiers::DeviceId,
+}
+
+impl Event {
+    /// Actor whose key signed the producer proof.
+    #[must_use]
+    pub fn actual_signer(&self) -> &ActorId {
+        self.executed_by.as_ref().unwrap_or(&self.actor_id)
+    }
+
+    /// Resolve the human-device producer of this Event, if any.
+    ///
+    /// Returns `Ok(None)` for Service, Agent and other non-device signers. A
+    /// missing producer proof or an `ak:device:` fragment that is not a
+    /// canonical device id is a `schema_violation`.
+    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::ProtocolCode {
+                code: crate::ErrorCode::SchemaViolation,
+                message: "Event must carry producer_proof".to_owned(),
+            })?;
+        let Some(account_id) = self.actual_signer().as_account_id() else {
+            return Ok(None);
+        };
+        let Some((_, fragment)) = proof.verification_method.as_str().split_once('#') else {
+            return Ok(None);
+        };
+        if !fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX) {
+            return Ok(None);
+        }
+        let device_id = arkret_identifiers::DeviceId::new(fragment.to_owned()).map_err(|_| {
+            WireError::ProtocolCode {
+                code: crate::ErrorCode::SchemaViolation,
+                message: "producer proof device fragment is not a canonical device id".to_owned(),
+            }
+        })?;
+        Ok(Some(HumanDeviceProducer {
+            account_id: account_id.clone(),
+            device_id,
+        }))
+    }
+}
+
 impl Event {
     pub const SCHEMA: &'static str = SchemaId::EVENT_V1;
     /// Deserialize an inbound Event Envelope after canonical JSON ingress

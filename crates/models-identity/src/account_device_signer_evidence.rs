@@ -1,5 +1,6 @@
-//! Closed ordinary account-device signer evidence used by keys/query and
-//! historical ordinary Event producer verification.
+//! Closed account-device signer evidence used by keys/query, historical Event
+//! producer verification and, as `producer_device_evidence`, by every
+//! cross-Station `authority_forward` of a human-device producer.
 //!
 //! This is a sibling of the six-member `AuthenticatedSignerResolutionEvidence`,
 //! never a fourth branch of that type. The origin retains this complete root;

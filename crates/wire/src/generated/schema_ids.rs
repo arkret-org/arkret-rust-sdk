@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-24.9;
-//! sha256=8082412aa2d3a960600679042320d5e0468162295a973f55f4302eb8ca54bfa0 Entries: schema_ids=226,
+//! Input: registry/contract-registry.json; version=2026-09-25.1;
+//! sha256=b14e589565e09be68036a213d65712eae9421cfeb60e899a808b9350326f23a8 Entries: schema_ids=226,
 //! active=226
 
 use serde::{Deserialize, Serialize};
@@ -709,8 +709,9 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface actor-private account_data operations
     /// (ak.self.account_data.*); see zh/discovery/client-preferences.md.
     pub const ACCOUNT_DATA_OPERATIONS_V1: &'static str = "ak.schema.account_data_operations.v1";
-    /// Closed content-addressed ordinary account-device signer evidence retaining the exact origin
-    /// attestation and full method-native Service resolution.
+    /// Closed content-addressed account-device signer evidence retaining the exact origin
+    /// attestation and full method-native Service resolution; the same type is the cross-Station
+    /// authority_forward producer_device_evidence.
     pub const ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1: &'static str =
         "ak.schema.account_device_signer_evidence.v1";
     /// Closed request/response DTO bundle for account self-service operations: viewer, register,
@@ -1118,8 +1119,8 @@ impl SchemaId {
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
     /// history ingress contracts, Sidecar staging and shared primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
-    /// Closed adapter-discriminated registration anchor consumed identically by human registration,
-    /// PCR genesis and the portable account_device_control root.
+    /// Closed adapter-discriminated registration anchor consumed identically by human registration
+    /// and PCR genesis.
     pub const PRINCIPAL_REGISTRATION_ANCHOR_V1: &'static str =
         "ak.schema.principal_registration_anchor.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its

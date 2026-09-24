@@ -5,13 +5,15 @@
 //! `arkret-wire`; this module adds the registered aggregate and replication
 //! branches without inventing a generic federation envelope.
 
+use arkret_models_identity::AccountDeviceSignerEvidence;
 use arkret_schema::{
     RealmBootstrapPresence, RealmBootstrapProfile, realm_bootstrap_profile_descriptor,
 };
 use arkret_wire::{
-    ActorId, CommitStreamRef, DidCoreId, DidUrl, EventAdmissionSubmission, EventId, EventKind,
-    MembershipCompensationAction, MembershipCompensationDelegationRef, MlsCommitSubmission,
-    RealmCommit, RealmCommitId, RealmId, Result, UuidV7, WireError,
+    ActorId, CommitStreamRef, DidCoreId, DidUrl, ErrorCode, Event, EventAdmissionSubmission,
+    EventId, EventKind, HumanDeviceProducer, MembershipCompensationAction,
+    MembershipCompensationDelegationRef, MlsCommitSubmission, RealmCommit, RealmCommitId, RealmId,
+    Result, UuidV7, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -382,18 +384,115 @@ impl PeerRegisteredAtomicUnit {
     }
 }
 
+/// Enforce the Event-determined presence of `producer_device_evidence`.
+///
+/// The member is not optional in the protocol sense: it MUST be present
+/// exactly when the Event's actual signer is a human Account device
+/// ([`Event::human_device_producer`]) and MUST be absent otherwise. A missing
+/// or superfluous member is a `schema_violation`. Returns the human-device
+/// producer that the carried evidence has to be verified against.
+pub fn validate_producer_device_evidence_presence(
+    event: &Event,
+    producer_device_evidence: Option<&AccountDeviceSignerEvidence>,
+) -> Result<Option<HumanDeviceProducer>> {
+    let producer = event.human_device_producer()?;
+    match (&producer, producer_device_evidence) {
+        (Some(_), Some(_)) | (None, None) => Ok(producer),
+        (Some(_), None) => Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "authority_forward of a human-device producer requires producer_device_evidence"
+                .to_owned(),
+        }),
+        (None, Some(_)) => Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "producer_device_evidence is forbidden unless the producer is a human Account device"
+                .to_owned(),
+        }),
+    }
+}
+
+// Field order is byte-for-byte the authority_forward branch order of
+// authority-commit-operations.schema.json#/$defs/peer_submit_request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardEventRequest {
     pub branch: AuthorityForwardBranch,
     pub event_submission: EventAdmissionSubmission,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
 }
 
+impl PeerAuthorityForwardEventRequest {
+    /// Build a validated forward. `producer_device_evidence` is the freshly
+    /// signed evidence for a human-device producer and `None` otherwise.
+    pub fn new(
+        event_submission: EventAdmissionSubmission,
+        producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            event_submission,
+            producer_device_evidence,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.event_submission.validate()?;
+        self.human_device_producer().map(drop)
+    }
+
+    /// Human-device producer of the forwarded Event, after enforcing the
+    /// presence rule for `producer_device_evidence`.
+    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+        validate_producer_device_evidence_presence(
+            &self.event_submission.event,
+            self.producer_device_evidence.as_ref(),
+        )
+    }
+}
+
+// Field order is byte-for-byte the authority_forward branch order of
+// authority-commit-operations.schema.json#/$defs/peer_submit_request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardMlsRequest {
     pub branch: AuthorityForwardBranch,
     pub mls_submission: MlsCommitSubmission,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+}
+
+impl PeerAuthorityForwardMlsRequest {
+    /// Build a validated MLS forward. The Commit Event's producer decides
+    /// whether `producer_device_evidence` is required or forbidden.
+    pub fn new(
+        mls_submission: MlsCommitSubmission,
+        producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            mls_submission,
+            producer_device_evidence,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.mls_submission.validate()?;
+        self.human_device_producer().map(drop)
+    }
+
+    /// Human-device producer of the Commit Event, after enforcing the
+    /// presence rule for `producer_device_evidence`.
+    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+        validate_producer_device_evidence_presence(
+            &self.mls_submission.commit_event,
+            self.producer_device_evidence.as_ref(),
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -422,8 +521,8 @@ pub enum PeerAuthoritySubmitRequest {
 impl PeerAuthoritySubmitRequest {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::AuthorityForwardEvent(value) => value.event_submission.validate(),
-            Self::AuthorityForwardMls(value) => value.mls_submission.validate(),
+            Self::AuthorityForwardEvent(value) => value.validate(),
+            Self::AuthorityForwardMls(value) => value.validate(),
             Self::CommittedReplication(value) => {
                 if value.replications.is_empty() || value.replications.len() > 100 {
                     return Err(WireError::Protocol(

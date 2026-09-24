@@ -4,12 +4,28 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::authority_commit::{
-    DirectConversationFoundingDependencyMissingProblem, PeerAuthoritySubmitOutcome,
-    PeerAuthoritySubmitRequest, SelfAuthoritySubmitRequest,
+    DirectConversationFoundingDependencyMissingProblem, PeerAuthorityForwardEventRequest,
+    PeerAuthorityForwardMlsRequest, PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest,
+    SelfAuthoritySubmitRequest,
+};
+use arkret_models_crypto::{
+    DeviceAuthorizationWindow, DeviceProjectionAttestation, DeviceProjectionAttestationCore,
+    DeviceStatus,
+};
+use arkret_models_identity::{
+    AccountDeviceSignerEvidence, AuthenticatedServiceResolution, DidDocument,
+    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
+    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
+    normalized_did_document_digest,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{ApprovalSignature, EventAdmissionSubmission};
+use arkret_wire::{
+    AccountId, ApprovalSignature, DeviceId, Did, DidCoreId, DidKey, DidUrl, ErrorCode,
+    EventAdmissionSubmission, EventId, MlsCommitSubmission, NonEmptyString, ProtocolSignature,
+    WireError,
+};
+use chrono::{TimeZone as _, Utc};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -332,4 +348,243 @@ fn committed_replication_outcomes_are_same_order_rows_without_echo() {
         .unwrap()
         .validate()
         .unwrap_err();
+}
+
+const DEVICE_FRAGMENT: &str = "ak:device:0196419b-0000-7000-8000-000000000001";
+
+fn producer_device_evidence() -> AccountDeviceSignerEvidence {
+    let did = Did::new("did:web:station.example").unwrap();
+    let document: DidDocument = serde_json::from_value(json!({
+        "id": did,
+        "verificationMethod": [],
+        "service": [{
+            "id": "did:web:station.example#service",
+            "type": "ArkretService",
+            "serviceKind": "station",
+            "serviceEndpoint": "https://station.example/"
+        }]
+    }))
+    .unwrap();
+    let digest = normalized_did_document_digest(&document).unwrap();
+    let version = format!(
+        "synthetic-jcs-sha256:{}",
+        digest.as_str().trim_start_matches("sha256:")
+    );
+    let at = Utc.with_ymd_and_hms(2026, 9, 24, 0, 0, 0).unwrap();
+    AccountDeviceSignerEvidence {
+        device_projection_attestation: DeviceProjectionAttestation {
+            attestation: DeviceProjectionAttestationCore {
+                account_id: AccountId::new(
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                    arkret_wire::project_did_to_core_id(&did).unwrap(),
+                ),
+                device_id: DeviceId::new(DEVICE_FRAGMENT).unwrap(),
+                device_signing_key_did: DidKey::new(
+                    "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x",
+                )
+                .unwrap(),
+                hpke_key: NonEmptyString::new("hpke-1").unwrap(),
+                device_authorize_event_id: EventId::new(
+                    "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
+                )
+                .unwrap(),
+                authorized_generation_ref: 1,
+                device_status: DeviceStatus::Active,
+                authorization_window: DeviceAuthorizationWindow {
+                    not_before: at,
+                    expires_at: None,
+                },
+                attested_at: at,
+                expires_at: at + chrono::Duration::minutes(5),
+            },
+            proof: ProtocolSignature {
+                verification_method: DidUrl::new("did:web:station.example#signing-1").unwrap(),
+                created_at: at,
+                jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
+            },
+        },
+        service_resolution: AuthenticatedServiceResolution {
+            service_id: arkret_wire::project_did_to_core_id(&did).unwrap(),
+            service_kind: "station".to_owned(),
+            method_history_evidence: ResolutionMethodHistoryEvidence::DidWebDocument {
+                boundary: ResolutionMethodEvidenceBoundary {
+                    from_method_history_head: digest.to_string(),
+                    to_method_history_head: digest.to_string(),
+                    from_version_id: version.clone(),
+                    to_version_id: version,
+                },
+                evidence: ResolutionDidBindingEvidenceReceipt {
+                    kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                    method: "web".to_owned(),
+                    document_digest: digest,
+                    method_proofs: vec![],
+                },
+            },
+            normalized_did_document: document,
+        },
+    }
+}
+
+/// The fixture Account submission re-signed (structurally) under `fragment`.
+fn submission_signed_with(fragment: &str) -> Value {
+    let mut submission = approved_event_submission();
+    let method = submission["event"]["producer_proof"]["verification_method"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let controller = method.split_once('#').unwrap().0;
+    submission["event"]["producer_proof"]["verification_method"] =
+        json!(format!("{controller}#{fragment}"));
+    submission
+}
+
+fn forward(submission: &Value, evidence: Option<&Value>) -> Value {
+    let mut value = json!({"branch": "authority_forward", "event_submission": submission});
+    if let Some(evidence) = evidence {
+        value["producer_device_evidence"] = evidence.clone();
+    }
+    value
+}
+
+/// Top-level members serialize in schema property order.
+fn assert_member_order(text: &str, members: &[&str]) {
+    let positions = members
+        .iter()
+        .map(|member| text.find(&format!("\"{member}\":")).unwrap())
+        .collect::<Vec<_>>();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
+}
+
+fn presence_violation(value: Value) -> bool {
+    serde_json::from_value::<PeerAuthoritySubmitRequest>(value)
+        .unwrap()
+        .validate()
+        .unwrap_err()
+        .error_code()
+        == Some(ErrorCode::SchemaViolation)
+}
+
+#[test]
+fn human_device_producer_requires_producer_device_evidence() {
+    let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
+    let human = submission_signed_with(DEVICE_FRAGMENT);
+
+    assert!(presence_violation(forward(&human, None)));
+
+    let carried = forward(&human, Some(&evidence));
+    validate_fragment(PEER_SCHEMA, "#/$defs/peer_submit_request", &carried);
+    let parsed: PeerAuthoritySubmitRequest = serde_json::from_value(carried.clone()).unwrap();
+    parsed.validate().unwrap();
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), carried);
+    assert_member_order(
+        &serde_json::to_string(&parsed).unwrap(),
+        &["branch", "event_submission", "producer_device_evidence"],
+    );
+    let PeerAuthoritySubmitRequest::AuthorityForwardEvent(request) = parsed else {
+        panic!("authority_forward Event branch expected");
+    };
+    let producer = request.human_device_producer().unwrap().unwrap();
+    assert_eq!(producer.device_id.as_str(), DEVICE_FRAGMENT);
+    assert_eq!(
+        serde_json::to_value(&producer.account_id).unwrap(),
+        human["event"]["actor_id"]["account_id"]
+    );
+
+    let submission: EventAdmissionSubmission = serde_json::from_value(human).unwrap();
+    assert_eq!(
+        PeerAuthorityForwardEventRequest::new(submission.clone(), None)
+            .unwrap_err()
+            .error_code(),
+        Some(ErrorCode::SchemaViolation)
+    );
+    PeerAuthorityForwardEventRequest::new(submission, Some(producer_device_evidence())).unwrap();
+}
+
+#[test]
+fn non_device_producer_forbids_producer_device_evidence() {
+    let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
+    let account_key = approved_event_submission();
+    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&account_key, None))
+        .unwrap()
+        .validate()
+        .unwrap();
+    assert!(presence_violation(forward(&account_key, Some(&evidence))));
+
+    // The actual signer is `executed_by`: a Service executor signing under an
+    // `ak:device:`-shaped fragment is still not a human device producer.
+    let mut delegated = submission_signed_with(DEVICE_FRAGMENT);
+    delegated["event"]["executed_by"] =
+        json!({"kind": "service", "service_id": "ak:did_core:web:station.example"});
+    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&delegated, None))
+        .unwrap()
+        .validate()
+        .unwrap();
+    assert!(presence_violation(forward(&delegated, Some(&evidence))));
+
+    // Conversely an Account executor makes a Service-authored Event human.
+    let mut executed = submission_signed_with(DEVICE_FRAGMENT);
+    executed["event"]["executed_by"] = executed["event"]["actor_id"].clone();
+    executed["event"]["actor_id"] =
+        json!({"kind": "service", "service_id": "ak:did_core:web:station.example"});
+    assert!(presence_violation(forward(&executed, None)));
+    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&executed, Some(&evidence)))
+        .unwrap()
+        .validate()
+        .unwrap();
+
+    // A device-shaped fragment that is not a canonical device id is malformed.
+    let malformed = submission_signed_with("ak:device:not-a-uuid");
+    assert!(presence_violation(forward(&malformed, None)));
+    assert!(presence_violation(forward(&malformed, Some(&evidence))));
+}
+
+#[test]
+fn mls_forward_presence_follows_the_commit_event_producer() {
+    let evidence = producer_device_evidence();
+    let submission_for = |submission: Value| -> MlsCommitSubmission {
+        let mut commit_event = submission["event"].clone();
+        commit_event["kind"] = json!("ak.mls.commit");
+        serde_json::from_value(json!({
+            "commit_event": commit_event,
+            "welcomes": [],
+            "idempotency_key": "0196419b-0000-7000-8000-000000000001"
+        }))
+        .unwrap()
+    };
+    let human = submission_for(submission_signed_with(DEVICE_FRAGMENT));
+    let error: WireError = PeerAuthorityForwardMlsRequest::new(human.clone(), None).unwrap_err();
+    assert_eq!(error.error_code(), Some(ErrorCode::SchemaViolation));
+    let request = PeerAuthorityForwardMlsRequest::new(human, Some(evidence.clone())).unwrap();
+    PeerAuthoritySubmitRequest::AuthorityForwardMls(request.clone())
+        .validate()
+        .unwrap();
+    assert_member_order(
+        &serde_json::to_string(&request).unwrap(),
+        &["branch", "mls_submission", "producer_device_evidence"],
+    );
+
+    let account_key = submission_for(approved_event_submission());
+    PeerAuthorityForwardMlsRequest::new(account_key.clone(), None).unwrap();
+    assert_eq!(
+        PeerAuthorityForwardMlsRequest::new(account_key, Some(evidence))
+            .unwrap_err()
+            .error_code(),
+        Some(ErrorCode::SchemaViolation)
+    );
+}
+
+#[test]
+fn producer_device_evidence_exists_only_on_authority_forward() {
+    let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
+    let fragment = "#/$defs/peer_submit_request";
+    let mut replication = replication_request(1);
+    replication["producer_device_evidence"] = evidence.clone();
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &replication);
+
+    let unit = json!({
+        "branch": "registered_atomic_unit",
+        "unit": {"unit_kind": "direct_conversation_founding"},
+        "producer_device_evidence": evidence
+    });
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &unit);
 }

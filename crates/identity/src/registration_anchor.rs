@@ -1,10 +1,9 @@
 //! Authoritative derivation for the closed `principal_registration_anchor`.
 //!
 //! One dispatch, one answer. Every consumer of a human registration anchor -
-//! the Account Authority at registration, the Station at PCR genesis, and an
-//! offline verifier replaying a portable `account_device_control` root - derives
-//! the DID, the method history coordinates and the root control key here, from
-//! the anchor branch alone. Nothing in this module reads a current resolver, a
+//! the Account Authority at registration and the Station at PCR genesis -
+//! derives the DID, the method history coordinates and the root control key
+//! here, from the anchor branch alone. Nothing in this module reads a current resolver, a
 //! database row or an Account-Authority receipt, so the whole derivation runs
 //! offline.
 //!
