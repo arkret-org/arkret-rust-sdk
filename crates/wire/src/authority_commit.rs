@@ -1153,11 +1153,13 @@ pub struct MlsGroupCurrent {
 pub enum TypedCurrentResult {
     Value {
         selector: CurrentSelector,
+        source_stream_ref: CommitStreamRef,
         revision: CurrentRevision,
         value: Value,
     },
     MessageReactions {
         selector: CurrentSelector,
+        source_stream_ref: CommitStreamRef,
         revision: CurrentRevision,
         reactions: Vec<ReactionCurrent>,
     },

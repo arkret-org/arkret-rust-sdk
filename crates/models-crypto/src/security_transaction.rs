@@ -522,6 +522,35 @@ impl SecurityTransactionTerminalOutcome {
     }
 }
 
+/// The immutable PCR Event and covering Commit accepted for a device revoke.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecurityRotationRevokeProposal {
+    pub proposal_event_id: EventId,
+    pub covering_commit_id: RealmCommitId,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecurityRotationRevokeCommandResult {
+    Accepted,
+    Rejected,
+}
+
+/// Station-local terminal decision for the exact accepted proposal.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecurityRotationRevokeCommandOutcome {
+    pub proposal_event_id: EventId,
+    pub covering_commit_id: RealmCommitId,
+    pub result: SecurityRotationRevokeCommandResult,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub decided_at: DateTime<Utc>,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -539,6 +568,10 @@ pub struct SecurityTransaction {
     pub prepared_plan: SecurityTransactionPreparedPlan,
     pub prepared_plan_digest: Hash,
     pub accepted_steps: Vec<AcceptedSecurityTransactionStep>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoke_proposal: Option<SecurityRotationRevokeProposal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoke_command_outcome: Option<SecurityRotationRevokeCommandOutcome>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_outcome: Option<SecurityTransactionTerminalOutcome>,
 }
@@ -593,8 +626,11 @@ impl SecurityTransaction {
         )?;
         match &self.prepared_plan {
             SecurityTransactionPreparedPlan::Recovery(plan) => {
-                if self.authorizing_device_id.is_some() {
-                    return protocol("recovery transaction forbids authorizing_device_id");
+                if self.authorizing_device_id.is_some()
+                    || self.revoke_proposal.is_some()
+                    || self.revoke_command_outcome.is_some()
+                {
+                    return protocol("recovery transaction forbids rotation authority fields");
                 }
                 plan.validate(&self.account_id)?
             }
@@ -602,7 +638,64 @@ impl SecurityTransaction {
                 if self.authorizing_device_id.is_none() {
                     return protocol("security rotation requires authorizing_device_id");
                 }
-                validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?
+                validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?;
+                match (&self.revoke_proposal, &self.revoke_command_outcome) {
+                    (None, None)
+                        if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() => {}
+                    (Some(proposal), None)
+                        if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() =>
+                    {
+                        if plan
+                            .revoke_unit
+                            .request
+                            .events
+                            .first()
+                            .is_none_or(|event| proposal.proposal_event_id != event.event_id)
+                        {
+                            return protocol("revoke proposal changed the prepared Event");
+                        }
+                    }
+                    (Some(proposal), Some(outcome)) => {
+                        if proposal.proposal_event_id != outcome.proposal_event_id
+                            || proposal.covering_commit_id != outcome.covering_commit_id
+                            || plan
+                                .revoke_unit
+                                .request
+                                .events
+                                .first()
+                                .is_none_or(|event| proposal.proposal_event_id != event.event_id)
+                        {
+                            return protocol(
+                                "revoke command outcome changed its covering proposal",
+                            );
+                        }
+                        match outcome.result {
+                            SecurityRotationRevokeCommandResult::Accepted
+                                if self.accepted_steps.is_empty() =>
+                            {
+                                return protocol("accepted revoke requires an accepted step");
+                            }
+                            SecurityRotationRevokeCommandResult::Rejected
+                                if !self.accepted_steps.is_empty()
+                                    || !matches!(
+                                        self.terminal_outcome,
+                                        Some(
+                                            SecurityTransactionTerminalOutcome::Aborted { .. }
+                                                | SecurityTransactionTerminalOutcome::Expired { .. }
+                                        )
+                                    ) =>
+                            {
+                                return protocol(
+                                    "rejected revoke requires an empty aborted/expired transaction",
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {
+                        return protocol("rotation revoke proposal/result progress is inconsistent");
+                    }
+                }
             }
         }
 
@@ -886,6 +979,8 @@ impl SecurityTransactionCreateRequest {
             prepared_plan,
             prepared_plan_digest,
             accepted_steps: Vec::new(),
+            revoke_proposal: None,
+            revoke_command_outcome: None,
             terminal_outcome: None,
         };
         resource.validate_structural()?;
