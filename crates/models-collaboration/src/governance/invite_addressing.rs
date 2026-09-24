@@ -629,6 +629,12 @@ pub struct InviteDeliveryEntry {
     /// it as opaque and MUST NOT persist it outside this cell or equivalent
     /// holder-private state.
     pub invite_token: String,
+    /// One to eight untrusted locator cores, strictly sorted by `service_id`
+    /// UTF-8 bytes. Realm scope and freshness come only from this entry; the
+    /// invitee still fetches and verifies a nonce-bound RealmAuthorityBundle
+    /// before any preview, join submission or bootstrap request.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub authority_locator_hints: Vec<RealmJoinCandidate>,
     /// Instant the recipient Station accepted this delivery.
     #[serde(with = "canonical_timestamp")]
     pub received_at: DateTime<Utc>,
@@ -640,7 +646,8 @@ pub struct InviteDeliveryEntry {
 
 impl InviteDeliveryEntry {
     pub fn validate(&self) -> Result<()> {
-        arkret_wire::validate_invite_token("invite_delivery entry", &self.invite_token)
+        arkret_wire::validate_invite_token("invite_delivery entry", &self.invite_token)?;
+        validate_authority_locator_hints(&self.authority_locator_hints)
     }
 }
 

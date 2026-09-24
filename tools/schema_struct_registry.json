@@ -334,6 +334,10 @@
       "schema": "invite-delivery.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteDeliveryEntry",
+      "schema": "invite-delivery.schema.json#/$defs/delivery_entry"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteDeliveryRequestBody",
       "schema": "invite-delivery-request.schema.json"
     },
@@ -1122,10 +1126,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'required_claims'], Spec-only=['actions', 'authority_depth', 'authority_root_refs', 'constraints', 'id', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'revoked_at', 'revoked_by', 'schema', 'subject', 'updated_at', 'updated_by']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteDeliveryEntry",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['authority_locator_hints']."
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::MembershipPayload",
