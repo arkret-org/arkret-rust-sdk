@@ -201,37 +201,146 @@ mod active_series_state_tests {
     }
 }
 
+/// `keys-operations.schema.json#/$defs/backup_metadata/properties/encryption`:
+/// only the non-secret recipient categorization; AEAD/KDF material is withheld.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupSummaryEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
     pub recipient_key_ref: Option<String>,
 }
 
+/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list
+/// summary of one stored envelope (key-management §7.6.1).
+///
+/// Field order is the schema `properties` order. Optional members are absent
+/// or carry a value; only the schema's tristate members (`supersedes_id`,
+/// `expires_at`) accept an explicit `null`, which round-trips as `Some(None)`.
+/// `source_commit_ref`, `recovery_policy_ref` and `retention` are open objects
+/// in this schema and are carried verbatim.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupSummary {
     pub backup_id: BackupId,
     pub actor_id: ActorId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
-    pub backup_version: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    pub ciphertext_digest: Hash,
-    pub encryption: KeyBackupSummaryEncryption,
+    pub backup_version: NonEmptyString,
     pub series_id: BackupSeriesId,
     pub series_seq: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_nullable"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<BackupId>)))]
+    pub supersedes_id: Option<Option<BackupId>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub supersedes_digest: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
+    pub source_commit_ref: Option<serde_json::Map<String, serde_json::Value>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
+    pub recovery_policy_ref: Option<serde_json::Map<String, serde_json::Value>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_tristate_timestamp",
+        deserialize_with = "deserialize_tristate_timestamp"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
+    pub expires_at: Option<Option<DateTime<Utc>>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_present_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+    pub ciphertext_digest: Hash,
+    pub encryption: KeyBackupSummaryEncryption,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
+    pub retention: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+/// A present optional member must carry a value: `null` is schema-invalid.
+fn deserialize_present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+/// A present tristate member is either `null` or a value.
+fn deserialize_present_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
+fn deserialize_present_timestamp<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    arkret_canonical::serde_helpers::deserialize_canonical_timestamp(deserializer).map(Some)
+}
+
+fn deserialize_tristate_timestamp<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<DateTime<Utc>>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp(deserializer)
+        .map(Some)
+}
+
+fn serialize_tristate_timestamp<S>(
+    value: &Option<Option<DateTime<Utc>>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp(
+        &value.flatten(),
+        serializer,
+    )
 }
 
 /// `keys-operations.schema.json#/$defs/keys_backups_list`.
