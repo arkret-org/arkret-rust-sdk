@@ -693,7 +693,7 @@ pub struct RecipientDeliveryContainer {
 mod open_container_tests {
     use serde_json::json;
 
-    use super::{RecipientDeliveryContainer, EventContainer};
+    use super::{EventContainer, RecipientDeliveryContainer};
 
     #[test]
     fn account_subscribe_open_containers_accept_extensions_without_re_emitting_them() {
@@ -719,7 +719,8 @@ mod open_container_tests {
 
         assert!(serde_json::from_value::<EventContainer>(json!({"events": false})).is_err());
         assert!(
-            serde_json::from_value::<RecipientDeliveryContainer>(json!({"deliveries": false})).is_err()
+            serde_json::from_value::<RecipientDeliveryContainer>(json!({"deliveries": false}))
+                .is_err()
         );
     }
 }
