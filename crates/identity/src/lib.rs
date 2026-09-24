@@ -7,6 +7,7 @@
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
 pub mod authority_history;
+pub mod account_device_signer_evidence;
 mod error;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
 // the resolver-free / authority verifier split (`did-usage-and-verification.md`
