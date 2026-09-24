@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-24.1;
-//! sha256=cf443ccc66c9050ce1eca02ff11228fc1934bd80917d2838ea41ac130cf56332
+//! Input: registry/error-code-registry.json; version=2026-09-24.2;
+//! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62
 //! Entries: error_codes=162, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
@@ -1503,7 +1503,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The referenced encryption epoch is stale or unavailable.",
+        description: "An encrypted authoring request references an epoch, group_state_ref or key_access_revision that differs from the ready current MLS group. HTTP 409. After verifying and acquiring current local MLS state, the sender re-encrypts into a new request; an exact retry of the old request does not re-encrypt. If the current scope itself awaits a winning Commit, failed_precondition with epoch_update_required takes precedence. Historical accepted Event replay and peer committed replication use their accepted historical binding.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,

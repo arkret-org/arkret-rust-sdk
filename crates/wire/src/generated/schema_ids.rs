@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-23.8;
-//! sha256=523bc0952f8a946e743a1ec7da601cb12446917eccda2902861bb20694c84dca Entries: schema_ids=223,
-//! active=223
+//! Input: registry/contract-registry.json; version=2026-09-24.2;
+//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Entries: schema_ids=225,
+//! active=225
 
 use serde::{Deserialize, Serialize};
 
@@ -145,6 +145,7 @@ pub enum SchemaId {
     NotificationV1,
     ObjectAddressingV1,
     PatchV1,
+    PcrDeviceConflictIndexCutV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
@@ -215,6 +216,7 @@ pub enum SchemaId {
     StringProfilesV1,
     TimeV1,
     TransportBindingV1,
+    VerifiedPcrForkRecordV1,
     ViewV1,
     WebsocketAuthenticateFrameV1,
     WebsocketChallengeFrameV1,
@@ -372,6 +374,7 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::PatchV1,
+        Self::PcrDeviceConflictIndexCutV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -442,6 +445,7 @@ impl SchemaId {
         Self::StringProfilesV1,
         Self::TimeV1,
         Self::TransportBindingV1,
+        Self::VerifiedPcrForkRecordV1,
         Self::ViewV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
@@ -599,6 +603,7 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::PatchV1,
+        Self::PcrDeviceConflictIndexCutV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -669,6 +674,7 @@ impl SchemaId {
         Self::StringProfilesV1,
         Self::TimeV1,
         Self::TransportBindingV1,
+        Self::VerifiedPcrForkRecordV1,
         Self::ViewV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
@@ -1083,6 +1089,10 @@ impl SchemaId {
     pub const OBJECT_ADDRESSING_V1: &'static str = "ak.schema.object_addressing.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
+    /// Station-local complete index marker for locally ingested verified PCR forks at one accepted
+    /// head and conflict revision.
+    pub const PCR_DEVICE_CONFLICT_INDEX_CUT_V1: &'static str =
+        "ak.schema.pcr_device_conflict_index_cut.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.schema.personal_productivity.v1";
     /// Payload schemas for shared pin events.
@@ -1300,6 +1310,9 @@ impl SchemaId {
     /// Closed ServiceDescribe transport_bindings union for registered HTTP companion and extension
     /// transports.
     pub const TRANSPORT_BINDING_V1: &'static str = "ak.schema.transport_binding.v1";
+    /// Station-local verified pair of existing signed PCR RealmCommit and Event objects at one
+    /// predecessor and position.
+    pub const VERIFIED_PCR_FORK_RECORD_V1: &'static str = "ak.schema.verified_pcr_fork_record.v1";
     pub const VIEW_V1: &'static str = "ak.schema.view.v1";
     /// Client authentication and reauthentication response frame.
     pub const WEBSOCKET_AUTHENTICATE_FRAME_V1: &'static str =
@@ -1501,6 +1514,7 @@ impl SchemaId {
             Self::NotificationV1 => Self::NOTIFICATION_V1,
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::PatchV1 => Self::PATCH_V1,
+            Self::PcrDeviceConflictIndexCutV1 => Self::PCR_DEVICE_CONFLICT_INDEX_CUT_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
@@ -1579,6 +1593,7 @@ impl SchemaId {
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
             Self::TimeV1 => Self::TIME_V1,
             Self::TransportBindingV1 => Self::TRANSPORT_BINDING_V1,
+            Self::VerifiedPcrForkRecordV1 => Self::VERIFIED_PCR_FORK_RECORD_V1,
             Self::ViewV1 => Self::VIEW_V1,
             Self::WebsocketAuthenticateFrameV1 => Self::WEBSOCKET_AUTHENTICATE_FRAME_V1,
             Self::WebsocketChallengeFrameV1 => Self::WEBSOCKET_CHALLENGE_FRAME_V1,
@@ -1777,6 +1792,7 @@ impl SchemaId {
             Self::NotificationV1 => "schemas/notification.schema.json",
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
+            Self::PcrDeviceConflictIndexCutV1 => "schemas/device-revocation-state.schema.json",
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
@@ -1859,6 +1875,7 @@ impl SchemaId {
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
             Self::TimeV1 => "schemas/time.schema.json",
             Self::TransportBindingV1 => "schemas/transport-binding.schema.json",
+            Self::VerifiedPcrForkRecordV1 => "schemas/device-revocation-state.schema.json",
             Self::ViewV1 => "schemas/view.schema.json",
             Self::WebsocketAuthenticateFrameV1 => "schemas/websocket-frame.schema.json",
             Self::WebsocketChallengeFrameV1 => "schemas/websocket-frame.schema.json",
@@ -2049,6 +2066,7 @@ impl SchemaId {
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
+            Self::PCR_DEVICE_CONFLICT_INDEX_CUT_V1 => Some(Self::PcrDeviceConflictIndexCutV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
@@ -2127,6 +2145,7 @@ impl SchemaId {
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),
             Self::TIME_V1 => Some(Self::TimeV1),
             Self::TRANSPORT_BINDING_V1 => Some(Self::TransportBindingV1),
+            Self::VERIFIED_PCR_FORK_RECORD_V1 => Some(Self::VerifiedPcrForkRecordV1),
             Self::VIEW_V1 => Some(Self::ViewV1),
             Self::WEBSOCKET_AUTHENTICATE_FRAME_V1 => Some(Self::WebsocketAuthenticateFrameV1),
             Self::WEBSOCKET_CHALLENGE_FRAME_V1 => Some(Self::WebsocketChallengeFrameV1),

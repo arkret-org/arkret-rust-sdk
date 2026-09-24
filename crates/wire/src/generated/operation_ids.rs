@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-23.4;
-//! sha256=523bc0952f8a946e743a1ec7da601cb12446917eccda2902861bb20694c84dca Entries: registered=205
+//! Input: registry/contract-registry.json; version=2026-09-24.1;
+//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Entries: registered=206
 
 use serde::{Deserialize, Serialize};
 
@@ -201,6 +201,7 @@ pub enum ServiceOperationId {
     SelfRealmJoinReadPreviewV1,
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
+    SelfRealmStateSnapshotReadByRefV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
     SelfSecurityTransactionCommandContinueV1,
     SelfSecurityTransactionCommandCreateV1,
@@ -409,6 +410,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
+    ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1,
     ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
@@ -659,6 +661,7 @@ impl ServiceOperationId {
         Self::SelfRealmJoinReadPreviewV1,
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
+        Self::SelfRealmStateSnapshotReadByRefV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SelfSecurityTransactionCommandContinueV1,
         Self::SelfSecurityTransactionCommandCreateV1,
@@ -999,6 +1002,8 @@ impl ServiceOperationId {
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
         "ak.self.realm_organization.read.list.v1";
+    pub const SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1: &'static str =
+        "ak.self.realm_state_snapshot.read.by_ref.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
         "ak.self.realm_state_snapshot.read.manifest_head.v1";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1: &'static str =
@@ -1316,6 +1321,9 @@ impl ServiceOperationId {
             Self::SelfRealmJoinReadPreviewV1 => Self::SELF_REALM_JOIN_READ_PREVIEW_V1,
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
+            Self::SelfRealmStateSnapshotReadByRefV1 => {
+                Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1
+            }
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
             }
@@ -1715,6 +1723,9 @@ impl ServiceOperationId {
             Self::SELF_REALM_LINK_READ_LIST_V1 => Some(Self::SelfRealmLinkReadListV1),
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
                 Some(Self::SelfRealmOrganizationReadListV1)
+            }
+            Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1 => {
+                Some(Self::SelfRealmStateSnapshotReadByRefV1)
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
@@ -6177,6 +6188,22 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list",
         ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmStateSnapshotReadByRefV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/realm-state-snapshot/{snapshot_id}",
+        grpc: Some("SelfRealmStateSnapshot/ByRef"),
+        mq: Some("self.realm_state_snapshot.query.by_ref"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/realm-state-snapshot.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },

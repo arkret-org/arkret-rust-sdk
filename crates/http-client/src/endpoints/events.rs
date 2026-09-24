@@ -25,7 +25,8 @@ use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
 };
 use arkret_wire::{
     ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventAdmissionSubmission, EventId,
-    MlsCommitSubmission, RealmId, RealmStateSnapshot, StreamScanOutcome, StreamScanRequest,
+    MlsCommitSubmission, RealmId, RealmSnapshotId, RealmStateSnapshot, StreamScanOutcome,
+    StreamScanRequest,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
@@ -394,6 +395,56 @@ impl Client {
         Ok(snapshot)
     }
 
+    /// Read the original complete signed Snapshot named by an Account
+    /// window's exact `snapshot_ref`. This read does not authenticate the
+    /// signature or install current rows; callers verify it against a fresh
+    /// genesis-to-current authority chain before projection.
+    pub async fn realm_state_snapshot_by_ref(
+        &self,
+        realm_id: &RealmId,
+        snapshot_id: &RealmSnapshotId,
+    ) -> Result<RealmStateSnapshot> {
+        let snapshot: RealmStateSnapshot = self
+            .send_json(self.realm_state_snapshot_by_ref_request(realm_id, snapshot_id)?)
+            .await?;
+        if &snapshot.realm_id != realm_id || &snapshot.snapshot_id != snapshot_id {
+            return Err(Error::Protocol(
+                "exact realm snapshot answered for another Realm or reference".to_owned(),
+            ));
+        }
+        if snapshot.visible_stream_heads.is_empty() {
+            return Err(Error::Protocol(
+                "exact realm snapshot has no visible stream head".to_owned(),
+            ));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        if snapshot
+            .visible_stream_heads
+            .iter()
+            .any(|head| !seen.insert(&head.stream_ref))
+        {
+            return Err(Error::Protocol(
+                "exact realm snapshot repeats a commit stream".to_owned(),
+            ));
+        }
+        Ok(snapshot)
+    }
+
+    fn realm_state_snapshot_by_ref_request(
+        &self,
+        realm_id: &RealmId,
+        snapshot_id: &RealmSnapshotId,
+    ) -> Result<RequestBuilder> {
+        reject_path_segment(snapshot_id.as_str())?;
+        let path = format!(
+            "/_arkret/self/realm-state-snapshot/{}",
+            snapshot_id.as_str()
+        );
+        Ok(self
+            .request(Method::GET, &path)?
+            .query(&[("realm_id", realm_id.as_str())]))
+    }
+
     /// Read one exact watch cell from the governing Station's durable typed
     /// reducer. A written clear returns `Current` with `value: Cleared(())`,
     /// distinct from `NeverWritten`.
@@ -551,6 +602,32 @@ mod tests {
 
     fn realm(seed: u8) -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [seed; 32]))
+    }
+
+    #[test]
+    fn exact_snapshot_request_uses_registered_selector_and_reference() {
+        let realm_id = realm(1);
+        let snapshot_id = RealmSnapshotId::from_digest([0x42; 32]);
+        let request = client()
+            .realm_state_snapshot_by_ref_request(&realm_id, &snapshot_id)
+            .unwrap()
+            .build()
+            .unwrap();
+        assert_eq!(
+            request.url().path(),
+            format!(
+                "/_arkret/self/realm-state-snapshot/{}",
+                snapshot_id.as_str()
+            )
+        );
+        assert_eq!(
+            request.url().query_pairs().collect::<Vec<_>>(),
+            vec![("realm_id".into(), realm_id.as_str().into())]
+        );
+        assert_eq!(
+            request.headers().get("Arkret-Operation").unwrap(),
+            "ak.self.realm_state_snapshot.read.by_ref.v1"
+        );
     }
 
     #[test]

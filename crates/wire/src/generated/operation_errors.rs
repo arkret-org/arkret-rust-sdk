@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-23.2;
-//! sha256=5cd2dc040c0083c8f3f85ce7a5177369685c0a0f446569e29084b64ba0ddc7e4 Input: registry/
-//! contract-registry.json; version=2026-09-23.8;
-//! sha256=523bc0952f8a946e743a1ec7da601cb12446917eccda2902861bb20694c84dca Input: registry/
-//! error-code-registry.json; version=2026-09-24.1;
-//! sha256=cf443ccc66c9050ce1eca02ff11228fc1934bd80917d2838ea41ac130cf56332 Entries: operations=205
+//! Input: registry/operations-error-mapping.json; version=2026-09-24.2;
+//! sha256=fc26fc0028b259083cea2a702bb487fface96484b36cb219885c35f39c0c7faa Input: registry/
+//! contract-registry.json; version=2026-09-24.2;
+//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Input: registry/
+//! error-code-registry.json; version=2026-09-24.2;
+//! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62 Entries: operations=206
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -286,6 +286,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::EpochMismatch),
         OperationSpecificError::Reason(ReasonCode::DirectConversationFoundingUnitInvalid),
         OperationSpecificError::Reason(ReasonCode::DirectConversationPairMaterializationConflict),
         OperationSpecificError::Reason(ReasonCode::DirectConversationSlotAlreadyCommitted),
@@ -657,6 +658,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::EpochMismatch),
         OperationSpecificError::Reason(ReasonCode::DirectConversationFoundingUnitInvalid),
         OperationSpecificError::Reason(ReasonCode::DirectConversationSlotAlreadyCommitted),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -749,6 +751,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::CapabilityDenied),
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::EpochMismatch),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::NotFound),
@@ -785,6 +788,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::RealmStateSnapshotUnavailable),
+        OperationSpecificError::Code(ErrorCode::RealmStateSnapshotAuthorityUnverified),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::RealmStateSnapshotUnavailable),
         OperationSpecificError::Code(ErrorCode::RealmStateSnapshotAuthorityUnverified),

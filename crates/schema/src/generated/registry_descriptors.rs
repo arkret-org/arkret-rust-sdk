@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-23.8;
-//! sha256=523bc0952f8a946e743a1ec7da601cb12446917eccda2902861bb20694c84dca Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-24.2;
+//! sha256=6f43b967676819bc1e9c91e4d25e66225b6ebdbd62e781521c1b4689d6603c19 Input: registry/
 //! account-data-key-registry.json; version=2026-09-20.2;
 //! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=48,
-//! special_forms=15, actions=148, approval_carriers=1, schemas=223, account_data_patterns=24
+//! special_forms=15, actions=149, approval_carriers=1, schemas=225, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2613,6 +2613,22 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfRealmStateSnapshotReadByRefV1,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::SelfRealmStateSnapshotReadManifestHeadV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
@@ -3497,6 +3513,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/patch.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::PCR_DEVICE_CONFLICT_INDEX_CUT_V1,
+        file: "schemas/device-revocation-state.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::PERSONAL_PRODUCTIVITY_V1,
         file: "schemas/personal-productivity.schema.json",
     },
@@ -3775,6 +3795,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::TRANSPORT_BINDING_V1,
         file: "schemas/transport-binding.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::VERIFIED_PCR_FORK_RECORD_V1,
+        file: "schemas/device-revocation-state.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::VIEW_V1,
