@@ -203,8 +203,7 @@ pub struct Strand {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// Optional business-progression stage. Orthogonal to lifecycle `state`.
-    /// Mutated only via `ak.strand.stage.set`; constructors fill `draft`,
-    /// while sparse wire objects may omit the field.
+    /// Mutated only via `ak.strand.stage.set`; create payloads omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stage: Option<ObjectStage>,
     /// Reducer-derived timestamp of the most recent `stage` transition;
@@ -255,7 +254,7 @@ impl Strand {
             tracks,
             state: Some(ObjectState::Active),
             state_changed_at: None,
-            stage: Some(ObjectStage::Draft),
+            stage: None,
             stage_changed_at: None,
             created_by,
             created_at: Utc::now(),

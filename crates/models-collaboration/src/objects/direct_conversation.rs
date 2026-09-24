@@ -4,8 +4,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AccountId, ActorId, DidCoreId, Discoverability, EventId, GenesisSalt, Hash, HistoryAccess,
-    JoinRule, ObjectStage, ObjectState, RealmId, Result, SecurityClass, SemanticRef, TrustDomainId,
-    WireError, canonical,
+    JoinRule, ObjectState, RealmId, Result, SecurityClass, SemanticRef, TrustDomainId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -213,7 +213,6 @@ pub fn direct_conversation_main_strand_create_payload(
     );
     strand.scope_circle_id = None;
     strand.state = Some(ObjectState::Active);
-    strand.stage = Some(ObjectStage::InProgress);
     strand.created_at = created_at;
     StrandCreatePayload { object: strand }
 }
