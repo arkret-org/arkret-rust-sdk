@@ -114,8 +114,10 @@ fn method_controller(method: &str) -> Option<Did> {
 /// 5. the attested Account and device equal the producer and its proof fragment, and
 ///    `device_signing_key_did` verifies the producer proof (`signature_invalid`).
 ///
-/// An Event whose actual signer is not a human Account device has no evidence
-/// to verify (`schema_violation`). `now` is supplied by the caller; this
+/// Step 5 starts with the key-free producer-proof self-consistency
+/// ([`Event::verify_producer_proof_self_consistency`]). An Event whose actual
+/// signer is not a human Account device has no evidence to verify
+/// (`schema_violation`). `now` is supplied by the caller; this
 /// function never reads a clock. An exact duplicate of an already committed
 /// Event returns its original outcome before this check runs, so an expired
 /// evidence object never turns a committed Event into a failure.
@@ -215,23 +217,13 @@ pub fn verify_forwarded_human_producer(
             "producer device evidence attests another Account or device",
         ));
     }
+    event.verify_producer_proof_self_consistency(digest_suite)?;
     let proof = event.producer_proof.as_ref().ok_or_else(|| {
         rejected(
             ErrorCode::SchemaViolation,
             "Event must carry producer_proof",
         )
     })?;
-    let producer_did = method_controller(proof.verification_method.as_str())
-        .ok_or_else(|| signature_invalid("producer proof method has no DID controller"))?;
-    if arkret_wire::project_did_to_core_id(&producer_did)
-        .ok()
-        .as_ref()
-        != Some(&producer.account_id.principal_id)
-    {
-        return Err(signature_invalid(
-            "producer proof method is not controlled by the producer Account",
-        ));
-    }
     let multibase = core
         .device_signing_key_did
         .as_str()

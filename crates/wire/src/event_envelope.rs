@@ -1013,6 +1013,78 @@ impl Event {
             device_id,
         }))
     }
+
+    /// Key-free producer-proof self-consistency (`federation.md` §3, item 1 of
+    /// the non-governance receiver rule).
+    ///
+    /// Checks, without resolving any signing key:
+    ///
+    /// 1. `producer_proof.event_digest` equals the digest of the exact canonical Event bytes under
+    ///    the trusted Realm `digest_suite` (`signature_invalid`);
+    /// 2. the bare DID of `verification_method`, projected through the registered method adapter,
+    ///    equals the principal of the actual signer — `executed_by` when present, else `actor_id`
+    ///    (`signature_invalid`);
+    /// 3. an `ak:device:` fragment on an Account signer is exactly a complete canonical `device_id`
+    ///    (`signature_invalid`).
+    ///
+    /// A missing proof or a method without a DID URL fragment is a
+    /// `schema_violation`. Returns the human-device producer when there is one,
+    /// so a receiver hosting that Account can still verify the key against its
+    /// own device authorization. Events admitted through the
+    /// `registration_anchor` variant are out of scope: their closed verifier
+    /// owns the method binding. Pinned by
+    /// `ak.vector.federation.non_governance_receiver_trusts_governance_commit.v1`.
+    pub fn verify_producer_proof_self_consistency(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Option<HumanDeviceProducer>> {
+        let rejected = |code, message: &str| WireError::ProtocolCode {
+            code,
+            message: message.to_owned(),
+        };
+        let proof = self.producer_proof.as_ref().ok_or_else(|| {
+            rejected(
+                crate::ErrorCode::SchemaViolation,
+                "Event must carry producer_proof",
+            )
+        })?;
+        if proof.event_digest.as_str() != self.event_digest_with_digest_suite(digest_suite)? {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof event_digest does not cover the canonical Event bytes",
+            ));
+        }
+        let (controller, fragment) = proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .filter(|(_, fragment)| !fragment.is_empty())
+            .and_then(|(did, fragment)| Some((Did::new(did.to_owned()).ok()?, fragment)))
+            .ok_or_else(|| {
+                rejected(
+                    crate::ErrorCode::SchemaViolation,
+                    "producer proof verification_method is not a DID URL with a fragment",
+                )
+            })?;
+        let signer = self.actual_signer();
+        if project_did_to_core_id(&controller).ok().as_ref() != Some(signer.signing_principal_id())
+        {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof verification_method is not controlled by the actual signer",
+            ));
+        }
+        if signer.as_account_id().is_some()
+            && fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX)
+            && arkret_identifiers::DeviceId::new(fragment.to_owned()).is_err()
+        {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof device fragment is not a complete device_id",
+            ));
+        }
+        self.human_device_producer()
+    }
 }
 
 impl Event {
@@ -1456,6 +1528,121 @@ mod event_wire_surface_tests {
             "2026-04-26T00:00:00.000Z".parse().unwrap(),
         )
         .unwrap()
+    }
+
+    const SHA256: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
+    fn with_consistent_proof(mut event: Event, verification_method: &str) -> Event {
+        let mut proof = producer_proof();
+        proof.verification_method = DidUrl::new(verification_method).unwrap();
+        proof.event_digest =
+            Hash::new(event.event_digest_with_digest_suite(SHA256).unwrap()).unwrap();
+        event.producer_proof = Some(proof);
+        event
+    }
+
+    fn self_consistency_code(event: &Event) -> crate::ErrorCode {
+        event
+            .verify_producer_proof_self_consistency(SHA256)
+            .unwrap_err()
+            .error_code()
+            .expect("self-consistency failures carry an active error code")
+    }
+
+    const DEVICE: &str = "ak:device:0196419b-0000-7000-8000-000000000001";
+
+    #[test]
+    fn self_consistent_account_key_proof_has_no_device_producer() {
+        let event =
+            with_consistent_proof(base_event(), "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            event
+                .verify_producer_proof_self_consistency(SHA256)
+                .unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn self_consistent_human_device_proof_returns_the_exact_device() {
+        let event = with_consistent_proof(
+            base_event(),
+            &format!("did:webvh:z6mkfixture:alice.example#{DEVICE}"),
+        );
+        let producer = event
+            .verify_producer_proof_self_consistency(SHA256)
+            .unwrap()
+            .expect("an ak:device: fragment on an Account signer is a human-device producer");
+        assert_eq!(producer.device_id.as_str(), DEVICE);
+        assert_eq!(Some(&producer.account_id), event.actor_id.as_account_id());
+    }
+
+    #[test]
+    fn self_consistency_binds_the_executor_not_the_actor() {
+        let service = ActorId::service(DidCoreId::new("ak:did_core:web:svc.example").unwrap());
+        let mut event = base_event();
+        event.executed_by = Some(service);
+        let executed = with_consistent_proof(event.clone(), "did:web:svc.example#key-1");
+        assert_eq!(
+            executed
+                .verify_producer_proof_self_consistency(SHA256)
+                .unwrap(),
+            None
+        );
+
+        let actor_signed =
+            with_consistent_proof(event, "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            self_consistency_code(&actor_signed),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_digest_over_other_bytes() {
+        let mut event =
+            with_consistent_proof(base_event(), "did:webvh:z6mkfixture:alice.example#key-1");
+        event.payload.insert("body".to_owned(), json!("tampered"));
+        assert_eq!(
+            self_consistency_code(&event),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_method_of_another_principal() {
+        for method in [
+            "did:webvh:z6mkother:mallory.example#key-1",
+            "did:web:alice.example#key-1",
+            "did:example:alice#key-1",
+        ] {
+            let event = with_consistent_proof(base_event(), method);
+            assert_eq!(
+                self_consistency_code(&event),
+                crate::ErrorCode::SignatureInvalid,
+                "{method}"
+            );
+        }
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_malformed_device_fragment() {
+        let event = with_consistent_proof(
+            base_event(),
+            "did:webvh:z6mkfixture:alice.example#ak:device:dev_alice_1",
+        );
+        assert_eq!(
+            self_consistency_code(&event),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_requires_a_producer_proof() {
+        assert_eq!(
+            self_consistency_code(&base_event()),
+            crate::ErrorCode::SchemaViolation
+        );
     }
 
     #[test]

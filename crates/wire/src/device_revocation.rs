@@ -9,8 +9,8 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AcceptedDevicePossessionProof, AccountId, DeviceId, EventId, Hash, RealmCommitId, Result,
-    WireError,
+    AcceptedDevicePossessionProof, AccountId, DeviceId, ErrorCode, EventId, Hash, RealmCommitId,
+    Result, WireError,
 };
 
 /// Hard admission-use deadline bound: `expires_at` is no later than 30 seconds
@@ -413,6 +413,24 @@ pub enum DeviceRevocationAdmissionDecision {
     GenerationMismatch,
 }
 
+impl DeviceRevocationAdmissionDecision {
+    /// The single mapping from a current-device admission decision to the
+    /// protocol error code a rejection surfaces; `None` for `Allow`.
+    ///
+    /// `AuthorityMismatch` is the "no complete current accepted device
+    /// authorization" outcome — unknown, foreign, never authorized, or outside
+    /// its authorization window — and surfaces as `device_unauthorized`.
+    pub const fn error_code(self) -> Option<ErrorCode> {
+        match self {
+            Self::Allow => None,
+            Self::RevocationPending => Some(ErrorCode::DeviceRevocationPending),
+            Self::Revoked => Some(ErrorCode::DeviceRevoked),
+            Self::AuthorityMismatch => Some(ErrorCode::DeviceUnauthorized),
+            Self::GenerationMismatch => Some(ErrorCode::DeviceGenerationFenced),
+        }
+    }
+}
+
 /// Station-local durable decision made under its device lock.
 ///
 /// This record remains inside the Station trust boundary. It is not a wire
@@ -796,6 +814,35 @@ mod tests {
             assert!(
                 serde_json::from_value::<T>(missing).is_err(),
                 "required member {member} must not be omittable"
+            );
+        }
+    }
+
+    #[test]
+    fn every_denied_admission_decision_maps_to_its_device_error_code() {
+        for (decision, code) in [
+            (DeviceRevocationAdmissionDecision::Allow, None),
+            (
+                DeviceRevocationAdmissionDecision::RevocationPending,
+                Some("device_revocation_pending"),
+            ),
+            (
+                DeviceRevocationAdmissionDecision::Revoked,
+                Some("device_revoked"),
+            ),
+            (
+                DeviceRevocationAdmissionDecision::AuthorityMismatch,
+                Some("device_unauthorized"),
+            ),
+            (
+                DeviceRevocationAdmissionDecision::GenerationMismatch,
+                Some("device_generation_fenced"),
+            ),
+        ] {
+            assert_eq!(
+                decision.error_code().map(|code| code.as_str()),
+                code,
+                "{decision:?}"
             );
         }
     }
