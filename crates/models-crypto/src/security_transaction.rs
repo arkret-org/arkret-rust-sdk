@@ -641,7 +641,12 @@ impl SecurityTransaction {
                 validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?;
                 match (&self.revoke_proposal, &self.revoke_command_outcome) {
                     (None, None)
-                        if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() => {}
+                        if self.accepted_steps.is_empty()
+                            && matches!(
+                                self.terminal_outcome,
+                                None | Some(SecurityTransactionTerminalOutcome::Aborted { .. })
+                                    | Some(SecurityTransactionTerminalOutcome::Expired { .. })
+                            ) => {}
                     (Some(proposal), None)
                         if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() =>
                     {
@@ -693,7 +698,9 @@ impl SecurityTransaction {
                         }
                     }
                     _ => {
-                        return protocol("rotation revoke proposal/result progress is inconsistent");
+                        return protocol(
+                            "rotation revoke proposal/result progress is inconsistent",
+                        );
                     }
                 }
             }
