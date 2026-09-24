@@ -11,8 +11,8 @@ use std::collections::{BTreeSet, HashSet};
 use arkret_wire::{
     AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CommitStreamRef, DeviceId,
     DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId, PolicyId, RealmCommitId,
-    RealmId, ReasonCode, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId, Result,
-    SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
+    RealmId, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId, Result, SchemaId,
+    ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -260,51 +260,6 @@ pub struct SecurityRotationPlan {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BackupSeriesEraseStatus {
-    Partial,
-    Complete,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BackupSeriesEraseRowStatus {
-    Pending,
-    FailedRetryable,
-    Erased,
-}
-
-/// Closed internal worker carrier for erasing the old `secret_storage` series.
-/// This is not a public operation or HTTP request.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseRequestBody {
-    pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub prepared_plan_digest: Hash,
-    pub erase_confirmation_digest: Hash,
-    pub series: Vec<BackupRotationBinding>,
-    pub authority_commit_id: RealmCommitId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseRow {
-    pub backup_kind: BackupRotationKind,
-    pub previous_series_id: BackupSeriesId,
-    pub new_series_id: BackupSeriesId,
-    pub status: BackupSeriesEraseRowStatus,
-    pub erased_backups: Vec<BackupObjectRef>,
-    pub remaining_backups: Vec<BackupObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<ReasonCode>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackupSeriesEraseConfirmation {
@@ -313,18 +268,6 @@ pub struct BackupSeriesEraseConfirmation {
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub series: Vec<BackupRotationBinding>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseOutcome {
-    pub transaction_id: TransactionId,
-    pub request_digest: Hash,
-    pub status: BackupSeriesEraseStatus,
-    pub series_records: Vec<BackupSeriesEraseRow>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub confirmation: Option<BackupSeriesEraseConfirmation>,
 }
 
 fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
@@ -337,17 +280,6 @@ fn validate_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<
         .any(|object| !backup_ids.insert(object.backup_id.clone()))
     {
         return protocol(format!("{label} backup object references must be unique"));
-    }
-    Ok(())
-}
-
-fn validate_canonical_backup_object_refs(refs: &[BackupObjectRef], label: &str) -> Result<()> {
-    validate_backup_object_refs(refs, label)?;
-    if refs
-        .windows(2)
-        .any(|pair| pair[0].backup_id.as_str() >= pair[1].backup_id.as_str())
-    {
-        return protocol(format!("{label} must be canonical backup-id sorted"));
     }
     Ok(())
 }
@@ -371,108 +303,12 @@ fn validate_erase_rotation_bindings(series: &[BackupRotationBinding]) -> Result<
     validate_backup_object_refs(&binding.old_backups, "old_backups")
 }
 
-impl BackupSeriesEraseRequestBody {
-    pub fn validate_structural(&self) -> Result<()> {
-        validate_erase_rotation_bindings(&self.series)?;
-        if self.erase_confirmation_digest
-            != security_rotation_erase_confirmation_digest(&self.transaction_id, &self.series)?
-        {
-            return protocol(
-                "backup-series erase confirmation digest changed its fixed projection",
-            );
-        }
-        Ok(())
-    }
-}
-
 impl BackupSeriesEraseConfirmation {
     pub fn validate_structural(&self) -> Result<()> {
         if self.schema != SchemaId::BackupSeriesEraseConfirmationV1 {
             return protocol("backup-series erase confirmation schema is invalid");
         }
         validate_erase_rotation_bindings(&self.series)
-    }
-}
-
-impl BackupSeriesEraseOutcome {
-    pub fn validate_structural(&self) -> Result<()> {
-        let [record]: &[_; 1] = self.series_records.as_slice().try_into().map_err(|_| {
-            WireError::Protocol(
-                "backup-series erase outcome requires exactly one secret_storage record".to_owned(),
-            )
-        })?;
-        if record.backup_kind != BackupRotationKind::SecretStorage
-            || record.previous_series_id == record.new_series_id
-        {
-            return protocol("backup-series erase record has an invalid series binding");
-        }
-        validate_canonical_backup_object_refs(&record.erased_backups, "erased_backups")?;
-        validate_canonical_backup_object_refs(&record.remaining_backups, "remaining_backups")?;
-        match record.status {
-            BackupSeriesEraseRowStatus::Erased
-                if !record.remaining_backups.is_empty() || record.reason_code.is_some() =>
-            {
-                return protocol(
-                    "erased backup series requires no remaining backups or reason code",
-                );
-            }
-            BackupSeriesEraseRowStatus::Pending if record.reason_code.is_some() => {
-                return protocol("pending backup series cannot carry a reason code");
-            }
-            BackupSeriesEraseRowStatus::FailedRetryable if record.reason_code.is_none() => {
-                return protocol("failed-retryable backup series requires a reason code");
-            }
-            _ => {}
-        }
-        match (self.status, self.confirmation.as_ref()) {
-            (BackupSeriesEraseStatus::Complete, Some(confirmation)) => {
-                confirmation.validate_structural()
-            }
-            (BackupSeriesEraseStatus::Partial, None) => Ok(()),
-            _ => protocol("only a complete erase outcome carries one confirmation"),
-        }
-    }
-
-    pub fn validate_for_request(&self, request: &BackupSeriesEraseRequestBody) -> Result<()> {
-        self.validate_structural()?;
-        request.validate_structural()?;
-        let request_digest = arkret_canonical::canonical::canonical_sha256(request)?;
-        let record = &self.series_records[0];
-        let binding = &request.series[0];
-        let mut reported_backups = record.erased_backups.clone();
-        reported_backups.extend(record.remaining_backups.clone());
-        reported_backups
-            .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
-        let mut planned_backups = binding.old_backups.clone();
-        planned_backups
-            .sort_by(|left, right| left.backup_id.as_str().cmp(right.backup_id.as_str()));
-        if self.transaction_id != request.transaction_id
-            || self.request_digest.as_str() != request_digest
-            || record.backup_kind != binding.backup_kind
-            || record.previous_series_id != binding.previous_series_id
-            || record.new_series_id != binding.new_series_id
-            || reported_backups != planned_backups
-        {
-            return protocol(
-                "backup-series erase outcome changed the transaction, request, or target binding",
-            );
-        }
-        if let Some(confirmation) = &self.confirmation
-            && (confirmation.transaction_id != request.transaction_id
-                || confirmation.transaction_request_digest != request.transaction_request_digest
-                || confirmation.prepared_plan_digest != request.prepared_plan_digest
-                || confirmation.series != request.series
-                || request.erase_confirmation_digest
-                    != security_rotation_erase_confirmation_digest(
-                        &confirmation.transaction_id,
-                        &confirmation.series,
-                    )?)
-        {
-            return protocol(
-                "backup-series erase confirmation changed the reserved transaction plan",
-            );
-        }
-        Ok(())
     }
 }
 
