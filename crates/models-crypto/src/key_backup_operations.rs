@@ -23,6 +23,8 @@ pub struct KeyBackupsListQuery {
     pub limit: Option<u32>,
 }
 
+/// `keys-operations.schema.json#/$defs/backup_active_series_pointer`: the
+/// closed `absent` / `active` branches of one accepted backup-class pointer.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
@@ -30,8 +32,23 @@ pub enum BackupActiveSeriesPointer {
     Absent {},
     Active {
         active_series_id: BackupSeriesId,
+        /// Schema `minimum: 1`; version 0 never names an accepted pointer.
+        #[serde(deserialize_with = "deserialize_series_pointer_version")]
         series_pointer_version: u64,
     },
+}
+
+fn deserialize_series_pointer_version<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let version = u64::deserialize(deserializer)?;
+    if version == 0 {
+        return Err(serde::de::Error::custom(
+            "series_pointer_version must be at least 1",
+        ));
+    }
+    Ok(version)
 }
 
 impl BackupActiveSeriesPointer {
@@ -45,6 +62,11 @@ impl BackupActiveSeriesPointer {
     }
 }
 
+/// `keys-operations.schema.json#/$defs/backup_active_series_state`.
+///
+/// v1 registers exactly one backup class, `secret_storage` (key-management
+/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class
+/// member is schema-invalid and is rejected rather than ignored.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -110,6 +132,73 @@ mod active_series_state_tests {
             json!("ak:event:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4");
         assert!(serde_json::from_value::<BackupActiveSeriesState>(wrong_id).is_err());
     }
+
+    #[test]
+    fn secret_storage_is_the_only_backup_class() {
+        let absent = json!({"state": "absent"});
+        let active = json!({
+            "state": "active",
+            "active_series_id": "ak:backup_series:01964137-1000-7000-8000-000000000000",
+            "series_pointer_version": 1
+        });
+        for pointer in [&absent, &active] {
+            let mut accepted = state();
+            accepted["secret_storage"] = pointer.clone();
+            let parsed: BackupActiveSeriesState = serde_json::from_value(accepted.clone()).unwrap();
+            assert_eq!(serde_json::to_value(parsed).unwrap(), accepted);
+
+            for class in ["mls_history", "org_example_private", "x-private"] {
+                let mut extra_class = accepted.clone();
+                extra_class[class] = pointer.clone();
+                assert!(
+                    serde_json::from_value::<BackupActiveSeriesState>(extra_class).is_err(),
+                    "{class}"
+                );
+            }
+
+            let mut renamed = accepted.clone();
+            let moved = renamed
+                .as_object_mut()
+                .unwrap()
+                .remove("secret_storage")
+                .unwrap();
+            renamed["mls_history"] = moved;
+            assert!(serde_json::from_value::<BackupActiveSeriesState>(renamed).is_err());
+        }
+
+        let mut null_pointer = state();
+        null_pointer["secret_storage"] = json!(null);
+        assert!(serde_json::from_value::<BackupActiveSeriesState>(null_pointer).is_err());
+    }
+
+    #[test]
+    fn pointer_branches_are_closed() {
+        let parse =
+            |pointer: Value| serde_json::from_value::<super::BackupActiveSeriesPointer>(pointer);
+        let series = "ak:backup_series:01964137-1000-7000-8000-000000000000";
+        assert!(parse(json!({"state": "absent"})).is_ok());
+        assert!(
+            parse(json!({
+                "state": "active", "active_series_id": series, "series_pointer_version": 1
+            }))
+            .is_ok()
+        );
+        for rejected in [
+            json!({}),
+            json!({"state": "unknown"}),
+            json!({"state": "absent", "active_series_id": series}),
+            json!({"state": "active", "active_series_id": series}),
+            json!({"state": "active", "series_pointer_version": 1}),
+            json!({"state": "active", "active_series_id": series, "series_pointer_version": 0}),
+            json!({"state": "active", "active_series_id": series, "series_pointer_version": -1}),
+            json!({
+                "state": "active", "active_series_id": series, "series_pointer_version": 1,
+                "backup_kind": "secret_storage"
+            }),
+        ] {
+            assert!(parse(rejected.clone()).is_err(), "{rejected}");
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -145,6 +234,7 @@ pub struct KeyBackupSummary {
     pub series_seq: u64,
 }
 
+/// `keys-operations.schema.json#/$defs/keys_backups_list`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

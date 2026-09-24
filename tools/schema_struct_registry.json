@@ -1028,6 +1028,10 @@
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::BackupActiveSeriesState",
       "schema": "keys-operations.schema.json#/$defs/backup_active_series_state"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsList",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_list"
     }
   ],
   "exemptions": [
