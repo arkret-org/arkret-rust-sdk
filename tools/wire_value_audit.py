@@ -107,6 +107,10 @@ SKIP_PATH_PARTS = {
     "testdata",
     "tests",
 }
+# Repository-relative directories holding gitignored, locally generated
+# output. They are not tracked production source, so scanning them would make
+# the inventory depend on whichever developer tools last ran in the checkout.
+GITIGNORED_GENERATED_DIRECTORIES = {"tools/spec-struct-proto/out"}
 NON_PRODUCTION_REPOSITORIES = {"arkret-spec", "arkret-work", "cotest"}
 VALID_CLASSIFICATIONS = {
     "closed_discriminated",
@@ -381,8 +385,13 @@ def repository_roots(source_root: Path) -> list[tuple[str, Path]]:
 def production_rust_files(repository: Path) -> Iterable[Path]:
     found = []
     for directory, child_directories, files in os.walk(repository):
+        relative_directory = Path(directory).relative_to(repository)
         child_directories[:] = sorted(
-            name for name in child_directories if name not in SKIP_PATH_PARTS
+            name
+            for name in child_directories
+            if name not in SKIP_PATH_PARTS
+            and (relative_directory / name).as_posix()
+            not in GITIGNORED_GENERATED_DIRECTORIES
         )
         base = Path(directory)
         found.extend(

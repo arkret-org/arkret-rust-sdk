@@ -76,6 +76,21 @@ class WireValueAuditTests(unittest.TestCase):
             {"project", "after"},
         )
 
+    def test_gitignored_generated_output_is_not_production_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            generated = root / "tools" / "spec-struct-proto" / "out"
+            generated.mkdir(parents=True)
+            (generated / "generated.rs").write_text("", encoding="utf-8")
+            tracked = root / "tools" / "spec-struct-proto" / "src"
+            tracked.mkdir(parents=True)
+            (tracked / "tracked.rs").write_text("", encoding="utf-8")
+            found = {
+                path.relative_to(root).as_posix()
+                for path in AUDIT.production_rust_files(root)
+            }
+        self.assertEqual(found, {"tools/spec-struct-proto/src/tracked.rs"})
+
 
 if __name__ == "__main__":
     unittest.main()

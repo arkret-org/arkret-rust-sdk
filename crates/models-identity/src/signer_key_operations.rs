@@ -465,7 +465,7 @@ struct SignerKeyQueryResultWireRef<'a> {
     key: Option<&'a ResolvedSignerKey>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
     )]
     accepted_at: Option<DateTime<Utc>>,
 }

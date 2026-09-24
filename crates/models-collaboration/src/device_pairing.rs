@@ -416,5 +416,5 @@ pub struct AccountDevicePairOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_grant: Option<GrantSnapshot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_backup_hint: Option<serde_json::Value>,
+    pub key_backup_hint: Option<serde_json::Map<String, serde_json::Value>>,
 }
