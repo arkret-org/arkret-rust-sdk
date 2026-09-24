@@ -1349,7 +1349,8 @@ mod tests {
     fn refresh_union_separates_human_and_agent_branches() {
         let agent = json!({
             "grant_jwt": "header.body.signature",
-            "device_id": DEVICE,
+            "principal_id": PRINCIPAL,
+            "agent_key_authorization_ref": AUTHORIZATION,
             "agent_session_refresh_proof": {
                 "context": "ak.agent_session_refresh_proof.v1",
                 "request_canonical_digest": format!("sha256:{}", "1".repeat(64)),
@@ -1364,6 +1365,12 @@ mod tests {
         assert!(matches!(body, SessionGrantRefreshRequestBody::Agent(_)));
         body.validate().unwrap();
         assert_eq!(serde_json::to_value(&body).unwrap(), agent);
+
+        // Agent MLS endpoints have no Device; an Agent refresh naming one is
+        // invalid rather than read as the human branch.
+        let mut with_device = agent.clone();
+        with_device["device_id"] = json!(DEVICE);
+        assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(with_device).is_err());
 
         // The human branch carries an accepted-device proof instead, so the
         // two branches never accept each other's body.

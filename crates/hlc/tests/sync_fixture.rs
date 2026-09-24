@@ -357,8 +357,14 @@ fn only_an_explicit_ack_after_durable_processing_cancels_a_delivery() {
         let durably_processed = case["durably_processed"]
             .as_bool()
             .expect("durably_processed");
+        // Endpoint queue capacity is an admission precondition (client-sync
+        // §10.1): a full endpoint atomically rejects the new delivery with
+        // `quota_exceeded`, evicts nothing and consumes no idempotency identity.
+        let at_full_capacity = action == "enqueue_new_delivery_at_full_capacity";
         let cancelled = action.starts_with("ack") && durably_processed;
-        let verdict = if cancelled {
+        let verdict = if at_full_capacity {
+            "rejected_quota_exceeded_with_old_delivery_still_queued"
+        } else if cancelled {
             "removed_from_recipient_queue"
         } else {
             "still_queued"
@@ -369,6 +375,14 @@ fn only_an_explicit_ack_after_durable_processing_cancels_a_delivery() {
             "{}: only an explicit ACK after durable processing cancels a delivery",
             name(case)
         );
+        if at_full_capacity {
+            assert_eq!(
+                flag(case, "request_idempotency_written"),
+                Some(false),
+                "{}: a capacity rejection must not consume the request idempotency identity",
+                name(case)
+            );
+        }
 
         let message_id = case["device_message_id"]
             .as_str()
