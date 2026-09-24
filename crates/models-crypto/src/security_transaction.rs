@@ -1338,6 +1338,10 @@ impl RecoveryReceipt {
     }
 }
 
+/// `SHA-256(JCS({schema: "ak.backup_series_erase_confirmation_preimage.v1",
+/// transaction_id, series}))` over the plan's backup rotation bindings
+/// (security-transactions.md §3). The preimage discriminator member is
+/// `schema`; the final request/plan digests are deliberately excluded.
 pub fn security_rotation_erase_confirmation_digest(
     transaction_id: &TransactionId,
     backup_rotations: &[BackupRotationBinding],
@@ -1345,13 +1349,16 @@ pub fn security_rotation_erase_confirmation_digest(
     digest_value(
         arkret_canonical::DigestSuite::Sha256,
         &serde_json::json!({
-            "domain": "ak.backup_series_erase_confirmation_preimage.v1",
+            "schema": "ak.backup_series_erase_confirmation_preimage.v1",
             "transaction_id": transaction_id,
             "series": backup_rotations,
         }),
     )
 }
 
+/// `SHA-256(JCS({schema: "ak.security_rotation_local_commit_preimage.v1",
+/// transaction_id, new_secret_commitment, backup_rotations}))` over the plan's
+/// backup rotation bindings (security-transactions.md §3).
 pub fn security_rotation_local_commit_digest(
     transaction_id: &TransactionId,
     new_secret_commitment: &Hash,
@@ -1360,7 +1367,7 @@ pub fn security_rotation_local_commit_digest(
     digest_value(
         arkret_canonical::DigestSuite::Sha256,
         &serde_json::json!({
-            "domain": "ak.security_rotation_local_commit_preimage.v1",
+            "schema": "ak.security_rotation_local_commit_preimage.v1",
             "transaction_id": transaction_id,
             "new_secret_commitment": new_secret_commitment,
             "backup_rotations": backup_rotations,
@@ -1659,6 +1666,69 @@ mod tests {
             )
             .unwrap(),
         }
+    }
+
+    /// Known-answer vectors for the two non-circular reserved digests of
+    /// security-transactions.md §3. The expected values were computed
+    /// independently of this crate (RFC 8785 JCS + SHA-256) from the
+    /// normative preimages, whose discriminator member is `schema`.
+    #[test]
+    fn security_rotation_reserved_digests_match_the_normative_preimage_kat() {
+        let transaction_id =
+            TransactionId::new("ak:transaction:019a7400-0000-7000-8000-000000000006").unwrap();
+        let bindings = vec![erase_binding()];
+        let new_secret_commitment = Hash::new(format!("sha256:{}", "e".repeat(64))).unwrap();
+
+        let erase_preimage = serde_json::json!({
+            "schema": "ak.backup_series_erase_confirmation_preimage.v1",
+            "transaction_id": transaction_id,
+            "series": bindings,
+        });
+        assert_eq!(
+            String::from_utf8(arkret_canonical::canonical_json_bytes(&erase_preimage).unwrap())
+                .unwrap(),
+            concat!(
+                r#"{"schema":"ak.backup_series_erase_confirmation_preimage.v1","series":[{"#,
+                r#""active_series_event_id":"ak:event:AWKDhmQTc5zyfilaLwPF3xnhoZAjxSha7Z-6grioN9aW","#,
+                r#""backup_kind":"secret_storage","new_backups":[{"backup_id":"#,
+                r#""ak:backup:019a7400-0000-7000-8000-000000000003","ciphertext_digest":"#,
+                r#""sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],"#,
+                r#""new_series_id":"ak:backup_series:019a7400-0000-7000-8000-000000000002","#,
+                r#""old_backups":[{"backup_id":"ak:backup:019a7400-0000-7000-8000-000000000005","#,
+                r#""ciphertext_digest":"#,
+                r#""sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}],"#,
+                r#""previous_series_id":"ak:backup_series:019a7400-0000-7000-8000-000000000001"}],"#,
+                r#""transaction_id":"ak:transaction:019a7400-0000-7000-8000-000000000006"}"#,
+            )
+        );
+        assert_eq!(
+            security_rotation_erase_confirmation_digest(&transaction_id, &bindings)
+                .unwrap()
+                .as_str(),
+            "sha256:3e7c058a76c28ad2c456d38b6cd039e30e8c6722c82303e7ccf0b6954e58d1fa"
+        );
+        assert_eq!(
+            security_rotation_local_commit_digest(
+                &transaction_id,
+                &new_secret_commitment,
+                &bindings
+            )
+            .unwrap()
+            .as_str(),
+            "sha256:2c88de3197cdfcb188ce59f2fe5afe518509b1f5171dff34f585f291800a73f1"
+        );
+
+        // The retired `domain` discriminator produces a different digest and
+        // must never be accepted as the reserved value.
+        let legacy = serde_json::json!({
+            "domain": "ak.backup_series_erase_confirmation_preimage.v1",
+            "transaction_id": transaction_id,
+            "series": bindings,
+        });
+        assert_ne!(
+            digest_value(arkret_canonical::DigestSuite::Sha256, &legacy).unwrap(),
+            security_rotation_erase_confirmation_digest(&transaction_id, &bindings).unwrap()
+        );
     }
 
     #[test]
