@@ -468,42 +468,52 @@ mod tests {
 
     use super::*;
 
+    fn runtime_key_binding_vector() -> Value {
+        let fixture =
+            arkret_schema_conformance::spec_json_artifact("fixtures/agent-vectors-fixture.json")
+                .unwrap();
+        fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["vector_id"] == "ak.vector.agent.runtime_key_binding.v1")
+            .cloned()
+            .unwrap()
+    }
+
+    /// `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
+    /// `ak.vector.agent.runtime_key_binding.v1`. The fixture is the truth; this
+    /// test reads it so the SDK cannot drift from it silently.
     #[test]
     fn runtime_key_binding_matches_normative_vector() {
-        let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap();
-        let public_key = json!({
-            "algorithm": "Ed25519",
-            "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
-            "kty": "OKP"
-        });
+        let vector = runtime_key_binding_vector();
+        let input = &vector["pairing_request_binding_input"];
+        let agent_id = DidCoreId::new(input["agent_id"].as_str().unwrap()).unwrap();
+        let public_key = vector["source_public_key"].clone();
+        assert!(vector["source_runtime_attestation"].is_null());
 
         let public_key_digest = agent_runtime_public_key_digest(&public_key).unwrap();
         let attestation_digest = agent_runtime_attestation_digest(None).unwrap();
         let binding_digest = agent_runtime_key_binding_digest(
             &agent_id,
-            "pairing_request:01964137-0000-7000-8000-000000000000",
-            "did:webvh:z6mkagent:agent.example#runtime-1",
+            input["pairing_request_id"].as_str().unwrap(),
+            input["verification_method"].as_str().unwrap(),
             &public_key,
             None,
         )
         .unwrap();
 
-        // The three expected values are copied verbatim from
-        // `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
-        // `ak.vector.agent.runtime_key_binding.v1`. The fixture is the truth;
-        // this test exists so the SDK cannot drift from it silently.
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+            vector["expected_public_key_digest"].as_str().unwrap()
         );
         assert_eq!(
             attestation_digest.as_str(),
-            "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+            vector["expected_attestation_digest"].as_str().unwrap()
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:baaf80b0befc79c9baf9b9d65a4bd730e4ae5a6ec1b65f72d2857d03426f3466"
+            vector["expected_binding_digest"].as_str().unwrap()
         );
     }
 

@@ -836,26 +836,53 @@ mod tests {
         }
     }
 
+    fn runtime_key_binding_vector() -> Value {
+        let fixture =
+            arkret_schema_conformance::spec_json_artifact("fixtures/agent-vectors-fixture.json")
+                .unwrap();
+        fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["vector_id"] == "ak.vector.agent.runtime_key_binding.v1")
+            .cloned()
+            .unwrap()
+    }
+
+    fn vector_pairing_request_binding_digest(vector: &Value, expires_at: &str) -> Result<Hash> {
+        let input = &vector["pairing_request_binding_input"];
+        let text = |key: &str| input[key].as_str().unwrap();
+        agent_key_pairing_request_binding_digest(
+            "ak.gate.account.command.pair_agent_key.v1",
+            &DidCoreId::new(text("controller_principal_id")).unwrap(),
+            &DidCoreId::new(text("agent_id")).unwrap(),
+            &OpaqueLocalId::new(text("pairing_request_id")).unwrap(),
+            &OpaqueLocalId::new(text("approval_request_id")).unwrap(),
+            expires_at.parse().unwrap(),
+            &DidCoreId::new(text("audience_id")).unwrap(),
+            &Hash::new(vector["expected_binding_digest"].as_str().unwrap()).unwrap(),
+        )
+    }
+
     /// `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
     /// `ak.vector.agent.runtime_key_binding.v1`.
     #[test]
     fn pairing_request_binding_digest_matches_the_spec_vector() {
-        let digest = agent_key_pairing_request_binding_digest(
-            "ak.gate.account.command.pair_agent_key.v1",
-            &DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
-            &DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap(),
-            &OpaqueLocalId::new("pairing_request:01964137-0000-7000-8000-000000000000").unwrap(),
-            &OpaqueLocalId::new("approval_request:01964137-0000-7000-8000-000000000000").unwrap(),
-            "2026-07-17T13:50:07.734Z".parse().unwrap(),
-            &DidCoreId::new("ak:did_core:webvh:z6mkfixturepairexample").unwrap(),
-            &Hash::new("sha256:baaf80b0befc79c9baf9b9d65a4bd730e4ae5a6ec1b65f72d2857d03426f3466")
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            digest.as_str(),
-            "sha256:cd3cb825d1212a455dd90ec583937a294f457f15889de61736cc4e65a345d04e"
-        );
+        let vector = runtime_key_binding_vector();
+        for expires_at in vector["pairing_request_binding_input"]["pairing_expires_at_inputs"]
+            .as_array()
+            .unwrap()
+        {
+            let digest =
+                vector_pairing_request_binding_digest(&vector, expires_at.as_str().unwrap())
+                    .unwrap();
+            assert_eq!(
+                digest.as_str(),
+                vector["expected_pairing_request_binding_digest"]
+                    .as_str()
+                    .unwrap()
+            );
+        }
     }
 
     /// A sub-millisecond instant is floored, then spelled with exactly three
@@ -863,32 +890,18 @@ mod tests {
     /// timestamp precision (`key-management.md` §3.6.2).
     #[test]
     fn pairing_request_binding_digest_uses_the_canonical_millisecond_spelling() {
-        let digest_of = |expires_at: &str| {
-            agent_key_pairing_request_binding_digest(
-                "ak.gate.account.command.pair_agent_key.v1",
-                &DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
-                &DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap(),
-                &OpaqueLocalId::new("pairing_request:01964137-0000-7000-8000-000000000000")
-                    .unwrap(),
-                &OpaqueLocalId::new("approval_request:01964137-0000-7000-8000-000000000000")
-                    .unwrap(),
-                expires_at.parse().unwrap(),
-                &DidCoreId::new("ak:did_core:webvh:z6mkfixturepairexample").unwrap(),
-                &Hash::new(
-                    "sha256:baaf80b0befc79c9baf9b9d65a4bd730e4ae5a6ec1b65f72d2857d03426f3466",
-                )
-                .unwrap(),
-            )
-            .unwrap()
-        };
-        assert_eq!(
-            digest_of("2026-07-17T13:50:07.734997Z"),
-            digest_of("2026-07-17T13:50:07.734Z")
-        );
-        assert_eq!(
-            digest_of("2026-07-17T21:50:07.734+08:00"),
-            digest_of("2026-07-17T13:50:07.734Z")
-        );
+        let vector = runtime_key_binding_vector();
+        let canonical = vector["canonical_pairing_expires_at"].as_str().unwrap();
+        let expected = vector_pairing_request_binding_digest(&vector, canonical).unwrap();
+        for instant in [
+            "2026-07-17T13:50:07.734997Z",
+            "2026-07-17T21:50:07.734+08:00",
+        ] {
+            assert_eq!(
+                vector_pairing_request_binding_digest(&vector, instant).unwrap(),
+                expected
+            );
+        }
     }
 
     #[test]

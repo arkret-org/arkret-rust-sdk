@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
 //! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
-//! contract-registry.json; version=2026-09-24.8;
-//! sha256=f08b5f7c3424dae0ee46189ee9ad924a90ec045e44e2c91fd670fb65c81ddf8c
+//! contract-registry.json; version=2026-09-24.9;
+//! sha256=8082412aa2d3a960600679042320d5e0468162295a973f55f4302eb8ca54bfa0
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -743,8 +743,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-24.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-24.8";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-24.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-24.9";
 pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-24.2";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-24.8";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-24.9";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";
