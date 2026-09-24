@@ -866,6 +866,11 @@ pub enum CurrentSelector {
     MessageReactions {
         event_id: EventId,
     },
+    /// The accepted `ak.self.moderation.report` Event's own id
+    /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
+    ModerationReport {
+        event_id: EventId,
+    },
     MlsGroup {
         scope_ref: ScopeRef,
     },
@@ -911,6 +916,11 @@ enum FlatCurrentSelector {
         message_id: MessageId,
     },
     MessageReactions {
+        event_id: EventId,
+    },
+    /// The accepted `ak.self.moderation.report` Event's own id
+    /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
+    ModerationReport {
         event_id: EventId,
     },
     MlsGroup {
@@ -1026,6 +1036,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     }
                     FlatCurrentSelector::MessageReactions { event_id } => {
                         Self::MessageReactions { event_id }
+                    }
+                    FlatCurrentSelector::ModerationReport { event_id } => {
+                        Self::ModerationReport { event_id }
                     }
                     FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
                 })
@@ -1783,6 +1796,30 @@ mod tests {
         assert!(
             serde_json::from_value::<CurrentSelector>(json!({"kind":"message_revision"})).is_err()
         );
+    }
+
+    #[test]
+    fn moderation_report_selector_is_the_report_event_identity() {
+        let event_id = EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(b"moderation report selector"),
+        );
+        let selector = CurrentSelector::ModerationReport {
+            event_id: event_id.clone(),
+        };
+        let wire = json!({"kind":"moderation_report","event_id":event_id});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        for invalid in [
+            json!({"kind":"moderation_report"}),
+            json!({"kind":"moderation_report","event_id":event_id,"report_id":"forged"}),
+            json!({"kind":"moderation_report","event_id":MessageId::from_event_id(&event_id)}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
     }
 
     #[test]

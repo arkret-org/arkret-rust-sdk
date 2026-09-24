@@ -1,17 +1,10 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    AccountId, Did, DidCoreId, EventAdmissionSubmission, EventKind, RealmId, ReportId, Result,
-    SchemaId, ScopeRef, project_did_to_core_id,
+    AccountId, Did, DidCoreId, EventAdmissionSubmission, EventKind, ReportId, Result, ScopeRef,
+    project_did_to_core_id,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::events_payloads::FrankingProof;
-
-fn now_utc_canonical() -> DateTime<Utc> {
-    arkret_canonical::normalize_timestamp_canonical(Utc::now())
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -169,48 +162,4 @@ fn proof_controller_matches_actor(verification_method: &str, actor_id: &DidCoreI
             arkret_wire::WireError::Protocol("verification_method has no fragment".into())
         })?;
     Ok(project_did_to_core_id(&Did::new(controller.to_owned())?)? == *actor_id)
-}
-
-/// Moderation report (moderation.md §3).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModerationReport {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
-    pub report_id: String,
-    pub realm_id: RealmId,
-    pub target_ref: String,
-    pub report_reason_code: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub reporter_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence_refs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<FrankingProof>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-}
-
-impl ModerationReport {
-    pub const SCHEMA: &'static str = SchemaId::MODERATION_REPORT_V1;
-    pub fn new(
-        id: impl Into<String>,
-        realm_id: RealmId,
-        target_ref: impl Into<String>,
-        report_reason_code: impl Into<String>,
-        reporter: DidCoreId,
-    ) -> Self {
-        Self {
-            schema: Some(SchemaId::MODERATION_REPORT_V1.to_owned()),
-            report_id: id.into(),
-            realm_id,
-            target_ref: target_ref.into(),
-            report_reason_code: report_reason_code.into(),
-            description: None,
-            reporter_id: reporter,
-            evidence_refs: Vec::new(),
-            franking_proof: None,
-            created_at: now_utc_canonical(),
-        }
-    }
 }
