@@ -88,6 +88,21 @@ fn moderation_never_written_is_rejected_by_schema_and_sdk() {
 }
 
 #[test]
+fn missing_source_stream_is_rejected_by_schema_and_sdk() {
+    let fixture = fixture();
+    let mut value = fixture["valid_outcomes"][1]["value"].clone();
+    value["entry"]
+        .as_object_mut()
+        .unwrap()
+        .remove("source_stream_ref");
+    assert!(!schema_accepts(
+        "#/$defs/exact_current_results_read_outcome",
+        &value
+    ));
+    assert!(serde_json::from_value::<ExactCurrentResultsReadOutcome>(value).is_err());
+}
+
+#[test]
 fn stale_or_mismatched_same_cut_response_fails_closed() {
     let fixture = fixture();
     let value = fixture["valid_outcomes"][1]["value"].clone();
@@ -106,6 +121,19 @@ fn stale_or_mismatched_same_cut_response_fails_closed() {
     let mut future_revision = value.clone();
     future_revision["entry"]["revision"]["stream_position"] = json!(13);
     let outcome: ExactCurrentResultsReadOutcome = serde_json::from_value(future_revision).unwrap();
+    assert!(outcome.validate_for_request(&request, 4).is_err());
+
+    let mut other_stream = value.clone();
+    other_stream["entry"]["source_stream_ref"] = json!({
+        "kind": "circle",
+        "realm_id": value["realm_id"].clone(),
+        "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
+    });
+    assert!(schema_accepts(
+        "#/$defs/exact_current_results_read_outcome",
+        &other_stream
+    ));
+    let outcome: ExactCurrentResultsReadOutcome = serde_json::from_value(other_stream).unwrap();
     assert!(outcome.validate_for_request(&request, 4).is_err());
 
     let mut wrong_head_commit = value;

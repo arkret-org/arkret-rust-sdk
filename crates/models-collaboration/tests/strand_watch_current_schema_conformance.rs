@@ -51,6 +51,7 @@ fn current(value: Value) -> Value {
         "governance_generation": 2, "stream_head": head(),
         "result": {
             "selector": selector(),
+            "source_stream_ref": {"kind": "realm", "realm_id": REALM},
             "revision": {"commit_id": COMMIT, "stream_position": 12},
             "value": value
         }
@@ -125,6 +126,30 @@ fn malformed_or_mismatched_outcome_fails_closed() {
         &missing_value
     ));
     assert!(serde_json::from_value::<StrandWatchCurrentOutcome>(missing_value).is_err());
+
+    let mut missing_source = current(Value::Null);
+    missing_source["result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("source_stream_ref");
+    assert!(!schema_accepts(
+        "#/$defs/StrandWatchCurrentOutcome",
+        &missing_source
+    ));
+    assert!(serde_json::from_value::<StrandWatchCurrentOutcome>(missing_source).is_err());
+
+    let mut other_stream = current(Value::Null);
+    other_stream["result"]["source_stream_ref"] = json!({
+        "kind": "circle",
+        "realm_id": REALM,
+        "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
+    });
+    assert!(schema_accepts(
+        "#/$defs/StrandWatchCurrentOutcome",
+        &other_stream
+    ));
+    let parsed: StrandWatchCurrentOutcome = serde_json::from_value(other_stream).unwrap();
+    assert!(parsed.validate_for_request(&request).is_err());
 
     let mut wrong_kind = never_written();
     wrong_kind["selector"]["kind"] = json!("strand");

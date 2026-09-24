@@ -9,7 +9,9 @@
 use std::fmt;
 use std::sync::OnceLock;
 
-use arkret_wire::{CommitStreamHead, CurrentRevision, EventId, RealmId, Result, WireError};
+use arkret_wire::{
+    CommitStreamHead, CommitStreamRef, CurrentRevision, EventId, RealmId, Result, WireError,
+};
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -204,6 +206,8 @@ impl ExactCurrentResultsReadRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct RelationExactCurrentResult {
     pub selector: RelationExactCurrentSelector,
+    /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
+    pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     pub value: Relation,
 }
@@ -241,6 +245,8 @@ pub struct ModerationStateCurrentValue {
 #[serde(deny_unknown_fields)]
 pub struct ModerationStateExactCurrentResult {
     pub selector: ModerationStateExactCurrentSelector,
+    /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
+    pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     pub value: ModerationStateCurrentValue,
 }
@@ -257,6 +263,13 @@ impl ExactCurrentResultEntry {
         match self {
             Self::Relation(entry) => &entry.revision,
             Self::ModerationState(entry) => &entry.revision,
+        }
+    }
+
+    fn source_stream_ref(&self) -> &CommitStreamRef {
+        match self {
+            Self::Relation(entry) => &entry.source_stream_ref,
+            Self::ModerationState(entry) => &entry.source_stream_ref,
         }
     }
 
@@ -393,6 +406,14 @@ impl ExactCurrentResultsReadOutcome {
                 if !entry.matches_selector(&request.selector) {
                     return Err(WireError::Protocol(
                         "exact-current present selector differs from request".to_owned(),
+                    ));
+                }
+                // The revision position is only comparable on its own covering
+                // stream; never bound a row by another stream's same position.
+                if entry.source_stream_ref() != &head.stream_ref {
+                    return Err(WireError::Protocol(
+                        "exact-current source stream differs from the effective stream head"
+                            .to_owned(),
                     ));
                 }
                 let revision = entry.revision();

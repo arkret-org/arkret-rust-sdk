@@ -1,6 +1,6 @@
 //! Exact, non-enumerating watch current read from the governing Station.
 
-use arkret_wire::{ActorId, CommitStreamHead, CurrentRevision, RealmId, StrandId};
+use arkret_wire::{ActorId, CommitStreamHead, CommitStreamRef, CurrentRevision, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::strand::StrandWatchExpectedValue;
@@ -34,6 +34,8 @@ pub enum StrandWatchSelectorKind {
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchCurrentResult {
     pub selector: StrandWatchCurrentSelector,
+    /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
+    pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     /// Required on the wire, including when explicitly cleared to JSON `null`.
     pub value: StrandWatchCurrentValue,
@@ -82,7 +84,7 @@ impl StrandWatchCurrentOutcome {
         &self,
         request: &StrandWatchCurrentRequestBody,
     ) -> Result<(), &'static str> {
-        let (realm_id, head, selector, revision) = match self {
+        let (realm_id, head, selector, source) = match self {
             Self::NeverWritten {
                 realm_id,
                 stream_head,
@@ -98,7 +100,7 @@ impl StrandWatchCurrentOutcome {
                 realm_id,
                 stream_head,
                 &result.selector,
-                Some(&result.revision),
+                Some((&result.source_stream_ref, &result.revision)),
             ),
         };
         if realm_id != &request.realm_id || head.stream_ref.realm_id() != &request.realm_id {
@@ -109,8 +111,18 @@ impl StrandWatchCurrentOutcome {
         {
             return Err("watch-current response selector differs from request");
         }
-        if revision.is_some_and(|revision| revision.stream_position > head.stream_position) {
-            return Err("watch-current revision is ahead of the confirmed stream head");
+        if let Some((source_stream_ref, revision)) = source {
+            // The revision position is only comparable on its own covering
+            // stream; a row from another stream cannot be bounded by this head.
+            if source_stream_ref != &head.stream_ref {
+                return Err("watch-current source stream differs from the confirmed stream head");
+            }
+            if revision.stream_position > head.stream_position
+                || (revision.stream_position == head.stream_position
+                    && revision.commit_id != head.commit_id)
+            {
+                return Err("watch-current revision is not bounded by the confirmed stream head");
+            }
         }
         Ok(())
     }
