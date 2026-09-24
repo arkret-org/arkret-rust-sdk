@@ -34,7 +34,6 @@ crate::string_marker!(
     RegisteredAtomicUnit,
     "registered_atomic_unit"
 );
-crate::string_marker!(PerItemProcessing, PerItem, "per_item");
 crate::string_marker!(
     DependencyMissingProblemType,
     DependencyMissing,
@@ -80,22 +79,6 @@ impl CommittedEventSubmission {
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReplicationRecipientWitness {
-    pub realm_id: RealmId,
-    pub member_id: ActorId,
-    pub membership_event_ref: EventId,
-    pub recipient_service_id: DidCoreId,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReplicatedCommittedEventSubmission {
-    pub committed_event: CommittedEventSubmission,
-    pub recipient_witnesses: Vec<ReplicationRecipientWitness>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,25 +140,6 @@ impl OrdinaryRealmBootstrapUnitSubmission {
                         .to_owned(),
                 ));
             }
-        }
-        Ok(())
-    }
-}
-
-impl ReplicatedCommittedEventSubmission {
-    pub fn validate(&self) -> Result<()> {
-        self.committed_event.validate()?;
-        if self.recipient_witnesses.is_empty()
-            || self.recipient_witnesses.len() > 100
-            || !self
-                .recipient_witnesses
-                .windows(2)
-                .all(|pair| pair[0] < pair[1])
-        {
-            return Err(WireError::Protocol(
-                "recipient_witnesses must contain 1..=100 canonical sorted unique witnesses"
-                    .to_owned(),
-            ));
         }
         Ok(())
     }
@@ -436,8 +400,7 @@ pub struct PeerAuthorityForwardMlsRequest {
 #[serde(deny_unknown_fields)]
 pub struct PeerCommittedReplicationRequest {
     pub branch: CommittedReplicationBranch,
-    pub processing: PerItemProcessing,
-    pub submissions: Vec<ReplicatedCommittedEventSubmission>,
+    pub replications: Vec<CommittedEventSubmission>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -462,13 +425,13 @@ impl PeerAuthoritySubmitRequest {
             Self::AuthorityForwardEvent(value) => value.event_submission.validate(),
             Self::AuthorityForwardMls(value) => value.mls_submission.validate(),
             Self::CommittedReplication(value) => {
-                if value.submissions.is_empty() || value.submissions.len() > 100 {
+                if value.replications.is_empty() || value.replications.len() > 100 {
                     return Err(WireError::Protocol(
-                        "committed replication requires 1..=100 submissions".to_owned(),
+                        "committed replication requires 1..=100 replications".to_owned(),
                     ));
                 }
-                for submission in &value.submissions {
-                    submission.validate()?;
+                for replication in &value.replications {
+                    replication.validate()?;
                 }
                 Ok(())
             }
@@ -636,22 +599,17 @@ impl SelfAuthoritySubmitOutcome {
     }
 }
 
+/// One same-order row of `replication_outcomes[]`; its array position is the
+/// only link to the request replication, so no index or coordinates are echoed.
+/// `Stored {}` / `Duplicate {}` are braced on purpose: serde ignores extra
+/// members on internally tagged unit variants, so only struct variants keep
+/// `deny_unknown_fields` closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-pub enum PeerCommittedReplicationRecord {
-    Stored {
-        index: u8,
-        committed_ref: arkret_wire::CommittedEventRef,
-    },
-    Duplicate {
-        index: u8,
-        committed_ref: arkret_wire::CommittedEventRef,
-    },
-    Rejected {
-        index: u8,
-        committed_ref: arkret_wire::CommittedEventRef,
-        reason_code: String,
-    },
+pub enum PeerCommittedReplicationOutcomeRecord {
+    Stored {},
+    Duplicate {},
+    Rejected { reason_code: String },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -665,7 +623,7 @@ pub struct PeerAuthorityForwardOutcome {
 #[serde(deny_unknown_fields)]
 pub struct PeerCommittedReplicationOutcome {
     pub branch: CommittedReplicationBranch,
-    pub results: Vec<PeerCommittedReplicationRecord>,
+    pub replication_outcomes: Vec<PeerCommittedReplicationOutcomeRecord>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -719,26 +677,15 @@ impl PeerAuthoritySubmitOutcome {
         match self {
             Self::AuthorityForward(value) => value.outcome.validate_shape(),
             Self::CommittedReplication(value) => {
-                if value.results.is_empty() || value.results.len() > 100 {
+                if value.replication_outcomes.is_empty() || value.replication_outcomes.len() > 100 {
                     return Err(WireError::Protocol(
-                        "committed replication outcome requires 1..=100 results".to_owned(),
+                        "committed replication outcome requires 1..=100 replication_outcomes"
+                            .to_owned(),
                     ));
                 }
-                for (expected_index, result) in value.results.iter().enumerate() {
-                    let (index, reason_code) = match result {
-                        PeerCommittedReplicationRecord::Stored { index, .. }
-                        | PeerCommittedReplicationRecord::Duplicate { index, .. } => (*index, None),
-                        PeerCommittedReplicationRecord::Rejected {
-                            index, reason_code, ..
-                        } => (*index, Some(reason_code.as_str())),
-                    };
-                    if usize::from(index) != expected_index {
-                        return Err(WireError::Protocol(
-                            "committed replication result indices must equal their array positions"
-                                .to_owned(),
-                        ));
-                    }
-                    if let Some(reason_code) = reason_code {
+                for record in &value.replication_outcomes {
+                    if let PeerCommittedReplicationOutcomeRecord::Rejected { reason_code } = record
+                    {
                         validate_reason_code(reason_code)?;
                     }
                 }
@@ -775,32 +722,14 @@ impl PeerAuthoritySubmitOutcome {
                 PeerAuthoritySubmitRequest::CommittedReplication(request),
                 Self::CommittedReplication(outcome),
             ) => {
-                if request.submissions.len() != outcome.results.len() {
-                    return Err(WireError::Protocol(
-                        "replication outcome must contain one result per submission".to_owned(),
-                    ));
+                if request.replications.len() == outcome.replication_outcomes.len() {
+                    Ok(())
+                } else {
+                    Err(WireError::Protocol(
+                        "replication_outcomes must contain one same-order row per replication"
+                            .to_owned(),
+                    ))
                 }
-                for (submission, result) in request.submissions.iter().zip(&outcome.results) {
-                    let committed_ref = match result {
-                        PeerCommittedReplicationRecord::Stored { committed_ref, .. }
-                        | PeerCommittedReplicationRecord::Duplicate { committed_ref, .. }
-                        | PeerCommittedReplicationRecord::Rejected { committed_ref, .. } => {
-                            committed_ref
-                        }
-                    };
-                    let source = &submission.committed_event.source_commit;
-                    if committed_ref.event_id != source.event_ref
-                        || committed_ref.commit_id != source.commit_id
-                        || committed_ref.stream_ref != source.stream_ref
-                        || committed_ref.stream_position != source.stream_position
-                    {
-                        return Err(WireError::Protocol(
-                            "replication result must name the exact same-order source commit"
-                                .to_owned(),
-                        ));
-                    }
-                }
-                Ok(())
             }
             (
                 PeerAuthoritySubmitRequest::RegisteredAtomicUnit(request),
