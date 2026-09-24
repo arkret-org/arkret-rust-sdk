@@ -88,7 +88,17 @@ pub struct HandleAttestation {
 /// data model for the SDK. The protocol response envelope
 /// (`IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// Equality is semantic, not representational: two documents are equal when
+/// their Arkret v1 normalized DID Document projections
+/// ([`normalized_did_document`]) are equal, i.e. exactly when they share the
+/// same `document_digest` (arkret-spec `did-usage-and-verification.md` §5.1).
+/// `raw_properties` is retained wire input and `updated_at` is resolver
+/// convenience metadata; neither participates beyond what the projection binds.
+/// A document that has no valid projection is only equal to a document that is
+/// field-for-field identical and likewise has no valid projection; it is never
+/// equal to a projectable document.
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DidDocument {
     pub id: Did,
@@ -1080,6 +1090,27 @@ impl<'de> Deserialize<'de> for DidDocument {
     }
 }
 
+impl PartialEq for DidDocument {
+    fn eq(&self, other: &Self) -> bool {
+        match (
+            normalized_did_document(self),
+            normalized_did_document(other),
+        ) {
+            (Ok(left), Ok(right)) => left == right,
+            (Err(_), Err(_)) => {
+                self.id == other.id
+                    && self.verification_methods == other.verification_methods
+                    && self.also_known_as == other.also_known_as
+                    && self.updated_at == other.updated_at
+                    && self.raw_properties == other.raw_properties
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for DidDocument {}
+
 impl DidDocument {
     pub fn new(id: Did, key_id: impl Into<String>, public_key: impl Into<String>) -> Self {
         Self {
@@ -1275,6 +1306,135 @@ mod tests {
             normalized_did_document_digest(&document).unwrap().as_ref(),
             "sha256:10b3e107d51b7428103becb9345faf5c250f89832aac173657b16fb3dc0328ee"
         );
+    }
+
+    fn w3c_alice_value() -> Value {
+        serde_json::json!({
+            "@context": ["https://www.w3.org/ns/did/v1"],
+            "id": "did:web:alice.example",
+            "alsoKnownAs": ["acct:alice@example.com"],
+            "verificationMethod": [{
+                "id": "did:web:alice.example#key-1",
+                "controller": "did:web:alice.example",
+                "type": "Multikey",
+                "publicKeyMultibase": "z6MkfixtureAlicePublicKey1111111111111111111"
+            }],
+            "authentication": ["did:web:alice.example#key-1"],
+            "assertionMethod": ["did:web:alice.example#key-1"],
+            "service": [{
+                "id": "did:web:alice.example#station",
+                "type": "ArkretService",
+                "serviceEndpoint": "https://ps.alice.example/",
+                "serviceKind": "station"
+            }],
+            "metadata": {"primary_handle": "alice:example.com"},
+            "updated": "2026-08-01T00:00:00Z"
+        })
+    }
+
+    #[test]
+    fn constructed_document_equals_itself_after_serde_round_trip() {
+        let original = DidDocument::new(did("alice"), "key-1", "z6MkfixtureAlice");
+        let restored: DidDocument =
+            serde_json::from_value(serde_json::to_value(&original).unwrap()).unwrap();
+        // Deserialization re-materializes the wire members as retained raw
+        // input; that representational difference is not a semantic one.
+        assert_ne!(restored.raw_properties, original.raw_properties);
+        assert_eq!(restored, original);
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn raw_w3c_document_equals_itself_after_serde_round_trip() {
+        let original: DidDocument = serde_json::from_value(w3c_alice_value()).unwrap();
+        let restored: DidDocument =
+            serde_json::from_value(serde_json::to_value(&original).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    fn raw_w3c_and_normalized_projection_forms_of_one_document_are_equal() {
+        let raw: DidDocument = serde_json::from_value(w3c_alice_value()).unwrap();
+        let projection: DidDocument =
+            serde_json::from_value(normalized_did_document(&raw).unwrap()).unwrap();
+        assert_ne!(projection.raw_properties, raw.raw_properties);
+        assert_eq!(projection, raw);
+        assert_eq!(
+            normalized_did_document_digest(&projection).unwrap(),
+            normalized_did_document_digest(&raw).unwrap()
+        );
+    }
+
+    #[test]
+    fn documents_with_different_projection_members_are_not_equal() {
+        let base: DidDocument = serde_json::from_value(w3c_alice_value()).unwrap();
+
+        let mut other_key = w3c_alice_value();
+        other_key["verificationMethod"][0]["publicKeyMultibase"] =
+            serde_json::json!("z6MkfixtureAttackerPublicKey22222222222222222");
+        let other_key: DidDocument = serde_json::from_value(other_key).unwrap();
+        assert_ne!(other_key, base);
+
+        let mut other_service = w3c_alice_value();
+        other_service["service"][0]["serviceEndpoint"] =
+            serde_json::json!("https://attacker.example/");
+        let other_service: DidDocument = serde_json::from_value(other_service).unwrap();
+        assert_ne!(other_service, base);
+
+        let mut fewer_relationships = w3c_alice_value();
+        fewer_relationships
+            .as_object_mut()
+            .unwrap()
+            .remove("authentication");
+        let fewer_relationships: DidDocument = serde_json::from_value(fewer_relationships).unwrap();
+        assert_ne!(fewer_relationships, base);
+
+        // Unknown extensions are bound losslessly by the projection.
+        let mut extension = w3c_alice_value();
+        extension["x-vendor"] = serde_json::json!({"preserve": true});
+        let extension: DidDocument = serde_json::from_value(extension).unwrap();
+        assert_ne!(extension, base);
+
+        let mut other_primary_handle = w3c_alice_value();
+        other_primary_handle["metadata"]["primary_handle"] =
+            serde_json::json!("mallory:example.com");
+        let other_primary_handle: DidDocument =
+            serde_json::from_value(other_primary_handle).unwrap();
+        assert_ne!(other_primary_handle, base);
+
+        let constructed = DidDocument::new(did("alice"), "key-1", "z6MkfixtureAlice");
+        let mut rotated = constructed.clone();
+        rotated
+            .verification_methods
+            .insert("key-1".to_owned(), "z6MkfixtureRotated".to_owned());
+        assert_ne!(rotated, constructed);
+    }
+
+    #[test]
+    fn resolver_convenience_update_time_is_outside_document_equality() {
+        let base: DidDocument = serde_json::from_value(w3c_alice_value()).unwrap();
+        let mut later = w3c_alice_value();
+        later["updated"] = serde_json::json!("2030-01-01T00:00:00Z");
+        let later: DidDocument = serde_json::from_value(later).unwrap();
+        assert_ne!(later.updated_at, base.updated_at);
+        assert_eq!(later, base);
+    }
+
+    #[test]
+    fn unprojectable_document_is_only_equal_to_an_identical_unprojectable_document() {
+        let mut invalid = w3c_alice_value();
+        invalid["authentication"] = serde_json::json!(["did:web:alice.example#missing"]);
+        let invalid: DidDocument = serde_json::from_value(invalid).unwrap();
+        assert!(normalized_did_document(&invalid).is_err());
+        assert_eq!(invalid, invalid.clone());
+
+        let valid: DidDocument = serde_json::from_value(w3c_alice_value()).unwrap();
+        assert_ne!(invalid, valid);
+        assert_ne!(valid, invalid);
+
+        let mut other_invalid = invalid.clone();
+        other_invalid.updated_at = None;
+        assert_ne!(other_invalid, invalid);
     }
 
     #[test]
