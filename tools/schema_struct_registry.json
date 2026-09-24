@@ -1032,6 +1032,22 @@
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsList",
       "schema": "keys-operations.schema.json#/$defs/keys_backups_list"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::AccountFilter",
+      "schema": "account-subscribe-frame.schema.json#/$defs/account_filter"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeyBackupSummaryEncryption",
+      "schema": "keys-operations.schema.json#/$defs/backup_metadata/properties/encryption"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeyBackupSummary",
+      "schema": "keys-operations.schema.json#/$defs/backup_metadata"
+    },
+    {
+      "rust_type": "crates/models-identity/src/account_device_signer_evidence.rs::AccountDeviceSignerEvidence",
+      "schema": "account-device-signer-evidence.schema.json"
     }
   ],
   "exemptions": [

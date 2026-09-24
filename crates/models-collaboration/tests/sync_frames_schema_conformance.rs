@@ -867,6 +867,7 @@ fn account_current_result_matches_its_schema_shape_and_order() {
             "stream_heads": [realm_stream_head(REALM_A)],
             "entries": [{
                 "selector": {"kind": "realm_profile"},
+                "source_stream_ref": {"kind": "realm", "realm_id": REALM_A},
                 "revision": {"commit_id": COMMIT_A, "stream_position": 12},
                 "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
             }],
@@ -880,6 +881,7 @@ fn account_current_result_matches_its_schema_shape_and_order() {
 fn account_current_result_refuses_two_values_for_one_selector() {
     let entry = json!({
         "selector": {"kind": "realm_profile"},
+        "source_stream_ref": {"kind": "realm", "realm_id": REALM_A},
         "revision": {"commit_id": COMMIT_A, "stream_position": 12},
         "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
     });
