@@ -819,7 +819,15 @@ pub struct CurrentRevision {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
+    RealmGenesis,
+    RealmAuthorityRoot,
     RealmProfile,
+    RealmPolicyBundle,
+    RealmJoinRule,
+    RealmHistoryAccess,
+    RealmDiscovery,
+    RealmAlias,
+    RealmPlaintextVisibleServices,
     RealmPolicy,
     Policy {
         policy_id: PolicyId,
@@ -862,7 +870,15 @@ pub enum CurrentSelector {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum FlatCurrentSelector {
+    RealmGenesis,
+    RealmAuthorityRoot,
     RealmProfile,
+    RealmPolicyBundle,
+    RealmJoinRule,
+    RealmHistoryAccess,
+    RealmDiscovery,
+    RealmAlias,
+    RealmPlaintextVisibleServices,
     RealmPolicy,
     DeviceAuthorization {
         device_id: DeviceId,
@@ -928,11 +944,52 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 }
                 Ok(Self::DeviceGeneration)
             }
+            Some(
+                kind @ ("realm_genesis"
+                | "realm_authority_root"
+                | "realm_profile"
+                | "realm_policy_bundle"
+                | "realm_join_rule"
+                | "realm_history_access"
+                | "realm_discovery"
+                | "realm_alias"
+                | "realm_plaintext_visible_services"
+                | "realm_policy"),
+            ) => {
+                if wire.len() != 1 {
+                    return Err(serde::de::Error::custom(format!(
+                        "{kind} selector has no subject fields"
+                    )));
+                }
+                Ok(match kind {
+                    "realm_genesis" => Self::RealmGenesis,
+                    "realm_authority_root" => Self::RealmAuthorityRoot,
+                    "realm_profile" => Self::RealmProfile,
+                    "realm_policy_bundle" => Self::RealmPolicyBundle,
+                    "realm_join_rule" => Self::RealmJoinRule,
+                    "realm_history_access" => Self::RealmHistoryAccess,
+                    "realm_discovery" => Self::RealmDiscovery,
+                    "realm_alias" => Self::RealmAlias,
+                    "realm_plaintext_visible_services" => Self::RealmPlaintextVisibleServices,
+                    "realm_policy" => Self::RealmPolicy,
+                    _ => unreachable!(),
+                })
+            }
             _ => {
                 let flat = serde_json::from_value::<FlatCurrentSelector>(Value::Object(wire))
                     .map_err(serde::de::Error::custom)?;
                 Ok(match flat {
+                    FlatCurrentSelector::RealmGenesis => Self::RealmGenesis,
+                    FlatCurrentSelector::RealmAuthorityRoot => Self::RealmAuthorityRoot,
                     FlatCurrentSelector::RealmProfile => Self::RealmProfile,
+                    FlatCurrentSelector::RealmPolicyBundle => Self::RealmPolicyBundle,
+                    FlatCurrentSelector::RealmJoinRule => Self::RealmJoinRule,
+                    FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
+                    FlatCurrentSelector::RealmDiscovery => Self::RealmDiscovery,
+                    FlatCurrentSelector::RealmAlias => Self::RealmAlias,
+                    FlatCurrentSelector::RealmPlaintextVisibleServices => {
+                        Self::RealmPlaintextVisibleServices
+                    }
                     FlatCurrentSelector::RealmPolicy => Self::RealmPolicy,
                     FlatCurrentSelector::DeviceAuthorization { device_id } => {
                         Self::DeviceAuthorization { device_id }
@@ -1636,6 +1693,37 @@ mod tests {
 
     use super::*;
     use crate::{DidCoreId, EventKind, test_support};
+
+    #[test]
+    fn ordinary_realm_bootstrap_current_selectors_match_closed_result_shapes() {
+        for (selector, kind) in [
+            (CurrentSelector::RealmGenesis, "realm_genesis"),
+            (CurrentSelector::RealmAuthorityRoot, "realm_authority_root"),
+            (CurrentSelector::RealmProfile, "realm_profile"),
+            (CurrentSelector::RealmPolicyBundle, "realm_policy_bundle"),
+            (CurrentSelector::RealmJoinRule, "realm_join_rule"),
+            (CurrentSelector::RealmHistoryAccess, "realm_history_access"),
+            (CurrentSelector::RealmDiscovery, "realm_discovery"),
+            (CurrentSelector::RealmAlias, "realm_alias"),
+            (
+                CurrentSelector::RealmPlaintextVisibleServices,
+                "realm_plaintext_visible_services",
+            ),
+        ] {
+            let wire = json!({"kind": kind});
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+            assert!(
+                serde_json::from_value::<CurrentSelector>(
+                    json!({"kind": kind, "unexpected": true}),
+                )
+                .is_err()
+            );
+        }
+    }
 
     #[test]
     fn policy_current_selectors_round_trip_exact_closed_branches() {
