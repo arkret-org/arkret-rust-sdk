@@ -458,6 +458,11 @@ fn a_structurally_perfect_commit_signed_by_the_wrong_station_is_refused() {
         matches!(error, RealmAuthorityChainError::StationMismatch(_)),
         "{error}"
     );
+    assert_eq!(
+        error.error_code(),
+        Some(arkret_wire::ErrorCode::SignatureInvalid),
+        "a Commit from a non-current governance Station is signature_invalid"
+    );
 }
 
 /// Negative 1 — one byte changed inside the signed commit body.
@@ -677,4 +682,31 @@ fn a_commit_naming_the_wrong_installing_record_is_refused() {
         matches!(error, RealmAuthorityChainError::GenerationMismatch(_)),
         "{error}"
     );
+}
+
+/// Every variant maps to exactly the registered code the spec assigns it, and
+/// the variants the spec leaves to the calling operation carry none.
+#[test]
+fn chain_errors_map_to_registered_protocol_codes() {
+    let reason = || "reason".to_owned();
+    for (error, expected) in [
+        (
+            RealmAuthorityChainError::SignatureInvalid(reason()),
+            Some(arkret_wire::ErrorCode::SignatureInvalid),
+        ),
+        (
+            RealmAuthorityChainError::StationMismatch(reason()),
+            Some(arkret_wire::ErrorCode::SignatureInvalid),
+        ),
+        (
+            RealmAuthorityChainError::GenerationMismatch(reason()),
+            Some(arkret_wire::ErrorCode::SignatureInvalid),
+        ),
+        (RealmAuthorityChainError::MaterialIncomplete(reason()), None),
+        (RealmAuthorityChainError::ChainBroken(reason()), None),
+        (RealmAuthorityChainError::RouteMismatch(reason()), None),
+        (RealmAuthorityChainError::NotFresh(reason()), None),
+    ] {
+        assert_eq!(error.error_code(), expected, "{error:?}");
+    }
 }

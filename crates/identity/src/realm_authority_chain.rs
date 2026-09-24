@@ -86,6 +86,39 @@ pub enum RealmAuthorityChainError {
     NotFresh(String),
 }
 
+impl RealmAuthorityChainError {
+    /// The single mapping from a chain failure to the registered protocol
+    /// error code it surfaces; `None` where the spec registers no code that
+    /// covers every failure the variant carries.
+    ///
+    /// A non-governance receiver rejects an invalid governance `RealmCommit`
+    /// signature, and a Commit whose signer the verified genesis/handoff chain
+    /// does not name as the governance Station of that generation, as
+    /// `signature_invalid` (`sync/federation.md` section 3,
+    /// `ak.vector.federation.non_governance_receiver_trusts_governance_commit.v1`);
+    /// invite delivery reports every invalid signature or proof binding the
+    /// same way (`sync/invite-addressing.md` section 6 step 4). A generation
+    /// that the chain does not install, or a signed `governance_generation` /
+    /// `authority_ref` that does not bind to the installing record, is that
+    /// signer-authority binding failure.
+    ///
+    /// `MaterialIncomplete`, `ChainBroken`, `RouteMismatch` and `NotFresh` have
+    /// no registered code: they mix structural, resolution, freshness and
+    /// verifier-local causes, so the calling operation classifies them.
+    #[must_use]
+    pub const fn error_code(&self) -> Option<arkret_wire::ErrorCode> {
+        match self {
+            Self::SignatureInvalid(_) | Self::StationMismatch(_) | Self::GenerationMismatch(_) => {
+                Some(arkret_wire::ErrorCode::SignatureInvalid)
+            }
+            Self::MaterialIncomplete(_)
+            | Self::ChainBroken(_)
+            | Self::RouteMismatch(_)
+            | Self::NotFresh(_) => None,
+        }
+    }
+}
+
 /// Fail-closed outcomes when several untrusted locators have each produced a
 /// cryptographically verified authority result.
 ///

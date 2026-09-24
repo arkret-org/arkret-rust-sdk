@@ -334,6 +334,10 @@
       "schema": "invite-delivery.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteDeliveryRequestBody",
+      "schema": "invite-delivery-request.schema.json"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::JoinGateProof",
       "schema": "event-payload.schema.json#/$defs/join_gate_proof"
     },

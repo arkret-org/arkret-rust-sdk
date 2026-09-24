@@ -32,30 +32,39 @@ pub struct RealmJoinTarget {
 
 impl RealmJoinTarget {
     pub fn validate(&self) -> Result<()> {
-        if self.authority_locator_hints.is_empty() || self.authority_locator_hints.len() > 8 {
-            return Err(WireError::Protocol(
-                "realm join requires 1..=8 authority locator hints".to_owned(),
-            ));
-        }
         if self.invite_id.is_some() != self.invite_token.is_some() {
             return Err(WireError::Protocol(
                 "invite_id and invite_token must appear together".to_owned(),
             ));
         }
-        for (index, hint) in self.authority_locator_hints.iter().enumerate() {
-            hint.validate()?;
-            if index > 0
-                && self.authority_locator_hints[index - 1].service_id.as_str()
-                    >= hint.service_id.as_str()
-            {
-                return Err(WireError::Protocol(
-                    "authority locator hints must be strictly sorted by service_id with no duplicate identity"
-                        .to_owned(),
-                ));
-            }
-        }
-        Ok(())
+        validate_authority_locator_hints(&self.authority_locator_hints)
     }
+}
+
+/// Registered `maxItems` bound of every `authority_locator_hints` array.
+pub const AUTHORITY_LOCATOR_HINTS_MAX: usize = 8;
+
+/// Validates one `authority_locator_hints` array exactly as every carrier that
+/// references `realm-join-candidate.schema.json` registers it: one to eight
+/// closed locator cores, strictly sorted by `service_id` UTF-8 bytes, with
+/// `service_id` as the semantic identity key. A duplicate or a conflicting
+/// representation of one `service_id` invalidates the whole array.
+pub fn validate_authority_locator_hints(hints: &[RealmJoinCandidate]) -> Result<()> {
+    if hints.is_empty() || hints.len() > AUTHORITY_LOCATOR_HINTS_MAX {
+        return Err(WireError::Protocol(
+            "authority_locator_hints requires 1..=8 locator cores".to_owned(),
+        ));
+    }
+    for (index, hint) in hints.iter().enumerate() {
+        hint.validate()?;
+        if index > 0 && hints[index - 1].service_id.as_str() >= hint.service_id.as_str() {
+            return Err(WireError::Protocol(
+                "authority locator hints must be strictly sorted by service_id with no duplicate identity"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

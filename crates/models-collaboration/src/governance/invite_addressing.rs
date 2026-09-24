@@ -9,13 +9,15 @@ use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarr
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AccountId, ActorId, BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId,
-    InviteReceiveAction, RealmId, Result, SchemaId, UnknownInviteAction, WireError,
+    AccountId, ActorId, BlobRef, CommitStreamRef, DidCoreId, EventId, Hash, InviteId,
+    InviteLocatorId, InviteReceiveAction, RealmCommit, RealmId, Result, SchemaId,
+    UnknownInviteAction, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 pub use super::holder_quarantine::*;
+use super::realm_join_intake::{RealmJoinCandidate, validate_authority_locator_hints};
 use crate::serde_absence::{deserialize_non_null_optional, deserialize_present_nullable};
 
 pub const INVITE_RECIPIENT_SERVICE_KIND_STATION: &str = "station";
@@ -402,11 +404,20 @@ impl IntroductionEvidence {
     }
 }
 
+/// Private service-to-service invite delivery request
+/// (`invite-delivery-request.schema.json`).
+///
+/// The current Realm governance Station emits it after committing the invite
+/// Event. `invite_commit` is the Realm-stream authority commit of exactly that
+/// Event; `authority_locator_hints` are untrusted discovery hints only. Field
+/// declaration order is the schema `properties` order.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryRequestBody {
     pub schema: String,
     pub invite_event: Event,
+    pub invite_commit: RealmCommit,
+    pub authority_locator_hints: Vec<RealmJoinCandidate>,
     pub invite_address: InviteAddress,
     pub introduction_evidence: IntroductionEvidence,
     pub idempotency_key: String,
@@ -441,6 +452,8 @@ impl SelfInviteDispatchRequestBody {
 impl InviteDeliveryRequestBody {
     pub fn new(
         invite_event: Event,
+        invite_commit: RealmCommit,
+        authority_locator_hints: Vec<RealmJoinCandidate>,
         invite_address: InviteAddress,
         introduction_evidence: IntroductionEvidence,
         idempotency_key: impl Into<String>,
@@ -448,23 +461,47 @@ impl InviteDeliveryRequestBody {
         Self {
             schema: SchemaId::INVITE_DELIVERY_REQUEST_V1.to_owned(),
             invite_event,
+            invite_commit,
+            authority_locator_hints,
             invite_address,
             introduction_evidence,
             idempotency_key: idempotency_key.into(),
         }
     }
 
+    /// Wire-local checks that need no key material: the schema discriminator,
+    /// the idempotency key bounds, the Realm-stream `invite_commit` addressing
+    /// exactly `invite_event`, the locator-hint array contract, and the invite
+    /// address carrier. Signature, governance authority and producer proof
+    /// verification remain the receiver's responsibility.
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != SchemaId::INVITE_DELIVERY_REQUEST_V1 {
             return Err(WireError::Protocol(
                 "invite_delivery_request.schema mismatch".to_owned(),
             ));
         }
-        if self.idempotency_key.trim().is_empty() {
+        if self.idempotency_key.trim().is_empty() || self.idempotency_key.chars().count() > 256 {
             return Err(WireError::Protocol(
-                "invite_delivery_request.idempotency_key MUST NOT be empty".to_owned(),
+                "invite_delivery_request.idempotency_key MUST be 1..=256 characters".to_owned(),
             ));
         }
+        self.invite_commit.validate_shape()?;
+        if self.invite_commit.event_ref != self.invite_event.event_id {
+            return Err(WireError::Protocol(
+                "invite_delivery_request.invite_commit.event_ref MUST equal invite_event.event_id"
+                    .to_owned(),
+            ));
+        }
+        if !matches!(
+            &self.invite_commit.stream_ref,
+            CommitStreamRef::Realm { realm_id } if *realm_id == self.invite_event.realm_id
+        ) {
+            return Err(WireError::Protocol(
+                "invite_delivery_request.invite_commit MUST be on the invite Event's Realm stream"
+                    .to_owned(),
+            ));
+        }
+        validate_authority_locator_hints(&self.authority_locator_hints)?;
         self.invite_address.validate()
     }
 }
