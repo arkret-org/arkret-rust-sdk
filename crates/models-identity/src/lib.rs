@@ -9,6 +9,7 @@
 //! shapes and type-local invariants only.
 
 pub mod account;
+pub mod account_device_signer_evidence;
 pub mod actor_profile;
 pub mod actor_profile_operations;
 pub mod admin_grant;
@@ -41,6 +42,7 @@ pub mod session_credential;
 pub mod signer_key_operations;
 
 pub use account::*;
+pub use account_device_signer_evidence::*;
 pub use actor_profile::*;
 pub use actor_profile_operations::*;
 pub use admin_grant::*;
