@@ -18,7 +18,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::sync_frames::account_subscribe::{
-    AccountSubscribeFrame, AgentDraftPendingIntent, AgentDraftPendingIntentChange,
+    AccountFilter, AccountSubscribeFrame, AgentDraftPendingIntent, AgentDraftPendingIntentChange,
     AgentDraftPendingIntentContainer, AgentDraftPendingIntentRemoval, RealmDetailBaseline,
     RealmSyncEntry, RealmSyncEventState,
 };
@@ -1294,7 +1294,7 @@ fn websocket_account_open_parameters_keep_the_wait_for_branch_order() {
     let parameters = WebSocketAccountOpenParameters {
         after: Some("ak:cursor:abc".to_owned()),
         catchup: Some(true),
-        filter: Some(serde_json::from_value(json!({"timeline_limit": 20})).unwrap()),
+        filter: Some(serde_json::from_value(json!({"window_limit": 20})).unwrap()),
         wait_for: Some("ak:cursor:def".to_owned()),
         realm_list: Some(serde_json::from_value(json!({"limit": 20})).unwrap()),
         replace_filter: Some(true),
@@ -1319,6 +1319,147 @@ fn websocket_account_open_parameters_keep_the_wait_for_branch_order() {
         .map(|(key, _)| key)
         .collect::<Vec<_>>();
     assert_eq!(declaration_order(&parameters), branch_properties);
+}
+
+const CIRCLE_B: &str = "ak:circle:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
+
+fn sidecar_id(seed: u8) -> String {
+    arkret_wire::SidecarId::from_event_id(&arkret_wire::EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        [seed; 32],
+    ))
+    .to_string()
+}
+
+fn full_account_filter() -> Value {
+    json!({
+        "realm_ids": [REALM_A, REALM_B],
+        "strand_ids": [STRAND],
+        "stream_refs": [
+            {"kind": "realm", "realm_id": REALM_A},
+            {"kind": "circle", "realm_id": REALM_B, "circle_id": CIRCLE_B},
+        ],
+        "window_limit": 100,
+        "lazy_load_members": false,
+        "include_redundant_members": true,
+        "event_kinds": ["ak.message.create"],
+        "not_event_kinds": ["ak.realm.set_default_strand"],
+    })
+}
+
+#[test]
+fn account_filter_is_the_formal_schema_object_in_declaration_order() {
+    let value = full_account_filter();
+    let filter: AccountFilter = round_trip(ACCOUNT_FRAME, "#/$defs/account_filter", value.clone());
+    filter.validate().unwrap();
+    assert_field_order(&filter, ACCOUNT_FRAME, &["$defs", "account_filter"]);
+    // The same closed object is the WebSocket account-open filter.
+    validate_fragment(WEBSOCKET_FRAME, "#/$defs/account_filter", &value);
+    // Omitted members keep their schema defaults and serialize as absent.
+    let empty: AccountFilter = round_trip(ACCOUNT_FRAME, "#/$defs/account_filter", json!({}));
+    empty.validate().unwrap();
+    for limit in [0, 100] {
+        let bounded: AccountFilter = round_trip(
+            ACCOUNT_FRAME,
+            "#/$defs/account_filter",
+            json!({"window_limit": limit}),
+        );
+        bounded.validate().unwrap();
+    }
+}
+
+/// Every negative is rejected by both the published schema and the DTO
+/// (deserialize, then `validate`). The retired `timeline_limit` member has no
+/// alias and no dual read: it is an unknown member on both sides.
+#[test]
+fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
+    let with = |key: &str, member: Value| {
+        let mut value = full_account_filter();
+        value[key] = member;
+        value
+    };
+    let mut retired = full_account_filter();
+    retired.as_object_mut().unwrap().remove("window_limit");
+    retired["timeline_limit"] = json!(20);
+    let negatives = [
+        ("retired timeline_limit", retired),
+        ("bare timeline_limit", json!({"timeline_limit": 20})),
+        ("window_limit above 100", with("window_limit", json!(101))),
+        ("negative window_limit", with("window_limit", json!(-1))),
+        (
+            "duplicate stream_refs",
+            with(
+                "stream_refs",
+                json!([
+                    {"kind": "realm", "realm_id": REALM_A},
+                    {"kind": "realm", "realm_id": REALM_A},
+                ]),
+            ),
+        ),
+        (
+            "65 stream_refs",
+            with(
+                "stream_refs",
+                Value::Array(
+                    (0..65u8)
+                        .map(|index| {
+                            json!({
+                                "kind": "sidecar",
+                                "realm_id": REALM_A,
+                                "sidecar_id": sidecar_id(index),
+                            })
+                        })
+                        .collect(),
+                ),
+            ),
+        ),
+        (
+            "open stream_ref",
+            with(
+                "stream_refs",
+                json!([{"kind": "realm", "realm_id": REALM_A, "extra": true}]),
+            ),
+        ),
+        (
+            "non-boolean include_redundant_members",
+            with("include_redundant_members", json!("yes")),
+        ),
+        (
+            "single-segment event kind",
+            with("event_kinds", json!(["ak.message"])),
+        ),
+        (
+            "digit-led event kind segment",
+            with("not_event_kinds", json!(["ak.message.1create"])),
+        ),
+        (
+            "duplicate realm_ids",
+            with("realm_ids", json!([REALM_A, REALM_A])),
+        ),
+        ("null realm_ids", with("realm_ids", Value::Null)),
+        ("null stream_refs", with("stream_refs", Value::Null)),
+        ("null window_limit", with("window_limit", Value::Null)),
+    ];
+    for (case, value) in negatives {
+        reject_fragment(ACCOUNT_FRAME, "#/$defs/account_filter", &value);
+        let dto = serde_json::from_value::<AccountFilter>(value.clone());
+        assert!(
+            dto.is_err() || dto.unwrap().validate().is_err(),
+            "{case}: the DTO accepted a filter the schema rejects",
+        );
+    }
+
+    // The Realm-membership rule of `stream_refs` is normative prose, not a
+    // schema keyword: the schema admits the shape and the DTO refuses it.
+    let foreign = with(
+        "stream_refs",
+        json!([{"kind": "realm", "realm_id": REALM_B}]),
+    );
+    let mut foreign = foreign;
+    foreign["realm_ids"] = json!([REALM_A]);
+    validate_fragment(ACCOUNT_FRAME, "#/$defs/account_filter", &foreign);
+    let parsed: AccountFilter = serde_json::from_value(foreign).unwrap();
+    assert!(parsed.validate().is_err());
 }
 
 #[test]

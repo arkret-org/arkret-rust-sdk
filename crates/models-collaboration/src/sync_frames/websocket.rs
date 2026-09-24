@@ -250,7 +250,7 @@ impl WebSocketFrameIngress {
 
 use crate::string_marker;
 use crate::sync_frames::account_subscribe::{
-    AccountSubscribeFrame, AccountSubscribeFrameKind, RealmListRequest, SyncFilter,
+    AccountFilter, AccountSubscribeFrame, AccountSubscribeFrameKind, RealmListRequest,
 };
 use crate::sync_frames::committed_event_subscribe::{
     CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
@@ -322,7 +322,7 @@ pub struct WebSocketAccountOpenParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub catchup: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub filter: Option<SyncFilter>,
+    pub filter: Option<AccountFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_for: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

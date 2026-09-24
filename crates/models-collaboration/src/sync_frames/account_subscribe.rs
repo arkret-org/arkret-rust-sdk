@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
-    AccountId, ActorId, CommittedEventView, Cursor, DidCoreId, Event, EventId, Hash, RealmId,
-    Result, SchemaId, StrandId, WireError, canonical,
+    AccountId, ActorId, CommitStreamRef, CommittedEventView, Cursor, DidCoreId, Event, EventId,
+    Hash, RealmId, Result, SchemaId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,7 @@ pub struct SyncRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub catchup: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub filter: Option<SyncFilter>,
+    pub filter: Option<AccountFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_list: Option<RealmListRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -100,24 +100,101 @@ impl SyncRequestBody {
     }
 }
 
+/// The Account subscribe filter,
+/// `account-subscribe-frame.schema.json#/$defs/account_filter`.
+///
+/// Field declaration order is byte-for-byte the schema `properties` order.
+/// `window_limit` is the per-visible-stream item ceiling of a stream window,
+/// never a per-Realm budget. `stream_refs` optionally selects the window's
+/// stream set; every entry must belong to a Realm named in `realm_ids`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SyncFilter {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+pub struct AccountFilter {
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub realm_ids: Option<Vec<RealmId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub strand_ids: Option<Vec<StrandId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeline_limit: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stream_refs: Option<Vec<CommitStreamRef>>,
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub window_limit: Option<u32>,
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub lazy_load_members: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub include_redundant_members: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub event_kinds: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_member",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub not_event_kinds: Option<Vec<String>>,
 }
 
-impl SyncFilter {
+/// A member that is present must carry a value of its type: `null` is not an
+/// absent member, and the schema admits no `null` for any filter member.
+fn present_member<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+/// `websocket-frame.schema.json#/$defs/event_kind`:
+/// `^ak\.[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$`, at most 128 bytes.
+fn validate_filter_event_kind(value: &str, field: &str) -> Result<()> {
+    let valid = value.len() <= 128
+        && value.strip_prefix("ak.").is_some_and(|suffix| {
+            let segments = suffix.split('.').collect::<Vec<_>>();
+            segments.len() >= 2
+                && segments.iter().all(|segment| {
+                    let mut bytes = segment.bytes();
+                    bytes.next().is_some_and(|first| first.is_ascii_lowercase())
+                        && bytes.all(|byte| {
+                            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
+                        })
+                })
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(protocol_error(format!(
+            "{field} contains an invalid Event kind"
+        )))
+    }
+}
+
+impl AccountFilter {
     pub fn validate(&self) -> Result<()> {
         bounded_unique(
             self.realm_ids.as_deref().unwrap_or_default(),
@@ -129,14 +206,30 @@ impl SyncFilter {
             32,
             "filter.strand_ids",
         )?;
+        if let Some(stream_refs) = &self.stream_refs {
+            bounded_unique(stream_refs, 64, "filter.stream_refs")?;
+            let realms = self.realm_ids.as_deref().unwrap_or_default();
+            if stream_refs
+                .iter()
+                .any(|stream_ref| !realms.contains(stream_ref.realm_id()))
+            {
+                return Err(protocol_error(
+                    "filter.stream_refs names a Realm absent from filter.realm_ids",
+                ));
+            }
+        }
+        if self.window_limit.is_some_and(|limit| limit > 100) {
+            return Err(protocol_error("filter.window_limit must be <= 100"));
+        }
         for (field, values) in [
             ("filter.event_kinds", &self.event_kinds),
             ("filter.not_event_kinds", &self.not_event_kinds),
         ] {
-            bounded_unique(values.as_deref().unwrap_or_default(), 64, field)?;
-        }
-        if self.timeline_limit.is_some_and(|limit| limit > 100) {
-            return Err(protocol_error("timeline_limit must be <= 100"));
+            let values = values.as_deref().unwrap_or_default();
+            bounded_unique(values, 64, field)?;
+            for value in values {
+                validate_filter_event_kind(value, field)?;
+            }
         }
         Ok(())
     }

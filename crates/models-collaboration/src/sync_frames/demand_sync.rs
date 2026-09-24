@@ -36,10 +36,10 @@ pub const ACCOUNT_SYNC_MAX_STRANDS: usize = 32;
 pub const ACCOUNT_SYNC_MAX_KIND_FILTERS: usize = 64;
 /// Default Realm-list page size when the request does not name one.
 pub const ACCOUNT_SYNC_DEFAULT_LIST_LIMIT: u32 = 20;
-/// Default per-Realm timeline ceiling when the filter does not name one.
-pub const ACCOUNT_SYNC_DEFAULT_TIMELINE_LIMIT: u32 = 20;
-/// Protocol ceiling on `filter.timeline_limit`.
-pub const ACCOUNT_SYNC_MAX_TIMELINE_LIMIT: u32 = 100;
+/// Default per-visible-stream `filter.window_limit` when the filter omits it.
+pub const ACCOUNT_SYNC_DEFAULT_WINDOW_LIMIT: u32 = 20;
+/// Protocol ceiling on `filter.window_limit`.
+pub const ACCOUNT_SYNC_MAX_WINDOW_LIMIT: u32 = 100;
 
 pub(crate) fn protocol_error(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())

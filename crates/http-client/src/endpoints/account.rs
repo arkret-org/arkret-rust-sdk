@@ -549,7 +549,7 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::account_subscribe::SyncFilter;
+    use arkret_models_collaboration::sync_frames::account_subscribe::AccountFilter;
     use url::Url;
 
     use super::*;
@@ -1147,9 +1147,9 @@ mod tests {
     #[test]
     fn account_subscribe_filter_extensions_are_closed_at_parse() {
         assert!(
-            serde_json::from_value::<SyncFilter>(serde_json::json!({"custom":{"nested":true}}))
+            serde_json::from_value::<AccountFilter>(serde_json::json!({"custom":{"nested":true}}))
                 .is_err()
         );
-        assert!(serde_json::from_value::<SyncFilter>(serde_json::json!({"realms":[]})).is_err());
+        assert!(serde_json::from_value::<AccountFilter>(serde_json::json!({"realms":[]})).is_err());
     }
 }
