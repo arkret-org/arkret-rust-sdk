@@ -984,6 +984,12 @@ pub enum CurrentSelector {
     MlsGroup {
         scope_ref: ScopeRef,
     },
+    /// One Capability Grant's complete projection, keyed by its
+    /// create-derived id
+    /// (`typed-current-result.schema.json#/$defs/capability_grant_result`).
+    CapabilityGrant {
+        grant_id: GrantId,
+    },
     /// One Invite's process-state register
     /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
     InviteLifecycle {
@@ -1075,6 +1081,12 @@ enum FlatCurrentSelector {
     },
     MlsGroup {
         scope_ref: ScopeRef,
+    },
+    /// One Capability Grant's complete projection, keyed by its
+    /// create-derived id
+    /// (`typed-current-result.schema.json#/$defs/capability_grant_result`).
+    CapabilityGrant {
+        grant_id: GrantId,
     },
     /// One Invite's process-state register
     /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
@@ -1224,6 +1236,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::ObjectRedaction { target_ref }
                     }
                     FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
+                    FlatCurrentSelector::CapabilityGrant { grant_id } => {
+                        Self::CapabilityGrant { grant_id }
+                    }
                     FlatCurrentSelector::InviteLifecycle { invite_id } => {
                         Self::InviteLifecycle { invite_id }
                     }
@@ -2310,6 +2325,32 @@ mod tests {
     }
 
     #[test]
+    fn capability_grant_selector_round_trips_and_rejects_foreign_subjects() {
+        let grant_id =
+            GrantId::new("ak:grant:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let selector = CurrentSelector::CapabilityGrant {
+            grant_id: grant_id.clone(),
+        };
+        let wire = json!({"kind":"capability_grant","grant_id":grant_id});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        let realm = "ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        for invalid in [
+            json!({"kind":"capability_grant"}),
+            json!({"kind":"capability_grant","grant_id":"ak:capability:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+            json!({"kind":"capability_grant","grant_id":grant_id,"realm_id":realm}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
     fn invite_current_selectors_round_trip_and_reject_foreign_subjects() {
         let invite_id =
             InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
@@ -2488,6 +2529,7 @@ mod tests {
             ("invite_lifecycle", 2),
             ("invite_live_target", 2),
             ("invite_directed_invitee", 2),
+            ("capability_grant", 2),
         ] {
             let branch = branches
                 .iter()
