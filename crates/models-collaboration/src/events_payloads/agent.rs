@@ -158,14 +158,13 @@ impl AgentActionApprovePayload {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_action_reject_payload`.
+/// The only rejection target is one action request; a draft's workflow
+/// state is controller-encrypted Account Data, never a Station target.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionRejectPayload {
     pub rejection_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub draft_id: Option<String>,
+    pub request_id: String,
     pub agent_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
