@@ -1620,6 +1620,94 @@ impl StreamScanOutcome {
     }
 }
 
+/// Maximum rows in one `ak.self.realm.read.streams.v1` page.
+pub const REALM_STREAM_LIST_MAX_ITEMS: usize = 500;
+
+/// One established authority stream the caller may know exists
+/// (`realm-read-operations.schema.json#/$defs/realm_stream_row`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmStreamRow {
+    pub stream_ref: CommitStreamRef,
+    pub head_commit_ref: RealmCommitId,
+    pub next_position: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readable_floor: Option<ReadableFloor>,
+}
+
+/// ACL-filtered stream enumeration page
+/// (`realm-read-operations.schema.json#/$defs/realm_stream_list`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmStreamList {
+    pub realm_id: RealmId,
+    pub streams: Vec<RealmStreamRow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
+impl RealmStreamList {
+    /// Check the page invariants of the closed schema and its operation:
+    /// rows belong to the Realm, are strictly ordered by the unsigned bytes of
+    /// RFC 8785 JCS(stream_ref), carry an established head, and `has_more`
+    /// agrees with the continuation cursor.
+    pub fn validate(&self) -> Result<()> {
+        if self.streams.len() > REALM_STREAM_LIST_MAX_ITEMS {
+            return Err(WireError::Protocol(format!(
+                "realm stream list carries more than {REALM_STREAM_LIST_MAX_ITEMS} rows"
+            )));
+        }
+        if self.has_more != self.next_cursor.is_some() {
+            return Err(WireError::Protocol(
+                "realm stream list has_more must agree with next_cursor".to_owned(),
+            ));
+        }
+        if let Some(cursor) = &self.next_cursor {
+            let handle = cursor.strip_prefix("ak:cursor:").unwrap_or_default();
+            if handle.is_empty()
+                || !handle
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+            {
+                return Err(WireError::Protocol(
+                    "realm stream list next_cursor is not an opaque ak:cursor token".to_owned(),
+                ));
+            }
+        }
+        let mut previous: Option<Vec<u8>> = None;
+        for row in &self.streams {
+            if row.stream_ref.realm_id() != &self.realm_id {
+                return Err(WireError::Protocol(
+                    "realm stream list row belongs to another Realm".to_owned(),
+                ));
+            }
+            if row.next_position == 0 {
+                return Err(WireError::Protocol(
+                    "realm stream list row has no established Commit chain".to_owned(),
+                ));
+            }
+            if let Some(floor) = &row.readable_floor
+                && ((floor.floor_reason == ReadableFloorReason::StreamStart)
+                    != (floor.oldest_position == 0)
+                    || floor.oldest_position >= row.next_position)
+            {
+                return Err(WireError::Protocol(
+                    "realm stream list readable_floor is outside the stream".to_owned(),
+                ));
+            }
+            let key = arkret_canonical::canonical::canonical_json_bytes(&row.stream_ref)?;
+            if previous.as_ref().is_some_and(|previous| previous >= &key) {
+                return Err(WireError::Protocol(
+                    "realm stream list rows must be strictly ordered by JCS(stream_ref)".to_owned(),
+                ));
+            }
+            previous = Some(key);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityBundleRequest {
@@ -2265,5 +2353,99 @@ mod tests {
         // symmetric expiry lower bound used by temporal constraints.
         validate_approval_timestamp(verification_time - TimeDelta::days(365), verification_time)
             .unwrap();
+    }
+
+    #[test]
+    fn realm_stream_list_enforces_order_floor_and_continuation() {
+        let realm_id: RealmId = "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru"
+            .parse()
+            .unwrap();
+        let head: RealmCommitId = "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"
+            .parse()
+            .unwrap();
+        let realm_row = RealmStreamRow {
+            stream_ref: CommitStreamRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            head_commit_ref: head.clone(),
+            next_position: 3,
+            readable_floor: Some(ReadableFloor {
+                oldest_position: 0,
+                floor_commit_id: head.clone(),
+                floor_reason: ReadableFloorReason::StreamStart,
+            }),
+        };
+        let page = RealmStreamList {
+            realm_id: realm_id.clone(),
+            streams: vec![realm_row.clone()],
+            next_cursor: None,
+            has_more: false,
+        };
+        page.validate().unwrap();
+        let wire = serde_json::to_value(&page).unwrap();
+        assert!(wire.get("next_cursor").is_none());
+        assert_eq!(
+            serde_json::from_value::<RealmStreamList>(wire.clone()).unwrap(),
+            page
+        );
+        let mut unknown = wire;
+        unknown["unexpected"] = json!(true);
+        assert!(serde_json::from_value::<RealmStreamList>(unknown).is_err());
+
+        let mut dangling = page.clone();
+        dangling.has_more = true;
+        assert!(dangling.validate().is_err());
+        dangling.next_cursor = Some("ak:cursor:AAAAAAAAAAAAAAAAAAAAAA".to_owned());
+        dangling.validate().unwrap();
+        dangling.next_cursor = Some("cursor".to_owned());
+        assert!(dangling.validate().is_err());
+
+        let mut empty_chain = page.clone();
+        empty_chain.streams[0].next_position = 0;
+        assert!(empty_chain.validate().is_err());
+
+        let mut floor_past_head = page.clone();
+        floor_past_head.streams[0].readable_floor = Some(ReadableFloor {
+            oldest_position: 3,
+            floor_commit_id: head.clone(),
+            floor_reason: ReadableFloorReason::MembershipJoin,
+        });
+        assert!(floor_past_head.validate().is_err());
+
+        let circle_row = RealmStreamRow {
+            stream_ref: CommitStreamRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id: "ak:circle:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
+                    .parse()
+                    .unwrap(),
+            },
+            head_commit_ref: head,
+            next_position: 1,
+            readable_floor: None,
+        };
+        let mut ordered = page.clone();
+        ordered.streams = vec![circle_row.clone(), realm_row.clone()];
+        let first = canonical_json_bytes_for_test(&ordered.streams[0].stream_ref);
+        let second = canonical_json_bytes_for_test(&ordered.streams[1].stream_ref);
+        if first > second {
+            ordered.streams.reverse();
+        }
+        ordered.validate().unwrap();
+        let mut reversed = ordered.clone();
+        reversed.streams.reverse();
+        assert!(reversed.validate().is_err());
+        let mut duplicated = page.clone();
+        duplicated.streams = vec![realm_row.clone(), realm_row];
+        assert!(duplicated.validate().is_err());
+
+        let mut foreign = page;
+        foreign.realm_id = "ak:realm:AQdknt9AByYY2gb16KB093xeB4J8b02mTEd4Mt8z2rO-"
+            .parse()
+            .unwrap();
+        assert!(foreign.validate().is_err());
+    }
+
+    fn canonical_json_bytes_for_test(value: &CommitStreamRef) -> Vec<u8> {
+        arkret_canonical::canonical::canonical_json_bytes(value).unwrap()
     }
 }

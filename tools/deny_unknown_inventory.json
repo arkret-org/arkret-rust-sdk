@@ -1,13 +1,13 @@
 {
   "summary": {
-    "total": 1303,
+    "total": 1305,
     "by_classification": {
       "A": 4,
-      "B": 728,
+      "B": 730,
       "needs_review": 571
     },
     "by_openness": {
-      "closed": 732,
+      "closed": 734,
       "unresolved": 570,
       "unspecified": 1
     },
@@ -25,7 +25,7 @@
       "schema": 10,
       "schema-conformance": 1,
       "signatures": 5,
-      "wire": 112
+      "wire": 114
     }
   },
   "entries": [
@@ -16046,10 +16046,36 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamRow",
+      "crate": "wire",
+      "file": "crates/wire/src/authority_commit.rs",
+      "line": 1629,
+      "kind": "struct",
+      "value_kind": "RealmStreamRow",
+      "spec_pointer": "realm-read-operations.schema.json#/$defs/realm_stream_row",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamList",
+      "crate": "wire",
+      "file": "crates/wire/src/authority_commit.rs",
+      "line": 1641,
+      "kind": "struct",
+      "value_kind": "RealmStreamList",
+      "spec_pointer": "realm-read-operations.schema.json#/$defs/realm_stream_list",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/wire/src/authority_commit.rs::AuthorityBundleRequest",
       "crate": "wire",
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 1624,
+      "line": 1712,
       "kind": "struct",
       "value_kind": "AuthorityBundleRequest",
       "spec_pointer": "authority-commit-operations.schema.json#/$defs/authority_bundle_request",
@@ -16062,7 +16088,7 @@
       "rust_type": "crates/wire/src/authority_commit.rs::AuthorityHandoffRequest",
       "crate": "wire",
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 1642,
+      "line": 1730,
       "kind": "struct",
       "value_kind": "AuthorityHandoffRequest",
       "spec_pointer": null,

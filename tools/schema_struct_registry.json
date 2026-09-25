@@ -1060,6 +1060,14 @@
     {
       "rust_type": "crates/models-identity/src/artifacts_account.rs::DeviceSummary",
       "schema": "account-operations.schema.json#/$defs/device_summary"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamRow",
+      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamList",
+      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_list"
     }
   ],
   "exemptions": [
