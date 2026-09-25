@@ -147,7 +147,7 @@ pub fn direct_conversation_realm_create_payload(
         trust_domain,
         SecurityClass::Standard,
         governance_station_id,
-        JoinRule::Invite,
+        JoinRule::Closed,
         HistoryAccess::SinceJoin,
         Discoverability::InviteOnly,
         None,
@@ -587,5 +587,33 @@ mod founding_authority_evidence_tests {
         let evidence: DirectConversationFoundingAuthorityEvidence =
             serde_json::from_value(controller_agent_value()).unwrap();
         assert!(evidence.participants_and_founder().is_err());
+    }
+}
+
+#[cfg(test)]
+mod founding_baseline_tests {
+    use super::*;
+
+    /// contact-and-direct-conversation.md section 6.2: the genesis pins the
+    /// closed, since_join, non-discoverable Direct Conversation baseline.
+    #[test]
+    fn realm_create_payload_pins_the_fixed_baseline() {
+        let payload = direct_conversation_realm_create_payload(
+            GenesisSalt::generate().unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            Utc::now(),
+        )
+        .unwrap();
+        assert_eq!(payload.object.purpose, RealmPurpose::DirectConversation);
+        assert_eq!(payload.object.initial_join_rule, JoinRule::Closed);
+        assert_eq!(
+            payload.object.initial_history_access,
+            HistoryAccess::SinceJoin
+        );
+        assert_eq!(
+            payload.object.initial_discoverability,
+            Discoverability::InviteOnly
+        );
     }
 }
