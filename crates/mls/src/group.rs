@@ -2087,6 +2087,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(tracker.governance_binding().unwrap(), genesis);
+        assert_eq!(
+            tracker.ciphersuite_canonical_id().unwrap(),
+            group.group_ciphersuite_canonical_id().unwrap()
+        );
 
         let member = second_identity();
         let binding = transition_binding(&scope, event(9), 1);

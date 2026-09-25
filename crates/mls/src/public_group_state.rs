@@ -208,6 +208,18 @@ impl MlsPublicGroupTracker {
     pub fn epoch(&self) -> u64 {
         self.public_group.group_context().epoch().as_u64()
     }
+    /// Registered canonical id of the public GroupContext cipher suite
+    /// (`mls-ciphersuite-registry.json`); a suite without a registered row
+    /// fails closed.
+    pub fn ciphersuite_canonical_id(&self) -> Result<&'static str> {
+        if self.public_group.ciphersuite() == crate::ARKRET_MLS_CIPHERSUITE {
+            Ok(crate::ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
+        } else {
+            Err(Error::Protocol(
+                "MLS public group uses a ciphersuite with no registered canonical_id".to_owned(),
+            ))
+        }
+    }
     pub fn leaves(&self) -> Result<Vec<MlsPublicEndpointLeaf>> {
         public_leaves(&self.public_group)
     }
