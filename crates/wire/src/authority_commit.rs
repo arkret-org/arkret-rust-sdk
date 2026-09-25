@@ -975,6 +975,12 @@ pub enum CurrentSelector {
     ModerationState {
         target_ref: crate::ObjectRef,
     },
+    /// The redacted target of `ak.message.redact` (its `message_id`) or of
+    /// `ak.redaction` (its `target_ref`), spelled verbatim
+    /// (`typed-current-result.schema.json#/$defs/object_redaction_result`).
+    ObjectRedaction {
+        target_ref: crate::ObjectRef,
+    },
     MlsGroup {
         scope_ref: ScopeRef,
     },
@@ -1045,6 +1051,12 @@ enum FlatCurrentSelector {
     /// The moderated target of `ak.moderation.decision` and its lift
     /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
     ModerationState {
+        target_ref: crate::ObjectRef,
+    },
+    /// The redacted target of `ak.message.redact` (its `message_id`) or of
+    /// `ak.redaction` (its `target_ref`), spelled verbatim
+    /// (`typed-current-result.schema.json#/$defs/object_redaction_result`).
+    ObjectRedaction {
         target_ref: crate::ObjectRef,
     },
     MlsGroup {
@@ -1179,6 +1191,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     }
                     FlatCurrentSelector::ModerationState { target_ref } => {
                         Self::ModerationState { target_ref }
+                    }
+                    FlatCurrentSelector::ObjectRedaction { target_ref } => {
+                        Self::ObjectRedaction { target_ref }
                     }
                     FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
                     FlatCurrentSelector::InviteLifecycle { invite_id } => {
@@ -2113,6 +2128,33 @@ mod tests {
         for invalid in [
             json!({"kind":"moderation_state"}),
             json!({"kind":"moderation_state","target_ref":event_id,"event_id":event_id}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn object_redaction_selector_is_the_verbatim_redaction_target() {
+        let event_id = EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(b"object redaction selector"),
+        );
+        let message_id = MessageId::from_event_id(&event_id);
+        for target_ref in [message_id.to_string(), event_id.to_string()] {
+            let selector = CurrentSelector::ObjectRedaction {
+                target_ref: target_ref.clone(),
+            };
+            let wire = json!({"kind":"object_redaction","target_ref":target_ref});
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        for invalid in [
+            json!({"kind":"object_redaction"}),
+            json!({"kind":"object_redaction","message_id":message_id}),
+            json!({"kind":"object_redaction","target_ref":message_id,"realm_id":"ak:realm:x"}),
         ] {
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }

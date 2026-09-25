@@ -18,7 +18,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use super::message::ContentBlock;
+use super::message::{ContentBlock, MessageRedactPayload};
+use crate::exact_current_results::CanonicalEventDot;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.
@@ -80,6 +81,78 @@ impl<'de> Deserialize<'de> for CrossObjectRedactionPayload {
         };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
+    }
+}
+
+/// The complete redact payload one `object_redaction` assertion carries
+/// (`typed-current-result.schema.json#/$defs/object_redaction_entry`): the
+/// Message redact payload for an `ak:message:` subject, the cross-object
+/// payload for every other subject.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ObjectRedactionAssertionValue {
+    Message(MessageRedactPayload),
+    CrossObject(CrossObjectRedactionPayload),
+}
+
+impl ObjectRedactionAssertionValue {
+    /// The verbatim target spelling this assertion redacts.
+    pub fn target_ref(&self) -> &str {
+        match self {
+            Self::Message(payload) => payload.message_id.as_str(),
+            Self::CrossObject(payload) => payload.target_ref.as_str(),
+        }
+    }
+}
+
+/// One tagged `object_redaction` assertion: the accepting Event's canonical
+/// dot and its unassembled redact payload.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectRedactionEntry {
+    pub tag_id: CanonicalEventDot,
+    pub value: ObjectRedactionAssertionValue,
+}
+
+/// Closed value of the `object_redaction` typed current result
+/// (`typed-current-result.schema.json#/$defs/object_redaction_value`): the
+/// canonically sorted dot set of committed redactions of one subject. Both
+/// writers only add a dot, and the object's own `state` and `redaction_ref`
+/// are never mirrored here.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectRedactionCurrentValue {
+    pub assertions: Vec<ObjectRedactionEntry>,
+}
+
+impl ObjectRedactionCurrentValue {
+    /// Every assertion redacts exactly `target_ref`, the set is non-empty and
+    /// its dots are strictly ascending in canonical string order.
+    pub fn validate_for_subject(&self, target_ref: &str) -> Result<()> {
+        if self.assertions.is_empty() {
+            return Err(WireError::Protocol(
+                "object_redaction value has no assertion".to_owned(),
+            ));
+        }
+        if self
+            .assertions
+            .iter()
+            .any(|entry| entry.value.target_ref() != target_ref)
+        {
+            return Err(WireError::Protocol(
+                "object_redaction assertion redacts another subject".to_owned(),
+            ));
+        }
+        if self
+            .assertions
+            .windows(2)
+            .any(|pair| pair[0].tag_id.to_string() >= pair[1].tag_id.to_string())
+        {
+            return Err(WireError::Protocol(
+                "object_redaction dots are not a canonically sorted set".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -157,5 +230,76 @@ const REDACTION_DERIVED_FIELD_KEYS: &[&str] = &[
 fn strip_redaction_derived_fields(object: &mut Map<String, Value>) {
     for key in REDACTION_DERIVED_FIELD_KEYS {
         object.remove(*key);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn message_id(seed: &[u8]) -> MessageId {
+        MessageId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(seed),
+        ))
+    }
+
+    fn dot(seed: &[u8]) -> String {
+        let event_id = arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(seed),
+        );
+        format!("{event_id}:0")
+    }
+
+    #[test]
+    fn object_redaction_value_is_a_closed_sorted_set_of_one_subject() {
+        let target = message_id(b"redacted message");
+        let mut tags = [dot(b"first redact"), dot(b"second redact")];
+        tags.sort();
+        let wire = json!({"assertions": [
+            {"tag_id": tags[0], "value": {"message_id": target, "reason": "spam"}},
+            {"tag_id": tags[1], "value": {"message_id": target}},
+        ]});
+        let value: ObjectRedactionCurrentValue = serde_json::from_value(wire.clone()).unwrap();
+        value.validate_for_subject(target.as_str()).unwrap();
+        assert!(matches!(
+            value.assertions[0].value,
+            ObjectRedactionAssertionValue::Message(_)
+        ));
+        assert_eq!(serde_json::to_value(&value).unwrap(), wire);
+        assert!(
+            value
+                .validate_for_subject(message_id(b"another message").as_str())
+                .is_err()
+        );
+
+        let mut unsorted = value.clone();
+        unsorted.assertions.reverse();
+        assert!(unsorted.validate_for_subject(target.as_str()).is_err());
+        assert!(
+            ObjectRedactionCurrentValue { assertions: vec![] }
+                .validate_for_subject(target.as_str())
+                .is_err()
+        );
+
+        let event_target = dot(b"event target");
+        let event_target = event_target.trim_end_matches(":0");
+        let cross: ObjectRedactionCurrentValue = serde_json::from_value(json!({"assertions": [
+            {"tag_id": tags[0], "value": {"target_ref": event_target, "preserve": ["kind"]}},
+        ]}))
+        .unwrap();
+        cross.validate_for_subject(event_target).unwrap();
+        for invalid in [
+            json!({"assertions": [{"tag_id": tags[0], "value": {"target_ref": target}}]}),
+            json!({"assertions": [{"tag_id": tags[0].trim_end_matches(":0"), "value": {"message_id": target}}]}),
+            json!({"assertions": [{"tag_id": tags[0], "value": {"message_id": target}, "extra": 1}]}),
+            json!({"assertions": [], "subject": target}),
+        ] {
+            assert!(
+                serde_json::from_value::<ObjectRedactionCurrentValue>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
     }
 }

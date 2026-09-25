@@ -1108,6 +1108,14 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteLiveTargetOccupant",
       "schema": "typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/redaction.rs::ObjectRedactionEntry",
+      "schema": "typed-current-result.schema.json#/$defs/object_redaction_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/redaction.rs::ObjectRedactionCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/object_redaction_value"
     }
   ],
   "exemptions": [
