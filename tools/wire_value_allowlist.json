@@ -791,6 +791,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "crates/models-collaboration/src/events_payloads/registry_state.rs::SchemaDefineStatePayload.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "event-payload.schema.json#/$defs/schema_define_state_payload/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field is an open JSON Schema 2020-12 document; only $schema and $id are constrained and the executable definition validator profile checks the rest.",
+      "spec_pointer": "event-payload.schema.json#/$defs/schema_define_state_payload/properties/value"
+    },
+    {
       "finding": "crates/models-collaboration/src/events_payloads/view.rs::ViewDefinition.document",
       "classification": "open_json",
       "lifecycle": "retained_boundary",

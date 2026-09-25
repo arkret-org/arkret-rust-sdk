@@ -325,6 +325,15 @@ event_payload_accessors! {
     event_spec::RealmOwnerTransfer => (as_realm_owner_transfer, RealmOwnerTransferPayload),
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
     event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
+    event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),
+    event_spec::ActorDiscovery => (as_actor_discovery, ActorDiscoveryStatePayload, ActorDiscoveryStatePayload::validate),
+    event_spec::AppletDiscovery => (as_applet_discovery, AppletDiscoveryStatePayload, AppletDiscoveryStatePayload::validate),
+    event_spec::HandleDiscovery => (as_handle_discovery, HandleDiscoveryStatePayload, HandleDiscoveryStatePayload::validate),
+    event_spec::OrganizationDiscovery => (as_organization_discovery, OrganizationDiscoveryStatePayload, OrganizationDiscoveryStatePayload::validate),
+    event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload, |payload: &OrganizationModerationPolicyStatePayload| payload.value.validate()),
+    event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
+    event_spec::SovereignDidPolicy => (as_sovereign_did_policy, SovereignDidPolicyStatePayload, SovereignDidPolicyStatePayload::validate),
+    event_spec::DeviceListUpdate => (as_device_list_update, DeviceListUpdatePayload, DeviceListUpdatePayload::validate),
 }
 
 #[cfg(test)]
@@ -686,6 +695,23 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn every_active_standard_event_kind_has_a_typed_payload_binding() {
+        let bound = EVENT_PAYLOAD_BINDINGS
+            .iter()
+            .map(|binding| binding.kind.clone())
+            .collect::<std::collections::HashSet<_>>();
+        let unbound = EventKind::ALL
+            .iter()
+            .filter(|kind| !bound.contains(*kind))
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            unbound.is_empty(),
+            "active Event kinds without an SDK payload binding: {unbound:?}"
+        );
     }
 
     #[test]

@@ -1068,6 +1068,54 @@
     {
       "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamList",
       "schema": "realm-read-operations.schema.json#/$defs/realm_stream_list"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::ResourceDiscoveryStateValue",
+      "schema": "event-payload.schema.json#/$defs/resource_discovery_state_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::ActorDiscoveryStatePayload",
+      "schema": "event-payload.schema.json#/$defs/actor_discovery_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::AppletDiscoveryStatePayload",
+      "schema": "event-payload.schema.json#/$defs/applet_discovery_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::HandleDiscoveryStatePayload",
+      "schema": "event-payload.schema.json#/$defs/handle_discovery_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::OrganizationDiscoveryStatePayload",
+      "schema": "event-payload.schema.json#/$defs/organization_discovery_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::OrganizationDiscoveryStateValue",
+      "schema": "event-payload.schema.json#/$defs/organization_discovery_state_payload/properties/value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::PolicyActionDocument",
+      "schema": "event-payload.schema.json#/$defs/policy_action_document"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::PolicyActionStatePayload",
+      "schema": "event-payload.schema.json#/$defs/policy_action_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SchemaDefineStatePayload",
+      "schema": "event-payload.schema.json#/$defs/schema_define_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SovereignDidPolicyStatePayload",
+      "schema": "event-payload.schema.json#/$defs/sovereign_did_policy_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SovereignDidPolicyValue",
+      "schema": "event-payload.schema.json#/$defs/sovereign_did_policy_state_payload/properties/value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::DeviceListUpdatePayload",
+      "schema": "event-payload.schema.json#/$defs/device_list_update_payload"
     }
   ],
   "exemptions": [
