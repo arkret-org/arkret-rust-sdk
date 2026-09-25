@@ -8,7 +8,7 @@ use arkret_models_crypto::{
     MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
     MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsCommitPayload,
     MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsGroupStateRecord, MlsGroupStateSink,
-    MlsKeyPackageRecord, MlsProposalEnvelope, REQUIRED_ARKRET_GROUP_CAPABILITIES,
+    MlsKeyPackageRecord, REQUIRED_ARKRET_GROUP_CAPABILITIES,
     decode_keypackage_capability_extension, encode_keypackage_capability_extension,
     validate_required_keypackage_capabilities,
 };
@@ -227,14 +227,12 @@ pub struct ArkretMlsGroup {
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMemberResult {
-    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeDraft,
 }
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMembersResult {
-    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     pub welcomes: Vec<MlsWelcomeDraft>,
 }
@@ -257,7 +255,6 @@ pub struct MlsWelcomeDraft {
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
-    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     /// Raw OpenMLS leaf indices that were removed by this commit, in the
     /// order they appeared in the original group state.
@@ -960,7 +957,6 @@ impl ArkretMlsGroup {
             .next()
             .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
         Ok(MlsAddMemberResult {
-            proposals: result.proposals,
             commit: result.commit,
             welcome,
         })
@@ -994,7 +990,6 @@ impl ArkretMlsGroup {
             std::slice::from_ref(actor),
         )?;
         Ok(MlsAddMemberResult {
-            proposals: result.proposals,
             commit: result.commit,
             welcome: result.welcomes.into_iter().next().ok_or_else(|| {
                 Error::Protocol("endpoint replacement produced no Welcome".to_owned())
@@ -1042,7 +1037,6 @@ impl ArkretMlsGroup {
         }
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
-        let mut proposals = Vec::with_capacity(keypackages.len());
         // A fresh package for an existing endpoint repairs that endpoint in
         // the same winning Commit. Keeping both leaves would give one device
         // two incarnations and leave the abandoned package active.
@@ -1062,43 +1056,16 @@ impl ArkretMlsGroup {
                 "an MLS sender cannot replace its own endpoint via Add".to_owned(),
             ));
         }
-        for leaf in replacements {
-            let (message, _) = self
-                .group
-                .propose_remove_member(&self.identity.provider, &self.identity.signer, leaf)
-                .map_err(mls_error)?;
-            let bytes = message.tls_serialize_detached().map_err(mls_error)?;
-            proposals.push(MlsProposalEnvelope {
-                group_id: self.group_id(),
-                epoch: base_epoch,
-                proposal_type: "remove".to_owned(),
-                proposal: encode(&bytes),
-                proposal_digest: Hash::new(canonical::sha256_digest(&bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-            });
-        }
-        for key_package in &keypackages {
-            let (proposal_message, _proposal_ref) = self
-                .group
-                .propose_add_member(&self.identity.provider, &self.identity.signer, key_package)
-                .map_err(mls_error)?;
-            let proposal_bytes = proposal_message
-                .tls_serialize_detached()
-                .map_err(mls_error)?;
-            proposals.push(MlsProposalEnvelope {
-                group_id: self.group_id(),
-                epoch: base_epoch,
-                proposal_type: "add".to_owned(),
-                proposal: encode(&proposal_bytes),
-                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-            });
-        }
+        // Every Proposal travels inline in the one Commit
+        // (authority-commit-log.md §9): the governance Station verifies the
+        // whole public transition from the Commit bytes alone.
         let mut commit_builder = self
             .group
             .commit_builder()
-            .consume_proposal_store(true)
-            .force_self_update(true);
+            .consume_proposal_store(false)
+            .force_self_update(true)
+            .propose_removals(replacements)
+            .propose_adds(keypackages);
         if let Some(extensions) = governance_extensions {
             commit_builder = commit_builder
                 .propose_group_context_extensions(extensions)
@@ -1146,7 +1113,6 @@ impl ArkretMlsGroup {
             .collect::<Result<Vec<_>>>()?;
 
         Ok(MlsAddMembersResult {
-            proposals,
             commit: MlsCommitEnvelope {
                 group_id,
                 epoch,
@@ -1303,26 +1269,11 @@ impl ArkretMlsGroup {
 
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
-        let mut proposals = Vec::with_capacity(leaves.len());
-        for leaf in leaves {
-            let (proposal_message, _proposal_ref) = self
-                .group
-                .propose_remove_member(&self.identity.provider, &self.identity.signer, *leaf)
-                .map_err(mls_error)?;
-            let proposal_bytes = proposal_message
-                .tls_serialize_detached()
-                .map_err(mls_error)?;
-            proposals.push(MlsProposalEnvelope {
-                group_id: self.group_id(),
-                epoch: base_epoch,
-                proposal_type: "remove".to_owned(),
-                proposal: encode(&proposal_bytes),
-                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-            });
-        }
-
-        let mut commit_builder = self.group.commit_builder().consume_proposal_store(true);
+        let mut commit_builder = self
+            .group
+            .commit_builder()
+            .consume_proposal_store(false)
+            .propose_removals(leaves.iter().copied());
         if let Some(extensions) = governance_extensions {
             commit_builder = commit_builder
                 .propose_group_context_extensions(extensions)
@@ -1352,7 +1303,6 @@ impl ArkretMlsGroup {
         }
 
         Ok(MlsRemoveMemberResult {
-            proposals,
             commit: MlsCommitEnvelope {
                 group_id: self.group_id(),
                 epoch: base_epoch
@@ -1777,40 +1727,6 @@ impl ArkretMlsGroup {
         self.leaf_bindings.clear();
         Ok(applied_epoch)
     }
-
-    /// Stage an incoming by-reference MLS proposal so a subsequent
-    /// `apply_commit` that references it can resolve `MissingProposal`.
-    ///
-    /// Add and Remove commits carry their proposals out-of-band. Existing
-    /// members MUST apply each proposal through this method before applying
-    /// the referencing commit; new Add recipients join from the Welcome.
-    pub fn apply_proposal(&mut self, envelope: &MlsProposalEnvelope) -> Result<()> {
-        let proposal_bytes = decode(&envelope.proposal)?;
-        let actual_digest = canonical::sha256_digest(&proposal_bytes);
-        if actual_digest != envelope.proposal_digest.as_str() {
-            return Err(Error::Protocol("MLS Proposal hash mismatch".to_owned()));
-        }
-
-        let message =
-            MlsMessageIn::tls_deserialize_exact(proposal_bytes.as_slice()).map_err(mls_error)?;
-        let protocol_message = message
-            .try_into_protocol_message()
-            .map_err(|_| Error::Protocol("MLS Proposal is not a protocol message".to_owned()))?;
-        let processed = self
-            .group
-            .process_message(&self.identity.provider, protocol_message)
-            .map_err(mls_error)?;
-
-        match processed.into_content() {
-            ProcessedMessageContent::ProposalMessage(proposal) => {
-                self.group
-                    .store_pending_proposal(self.identity.provider.storage(), *proposal)
-                    .map_err(mls_error)?;
-                Ok(())
-            }
-            _ => Err(Error::Protocol("expected MLS Proposal".to_owned())),
-        }
-    }
 }
 
 pub(super) fn snapshot_provider_storage(
@@ -2156,6 +2072,58 @@ mod tests {
     }
 
     #[test]
+    fn public_tracker_follows_the_governed_add_commit_binding() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        assert_eq!(tracker.governance_binding().unwrap(), genesis);
+
+        let member = second_identity();
+        let binding = transition_binding(&scope, event(9), 1);
+        let added = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&added.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            previous_epoch,
+            epoch,
+            added_leaves,
+            sender_leaf,
+            ..
+        } = transition
+        else {
+            panic!("an Add Commit is a public Commit transition")
+        };
+        assert_eq!((previous_epoch, epoch), (0, 1));
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+        assert_eq!(
+            sender_leaf
+                .unwrap()
+                .actor_id
+                .signing_principal_id()
+                .as_str(),
+            "ak:did_core:web:mls.example"
+        );
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(
+            added_leaves[0].actor_id.signing_principal_id().as_str(),
+            "ak:did_core:web:mls-member.example"
+        );
+    }
+
+    #[test]
     fn outbound_commit_stays_pending_until_authority_acceptance() {
         let mut group = identity().create_group(&realm_scope()).unwrap();
         let base_epoch = group.epoch();
@@ -2189,7 +2157,7 @@ fn verify_group_context_governance_binding(
     .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
 }
 
-fn decode_group_context_governance_binding(
+pub(crate) fn decode_group_context_governance_binding(
     context: &GroupContext,
 ) -> Result<MlsGovernanceBindingPayload> {
     let extension = context

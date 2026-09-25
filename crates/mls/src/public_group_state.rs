@@ -217,6 +217,13 @@ impl MlsPublicGroupTracker {
             .tls_serialize_detached()
             .map_err(mls_error)
     }
+    /// The fixed `0xF1C0` governance binding of the current public
+    /// GroupContext (encryption-and-audit.md §2.5.1). Genesis carries the
+    /// `0 -> 0` binding; every accepted Commit replaces it with its own next
+    /// epoch binding. A context without the extension is not a governed group.
+    pub fn governance_binding(&self) -> Result<arkret_models_crypto::MlsGovernanceBindingPayload> {
+        crate::group::decode_group_context_governance_binding(self.public_group.group_context())
+    }
     /// Local persistence only. The caller binds this to its accepted base and
     /// commits snapshot + provenance atomically; this is not network evidence.
     pub fn export_state(&self) -> Result<Vec<u8>> {
