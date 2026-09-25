@@ -871,6 +871,11 @@ pub enum CurrentSelector {
     ModerationReport {
         event_id: EventId,
     },
+    /// The moderated target of `ak.moderation.decision` and its lift
+    /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
+    ModerationState {
+        target_ref: crate::ObjectRef,
+    },
     MlsGroup {
         scope_ref: ScopeRef,
     },
@@ -922,6 +927,11 @@ enum FlatCurrentSelector {
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
         event_id: EventId,
+    },
+    /// The moderated target of `ak.moderation.decision` and its lift
+    /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
+    ModerationState {
+        target_ref: crate::ObjectRef,
     },
     MlsGroup {
         scope_ref: ScopeRef,
@@ -1039,6 +1049,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     }
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
+                    }
+                    FlatCurrentSelector::ModerationState { target_ref } => {
+                        Self::ModerationState { target_ref }
                     }
                     FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
                 })
@@ -1905,6 +1918,29 @@ mod tests {
             json!({"kind":"moderation_report"}),
             json!({"kind":"moderation_report","event_id":event_id,"report_id":"forged"}),
             json!({"kind":"moderation_report","event_id":MessageId::from_event_id(&event_id)}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn moderation_state_selector_is_the_moderated_target() {
+        let event_id = EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(b"moderation state selector"),
+        );
+        let selector = CurrentSelector::ModerationState {
+            target_ref: event_id.to_string(),
+        };
+        let wire = json!({"kind":"moderation_state","target_ref":event_id});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        for invalid in [
+            json!({"kind":"moderation_state"}),
+            json!({"kind":"moderation_state","target_ref":event_id,"event_id":event_id}),
         ] {
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
