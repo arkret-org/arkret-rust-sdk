@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.1;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5
-//! Entries: active_events=144
+//! Input: registry/contract-registry.json; version=2026-09-25.2;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17
+//! Entries: active_events=143
 
 use arkret_wire::event_kind_str;
 
@@ -19,11 +19,6 @@ pub struct EventRuntimeContractDescriptor {
 }
 
 pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::ACCOUNT_BLOCKLIST,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::ACCOUNT_DATA_SET,
         id_source: None,

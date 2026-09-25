@@ -2,12 +2,12 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
 //! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
-//! contract-registry.json; version=2026-09-25.3;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5
+//! contract-registry.json; version=2026-09-25.4;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
-//! operation_surface_groups=33
+//! operation_surface_groups=34
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -499,6 +499,12 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         ],
     },
     OperationSurfaceGroupDescriptor {
+        surface: "actor_private_events",
+        surface_class: "extension",
+        profile: None,
+        operations: &[ServiceOperationId::SelfActorPrivateEventsCommandSubmitV1],
+    },
+    OperationSurfaceGroupDescriptor {
         surface: "blob_storage",
         surface_class: "extension",
         profile: None,
@@ -741,8 +747,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-25.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-25.3";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-25.2";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-25.3";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-25.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-25.4";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-25.3";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-25.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

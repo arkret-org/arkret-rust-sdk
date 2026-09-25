@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.3;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Entries: schema_ids=220,
-//! active=220
+//! Input: registry/contract-registry.json; version=2026-09-25.4;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Entries: schema_ids=221,
+//! active=221
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum SchemaId {
+    AccountBlocklistV1,
     AccountCurrentResultV1,
     AccountDataEncryptedValueV1,
     AccountDataOperationsV1,
@@ -236,6 +237,7 @@ pub enum SchemaId {
 
 impl SchemaId {
     pub const ALL: &'static [Self] = &[
+        Self::AccountBlocklistV1,
         Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
@@ -460,6 +462,7 @@ impl SchemaId {
 
     /// Rows the registry declares `active`; excludes `candidate` rows.
     pub const ACTIVE: &'static [Self] = &[
+        Self::AccountBlocklistV1,
         Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
@@ -682,6 +685,9 @@ impl SchemaId {
         Self::WebsocketWelcomeFrameV1,
     ];
 
+    /// Closed decrypted plaintext shape of the holder-private ak.account.blocklist account-data
+    /// value.
+    pub const ACCOUNT_BLOCKLIST_V1: &'static str = "ak.schema.account_blocklist.v1";
     /// Server-trusted typed current typed current result results, deterministic causal-register
     /// sources, versioned removal and exact baseline coverage.
     pub const ACCOUNT_CURRENT_RESULT_V1: &'static str = "ak.schema.account_current_result.v1";
@@ -1326,6 +1332,7 @@ impl SchemaId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountBlocklistV1 => Self::ACCOUNT_BLOCKLIST_V1,
             Self::AccountCurrentResultV1 => Self::ACCOUNT_CURRENT_RESULT_V1,
             Self::AccountDataEncryptedValueV1 => Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
             Self::AccountDataOperationsV1 => Self::ACCOUNT_DATA_OPERATIONS_V1,
@@ -1575,6 +1582,7 @@ impl SchemaId {
     /// `spec/v1/artifacts/`.
     pub const fn file(self) -> &'static str {
         match self {
+            Self::AccountBlocklistV1 => "schemas/account-blocklist.schema.json",
             Self::AccountCurrentResultV1 => "schemas/account-current-result.schema.json",
             Self::AccountDataEncryptedValueV1 => "schemas/account-data-encrypted-value.schema.json",
             Self::AccountDataOperationsV1 => "schemas/account-data-operations.schema.json",
@@ -1844,6 +1852,7 @@ impl SchemaId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACCOUNT_BLOCKLIST_V1 => Some(Self::AccountBlocklistV1),
             Self::ACCOUNT_CURRENT_RESULT_V1 => Some(Self::AccountCurrentResultV1),
             Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1 => Some(Self::AccountDataEncryptedValueV1),
             Self::ACCOUNT_DATA_OPERATIONS_V1 => Some(Self::AccountDataOperationsV1),

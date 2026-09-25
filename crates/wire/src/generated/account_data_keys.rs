@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-25.1;
-//! sha256=c08c2c437cc4d4f1d4243594851be22846ea65adc42969c452e54b77d0c6d387
+//! Input: registry/account-data-key-registry.json; version=2026-09-25.2;
+//! sha256=0056114b31b4300e5c186b0b42dc26e8fb349f18f3e44da4580087f7d1a9aaff
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -67,8 +67,9 @@ impl AccountDataKey {
         Self::ViewsPrivate,
     ];
 
-    /// Holder-private personal blocklist. It affects only the holder's local projection,
-    /// notifications, contact handling, and trusted holder-side filtering. Key pattern:
+    /// Holder-private personal blocklist, written only as an encrypted ak.account_data.set value
+    /// under the server-revision CAS. It affects only the holder's local projection, notifications,
+    /// contact handling, and trusted holder-side filtering. Key pattern:
     /// `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
     /// Actor-private plaintext holder quarantine inbox for the two admission surfaces the consent

@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "total": 170,
+  "total": 171,
   "counts": {
     "internal": 55,
-    "optional_has_default": 111,
+    "optional_has_default": 112,
     "required": 3,
     "schema_field_unknown": 1
   },
@@ -453,6 +453,18 @@
       "classification": "internal"
     },
     {
+      "file": "crates/models-collaboration/src/events_payloads/registry_state.rs",
+      "line": 411,
+      "struct_name": "DeviceListUpdatePayload",
+      "field_name": "updated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "event-payload.schema.json#/$defs/device_list_update_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
       "file": "crates/models-collaboration/src/governance/accountability.rs",
       "line": 109,
       "struct_name": "AccountabilityGrantPayload",
@@ -622,7 +634,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
-      "line": 388,
+      "line": 390,
       "struct_name": "IntroductionEvidence",
       "field_name": "resolved_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -634,7 +646,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
-      "line": 493,
+      "line": 530,
       "struct_name": "InviteDeliveryOutcome",
       "field_name": "received_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -934,20 +946,20 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1640,
-      "struct_name": "AccountBlocklistPayload",
+      "line": 1644,
+      "struct_name": "AccountBlocklistValue",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/account_blocklist_payload",
-      "schema_source": "def-index",
+      "schema_pointer": "account-blocklist.schema.json",
+      "schema_source": "doc-pointer",
       "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1655,
-      "struct_name": "AccountBlocklistPayloadEntry",
+      "line": 1659,
+      "struct_name": "AccountBlocklistEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
@@ -1474,7 +1486,7 @@
     },
     {
       "file": "crates/models-crypto/src/keys.rs",
-      "line": 185,
+      "line": 192,
       "struct_name": "DeviceAuthorizationWindow",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2038,7 +2050,7 @@
     },
     {
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 1151,
+      "line": 1264,
       "struct_name": "MemberStateCurrent",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",

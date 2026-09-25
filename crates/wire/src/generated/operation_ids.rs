@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.2;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Entries: registered=203
+//! Input: registry/contract-registry.json; version=2026-09-25.3;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Entries: registered=204
 
 use serde::{Deserialize, Serialize};
 
@@ -107,6 +107,7 @@ pub enum ServiceOperationId {
     SelfAccountDataResourceDeleteV1,
     SelfAccountDataResourceGetV1,
     SelfAccountDataResourceReplaceV1,
+    SelfActorPrivateEventsCommandSubmitV1,
     SelfActorProfileReadResolveV1,
     SelfAgentCommandDeactivateV1,
     SelfAgentCommandPauseV1,
@@ -313,6 +314,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_DELETE_V1,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_GET_V1,
     ServiceOperationId::SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1,
+    ServiceOperationId::SELF_ACTOR_PRIVATE_EVENTS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_ACTOR_PROFILE_READ_RESOLVE_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_DEACTIVATE_V1,
     ServiceOperationId::SELF_AGENT_COMMAND_PAUSE_V1,
@@ -561,6 +563,7 @@ impl ServiceOperationId {
         Self::SelfAccountDataResourceDeleteV1,
         Self::SelfAccountDataResourceGetV1,
         Self::SelfAccountDataResourceReplaceV1,
+        Self::SelfActorPrivateEventsCommandSubmitV1,
         Self::SelfActorProfileReadResolveV1,
         Self::SelfAgentCommandDeactivateV1,
         Self::SelfAgentCommandPauseV1,
@@ -845,6 +848,8 @@ impl ServiceOperationId {
         "ak.self.account_data.resource.get.v1";
     pub const SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1: &'static str =
         "ak.self.account_data.resource.replace.v1";
+    pub const SELF_ACTOR_PRIVATE_EVENTS_COMMAND_SUBMIT_V1: &'static str =
+        "ak.self.actor_private_events.command.submit.v1";
     pub const SELF_ACTOR_PROFILE_READ_RESOLVE_V1: &'static str =
         "ak.self.actor_profile.read.resolve.v1";
     pub const SELF_AGENT_COMMAND_DEACTIVATE_V1: &'static str =
@@ -1182,6 +1187,9 @@ impl ServiceOperationId {
             Self::SelfAccountDataResourceDeleteV1 => Self::SELF_ACCOUNT_DATA_RESOURCE_DELETE_V1,
             Self::SelfAccountDataResourceGetV1 => Self::SELF_ACCOUNT_DATA_RESOURCE_GET_V1,
             Self::SelfAccountDataResourceReplaceV1 => Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1,
+            Self::SelfActorPrivateEventsCommandSubmitV1 => {
+                Self::SELF_ACTOR_PRIVATE_EVENTS_COMMAND_SUBMIT_V1
+            }
             Self::SelfActorProfileReadResolveV1 => Self::SELF_ACTOR_PROFILE_READ_RESOLVE_V1,
             Self::SelfAgentCommandDeactivateV1 => Self::SELF_AGENT_COMMAND_DEACTIVATE_V1,
             Self::SelfAgentCommandPauseV1 => Self::SELF_AGENT_COMMAND_PAUSE_V1,
@@ -1537,6 +1545,9 @@ impl ServiceOperationId {
             Self::SELF_ACCOUNT_DATA_RESOURCE_GET_V1 => Some(Self::SelfAccountDataResourceGetV1),
             Self::SELF_ACCOUNT_DATA_RESOURCE_REPLACE_V1 => {
                 Some(Self::SelfAccountDataResourceReplaceV1)
+            }
+            Self::SELF_ACTOR_PRIVATE_EVENTS_COMMAND_SUBMIT_V1 => {
+                Some(Self::SelfActorPrivateEventsCommandSubmitV1)
             }
             Self::SELF_ACTOR_PROFILE_READ_RESOLVE_V1 => Some(Self::SelfActorProfileReadResolveV1),
             Self::SELF_AGENT_COMMAND_DEACTIVATE_V1 => Some(Self::SelfAgentCommandDeactivateV1),
@@ -4045,6 +4056,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: Some(DurableEventTarget::Static(&["ak.account_data.set"])),
             rationale: None,
             branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfActorPrivateEventsCommandSubmitV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/actor-private-events",
+        grpc: Some("SelfActorPrivateEvents/Submit"),
+        mq: Some("self.actor_private_events.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::Branched,
+            target: None,
+            rationale: None,
+            branch_contract_json: Some(
+                "{\"discriminator\":{\"description\":\"The kind of the submitted actor-private Event; each branch writes only that kind's registered private effect.\",\"request_path\":\"/event/kind\"},\"effect_branches\":[{\"effect\":{\"event_kind\":\"ak.agent.action_reject\",\"kind\":\"actor_private_event\"},\"equals\":\"ak.agent.action_reject\"},{\"effect\":{\"event_kind\":\"ak.agent.action_request\",\"kind\":\"actor_private_event\"},\"equals\":\"ak.agent.action_request\"},{\"effect\":{\"event_kind\":\"ak.agent.draft.propose\",\"kind\":\"actor_private_event\"},\"equals\":\"ak.agent.draft.propose\"},{\"effect\":{\"event_kind\":\"ak.device.push_route\",\"kind\":\"actor_private_event\"},\"otherwise\":true}]}",
+            ),
         }),
     },
     ServiceOperationDescriptor {

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.3;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5
-//! Entries: operation_bundles=36 features=12
+//! Input: registry/contract-registry.json; version=2026-09-25.4;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17
+//! Entries: operation_bundles=37 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -336,6 +336,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
         ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.actor_private_events.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::SelfActorPrivateEventsCommandSubmitV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.agent_pairing_handoff.v1",

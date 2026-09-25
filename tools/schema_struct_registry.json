@@ -1116,6 +1116,14 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::DeviceListUpdatePayload",
       "schema": "event-payload.schema.json#/$defs/device_list_update_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/productivity.rs::AccountBlocklistValue",
+      "schema": "account-blocklist.schema.json"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::ActorPrivateEventSubmitRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitRequestBody"
     }
   ],
   "exemptions": [

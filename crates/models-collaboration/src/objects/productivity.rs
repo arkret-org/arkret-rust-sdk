@@ -1630,11 +1630,15 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
     Ok(principal_key.to_owned())
 }
 
+/// Decrypted plaintext value of the holder-private `ak.account.blocklist`
+/// account-data key, written only through `ak.account_data.set` under its
+/// `expected_server_revision` CAS; the value carries no revision of its own.
+///
+/// Spec: `account-blocklist.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountBlocklistPayload {
-    pub version: u64,
-    pub entries: Vec<AccountBlocklistPayloadEntry>,
+pub struct AccountBlocklistValue {
+    pub entries: Vec<AccountBlocklistEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -1642,7 +1646,7 @@ pub struct AccountBlocklistPayload {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountBlocklistPayloadEntry {
+pub struct AccountBlocklistEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry_id: Option<arkret_wire::NonEmptyString>,
     pub target: AccountBlocklistTarget,
@@ -1750,13 +1754,8 @@ pub enum AccountBlocklistTarget {
     Value(AccountBlocklistValueTarget),
 }
 
-impl AccountBlocklistPayload {
+impl AccountBlocklistValue {
     pub fn validate(&self) -> Result<()> {
-        if self.version == 0 {
-            return Err(WireError::Protocol(
-                "account blocklist version must be at least 1".to_owned(),
-            ));
-        }
         if self.entries.len() > 4096 {
             return Err(WireError::Protocol(
                 "account blocklist entries exceed 4096".to_owned(),
@@ -1786,7 +1785,7 @@ impl AccountBlocklistPayload {
     }
 }
 
-impl AccountBlocklistPayloadEntry {
+impl AccountBlocklistEntry {
     pub fn validate(&self) -> Result<()> {
         if self.applies_to.is_empty() {
             return Err(WireError::Protocol(

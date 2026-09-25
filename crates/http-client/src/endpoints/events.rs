@@ -24,7 +24,8 @@ use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame,
 };
 use arkret_wire::{
-    ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventAdmissionSubmission, EventId,
+    ActorId, ActorPrivateEventSubmitOutcome, ActorPrivateEventSubmitRequestBody,
+    AuthoritySubmitOutcome, CommitStreamRef, EventAdmissionSubmission, EventId,
     MlsCommitSubmission, RealmId, RealmSnapshotId, RealmStateSnapshot, StreamScanOutcome,
     StreamScanRequest,
 };
@@ -218,6 +219,24 @@ impl CommittedEventSubscribeFrameStream {
 }
 
 impl Client {
+    /// Submit one caller-signed actor-private Event of a kind without a
+    /// dedicated operation (`ak.self.actor_private_events.command.submit.v1`).
+    ///
+    /// The write is private to the owning Station and produces no
+    /// `RealmCommit`; an exact retry of the same bytes returns the first
+    /// stored outcome, so the canonical request bytes are reused on retry.
+    pub async fn submit_actor_private_event(
+        &self,
+        request: &ActorPrivateEventSubmitRequestBody,
+    ) -> Result<ActorPrivateEventSubmitOutcome> {
+        request.validate()?;
+        let outcome: ActorPrivateEventSubmitOutcome = self
+            .post_protocol_replay_safe("/_arkret/self/actor-private-events", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// Submit one producer-signed Event as `EventAdmissionSubmission { event }`.
     ///
     /// The Event itself carries no ordering: the returned outcome's

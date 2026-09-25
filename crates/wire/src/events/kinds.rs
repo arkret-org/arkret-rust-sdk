@@ -85,7 +85,7 @@ pub fn is_standard_event_kind(kind: &str) -> bool {
 /// Classify a protocol event kind without deserializing its content.
 pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
-        EventKind::AccountBlocklist | EventKind::AccountDataSet => EventProductClass::Account,
+        EventKind::AccountDataSet => EventProductClass::Account,
         EventKind::ActorDiscovery => EventProductClass::Actor,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject

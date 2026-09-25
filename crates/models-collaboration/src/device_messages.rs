@@ -154,7 +154,7 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
         } else {
             if !matches!(
                 fields.kind.as_str(),
-                "ak.account_data.update" | "ak.account.blocklist.update" | "ak.read_cursor.update"
+                "ak.account_data.update" | "ak.read_cursor.update"
             ) {
                 return Err(D::Error::custom(
                     "Station sender requires an actor-private update kind",

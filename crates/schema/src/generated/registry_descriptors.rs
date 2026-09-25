@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.3;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Input: registry/
-//! account-data-key-registry.json; version=2026-09-25.1;
-//! sha256=c08c2c437cc4d4f1d4243594851be22846ea65adc42969c452e54b77d0c6d387 Entries: id_kinds=48,
-//! special_forms=15, actions=148, approval_carriers=1, schemas=220, account_data_patterns=24
+//! Input: registry/contract-registry.json; version=2026-09-25.4;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Input: registry/
+//! account-data-key-registry.json; version=2026-09-25.2;
+//! sha256=0056114b31b4300e5c186b0b42dc26e8fb349f18f3e44da4580087f7d1a9aaff Entries: id_kinds=48,
+//! special_forms=15, actions=148, approval_carriers=1, schemas=221, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2965,6 +2965,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
 
 pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_BLOCKLIST_V1,
+        file: "schemas/account-blocklist.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_CURRENT_RESULT_V1,
         file: "schemas/account-current-result.schema.json",
     },
@@ -3854,10 +3858,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         plaintext_schema: None,
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
-        write_event_kinds: &[
-            event_kind_str::ACCOUNT_DATA_SET,
-            event_kind_str::ACCOUNT_BLOCKLIST,
-        ],
+        write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {

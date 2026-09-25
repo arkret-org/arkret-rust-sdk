@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-25.2;
-//! sha256=f5c28553236194053e5e2a103346c2b07f364181ceeceaa6654a0eb8b8391634 Input: registry/
-//! contract-registry.json; version=2026-09-25.3;
-//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-25.3;
+//! sha256=cabacaf099a76d19b2cb1d167fe7a6fc62ed636c697cfe6a57bddacbbe79120d Input: registry/
+//! contract-registry.json; version=2026-09-25.4;
+//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Input: registry/
 //! error-code-registry.json; version=2026-09-25.1;
-//! sha256=4b38f94c7d773be8b3eb7ecd8662a04e7f664d0121fc0d8996001a42cfb989e2 Entries: operations=203
+//! sha256=4b38f94c7d773be8b3eb7ecd8662a04e7f664d0121fc0d8996001a42cfb989e2 Entries: operations=204
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -447,6 +447,11 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[
         OperationSpecificError::Code(ErrorCode::CasConflict),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::CasConflict),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
     ],
     &[],
     &[

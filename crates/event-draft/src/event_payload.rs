@@ -32,7 +32,7 @@ use arkret_models_collaboration::object_lifecycle::{
     SpaceObjectTombstonePayload, SpaceStateTransitionPayload,
 };
 use arkret_models_collaboration::objects::productivity::{
-    AccountBlocklistPayload, PinAddPayload, PinRemovePayload, PinReorderPayload, RsvpSetPayload,
+    PinAddPayload, PinRemovePayload, PinReorderPayload, RsvpSetPayload,
 };
 use arkret_models_collaboration::objects::read_receipts::ReadCursor;
 use arkret_models_crypto::MlsCommitPayload;
@@ -289,7 +289,6 @@ event_payload_accessors! {
     event_spec::ContactRejected => (as_contact_rejected, ContactRejectedPayload),
     event_spec::ContactTombstone => (as_contact_tombstoned, ContactTombstonedPayload),
     event_spec::ContactScopeUpdate => (as_contact_scope_update, ContactScopeUpdatePayload),
-    event_spec::AccountBlocklist => (as_account_blocklist, AccountBlocklistPayload),
     event_spec::AccountDataSet => (as_account_data_set, AccountDataSetPayload),
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),
     event_spec::ProfileUpdate => (as_profile_update, ActorProfileUpdatePayload),

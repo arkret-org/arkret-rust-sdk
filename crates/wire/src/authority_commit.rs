@@ -572,6 +572,106 @@ impl EventAdmissionSubmission {
     }
 }
 
+/// Request of `ak.self.actor_private_events.command.submit.v1`: one
+/// caller-signed actor-private Event that has no dedicated submit operation.
+///
+/// Spec: `service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitRequestBody`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActorPrivateEventSubmitRequestBody {
+    pub event: Event,
+}
+
+impl ActorPrivateEventSubmitRequestBody {
+    /// The only kinds this operation admits. `ak.account_data.set` and
+    /// `ak.read_cursor.advance` keep their dedicated operations.
+    pub const SUBMIT_KINDS: [crate::EventKind; 4] = [
+        crate::EventKind::AgentActionReject,
+        crate::EventKind::AgentActionRequest,
+        crate::EventKind::AgentDraftPropose,
+        crate::EventKind::DevicePushRoute,
+    ];
+
+    #[must_use]
+    pub fn new(event: Event) -> Self {
+        Self { event }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !Self::SUBMIT_KINDS.contains(&self.event.kind) {
+            return Err(WireError::Protocol(format!(
+                "{} is not submitted through the actor-private Event operation",
+                self.event.kind.as_str()
+            )));
+        }
+        self.event.validate_for_submit_structural()
+    }
+}
+
+/// Outcome of `ak.self.actor_private_events.command.submit.v1`, discriminated
+/// by `event_kind`. An exact retry returns the first stored outcome; no
+/// RealmCommit exists for these writes.
+///
+/// Spec: `service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitOutcome`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "event_kind", deny_unknown_fields)]
+pub enum ActorPrivateEventSubmitOutcome {
+    #[serde(rename = "ak.agent.action_reject")]
+    AgentActionReject { accepted_event_id: EventId },
+    #[serde(rename = "ak.agent.action_request")]
+    AgentActionRequest { accepted_event_id: EventId },
+    #[serde(rename = "ak.agent.draft.propose")]
+    AgentDraftPropose { accepted_event_id: EventId },
+    /// `revision` is what the next write of this route names as
+    /// `expected_server_revision`.
+    #[serde(rename = "ak.device.push_route")]
+    DevicePushRoute {
+        accepted_event_id: EventId,
+        revision: u64,
+    },
+}
+
+impl ActorPrivateEventSubmitOutcome {
+    #[must_use]
+    pub fn accepted_event_id(&self) -> &EventId {
+        match self {
+            Self::AgentActionReject { accepted_event_id }
+            | Self::AgentActionRequest { accepted_event_id }
+            | Self::AgentDraftPropose { accepted_event_id }
+            | Self::DevicePushRoute {
+                accepted_event_id, ..
+            } => accepted_event_id,
+        }
+    }
+
+    #[must_use]
+    pub fn event_kind(&self) -> crate::EventKind {
+        match self {
+            Self::AgentActionReject { .. } => crate::EventKind::AgentActionReject,
+            Self::AgentActionRequest { .. } => crate::EventKind::AgentActionRequest,
+            Self::AgentDraftPropose { .. } => crate::EventKind::AgentDraftPropose,
+            Self::DevicePushRoute { .. } => crate::EventKind::DevicePushRoute,
+        }
+    }
+
+    /// Shape check plus the binding to the exact submitted Event.
+    pub fn validate_for_request(&self, request: &ActorPrivateEventSubmitRequestBody) -> Result<()> {
+        if let Self::DevicePushRoute { revision: 0, .. } = self {
+            return Err(WireError::Protocol(
+                "push route outcome revision must be at least 1".to_owned(),
+            ));
+        }
+        if self.event_kind() != request.event.kind
+            || self.accepted_event_id() != &request.event.event_id
+        {
+            return Err(WireError::Protocol(
+                "actor-private submit outcome does not bind the submitted Event".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "context_kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ApprovalContext {
@@ -1822,6 +1922,43 @@ mod tests {
 
     use super::*;
     use crate::{DidCoreId, EventKind, test_support};
+
+    #[test]
+    fn actor_private_submit_outcome_is_closed_per_event_kind() {
+        let event_id = "ak:event:AXrw54_r8iPVFSBGJhTZduzx5vRg62wu8bdDrUhCm9hR";
+        let push: ActorPrivateEventSubmitOutcome = serde_json::from_value(json!({
+            "event_kind": "ak.device.push_route",
+            "accepted_event_id": event_id,
+            "revision": 3
+        }))
+        .unwrap();
+        assert_eq!(push.event_kind(), EventKind::DevicePushRoute);
+        assert_eq!(
+            serde_json::to_value(&push).unwrap(),
+            json!({
+                "event_kind": "ak.device.push_route",
+                "accepted_event_id": event_id,
+                "revision": 3
+            })
+        );
+        let draft: ActorPrivateEventSubmitOutcome = serde_json::from_value(json!({
+            "event_kind": "ak.agent.draft.propose",
+            "accepted_event_id": event_id
+        }))
+        .unwrap();
+        assert_eq!(draft.event_kind(), EventKind::AgentDraftPropose);
+        for rejected in [
+            json!({"event_kind": "ak.device.push_route", "accepted_event_id": event_id}),
+            json!({"event_kind": "ak.agent.action_request", "accepted_event_id": event_id, "revision": 1}),
+            json!({"event_kind": "ak.read_cursor.advance", "accepted_event_id": event_id}),
+            json!({"event_kind": "ak.account.blocklist", "accepted_event_id": event_id}),
+        ] {
+            assert!(
+                serde_json::from_value::<ActorPrivateEventSubmitOutcome>(rejected.clone()).is_err(),
+                "{rejected}"
+            );
+        }
+    }
 
     #[test]
     fn ordinary_realm_bootstrap_current_selectors_match_closed_result_shapes() {
