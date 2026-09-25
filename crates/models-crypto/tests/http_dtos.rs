@@ -252,3 +252,30 @@ fn consume_command_has_only_claim_and_durable_receipt() {
         );
     }
 }
+
+#[test]
+fn claim_query_request_carries_only_the_typed_claim_id() {
+    use arkret_models_crypto::http_bodies::KeyPackagesClaimQueryRequestBody;
+
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/schema-validation-fixture.json")
+            .unwrap();
+    let cases = fixture["schema_validation_cases"].as_array().unwrap();
+    let instance =
+        |name: &str| cases.iter().find(|case| case["name"] == name).unwrap()["instance"].clone();
+    let valid: KeyPackagesClaimQueryRequestBody =
+        serde_json::from_value(instance("keypackages_claim_query_request_valid")).unwrap();
+    assert_eq!(
+        serde_json::to_value(&valid).unwrap(),
+        instance("keypackages_claim_query_request_valid")
+    );
+    for rejected in [
+        "keypackages_claim_query_request_rejects_request_digest",
+        "keypackages_claim_query_request_rejects_untyped_claim_id",
+    ] {
+        assert!(
+            serde_json::from_value::<KeyPackagesClaimQueryRequestBody>(instance(rejected)).is_err(),
+            "{rejected}"
+        );
+    }
+}

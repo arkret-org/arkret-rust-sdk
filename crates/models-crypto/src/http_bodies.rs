@@ -634,6 +634,16 @@ fn validate_key_packages_claim_outcome_shape(
     Ok(())
 }
 
+/// Owner read of one claim of the caller's own KeyPackage
+/// (`ak.self.keys.keypackages.read.claim.v1`). The response is the
+/// byte-identical original [`KeyPackagesClaimOutcome`].
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPackagesClaimQueryRequestBody {
+    pub claim_id: KeypackageClaimId,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

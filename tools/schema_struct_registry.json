@@ -1128,6 +1128,10 @@
     {
       "rust_type": "crates/models-identity/src/actor_profile_operations.rs::AccountStatusProjection",
       "schema": "actor-profile-operations.schema.json#/$defs/account_status_projection"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::MlsGenesisMaterial",
+      "schema": "authority-commit-operations.schema.json#/$defs/mls_genesis_material"
     }
   ],
   "exemptions": [

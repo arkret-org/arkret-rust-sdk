@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-26.3;
-//! sha256=590d0269a40b52d5d1a6cd97673934dbc661a6946689b4d42272ee2580d71e7a
-//! Entries: operation_bundles=37 features=12
+//! Input: registry/contract-registry.json; version=2026-09-26.4;
+//! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780
+//! Entries: operation_bundles=38 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -988,6 +988,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::SelfInvitesCommandDispatchV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.keypackage_claim_read.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::SelfKeysKeypackagesReadClaimV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },

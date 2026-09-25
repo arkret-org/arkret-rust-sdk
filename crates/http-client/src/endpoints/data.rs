@@ -9,10 +9,11 @@ use arkret_models_collaboration::objects::blob::{
     BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
 };
 use arkret_models_crypto::{
-    KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome,
-    KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody,
-    KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody, KeysClaimOutcome, KeysClaimRequestBody,
-    KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody, KeyPackagesClaimRequestBody,
+    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
+    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
+    KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
+    KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
@@ -466,6 +467,16 @@ impl Client {
         request: &KeyPackagesRevokeRequestBody,
     ) -> Result<KeyPackagesRevokeOutcome> {
         self.post("/_arkret/self/keys/keypackages/revoke", request)
+            .await
+    }
+
+    /// Read the byte-identical claim outcome that allocated `claim_id`, for
+    /// the claim record's own endpoint (`ak.self.keys.keypackages.read.claim.v1`).
+    pub async fn keypackages_claim_query(
+        &self,
+        request: &KeyPackagesClaimQueryRequestBody,
+    ) -> Result<KeyPackagesClaimOutcome> {
+        self.post("/_arkret/self/keys/keypackages/claims/query", request)
             .await
     }
 

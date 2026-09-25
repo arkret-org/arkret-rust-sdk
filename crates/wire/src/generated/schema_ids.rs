@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-26.3;
-//! sha256=590d0269a40b52d5d1a6cd97673934dbc661a6946689b4d42272ee2580d71e7a Entries: schema_ids=219,
+//! Input: registry/contract-registry.json; version=2026-09-26.4;
+//! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780 Entries: schema_ids=219,
 //! active=219
 
 use serde::{Deserialize, Serialize};
@@ -1024,8 +1024,8 @@ impl SchemaId {
     /// Canonical log head, inclusion proof, consistency proof and witness evidence for
     /// ak.profile.key_transparency.v1 and high-security log-backed identity checks.
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.schema.key_transparency.v1";
-    /// Closed request/response DTO bundle for self KeyPackage upload/claim/consume/revoke and
-    /// atomic peer claim/outcome-query operations.
+    /// Closed request/response DTO bundle for self KeyPackage
+    /// upload/claim/consume/revoke/claim-query and atomic peer claim/outcome-query operations.
     pub const KEYPACKAGE_OPERATIONS_V1: &'static str = "ak.schema.keypackage_operations.v1";
     /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key
     /// backup put/list/delete responses.

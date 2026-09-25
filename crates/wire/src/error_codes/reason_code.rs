@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-26.3;
-//! sha256=8fceee87b50a90695b282c394603a316f6492a6589f3ad6304180ec75e716632
+//! Input: registry/error-code-registry.json; version=2026-09-26.4;
+//! sha256=c84b22e85d0863d61323c2baaffb699579f75469a6b0813c3017170e3b777335
 //! Entries: reason_codes=311, reserved_not_emitted=70
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1960,7 +1960,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::EPOCH_UPDATE_REQUIRED,
         applies_to: &["crypto", "service_call", "state_resolution"],
-        description: "Membership, policy, or governance checkpoint changed and the current MLS epoch does not yet have a winning ak.mls.commit whose governance_binding covers that checkpoint. Clients MUST pause new application messages for the scope until the effective epoch catches up. See zh/crypto-media/encryption-and-audit.md §2.4.1.",
+        description: "A membership change on the scope's own stream advanced key_access_revision and the current MLS epoch does not yet have a winning ak.mls.commit whose governance_binding covers that revision. Clients MUST pause new application messages for the scope until the effective epoch catches up. Endpoint authorization and policy changes never produce this reason. See zh/crypto-media/encryption-and-audit.md §2.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ERASURE_PENDING_IS_TERMINAL,
@@ -2344,7 +2344,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "Current MLS epoch's key_access_revision does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived checkpoint. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.5.",
+        description: "A decrypting media service join or token request found that the current MLS group has not yet covered its current key_access_revision (a membership change is still awaiting its winning ak.mls.commit). Media policy fields such as media_service_decrypts and plaintext_visible_services are authorized from the current accepted policy projection and never advance key_access_revision. Receivers MUST refuse to act until a Commit covers the current revision. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_SPLIT,

@@ -492,12 +492,13 @@ fn human_device_producer_requires_producer_device_evidence() {
 
     let submission: EventAdmissionSubmission = serde_json::from_value(human).unwrap();
     assert_eq!(
-        PeerAuthorityForwardEventRequest::new(submission.clone(), None)
+        PeerAuthorityForwardEventRequest::new(submission.clone(), None, None)
             .unwrap_err()
             .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
-    PeerAuthorityForwardEventRequest::new(submission, Some(producer_device_evidence())).unwrap();
+    PeerAuthorityForwardEventRequest::new(submission, None, Some(producer_device_evidence()))
+        .unwrap();
 }
 
 #[test]
@@ -587,4 +588,81 @@ fn producer_device_evidence_exists_only_on_authority_forward() {
         "producer_device_evidence": evidence
     });
     assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &unit);
+}
+
+fn welcome_delivery() -> Value {
+    let fixture_path = artifacts_dir()
+        .join("fixtures")
+        .join("keypackage-lifecycle-fixture.json");
+    let fixture: Value = serde_json::from_str(&fs::read_to_string(fixture_path).unwrap()).unwrap();
+    fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|case| {
+            let instance = &case["instance"];
+            instance.get("producer_proof").map(|_| instance.clone())
+        })
+        .unwrap()
+}
+
+#[test]
+fn replicated_welcomes_are_refused_for_a_non_commit_event() {
+    let mut request = replication_request(1);
+    request["replications"][0]["welcomes"] = json!([welcome_delivery()]);
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/peer_submit_request",
+        &request
+    ));
+    assert!(presence_violation(request));
+
+    let mut empty = replication_request(1);
+    empty["replications"][0]["welcomes"] = json!([]);
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/peer_submit_request",
+        &empty
+    ));
+    assert!(presence_violation(empty));
+}
+
+#[test]
+fn genesis_material_is_refused_for_a_non_genesis_event() {
+    let mut value = forward(&approved_event_submission(), None);
+    value["mls_genesis_material"] =
+        json!({"group_info_bytes_b64": "AAEAAQ", "ratchet_tree_bytes_b64": "AQIDBA"});
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/peer_submit_request",
+        &value
+    ));
+    assert!(presence_violation(value));
+}
+
+#[test]
+fn genesis_material_is_canonical_bounded_base64url() {
+    use arkret_models_collaboration::authority_commit::MlsGenesisMaterial;
+
+    let material = MlsGenesisMaterial::from_bytes(&[0, 1, 0, 1], &[1, 2, 3, 4]);
+    validate_fragment(
+        PEER_SCHEMA,
+        "#/$defs/mls_genesis_material",
+        &serde_json::to_value(&material).unwrap(),
+    );
+    assert_eq!(
+        material.decode().unwrap(),
+        (vec![0, 1, 0, 1], vec![1, 2, 3, 4])
+    );
+    for bad in ["", "AAEAAQ==", "AAE+AQ"] {
+        let candidate = MlsGenesisMaterial {
+            group_info_bytes_b64: bad.to_owned(),
+            ratchet_tree_bytes_b64: "AQIDBA".to_owned(),
+        };
+        assert_eq!(
+            candidate.validate().unwrap_err().error_code(),
+            Some(ErrorCode::SchemaViolation),
+            "{bad}"
+        );
+    }
 }

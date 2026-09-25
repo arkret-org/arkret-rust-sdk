@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-26.3;
-//! sha256=590d0269a40b52d5d1a6cd97673934dbc661a6946689b4d42272ee2580d71e7a Entries: registered=204
+//! Input: registry/contract-registry.json; version=2026-09-26.4;
+//! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780 Entries: registered=205
 
 use serde::{Deserialize, Serialize};
 
@@ -181,6 +181,7 @@ pub enum ServiceOperationId {
     SelfKeysKeypackagesCommandClaimV1,
     SelfKeysKeypackagesCommandConsumeV1,
     SelfKeysKeypackagesCommandRevokeV1,
+    SelfKeysKeypackagesReadClaimV1,
     SelfKeysKeypackagesUploadCreateV1,
     SelfKeysReadLookupV1,
     SelfKeysUploadCreateV1,
@@ -388,6 +389,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_CONSUME_V1,
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE_V1,
+    ServiceOperationId::SELF_KEYS_KEYPACKAGES_READ_CLAIM_V1,
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE_V1,
@@ -637,6 +639,7 @@ impl ServiceOperationId {
         Self::SelfKeysKeypackagesCommandClaimV1,
         Self::SelfKeysKeypackagesCommandConsumeV1,
         Self::SelfKeysKeypackagesCommandRevokeV1,
+        Self::SelfKeysKeypackagesReadClaimV1,
         Self::SelfKeysKeypackagesUploadCreateV1,
         Self::SelfKeysReadLookupV1,
         Self::SelfKeysUploadCreateV1,
@@ -967,6 +970,8 @@ impl ServiceOperationId {
         "ak.self.keys.keypackages.command.consume.v1";
     pub const SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE_V1: &'static str =
         "ak.self.keys.keypackages.command.revoke.v1";
+    pub const SELF_KEYS_KEYPACKAGES_READ_CLAIM_V1: &'static str =
+        "ak.self.keys.keypackages.read.claim.v1";
     pub const SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1: &'static str =
         "ak.self.keys.keypackages.upload.create.v1";
     pub const SELF_KEYS_READ_LOOKUP_V1: &'static str = "ak.self.keys.read.lookup.v1";
@@ -1285,6 +1290,7 @@ impl ServiceOperationId {
             Self::SelfKeysKeypackagesCommandRevokeV1 => {
                 Self::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE_V1
             }
+            Self::SelfKeysKeypackagesReadClaimV1 => Self::SELF_KEYS_KEYPACKAGES_READ_CLAIM_V1,
             Self::SelfKeysKeypackagesUploadCreateV1 => Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1,
             Self::SelfKeysReadLookupV1 => Self::SELF_KEYS_READ_LOOKUP_V1,
             Self::SelfKeysUploadCreateV1 => Self::SELF_KEYS_UPLOAD_CREATE_V1,
@@ -1678,6 +1684,7 @@ impl ServiceOperationId {
             Self::SELF_KEYS_KEYPACKAGES_COMMAND_REVOKE_V1 => {
                 Some(Self::SelfKeysKeypackagesCommandRevokeV1)
             }
+            Self::SELF_KEYS_KEYPACKAGES_READ_CLAIM_V1 => Some(Self::SelfKeysKeypackagesReadClaimV1),
             Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1 => {
                 Some(Self::SelfKeysKeypackagesUploadCreateV1)
             }
@@ -5756,6 +5763,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfKeysKeypackagesReadClaimV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/keys/keypackages/claims/query",
+        grpc: Some("SelfKeys/KeyPackagesClaimQuery"),
+        mq: Some("self.keys.keypackages.query.claim"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_query_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysKeypackagesUploadCreateV1,

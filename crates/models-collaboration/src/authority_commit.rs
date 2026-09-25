@@ -12,8 +12,8 @@ use arkret_schema::{
 use arkret_wire::{
     ActorId, CommitStreamRef, DidCoreId, DidUrl, ErrorCode, Event, EventAdmissionSubmission,
     EventId, EventKind, HumanDeviceProducer, MembershipCompensationAction,
-    MembershipCompensationDelegationRef, MlsCommitSubmission, RealmCommit, RealmCommitId, RealmId,
-    Result, UuidV7, WireError,
+    MembershipCompensationDelegationRef, MlsCommitSubmission, MlsWelcomeDelivery, RealmCommit,
+    RealmCommitId, RealmId, Result, UuidV7, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -61,6 +61,10 @@ pub struct OperationSignature {
 pub struct CommittedEventSubmission {
     pub event_submission: EventAdmissionSubmission,
     pub source_commit: RealmCommit,
+    /// Welcomes of an `ak.mls.commit` whose recipients the destination
+    /// Station hosts, in submission order; absent for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub welcomes: Option<Vec<MlsWelcomeDelivery>>,
 }
 
 impl CommittedEventSubmission {
@@ -68,6 +72,43 @@ impl CommittedEventSubmission {
         self.event_submission.validate()?;
         self.source_commit.validate_shape()?;
         let event = &self.event_submission.event;
+        if let Some(welcomes) = &self.welcomes {
+            if event.kind != EventKind::MlsCommit {
+                return Err(WireError::ProtocolCode {
+                    code: ErrorCode::SchemaViolation,
+                    message: "committed replication welcomes are allowed only for ak.mls.commit"
+                        .to_owned(),
+                });
+            }
+            if welcomes.is_empty() {
+                return Err(WireError::ProtocolCode {
+                    code: ErrorCode::SchemaViolation,
+                    message: "committed replication welcomes must be omitted rather than empty"
+                        .to_owned(),
+                });
+            }
+            if !welcomes
+                .windows(2)
+                .all(|pair| pair[0].welcome_id < pair[1].welcome_id)
+            {
+                return Err(WireError::Protocol(
+                    "replicated MLS Welcome deliveries must keep submission order and be unique"
+                        .to_owned(),
+                ));
+            }
+            for welcome in welcomes {
+                welcome.validate_shape()?;
+                if welcome.realm_id != event.realm_id
+                    || welcome.effective_scope != event.scope_ref
+                    || welcome.commit_event_ref != event.event_id
+                {
+                    return Err(WireError::Protocol(
+                        "replicated MLS Welcome delivery must bind the exact replicated commit Event"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
         let expected_stream =
             CommitStreamRef::from_scope(&event.scope_ref, Some(event.realm_id.clone()))?;
         if self.source_commit.event_ref != event.event_id
@@ -411,6 +452,65 @@ pub fn validate_producer_device_evidence_presence(
     }
 }
 
+/// Largest decoded size of the two Genesis Blobs together, equal to the
+/// `ak.peer.mls.read.group_state_material.v1` response bound.
+pub const MLS_GENESIS_MATERIAL_MAX_DECODED_BYTES: usize = 8_388_608;
+const MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS: usize = 5_592_406;
+
+/// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
+/// (`authority-commit-operations.schema.json#/$defs/mls_genesis_material`).
+/// The signed Genesis refs are the only digest carrier.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsGenesisMaterial {
+    pub group_info_bytes_b64: String,
+    pub ratchet_tree_bytes_b64: String,
+}
+
+impl MlsGenesisMaterial {
+    #[must_use]
+    pub fn from_bytes(group_info: &[u8], ratchet_tree: &[u8]) -> Self {
+        Self {
+            group_info_bytes_b64: arkret_wire::base64url::base64url_encode(group_info),
+            ratchet_tree_bytes_b64: arkret_wire::base64url::base64url_encode(ratchet_tree),
+        }
+    }
+
+    /// Decoded GroupInfo and ratchet_tree bytes after the shape checks.
+    pub fn decode(&self) -> Result<(Vec<u8>, Vec<u8>)> {
+        let group_info = decode_genesis_blob("group_info_bytes_b64", &self.group_info_bytes_b64)?;
+        let ratchet_tree =
+            decode_genesis_blob("ratchet_tree_bytes_b64", &self.ratchet_tree_bytes_b64)?;
+        if group_info.len() + ratchet_tree.len() > MLS_GENESIS_MATERIAL_MAX_DECODED_BYTES {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::TooLarge,
+                message: "mls_genesis_material exceeds the group-state material bound".to_owned(),
+            });
+        }
+        Ok((group_info, ratchet_tree))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.decode().map(drop)
+    }
+}
+
+fn decode_genesis_blob(field: &str, encoded: &str) -> Result<Vec<u8>> {
+    let schema_violation = || WireError::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: format!("mls_genesis_material.{field} must be canonical unpadded base64url"),
+    };
+    if encoded.is_empty() || encoded.len() > MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS {
+        return Err(schema_violation());
+    }
+    let bytes =
+        arkret_wire::base64url::base64url_decode(encoded).map_err(|_| schema_violation())?;
+    if arkret_wire::base64url::base64url_encode(&bytes) != encoded {
+        return Err(schema_violation());
+    }
+    Ok(bytes)
+}
+
 // Field order is byte-for-byte the authority_forward branch order of
 // authority-commit-operations.schema.json#/$defs/peer_submit_request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -419,19 +519,25 @@ pub struct PeerAuthorityForwardEventRequest {
     pub branch: AuthorityForwardBranch,
     pub event_submission: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_genesis_material: Option<MlsGenesisMaterial>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
 }
 
 impl PeerAuthorityForwardEventRequest {
-    /// Build a validated forward. `producer_device_evidence` is the freshly
-    /// signed evidence for a human-device producer and `None` otherwise.
+    /// Build a validated forward. `mls_genesis_material` carries the two
+    /// referenced Blobs of an `ak.mls.genesis` and is `None` for every other
+    /// kind; `producer_device_evidence` is the freshly signed evidence for a
+    /// human-device producer and `None` otherwise.
     pub fn new(
         event_submission: EventAdmissionSubmission,
+        mls_genesis_material: Option<MlsGenesisMaterial>,
         producer_device_evidence: Option<AccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             event_submission,
+            mls_genesis_material,
             producer_device_evidence,
         };
         request.validate()?;
@@ -440,6 +546,25 @@ impl PeerAuthorityForwardEventRequest {
 
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
+        let genesis = self.event_submission.event.kind == EventKind::MlsGenesis;
+        match (&self.mls_genesis_material, genesis) {
+            (Some(material), true) => material.validate()?,
+            (None, false) => {}
+            (None, true) => {
+                return Err(WireError::ProtocolCode {
+                    code: ErrorCode::SchemaViolation,
+                    message: "authority_forward of ak.mls.genesis requires mls_genesis_material"
+                        .to_owned(),
+                });
+            }
+            (Some(_), false) => {
+                return Err(WireError::ProtocolCode {
+                    code: ErrorCode::SchemaViolation,
+                    message: "mls_genesis_material is forbidden unless the Event is ak.mls.genesis"
+                        .to_owned(),
+                });
+            }
+        }
         self.human_device_producer().map(drop)
     }
 

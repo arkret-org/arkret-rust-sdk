@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-25.3;
-//! sha256=cabacaf099a76d19b2cb1d167fe7a6fc62ed636c697cfe6a57bddacbbe79120d Input: registry/
-//! contract-registry.json; version=2026-09-26.3;
-//! sha256=590d0269a40b52d5d1a6cd97673934dbc661a6946689b4d42272ee2580d71e7a Input: registry/
-//! error-code-registry.json; version=2026-09-26.3;
-//! sha256=8fceee87b50a90695b282c394603a316f6492a6589f3ad6304180ec75e716632 Entries: operations=204
+//! Input: registry/operations-error-mapping.json; version=2026-09-26.1;
+//! sha256=349282da81c64b8ab3422ab1beac01dc705760ac09c9b5dd3a8f870fc6655b09 Input: registry/
+//! contract-registry.json; version=2026-09-26.4;
+//! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780 Input: registry/
+//! error-code-registry.json; version=2026-09-26.4;
+//! sha256=c84b22e85d0863d61323c2baaffb699579f75469a6b0813c3017170e3b777335 Entries: operations=205
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -303,6 +303,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceRevoked),
         OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
         OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
+        OperationSpecificError::Code(ErrorCode::DigestMismatch),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -739,6 +740,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::KeypackageAlreadyConsumed),
         OperationSpecificError::Code(ErrorCode::KeypackageUnknown),
     ],
+    &[OperationSpecificError::Code(ErrorCode::KeypackageUnknown)],
     &[],
     &[],
     &[
