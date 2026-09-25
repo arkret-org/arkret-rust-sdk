@@ -173,9 +173,8 @@ pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
     RealmJoinBootstrapAssembly, RealmJoinBootstrapStreamScan,
 };
 pub use arkret_models_collaboration::governance::realm_join_intake::{
-    AUTHORITY_LOCATOR_HINTS_MAX, AuthorityLocatorSource, INVITE_TOKEN_MAX_CHARS,
-    PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS, PeerRealmJoinBootstrapOutcome,
-    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
+    AUTHORITY_LOCATOR_HINTS_MAX, AuthorityLocatorSource, PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS,
+    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
     PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus, RealmJoinApplicationStatusOutcome,
     RealmJoinApplicationStatusRequest, RealmJoinCandidate, RealmJoinCandidateServiceKind,
     RealmJoinIntent, RealmJoinTarget, RealmPublicPreview, SelfRealmJoinPrepareOutcome,

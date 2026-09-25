@@ -37,26 +37,13 @@ impl RealmJoinTarget {
     }
 }
 
-/// Registered `maxLength` of `realm-join-intake.schema.json#/$defs/invite_token`.
-pub const INVITE_TOKEN_MAX_CHARS: usize = 512;
-
 /// Registered `maxLength` of `public_preview.display_name`.
 pub const PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS: usize = 256;
-
-fn validate_invite_token(token: &str) -> Result<()> {
-    let length = token.chars().count();
-    if length == 0 || length > INVITE_TOKEN_MAX_CHARS {
-        return Err(WireError::Protocol(
-            "invite_token must carry 1..=512 characters".to_owned(),
-        ));
-    }
-    Ok(())
-}
 
 fn validate_invite_credential(invite_id: Option<&InviteId>, token: Option<&str>) -> Result<()> {
     match (invite_id, token) {
         (None, None) => Ok(()),
-        (Some(_), Some(token)) => validate_invite_token(token),
+        (Some(_), Some(token)) => arkret_wire::validate_invite_token("Realm join", token),
         _ => Err(WireError::Protocol(
             "invite_id and invite_token must appear together".to_owned(),
         )),
@@ -122,7 +109,9 @@ pub enum RealmJoinIntent {
 impl RealmJoinIntent {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::InviteAccept { invite_token, .. } => validate_invite_token(invite_token),
+            Self::InviteAccept { invite_token, .. } => {
+                arkret_wire::validate_invite_token("invite_accept intent", invite_token)
+            }
             Self::MemberJoin | Self::Knock => Ok(()),
         }
     }
