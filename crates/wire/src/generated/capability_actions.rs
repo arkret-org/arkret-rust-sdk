@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.4;
-//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Entries: registered=148
+//! Input: registry/contract-registry.json; version=2026-09-25.5;
+//! sha256=e3569050ec3101dc760e78cc84541589c0420dbfab68aa1a0bdd6596fd507e7d Entries: registered=145
 
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,6 @@ pub enum CapabilityActionId {
     AgentDraftPropose,
     AgentKeyAuthorize,
     AgentKeyRevoke,
-    AgentSelectorClaim,
     AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
@@ -42,8 +41,6 @@ pub enum CapabilityActionId {
     ConsentGrant,
     ConsentRevoke,
     ContactScopeUpdate,
-    ContainerMoveItem,
-    ContainerRebalance,
     EventRead,
     InviteAccept,
     InviteCancel,
@@ -166,7 +163,6 @@ impl CapabilityActionId {
         Self::AgentDraftPropose,
         Self::AgentKeyAuthorize,
         Self::AgentKeyRevoke,
-        Self::AgentSelectorClaim,
         Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
@@ -194,8 +190,6 @@ impl CapabilityActionId {
         Self::ConsentGrant,
         Self::ConsentRevoke,
         Self::ContactScopeUpdate,
-        Self::ContainerMoveItem,
-        Self::ContainerRebalance,
         Self::EventRead,
         Self::InviteAccept,
         Self::InviteCancel,
@@ -316,7 +310,6 @@ impl CapabilityActionId {
     pub const AGENT_DRAFT_PROPOSE: &'static str = "ak.agent.draft.propose";
     pub const AGENT_KEY_AUTHORIZE: &'static str = "ak.agent.key.authorize";
     pub const AGENT_KEY_REVOKE: &'static str = "ak.agent.key.revoke";
-    pub const AGENT_SELECTOR_CLAIM: &'static str = "ak.agent.selector_claim";
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
@@ -344,8 +337,6 @@ impl CapabilityActionId {
     pub const CONSENT_GRANT: &'static str = "ak.consent.grant";
     pub const CONSENT_REVOKE: &'static str = "ak.consent.revoke";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
-    pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
-    pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
     pub const EVENT_READ: &'static str = "ak.event.read";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
@@ -477,7 +468,6 @@ impl CapabilityActionId {
             Self::AgentDraftPropose => Self::AGENT_DRAFT_PROPOSE,
             Self::AgentKeyAuthorize => Self::AGENT_KEY_AUTHORIZE,
             Self::AgentKeyRevoke => Self::AGENT_KEY_REVOKE,
-            Self::AgentSelectorClaim => Self::AGENT_SELECTOR_CLAIM,
             Self::AgentSidecarExchangeControl => Self::AGENT_SIDECAR_EXCHANGE_CONTROL,
             Self::AgentSidecarPublish => Self::AGENT_SIDECAR_PUBLISH,
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
@@ -505,8 +495,6 @@ impl CapabilityActionId {
             Self::ConsentGrant => Self::CONSENT_GRANT,
             Self::ConsentRevoke => Self::CONSENT_REVOKE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
-            Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
-            Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
             Self::EventRead => Self::EVENT_READ,
             Self::InviteAccept => Self::INVITE_ACCEPT,
             Self::InviteCancel => Self::INVITE_CANCEL,
@@ -638,7 +626,6 @@ impl CapabilityActionId {
             Self::AGENT_DRAFT_PROPOSE => Some(Self::AgentDraftPropose),
             Self::AGENT_KEY_AUTHORIZE => Some(Self::AgentKeyAuthorize),
             Self::AGENT_KEY_REVOKE => Some(Self::AgentKeyRevoke),
-            Self::AGENT_SELECTOR_CLAIM => Some(Self::AgentSelectorClaim),
             Self::AGENT_SIDECAR_EXCHANGE_CONTROL => Some(Self::AgentSidecarExchangeControl),
             Self::AGENT_SIDECAR_PUBLISH => Some(Self::AgentSidecarPublish),
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
@@ -666,8 +653,6 @@ impl CapabilityActionId {
             Self::CONSENT_GRANT => Some(Self::ConsentGrant),
             Self::CONSENT_REVOKE => Some(Self::ConsentRevoke),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
-            Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
-            Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
             Self::EVENT_READ => Some(Self::EventRead),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),
             Self::INVITE_CANCEL => Some(Self::InviteCancel),

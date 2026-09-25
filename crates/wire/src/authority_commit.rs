@@ -929,7 +929,6 @@ pub enum CurrentSelector {
     RealmAlias,
     RealmPlaintextVisibleServices,
     RealmSetDefaultStrand,
-    RealmPolicy,
     Policy {
         policy_id: PolicyId,
     },
@@ -1010,7 +1009,6 @@ enum FlatCurrentSelector {
     RealmAlias,
     RealmPlaintextVisibleServices,
     RealmSetDefaultStrand,
-    RealmPolicy,
     DeviceAuthorization {
         device_id: DeviceId,
     },
@@ -1114,8 +1112,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_discovery"
                 | "realm_alias"
                 | "realm_plaintext_visible_services"
-                | "realm_set_default_strand"
-                | "realm_policy"),
+                | "realm_set_default_strand"),
             ) => {
                 if wire.len() != 1 {
                     return Err(serde::de::Error::custom(format!(
@@ -1133,7 +1130,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_alias" => Self::RealmAlias,
                     "realm_plaintext_visible_services" => Self::RealmPlaintextVisibleServices,
                     "realm_set_default_strand" => Self::RealmSetDefaultStrand,
-                    "realm_policy" => Self::RealmPolicy,
                     _ => unreachable!(),
                 })
             }
@@ -1153,7 +1149,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::RealmPlaintextVisibleServices
                     }
                     FlatCurrentSelector::RealmSetDefaultStrand => Self::RealmSetDefaultStrand,
-                    FlatCurrentSelector::RealmPolicy => Self::RealmPolicy,
                     FlatCurrentSelector::DeviceAuthorization { device_id } => {
                         Self::DeviceAuthorization { device_id }
                     }

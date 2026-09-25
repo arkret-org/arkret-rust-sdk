@@ -937,7 +937,7 @@ mod recovery_policy_publish_tests {
 
     #[test]
     fn only_ak_policy_set_may_publish_a_recovery_policy() {
-        let value = submission_value("ak.realm.policy", recovery_policy_payload_value());
+        let value = submission_value("ak.realm.policy_bundle", recovery_policy_payload_value());
         assert!(serde_json::from_value::<RecoveryPolicyPublishRequest>(value).is_err());
     }
 

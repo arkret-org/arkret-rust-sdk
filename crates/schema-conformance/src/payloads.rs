@@ -528,8 +528,7 @@ mod tests {
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
             )
         );
-        // Each discovery kind resolves to its own exact closed payload; the
-        // resource_discovery_state union is an SDK-facing aggregate only.
+        // The Applet discovery kind resolves to its own exact closed payload.
         assert_eq!(
             catalog.rules["ak.applet.discovery"].payload_schema_id,
             format!(
@@ -545,28 +544,6 @@ mod tests {
 
         assert!(catalog.has_payload_validator(EventKind::RealmHistoryAccess.as_str()));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
-    }
-
-    #[test]
-    fn selector_claim_resolves_to_its_registered_schema() {
-        let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
-        let rule = &catalog.rules[EventKind::AgentSelectorClaim.as_str()];
-
-        assert_eq!(rule.payload_schema_id, SchemaId::AGENT_SELECTOR_CLAIM_V1);
-        assert!(
-            rule.required_fields
-                .contains(&"controller_subject_id".to_owned())
-        );
-        assert!(rule.required_fields.contains(&"proofs".to_owned()));
-        assert!(
-            catalog
-                .validate_payload(
-                    EventKind::AgentSelectorClaim.as_str(),
-                    &json!({"schema": SchemaId::AGENT_SELECTOR_CLAIM_V1})
-                )
-                .is_err(),
-            "partial selector claims must fail the dedicated schema validator"
-        );
     }
 
     #[test]

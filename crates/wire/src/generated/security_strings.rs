@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-23.1;
-//! sha256=0cece6481d59f18f33fa1255f45999bb2ce70316aba9ef034f0d3179e2367502 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-25.1;
+//! sha256=ebfdff62fb2a66ef89185bc110562f9b71af98dbc8a1738de1e8caedd913e261 Input: registry/
 //! exporter-label-registry.json; version=2026-09-19.1;
 //! sha256=30b6f19c7a78d8f53f222ceb33867fc2216db73c3f9113d03ab89235ddffe68d Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -16,7 +16,7 @@
 //! sha256=f30aa623670389336a25fae1c5e0dc3b0ba1fd3b80468dba57fb984c685996b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=39, exporter_labels=7, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=38, exporter_labels=7, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -30,7 +30,6 @@ pub enum ProofContextId {
     AccountabilityGrantProofV1,
     AgentRequestedScopeDisclosureProofV1,
     AgentRuntimeKeyPossessionProofV1,
-    AgentSelectorClaimProofV1,
     AgentSessionRefreshProofV1,
     AppletPackageProofV1,
     DeviceProjectionAttestationProofV1,
@@ -73,7 +72,6 @@ impl ProofContextId {
         Self::AccountabilityGrantProofV1,
         Self::AgentRequestedScopeDisclosureProofV1,
         Self::AgentRuntimeKeyPossessionProofV1,
-        Self::AgentSelectorClaimProofV1,
         Self::AgentSessionRefreshProofV1,
         Self::AppletPackageProofV1,
         Self::DeviceProjectionAttestationProofV1,
@@ -120,7 +118,6 @@ impl ProofContextId {
         "ak.agent_requested_scope_disclosure_proof.v1";
     pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1: &'static str =
         "ak.agent_runtime_key_possession_proof.v1";
-    pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent_selector_claim_proof.v1";
     pub const AGENT_SESSION_REFRESH_PROOF_V1: &'static str = "ak.agent_session_refresh_proof.v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet_package_proof.v1";
     pub const DEVICE_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
@@ -186,7 +183,6 @@ impl ProofContextId {
                 Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1
             }
             Self::AgentRuntimeKeyPossessionProofV1 => Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1,
-            Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
             Self::AgentSessionRefreshProofV1 => Self::AGENT_SESSION_REFRESH_PROOF_V1,
             Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
             Self::DeviceProjectionAttestationProofV1 => {
@@ -258,7 +254,6 @@ impl ProofContextId {
             Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1 => {
                 Some(Self::AgentRuntimeKeyPossessionProofV1)
             }
-            Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
             Self::AGENT_SESSION_REFRESH_PROOF_V1 => Some(Self::AgentSessionRefreshProofV1),
             Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
             Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1 => {
@@ -883,22 +878,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "runtime_key_binding_digest",
         ],
         schema_ref: "schemas/agent-operations.schema.json#/$defs/agent_runtime_key_possession_proof",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AgentSelectorClaimProofV1,
-        context: "ak.agent_selector_claim_proof.v1",
-        object_family: "agent_selector_claim",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "controller_subject_id",
-            "subject_account_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/agent-selector-claim.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::AgentSessionRefreshProofV1,

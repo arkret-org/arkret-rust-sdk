@@ -155,15 +155,15 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         ),
         conformance_suite(
             ConformanceProfile::StateResolution,
-            "canonical-container-position-event-kinds",
-            "Reducer fixtures use canonical container operation kinds.",
+            "canonical-strand-position-event-kinds",
+            "Reducer fixtures use the canonical Strand position operation kinds.",
             Some(SchemaId::EVENT_V1),
             json!({
                 "order_independent": true,
                 "requires_merkle_root": true,
                 "canonical_kinds": [
-                    EventKind::ContainerMoveItem,
-                    EventKind::ContainerRebalance
+                    EventKind::StrandMove,
+                    EventKind::StrandReorder
                 ]
             }),
         ),

@@ -1,5 +1,5 @@
-//! Closed state payloads for the discovery, policy-action, schema-definition,
-//! sovereign DID policy and device-list Event kinds.
+//! Closed state payloads for the Applet discovery, policy-action and
+//! schema-definition Event kinds.
 //!
 //! Each type mirrors one `event-payload.schema.json` definition field for
 //! field, in schema property order, so a standard Event of these kinds has an
@@ -7,12 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_models_identity::handle::Handle;
-use arkret_wire::{
-    ActorId, AppletId, DeviceId, DidCoreId, Discoverability, Hash, NonEmptyString, PolicyId,
-    Result, TrustDomainId, WireError,
-};
-use chrono::{DateTime, Utc};
+use arkret_wire::{AppletId, DidCoreId, Discoverability, PolicyId, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -29,15 +24,6 @@ fn ensure_unique<T: Ord>(values: &[T], what: &str) -> Result<()> {
     } else {
         Err(invalid(format!("{what} must not repeat an item")))
     }
-}
-
-fn ensure_not_typed_identifier(value: &str, what: &str) -> Result<()> {
-    if value.starts_with("ak:") {
-        return Err(invalid(format!(
-            "{what} must not be an ak: typed identifier"
-        )));
-    }
-    Ok(())
 }
 
 /// Maximum directory disclosure class of one profile field
@@ -90,9 +76,7 @@ fn validate_directory_ids(directory_ids: &[DidCoreId]) -> Result<()> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiscoveryResourceKind {
-    Actor,
     Applet,
-    Handle,
 }
 
 /// `resource_discovery_state_value`.
@@ -120,20 +104,6 @@ impl ResourceDiscoveryStateValue {
     }
 }
 
-/// `ak.actor.discovery` payload (`actor_discovery_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ActorDiscoveryStatePayload {
-    pub resource_id: ActorId,
-    pub value: ResourceDiscoveryStateValue,
-}
-
-impl ActorDiscoveryStatePayload {
-    pub fn validate(&self) -> Result<()> {
-        self.value.validate_for(DiscoveryResourceKind::Actor)
-    }
-}
-
 /// `ak.applet.discovery` payload (`applet_discovery_state_payload`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -145,49 +115,6 @@ pub struct AppletDiscoveryStatePayload {
 impl AppletDiscoveryStatePayload {
     pub fn validate(&self) -> Result<()> {
         self.value.validate_for(DiscoveryResourceKind::Applet)
-    }
-}
-
-/// `ak.handle.discovery` payload (`handle_discovery_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HandleDiscoveryStatePayload {
-    pub resource_id: Handle,
-    pub value: ResourceDiscoveryStateValue,
-}
-
-impl HandleDiscoveryStatePayload {
-    pub fn validate(&self) -> Result<()> {
-        self.value.validate_for(DiscoveryResourceKind::Handle)
-    }
-}
-
-/// `event-payload.schema.json#/$defs/organization_discovery_state_payload/properties/value`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OrganizationDiscoveryStateValue {
-    pub discoverability: Discoverability,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile_visibility: Option<DiscoveryProfileVisibility>,
-    pub directory_ids: Vec<DidCoreId>,
-}
-
-/// `ak.organization.discovery` payload
-/// (`organization_discovery_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OrganizationDiscoveryStatePayload {
-    pub organization_id: DidCoreId,
-    pub value: OrganizationDiscoveryStateValue,
-}
-
-impl OrganizationDiscoveryStatePayload {
-    pub fn validate(&self) -> Result<()> {
-        validate_directory_ids(&self.value.directory_ids)?;
-        self.value
-            .profile_visibility
-            .as_ref()
-            .map_or(Ok(()), DiscoveryProfileVisibility::validate)
     }
 }
 
@@ -326,118 +253,6 @@ impl SchemaDefineStatePayload {
     }
 }
 
-/// Deployment method policy of one DID method
-/// (`sovereign_did_policy_state_payload.value.method_policy` values).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SovereignDidMethodPolicy {
-    Allowlist,
-    ExternalCollaboratorOnly,
-    EphemeralOnly,
-}
-
-/// `event-payload.schema.json#/$defs/sovereign_did_policy_state_payload/properties/value`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SovereignDidPolicyValue {
-    pub default_principal_method: String,
-    pub allowed_methods: Vec<String>,
-    pub trust_root_ids: Vec<DidCoreId>,
-    pub public_resolver_allowed: bool,
-    pub method_policy: BTreeMap<String, SovereignDidMethodPolicy>,
-}
-
-fn did_method_is_valid(method: &str) -> bool {
-    method.strip_prefix("did:").is_some_and(|name| {
-        !name.is_empty()
-            && name
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-    })
-}
-
-impl SovereignDidPolicyValue {
-    pub fn validate(&self) -> Result<()> {
-        let methods = std::iter::once(&self.default_principal_method)
-            .chain(&self.allowed_methods)
-            .chain(self.method_policy.keys());
-        for method in methods {
-            if !did_method_is_valid(method) {
-                return Err(invalid(format!("`{method}` is not a did:<method> name")));
-            }
-        }
-        if self.allowed_methods.is_empty() || self.trust_root_ids.is_empty() {
-            return Err(invalid(
-                "sovereign DID policy requires allowed_methods and trust_root_ids",
-            ));
-        }
-        ensure_unique(&self.allowed_methods, "allowed_methods")?;
-        ensure_unique(&self.trust_root_ids, "trust_root_ids")
-    }
-}
-
-/// `ak.sovereign.did_policy` payload (`sovereign_did_policy_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SovereignDidPolicyStatePayload {
-    pub trust_domain: TrustDomainId,
-    pub value: SovereignDidPolicyValue,
-}
-
-impl SovereignDidPolicyStatePayload {
-    pub fn validate(&self) -> Result<()> {
-        self.value.validate()
-    }
-}
-
-/// `ak.device.list_update` payload (`device_list_update_payload`). The
-/// AccountId subject is the Event's `actor_id`; the payload never mirrors it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceListUpdatePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub changed_ids: Option<Vec<DeviceId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub left_ids: Option<Vec<DeviceId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_list_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stream_id: Option<NonEmptyString>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
-impl DeviceListUpdatePayload {
-    pub fn validate(&self) -> Result<()> {
-        if self.changed_ids.is_none()
-            && self.left_ids.is_none()
-            && self.device_list_digest.is_none()
-        {
-            return Err(invalid(
-                "device list update carries changed_ids, left_ids or device_list_digest",
-            ));
-        }
-        for (ids, what) in [
-            (&self.changed_ids, "changed_ids"),
-            (&self.left_ids, "left_ids"),
-        ] {
-            if let Some(ids) = ids {
-                if ids.is_empty() {
-                    return Err(invalid(format!("{what} must not be empty when present")));
-                }
-                ensure_unique(ids, what)?;
-            }
-        }
-        self.stream_id.as_ref().map_or(Ok(()), |stream_id| {
-            ensure_not_typed_identifier(stream_id.as_str(), "device list stream_id")
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -463,27 +278,14 @@ mod tests {
         }))
         .unwrap();
         applet.validate().unwrap();
-        let handle: HandleDiscoveryStatePayload = serde_json::from_value(json!({
-            "resource_id": "alice:example.com",
-            "value": discovery_value("handle")
-        }))
-        .unwrap();
-        handle.validate().unwrap();
-        let actor: ActorDiscoveryStatePayload = serde_json::from_value(json!({
-            "resource_id": {"kind": "account", "account_id": {
-                "principal_id": "ak:did_core:web:alice.example",
-                "station_id": "ak:did_core:web:station.example"
-            }},
-            "value": discovery_value("applet")
-        }))
-        .unwrap();
-        assert!(actor.validate().is_err(), "actor payload with applet value");
 
         for value in [
             json!({"resource_kind": "applet", "discoverability": "listed"}),
             json!({"resource_kind": "applet", "discoverability": "listed",
                    "directory_ids": [DIRECTORY], "extra": true}),
             json!({"resource_kind": "applet", "discoverability": "everyone",
+                   "directory_ids": [DIRECTORY]}),
+            json!({"resource_kind": "actor", "discoverability": "listed",
                    "directory_ids": [DIRECTORY]}),
         ] {
             assert!(
@@ -506,21 +308,6 @@ mod tests {
             DiscoveryProfileFieldVisibility::Public,
         )])));
         assert!(bad_field.validate().is_err());
-
-        let organization: OrganizationDiscoveryStatePayload = serde_json::from_value(json!({
-            "organization_id": "ak:did_core:web:org.example",
-            "value": {"discoverability": "public", "directory_ids": []}
-        }))
-        .unwrap();
-        organization.validate().unwrap();
-        assert!(
-            serde_json::from_value::<OrganizationDiscoveryStatePayload>(json!({
-                "organization_id": "ak:did_core:web:org.example",
-                "value": {"resource_kind": "actor", "discoverability": "public",
-                          "directory_ids": []}
-            }))
-            .is_err()
-        );
     }
 
     #[test]
@@ -595,59 +382,6 @@ mod tests {
         assert!(
             serde_json::from_value::<SchemaDefineStatePayload>(json!({
                 "value": {}, "extra": 1
-            }))
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn sovereign_did_policy_is_closed_and_method_scoped() {
-        let valid: SovereignDidPolicyStatePayload = serde_json::from_value(json!({
-            "trust_domain": "ak:trust_domain:enclave.example",
-            "value": {
-                "default_principal_method": "did:webvh",
-                "allowed_methods": ["did:webvh", "did:key"],
-                "trust_root_ids": ["ak:did_core:web:root.example"],
-                "public_resolver_allowed": false,
-                "method_policy": {"did:key": "ephemeral_only"}
-            }
-        }))
-        .unwrap();
-        valid.validate().unwrap();
-        let mut empty_roots = valid.clone();
-        empty_roots.value.trust_root_ids.clear();
-        assert!(empty_roots.validate().is_err());
-        let mut bad_method = valid.clone();
-        bad_method.value.allowed_methods.push("did:Web".to_owned());
-        assert!(bad_method.validate().is_err());
-        let mut duplicate = valid;
-        duplicate.value.allowed_methods.push("did:key".to_owned());
-        assert!(duplicate.validate().is_err());
-    }
-
-    #[test]
-    fn device_list_update_needs_one_signal_and_non_empty_unique_arrays() {
-        let changed: DeviceListUpdatePayload = serde_json::from_value(json!({
-            "changed_ids": ["ak:device:01904100-0000-7000-8000-000000000001"],
-            "updated_at": "2026-09-25T00:00:00.000Z"
-        }))
-        .unwrap();
-        changed.validate().unwrap();
-        let empty: DeviceListUpdatePayload = serde_json::from_value(json!({})).unwrap();
-        assert!(empty.validate().is_err());
-        let empty_array: DeviceListUpdatePayload =
-            serde_json::from_value(json!({"left_ids": []})).unwrap();
-        assert!(empty_array.validate().is_err());
-        let typed_stream: DeviceListUpdatePayload = serde_json::from_value(json!({
-            "device_list_digest": format!("sha256:{}", "0".repeat(64)),
-            "stream_id": "ak:stream:1"
-        }))
-        .unwrap();
-        assert!(typed_stream.validate().is_err());
-        assert!(
-            serde_json::from_value::<DeviceListUpdatePayload>(json!({
-                "changed_ids": ["ak:device:01904100-0000-7000-8000-000000000001"],
-                "principal_id": "ak:did_core:web:alice.example"
             }))
             .is_err()
         );

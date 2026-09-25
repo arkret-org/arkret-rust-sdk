@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-25.1;
-//! sha256=4b38f94c7d773be8b3eb7ecd8662a04e7f664d0121fc0d8996001a42cfb989e2
+//! Input: registry/error-code-registry.json; version=2026-09-25.2;
+//! sha256=234ab35861de9cc8b0c5017ca3c02a976ded5f94e962a33c1e2dd025bf5ed00e
 //! Entries: error_codes=162, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
@@ -1943,7 +1943,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The policy service, realm_policy revision, or policy proof required for this operation is temporarily unavailable.",
+        description: "The policy service, Realm policy facet revision, or policy proof required for this operation is temporarily unavailable.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyViolation,

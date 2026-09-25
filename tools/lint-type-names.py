@@ -16,8 +16,6 @@ DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
 REJECTED = ("Result", "Candidate", "Item", "ResponseBody", "Response",
             "Wrapper", "Info", "Details", "ResBody", "ReqBody")
 EXCEPTIONS = {
-    ("wire/src/generated/event_kinds.rs", "ContainerMoveItem"):
-        "Generated Event-kind marker for moving a domain item, not a wrapper.",
     ("wire/src/platform.rs", "WasmHttpResponseBody"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
     ("models-collaboration/src/governance/realm_join_intake.rs", "RealmJoinCandidate"):

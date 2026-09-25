@@ -70,15 +70,14 @@ pub use arkret_crypto as crypto;
 pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
-    AppletBridgeErrorBuilder, ContainerRebalanceAssignment, EVENT_PAYLOAD_BINDINGS,
-    EventAuthoringContext, EventDraftKindConformanceVector, EventDraftKindRegistry,
-    EventDraftKindSpec, EventDraftKindValidation, EventIntent, EventPayloadBinding,
-    EventPayloadExt, EventSpec, ExtensionPayloadValidator, GhostActorProfileRequest,
-    LocalOperationDraft, LocalOperationSpec, MessageEventPayload, MlsEnvelopeOperationExt,
-    ProjectedEventOperation, ProjectionContext, RsvpAuthoring, RsvpResponseBranch,
-    StrandCreateObject, TypedEventDraft, ValidatedExtensionPayload, accountability_grant_intent,
-    container_rebalance_assignments, event_draft_kind_conformance_vectors, local_operation_spec,
-    rank_between, rank_exhausted, validate_event_payload,
+    AppletBridgeErrorBuilder, EVENT_PAYLOAD_BINDINGS, EventAuthoringContext,
+    EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
+    EventDraftKindValidation, EventIntent, EventPayloadBinding, EventPayloadExt, EventSpec,
+    ExtensionPayloadValidator, GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec,
+    MessageEventPayload, MlsEnvelopeOperationExt, ProjectedEventOperation, ProjectionContext,
+    RsvpAuthoring, RsvpResponseBranch, StrandCreateObject, TypedEventDraft,
+    ValidatedExtensionPayload, accountability_grant_intent, event_draft_kind_conformance_vectors,
+    local_operation_spec, rank_between, rank_exhausted, validate_event_payload,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, generate_cursor_handle,
@@ -284,7 +283,9 @@ pub use arkret_models_identity::agent_signer_state::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
 pub use arkret_models_identity::authenticated_signer_resolution_evidence::*;
-pub use arkret_models_identity::claim_presentation::{AgentSelectorClaim, validate_agent_slug};
+pub use arkret_models_identity::claim_presentation::{
+    AgentSelectorClaimValue, validate_agent_slug,
+};
 pub use arkret_models_identity::device_push_route::*;
 pub use arkret_models_identity::device_verification::*;
 pub use arkret_models_identity::did_webvh::*;

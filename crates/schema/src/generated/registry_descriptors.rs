@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.4;
-//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-25.5;
+//! sha256=e3569050ec3101dc760e78cc84541589c0420dbfab68aa1a0bdd6596fd507e7d Input: registry/
 //! account-data-key-registry.json; version=2026-09-25.2;
 //! sha256=0056114b31b4300e5c186b0b42dc26e8fb349f18f3e44da4580087f7d1a9aaff Entries: id_kinds=48,
-//! special_forms=15, actions=148, approval_carriers=1, schemas=221, account_data_patterns=24
+//! special_forms=15, actions=145, approval_carriers=1, schemas=219, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -522,21 +522,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AgentSelectorClaim,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AGENT_SELECTOR_CLAIM],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.agent_provisioning.v1"),
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
-        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarExchangeControl,
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
@@ -684,11 +669,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::CALL_CREATE,
-            event_kind_str::CALL_STATE,
-            event_kind_str::CALL_SUMMARY,
-        ],
+        target_event_kinds: &[event_kind_str::CALL_CREATE, event_kind_str::CALL_STATE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
@@ -961,36 +942,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &[event_kind_str::CONTACT_SCOPE_UPDATE],
         grant_authority_actions: &[],
         profile: Some("ak.profile.direct_conversation_realm.v1"),
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
-        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ContainerMoveItem,
-        category: "strand",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONTAINER_MOVE_ITEM],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
-        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ContainerRebalance,
-        category: "strand",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONTAINER_REBALANCE],
-        grant_authority_actions: &[],
-        profile: None,
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "same_name",
@@ -1664,7 +1615,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         target_event_kinds: &[
             event_kind_str::POLICY_SET,
             event_kind_str::POLICY_ACTION,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
@@ -1767,7 +1717,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ORGANIZATION,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_ALIAS,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_HISTORY_ACCESS,
             event_kind_str::REALM_DISCOVERY,
@@ -1972,7 +1921,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CALL_CREATE,
             event_kind_str::CALL_RECORDING_START,
             event_kind_str::CALL_STATE,
-            event_kind_str::CALL_SUMMARY,
             event_kind_str::CAPABILITY_GRANT,
             event_kind_str::CAPABILITY_REVOKE,
             event_kind_str::CIRCLE_ARCHIVE,
@@ -1982,8 +1930,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CIRCLE_RESTORE,
             event_kind_str::CIRCLE_TOMBSTONE,
             event_kind_str::CIRCLE_UPDATE,
-            event_kind_str::CONTAINER_MOVE_ITEM,
-            event_kind_str::CONTAINER_REBALANCE,
             event_kind_str::INVITE_CANCEL,
             event_kind_str::INVITE_CLAIM,
             event_kind_str::INVITE_CREATE,
@@ -2019,7 +1965,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_ORGANIZATION,
             event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_PROFILE,
@@ -2074,8 +2019,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.circle.member.add",
             "ak.circle.member.add.others",
             "ak.circle.member.manage",
-            "ak.container.move_item",
-            "ak.container.rebalance",
             "ak.event.read",
             "ak.invite.cancel",
             "ak.invite.claim",
@@ -3053,10 +2996,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-requested-scope-disclosure.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SELECTOR_CLAIM_V1,
-        file: "schemas/agent-selector-claim.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIDECAR_V1,
         file: "schemas/agent-sidecar.schema.json",
     },
@@ -3671,10 +3610,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RELATION_V1,
         file: "schemas/relation.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::RESOURCE_DISCOVERY_STATE_V1,
-        file: "schemas/event-payload.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RESOURCE_SELECTOR_V1,

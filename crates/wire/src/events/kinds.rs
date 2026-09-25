@@ -40,7 +40,6 @@ pub fn event_wire_scope(kind: &str) -> EventWireScope {
 #[serde(rename_all = "snake_case")]
 pub enum EventProductClass {
     Account,
-    Actor,
     Agent,
     Applet,
     Audit,
@@ -55,7 +54,6 @@ pub enum EventProductClass {
     Device,
     E2ee,
     Strand,
-    Handle,
     Identity,
     Invite,
     Membership,
@@ -72,7 +70,6 @@ pub enum EventProductClass {
     Relation,
     Schema,
     Sidecar,
-    Sovereign,
     Space,
     View,
     Custom(String),
@@ -86,7 +83,6 @@ pub fn is_standard_event_kind(kind: &str) -> bool {
 pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
         EventKind::AccountDataSet => EventProductClass::Account,
-        EventKind::ActorDiscovery => EventProductClass::Actor,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest
@@ -96,8 +92,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AgentKeyAuthorize
         | EventKind::AgentKeyRevoke
         | EventKind::SelfAgentPause
-        | EventKind::SelfAgentResume
-        | EventKind::AgentSelectorClaim => EventProductClass::Agent,
+        | EventKind::SelfAgentResume => EventProductClass::Agent,
         EventKind::SidecarCreate
         | EventKind::SidecarContextAttach
         | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
@@ -111,10 +106,9 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CapabilityRevoke
         | EventKind::RealmOwnerTransfer
         | EventKind::RealmAuthorityReset => EventProductClass::Authz,
-        EventKind::CallCreate
-        | EventKind::CallRecordingStart
-        | EventKind::CallState
-        | EventKind::CallSummary => EventProductClass::Call,
+        EventKind::CallCreate | EventKind::CallRecordingStart | EventKind::CallState => {
+            EventProductClass::Call
+        }
         EventKind::CircleCreate
         | EventKind::CircleUpdate
         | EventKind::CircleArchive
@@ -130,7 +124,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ContactTombstone
         | EventKind::DirectConversationBound => EventProductClass::Contact,
         EventKind::DeviceAuthorize
-        | EventKind::DeviceListUpdate
         | EventKind::DevicePushRoute
         | EventKind::DeviceReanchor
         | EventKind::DeviceRevoke
@@ -145,7 +138,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::StrandTracksUpdate
         | EventKind::StrandUpdate
         | EventKind::StrandWatchSet => EventProductClass::Strand,
-        EventKind::HandleDiscovery => EventProductClass::Handle,
         EventKind::IdentityAccountabilityGrant | EventKind::IdentityResolutionUpdate => {
             EventProductClass::Identity
         }
@@ -172,9 +164,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::MorphRestore
         | EventKind::MorphStageSet
         | EventKind::MorphUpdate => EventProductClass::Morph,
-        EventKind::OrganizationDiscovery | EventKind::OrganizationModerationPolicy => {
-            EventProductClass::Organization
-        }
+        EventKind::OrganizationModerationPolicy => EventProductClass::Organization,
         EventKind::PinAdd | EventKind::PinRemove | EventKind::PinReorder => EventProductClass::Pin,
         EventKind::PolicyAction | EventKind::PolicySet => EventProductClass::Policy,
         EventKind::ProfileCreate | EventKind::ProfileRealmOverride | EventKind::ProfileUpdate => {
@@ -198,7 +188,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmMediaService
         | EventKind::RealmOrganization
         | EventKind::RealmPlaintextVisibleServices
-        | EventKind::RealmPolicy
         | EventKind::RealmPolicyBundle
         | EventKind::RealmPreviewPolicy
         | EventKind::RealmReadReceiptPolicy
@@ -206,14 +195,11 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmSearchPolicy
         | EventKind::RealmTombstone
         | EventKind::RealmProfile => EventProductClass::Realm,
-        EventKind::ContainerMoveItem
-        | EventKind::ContainerRebalance
-        | EventKind::RelationCreate
-        | EventKind::RelationTombstone
-        | EventKind::RelationUpdate => EventProductClass::Relation,
+        EventKind::RelationCreate | EventKind::RelationTombstone | EventKind::RelationUpdate => {
+            EventProductClass::Relation
+        }
         EventKind::RsvpSet => EventProductClass::Strand,
         EventKind::SchemaDefine => EventProductClass::Schema,
-        EventKind::SovereignDidPolicy => EventProductClass::Sovereign,
         EventKind::SpaceArchive
         | EventKind::SpaceCreate
         | EventKind::SpaceParent

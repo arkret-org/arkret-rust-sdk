@@ -172,7 +172,7 @@ fn device_event(
     seed: [u8; 32],
 ) -> Event {
     let event = arkret_wire::test_support::raw_event_for_actor_at(
-        "ak.realm.policy",
+        "ak.realm.policy_bundle",
         ScopeRef::Realm {
             realm_id: RealmId::from_event_id(&EventId::from_digest(
                 DigestSuite::Sha256,

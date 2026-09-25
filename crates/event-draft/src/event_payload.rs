@@ -8,7 +8,7 @@ use arkret_models_collaboration::events_payloads::agent::{
 };
 use arkret_models_collaboration::events_payloads::audit::AuditAccessedPayload;
 use arkret_models_collaboration::events_payloads::call::{
-    CallCreatePayload, CallRecordingStartPayload, CallStatePayload, CallSummaryPayload,
+    CallCreatePayload, CallRecordingStartPayload, CallStatePayload,
 };
 use arkret_models_collaboration::events_payloads::*;
 use arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload;
@@ -25,7 +25,7 @@ use arkret_models_collaboration::governance::realm_governance::{
 use arkret_models_collaboration::governance::realm_lifecycle::{
     CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
     RealmAssetPrivacyPolicyPayload, RealmDestroyPayload, RealmDiscoveryPayload,
-    RealmJoinRulePayload, RealmPolicyPayload, RealmSchemaPayload, RealmTombstonePayload,
+    RealmJoinRulePayload, RealmSchemaPayload, RealmTombstonePayload,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::object_lifecycle::{
@@ -36,7 +36,6 @@ use arkret_models_collaboration::objects::productivity::{
 };
 use arkret_models_collaboration::objects::read_receipts::ReadCursor;
 use arkret_models_crypto::MlsCommitPayload;
-use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::device_push_route::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
@@ -199,7 +198,6 @@ event_payload_accessors! {
     event_spec::RealmAlias => (as_realm_alias, RealmAliasPayload),
     event_spec::RealmOrganization => (as_realm_organization, RealmOrganizationPayload),
     event_spec::RealmLink => (as_realm_link, RealmLinkPayload),
-    event_spec::RealmPolicy => (as_realm_policy, RealmPolicyPayload),
     event_spec::RealmJoinRule => (as_realm_join_rule, RealmJoinRulePayload),
     event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
     event_spec::RealmDiscovery => (as_realm_discovery, RealmDiscoveryPayload),
@@ -264,15 +262,12 @@ event_payload_accessors! {
     event_spec::RelationCreate => (as_relation_create, RelationCreatePayload),
     event_spec::RelationUpdate => (as_relation_update, RelationUpdatePayload),
     event_spec::RelationTombstone => (as_relation_tombstone, RelationTombstonePayload),
-    event_spec::ContainerMoveItem => (as_container_move_item, ContainerMoveItemPayload, ContainerMoveItemPayload::validate),
-    event_spec::ContainerRebalance => (as_container_rebalance, ContainerRebalancePayload, ContainerRebalancePayload::validate),
     event_spec::ViewCreate => (as_view_create, ViewCreatePayload, ViewCreatePayload::validate),
     event_spec::ViewUpdate => (as_view_update, ViewUpdatePayload, ViewUpdatePayload::validate),
     event_spec::ViewReconcile => (as_view_reconcile, ViewReconcilePayload, ViewReconcilePayload::validate),
     event_spec::AgentKeyAuthorize => (as_agent_key_authorize, AgentKeyAuthorizePayload),
     event_spec::AgentKeyRevoke => (as_agent_key_revoke, AgentKeyRevokePayload),
     event_spec::AgentProvision => (as_agent_provision, AgentProvisionPayload, AgentProvisionPayload::validate),
-    event_spec::AgentSelectorClaim => (as_agent_selector_claim, AgentSelectorClaim),
     event_spec::SelfAgentPause => (as_self_agent_pause, AgentPausePayload),
     event_spec::SelfAgentResume => (as_self_agent_resume, AgentResumePayload),
     event_spec::SelfAgentDeactivate => (as_self_agent_deactivate, AgentDeactivatePayload),
@@ -320,19 +315,13 @@ event_payload_accessors! {
     event_spec::CallCreate => (as_call_create, CallCreatePayload),
     event_spec::CallState => (as_call_state, CallStatePayload),
     event_spec::CallRecordingStart => (as_call_recording_start, CallRecordingStartPayload),
-    event_spec::CallSummary => (as_call_summary, CallSummaryPayload),
     event_spec::RealmOwnerTransfer => (as_realm_owner_transfer, RealmOwnerTransferPayload),
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
     event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
     event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),
-    event_spec::ActorDiscovery => (as_actor_discovery, ActorDiscoveryStatePayload, ActorDiscoveryStatePayload::validate),
     event_spec::AppletDiscovery => (as_applet_discovery, AppletDiscoveryStatePayload, AppletDiscoveryStatePayload::validate),
-    event_spec::HandleDiscovery => (as_handle_discovery, HandleDiscoveryStatePayload, HandleDiscoveryStatePayload::validate),
-    event_spec::OrganizationDiscovery => (as_organization_discovery, OrganizationDiscoveryStatePayload, OrganizationDiscoveryStatePayload::validate),
     event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload, |payload: &OrganizationModerationPolicyStatePayload| payload.value.validate()),
     event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
-    event_spec::SovereignDidPolicy => (as_sovereign_did_policy, SovereignDidPolicyStatePayload, SovereignDidPolicyStatePayload::validate),
-    event_spec::DeviceListUpdate => (as_device_list_update, DeviceListUpdatePayload, DeviceListUpdatePayload::validate),
 }
 
 #[cfg(test)]

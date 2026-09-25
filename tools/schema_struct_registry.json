@@ -106,10 +106,6 @@
       "schema": "call-recording-artifact.schema.json"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/call.rs::CallSummaryPayload",
-      "schema": "event-payload.schema.json#/$defs/call_summary_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/call.rs::CallStatePayload",
       "schema": "event-payload.schema.json#/$defs/call_state_payload"
     },
@@ -152,14 +148,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/contact.rs::ContactTombstonedPayload",
       "schema": "event-payload.schema.json#/$defs/contact_tombstoned_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/container.rs::ContainerMoveItemPayload",
-      "schema": "event-payload.schema.json#/$defs/container_move_item_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/container.rs::ContainerRebalancePayload",
-      "schema": "event-payload.schema.json#/$defs/container_rebalance_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::Message",
@@ -1062,6 +1050,10 @@
       "schema": "account-operations.schema.json#/$defs/device_summary"
     },
     {
+      "rust_type": "crates/models-identity/src/claim_presentation.rs::AgentSelectorClaimValue",
+      "schema": "typed-current-result.schema.json#/$defs/agent_selector_claim_value"
+    },
+    {
       "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamRow",
       "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row"
     },
@@ -1074,24 +1066,8 @@
       "schema": "event-payload.schema.json#/$defs/resource_discovery_state_value"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::ActorDiscoveryStatePayload",
-      "schema": "event-payload.schema.json#/$defs/actor_discovery_state_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::AppletDiscoveryStatePayload",
       "schema": "event-payload.schema.json#/$defs/applet_discovery_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::HandleDiscoveryStatePayload",
-      "schema": "event-payload.schema.json#/$defs/handle_discovery_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::OrganizationDiscoveryStatePayload",
-      "schema": "event-payload.schema.json#/$defs/organization_discovery_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::OrganizationDiscoveryStateValue",
-      "schema": "event-payload.schema.json#/$defs/organization_discovery_state_payload/properties/value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::PolicyActionDocument",
@@ -1104,18 +1080,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SchemaDefineStatePayload",
       "schema": "event-payload.schema.json#/$defs/schema_define_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SovereignDidPolicyStatePayload",
-      "schema": "event-payload.schema.json#/$defs/sovereign_did_policy_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::SovereignDidPolicyValue",
-      "schema": "event-payload.schema.json#/$defs/sovereign_did_policy_state_payload/properties/value"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/registry_state.rs::DeviceListUpdatePayload",
-      "schema": "event-payload.schema.json#/$defs/device_list_update_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/productivity.rs::AccountBlocklistValue",

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.2;
-//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17
-//! Entries: active_events=143
+//! Input: registry/contract-registry.json; version=2026-09-25.3;
+//! sha256=e3569050ec3101dc760e78cc84541589c0420dbfab68aa1a0bdd6596fd507e7d
+//! Entries: active_events=133
 
 use arkret_wire::event_kind_str;
 
@@ -21,11 +21,6 @@ pub struct EventRuntimeContractDescriptor {
 pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::ACCOUNT_DATA_SET,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::ACTOR_DISCOVERY,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -61,11 +56,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::AGENT_PROVISION,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AGENT_SELECTOR_CLAIM,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -116,11 +106,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CALL_STATE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CALL_SUMMARY,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -210,22 +195,7 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CONTAINER_MOVE_ITEM,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CONTAINER_REBALANCE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::DEVICE_AUTHORIZE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::DEVICE_LIST_UPDATE,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -246,11 +216,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::DIRECT_CONVERSATION_BOUND,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::HANDLE_DISCOVERY,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -376,11 +341,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::MORPH_UPDATE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::ORGANIZATION_DISCOVERY,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -525,11 +485,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::REALM_POLICY,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_POLICY_BUNDLE,
         id_source: None,
         derived_id_kinds: &[],
@@ -638,11 +593,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         event_kind: event_kind_str::SIDECAR_CREATE,
         id_source: Some(EventIdSource::EventDerived),
         derived_id_kinds: &["sidecar"],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::SOVEREIGN_DID_POLICY,
-        id_source: None,
-        derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::SPACE_ARCHIVE,

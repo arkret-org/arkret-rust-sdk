@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId, WireError,
+    CircleId, DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -158,24 +158,6 @@ impl RealmDiscoveryPayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("realm discovery payload serialize: {err}")))
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyValue {
-    pub policy_id: PolicyId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyPayload {
-    pub value: RealmPolicyValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

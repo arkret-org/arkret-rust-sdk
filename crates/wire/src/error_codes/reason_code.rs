@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-25.1;
-//! sha256=4b38f94c7d773be8b3eb7ecd8662a04e7f664d0121fc0d8996001a42cfb989e2
-//! Entries: reason_codes=312, reserved_not_emitted=71
+//! Input: registry/error-code-registry.json; version=2026-09-25.2;
+//! sha256=234ab35861de9cc8b0c5017ca3c02a976ded5f94e962a33c1e2dd025bf5ed00e
+//! Entries: reason_codes=311, reserved_not_emitted=71
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -53,7 +53,6 @@ pub enum ReasonCode {
     CallParticipantRemoved,
     CallStateTerminal,
     CallStateTransitionInvalid,
-    CallSummaryInvalid,
     CborBoundsInvalid,
     CborNotDeterministic,
     ChallengeExpired,
@@ -389,7 +388,6 @@ impl ReasonCode {
     pub const CALL_PARTICIPANT_REMOVED: &'static str = "call_participant_removed";
     pub const CALL_STATE_TERMINAL: &'static str = "call_state_terminal";
     pub const CALL_STATE_TRANSITION_INVALID: &'static str = "call_state_transition_invalid";
-    pub const CALL_SUMMARY_INVALID: &'static str = "call_summary_invalid";
     pub const CBOR_BOUNDS_INVALID: &'static str = "cbor_bounds_invalid";
     pub const CBOR_NOT_DETERMINISTIC: &'static str = "cbor_not_deterministic";
     pub const CHALLENGE_EXPIRED: &'static str = "challenge_expired";
@@ -765,7 +763,6 @@ impl ReasonCode {
             Self::CallParticipantRemoved => Self::CALL_PARTICIPANT_REMOVED,
             Self::CallStateTerminal => Self::CALL_STATE_TERMINAL,
             Self::CallStateTransitionInvalid => Self::CALL_STATE_TRANSITION_INVALID,
-            Self::CallSummaryInvalid => Self::CALL_SUMMARY_INVALID,
             Self::CborBoundsInvalid => Self::CBOR_BOUNDS_INVALID,
             Self::CborNotDeterministic => Self::CBOR_NOT_DETERMINISTIC,
             Self::ChallengeExpired => Self::CHALLENGE_EXPIRED,
@@ -1145,7 +1142,6 @@ impl ReasonCode {
             Self::CALL_PARTICIPANT_REMOVED => Self::CallParticipantRemoved,
             Self::CALL_STATE_TERMINAL => Self::CallStateTerminal,
             Self::CALL_STATE_TRANSITION_INVALID => Self::CallStateTransitionInvalid,
-            Self::CALL_SUMMARY_INVALID => Self::CallSummaryInvalid,
             Self::CBOR_BOUNDS_INVALID => Self::CborBoundsInvalid,
             Self::CBOR_NOT_DETERMINISTIC => Self::CborNotDeterministic,
             Self::CHALLENGE_EXPIRED => Self::ChallengeExpired,
@@ -1755,11 +1751,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::CALL_STATE_TRANSITION_INVALID,
         applies_to: &["event_envelope"],
         description: "A `ak.call.state` event requested a `state` transition from a non-terminal state that is not listed in the legal-successor table (transitions out of a terminal state use `call_state_terminal` instead). The reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §4.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CALL_SUMMARY_INVALID,
-        applies_to: &["event_envelope"],
-        description: "A `ak.call.summary` event was rejected because its `final_state` is not a terminal call state, the referenced `call_id` has no terminal `ak.call.state` head, or a divergent summary already exists for the call (the summary typed current result is write-once). Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §7.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CBOR_BOUNDS_INVALID,
@@ -2463,7 +2454,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_REVISION_GAP,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A ak.realm.policy_bundle update skipped one or more monotonic policy_revision values. Reducer MUST reject instead of accepting a discontinuous realm_policy revision.",
+        description: "A ak.realm.policy_bundle update skipped one or more monotonic policy_revision values. Reducer MUST reject instead of accepting a discontinuous realm_policy_bundle revision.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_REVOKED,

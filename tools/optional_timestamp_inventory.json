@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "total": 171,
+  "total": 168,
   "counts": {
     "internal": 51,
-    "optional_has_default": 116,
+    "optional_has_default": 113,
     "required": 3,
     "schema_field_unknown": 1
   },
@@ -214,7 +214,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
-      "line": 44,
+      "line": 43,
       "struct_name": "CallParticipant",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -226,7 +226,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
-      "line": 64,
+      "line": 63,
       "struct_name": "CallParticipantWire",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -238,7 +238,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
-      "line": 430,
+      "line": 429,
       "struct_name": "CallRecordingRetention",
       "field_name": "retention_expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -250,7 +250,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
-      "line": 452,
+      "line": 451,
       "struct_name": "CallRecordingDeletionAudit",
       "field_name": "completed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -499,18 +499,6 @@
       "schema_pointer": null,
       "schema_source": "none",
       "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/registry_state.rs",
-      "line": 411,
-      "struct_name": "DeviceListUpdatePayload",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/device_list_update_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/accountability.rs",
@@ -1857,30 +1845,6 @@
       "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-identity/src/claim_presentation.rs",
-      "line": 49,
-      "struct_name": "AgentSelectorClaim",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "agent-selector-claim.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-identity/src/claim_presentation.rs",
-      "line": 55,
-      "struct_name": "AgentSelectorClaim",
-      "field_name": "verified_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "agent-selector-claim.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
       "file": "crates/models-identity/src/device_push_route.rs",
       "line": 37,
       "struct_name": "DevicePushRouteActivePayload",
@@ -2050,7 +2014,7 @@
     },
     {
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 1264,
+      "line": 1259,
       "struct_name": "MemberStateCurrent",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",

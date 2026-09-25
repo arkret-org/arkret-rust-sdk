@@ -44,9 +44,7 @@ pub use operation::{
     ProjectionContext, local_operation_spec,
 };
 pub use payloads::StrandCreateObject;
-pub use rank::{
-    ContainerRebalanceAssignment, container_rebalance_assignments, rank_between, rank_exhausted,
-};
+pub use rank::{rank_between, rank_exhausted};
 pub use registry::{
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
     EventDraftKindValidation, event_draft_kind_conformance_vectors,

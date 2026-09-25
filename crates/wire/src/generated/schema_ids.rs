@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.4;
-//! sha256=020dd2a826fd8b62cce0d6a9c0fa4e342a1aef8fd36c6e379a34e3c67e09de17 Entries: schema_ids=221,
-//! active=221
+//! Input: registry/contract-registry.json; version=2026-09-25.5;
+//! sha256=e3569050ec3101dc760e78cc84541589c0420dbfab68aa1a0bdd6596fd507e7d Entries: schema_ids=219,
+//! active=219
 
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,6 @@ pub enum SchemaId {
     AgentPairingBootstrapV1,
     AgentProvisionV1,
     AgentRequestedScopeDisclosureV1,
-    AgentSelectorClaimV1,
     AgentSidecarV1,
     AgentSidecarEventExchangeBindingV1,
     AgentSidecarExchangeControlV1,
@@ -189,7 +188,6 @@ pub enum SchemaId {
     RecoveryTerminalCommitV1,
     RegistrationDidEvidenceV1,
     RelationV1,
-    ResourceDiscoveryStateV1,
     ResourceSelectorV1,
     ResultProjectionV1,
     RsvpV1,
@@ -259,7 +257,6 @@ impl SchemaId {
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
-        Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
         Self::AgentSidecarEventExchangeBindingV1,
         Self::AgentSidecarExchangeControlV1,
@@ -414,7 +411,6 @@ impl SchemaId {
         Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
-        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
         Self::ResultProjectionV1,
         Self::RsvpV1,
@@ -484,7 +480,6 @@ impl SchemaId {
         Self::AgentPairingBootstrapV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
-        Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
         Self::AgentSidecarEventExchangeBindingV1,
         Self::AgentSidecarExchangeControlV1,
@@ -639,7 +634,6 @@ impl SchemaId {
         Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
-        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
         Self::ResultProjectionV1,
         Self::RsvpV1,
@@ -760,9 +754,6 @@ impl SchemaId {
     /// requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
-    /// Signed controller-scoped Agent label claim for verification of an already-known full Agent
-    /// AccountId; not a free-text mention resolver.
-    pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
     /// access. It is not a Circle profile and has no backing Circle or editable membership. See
     /// zh/models/sidecar.md.
@@ -1221,9 +1212,6 @@ impl SchemaId {
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
-    /// Closed SDK-facing union at schemas/event-payload.schema.json#/$defs/resource_discovery_state
-    /// over the exact Actor, Applet, and Handle discovery-state Event payloads.
-    pub const RESOURCE_DISCOVERY_STATE_V1: &'static str = "ak.schema.resource_discovery_state.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
     /// Closed typed current-result selector and value union.
     pub const RESULT_PROJECTION_V1: &'static str = "ak.schema.result_projection.v1";
@@ -1356,7 +1344,6 @@ impl SchemaId {
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
             Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
             Self::AgentRequestedScopeDisclosureV1 => Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
-            Self::AgentSelectorClaimV1 => Self::AGENT_SELECTOR_CLAIM_V1,
             Self::AgentSidecarV1 => Self::AGENT_SIDECAR_V1,
             Self::AgentSidecarEventExchangeBindingV1 => {
                 Self::AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1
@@ -1531,7 +1518,6 @@ impl SchemaId {
             Self::RecoveryTerminalCommitV1 => Self::RECOVERY_TERMINAL_COMMIT_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
-            Self::ResourceDiscoveryStateV1 => Self::RESOURCE_DISCOVERY_STATE_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
             Self::ResultProjectionV1 => Self::RESULT_PROJECTION_V1,
             Self::RsvpV1 => Self::RSVP_V1,
@@ -1610,7 +1596,6 @@ impl SchemaId {
             Self::AgentRequestedScopeDisclosureV1 => {
                 "schemas/agent-requested-scope-disclosure.schema.json"
             }
-            Self::AgentSelectorClaimV1 => "schemas/agent-selector-claim.schema.json",
             Self::AgentSidecarV1 => "schemas/agent-sidecar.schema.json",
             Self::AgentSidecarEventExchangeBindingV1 => {
                 "schemas/agent-sidecar-event-exchange-binding.schema.json"
@@ -1803,7 +1788,6 @@ impl SchemaId {
             Self::RecoveryTerminalCommitV1 => "schemas/security-transaction.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
-            Self::ResourceDiscoveryStateV1 => "schemas/event-payload.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
             Self::ResultProjectionV1 => "schemas/typed-current-result.schema.json",
             Self::RsvpV1 => "schemas/rsvp.schema.json",
@@ -1880,7 +1864,6 @@ impl SchemaId {
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 => {
                 Some(Self::AgentRequestedScopeDisclosureV1)
             }
-            Self::AGENT_SELECTOR_CLAIM_V1 => Some(Self::AgentSelectorClaimV1),
             Self::AGENT_SIDECAR_V1 => Some(Self::AgentSidecarV1),
             Self::AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1 => {
                 Some(Self::AgentSidecarEventExchangeBindingV1)
@@ -2061,7 +2044,6 @@ impl SchemaId {
             Self::RECOVERY_TERMINAL_COMMIT_V1 => Some(Self::RecoveryTerminalCommitV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
-            Self::RESOURCE_DISCOVERY_STATE_V1 => Some(Self::ResourceDiscoveryStateV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),
             Self::RESULT_PROJECTION_V1 => Some(Self::ResultProjectionV1),
             Self::RSVP_V1 => Some(Self::RsvpV1),
