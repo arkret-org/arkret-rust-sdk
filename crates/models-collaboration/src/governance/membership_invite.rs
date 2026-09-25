@@ -1,7 +1,7 @@
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, DidCoreId, DidUrl, EventId, Hash, InviteId, NonEmptyString, PayloadProof,
-    RealmId, Result, StrandId, WireError, XExtensionMap, canonical,
+    RealmId, ReasonCode, Result, StrandId, WireError, XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -390,17 +390,26 @@ pub enum InvitePreviousState {
     Claimed,
 }
 
-/// Directed-invite cancel/reject payload. It deliberately carries the stored
-/// invitee so the Invite lifecycle and member-state transitions are atomic.
+/// Directed-invite cancel/reject payload
+/// (`event-payload.schema.json#/$defs/invite_cancel_payload`). It deliberately
+/// carries the stored invitee so the Invite lifecycle transition and the
+/// live-target slot release are atomic.
+///
+/// The schema allows `x_*` extension properties but is otherwise closed; the
+/// flattened [`XExtensionMap`] rejects every other unknown member.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct InviteCancelPayload {
     pub invite_id: InviteId,
     pub previous_state: InvitePreviousState,
     pub invitee_account_id: AccountId,
     pub target_state: InviteCancelTargetState,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// `x_*` extension properties.
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
 }
 
 impl InviteCancelPayload {
@@ -415,12 +424,19 @@ impl InviteCancelPayload {
             previous_state,
             invitee_account_id,
             target_state,
+            reason_code: None,
             reason: None,
+            extensions: XExtensionMap::default(),
         }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
         self.reason = Some(reason.into());
+        self
+    }
+
+    pub fn with_reason_code(mut self, reason_code: ReasonCode) -> Self {
+        self.reason_code = Some(reason_code);
         self
     }
 
@@ -466,23 +482,58 @@ impl InviteRevokeTargetState {
     }
 }
 
-/// High-risk/direct-or-third-party revocation payload.
+/// High-risk/direct-or-third-party revocation payload
+/// (`event-payload.schema.json#/$defs/invite_revoke_payload`).
+///
+/// The schema allows `x_*` extension properties but is otherwise closed; the
+/// flattened [`XExtensionMap`] rejects every other unknown member.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     pub previous_state: InviteRevokePreviousState,
     /// Present exactly when the target Invite stores one and `target_state` is
     /// not `send_failed`: it is the only signed source the
-    /// `ak.component.invite.live_target.v1` subject can be derived from.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// `invite_live_target` subject can be derived from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invitee_account_id: Option<AccountId>,
     pub target_state: InviteRevokeTargetState,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// `x_*` extension properties.
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
 }
 
 impl InviteRevokePayload {
+    pub fn new(
+        invite_id: InviteId,
+        previous_state: InviteRevokePreviousState,
+        invitee_account_id: Option<AccountId>,
+        target_state: InviteRevokeTargetState,
+    ) -> Self {
+        Self {
+            invite_id,
+            previous_state,
+            invitee_account_id,
+            target_state,
+            reason_code: None,
+            reason: None,
+            extensions: XExtensionMap::default(),
+        }
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+
+    pub fn with_reason_code(mut self, reason_code: ReasonCode) -> Self {
+        self.reason_code = Some(reason_code);
+        self
+    }
+
     /// Enforce the schema's `if/then`: `send_failed` MUST NOT carry
     /// `invitee_account_id`.
     ///
@@ -592,6 +643,35 @@ impl InviteAcceptPayload {
             .map_err(|err| WireError::Protocol(format!("invite accept payload serialize: {err}")))
     }
 }
+
+/// Closed value of the `invite_directed_invitee` typed current result
+/// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_value`).
+///
+/// It is the create-locked reverse index of the `invite_live_target` slot:
+/// written once by a directed `ak.invite.create` from that Event's own payload
+/// and never by `ak.invite.third_party`, so a third-party Invite's stored
+/// invitee is absent rather than null.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InviteDirectedInviteeValue {
+    pub invitee_account_id: AccountId,
+}
+
+/// The occupied branch of the `invite_live_target` slot value
+/// (`typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0`).
+///
+/// The occupant is the verbatim `ak:event:` id of the `ak.invite.create` that
+/// holds the slot, never its `ak:invite:` retype. The empty branch of the same
+/// value is JSON `null`, carried as `Option<InviteLiveTargetOccupant>`: it is
+/// the reusable state a registered release write returns the slot to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InviteLiveTargetOccupant {
+    pub create_event_id: EventId,
+}
+
+/// Closed `invite_live_target` slot value: an occupant or the empty slot.
+pub type InviteLiveTargetValue = Option<InviteLiveTargetOccupant>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteThirdPartyCreatePayload {
@@ -1075,13 +1155,12 @@ mod invite_accept_payload_tests {
             InviteRevokePreviousState::Claimed,
             InviteRevokePreviousState::SendFailed,
         ] {
-            let payload = InviteRevokePayload {
-                invite_id: invite_id.clone(),
-                previous_state: state,
-                invitee_account_id: None,
-                target_state: InviteRevokeTargetState::Revoked,
-                reason: None,
-            };
+            let payload = InviteRevokePayload::new(
+                invite_id.clone(),
+                state,
+                None,
+                InviteRevokeTargetState::Revoked,
+            );
             let value = payload.to_value().unwrap();
             assert_eq!(
                 serde_json::from_value::<InviteRevokePayload>(value).unwrap(),
@@ -1096,13 +1175,85 @@ mod invite_accept_payload_tests {
         missing["previous_state"] = serde_json::json!("accepted");
         assert!(serde_json::from_value::<InviteRevokePayload>(missing).is_err());
 
-        let invalid = InviteRevokePayload {
+        let invalid = InviteRevokePayload::new(
             invite_id,
-            previous_state: InviteRevokePreviousState::Claimed,
-            invitee_account_id: None,
-            target_state: InviteRevokeTargetState::SendFailed,
-            reason: None,
-        };
+            InviteRevokePreviousState::Claimed,
+            None,
+            InviteRevokeTargetState::SendFailed,
+        );
         assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn cancel_and_revoke_accept_registered_reason_code_and_x_extensions_only() {
+        let invite_id =
+            InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let invitee = AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        let cancel = serde_json::json!({
+            "invite_id": invite_id,
+            "previous_state": "pending",
+            "invitee_account_id": invitee,
+            "target_state": "revoked",
+            "reason_code": "invite_already_terminal",
+            "x_client": true
+        });
+        let decoded = serde_json::from_value::<InviteCancelPayload>(cancel.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), cancel);
+        let mut unknown = cancel;
+        unknown["state"] = serde_json::json!("revoked");
+        assert!(serde_json::from_value::<InviteCancelPayload>(unknown).is_err());
+
+        let revoke = serde_json::json!({
+            "invite_id": invite_id,
+            "previous_state": "send_failed",
+            "invitee_account_id": invitee,
+            "target_state": "expired",
+            "reason_code": "delivery_target_unreachable"
+        });
+        let decoded = serde_json::from_value::<InviteRevokePayload>(revoke.clone()).unwrap();
+        decoded.validate().unwrap();
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), revoke);
+        let mut unknown = revoke;
+        unknown["expected_revision"] = serde_json::json!(null);
+        assert!(serde_json::from_value::<InviteRevokePayload>(unknown).is_err());
+    }
+
+    #[test]
+    fn invite_typed_current_values_are_closed() {
+        let invitee = AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        let directed = serde_json::json!({"invitee_account_id": invitee});
+        assert_eq!(
+            serde_json::to_value(
+                serde_json::from_value::<InviteDirectedInviteeValue>(directed.clone()).unwrap()
+            )
+            .unwrap(),
+            directed
+        );
+        assert!(
+            serde_json::from_value::<InviteDirectedInviteeValue>(
+                serde_json::json!({"invitee_account_id": invitee, "state": "pending"})
+            )
+            .is_err()
+        );
+        let occupied = serde_json::json!({
+            "create_event_id": "ak:event:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"
+        });
+        let slot = serde_json::from_value::<InviteLiveTargetValue>(occupied.clone()).unwrap();
+        assert!(slot.is_some());
+        assert_eq!(serde_json::to_value(&slot).unwrap(), occupied);
+        let empty = serde_json::from_value::<InviteLiveTargetValue>(Value::Null).unwrap();
+        assert!(empty.is_none());
+        assert!(
+            serde_json::from_value::<InviteLiveTargetValue>(serde_json::json!({
+                "create_event_id": "ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"
+            }))
+            .is_err()
+        );
     }
 }

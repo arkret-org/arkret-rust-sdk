@@ -557,6 +557,9 @@ pub enum AuthorityStatus {
     Unknown,
 }
 
+/// The Invite process-state axis, which is also the closed value of the
+/// `invite_lifecycle` typed current result
+/// (`typed-current-result.schema.json#/$defs/invite_lifecycle_value`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {
@@ -570,6 +573,49 @@ pub enum InviteState {
     RevokedByCapabilityLoss,
     RevokedByInviterLeft,
     InvalidatedByRateLimit,
+}
+
+impl InviteState {
+    /// The wire spelling of this state.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::Revoked => "revoked",
+            Self::Expired => "expired",
+            Self::Claimed => "claimed",
+            Self::SendFailed => "send_failed",
+            Self::RevokedByCapabilityLoss => "revoked_by_capability_loss",
+            Self::RevokedByInviterLeft => "revoked_by_inviter_left",
+            Self::InvalidatedByRateLimit => "invalidated_by_rate_limit",
+        }
+    }
+
+    /// Parse the exact wire spelling of one state.
+    pub fn from_wire(value: &str) -> Option<Self> {
+        Some(match value {
+            "pending" => Self::Pending,
+            "accepted" => Self::Accepted,
+            "rejected" => Self::Rejected,
+            "revoked" => Self::Revoked,
+            "expired" => Self::Expired,
+            "claimed" => Self::Claimed,
+            "send_failed" => Self::SendFailed,
+            "revoked_by_capability_loss" => Self::RevokedByCapabilityLoss,
+            "revoked_by_inviter_left" => Self::RevokedByInviterLeft,
+            "invalidated_by_rate_limit" => Self::InvalidatedByRateLimit,
+            _ => return None,
+        })
+    }
+
+    /// Whether this state is one of the seven
+    /// `event_kind_registry.transition_contracts.invite_lifecycle.terminal_states`.
+    /// Every later state-changing Event on a terminal Invite is refused with
+    /// `invite_already_terminal` (`zh/models/governance-objects.md` section 5.3).
+    pub const fn is_terminal(self) -> bool {
+        !matches!(self, Self::Pending | Self::Claimed | Self::SendFailed)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

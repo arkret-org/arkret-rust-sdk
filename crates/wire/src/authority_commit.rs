@@ -4,7 +4,7 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MessageId,
+    CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId, KeypackageClaimId, MessageId,
     MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
     RealmSnapshotId, SidecarId, StrandId,
 };
@@ -15,7 +15,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    ActorId, AgentKeyId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event,
+    AccountId, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event,
     HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
@@ -979,6 +979,22 @@ pub enum CurrentSelector {
     MlsGroup {
         scope_ref: ScopeRef,
     },
+    /// One Invite's process-state register
+    /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
+    InviteLifecycle {
+        invite_id: InviteId,
+    },
+    /// One invitee account's live directed-invite slot inside the Realm; the
+    /// Realm is the envelope's, so it is not a subject member
+    /// (`typed-current-result.schema.json#/$defs/invite_live_target_result`).
+    InviteLiveTarget {
+        invitee_account_id: AccountId,
+    },
+    /// One directed Invite's create-locked invitee
+    /// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_result`).
+    InviteDirectedInvitee {
+        invite_id: InviteId,
+    },
 }
 
 #[derive(Deserialize)]
@@ -1035,6 +1051,22 @@ enum FlatCurrentSelector {
     },
     MlsGroup {
         scope_ref: ScopeRef,
+    },
+    /// One Invite's process-state register
+    /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
+    InviteLifecycle {
+        invite_id: InviteId,
+    },
+    /// One invitee account's live directed-invite slot inside the Realm; the
+    /// Realm is the envelope's, so it is not a subject member
+    /// (`typed-current-result.schema.json#/$defs/invite_live_target_result`).
+    InviteLiveTarget {
+        invitee_account_id: AccountId,
+    },
+    /// One directed Invite's create-locked invitee
+    /// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_result`).
+    InviteDirectedInvitee {
+        invite_id: InviteId,
     },
 }
 
@@ -1154,6 +1186,15 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::ModerationState { target_ref }
                     }
                     FlatCurrentSelector::MlsGroup { scope_ref } => Self::MlsGroup { scope_ref },
+                    FlatCurrentSelector::InviteLifecycle { invite_id } => {
+                        Self::InviteLifecycle { invite_id }
+                    }
+                    FlatCurrentSelector::InviteLiveTarget { invitee_account_id } => {
+                        Self::InviteLiveTarget { invitee_account_id }
+                    }
+                    FlatCurrentSelector::InviteDirectedInvitee { invite_id } => {
+                        Self::InviteDirectedInvitee { invite_id }
+                    }
                 })
             }
         }
@@ -2192,6 +2233,55 @@ mod tests {
     }
 
     #[test]
+    fn invite_current_selectors_round_trip_and_reject_foreign_subjects() {
+        let invite_id =
+            InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let invitee = AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        for (selector, wire) in [
+            (
+                CurrentSelector::InviteLifecycle {
+                    invite_id: invite_id.clone(),
+                },
+                json!({"kind":"invite_lifecycle","invite_id":invite_id}),
+            ),
+            (
+                CurrentSelector::InviteLiveTarget {
+                    invitee_account_id: invitee.clone(),
+                },
+                json!({"kind":"invite_live_target","invitee_account_id":invitee}),
+            ),
+            (
+                CurrentSelector::InviteDirectedInvitee {
+                    invite_id: invite_id.clone(),
+                },
+                json!({"kind":"invite_directed_invitee","invite_id":invite_id}),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        let realm = "ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        for invalid in [
+            json!({"kind":"invite_lifecycle"}),
+            json!({"kind":"invite_lifecycle","invite_id":"ak:event:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+            json!({"kind":"invite_live_target","invitee_account_id":invitee,"realm_id":realm}),
+            json!({"kind":"invite_live_target","invitee_account_id":"ak:did_core:web:bob.example"}),
+            json!({"kind":"invite_directed_invitee","invite_id":invite_id,"invitee_account_id":invitee}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
     fn agent_current_selectors_round_trip_closed_shapes() {
         let agent_id = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
         let agent_key_id = AgentKeyId::new("runtime_key-1").unwrap();
@@ -2242,27 +2332,35 @@ mod tests {
         );
         let components = serde_json::to_value(components).unwrap();
         let selector = &components["schemas"]["arkret_wire.authority_commit.CurrentSelector"];
-        let action = &selector["oneOf"][3];
-        assert_eq!(
-            action["allOf"][2]["properties"]["kind"]["enum"][0],
-            "policy_action"
-        );
+        let branches = selector["oneOf"].as_array().unwrap();
+        let action = branches
+            .iter()
+            .find(|branch| branch["allOf"][2]["properties"]["kind"]["enum"][0] == "policy_action")
+            .expect("policy_action selector branch");
         assert!(action.to_string().contains("PolicyActionSelector"));
         assert!(!action.to_string().contains("subject"));
-        let branches =
+        let action_branches =
             &components["schemas"]["arkret_wire.authority_commit.PolicyActionSelector"]["oneOf"];
-        assert_eq!(branches[0]["properties"]["branch"]["enum"][0], "policy_ref");
         assert_eq!(
-            branches[1]["properties"]["branch"]["enum"][0],
+            action_branches[0]["properties"]["branch"]["enum"][0],
+            "policy_ref"
+        );
+        assert_eq!(
+            action_branches[1]["properties"]["branch"]["enum"][0],
             "realm_action"
         );
-        for (index, kind, fields) in [
-            (4, "device_authorization", 2),
-            (5, "device_generation", 1),
-            (6, "device_revocation_proposals", 2),
+        for (kind, fields) in [
+            ("device_authorization", 2),
+            ("device_generation", 1),
+            ("device_revocation_proposals", 2),
+            ("invite_lifecycle", 2),
+            ("invite_live_target", 2),
+            ("invite_directed_invitee", 2),
         ] {
-            let branch = &selector["oneOf"][index];
-            assert_eq!(branch["properties"]["kind"]["enum"][0], kind);
+            let branch = branches
+                .iter()
+                .find(|branch| branch["properties"]["kind"]["enum"][0] == kind)
+                .unwrap_or_else(|| panic!("{kind} selector branch"));
             assert_eq!(branch["required"].as_array().unwrap().len(), fields);
             assert!(branch["properties"].get("account_id").is_none());
             assert!(branch["properties"].get("device_status").is_none());

@@ -1124,6 +1124,26 @@
     {
       "rust_type": "crates/wire/src/authority_commit.rs::ActorPrivateEventSubmitRequestBody",
       "schema": "service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitRequestBody"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteCancelPayload",
+      "schema": "event-payload.schema.json#/$defs/invite_cancel_payload",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) carries only validated x_* extensions."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteRevokePayload",
+      "schema": "event-payload.schema.json#/$defs/invite_revoke_payload",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) carries only validated x_* extensions."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteDirectedInviteeValue",
+      "schema": "typed-current-result.schema.json#/$defs/invite_directed_invitee_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteLiveTargetOccupant",
+      "schema": "typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0"
     }
   ],
   "exemptions": [
