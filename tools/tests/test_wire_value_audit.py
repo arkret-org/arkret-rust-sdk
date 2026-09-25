@@ -91,6 +91,36 @@ class WireValueAuditTests(unittest.TestCase):
             }
         self.assertEqual(found, {"tools/spec-struct-proto/src/tracked.rs"})
 
+    def test_cfg_test_module_declarations_are_not_production_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "src"
+            (source / "support" / "nested").mkdir(parents=True)
+            (source / "runtime").mkdir()
+            (source / "lib.rs").write_text(
+                textwrap.dedent(
+                    """
+                    pub mod runtime;
+                    /// Shared fixtures.
+                    #[cfg(test)]
+                    pub(crate) mod support;
+                    #[cfg(not(test))]
+                    mod shipped;
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (source / "shipped.rs").write_text("", encoding="utf-8")
+            (source / "support" / "mod.rs").write_text("", encoding="utf-8")
+            (source / "support" / "nested" / "deep.rs").write_text("", encoding="utf-8")
+            (source / "runtime.rs").write_text("#[cfg(test)]\nmod fixture;\n", encoding="utf-8")
+            (source / "runtime" / "fixture.rs").write_text("", encoding="utf-8")
+            found = {
+                path.relative_to(root).as_posix()
+                for path in AUDIT.production_rust_files(root)
+            }
+        self.assertEqual(found, {"src/lib.rs", "src/runtime.rs", "src/shipped.rs"})
+
 
 if __name__ == "__main__":
     unittest.main()

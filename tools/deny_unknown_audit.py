@@ -329,6 +329,21 @@ def validate(payload: dict[str, Any], allowlist: dict[str, dict[str, Any]]) -> l
     return errors
 
 
+def without_lines(inventory: dict[str, Any]) -> dict[str, Any]:
+    """Compare inventories by site identity and adjudication, not line number.
+
+    A site is keyed by file and Rust type; an unrelated edit that only shifts
+    its line is not drift.
+    """
+    return {
+        **inventory,
+        "entries": [
+            {name: value for name, value in entry.items() if name != "line"}
+            for entry in inventory.get("entries", [])
+        ],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--spec-root", type=Path, default=DEFAULT_SPEC_ROOT)
@@ -372,7 +387,7 @@ def main() -> int:
             )
         if args.inventory.exists() and args.source_root.resolve() == ROOT.resolve():
             tracked = json.loads(args.inventory.read_text(encoding="utf-8"))
-            if tracked != payload:
+            if without_lines(tracked) != without_lines(payload):
                 errors.append(
                     "deny inventory drifted; regenerate tools/deny_unknown_inventory.json"
                 )

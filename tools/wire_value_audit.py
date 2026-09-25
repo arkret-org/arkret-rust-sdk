@@ -42,6 +42,10 @@ POINTER_RE = re.compile(
     r"`([^`]*(?:spec/v1/artifacts/schemas/)?[A-Za-z0-9_.-]+\.schema\.json(?:#[^`]*)?)`"
 )
 CFG_TEST_RE = re.compile(r"#\s*\[\s*cfg\s*\([^\]]*\btest\b[^\]]*\)\s*\]")
+CFG_TEST_MODULE_RE = re.compile(
+    r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]"
+    r"\s*(?:#\s*\[[^\]]*\]\s*)*(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*;"
+)
 CFG_DISABLED_RE = re.compile(r"#\s*\[\s*cfg\s*\(\s*any\s*\(\s*\)\s*\)\s*\]")
 TEST_ATTRIBUTE_RE = re.compile(r"#\s*\[\s*test\s*\]")
 JSON_MACRO_RE = re.compile(r"\b(?:serde_json::)?json!\s*([({\[])")
@@ -402,7 +406,32 @@ def production_rust_files(repository: Path) -> Iterable[Path]:
             and not Path(name).stem.endswith("_tests")
             and not Path(name).stem.startswith("test_")
         )
-    yield from sorted(found)
+    test_roots = {root for path in found for root in cfg_test_module_roots(path)}
+    yield from sorted(
+        path
+        for path in found
+        if not any(path == root or root in path.parents for root in test_roots)
+    )
+
+
+def cfg_test_module_roots(path: Path) -> list[Path]:
+    """Return the file and directory roots of `#[cfg(test)] mod name;` items.
+
+    An out-of-line module declared under `cfg(test)` is compiled only into the
+    test harness, so its file and nested module directory are test source even
+    when the module name carries no test marker.
+    """
+    masked = mask_non_code(path.read_text(encoding="utf-8"))
+    parent = (
+        path.parent
+        if path.name in {"lib.rs", "main.rs", "mod.rs"}
+        else path.with_suffix("")
+    )
+    roots: list[Path] = []
+    for match in CFG_TEST_MODULE_RE.finditer(masked):
+        name = match.group(1)
+        roots.extend((parent / f"{name}.rs", parent / name))
+    return roots
 
 
 def workspace_path(repository: str, path: Path, repository_root: Path) -> str:
@@ -1249,6 +1278,8 @@ def validate(
                 errors.append(f"finding has no {field_name}: {key}")
         if entry.get("owner_repository") == "<unresolved>":
             errors.append(f"finding has unresolved owner_repository: {key}")
+        if entry.get("authority") and not resolvable_authority(resolver, entry["authority"]):
+            errors.append(f"finding authority is an unresolvable Spec pointer: {key}")
         if classification == "closed_discriminated" and not entry.get("discriminator"):
             errors.append(f"closed_discriminated finding has no discriminator: {key}")
         pointer = entry.get("spec_pointer")
@@ -1353,10 +1384,28 @@ def is_external_adapter_finding(entry: dict[str, Any]) -> bool:
     )
 
 
+AUTHORITY_POINTER_RE = re.compile(r"[A-Za-z0-9_.-]+\.schema\.json(?:#[^\s;,]*)?")
+
+
+def resolvable_authority(resolver: SchemaResolver, authority: str) -> bool:
+    """Every Spec pointer an authority names must resolve.
+
+    An authority may combine a Rust type with one or more schema pointers; the
+    non-pointer text is a name and is not checked.
+    """
+    for pointer in AUTHORITY_POINTER_RE.findall(authority):
+        try:
+            resolver.pointer_node(pointer)
+        except (FileNotFoundError, KeyError, IndexError, ValueError, TypeError):
+            return False
+    return True
+
+
 def refresh_allowlist(
     path: Path,
     report_payload: dict[str, Any],
     allowlist: dict[str, dict[str, Any]],
+    resolver: SchemaResolver,
 ) -> dict[str, dict[str, Any]]:
     """Refresh exact-key adjudications during an explicit maintainer run."""
     current_keys = {entry["finding"] for entry in report_payload["entries"]}
@@ -1468,10 +1517,36 @@ def refresh_allowlist(
         }
         if entry.get("spec_pointer") and entry.get("schema_shape") != "unknown":
             merged[key]["spec_pointer"] = entry["spec_pointer"]
+        if existing is not None and existing.get("classification") == classification:
+            # An unchanged adjudication keeps its recorded authority and
+            # rationale; the generic defaults above only seed new or
+            # reclassified findings, and must not overwrite an exact Spec
+            # pointer with a Rust type name.
+            if existing.get("reason"):
+                merged[key]["reason"] = existing["reason"]
+            authority = existing.get("authority")
+            if authority and resolvable_authority(resolver, authority):
+                merged[key]["authority"] = authority
     payload = {"entries": [merged[key] for key in sorted(merged)]}
     with path.open("w", encoding="utf-8", newline="\n") as output:
         output.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     return merged
+
+
+def tracked_inventory(report_payload: dict[str, Any]) -> dict[str, Any]:
+    """The committed inventory omits source line numbers.
+
+    Findings are keyed by path, symbol and an evidence digest, so a line shift
+    from an unrelated edit elsewhere in the file is not an inventory change.
+    The printed report keeps the line for navigation.
+    """
+    return {
+        "summary": report_payload["summary"],
+        "entries": [
+            {name: value for name, value in entry.items() if name != "line"}
+            for entry in report_payload["entries"]
+        ],
+    }
 
 
 def main() -> int:
@@ -1496,10 +1571,12 @@ def main() -> int:
         allowlist = seed_open_allowlist(args.allowlist, payload, allowlist)
         payload = report(fields, dynamic_findings, resolver, allowlist, repositories)
     if args.refresh_inventory:
-        allowlist = refresh_allowlist(args.allowlist, payload, allowlist)
+        allowlist = refresh_allowlist(args.allowlist, payload, allowlist, resolver)
         payload = report(fields, dynamic_findings, resolver, allowlist, repositories)
         with args.inventory.open("w", encoding="utf-8", newline="\n") as inventory_file:
-            inventory_file.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+            inventory_file.write(
+                json.dumps(tracked_inventory(payload), indent=2, ensure_ascii=False) + "\n"
+            )
     rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     if args.write_report:
         with args.write_report.open("w", encoding="utf-8", newline="\n") as report_file:
@@ -1514,8 +1591,9 @@ def main() -> int:
                 tracked.get("summary", {}).get("scope", {}).get("repositories", [])
             )
             current_repositories = set(repositories)
+            current = tracked_inventory(payload)
             if current_repositories == tracked_repositories:
-                if tracked != payload:
+                if tracked != current:
                     errors.append(
                         "wire Value inventory drifted; regenerate tools/wire_value_inventory.json"
                     )
@@ -1525,7 +1603,7 @@ def main() -> int:
                     for entry in tracked.get("entries", [])
                     if entry.get("owner_repository") in current_repositories
                 ]
-                if tracked_entries != payload["entries"]:
+                if tracked_entries != current["entries"]:
                     errors.append(
                         "wire Value inventory drifted for the repositories available in this checkout"
                     )
