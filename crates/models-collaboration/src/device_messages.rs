@@ -31,6 +31,11 @@ pub enum DeviceMessageSender {
     },
 }
 
+/// To-device queue envelope, `device-message.schema.json`.
+///
+/// `kind` is an open `ak.*` transport discriminator, so `content` stays the
+/// schema's open object; closed kinds such as `ak.read_cursor.update` are
+/// authored from their typed content and decoded before use.
 #[derive(Clone, Debug, Serialize)]
 pub struct DeviceMessageEnvelope {
     pub device_message_id: DeviceMessageId,

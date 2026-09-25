@@ -578,10 +578,10 @@ pub struct RealmOrganizationAuthorization {
     /// `account_authority`; MUST resolve to a live organization DID delegation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation_ref: Option<ObjectRef>,
-    /// Optional human admin / service principal that initiated the decision.
-    /// Does not become the organization principal.
+    /// Optional exact ActorId of the human administrator or service actor
+    /// that initiated the decision. Does not become the organization principal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<DidCoreId>,
+    pub executed_by: Option<ActorId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub signed_at: DateTime<Utc>,
     /// Signature, threshold transcript, or governance-service attestation over
@@ -725,7 +725,7 @@ struct OrganizationStatementTranscript<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     delegation_ref: Option<&'a ObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: Option<&'a DidCoreId>,
+    executed_by: Option<&'a ActorId>,
 }
 
 /// Canonical bytes the organization-side `authorization.proof` signs over.
