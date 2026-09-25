@@ -58,16 +58,6 @@ pub enum RecoverySessionRejectionReasonCode {
     Superseded,
 }
 
-/// Reducer-managed PCR device generation status snapshotted at session
-/// creation.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryDeviceGenerationStatus {
-    Active,
-    Conflicted,
-}
-
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/proof_summary.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -127,7 +117,6 @@ pub struct RecoverySession {
     pub policy_version: u64,
     pub identity_model: RecoveryIdentityModel,
     pub current_device_generation_ref: u64,
-    pub device_generation_status: RecoveryDeviceGenerationStatus,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_stream_head: CommitStreamHead,
     pub publication_authority_context: PublicationAuthorityContext,
@@ -634,7 +623,6 @@ mod tests {
             "policy_version": 1,
             "identity_model": "pcr_policy",
             "current_device_generation_ref": 3,
-            "device_generation_status": "active",
             "realm_stream_head": {
                 "stream_ref": {"kind": "realm", "realm_id": realm_id()},
                 "stream_position": 12,

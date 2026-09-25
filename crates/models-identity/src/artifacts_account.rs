@@ -16,7 +16,6 @@ pub enum DeviceSummaryStatus {
     Revoked,
     Expired,
     GenerationFenced,
-    Conflicted,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

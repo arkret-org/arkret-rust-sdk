@@ -164,19 +164,10 @@ impl DeviceStatus {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceGenerationStatus {
-    Active,
-    Conflicted,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceGenerationState {
     pub current_device_generation_ref: u64,
-    pub device_generation_status: DeviceGenerationStatus,
 }
 
 /// Exact original device grant window, independent of current-query cache TTL.
@@ -341,9 +332,8 @@ impl QueryDeviceRecord {
         }
         match generation {
             Some(state) => {
-                state.device_generation_status == DeviceGenerationStatus::Active
-                    && self.device_projection.authorized_generation_ref
-                        == state.current_device_generation_ref
+                self.device_projection.authorized_generation_ref
+                    == state.current_device_generation_ref
             }
             None => false,
         }
@@ -408,8 +398,7 @@ impl PeerQueryDeviceRecord {
         }
         match generation {
             Some(state) => {
-                state.device_generation_status == DeviceGenerationStatus::Active
-                    && attested.authorized_generation_ref == state.current_device_generation_ref
+                attested.authorized_generation_ref == state.current_device_generation_ref
             }
             None => false,
         }
@@ -939,7 +928,6 @@ mod device_generation_tests {
     fn device_generation_must_be_current_and_fully_anchored() {
         let generation = DeviceGenerationState {
             current_device_generation_ref: 7,
-            device_generation_status: DeviceGenerationStatus::Active,
         };
         let record: QueryDeviceRecord = serde_json::from_value(self_row(7)).unwrap();
         assert!(record.is_usable_in_generation(Some(&generation)));
@@ -1101,8 +1089,8 @@ mod device_generation_tests {
         ]});
         assert!(serde_json::from_value::<KeysQueryRequestBody>(query).is_err());
         let duplicate = json!({"device_keys": [], "device_generations": [
-            {"account_id": id, "generation_state": {"current_device_generation_ref": 1, "device_generation_status": "active"}},
-            {"account_id": id, "generation_state": {"current_device_generation_ref": 2, "device_generation_status": "active"}}
+            {"account_id": id, "generation_state": {"current_device_generation_ref": 1}},
+            {"account_id": id, "generation_state": {"current_device_generation_ref": 2}}
         ]});
         assert!(serde_json::from_value::<KeysQueryOutcome>(duplicate).is_err());
         for ids in [json!([]), json!([DEVICE_ID, DEVICE_ID])] {
@@ -1377,7 +1365,6 @@ mod peer_keys_query_tests {
                 ),
                 generation_state: DeviceGenerationState {
                     current_device_generation_ref: 1,
-                    device_generation_status: DeviceGenerationStatus::Active,
                 },
             }],
             failures: Vec::new(),
