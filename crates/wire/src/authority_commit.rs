@@ -1507,7 +1507,6 @@ pub enum ReadableFloorReason {
     StreamStart,
     MembershipJoin,
     HistoryAccessPolicy,
-    RetentionPruned,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
