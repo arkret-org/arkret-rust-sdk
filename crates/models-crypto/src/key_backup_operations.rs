@@ -256,8 +256,8 @@ pub struct KeyBackupSummary {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_tristate_timestamp",
-        deserialize_with = "deserialize_tristate_timestamp"
+        serialize_with = "serialize_tristate_canonical_timestamp",
+        deserialize_with = "deserialize_tristate_canonical_timestamp"
     )]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
     pub expires_at: Option<Option<DateTime<Utc>>>,
@@ -306,7 +306,7 @@ where
     arkret_canonical::serde_helpers::deserialize_canonical_timestamp(deserializer).map(Some)
 }
 
-fn deserialize_tristate_timestamp<'de, D>(
+fn deserialize_tristate_canonical_timestamp<'de, D>(
     deserializer: D,
 ) -> Result<Option<Option<DateTime<Utc>>>, D::Error>
 where
@@ -316,7 +316,7 @@ where
         .map(Some)
 }
 
-fn serialize_tristate_timestamp<S>(
+fn serialize_tristate_canonical_timestamp<S>(
     value: &Option<Option<DateTime<Utc>>>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>

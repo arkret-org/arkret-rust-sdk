@@ -21,9 +21,17 @@ pub struct OrganizationModerationPolicyDocument {
     pub policy_id: PolicyId,
     pub policy_scope: OrganizationModerationPolicyScope,
     pub rules: Vec<OrganizationModerationPolicyRule>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -82,11 +90,19 @@ pub struct OrganizationModerationPolicyRule {
     pub action: OrganizationModerationAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_by: Option<ActorId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub created_at: Option<DateTime<Utc>>,
 }
 

@@ -109,7 +109,7 @@
         "actor_id",
         "created_at",
         "payload",
-        "proofs"
+        "producer_proof"
       ]
     }
   ],
