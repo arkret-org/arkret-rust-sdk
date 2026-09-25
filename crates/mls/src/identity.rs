@@ -793,6 +793,29 @@ pub fn author_leaf_from_key_package_bytes(
     })
 }
 
+/// Registered `canonical_id` of the cipher suite a TLS-serialized KeyPackage
+/// declares (`mls-ciphersuite-registry.json`).
+///
+/// Only the active registry suite has a wire identity in v1: any other
+/// suite, including a reserved one the MLS library could process, fails
+/// closed with `unsupported_ciphersuite` and is never mapped onto the active
+/// suite.
+pub fn keypackage_ciphersuite_canonical_id(bytes: &[u8]) -> Result<&'static str> {
+    let provider = OpenMlsRustCrypto::default();
+    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+    let keypackage = key_package_in
+        .validate(provider.crypto(), ProtocolVersion::Mls10)
+        .map_err(mls_error)?;
+    if keypackage.ciphersuite() == ARKRET_MLS_CIPHERSUITE {
+        Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
+    } else {
+        Err(Error::Protocol(format!(
+            "{}: KeyPackage cipher suite has no active registry row",
+            arkret_wire::ReasonCode::UNSUPPORTED_CIPHERSUITE
+        )))
+    }
+}
+
 /// Return the application capabilities authenticated by the KeyPackage
 /// LeafNode signature.
 pub fn keypackage_capabilities_from_key_package_bytes(bytes: &[u8]) -> Result<Vec<String>> {

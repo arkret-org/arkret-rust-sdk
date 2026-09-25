@@ -1871,6 +1871,43 @@ mod tests {
         }
     }
 
+    /// Only the active registry suite has a wire identity: a KeyPackage the
+    /// MLS library can build under a reserved suite fails closed instead of
+    /// being mapped onto the active one.
+    #[test]
+    fn keypackage_ciphersuite_maps_only_the_active_registry_row() {
+        let identity = identity();
+        let active =
+            base64url_decode(identity.key_package_record().unwrap().keypackage.as_bytes()).unwrap();
+        assert_eq!(
+            crate::identity::keypackage_ciphersuite_canonical_id(&active).unwrap(),
+            crate::ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
+        );
+
+        let reserved =
+            openmls::prelude::Ciphersuite::MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519;
+        let signer = SignatureKeyPair::new(reserved.signature_algorithm()).unwrap();
+        let credential = CredentialWithKey {
+            credential: BasicCredential::new(
+                arkret_models_crypto::mls_basic_credential_identity(&identity.actor_id).unwrap(),
+            )
+            .into(),
+            signature_key: signer.public().into(),
+        };
+        let provider = OpenMlsRustCrypto::default();
+        let bundle = openmls::prelude::KeyPackage::builder()
+            .build(reserved, &provider, &signer, credential)
+            .unwrap();
+        let reserved_bytes = bundle.key_package().tls_serialize_detached().unwrap();
+        let error =
+            crate::identity::keypackage_ciphersuite_canonical_id(&reserved_bytes).unwrap_err();
+        assert!(
+            error.to_string().contains("unsupported_ciphersuite"),
+            "unexpected error: {error}"
+        );
+        assert!(crate::identity::keypackage_ciphersuite_canonical_id(b"not a keypackage").is_err());
+    }
+
     /// The policy follows the scope kind, which is what the group is created
     /// and restored with. It is no longer recoverable from the `group_id`, and
     /// the point of this test is that nothing tries.
