@@ -5,8 +5,8 @@ use arkret_models_collaboration::events_payloads::{
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
-    ActorId, AuthorizationRef, DidCoreId, Discoverability, GenesisSalt, HistoryAccess, JoinRule,
-    ScopeRef, SecurityClass, TrustDomainId, WireError, project_did_to_core_id,
+    AccountId, ActorId, AuthorizationRef, DidCoreId, Discoverability, GenesisSalt, HistoryAccess,
+    JoinRule, ScopeRef, SecurityClass, TrustDomainId, WireError, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -56,18 +56,31 @@ pub struct AgentPcrCreateEventInput {
     pub created_at: DateTime<Utc>,
 }
 
-/// Build a content-bound Agent Realm-create Event ready for the Agent's proof.
+/// Build a content-bound Agent Realm-create Event ready for the controller's
+/// proof.
+///
+/// `identity/key-management.md` section 4.1: the control facts belong to the
+/// Agent's complete account ActorId, and the controller executes the Event
+/// under the DID delegation. The Agent PCR is carried by its controller's
+/// Station, so the Agent account takes the controller account's Station; a
+/// `service` actor or a non-account executor is refused.
 ///
 /// The Event has no predecessor. The governance Station later puts it at
 /// position zero of that Realm's independent commit stream.
 pub fn build_agent_pcr_create(
     input: AgentPcrCreateEventInput,
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
-    let agent_id = input.payload.agent_id.clone();
+    let controller = input.executed_by.as_account_id().ok_or_else(|| {
+        WireError::Protocol("Agent PCR create executor must be the controller account".to_owned())
+    })?;
+    let agent = ActorId::account(AccountId::new(
+        input.payload.agent_id.clone(),
+        controller.station_id.clone(),
+    ));
     let payload = build_agent_pcr_create_payload(input.payload)?;
     crate::author_event::<arkret_wire::event_spec::RealmCreate>(
         ScopeRef::RealmGenesis,
-        ActorId::service(agent_id),
+        agent,
         Some(input.executed_by),
         Some(input.authorization_ref),
         input.created_at,

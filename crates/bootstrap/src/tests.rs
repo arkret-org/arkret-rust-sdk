@@ -5,9 +5,9 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, AuthorizationRef, DeviceId, Did, DidCoreId, DidUrl, Discoverability, EventKind,
-    GenesisSalt, Hash, HistoryAccess, JoinRule, NonEmptyString, ProducerEventProof, RealmId,
-    ScopeRef, SemanticRef, TrustDomainId, project_did_to_core_id, proof_kind,
+    AccountId, ActorId, AuthorizationRef, DeviceId, Did, DidCoreId, DidUrl, Discoverability,
+    EventKind, GenesisSalt, Hash, HistoryAccess, JoinRule, NonEmptyString, ProducerEventProof,
+    RealmId, ScopeRef, SemanticRef, TrustDomainId, project_did_to_core_id, proof_kind,
 };
 
 use crate::{
@@ -174,14 +174,11 @@ fn identity_creation_packages_two_signed_events_without_event_predecessors() {
     }
 }
 
-#[test]
-fn agent_create_has_no_authority_ordering_fields() {
+fn agent_create_input(executed_by: ActorId) -> AgentPcrCreateEventInput {
     let agent_did = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
-    let agent_id = project_did_to_core_id(&agent_did).unwrap();
-    let controller = DidCoreId::new("ak:did_core:web:controller.example").unwrap();
-    let authored = build_agent_pcr_create(AgentPcrCreateEventInput {
+    AgentPcrCreateEventInput {
         payload: AgentPcrCreatePayloadInput {
-            agent_id,
+            agent_id: project_did_to_core_id(&agent_did).unwrap(),
             governance_station_id: DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             initial_resolution: resolution(agent_did),
             genesis_salt: GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
@@ -190,20 +187,43 @@ fn agent_create_has_no_authority_ordering_fields() {
             initial_history_access: HistoryAccess::SinceJoin,
             initial_discoverability: Discoverability::Secret,
         },
-        executed_by: ActorId::service(controller.clone()),
+        executed_by,
         authorization_ref: AuthorizationRef::new("did:web:controller.example#agent-create")
             .unwrap(),
         created_at: "2026-09-16T00:01:00Z".parse().unwrap(),
-    })
-    .unwrap();
+    }
+}
+
+#[test]
+fn agent_create_has_no_authority_ordering_fields() {
+    let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+    let controller = ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+        station.clone(),
+    ));
+    let input = agent_create_input(controller.clone());
+    let agent_id = input.payload.agent_id.clone();
+    let authored = build_agent_pcr_create(input).unwrap();
     assert_eq!(authored.scope_ref, ScopeRef::RealmGenesis);
-    assert_eq!(authored.executed_by, Some(ActorId::service(controller)));
+    assert_eq!(
+        authored.actor_id,
+        ActorId::account(AccountId::new(agent_id, station)),
+        "the control facts belong to the Agent's complete account ActorId"
+    );
+    assert_eq!(authored.executed_by, Some(controller));
     assert!(authored.producer_proof.is_none());
     let payload: RealmCreatePayload = serde_json::from_value(serde_json::Value::Object(
         authored.payload.clone().into_iter().collect(),
     ))
     .unwrap();
     assert_eq!(payload.object.purpose, RealmPurpose::AgentControl);
+}
+
+#[test]
+fn agent_create_refuses_a_service_executor() {
+    let controller =
+        ActorId::service(DidCoreId::new("ak:did_core:web:controller.example").unwrap());
+    assert!(build_agent_pcr_create(agent_create_input(controller)).is_err());
 }
 
 #[test]
