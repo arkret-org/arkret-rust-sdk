@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.5;
-//! sha256=e3569050ec3101dc760e78cc84541589c0420dbfab68aa1a0bdd6596fd507e7d Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-26.1;
+//! sha256=5482e8ac2a713f6559bd6fb3145d0282b5c93022e8116e468c1ee8cd3e397c0c Input: registry/
 //! account-data-key-registry.json; version=2026-09-25.2;
 //! sha256=0056114b31b4300e5c186b0b42dc26e8fb349f18f3e44da4580087f7d1a9aaff Entries: id_kinds=48,
 //! special_forms=15, actions=145, approval_carriers=1, schemas=219, account_data_patterns=24
@@ -974,7 +974,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
-        subject_only: false,
+        subject_only: true,
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),

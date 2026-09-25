@@ -174,21 +174,13 @@ impl StateAtWindowStart {
     }
 }
 
-/// Boundary represented by a stream-local window-start basis.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StreamWindowAnchorKind {
-    AfterCommittedPrefix,
-    BeforeReadableFloor,
-}
-
-/// Verifiable rebuild material for one stream's window start.
+/// Verifiable rebuild material for one stream's window start: the state
+/// holds after every Commit of the stream through `anchor_position`.
 // Field declaration order is byte-for-byte the `properties` order of
 // `account-subscribe-frame.schema.json#/$defs/realm_stream_window/properties/window_start_basis`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamWindowStartBasis {
-    pub anchor_kind: StreamWindowAnchorKind,
     pub anchor_position: u64,
     pub anchor_commit_ref: RealmCommitId,
     pub snapshot_ref: RealmSnapshotId,
@@ -336,15 +328,6 @@ mod tests {
         let state = parse(value.clone());
         state.validate().unwrap();
         assert_eq!(serde_json::to_value(&state).unwrap(), value);
-    }
-
-    #[test]
-    fn stream_genesis_is_not_a_window_start_anchor() {
-        assert!(serde_json::from_value::<StreamWindowAnchorKind>(json!("stream_genesis")).is_err());
-        assert_eq!(
-            serde_json::to_value(StreamWindowAnchorKind::AfterCommittedPrefix).unwrap(),
-            json!("after_committed_prefix")
-        );
     }
 
     #[test]
