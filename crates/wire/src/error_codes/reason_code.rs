@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-26.2;
-//! sha256=75c73fdd6bfea8089abce6360edf36403eaca65b4323f7008445e742e9388b5b
+//! Input: registry/error-code-registry.json; version=2026-09-26.3;
+//! sha256=8fceee87b50a90695b282c394603a316f6492a6589f3ad6304180ec75e716632
 //! Entries: reason_codes=311, reserved_not_emitted=70
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1885,7 +1885,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID,
         applies_to: &["event_envelope", "service_call", "federation_transaction"],
-        description: "A Direct Conversation founding unit is not the closed caller-authored four-Event unit. Causes include a count other than four, wrong wire order, a missing peer or founder ak.member.state{join}, a missing ak.strand.create, a fifth Event, a mixed actor/pair/profile/Realm, any envelope field naming a predecessor Event inside the unit, a missing founder-member expected_revision null genesis guard, an envelope realm_id that is not retype(events[0] event_id), a main_strand_id that is not retype(events[3] event_id), a founding_unit_digest that does not match the recomputed value, or any request field asserting a service-allocated identifier, reservation handle or materialization draft. The whole unit is rejected with zero writes. See zh/identity/contact-and-direct-conversation.md sections 5.5 and 6.1.",
+        description: "A Direct Conversation founding unit is not the closed caller-authored four-Event unit. Causes include a count other than four, wrong wire order, a missing peer or founder ak.member.state{join}, a missing ak.strand.create, a fifth Event, a mixed actor/pair/profile/Realm, any envelope field naming a predecessor Event inside the unit, an envelope realm_id that is not retype(events[0] event_id), a main_strand_id that is not retype(events[3] event_id), a founding_unit_digest that does not match the recomputed value, or any request field asserting a service-allocated identifier, reservation handle or materialization draft, or a genesis whose initial_join_rule, initial_discoverability or initial_history_access is not the create-locked closed, invite_only or since_join. Carried under failed_precondition on both the self and the peer path; the whole unit is rejected with zero writes. See zh/identity/contact-and-direct-conversation.md sections 5.5 and 6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
