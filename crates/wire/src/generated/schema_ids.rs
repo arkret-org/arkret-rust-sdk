@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.2;
-//! sha256=f29ce8e06045e65a9e104c14a3e75823ca374ccce6de131fda2bbd62b317ecb0 Entries: schema_ids=226,
-//! active=226
+//! Input: registry/contract-registry.json; version=2026-09-25.3;
+//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Entries: schema_ids=220,
+//! active=220
 
 use serde::{Deserialize, Serialize};
 
@@ -146,7 +146,6 @@ pub enum SchemaId {
     NotificationV1,
     ObjectAddressingV1,
     PatchV1,
-    PcrDeviceConflictIndexCutV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
@@ -170,14 +169,10 @@ pub enum SchemaId {
     RealmJoinBootstrapOutcomeV1,
     RealmJoinBootstrapRequestV1,
     RealmJoinCandidateV1,
-    RealmJoinPeerApplicationStatusOutcomeV1,
-    RealmJoinPeerApplicationStatusRequestV1,
     RealmJoinPeerPreviewOutcomeV1,
     RealmJoinPeerPreviewRequestV1,
     RealmJoinPrepareOutcomeV1,
     RealmJoinPrepareRequestV1,
-    RealmJoinSelfApplicationStatusOutcomeV1,
-    RealmJoinSelfApplicationStatusRequestV1,
     RealmJoinSelfPreviewOutcomeV1,
     RealmJoinSelfPreviewRequestV1,
     RealmLinkOperationsV1,
@@ -217,7 +212,6 @@ pub enum SchemaId {
     StringProfilesV1,
     TimeV1,
     TransportBindingV1,
-    VerifiedPcrForkRecordV1,
     ViewV1,
     WebsocketAuthenticateFrameV1,
     WebsocketChallengeFrameV1,
@@ -376,7 +370,6 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::PatchV1,
-        Self::PcrDeviceConflictIndexCutV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -400,14 +393,10 @@ impl SchemaId {
         Self::RealmJoinBootstrapOutcomeV1,
         Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
-        Self::RealmJoinPeerApplicationStatusOutcomeV1,
-        Self::RealmJoinPeerApplicationStatusRequestV1,
         Self::RealmJoinPeerPreviewOutcomeV1,
         Self::RealmJoinPeerPreviewRequestV1,
         Self::RealmJoinPrepareOutcomeV1,
         Self::RealmJoinPrepareRequestV1,
-        Self::RealmJoinSelfApplicationStatusOutcomeV1,
-        Self::RealmJoinSelfApplicationStatusRequestV1,
         Self::RealmJoinSelfPreviewOutcomeV1,
         Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
@@ -447,7 +436,6 @@ impl SchemaId {
         Self::StringProfilesV1,
         Self::TimeV1,
         Self::TransportBindingV1,
-        Self::VerifiedPcrForkRecordV1,
         Self::ViewV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
@@ -606,7 +594,6 @@ impl SchemaId {
         Self::NotificationV1,
         Self::ObjectAddressingV1,
         Self::PatchV1,
-        Self::PcrDeviceConflictIndexCutV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -630,14 +617,10 @@ impl SchemaId {
         Self::RealmJoinBootstrapOutcomeV1,
         Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
-        Self::RealmJoinPeerApplicationStatusOutcomeV1,
-        Self::RealmJoinPeerApplicationStatusRequestV1,
         Self::RealmJoinPeerPreviewOutcomeV1,
         Self::RealmJoinPeerPreviewRequestV1,
         Self::RealmJoinPrepareOutcomeV1,
         Self::RealmJoinPrepareRequestV1,
-        Self::RealmJoinSelfApplicationStatusOutcomeV1,
-        Self::RealmJoinSelfApplicationStatusRequestV1,
         Self::RealmJoinSelfPreviewOutcomeV1,
         Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
@@ -677,7 +660,6 @@ impl SchemaId {
         Self::StringProfilesV1,
         Self::TimeV1,
         Self::TransportBindingV1,
-        Self::VerifiedPcrForkRecordV1,
         Self::ViewV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
@@ -1097,10 +1079,6 @@ impl SchemaId {
     pub const OBJECT_ADDRESSING_V1: &'static str = "ak.schema.object_addressing.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
-    /// Station-local complete index marker for locally ingested verified PCR forks at one accepted
-    /// head and conflict revision.
-    pub const PCR_DEVICE_CONFLICT_INDEX_CUT_V1: &'static str =
-        "ak.schema.pcr_device_conflict_index_cut.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.schema.personal_productivity.v1";
     /// Payload schemas for shared pin events.
@@ -1169,14 +1147,6 @@ impl SchemaId {
     /// current assertion; the locator neither selects nor proves the current governance Station, is
     /// not an identity selector or authorization grant, and cannot change an AccountId.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
-    /// Restricted receiving-Realm outcome of one join application, carrying the durable proposal
-    /// observation for that exact proposal and nothing else.
-    pub const REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1: &'static str =
-        "ak.schema.realm_join_peer_application_status_outcome.v1";
-    /// Authenticated service-to-service read of the restricted outcome of exactly one forwarded
-    /// join application.
-    pub const REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1: &'static str =
-        "ak.schema.realm_join_peer_application_status_request.v1";
     /// Policy-permitted pre-join disclosure for exactly one invite and invitee, without Directory
     /// result provenance or join routing hints.
     pub const REALM_JOIN_PEER_PREVIEW_OUTCOME_V1: &'static str =
@@ -1193,14 +1163,6 @@ impl SchemaId {
     /// through the account's own Station.
     pub const REALM_JOIN_PREPARE_REQUEST_V1: &'static str =
         "ak.schema.realm_join_prepare_request.v1";
-    /// Own-Station validated join application progress: origin forwarding fact, receiving-Realm
-    /// state and the accepted covering RealmCommit reference, with no Ack, authority set or
-    /// RealmCommit bytes.
-    pub const REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1: &'static str =
-        "ak.schema.realm_join_self_application_status_outcome.v1";
-    /// Authenticated account read of one own join application before membership exists.
-    pub const REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1: &'static str =
-        "ak.schema.realm_join_self_application_status_request.v1";
     /// Own-Station validated pre-join preview bound to the exact account, Realm, request and
     /// disclosure source.
     pub const REALM_JOIN_SELF_PREVIEW_OUTCOME_V1: &'static str =
@@ -1318,9 +1280,6 @@ impl SchemaId {
     /// Closed ServiceDescribe transport_bindings union for registered HTTP companion and extension
     /// transports.
     pub const TRANSPORT_BINDING_V1: &'static str = "ak.schema.transport_binding.v1";
-    /// Station-local verified pair of existing signed PCR RealmCommit and Event objects at one
-    /// predecessor and position.
-    pub const VERIFIED_PCR_FORK_RECORD_V1: &'static str = "ak.schema.verified_pcr_fork_record.v1";
     pub const VIEW_V1: &'static str = "ak.schema.view.v1";
     /// Client authentication and reauthentication response frame.
     pub const WEBSOCKET_AUTHENTICATE_FRAME_V1: &'static str =
@@ -1523,7 +1482,6 @@ impl SchemaId {
             Self::NotificationV1 => Self::NOTIFICATION_V1,
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::PatchV1 => Self::PATCH_V1,
-            Self::PcrDeviceConflictIndexCutV1 => Self::PCR_DEVICE_CONFLICT_INDEX_CUT_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
@@ -1547,22 +1505,10 @@ impl SchemaId {
             Self::RealmJoinBootstrapOutcomeV1 => Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
             Self::RealmJoinBootstrapRequestV1 => Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
-            Self::RealmJoinPeerApplicationStatusOutcomeV1 => {
-                Self::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1
-            }
-            Self::RealmJoinPeerApplicationStatusRequestV1 => {
-                Self::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1
-            }
             Self::RealmJoinPeerPreviewOutcomeV1 => Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
             Self::RealmJoinPeerPreviewRequestV1 => Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
             Self::RealmJoinPrepareOutcomeV1 => Self::REALM_JOIN_PREPARE_OUTCOME_V1,
             Self::RealmJoinPrepareRequestV1 => Self::REALM_JOIN_PREPARE_REQUEST_V1,
-            Self::RealmJoinSelfApplicationStatusOutcomeV1 => {
-                Self::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1
-            }
-            Self::RealmJoinSelfApplicationStatusRequestV1 => {
-                Self::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1
-            }
             Self::RealmJoinSelfPreviewOutcomeV1 => Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
             Self::RealmJoinSelfPreviewRequestV1 => Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
             Self::RealmLinkOperationsV1 => Self::REALM_LINK_OPERATIONS_V1,
@@ -1602,7 +1548,6 @@ impl SchemaId {
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
             Self::TimeV1 => Self::TIME_V1,
             Self::TransportBindingV1 => Self::TRANSPORT_BINDING_V1,
-            Self::VerifiedPcrForkRecordV1 => Self::VERIFIED_PCR_FORK_RECORD_V1,
             Self::ViewV1 => Self::VIEW_V1,
             Self::WebsocketAuthenticateFrameV1 => Self::WEBSOCKET_AUTHENTICATE_FRAME_V1,
             Self::WebsocketChallengeFrameV1 => Self::WEBSOCKET_CHALLENGE_FRAME_V1,
@@ -1804,7 +1749,6 @@ impl SchemaId {
             Self::NotificationV1 => "schemas/notification.schema.json",
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
-            Self::PcrDeviceConflictIndexCutV1 => "schemas/device-revocation-state.schema.json",
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
@@ -1830,22 +1774,10 @@ impl SchemaId {
             Self::RealmJoinBootstrapOutcomeV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinBootstrapRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinCandidateV1 => "schemas/realm-join-candidate.schema.json",
-            Self::RealmJoinPeerApplicationStatusOutcomeV1 => {
-                "schemas/realm-join-intake.schema.json"
-            }
-            Self::RealmJoinPeerApplicationStatusRequestV1 => {
-                "schemas/realm-join-intake.schema.json"
-            }
             Self::RealmJoinPeerPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinPeerPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinPrepareOutcomeV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinPrepareRequestV1 => "schemas/realm-join-intake.schema.json",
-            Self::RealmJoinSelfApplicationStatusOutcomeV1 => {
-                "schemas/realm-join-intake.schema.json"
-            }
-            Self::RealmJoinSelfApplicationStatusRequestV1 => {
-                "schemas/realm-join-intake.schema.json"
-            }
             Self::RealmJoinSelfPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinSelfPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmLinkOperationsV1 => "schemas/realm-link-operations.schema.json",
@@ -1887,7 +1819,6 @@ impl SchemaId {
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
             Self::TimeV1 => "schemas/time.schema.json",
             Self::TransportBindingV1 => "schemas/transport-binding.schema.json",
-            Self::VerifiedPcrForkRecordV1 => "schemas/device-revocation-state.schema.json",
             Self::ViewV1 => "schemas/view.schema.json",
             Self::WebsocketAuthenticateFrameV1 => "schemas/websocket-frame.schema.json",
             Self::WebsocketChallengeFrameV1 => "schemas/websocket-frame.schema.json",
@@ -2079,7 +2010,6 @@ impl SchemaId {
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
-            Self::PCR_DEVICE_CONFLICT_INDEX_CUT_V1 => Some(Self::PcrDeviceConflictIndexCutV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
@@ -2103,22 +2033,10 @@ impl SchemaId {
             Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1 => Some(Self::RealmJoinBootstrapOutcomeV1),
             Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1 => Some(Self::RealmJoinBootstrapRequestV1),
             Self::REALM_JOIN_CANDIDATE_V1 => Some(Self::RealmJoinCandidateV1),
-            Self::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1 => {
-                Some(Self::RealmJoinPeerApplicationStatusOutcomeV1)
-            }
-            Self::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1 => {
-                Some(Self::RealmJoinPeerApplicationStatusRequestV1)
-            }
             Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinPeerPreviewOutcomeV1),
             Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinPeerPreviewRequestV1),
             Self::REALM_JOIN_PREPARE_OUTCOME_V1 => Some(Self::RealmJoinPrepareOutcomeV1),
             Self::REALM_JOIN_PREPARE_REQUEST_V1 => Some(Self::RealmJoinPrepareRequestV1),
-            Self::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1 => {
-                Some(Self::RealmJoinSelfApplicationStatusOutcomeV1)
-            }
-            Self::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1 => {
-                Some(Self::RealmJoinSelfApplicationStatusRequestV1)
-            }
             Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinSelfPreviewOutcomeV1),
             Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinSelfPreviewRequestV1),
             Self::REALM_LINK_OPERATIONS_V1 => Some(Self::RealmLinkOperationsV1),
@@ -2158,7 +2076,6 @@ impl SchemaId {
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),
             Self::TIME_V1 => Some(Self::TimeV1),
             Self::TRANSPORT_BINDING_V1 => Some(Self::TransportBindingV1),
-            Self::VERIFIED_PCR_FORK_RECORD_V1 => Some(Self::VerifiedPcrForkRecordV1),
             Self::VIEW_V1 => Some(Self::ViewV1),
             Self::WEBSOCKET_AUTHENTICATE_FRAME_V1 => Some(Self::WebsocketAuthenticateFrameV1),
             Self::WEBSOCKET_CHALLENGE_FRAME_V1 => Some(Self::WebsocketChallengeFrameV1),

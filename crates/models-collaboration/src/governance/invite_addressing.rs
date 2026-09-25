@@ -545,11 +545,10 @@ pub enum DisclosedOutcome {
 /// schema is `spec/v1/artifacts/schemas/invite-delivery.schema.json`
 /// (`ak.schema.invite_delivery.v1`).
 ///
-/// Actor-private plaintext carrier for delivered directed-invite credentials
-/// on the notify branch (invite-addressing.md section 7), written by the
-/// recipient Station through the delivery path. `invite_token` is a
-/// server-issued private locator that MUST NOT enter the Invite object or
-/// Realm history. The cell is a bounded CAS register: at most
+/// Actor-private plaintext carrier for delivered directed invites on the
+/// notify branch (invite-addressing.md section 7), written by the recipient
+/// Station through the delivery path. It carries invite references and
+/// untrusted locator hints but no bearer credential. The cell is a bounded CAS register: at most
 /// [`InviteDelivery::MAX_ENTRIES`] entries, at most one entry per
 /// `invite_id` (a redelivery replaces the previous entry), expired entries
 /// are purged on the next write and overflow evicts the oldest entries.
@@ -562,7 +561,7 @@ pub struct InviteDelivery {
     /// Instant of the accepted CAS write that produced this value.
     #[serde(with = "canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
-    /// Delivered invite credentials, oldest first.
+    /// Delivered directed invites, oldest first.
     pub delivery_entries: Vec<InviteDeliveryEntry>,
 }
 
@@ -570,10 +569,6 @@ impl InviteDelivery {
     pub const SCHEMA: &'static str = SchemaId::INVITE_DELIVERY_V1;
     /// Registered `maxItems` bound on `entries`; overflow evicts the oldest.
     pub const MAX_ENTRIES: usize = 200;
-    /// Schema bounds on `invite_token` (`minLength: 1`, `maxLength: 512`),
-    /// defined once in `arkret-wire` because the same credential rides three
-    /// other carriers.
-    pub const INVITE_TOKEN_MAX_LENGTH: usize = arkret_wire::INVITE_TOKEN_MAX_CHARS;
 
     /// Constructor that pins the canonical schema discriminator.
     pub fn new(updated_at: DateTime<Utc>, entries: Vec<InviteDeliveryEntry>) -> Self {
@@ -612,7 +607,7 @@ impl InviteDelivery {
     }
 }
 
-/// One delivered directed-invite credential inside [`InviteDelivery`]
+/// One delivered directed invite inside [`InviteDelivery`]
 /// (`invite-delivery.schema.json#/$defs/delivery_entry`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -625,28 +620,24 @@ pub struct InviteDeliveryEntry {
     /// Complete inviter account copied from the accepted Invite Event and
     /// bound by the delivery verification chain.
     pub inviter_account_id: AccountId,
-    /// Opaque server-issued private invite locator token. Clients MUST treat
-    /// it as opaque and MUST NOT persist it outside this cell or equivalent
-    /// holder-private state.
-    pub invite_token: String,
     /// One to eight untrusted locator cores, strictly sorted by `service_id`
     /// UTF-8 bytes. Realm scope and freshness come only from this entry; the
     /// invitee still fetches and verifies a nonce-bound RealmAuthorityBundle
-    /// before any preview, join submission or bootstrap request.
+    /// through its own Station before any preview, join preparation or
+    /// bootstrap request.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub authority_locator_hints: Vec<RealmJoinCandidate>,
     /// Instant the recipient Station accepted this delivery.
     #[serde(with = "canonical_timestamp")]
     pub received_at: DateTime<Utc>,
-    /// Expiry of the underlying invite credential; a stale entry MUST NOT be
-    /// used to accept the invite.
+    /// Expiry copied from the accepted invite; a stale entry MUST NOT be used
+    /// to accept the invite.
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
 
 impl InviteDeliveryEntry {
     pub fn validate(&self) -> Result<()> {
-        arkret_wire::validate_invite_token("invite_delivery entry", &self.invite_token)?;
         validate_authority_locator_hints(&self.authority_locator_hints)
     }
 }

@@ -1,9 +1,11 @@
 //! First cross-station Realm join endpoints on [`Client`].
 //!
-//! The four `self` and `peer` faces of `realm-join-intake.schema.json`
+//! The `self` and `peer` faces of `realm-join-intake.schema.json`
 //! (`sync/federation.md` sections 5.3 to 5.3.4, `sync/invite-addressing.md`
-//! section 7.1). Every outcome is checked against the exact request that
-//! produced it before it is returned, because these results reach a caller
+//! section 7.1). There is no application-status read: a join Event's outcome
+//! comes back synchronously from Event submit and an uncertain result is
+//! resolved by an exact retry of the same bytes. Every outcome is checked against the exact request
+//! that produced it before it is returned, because these results reach a caller
 //! that is not yet a member and therefore has no accepted state to compare
 //! them with.
 //!
@@ -13,9 +15,8 @@
 
 use arkret_models_collaboration::governance::realm_join_intake::{
     PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
-    PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatusOutcome,
-    RealmJoinApplicationStatusRequest, SelfRealmJoinPrepareOutcome,
-    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    PeerRealmJoinPreviewRequestBody, SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody,
+    SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
 };
 
 use crate::{Client, Result};
@@ -23,9 +24,10 @@ use crate::{Client, Result};
 impl Client {
     /// Read a pre-join Realm preview from this account's own Station.
     ///
-    /// This is the only preview entry point a client has. The Station reaches
-    /// the exact inviter Station for a directed invite and the Directory
-    /// discovery input surface otherwise; the client never contacts either.
+    /// This is the only preview entry point a client has. The Station verifies
+    /// the Realm's current governance Station with its own nonce from the
+    /// target's locator hints and reads the preview from it; the client never
+    /// contacts the inviter Station, a Directory or the governance Station.
     pub async fn self_realm_join_preview(
         &self,
         request: &SelfRealmJoinPreviewRequestBody,
@@ -53,21 +55,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Read how far one own join application has progressed, before membership
-    /// exists.
-    pub async fn self_realm_join_application_status(
-        &self,
-        request: &RealmJoinApplicationStatusRequest,
-    ) -> Result<RealmJoinApplicationStatusOutcome> {
-        let outcome: RealmJoinApplicationStatusOutcome = self
-            .post("/_arkret/self/realm-joins/application-status", request)
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    /// Read the pre-join preview of one directed invite from the exact inviter
-    /// Station.
+    /// Read a pre-join preview from the Realm's current governance Station.
     ///
     /// Service-to-service only: the invitee's own Station calls this, and the
     /// invitee's local bearer or session credential is never forwarded.
@@ -93,19 +81,6 @@ impl Client {
         let outcome: PeerRealmJoinBootstrapOutcome = self
             .post("/_arkret/peer/realm-joins/bootstrap", request)
             .await?;
-        Ok(outcome)
-    }
-
-    /// Read the restricted outcome of one forwarded join application from the
-    /// member Station that accepted it.
-    pub async fn peer_realm_join_application_status(
-        &self,
-        request: &RealmJoinApplicationStatusRequest,
-    ) -> Result<RealmJoinApplicationStatusOutcome> {
-        let outcome: RealmJoinApplicationStatusOutcome = self
-            .post("/_arkret/peer/realm-joins/application-status", request)
-            .await?;
-        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 }

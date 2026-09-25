@@ -5,9 +5,8 @@
 //! Realm genesis through every authority handoff.
 
 use arkret_wire::{
-    AccountId, CommitStreamHead, CommitStreamRef, DidCoreId, EventId, HistoryAccess, InviteId,
-    JoinRule, RealmAuthorityBundle, RealmCommit, RealmCommitId, RealmId, RealmStateSnapshot,
-    RequestId, Result, WireError,
+    AccountId, CommitStreamHead, CommitStreamRef, DidCoreId, HistoryAccess, InviteId, JoinRule,
+    RealmAuthorityBundle, RealmCommitId, RealmId, RealmStateSnapshot, RequestId, Result, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,30 +24,17 @@ pub struct RealmJoinTarget {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_id: Option<InviteId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_token: Option<String>,
     pub authority_locator_hints: Vec<RealmJoinCandidate>,
 }
 
 impl RealmJoinTarget {
     pub fn validate(&self) -> Result<()> {
-        validate_invite_credential(self.invite_id.as_ref(), self.invite_token.as_deref())?;
         validate_authority_locator_hints(&self.authority_locator_hints)
     }
 }
 
 /// Registered `maxLength` of `public_preview.display_name`.
 pub const PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS: usize = 256;
-
-fn validate_invite_credential(invite_id: Option<&InviteId>, token: Option<&str>) -> Result<()> {
-    match (invite_id, token) {
-        (None, None) => Ok(()),
-        (Some(_), Some(token)) => arkret_wire::validate_invite_token("Realm join", token),
-        _ => Err(WireError::Protocol(
-            "invite_id and invite_token must appear together".to_owned(),
-        )),
-    }
-}
 
 /// Registered `maxItems` bound of every `authority_locator_hints` array.
 pub const AUTHORITY_LOCATOR_HINTS_MAX: usize = 8;
@@ -98,23 +84,14 @@ pub fn canonicalize_authority_locator_hints(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RealmJoinIntent {
+    /// A directed invite carries no bearer credential: the governance Station
+    /// authorizes acceptance from its accepted Invite bound to the exact
+    /// invitee AccountId and the producer-signed join Event.
     InviteAccept {
         invite_id: InviteId,
-        invite_token: String,
     },
     MemberJoin,
     Knock,
-}
-
-impl RealmJoinIntent {
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            Self::InviteAccept { invite_token, .. } => {
-                arkret_wire::validate_invite_token("invite_accept intent", invite_token)
-            }
-            Self::MemberJoin | Self::Knock => Ok(()),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,14 +186,11 @@ pub struct PeerRealmJoinPreviewRequestBody {
     pub requester_account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_id: Option<InviteId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_token: Option<String>,
 }
 
 impl PeerRealmJoinPreviewRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.requester_account_id.validate()?;
-        validate_invite_credential(self.invite_id.as_ref(), self.invite_token.as_deref())
+        self.requester_account_id.validate()
     }
 }
 
@@ -224,20 +198,22 @@ impl PeerRealmJoinPreviewRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerRealmJoinPreviewOutcome {
     pub request_id: RequestId,
-    pub authority_bundle: RealmAuthorityBundle,
     pub preview: RealmPublicPreview,
 }
 
 impl PeerRealmJoinPreviewOutcome {
+    /// The caller Station already verified the answering governance Station
+    /// with its own nonce-bound authority bundle, so this outcome carries no
+    /// bundle; it only has to echo the request and describe the requested Realm.
     pub fn validate_for_request(&self, request: &PeerRealmJoinPreviewRequestBody) -> Result<()> {
         request.validate()?;
-        validate_preview_binding(
-            &request.request_id,
-            &request.realm_id,
-            &self.request_id,
-            &self.authority_bundle,
-            &self.preview,
-        )
+        self.preview.validate()?;
+        if self.request_id != request.request_id || self.preview.realm_id != request.realm_id {
+            return Err(WireError::Protocol(
+                "Realm preview does not bind the request".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -254,13 +230,8 @@ impl SelfRealmJoinPrepareRequestBody {
     /// carries; `member_join` and `knock` are valid with or without one.
     pub fn validate(&self) -> Result<()> {
         self.target.validate()?;
-        self.intent.validate()?;
-        if let RealmJoinIntent::InviteAccept {
-            invite_id,
-            invite_token,
-        } = &self.intent
-            && (self.target.invite_id.as_ref() != Some(invite_id)
-                || self.target.invite_token.as_ref() != Some(invite_token))
+        if let RealmJoinIntent::InviteAccept { invite_id } = &self.intent
+            && self.target.invite_id.as_ref() != Some(invite_id)
         {
             return Err(WireError::Protocol(
                 "invite_accept intent does not bind the target invite".to_owned(),
@@ -294,75 +265,6 @@ impl SelfRealmJoinPrepareOutcome {
             ));
         }
         Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmJoinApplicationStatusRequest {
-    pub request_id: RequestId,
-    pub realm_id: RealmId,
-    pub application_event_id: EventId,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmJoinApplicationStatus {
-    Pending,
-    Committed,
-    Rejected,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmJoinApplicationStatusOutcome {
-    pub request_id: RequestId,
-    pub status: RealmJoinApplicationStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commit: Option<RealmCommit>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-}
-
-impl RealmJoinApplicationStatusOutcome {
-    /// Shape check plus the exact binding to one application: the echoed
-    /// request id, and for `committed` the Commit that covers exactly the
-    /// requested join Event in the requested Realm.
-    pub fn validate_for_request(&self, request: &RealmJoinApplicationStatusRequest) -> Result<()> {
-        self.validate()?;
-        if self.request_id != request.request_id {
-            return Err(WireError::Protocol(
-                "Realm join application status does not echo the request".to_owned(),
-            ));
-        }
-        if let Some(commit) = &self.commit {
-            commit.validate_shape()?;
-            if commit.realm_id != request.realm_id
-                || commit.event_ref != request.application_event_id
-            {
-                return Err(WireError::Protocol(
-                    "Realm join application Commit does not cover the requested Event".to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        let valid = match self.status {
-            RealmJoinApplicationStatus::Pending => {
-                self.commit.is_none() && self.reason_code.is_none()
-            }
-            RealmJoinApplicationStatus::Committed => {
-                self.commit.is_some() && self.reason_code.is_none()
-            }
-            RealmJoinApplicationStatus::Rejected => {
-                self.commit.is_none() && self.reason_code.as_ref().is_some_and(|v| !v.is_empty())
-            }
-        };
-        valid.then_some(()).ok_or_else(|| {
-            WireError::Protocol("invalid Realm join application status outcome".to_owned())
-        })
     }
 }
 

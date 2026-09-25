@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-20.2;
-//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af
+//! Input: registry/account-data-key-registry.json; version=2026-09-25.1;
+//! sha256=c08c2c437cc4d4f1d4243594851be22846ea65adc42969c452e54b77d0c6d387
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -80,13 +80,14 @@ impl AccountDataKey {
     /// pending_incoming state and never produce an entry here. Key pattern:
     /// `ak.account.holder_quarantine`.
     pub const ACCOUNT_HOLDER_QUARANTINE: &'static str = "ak.account.holder_quarantine";
-    /// Actor-private holder-side carrier for delivered directed-invite credentials on the notify
-    /// branch (invite-addressing.md section 7). Written by the recipient Station through the
-    /// delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
-    /// client-encrypted envelope; invite_token is a server-issued private locator that MUST NOT
-    /// enter the Invite object or Realm history. Bounded CAS register: at most 200 entries, expired
-    /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
-    /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
+    /// Actor-private holder-side carrier for delivered directed invites on the notify branch
+    /// (invite-addressing.md section 7). Written by the recipient Station through the delivery
+    /// path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a client-encrypted
+    /// envelope; it carries invite references and untrusted locator hints, no bearer credential,
+    /// and its routing material MUST NOT enter the Invite object or Realm history. Bounded CAS
+    /// register: at most 200 entries, expired entries purged first, then oldest evicted; accepted
+    /// writes fan out as ak.account_data.update actor-private device updates. Key pattern:
+    /// `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
     /// Controller-owned encrypted draft created only by the controller holder's ak.account_data.set
     /// CAS. Both key components are fixed 43-character unpadded-base64url SHA-256 digests under

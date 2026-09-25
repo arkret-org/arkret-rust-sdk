@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-25.1;
-//! sha256=64f4fa91a72d224371846204ac30510bf073353f23732b92bc68f6757f3be065 Input: registry/
-//! contract-registry.json; version=2026-09-25.2;
-//! sha256=f29ce8e06045e65a9e104c14a3e75823ca374ccce6de131fda2bbd62b317ecb0 Input: registry/
-//! error-code-registry.json; version=2026-09-24.2;
-//! sha256=b473712d3136cb00bd83000b9a8e4f6656801fe758c5652dcc027e5ece37ff62 Entries: operations=205
+//! Input: registry/operations-error-mapping.json; version=2026-09-25.2;
+//! sha256=f5c28553236194053e5e2a103346c2b07f364181ceeceaa6654a0eb8b8391634 Input: registry/
+//! contract-registry.json; version=2026-09-25.3;
+//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Input: registry/
+//! error-code-registry.json; version=2026-09-25.1;
+//! sha256=4b38f94c7d773be8b3eb7ecd8662a04e7f664d0121fc0d8996001a42cfb989e2 Entries: operations=203
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -330,10 +330,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Code(ErrorCode::FailedPrecondition)],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
-        OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
@@ -443,9 +439,15 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::StreamResyncRequired),
     ],
     &[],
-    &[OperationSpecificError::Code(ErrorCode::CasConflict)],
+    &[
+        OperationSpecificError::Code(ErrorCode::CasConflict),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
-    &[OperationSpecificError::Code(ErrorCode::CasConflict)],
+    &[
+        OperationSpecificError::Code(ErrorCode::CasConflict),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
     &[],
     &[
         OperationSpecificError::Reason(ReasonCode::AgentDeactivated),
@@ -767,7 +769,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::DuplicateConflict)],
     &[],
     &[],
     &[OperationSpecificError::Code(ErrorCode::CursorInvalid)],
@@ -777,10 +779,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
     ],
     &[

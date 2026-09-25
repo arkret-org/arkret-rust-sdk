@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.1;
-//! sha256=f29ce8e06045e65a9e104c14a3e75823ca374ccce6de131fda2bbd62b317ecb0 Entries: registered=205
+//! Input: registry/contract-registry.json; version=2026-09-25.2;
+//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Entries: registered=203
 
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,6 @@ pub enum ServiceOperationId {
     PeerKeysReadLookupV1,
     PeerMlsReadGroupStateMaterialV1,
     PeerRealmAuthorityCommandHandoffV1,
-    PeerRealmJoinReadApplicationStatusV1,
     PeerRealmJoinReadBootstrapV1,
     PeerRealmJoinReadPreviewV1,
     PeerSignalCommandRelayV1,
@@ -196,7 +195,6 @@ pub enum ServiceOperationId {
     SelfRealmReadStreamsV1,
     SelfRealmResourceGetV1,
     SelfRealmJoinCommandPrepareV1,
-    SelfRealmJoinReadApplicationStatusV1,
     SelfRealmJoinReadPreviewV1,
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
@@ -285,7 +283,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1,
-    ServiceOperationId::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY_V1,
@@ -404,7 +401,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_READ_STREAMS_V1,
     ServiceOperationId::SELF_REALM_RESOURCE_GET_V1,
     ServiceOperationId::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
-    ServiceOperationId::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1,
     ServiceOperationId::SELF_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
@@ -535,7 +531,6 @@ impl ServiceOperationId {
         Self::PeerKeysReadLookupV1,
         Self::PeerMlsReadGroupStateMaterialV1,
         Self::PeerRealmAuthorityCommandHandoffV1,
-        Self::PeerRealmJoinReadApplicationStatusV1,
         Self::PeerRealmJoinReadBootstrapV1,
         Self::PeerRealmJoinReadPreviewV1,
         Self::PeerSignalCommandRelayV1,
@@ -654,7 +649,6 @@ impl ServiceOperationId {
         Self::SelfRealmReadStreamsV1,
         Self::SelfRealmResourceGetV1,
         Self::SelfRealmJoinCommandPrepareV1,
-        Self::SelfRealmJoinReadApplicationStatusV1,
         Self::SelfRealmJoinReadPreviewV1,
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
@@ -798,8 +792,6 @@ impl ServiceOperationId {
         "ak.peer.mls.read.group_state_material.v1";
     pub const PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1: &'static str =
         "ak.peer.realm_authority.command.handoff.v1";
-    pub const PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
-        "ak.peer.realm_join.read.application_status.v1";
     pub const PEER_REALM_JOIN_READ_BOOTSTRAP_V1: &'static str =
         "ak.peer.realm_join.read.bootstrap.v1";
     pub const PEER_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.peer.realm_join.read.preview.v1";
@@ -991,8 +983,6 @@ impl ServiceOperationId {
     pub const SELF_REALM_RESOURCE_GET_V1: &'static str = "ak.self.realm.resource.get.v1";
     pub const SELF_REALM_JOIN_COMMAND_PREPARE_V1: &'static str =
         "ak.self.realm_join.command.prepare.v1";
-    pub const SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
-        "ak.self.realm_join.read.application_status.v1";
     pub const SELF_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.self.realm_join.read.preview.v1";
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
@@ -1133,9 +1123,6 @@ impl ServiceOperationId {
             Self::PeerMlsReadGroupStateMaterialV1 => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::PeerRealmAuthorityCommandHandoffV1 => {
                 Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1
-            }
-            Self::PeerRealmJoinReadApplicationStatusV1 => {
-                Self::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1
             }
             Self::PeerRealmJoinReadBootstrapV1 => Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
             Self::PeerRealmJoinReadPreviewV1 => Self::PEER_REALM_JOIN_READ_PREVIEW_V1,
@@ -1307,9 +1294,6 @@ impl ServiceOperationId {
             Self::SelfRealmReadStreamsV1 => Self::SELF_REALM_READ_STREAMS_V1,
             Self::SelfRealmResourceGetV1 => Self::SELF_REALM_RESOURCE_GET_V1,
             Self::SelfRealmJoinCommandPrepareV1 => Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
-            Self::SelfRealmJoinReadApplicationStatusV1 => {
-                Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1
-            }
             Self::SelfRealmJoinReadPreviewV1 => Self::SELF_REALM_JOIN_READ_PREVIEW_V1,
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
@@ -1485,9 +1469,6 @@ impl ServiceOperationId {
             }
             Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1 => {
                 Some(Self::PeerRealmAuthorityCommandHandoffV1)
-            }
-            Self::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1 => {
-                Some(Self::PeerRealmJoinReadApplicationStatusV1)
             }
             Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1 => Some(Self::PeerRealmJoinReadBootstrapV1),
             Self::PEER_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::PeerRealmJoinReadPreviewV1),
@@ -1705,9 +1686,6 @@ impl ServiceOperationId {
             Self::SELF_REALM_READ_STREAMS_V1 => Some(Self::SelfRealmReadStreamsV1),
             Self::SELF_REALM_RESOURCE_GET_V1 => Some(Self::SelfRealmResourceGetV1),
             Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1 => Some(Self::SelfRealmJoinCommandPrepareV1),
-            Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1 => {
-                Some(Self::SelfRealmJoinReadApplicationStatusV1)
-            }
             Self::SELF_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::SelfRealmJoinReadPreviewV1),
             Self::SELF_REALM_LINK_READ_LIST_V1 => Some(Self::SelfRealmLinkReadListV1),
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
@@ -3427,26 +3405,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerRealmJoinReadApplicationStatusV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/realm-joins/application-status",
-        grpc: Some("PeerRealmJoin/ApplicationStatus"),
-        mq: Some("peer.realm_join.query.application_status"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/peer_application_status_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/peer_application_status_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerRealmJoinReadBootstrapV1,
@@ -6078,26 +6036,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfRealmJoinReadApplicationStatusV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/realm-joins/application-status",
-        grpc: Some("SelfRealmJoin/ApplicationStatus"),
-        mq: Some("self.realm_join.query.application_status"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/self_application_status_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/self_application_status_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinReadPreviewV1,

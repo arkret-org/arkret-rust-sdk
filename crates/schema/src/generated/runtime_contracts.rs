@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-20;
 //! sha256=da5d8f029eff05996ad242ab801e4db1bdf1dc57e874a6b16f64d12545096137 Input: registry/
-//! contract-registry.json; version=2026-09-25.2;
-//! sha256=f29ce8e06045e65a9e104c14a3e75823ca374ccce6de131fda2bbd62b317ecb0
+//! contract-registry.json; version=2026-09-25.3;
+//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -397,12 +397,10 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         surface_class: "core",
         profile: None,
         operations: &[
-            ServiceOperationId::PeerRealmJoinReadApplicationStatusV1,
             ServiceOperationId::PeerRealmJoinReadBootstrapV1,
             ServiceOperationId::PeerRealmJoinReadPreviewV1,
             ServiceOperationId::SelfMessagesCommandPrepareV1,
             ServiceOperationId::SelfRealmJoinCommandPrepareV1,
-            ServiceOperationId::SelfRealmJoinReadApplicationStatusV1,
             ServiceOperationId::SelfRealmJoinReadPreviewV1,
         ],
     },
@@ -743,8 +741,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-24.2";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-25.2";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-25.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-25.2";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-25.1";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-25.3";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-25.2";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-25.3";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

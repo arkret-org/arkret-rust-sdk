@@ -31,7 +31,6 @@ fn join_locator_is_only_a_bounded_https_hint() {
     let target = RealmJoinTarget {
         realm_id: realm_id(),
         invite_id: None,
-        invite_token: None,
         authority_locator_hints: vec![RealmJoinCandidate {
             service_kind: RealmJoinCandidateServiceKind::Station,
             service_id: station_id(),
@@ -42,7 +41,7 @@ fn join_locator_is_only_a_bounded_https_hint() {
     target.validate().unwrap();
 
     let mut invalid = target;
-    invalid.invite_token = Some("token-without-id".to_owned());
+    invalid.authority_locator_hints.clear();
     assert!(invalid.validate().is_err());
 }
 

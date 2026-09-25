@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.2;
-//! sha256=f29ce8e06045e65a9e104c14a3e75823ca374ccce6de131fda2bbd62b317ecb0 Input: registry/
-//! account-data-key-registry.json; version=2026-09-20.2;
-//! sha256=2bb66499fe69f9e55d821d41da7bc2a6e9024652d8052cff3fe0f1fff55d17af Entries: id_kinds=48,
-//! special_forms=15, actions=148, approval_carriers=1, schemas=226, account_data_patterns=24
+//! Input: registry/contract-registry.json; version=2026-09-25.3;
+//! sha256=6041e454dc981dbeb1718d03de4d1ae6c5294b9e0c9422d2d703ed15998472a5 Input: registry/
+//! account-data-key-registry.json; version=2026-09-25.1;
+//! sha256=c08c2c437cc4d4f1d4243594851be22846ea65adc42969c452e54b77d0c6d387 Entries: id_kinds=48,
+//! special_forms=15, actions=148, approval_carriers=1, schemas=220, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3501,10 +3501,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/patch.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::PCR_DEVICE_CONFLICT_INDEX_CUT_V1,
-        file: "schemas/device-revocation-state.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::PERSONAL_PRODUCTIVITY_V1,
         file: "schemas/personal-productivity.schema.json",
     },
@@ -3597,14 +3593,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-join-candidate.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1,
-        file: "schemas/realm-join-intake.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1,
-        file: "schemas/realm-join-intake.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
@@ -3618,14 +3606,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_PREPARE_REQUEST_V1,
-        file: "schemas/realm-join-intake.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1,
-        file: "schemas/realm-join-intake.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
@@ -3783,10 +3763,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::TRANSPORT_BINDING_V1,
         file: "schemas/transport-binding.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::VERIFIED_PCR_FORK_RECORD_V1,
-        file: "schemas/device-revocation-state.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::VIEW_V1,

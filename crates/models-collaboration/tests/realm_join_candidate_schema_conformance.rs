@@ -5,8 +5,7 @@ use std::collections::BTreeSet;
 use std::fs;
 
 use arkret_models_collaboration::governance::realm_join_intake::{
-    PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus, RealmJoinApplicationStatusOutcome,
-    RealmJoinApplicationStatusRequest, RealmJoinCandidate, RealmJoinIntent, RealmJoinTarget,
+    PeerRealmJoinPreviewRequestBody, RealmJoinCandidate, RealmJoinIntent, RealmJoinTarget,
     SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewRequestBody,
     canonicalize_authority_locator_hints,
 };
@@ -130,44 +129,6 @@ fn join_target_requires_strict_service_id_order_and_unique_identity() {
     );
 }
 
-#[test]
-fn application_status_serializes_exactly_the_published_enum() {
-    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
-        .expect("the arkret-spec artifacts checkout must be reachable");
-    let path = artifacts
-        .join("schemas")
-        .join("realm-join-intake.schema.json");
-    let schema: Value = serde_json::from_str(
-        &fs::read_to_string(&path)
-            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display())),
-    )
-    .expect("realm join intake schema must be valid JSON");
-    let published =
-        schema["$defs"]["application_status_outcome"]["properties"]["status"]["enum"].clone();
-    let sdk = json!([
-        RealmJoinApplicationStatus::Pending,
-        RealmJoinApplicationStatus::Committed,
-        RealmJoinApplicationStatus::Rejected,
-    ]);
-    assert_eq!(sdk, published);
-
-    let pending: RealmJoinApplicationStatusOutcome = serde_json::from_value(json!({
-        "request_id": "ak:request:01999999-0000-7000-8000-000000000001",
-        "status": "pending"
-    }))
-    .expect("pending is the published non-terminal status");
-    pending
-        .validate()
-        .expect("pending carries no commit or reason");
-    assert!(
-        serde_json::from_value::<RealmJoinApplicationStatusOutcome>(json!({
-            "request_id": "ak:request:01999999-0000-7000-8000-000000000001",
-            "status": "queued"
-        }))
-        .is_err()
-    );
-}
-
 fn intake_definition(name: &str) -> Value {
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
         .expect("the arkret-spec artifacts checkout must be reachable");
@@ -202,7 +163,6 @@ fn full_target() -> Value {
     json!({
         "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
         "invite_id": "ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-        "invite_token": "srv-01HYZ8Z000000000000000",
         "authority_locator_hints": [accepted_candidate()]
     })
 }
@@ -231,8 +191,7 @@ fn preview_and_prepare_carriers_are_the_single_published_shape() {
             "principal_id": "ak:did_core:web:invitee.example",
             "station_id": "ak:did_core:web:origin.example"
         },
-        "invite_id": "ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-        "invite_token": "srv-01HYZ8Z000000000000000"
+        "invite_id": "ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G"
     }))
     .unwrap();
     peer_preview.validate().unwrap();
@@ -240,24 +199,6 @@ fn preview_and_prepare_carriers_are_the_single_published_shape() {
         "peer_preview_request_body",
         &serde_json::to_value(&peer_preview).unwrap(),
     );
-}
-
-#[test]
-fn invite_token_respects_the_registered_bounds() {
-    let mut value = full_target();
-    value["invite_token"] = json!("");
-    let target: RealmJoinTarget = serde_json::from_value(value).unwrap();
-    assert!(target.validate().is_err());
-
-    let mut value = full_target();
-    value["invite_token"] = json!("t".repeat(513));
-    let target: RealmJoinTarget = serde_json::from_value(value).unwrap();
-    assert!(target.validate().is_err());
-
-    let mut value = full_target();
-    value["invite_token"] = json!("t".repeat(512));
-    let target: RealmJoinTarget = serde_json::from_value(value).unwrap();
-    target.validate().unwrap();
 }
 
 #[test]
@@ -273,15 +214,16 @@ fn invite_accept_intent_must_bind_the_target_invite() {
     };
     request(RealmJoinIntent::InviteAccept {
         invite_id: target.invite_id.clone().unwrap(),
-        invite_token: target.invite_token.clone().unwrap(),
     })
     .validate()
     .unwrap();
     request(RealmJoinIntent::Knock).validate().unwrap();
     assert!(
         request(RealmJoinIntent::InviteAccept {
-            invite_id: target.invite_id.clone().unwrap(),
-            invite_token: "another-token".to_owned(),
+            invite_id: serde_json::from_value(json!(
+                "ak:invite:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB"
+            ))
+            .unwrap(),
         })
         .validate()
         .is_err()
@@ -320,30 +262,4 @@ fn producers_sort_hints_bytewise_and_reject_any_repeated_service_id() {
         .map(|index| candidate(&format!("ak:did_core:web:s{index}.example"), "invite"))
         .collect();
     assert!(canonicalize_authority_locator_hints(nine).is_err());
-}
-
-#[test]
-fn application_status_must_echo_the_exact_request() {
-    let request: RealmJoinApplicationStatusRequest = serde_json::from_value(json!({
-        "request_id": "ak:request:01999999-0000-7000-8000-000000000005",
-        "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
-        "application_event_id": "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"
-    }))
-    .unwrap();
-    let outcome = |request_id: &str| -> RealmJoinApplicationStatusOutcome {
-        serde_json::from_value(json!({
-            "request_id": request_id,
-            "status": "rejected",
-            "reason_code": "capability_denied"
-        }))
-        .unwrap()
-    };
-    outcome("ak:request:01999999-0000-7000-8000-000000000005")
-        .validate_for_request(&request)
-        .unwrap();
-    assert!(
-        outcome("ak:request:01999999-0000-7000-8000-000000000006")
-            .validate_for_request(&request)
-            .is_err()
-    );
 }

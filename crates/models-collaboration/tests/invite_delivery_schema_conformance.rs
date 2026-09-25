@@ -101,7 +101,6 @@ fn entry() -> Value {
             "principal_id": "ak:did_core:web:alice.example",
             "station_id": "ak:did_core:web:station-a.example"
         },
-        "invite_token": "opaque-private-locator-token",
         "authority_locator_hints": [
             hint("ak:did_core:web:a.example", "invite"),
             {
