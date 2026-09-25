@@ -5,9 +5,9 @@
 //! Realm genesis through every authority handoff.
 
 use arkret_wire::{
-    AccountId, CommitStreamHead, DidCoreId, EventId, HistoryAccess, InviteId, JoinRule,
-    RealmAuthorityBundle, RealmCommit, RealmCommitId, RealmId, RealmStateSnapshot, RequestId,
-    Result, WireError,
+    AccountId, CommitStreamHead, CommitStreamRef, DidCoreId, EventId, HistoryAccess, InviteId,
+    JoinRule, RealmAuthorityBundle, RealmCommit, RealmCommitId, RealmId, RealmStateSnapshot,
+    RequestId, Result, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -32,12 +32,34 @@ pub struct RealmJoinTarget {
 
 impl RealmJoinTarget {
     pub fn validate(&self) -> Result<()> {
-        if self.invite_id.is_some() != self.invite_token.is_some() {
-            return Err(WireError::Protocol(
-                "invite_id and invite_token must appear together".to_owned(),
-            ));
-        }
+        validate_invite_credential(self.invite_id.as_ref(), self.invite_token.as_deref())?;
         validate_authority_locator_hints(&self.authority_locator_hints)
+    }
+}
+
+/// Registered `maxLength` of `realm-join-intake.schema.json#/$defs/invite_token`.
+pub const INVITE_TOKEN_MAX_CHARS: usize = 512;
+
+/// Registered `maxLength` of `public_preview.display_name`.
+pub const PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS: usize = 256;
+
+fn validate_invite_token(token: &str) -> Result<()> {
+    let length = token.chars().count();
+    if length == 0 || length > INVITE_TOKEN_MAX_CHARS {
+        return Err(WireError::Protocol(
+            "invite_token must carry 1..=512 characters".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_invite_credential(invite_id: Option<&InviteId>, token: Option<&str>) -> Result<()> {
+    match (invite_id, token) {
+        (None, None) => Ok(()),
+        (Some(_), Some(token)) => validate_invite_token(token),
+        _ => Err(WireError::Protocol(
+            "invite_id and invite_token must appear together".to_owned(),
+        )),
     }
 }
 
@@ -67,6 +89,25 @@ pub fn validate_authority_locator_hints(hints: &[RealmJoinCandidate]) -> Result<
     Ok(())
 }
 
+/// Producer-side canonicalization of one `authority_locator_hints` array.
+///
+/// Orders the cores by `service_id` UTF-8 bytes and then applies the same
+/// validation every consumer repeats. Two cores naming one `service_id`, even
+/// byte-identical ones, reject the whole set: the producer never picks a
+/// winner, merges fields, or silently deduplicates.
+pub fn canonicalize_authority_locator_hints(
+    mut hints: Vec<RealmJoinCandidate>,
+) -> Result<Vec<RealmJoinCandidate>> {
+    hints.sort_by(|left, right| {
+        left.service_id
+            .as_str()
+            .as_bytes()
+            .cmp(right.service_id.as_str().as_bytes())
+    });
+    validate_authority_locator_hints(&hints)?;
+    Ok(hints)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RealmJoinIntent {
@@ -76,6 +117,15 @@ pub enum RealmJoinIntent {
     },
     MemberJoin,
     Knock,
+}
+
+impl RealmJoinIntent {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::InviteAccept { invite_token, .. } => validate_invite_token(invite_token),
+            Self::MemberJoin | Self::Knock => Ok(()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,11 +139,56 @@ pub struct RealmPublicPreview {
     pub display_name: Option<String>,
 }
 
+impl RealmPublicPreview {
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .display_name
+            .as_ref()
+            .is_some_and(|name| name.chars().count() > PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS)
+        {
+            return Err(WireError::Protocol(
+                "Realm preview display_name exceeds 256 characters".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Binds one preview answer to the exact request that produced it: the
+/// echoed request id, the requested Realm on both the preview and the
+/// authority bundle, and the governance tenure the preview was answered under.
+fn validate_preview_binding(
+    request_id: &RequestId,
+    realm_id: &RealmId,
+    outcome_request_id: &RequestId,
+    authority_bundle: &RealmAuthorityBundle,
+    preview: &RealmPublicPreview,
+) -> Result<()> {
+    authority_bundle.validate_shape()?;
+    preview.validate()?;
+    if outcome_request_id != request_id
+        || &preview.realm_id != realm_id
+        || &authority_bundle.realm_id != realm_id
+        || preview.governance_generation != authority_bundle.current_generation
+    {
+        return Err(WireError::Protocol(
+            "Realm preview does not bind the request and authority bundle".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SelfRealmJoinPreviewRequestBody {
     pub request_id: RequestId,
     pub target: RealmJoinTarget,
+}
+
+impl SelfRealmJoinPreviewRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        self.target.validate()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -102,6 +197,19 @@ pub struct SelfRealmJoinPreviewOutcome {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub preview: RealmPublicPreview,
+}
+
+impl SelfRealmJoinPreviewOutcome {
+    pub fn validate_for_request(&self, request: &SelfRealmJoinPreviewRequestBody) -> Result<()> {
+        request.validate()?;
+        validate_preview_binding(
+            &request.request_id,
+            &request.target.realm_id,
+            &self.request_id,
+            &self.authority_bundle,
+            &self.preview,
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,12 +224,32 @@ pub struct PeerRealmJoinPreviewRequestBody {
     pub invite_token: Option<String>,
 }
 
+impl PeerRealmJoinPreviewRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        self.requester_account_id.validate()?;
+        validate_invite_credential(self.invite_id.as_ref(), self.invite_token.as_deref())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerRealmJoinPreviewOutcome {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub preview: RealmPublicPreview,
+}
+
+impl PeerRealmJoinPreviewOutcome {
+    pub fn validate_for_request(&self, request: &PeerRealmJoinPreviewRequestBody) -> Result<()> {
+        request.validate()?;
+        validate_preview_binding(
+            &request.request_id,
+            &request.realm_id,
+            &self.request_id,
+            &self.authority_bundle,
+            &self.preview,
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,12 +260,52 @@ pub struct SelfRealmJoinPrepareRequestBody {
     pub intent: RealmJoinIntent,
 }
 
+impl SelfRealmJoinPrepareRequestBody {
+    /// An `invite_accept` intent must name exactly the invite the target
+    /// carries; `member_join` and `knock` are valid with or without one.
+    pub fn validate(&self) -> Result<()> {
+        self.target.validate()?;
+        self.intent.validate()?;
+        if let RealmJoinIntent::InviteAccept {
+            invite_id,
+            invite_token,
+        } = &self.intent
+            && (self.target.invite_id.as_ref() != Some(invite_id)
+                || self.target.invite_token.as_ref() != Some(invite_token))
+        {
+            return Err(WireError::Protocol(
+                "invite_accept intent does not bind the target invite".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SelfRealmJoinPrepareOutcome {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub realm_stream_head: CommitStreamHead,
+}
+
+impl SelfRealmJoinPrepareOutcome {
+    pub fn validate_for_request(&self, request: &SelfRealmJoinPrepareRequestBody) -> Result<()> {
+        request.validate()?;
+        self.authority_bundle.validate_shape()?;
+        let realm_stream = CommitStreamRef::Realm {
+            realm_id: request.target.realm_id.clone(),
+        };
+        if self.request_id != request.request_id
+            || self.authority_bundle.realm_id != request.target.realm_id
+            || self.realm_stream_head.stream_ref != realm_stream
+        {
+            return Err(WireError::Protocol(
+                "Realm join preparation does not bind the request and authority bundle".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,6 +336,29 @@ pub struct RealmJoinApplicationStatusOutcome {
 }
 
 impl RealmJoinApplicationStatusOutcome {
+    /// Shape check plus the exact binding to one application: the echoed
+    /// request id, and for `committed` the Commit that covers exactly the
+    /// requested join Event in the requested Realm.
+    pub fn validate_for_request(&self, request: &RealmJoinApplicationStatusRequest) -> Result<()> {
+        self.validate()?;
+        if self.request_id != request.request_id {
+            return Err(WireError::Protocol(
+                "Realm join application status does not echo the request".to_owned(),
+            ));
+        }
+        if let Some(commit) = &self.commit {
+            commit.validate_shape()?;
+            if commit.realm_id != request.realm_id
+                || commit.event_ref != request.application_event_id
+            {
+                return Err(WireError::Protocol(
+                    "Realm join application Commit does not cover the requested Event".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         let valid = match self.status {
             RealmJoinApplicationStatus::Pending => {

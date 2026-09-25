@@ -173,12 +173,14 @@ pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
     RealmJoinBootstrapAssembly, RealmJoinBootstrapStreamScan,
 };
 pub use arkret_models_collaboration::governance::realm_join_intake::{
-    AuthorityLocatorSource, PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody,
-    PeerRealmJoinPreviewOutcome, PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus,
-    RealmJoinApplicationStatusOutcome, RealmJoinApplicationStatusRequest, RealmJoinCandidate,
-    RealmJoinCandidateServiceKind, RealmJoinIntent, RealmJoinTarget, RealmPublicPreview,
-    SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome,
-    SelfRealmJoinPreviewRequestBody,
+    AUTHORITY_LOCATOR_HINTS_MAX, AuthorityLocatorSource, INVITE_TOKEN_MAX_CHARS,
+    PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS, PeerRealmJoinBootstrapOutcome,
+    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
+    PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatus, RealmJoinApplicationStatusOutcome,
+    RealmJoinApplicationStatusRequest, RealmJoinCandidate, RealmJoinCandidateServiceKind,
+    RealmJoinIntent, RealmJoinTarget, RealmPublicPreview, SelfRealmJoinPrepareOutcome,
+    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    canonicalize_authority_locator_hints, validate_authority_locator_hints,
 };
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
@@ -263,14 +265,6 @@ pub use arkret_models_discovery::presence::{
     PresenceValidationError, PresenceVisibility, PresenceVisibilityPreference,
     STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
     validate_status_message,
-};
-pub use arkret_models_discovery::realm_join_preview::{
-    AuthorityLocatorSource as PreviewAuthorityLocatorSource,
-    RealmJoinCandidate as PreviewRealmJoinCandidate,
-    RealmJoinCandidateServiceKind as PreviewRealmJoinCandidateServiceKind,
-    RealmJoinPeerPreviewOutcome, RealmJoinPeerPreviewRequestBody, RealmJoinSelfPreviewOutcome,
-    RealmJoinSelfPreviewRequestBody, RealmJoinTarget as PreviewRealmJoinTarget,
-    RealmPublicPreview as PreviewRealmPublicPreview,
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{

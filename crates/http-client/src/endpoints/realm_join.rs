@@ -30,10 +30,11 @@ impl Client {
         &self,
         request: &SelfRealmJoinPreviewRequestBody,
     ) -> Result<SelfRealmJoinPreviewOutcome> {
-        request.target.validate()?;
+        request.validate()?;
         let outcome: SelfRealmJoinPreviewOutcome = self
             .post("/_arkret/self/realm-joins/preview", request)
             .await?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -44,10 +45,11 @@ impl Client {
         &self,
         request: &SelfRealmJoinPrepareRequestBody,
     ) -> Result<SelfRealmJoinPrepareOutcome> {
-        request.target.validate()?;
+        request.validate()?;
         let outcome: SelfRealmJoinPrepareOutcome = self
             .post_protocol_replay_safe("/_arkret/self/realm-joins/prepare", request)
             .await?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -60,7 +62,7 @@ impl Client {
         let outcome: RealmJoinApplicationStatusOutcome = self
             .post("/_arkret/self/realm-joins/application-status", request)
             .await?;
-        outcome.validate()?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -73,9 +75,11 @@ impl Client {
         &self,
         request: &PeerRealmJoinPreviewRequestBody,
     ) -> Result<PeerRealmJoinPreviewOutcome> {
+        request.validate()?;
         let outcome: PeerRealmJoinPreviewOutcome = self
             .post("/_arkret/peer/realm-joins/preview", request)
             .await?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -101,7 +105,7 @@ impl Client {
         let outcome: RealmJoinApplicationStatusOutcome = self
             .post("/_arkret/peer/realm-joins/application-status", request)
             .await?;
-        outcome.validate()?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 }
