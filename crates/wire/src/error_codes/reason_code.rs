@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-26.1;
-//! sha256=76982577301567e2b1301498b7270cc988d92e701baf6deebc4878ccadd37818
+//! Input: registry/error-code-registry.json; version=2026-09-26.2;
+//! sha256=75c73fdd6bfea8089abce6360edf36403eaca65b4323f7008445e742e9388b5b
 //! Entries: reason_codes=311, reserved_not_emitted=70
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2279,7 +2279,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_STATE_MISMATCH,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the current effective-set digest for the same (realm_id, member_id, segment). The server / reducer MUST reject or quarantine the event instead of applying it as a valid replacement. See zh/sync/client-sync.md §8.1.",
+        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the digest of the current effective set for the same (realm_id, member_id, segment): sha256 over RFC 8785 JCS of the exact signed payload objects of the effective updates ordered by event_id ascending, [] when empty (zh/sync/current-results.md section 2). The Station MUST reject the Event with failed_precondition and zero writes instead of applying it as a valid replacement.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_UNKNOWN_SEGMENT,

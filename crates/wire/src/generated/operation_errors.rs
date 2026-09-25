@@ -4,8 +4,8 @@
 //! sha256=cabacaf099a76d19b2cb1d167fe7a6fc62ed636c697cfe6a57bddacbbe79120d Input: registry/
 //! contract-registry.json; version=2026-09-26.2;
 //! sha256=d4aff418c6c4c609cf99e705ab9c8de07cb941893cf399caba3808fed19d8bd0 Input: registry/
-//! error-code-registry.json; version=2026-09-26.1;
-//! sha256=76982577301567e2b1301498b7270cc988d92e701baf6deebc4878ccadd37818 Entries: operations=204
+//! error-code-registry.json; version=2026-09-26.2;
+//! sha256=75c73fdd6bfea8089abce6360edf36403eaca65b4323f7008445e742e9388b5b Entries: operations=204
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 

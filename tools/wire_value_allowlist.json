@@ -2503,17 +2503,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/models-identity/src/member_identity.rs::member_identity_effective_set_digest:fcdcbd9fd081fc58",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning actor_id,realm_id",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:crates/models-integration/src/models_push.rs::proof_binding_bytes:0e780c7933c65535",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

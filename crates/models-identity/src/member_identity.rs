@@ -17,7 +17,7 @@
 //! * [`IdentityPayloadCarrier::carrier_sha256`] derives the exact `identity_payload` carrier digest
 //!   locally; it is not a payload field.
 //! * [`member_identity_effective_set_digest`] → `expected_state_digest` (writer-observed
-//!   effective-set guard, includes `segment`).
+//!   effective-set guard over the exact signed payloads, `current-results.md` §2).
 //! * [`member_display_state_digest`] → roster display cache key (includes effective events +
 //!   visible handle-claim digests).
 
@@ -277,31 +277,21 @@ where
     Ok(effective)
 }
 
-/// R3.2 — `expected_state_digest` writer-observed effective-set guard.
+/// `expected_state_digest` writer-observed effective-set guard
+/// (`current-results.md` §2, decision 0115).
 ///
-/// SHA-256 over RFC 8785 JCS canonical JSON of
-/// `{realm_id, actor_id, segment, effective_events:[{event_id, segment, payload_digest}]}`
-/// with `effective_events` sorted by `(segment, event_id)`.
-///
-/// This is the value a writer places in
-/// [`MemberIdentityUpdatePayload::expected_state_digest`] before applying
-/// a replacement. It is not the locally derived carrier digest or the roster
-/// [`member_display_state_digest`].
-pub fn member_identity_effective_set_digest(
-    realm_id: &RealmId,
-    actor_id: &ActorId,
-    segment: MemberIdentitySegment,
-    entries: &[EffectiveIdentityEntry],
-) -> Result<String> {
-    let sorted = sorted_effective_entries(entries);
-    let projection = serde_json::json!({
-        "realm_id": realm_id,
-        "actor_id": actor_id,
-        "segment": segment,
-        "effective_events": sorted,
-    });
+/// `"sha256:" || lowercase_hex(SHA-256(RFC8785_JCS(v)))` with no domain
+/// prefix, where `v` is the array of the exact signed payload objects of every
+/// update in the `(realm_id, member_id, segment)` effective set, ordered by
+/// the carrying `event_id` ascending. The empty effective set digests `[]`.
+/// Callers pass the payloads exactly as signed, never a re-serialized typed
+/// struct, so the digest names the bytes the writer observed.
+pub fn member_identity_effective_set_digest(effective: &[(&EventId, &Value)]) -> Result<String> {
+    let mut sorted: Vec<&(&EventId, &Value)> = effective.iter().collect();
+    sorted.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+    let payloads: Vec<&Value> = sorted.into_iter().map(|(_, payload)| *payload).collect();
     Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
-        &projection,
+        &payloads,
     )?))
 }
 
@@ -499,30 +489,28 @@ mod tests {
 
     #[test]
     fn identity_state_digest_is_sort_stable() {
-        let realm = fake_realm();
-        let actor = fake_actor("alice");
-        let e1 = EffectiveIdentityEntry {
-            event_id: fake_event_ref("0020"),
-            segment: MemberIdentitySegment::MemberIdentity,
-            payload_digest: Hash::new(
-                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-            )
-            .unwrap(),
-        };
-        let e2 = EffectiveIdentityEntry {
-            event_id: fake_event_ref("0021"),
-            segment: MemberIdentitySegment::MemberIdentity,
-            payload_digest: Hash::new(
-                "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-            )
-            .unwrap(),
-        };
-
-        let seg = MemberIdentitySegment::MemberIdentity;
-        let forward =
-            member_identity_effective_set_digest(&realm, &actor, seg, &[e1.clone(), e2.clone()])
-                .unwrap();
-        let reverse = member_identity_effective_set_digest(&realm, &actor, seg, &[e2, e1]).unwrap();
+        let first = fake_event_ref("0020");
+        let second = fake_event_ref("0021");
+        let payload_first = serde_json::json!({"segment": "member_identity", "n": 1});
+        let payload_second = serde_json::json!({"segment": "member_identity", "n": 2});
+        let forward = member_identity_effective_set_digest(&[
+            (&first, &payload_first),
+            (&second, &payload_second),
+        ])
+        .unwrap();
+        let reverse = member_identity_effective_set_digest(&[
+            (&second, &payload_second),
+            (&first, &payload_first),
+        ])
+        .unwrap();
         assert_eq!(forward, reverse);
+    }
+
+    #[test]
+    fn empty_effective_set_digests_the_empty_array() {
+        assert_eq!(
+            member_identity_effective_set_digest(&[]).unwrap(),
+            "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        );
     }
 }
