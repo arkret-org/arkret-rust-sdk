@@ -4,8 +4,8 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId, KeypackageClaimId, MessageId,
-    MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
+    ActorProfileId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId, KeypackageClaimId,
+    MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
     RealmSnapshotId, SidecarId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -15,8 +15,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    AccountId, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, Event,
-    HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
+    AccountId, AccountabilityScopeSet, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId,
+    DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -1000,6 +1000,20 @@ pub enum CurrentSelector {
     InviteDirectedInvitee {
         invite_id: InviteId,
     },
+    /// One global Actor Profile, keyed by its create-derived id
+    /// (`typed-current-result.schema.json#/$defs/actor_profile_result`).
+    ActorProfile {
+        actor_profile_id: ActorProfileId,
+    },
+    /// One accountability endorsement. The Realm is the result's scope, so it
+    /// is not a subject member; the scope set is the normalized exact set its
+    /// composite subject digests
+    /// (`typed-current-result.schema.json#/$defs/identity_accountability_result`).
+    IdentityAccountability {
+        issuer_id: DidCoreId,
+        subject_id: DidCoreId,
+        accountability_scope: AccountabilityScopeSet,
+    },
 }
 
 #[derive(Deserialize)]
@@ -1077,6 +1091,20 @@ enum FlatCurrentSelector {
     /// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_result`).
     InviteDirectedInvitee {
         invite_id: InviteId,
+    },
+    /// One global Actor Profile, keyed by its create-derived id
+    /// (`typed-current-result.schema.json#/$defs/actor_profile_result`).
+    ActorProfile {
+        actor_profile_id: ActorProfileId,
+    },
+    /// One accountability endorsement. The Realm is the result's scope, so it
+    /// is not a subject member; the scope set is the normalized exact set its
+    /// composite subject digests
+    /// (`typed-current-result.schema.json#/$defs/identity_accountability_result`).
+    IdentityAccountability {
+        issuer_id: DidCoreId,
+        subject_id: DidCoreId,
+        accountability_scope: AccountabilityScopeSet,
     },
 }
 
@@ -1205,6 +1233,18 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::InviteDirectedInvitee { invite_id } => {
                         Self::InviteDirectedInvitee { invite_id }
                     }
+                    FlatCurrentSelector::ActorProfile { actor_profile_id } => {
+                        Self::ActorProfile { actor_profile_id }
+                    }
+                    FlatCurrentSelector::IdentityAccountability {
+                        issuer_id,
+                        subject_id,
+                        accountability_scope,
+                    } => Self::IdentityAccountability {
+                        issuer_id,
+                        subject_id,
+                        accountability_scope,
+                    },
                 })
             }
         }
@@ -2310,6 +2350,61 @@ mod tests {
             json!({"kind":"invite_live_target","invitee_account_id":invitee,"realm_id":realm}),
             json!({"kind":"invite_live_target","invitee_account_id":"ak:did_core:web:bob.example"}),
             json!({"kind":"invite_directed_invitee","invite_id":invite_id,"invitee_account_id":invitee}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_and_accountability_selectors_round_trip_closed_shapes() {
+        let profile_id =
+            ActorProfileId::new("ak:actor_profile:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-")
+                .unwrap();
+        let issuer = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let subject = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
+        let scope = AccountabilityScopeSet::normalize([
+            crate::AccountabilityScopeKind::Employment,
+            crate::AccountabilityScopeKind::AgentOperator,
+        ])
+        .unwrap();
+        for (selector, wire) in [
+            (
+                CurrentSelector::ActorProfile {
+                    actor_profile_id: profile_id.clone(),
+                },
+                json!({"kind":"actor_profile","actor_profile_id":profile_id}),
+            ),
+            (
+                CurrentSelector::IdentityAccountability {
+                    issuer_id: issuer.clone(),
+                    subject_id: subject.clone(),
+                    accountability_scope: scope,
+                },
+                json!({
+                    "kind":"identity_accountability",
+                    "issuer_id":issuer,
+                    "subject_id":subject,
+                    "accountability_scope":["agent_operator","employment"]
+                }),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        let realm = "ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        for invalid in [
+            json!({"kind":"actor_profile"}),
+            json!({"kind":"actor_profile","actor_profile_id":profile_id,"realm_id":realm}),
+            json!({"kind":"actor_profile","actor_profile_id":"ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"}),
+            json!({"kind":"identity_accountability","issuer_id":issuer,"subject_id":subject,"accountability_scope":"employment"}),
+            json!({"kind":"identity_accountability","issuer_id":issuer,"subject_id":subject,"accountability_scope":["employment","agent_operator"]}),
+            json!({"kind":"identity_accountability","issuer_id":issuer,"subject_id":subject,"accountability_scope":["employment"],"realm_id":realm}),
         ] {
             assert!(
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),

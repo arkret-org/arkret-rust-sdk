@@ -5,7 +5,9 @@
 //! reach it through a cross-principal actor selector. This operation is the only
 //! outward carrier for that PCR-resident fact.
 
-use arkret_wire::{ActorId, Event, RealmId};
+use arkret_wire::{
+    AccountId, AccountStatusRecordId, ActorId, ActorStatus, Event, RealmCommit, RealmId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::actor_profile::ActorProfile;
@@ -58,10 +60,12 @@ impl ActorProfileResolveRequest {
     }
 }
 
-/// One actor's current global profile and one contributing accepted Event.
+/// One actor's current global profile, the exact accepted Event sourcing it
+/// and that Event's covering RealmCommit in the owner's PCR stream.
 ///
-/// The Event is provenance for the authenticated Station projection. It does
-/// not prove complete causal history or grant authorization.
+/// The Event and Commit are provenance for the authenticated Station
+/// projection. They do not prove complete causal history or grant
+/// authorization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -71,6 +75,24 @@ pub struct ResolvedActorProfile {
     pub actor_profile: ActorProfile,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub profile_commit: RealmCommit,
+    /// Present only when the Station holds a verified AccountStatusRecord for
+    /// this exact account; absence means unknown, never `active`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_status: Option<AccountStatusProjection>,
+}
+
+/// `actor-profile-operations.schema.json#/$defs/account_status_projection`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AccountStatusProjection {
+    pub account_id: AccountId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub status: ActorStatus,
+    pub status_seq: u64,
+    pub account_status_record_id: AccountStatusRecordId,
 }
 
 /// Per-actor failure reason.

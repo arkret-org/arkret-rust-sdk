@@ -4,13 +4,13 @@ use std::collections::BTreeMap;
 use std::ops::Deref;
 
 use arkret_wire::{
-    ActorId, ActorKind, ActorProfileId, ActorStatus, BlobRef, DidCoreId, RealmId, SchemaId,
+    ActorId, ActorKind, ActorProfileId, BlobRef, DidCoreId, RealmId, SchemaId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorProfile {
     /// The object id.
@@ -34,8 +34,6 @@ pub struct ActorProfile {
     pub agent_slug: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<ActorStatus>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accountable_principal_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -54,6 +52,127 @@ pub struct ActorProfile {
 
 impl ActorProfile {
     pub const SCHEMA: &'static str = SchemaId::ACTOR_PROFILE_V1;
+
+    /// The `ak.profile.create` result projection: the author's closed
+    /// definition plus the registered create-lock derivations
+    /// (`object_schema_identifier`, `object_realm_binding`,
+    /// `object_create_time`). A create has not been updated, so the update
+    /// members stay absent.
+    pub fn materialize_create(
+        definition: ActorProfileDefinition,
+        id: ActorProfileId,
+        realm_id: RealmId,
+        created_at: DateTime<Utc>,
+    ) -> arkret_wire::Result<Self> {
+        definition.validate()?;
+        Ok(Self {
+            id: Some(id),
+            schema: Self::SCHEMA.to_owned(),
+            realm_id: Some(realm_id),
+            principal_id: definition.principal_id,
+            actor_kind: definition.actor_kind,
+            display_name: definition.display_name,
+            handle: definition.handle,
+            agent_slug: definition.agent_slug,
+            avatar_blob_ref: definition.avatar_blob_ref,
+            accountable_principal_ids: definition.accountable_principal_ids,
+            resolution: None,
+            profile_fields: definition.profile_fields,
+            created_at,
+            updated_by: None,
+            updated_at: None,
+        })
+    }
+
+    /// Validate the display members every materialized value must satisfy
+    /// (`actor-profile.schema.json`).
+    pub fn validate_display_members(&self) -> arkret_wire::Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(WireError::Protocol(
+                "actor profile schema must be ak.schema.actor_profile.v1".to_owned(),
+            ));
+        }
+        validate_display_members(
+            self.actor_kind,
+            &self.display_name,
+            self.handle.as_deref(),
+            self.agent_slug.as_deref(),
+            &self.profile_fields,
+        )
+    }
+}
+
+/// The closed author region of `ak.profile.create`
+/// (`actor-profile.schema.json#/$defs/actor_profile_definition`).
+///
+/// `schema`, `realm_id`, `created_at`, `updated_by` and `updated_at` are
+/// reducer derivations and `id`/`resolution` are never authored, so none of
+/// them is representable here. `principal_id` and `actor_kind` are author
+/// input and create-locked afterwards.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActorProfileDefinition {
+    pub principal_id: DidCoreId,
+    pub actor_kind: ActorKind,
+    pub display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accountable_principal_ids: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub profile_fields: BTreeMap<String, Value>,
+}
+
+impl ActorProfileDefinition {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_display_members(
+            self.actor_kind,
+            &self.display_name,
+            self.handle.as_deref(),
+            self.agent_slug.as_deref(),
+            &self.profile_fields,
+        )
+    }
+}
+
+const PROFILE_TEXT_FIELD_MAX: usize = 256;
+
+fn validate_display_members(
+    actor_kind: ActorKind,
+    display_name: &str,
+    handle: Option<&str>,
+    agent_slug: Option<&str>,
+    profile_fields: &BTreeMap<String, Value>,
+) -> arkret_wire::Result<()> {
+    arkret_wire::validate_single_line_display_text(display_name, 128)?;
+    if let Some(handle) = handle {
+        arkret_wire::validate_canonical_handle(handle)?;
+    }
+    if let Some(agent_slug) = agent_slug {
+        if actor_kind != ActorKind::Agent {
+            return Err(WireError::Protocol(
+                "agent_slug is only valid on an actor_kind=agent profile".to_owned(),
+            ));
+        }
+        crate::claim_presentation::validate_agent_slug(agent_slug)?;
+    }
+    for member in ["bio", "status_message"] {
+        match profile_fields.get(member) {
+            None => {}
+            Some(Value::String(text)) if text.chars().count() <= PROFILE_TEXT_FIELD_MAX => {}
+            Some(_) => {
+                return Err(WireError::Protocol(format!(
+                    "profile_fields.{member} must be a string of at most \
+                     {PROFILE_TEXT_FIELD_MAX} code points"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Actor Profile materialized from an accepted `ak.profile.create` lineage.
@@ -69,7 +188,7 @@ pub struct AccountMaterializedProfile(ActorProfile);
 impl AccountMaterializedProfile {
     pub fn new(profile: ActorProfile) -> arkret_wire::Result<Self> {
         if profile.id.is_none() || profile.realm_id.is_none() {
-            return Err(arkret_wire::WireError::Protocol(
+            return Err(WireError::Protocol(
                 "materialized account profile requires id and realm_id".to_owned(),
             ));
         }
@@ -90,7 +209,7 @@ impl Deref for AccountMaterializedProfile {
 }
 
 impl TryFrom<ActorProfile> for AccountMaterializedProfile {
-    type Error = arkret_wire::WireError;
+    type Error = WireError;
 
     fn try_from(profile: ActorProfile) -> Result<Self, Self::Error> {
         Self::new(profile)
@@ -129,6 +248,55 @@ mod tests {
             "display_name": "Fixture User",
             "created_at": "2026-08-11T00:00:00.000Z"
         })
+    }
+
+    #[test]
+    fn definition_is_the_closed_author_region() {
+        let definition: super::ActorProfileDefinition = serde_json::from_value(json!({
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "actor_kind": "user",
+            "display_name": "Fixture User"
+        }))
+        .expect("author region");
+        definition.validate().unwrap();
+        for member in [
+            ("schema", json!("ak.schema.actor_profile.v1")),
+            (
+                "realm_id",
+                json!("ak:realm:ARmJMvTcKFyiF-V_8oL4mIoHfnlqERCrcgNBONtY4HQD"),
+            ),
+            ("created_at", json!("2026-08-11T00:00:00.000Z")),
+            (
+                "id",
+                json!("ak:actor_profile:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"),
+            ),
+            ("status", json!("active")),
+        ] {
+            let mut value = serde_json::to_value(&definition).unwrap();
+            value[member.0] = member.1;
+            assert!(
+                serde_json::from_value::<super::ActorProfileDefinition>(value).is_err(),
+                "{} is not author input",
+                member.0
+            );
+        }
+        let mut slug = definition.clone();
+        slug.agent_slug = Some("summary".to_owned());
+        assert!(
+            slug.validate().is_err(),
+            "agent_slug requires actor_kind=agent"
+        );
+        assert!(
+            serde_json::from_value::<super::ActorProfile>(json!({
+                "schema": "ak.schema.actor_profile.v1",
+                "principal_id": "ak:did_core:webvh:z6mkfixture",
+                "actor_kind": "user",
+                "display_name": "Fixture User",
+                "status": "active",
+                "created_at": "2026-08-11T00:00:00.000Z"
+            }))
+            .is_err()
+        );
     }
 
     #[test]

@@ -31,6 +31,7 @@ pub mod serde_helpers {
 }
 
 pub mod accepted_device_possession;
+pub mod accountability_scope;
 pub mod applet_revoke_mode;
 pub mod authored_event;
 pub mod authority_commit;
@@ -78,6 +79,7 @@ pub mod wire_presence;
 pub mod wire_strings;
 
 pub use accepted_device_possession::*;
+pub use accountability_scope::{AccountabilityScopeKind, AccountabilityScopeSet};
 pub use applet_revoke_mode::AppletRevokeMode;
 pub use arkret_identifiers::*;
 pub use authored_event::AuthoredEvent;

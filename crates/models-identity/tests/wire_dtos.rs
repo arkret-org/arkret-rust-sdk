@@ -1,17 +1,16 @@
 use arkret_models_identity::ActorProfile;
 use arkret_models_identity::service_identity::ServiceRegistrationReceipt;
-use arkret_wire::{ActorKind, ActorStatus, SchemaId};
+use arkret_wire::{ActorKind, SchemaId};
 use serde_json::json;
 
 #[test]
-fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
+fn actor_profile_rejects_unknown_fields_and_the_retired_status_member() {
     let value = json!({
         "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",
         "schema": SchemaId::ACTOR_PROFILE_V1,
         "principal_id": "ak:did_core:webvh:z6mkfixtureghost",
         "actor_kind": "integration",
         "display_name": "Ghost",
-        "status": "locked",
         "accountable_principal_ids": ["ak:did_core:webvh:z6mkfixtureowner"],
         "profile_fields": {
             "managed_by_applet": "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
@@ -26,9 +25,13 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
         },
         "updated_at": "2026-04-30T00:01:00.000Z"
     });
-    let profile: ActorProfile = serde_json::from_value(value).unwrap();
-    assert_eq!(profile.status, Some(ActorStatus::Locked));
+    let profile: ActorProfile = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(profile.actor_kind, ActorKind::Integration);
+    // `status` is no durable profile member (profiles-presence.md section 2.2);
+    // the verified account status is a resolve-row projection instead.
+    let mut with_status = value;
+    with_status["status"] = json!("locked");
+    assert!(serde_json::from_value::<ActorProfile>(with_status).is_err());
 
     let bad = json!({
         "id": "ak:actor_profile:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu",

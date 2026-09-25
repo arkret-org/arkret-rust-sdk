@@ -3,10 +3,10 @@
 //!
 //! The operation is the only outward carrier for a PCR-resident global Actor
 //! Profile, and the row it returns is an own-Station display projection plus
-//! the exact signed Event that sources it. Ordinary profile state has no
-//! independent governance proof, so a consumer must check
-//! that the Event, the projection and the requested actor are the same subject
-//! before any of it reaches a display surface
+//! the exact signed Event that sources it with its covering RealmCommit. A
+//! consumer must check that the Commit covers the Event in the owner PCR
+//! stream and that the Event, the projection and the requested actor are the
+//! same subject before any of it reaches a display surface
 //! (`zh/discovery/profiles-presence.md` section 2.3,
 //! `zh/sync/service-http-binding.md` section 5.1).
 //!
@@ -33,6 +33,18 @@ pub fn validate_resolved_actor_profile(row: &ResolvedActorProfile) -> Result<Act
     if event.actor_id != row.actor_id {
         return Err(WireError::Protocol(
             "resolved profile Event actor does not match the resolved actor".to_owned(),
+        ));
+    }
+    let commit = &row.profile_commit;
+    if commit.event_ref != event.event_id
+        || commit.realm_id != event.realm_id
+        || commit.stream_ref
+            != (arkret_wire::CommitStreamRef::Realm {
+                realm_id: event.realm_id.clone(),
+            })
+    {
+        return Err(WireError::Protocol(
+            "resolved profile Commit does not cover its Event in the owner PCR stream".to_owned(),
         ));
     }
     if row.actor_profile.schema != ActorProfile::SCHEMA {

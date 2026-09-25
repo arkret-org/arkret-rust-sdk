@@ -1116,6 +1116,18 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/redaction.rs::ObjectRedactionCurrentValue",
       "schema": "typed-current-result.schema.json#/$defs/object_redaction_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/accountability.rs::AccountabilityProjection",
+      "schema": "accountability-grant.schema.json#/$defs/accountability_projection"
+    },
+    {
+      "rust_type": "crates/models-identity/src/actor_profile.rs::ActorProfileDefinition",
+      "schema": "actor-profile.schema.json#/$defs/actor_profile_definition"
+    },
+    {
+      "rust_type": "crates/models-identity/src/actor_profile_operations.rs::AccountStatusProjection",
+      "schema": "actor-profile-operations.schema.json#/$defs/account_status_projection"
     }
   ],
   "exemptions": [

@@ -23,7 +23,9 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_collaboration::governance::accountability::{
     AccountabilityGrantPayload, AccountabilityScope, AccountabilityScopeKind,
 };
-use arkret_models_identity::{ActorProfile, ResolutionCommitment, ResolutionMethodHistoryEvidence};
+use arkret_models_identity::{
+    ActorProfileDefinition, ResolutionCommitment, ResolutionMethodHistoryEvidence,
+};
 use arkret_models_integration::{
     AppletDelegatedEventAuthorization, AppletManagedActorAuthoringBundle,
     AppletManagedActorAuthoringRequest, AppletManagedActorProof,
@@ -34,8 +36,8 @@ use arkret_signatures::{EventSigner, SignEventOptions, sign_event};
 use arkret_wire::{
     AccountId, ActorId, ActorKind, AppletId, AuthorizationRef, DidCoreId, Discoverability, Event,
     EventAdmissionSubmission, EventId, EventKind, GenesisSalt, GrantId, Hash, HistoryAccess,
-    JoinRule, PayloadProof, PayloadSigner, RealmId, SchemaId, ScopeRef, SecurityClass, SemanticRef,
-    TrustDomainId, event_spec, proof_kind,
+    JoinRule, PayloadProof, PayloadSigner, ScopeRef, SecurityClass, SemanticRef, TrustDomainId,
+    event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -97,7 +99,6 @@ pub struct AppletManagedActorBundleAuthoringInput {
 
 struct Branch {
     realm_scope: ScopeRef,
-    realm_id: RealmId,
     service_id: DidCoreId,
     station_id: DidCoreId,
     applet_id: AppletId,
@@ -431,15 +432,13 @@ fn profile_intent(
     validate_display_name(&branch.display_name)?;
     let intent = match (&branch.external_ref, branch.role) {
         (Some(external_ref), AppletManagedActorRole::Ghost) => {
-            let mut profile = GhostActorProfileRequest::new(
+            let profile = GhostActorProfileRequest::new(
                 principal_id,
                 branch.display_name.clone(),
                 branch.applet_id.clone(),
                 external_ref.clone(),
             )
-            .with_realm_id(branch.realm_id.clone())
             .with_accountable_principal_ids(vec![branch.service_id.clone()]);
-            profile.created_at = created_at;
             profile.profile_create_intent(
                 branch.realm_scope.clone(),
                 managed_actor_id,
@@ -451,7 +450,7 @@ fn profile_intent(
             branch.realm_scope.clone(),
             managed_actor_id,
             ActorProfileCreatePayload {
-                object: bot_profile(branch, principal_id, created_at),
+                object: bot_profile(branch, principal_id),
             },
         )?
         .with_executed_by(ActorId::service(delegation.executed_by.clone()))
@@ -467,31 +466,19 @@ fn profile_intent(
     Ok(intent.with_semantic_refs(vec![accountability_ref]))
 }
 
-fn bot_profile(
-    branch: &Branch,
-    principal_id: DidCoreId,
-    created_at: DateTime<Utc>,
-) -> ActorProfile {
-    ActorProfile {
-        id: None,
-        schema: SchemaId::ACTOR_PROFILE_V1.to_owned(),
-        realm_id: Some(branch.realm_id.clone()),
+fn bot_profile(branch: &Branch, principal_id: DidCoreId) -> ActorProfileDefinition {
+    ActorProfileDefinition {
         principal_id,
         actor_kind: ActorKind::Bot,
         display_name: branch.display_name.clone(),
         handle: None,
         agent_slug: None,
         avatar_blob_ref: None,
-        status: None,
         accountable_principal_ids: vec![branch.service_id.clone()],
-        resolution: None,
         profile_fields: BTreeMap::from([(
             "managed_by_applet".to_owned(),
             Value::String(branch.applet_id.to_string()),
         )]),
-        created_at,
-        updated_by: None,
-        updated_at: None,
     }
 }
 
@@ -515,10 +502,7 @@ fn branch(
                 .first()
                 .ok_or_else(|| protocol("install-Bot request has no authority grant"))?;
             Ok(Branch {
-                realm_scope: ScopeRef::Realm {
-                    realm_id: realm_id.clone(),
-                },
-                realm_id,
+                realm_scope: ScopeRef::Realm { realm_id },
                 service_id: basis.service_id.clone(),
                 station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),
@@ -543,7 +527,6 @@ fn branch(
                 realm_scope: ScopeRef::Realm {
                     realm_id: basis.realm_id.clone(),
                 },
-                realm_id: basis.realm_id.clone(),
                 service_id: basis.service_id.clone(),
                 station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),

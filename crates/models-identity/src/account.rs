@@ -1738,6 +1738,9 @@ impl AccountBindingReceipt {
 pub struct AccountUpdateProfileOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: crate::actor_profile::AccountMaterializedProfile,
+    /// The exact RealmCommit covering the submitted profile Event.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub commit: arkret_wire::RealmCommit,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
