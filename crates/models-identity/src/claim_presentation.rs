@@ -1,10 +1,9 @@
-//! Directory claim-presentation and agent-selector claim wire shapes
-//! (identity-issued claims presented to directory services).
+//! Controller-scoped Agent selector claim wire shape.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, DidCoreId, DidUrl, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError,
+    AccountId, DidCoreId, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError,
     canonical,
 };
 use chrono::{DateTime, Utc};
@@ -12,57 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::handle::HandleVisibility;
-
-pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
-    "ak.directory.restricted_claim_presentation.v1";
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryPresentedClaim {
-    pub claim_id: String,
-    pub subject_id: DidCoreId,
-    pub issuer_id: DidCoreId,
-    pub claim_kind: String,
-    pub value: BTreeMap<String, Value>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub refreshed_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub disclosed_fields: BTreeSet<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryRestrictedClaimPresentation {
-    pub kind: String,
-    pub issuer_id: DidCoreId,
-    pub verification_method: DidUrl,
-    pub audience_id: DidCoreId,
-    pub nonce: String,
-    pub claim: DirectoryPresentedClaim,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub jws: String,
-}
 
 fn default_agent_selector_claim_schema() -> String {
     SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned()
