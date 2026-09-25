@@ -350,12 +350,7 @@ fn chain() -> Chain {
 }
 
 fn freshness() -> RealmAuthorityFreshness {
-    RealmAuthorityFreshness::new(
-        now(),
-        Base64UrlString::new(NONCE.to_owned()).unwrap(),
-        Duration::seconds(300),
-    )
-    .unwrap()
+    RealmAuthorityFreshness::new(now(), Base64UrlString::new(NONCE.to_owned()).unwrap())
 }
 
 fn verify(chain: &Chain) -> ChainResult<VerifiedRealmAuthority> {
@@ -604,9 +599,7 @@ fn stale_replayed_and_foreign_nonce_bundles_are_refused() {
     let wrong_nonce = RealmAuthorityFreshness::new(
         now(),
         Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB".to_owned()).unwrap(),
-        Duration::seconds(300),
-    )
-    .unwrap();
+    );
     assert!(matches!(
         verify_realm_authority_bundle(&chain.bundle, &wrong_nonce, &chain.keys),
         Err(RealmAuthorityChainError::NotFresh(_))
@@ -615,35 +608,21 @@ fn stale_replayed_and_foreign_nonce_bundles_are_refused() {
     let expired = RealmAuthorityFreshness::new(
         expires_at() + Duration::seconds(1),
         Base64UrlString::new(NONCE.to_owned()).unwrap(),
-        Duration::days(1),
-    )
-    .unwrap();
+    );
     assert!(matches!(
         verify_realm_authority_bundle(&chain.bundle, &expired, &chain.keys),
         Err(RealmAuthorityChainError::NotFresh(_))
     ));
 
-    let too_old = RealmAuthorityFreshness::new(
-        now(),
+    // A bundle whose issue instant is far behind the caller's clock is still
+    // fresh while its nonce-bound assertion has not expired: no caller-side
+    // bundle age limit exists.
+    let late_but_unexpired = RealmAuthorityFreshness::new(
+        expires_at() - Duration::milliseconds(1),
         Base64UrlString::new(NONCE.to_owned()).unwrap(),
-        Duration::seconds(1),
-    )
-    .unwrap();
-    assert!(matches!(
-        verify_realm_authority_bundle(&chain.bundle, &too_old, &chain.keys),
-        Err(RealmAuthorityChainError::NotFresh(_))
-    ));
-
-    let before_issue = RealmAuthorityFreshness::new(
-        issued_at() - Duration::seconds(1),
-        Base64UrlString::new(NONCE.to_owned()).unwrap(),
-        Duration::seconds(300),
-    )
-    .unwrap();
-    assert!(matches!(
-        verify_realm_authority_bundle(&chain.bundle, &before_issue, &chain.keys),
-        Err(RealmAuthorityChainError::NotFresh(_))
-    ));
+    );
+    verify_realm_authority_bundle(&chain.bundle, &late_but_unexpired, &chain.keys)
+        .expect("an unexpired nonce-bound assertion is the only freshness rule");
 }
 
 /// Negative 9 — a commit whose generation this bundle does not cover at all.

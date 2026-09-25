@@ -44,7 +44,7 @@ use arkret_wire::{
     Did, DidCoreId, DidUrl, Event, EventId, RealmAuthorityBundle, RealmAuthorityHandoffId,
     RealmCommit, RealmCommitAuthorityRef, RealmId, project_did_to_core_id,
 };
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 
 /// Every way the authority chain can fail to establish its claim.
 ///
@@ -217,25 +217,14 @@ where
 pub struct RealmAuthorityFreshness {
     pub now: DateTime<Utc>,
     pub expected_nonce: Base64UrlString,
-    pub max_bundle_age: Duration,
 }
 
 impl RealmAuthorityFreshness {
-    pub fn new(
-        now: DateTime<Utc>,
-        expected_nonce: Base64UrlString,
-        max_bundle_age: Duration,
-    ) -> ChainResult<Self> {
-        if max_bundle_age <= Duration::zero() {
-            return Err(E::NotFresh(
-                "max_bundle_age must be a positive duration".to_owned(),
-            ));
-        }
-        Ok(Self {
+    pub fn new(now: DateTime<Utc>, expected_nonce: Base64UrlString) -> Self {
+        Self {
             now,
             expected_nonce,
-            max_bundle_age,
-        })
+        }
     }
 }
 
@@ -445,32 +434,18 @@ fn verify_freshness(
     bundle: &RealmAuthorityBundle,
     freshness: &RealmAuthorityFreshness,
 ) -> ChainResult<()> {
-    if freshness.max_bundle_age <= Duration::zero() {
-        return Err(E::NotFresh(
-            "max_bundle_age must be a positive duration".to_owned(),
-        ));
-    }
+    // The nonce-bound, unexpired current assertion is the only freshness
+    // signal (`join-policy.md`, `service-surface.md` section 2.6). The caller
+    // adds no bundle age limit and no clock-skew window of its own.
     if bundle.current_assertion.nonce != freshness.expected_nonce {
         return Err(E::NotFresh(
             "current assertion answers a nonce this verifier did not issue".to_owned(),
         ));
     }
-    if bundle.bundle_issued_at > freshness.now {
-        return Err(E::NotFresh(format!(
-            "bundle is issued at {} which is after the caller's observation time {}",
-            bundle.bundle_issued_at, freshness.now
-        )));
-    }
     if bundle.current_assertion.expires_at <= freshness.now {
         return Err(E::NotFresh(format!(
             "current assertion expired at {}",
             bundle.current_assertion.expires_at
-        )));
-    }
-    if freshness.now - bundle.bundle_issued_at > freshness.max_bundle_age {
-        return Err(E::NotFresh(format!(
-            "bundle issued at {} is older than the accepted age",
-            bundle.bundle_issued_at
         )));
     }
     Ok(())
