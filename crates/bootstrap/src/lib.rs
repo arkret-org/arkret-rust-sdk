@@ -23,44 +23,34 @@ pub use self_principal::{
 
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 
-#[allow(clippy::too_many_arguments)]
-fn author_event(
-    kind: arkret_wire::EventKind,
+/// Author a bootstrap Event whose kind and payload type are one type-level
+/// fact; the payload is validated through its SDK binding before signing.
+fn author_event<K: arkret_event_draft::EventSpec>(
     scope_ref: arkret_wire::ScopeRef,
     actor_id: arkret_wire::ActorId,
     executed_by: Option<arkret_wire::ActorId>,
     authorization_ref: Option<arkret_wire::AuthorizationRef>,
     created_at: chrono::DateTime<chrono::Utc>,
     semantic_refs: Vec<arkret_wire::SemanticRef>,
-    payload: serde_json::Value,
+    payload: K::Payload,
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
-    let serde_json::Value::Object(payload) = payload else {
-        return Err(arkret_wire::WireError::Protocol(
-            "bootstrap Event payload must serialize as an object".to_owned(),
-        ));
-    };
-    let placeholder =
-        arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0; 32]);
-    let realm_id = scope_ref
-        .realm_id_opt()
-        .cloned()
-        .unwrap_or_else(|| arkret_wire::RealmId::from_event_id(&placeholder));
-    arkret_wire::AuthoredEvent::finalize_with_digest_suite(
-        arkret_wire::Event {
-            event_id: placeholder,
-            kind,
-            realm_id,
-            scope_ref,
-            actor_id,
-            executed_by,
-            authorization_ref,
-            applet_id: None,
-            external_ref: None,
-            created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
-            semantic_refs,
-            payload: payload.into_iter().collect(),
-            producer_proof: None,
-        },
-        arkret_canonical::DigestSuite::Sha256,
-    )
+    let mut draft = arkret_event_draft::TypedEventDraft::<K>::new(scope_ref, actor_id, payload)
+        .map_err(draft_error)?
+        .with_semantic_refs(semantic_refs);
+    if let Some(executed_by) = executed_by {
+        draft = draft.with_executed_by(executed_by);
+    }
+    if let Some(authorization_ref) = authorization_ref {
+        draft = draft.with_authorization_ref(authorization_ref);
+    }
+    draft
+        .author_with_digest_suite(created_at, arkret_canonical::DigestSuite::Sha256)
+        .map_err(draft_error)
+}
+
+fn draft_error(error: arkret_event_draft::EventDraftError) -> arkret_wire::WireError {
+    match error {
+        arkret_event_draft::EventDraftError::Wire(error) => error,
+        other => arkret_wire::WireError::Protocol(other.to_string()),
+    }
 }

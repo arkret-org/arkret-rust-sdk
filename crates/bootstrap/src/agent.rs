@@ -65,14 +65,13 @@ pub fn build_agent_pcr_create(
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
     let agent_id = input.payload.agent_id.clone();
     let payload = build_agent_pcr_create_payload(input.payload)?;
-    crate::author_event(
-        arkret_wire::EventKind::RealmCreate,
+    crate::author_event::<arkret_wire::event_spec::RealmCreate>(
         ScopeRef::RealmGenesis,
         ActorId::service(agent_id),
         Some(input.executed_by),
         Some(input.authorization_ref),
         input.created_at,
         Vec::new(),
-        payload.to_value()?,
+        payload,
     )
 }

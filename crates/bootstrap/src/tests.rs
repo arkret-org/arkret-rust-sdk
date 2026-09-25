@@ -135,17 +135,28 @@ fn identity_creation_packages_two_signed_events_without_event_predecessors() {
     let realm_id = create.realm_id.clone();
     let actor_id = create.actor_id.clone();
     let created_at = create.created_at;
-    let mut authorize = crate::author_event(
-        EventKind::DeviceAuthorize,
-        ScopeRef::Realm {
+    let mut authorize = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        arkret_wire::Event {
+            event_id: arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0; 32],
+            ),
+            kind: EventKind::DeviceAuthorize,
             realm_id: realm_id.clone(),
+            scope_ref: ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            actor_id,
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            created_at,
+            semantic_refs: Vec::new(),
+            payload: Default::default(),
+            producer_proof: None,
         },
-        actor_id,
-        None,
-        None,
-        created_at,
-        Vec::new(),
-        serde_json::json!({}),
+        arkret_canonical::DigestSuite::Sha256,
     )
     .unwrap();
     attach_test_proof(

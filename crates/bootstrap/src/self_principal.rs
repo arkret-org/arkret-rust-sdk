@@ -71,15 +71,14 @@ pub fn build_self_principal_pcr_create(
         input.principal_id,
         input.governance_station_id,
     ));
-    let event = crate::author_event(
-        EventKind::RealmCreate,
+    let event = crate::author_event::<arkret_wire::event_spec::RealmCreate>(
         ScopeRef::RealmGenesis,
         actor_id,
         None,
         None,
         input.created_at,
         vec![input.did_inception_ref],
-        RealmCreatePayload::new(genesis).to_value()?,
+        RealmCreatePayload::new(genesis),
     )?;
     validate_self_principal_pcr_create(&event, false)?;
     Ok(event)

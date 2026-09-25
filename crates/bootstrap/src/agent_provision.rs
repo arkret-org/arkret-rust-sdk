@@ -43,8 +43,7 @@ pub fn build_agent_provision_intent(
         created_at,
     };
     payload.validate()?;
-    crate::author_event(
-        arkret_wire::EventKind::AgentProvision,
+    crate::author_event::<arkret_wire::event_spec::AgentProvision>(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
@@ -59,6 +58,6 @@ pub fn build_agent_provision_intent(
         ),
         created_at,
         Vec::new(),
-        serde_json::to_value(payload)?,
+        payload,
     )
 }
