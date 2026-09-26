@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-26.4;
-//! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-26.7;
+//! sha256=3a3836eaf30eb27e158c2cb874db602848cae69c63fe16166ce201bf75217042 Input: registry/
 //! account-data-key-registry.json; version=2026-09-25.2;
 //! sha256=0056114b31b4300e5c186b0b42dc26e8fb349f18f3e44da4580087f7d1a9aaff Entries: id_kinds=48,
 //! special_forms=15, actions=145, approval_carriers=1, schemas=219, account_data_patterns=24
@@ -1147,7 +1147,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         action: CapabilityActionId::MessageMentionBroadcast,
         category: "discussion",
         risk_tier: CapabilityRiskTier::High,
-        required_constraints: &["max_operations", "period", "constraint_scope"],
+        required_constraints: &["expires_at", "max_operations", "period", "constraint_scope"],
         required_evaluator_checks: &[
             "message_create_or_revise_authorized",
             "audience_mention_policy_allows_audience",
