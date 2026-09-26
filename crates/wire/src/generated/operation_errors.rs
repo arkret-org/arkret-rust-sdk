@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-26.1;
-//! sha256=349282da81c64b8ab3422ab1beac01dc705760ac09c9b5dd3a8f870fc6655b09 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-26.2;
+//! sha256=d474231438c0591a908d070de85884e6bbbbe6cfe782ac80fc3a78884b69f939 Input: registry/
 //! contract-registry.json; version=2026-09-26.4;
 //! sha256=dd39c45b2acdde6c5eb798ef4a20e1657ad861c983ac1a8f52fd742898695780 Input: registry/
 //! error-code-registry.json; version=2026-09-26.4;
@@ -731,7 +731,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::OneTimeKeysExhausted),
         OperationSpecificError::Code(ErrorCode::DeviceUnknown),
     ],
-    &[OperationSpecificError::Code(ErrorCode::ClaimFailed)],
+    &[
+        OperationSpecificError::Code(ErrorCode::ClaimFailed),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::KeypackageAlreadyConsumed),
         OperationSpecificError::Code(ErrorCode::KeypackageUnknown),

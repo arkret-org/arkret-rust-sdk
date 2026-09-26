@@ -516,6 +516,14 @@ pub struct MlsWelcomeDelivery {
 }
 
 impl MlsWelcomeDelivery {
+    /// `recipient_mls_durable_receipt.welcome_digest`: SHA-256 over the JCS
+    /// bytes of the complete delivery, `producer_proof` included. The claim
+    /// destination records the same value on the claim ledger when it
+    /// enqueues the delivery (device-lifecycle §9, §9.2.3).
+    pub fn durable_receipt_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(crate::canonical::canonical_sha256(self)?)?)
+    }
+
     pub fn validate_shape(&self) -> Result<()> {
         let ciphertext =
             crate::base64url::base64url_decode(self.ciphertext_b64.as_str()).map_err(|_| {
