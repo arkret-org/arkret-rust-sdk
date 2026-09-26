@@ -1441,8 +1441,12 @@ impl ArkretMlsGroup {
                     .to_owned(),
             ));
         }
+        // Like a group it creates, a joined member carries the ratchet tree
+        // in every Welcome it seals: a member it adds has no other source
+        // for the tree.
         let join_config = MlsGroupJoinConfig::builder()
             .wire_format_policy(handshake_policy(scope)?)
+            .use_ratchet_tree_extension(true)
             .build();
         let required_extension = context
             .extensions()
