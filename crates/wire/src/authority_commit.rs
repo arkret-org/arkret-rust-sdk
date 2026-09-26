@@ -6,7 +6,7 @@
 use arkret_identifiers::{
     ActorProfileId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId, KeypackageClaimId,
     MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
-    RealmSnapshotId, SidecarId, StrandId,
+    RealmSnapshotId, SidecarId, SpaceId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -967,6 +967,18 @@ pub enum CurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    /// Registered Space metadata current result.
+    Space {
+        space_id: SpaceId,
+    },
+    /// Registered structural parent of one Space.
+    SpaceParent {
+        space_id: SpaceId,
+    },
+    /// Registered child placement policy of one Space.
+    SpaceChildScopePolicy {
+        space_id: SpaceId,
+    },
     MessageRevision {
         message_id: MessageId,
     },
@@ -1064,6 +1076,15 @@ enum FlatCurrentSelector {
     },
     Strand {
         strand_id: StrandId,
+    },
+    Space {
+        space_id: SpaceId,
+    },
+    SpaceParent {
+        space_id: SpaceId,
+    },
+    SpaceChildScopePolicy {
+        space_id: SpaceId,
     },
     MessageRevision {
         message_id: MessageId,
@@ -1228,6 +1249,11 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::Space { space_id } => Self::Space { space_id },
+                    FlatCurrentSelector::SpaceParent { space_id } => Self::SpaceParent { space_id },
+                    FlatCurrentSelector::SpaceChildScopePolicy { space_id } => {
+                        Self::SpaceChildScopePolicy { space_id }
+                    }
                     FlatCurrentSelector::MessageRevision { message_id } => {
                         Self::MessageRevision { message_id }
                     }
@@ -2355,6 +2381,49 @@ mod tests {
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
                 "{invalid}"
             );
+        }
+    }
+
+    #[test]
+    fn registered_space_current_selectors_round_trip_closed_shapes() {
+        let space_id =
+            SpaceId::new("ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        for (selector, kind) in [
+            (
+                CurrentSelector::Space {
+                    space_id: space_id.clone(),
+                },
+                "space",
+            ),
+            (
+                CurrentSelector::SpaceParent {
+                    space_id: space_id.clone(),
+                },
+                "space_parent",
+            ),
+            (
+                CurrentSelector::SpaceChildScopePolicy {
+                    space_id: space_id.clone(),
+                },
+                "space_child_scope_policy",
+            ),
+        ] {
+            let wire = json!({"kind":kind,"space_id":space_id});
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+            for invalid in [
+                json!({"kind":kind}),
+                json!({"kind":kind,"space_id":space_id,"realm_id":"ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+                json!({"kind":kind,"space_id":"ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+            ] {
+                assert!(
+                    serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                    "{invalid}"
+                );
+            }
         }
     }
 
