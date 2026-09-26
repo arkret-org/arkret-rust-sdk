@@ -102,3 +102,76 @@ impl DirectConversationBoundPayload {
         Ok(Hash::new(canonical::sha256_digest(transcript))?)
     }
 }
+
+/// One endorsement of the settled binding
+/// (`typed-current-result.schema.json#/$defs/direct_conversation_binding_endorsement_entry`):
+/// the canonical dot of the accepted `ak.direct_conversation.bound` write and
+/// that Event's complete payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectConversationBindingEndorsementEntry {
+    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub value: DirectConversationBoundPayload,
+}
+
+/// Closed value of the `direct_conversation_binding` typed current result
+/// (`typed-current-result.schema.json#/$defs/direct_conversation_binding_value`):
+/// the add-only, canonically sorted dot set of accepted endorsements
+/// (`contact-and-direct-conversation.md` section 8.3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectConversationBindingCurrentValue {
+    pub endorsements: Vec<DirectConversationBindingEndorsementEntry>,
+}
+
+impl DirectConversationBindingCurrentValue {
+    /// The one semantic `binding_digest` every endorsement carries. A value
+    /// whose endorsements disagree, or that has none, is not a binding.
+    pub fn binding_digest(&self) -> Result<Hash> {
+        let mut digests = self
+            .endorsements
+            .iter()
+            .map(|entry| entry.value.binding_digest())
+            .collect::<Result<BTreeSet<_>>>()?
+            .into_iter();
+        match (digests.next(), digests.next()) {
+            (Some(digest), None) => Ok(digest),
+            _ => Err(WireError::Protocol(
+                "a direct_conversation_binding value endorses exactly one binding digest".into(),
+            )),
+        }
+    }
+
+    /// Add one accepted endorsement, keeping the dot set canonically sorted.
+    /// An endorsement of another binding digest is refused, never added.
+    pub fn with_endorsement(
+        mut self,
+        entry: DirectConversationBindingEndorsementEntry,
+    ) -> Result<Self> {
+        if entry.value.binding_digest()? != self.binding_digest()? {
+            return Err(WireError::Protocol(
+                "an endorsement of another binding digest never joins the binding".into(),
+            ));
+        }
+        if self
+            .endorsements
+            .iter()
+            .any(|existing| existing.tag_id == entry.tag_id)
+        {
+            return Err(WireError::Protocol(
+                "an endorsement dot is already in the binding".into(),
+            ));
+        }
+        self.endorsements.push(entry);
+        self.endorsements
+            .sort_by(|left, right| left.tag_id.to_string().cmp(&right.tag_id.to_string()));
+        Ok(self)
+    }
+
+    /// Whether `event_id` is the Event of one accepted endorsement.
+    pub fn endorsed_by(&self, event_id: &EventId) -> bool {
+        self.endorsements
+            .iter()
+            .any(|entry| entry.tag_id.event_id() == event_id)
+    }
+}

@@ -158,3 +158,90 @@ fn bound_payload_required_fields_and_exact_pair_fail_closed() {
     let typed: DirectConversationBoundPayload = serde_json::from_value(duplicate).unwrap();
     assert!(typed.validate_shape().is_err());
 }
+
+fn binding_value_registry() -> arkret_schema::ProtocolSchemaRegistry {
+    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+    let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
+    for document in [
+        "event-payload.schema.json",
+        "typed-current-result.schema.json",
+    ] {
+        let schema: Value =
+            serde_json::from_slice(&fs::read(artifacts.join("schemas").join(document)).unwrap())
+                .unwrap();
+        registry.register_reference_document(schema).unwrap();
+    }
+    let schema: Value = serde_json::from_slice(
+        &fs::read(artifacts.join("schemas/typed-current-result.schema.json")).unwrap(),
+    )
+    .unwrap();
+    registry
+        .register_fragment(
+            "test:direct-conversation-binding-value",
+            schema,
+            "#/$defs/direct_conversation_binding_value",
+        )
+        .unwrap();
+    registry
+}
+
+#[test]
+fn binding_current_value_is_an_add_only_dot_set_of_one_digest() {
+    use arkret_models_collaboration::events_payloads::{
+        DirectConversationBindingCurrentValue, DirectConversationBindingEndorsementEntry,
+    };
+    use arkret_models_collaboration::exact_current_results::CanonicalEventDot;
+
+    let payload: DirectConversationBoundPayload =
+        serde_json::from_value(fixture_payload()).unwrap();
+    let dot = |seed: &str| {
+        CanonicalEventDot::new(
+            arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                arkret_canonical::sha256_bytes(seed.as_bytes()),
+            ),
+            0,
+        )
+        .unwrap()
+    };
+    let first = DirectConversationBindingEndorsementEntry {
+        tag_id: dot("first"),
+        value: payload.clone(),
+    };
+    let value = DirectConversationBindingCurrentValue {
+        endorsements: vec![first.clone()],
+    };
+    let mut later = payload.clone();
+    later.created_at += chrono::Duration::seconds(1);
+    let value = value
+        .with_endorsement(DirectConversationBindingEndorsementEntry {
+            tag_id: dot("second"),
+            value: later,
+        })
+        .unwrap();
+    assert_eq!(value.endorsements.len(), 2);
+    assert!(value.endorsements[0].tag_id.to_string() < value.endorsements[1].tag_id.to_string());
+    assert_eq!(
+        value.binding_digest().unwrap(),
+        payload.binding_digest().unwrap()
+    );
+    assert!(value.endorsed_by(first.tag_id.event_id()));
+    binding_value_registry()
+        .validate_value(
+            "test:direct-conversation-binding-value",
+            &serde_json::to_value(&value).unwrap(),
+        )
+        .unwrap();
+
+    assert!(value.clone().with_endorsement(first.clone()).is_err());
+    let mut other = payload;
+    other.pair_key = arkret_wire::Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap();
+    assert!(
+        value
+            .with_endorsement(DirectConversationBindingEndorsementEntry {
+                tag_id: dot("third"),
+                value: other,
+            })
+            .is_err()
+    );
+}
