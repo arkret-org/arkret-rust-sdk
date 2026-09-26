@@ -666,3 +666,32 @@ fn genesis_material_is_canonical_bounded_base64url() {
         );
     }
 }
+
+#[test]
+fn genesis_material_members_bound_the_pair_to_the_group_state_material_response() {
+    use arkret_models_collaboration::authority_commit::{
+        MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES, MlsGenesisMaterial,
+    };
+
+    let largest = MlsGenesisMaterial::from_bytes(
+        &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
+        &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
+    );
+    assert_eq!(largest.group_info_bytes_b64.len(), 5_592_406);
+    let (group_info, ratchet_tree) = largest.decode().unwrap();
+    assert_eq!(group_info.len() + ratchet_tree.len(), 8_388_608);
+    for (over_group_info, over_tree) in [(true, false), (false, true)] {
+        let one_more = |over: bool| {
+            let bytes = MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES + usize::from(over);
+            arkret_wire::base64url::base64url_encode(&vec![0; bytes])
+        };
+        let candidate = MlsGenesisMaterial {
+            group_info_bytes_b64: one_more(over_group_info),
+            ratchet_tree_bytes_b64: one_more(over_tree),
+        };
+        assert_eq!(
+            candidate.validate().unwrap_err().error_code(),
+            Some(ErrorCode::SchemaViolation)
+        );
+    }
+}

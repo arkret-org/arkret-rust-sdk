@@ -452,9 +452,11 @@ pub fn validate_producer_device_evidence_presence(
     }
 }
 
-/// Largest decoded size of the two Genesis Blobs together, equal to the
-/// `ak.peer.mls.read.group_state_material.v1` response bound.
-pub const MLS_GENESIS_MATERIAL_MAX_DECODED_BYTES: usize = 8_388_608;
+/// Largest decoded size of one Genesis Blob: the bytes whose unpadded
+/// base64url fills `MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS`. Two such Blobs
+/// together are exactly the `ak.peer.mls.read.group_state_material.v1`
+/// response bound, so the carrier has no aggregate bound of its own.
+pub const MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES: usize = 4_194_304;
 const MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS: usize = 5_592_406;
 
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
@@ -476,18 +478,13 @@ impl MlsGenesisMaterial {
         }
     }
 
-    /// Decoded GroupInfo and ratchet_tree bytes after the shape checks.
+    /// Decoded GroupInfo and ratchet_tree bytes after the shape checks; every
+    /// failure is `schema_violation`.
     pub fn decode(&self) -> Result<(Vec<u8>, Vec<u8>)> {
-        let group_info = decode_genesis_blob("group_info_bytes_b64", &self.group_info_bytes_b64)?;
-        let ratchet_tree =
-            decode_genesis_blob("ratchet_tree_bytes_b64", &self.ratchet_tree_bytes_b64)?;
-        if group_info.len() + ratchet_tree.len() > MLS_GENESIS_MATERIAL_MAX_DECODED_BYTES {
-            return Err(WireError::ProtocolCode {
-                code: ErrorCode::TooLarge,
-                message: "mls_genesis_material exceeds the group-state material bound".to_owned(),
-            });
-        }
-        Ok((group_info, ratchet_tree))
+        Ok((
+            decode_genesis_blob("group_info_bytes_b64", &self.group_info_bytes_b64)?,
+            decode_genesis_blob("ratchet_tree_bytes_b64", &self.ratchet_tree_bytes_b64)?,
+        ))
     }
 
     pub fn validate(&self) -> Result<()> {
