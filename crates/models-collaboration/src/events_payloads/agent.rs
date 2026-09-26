@@ -75,8 +75,9 @@ impl AgentProvisionPayload {
 
     /// The registered admission checks of `ak.agent.provision` that bind this
     /// payload to its carrying envelope: the controller authors it as its own
-    /// account, `controller_principal_id` is that account's principal, and
-    /// `created_at` equals the envelope time byte for byte.
+    /// account (an `authorization_ref`, when present, is exactly the signed
+    /// controller delegation), `controller_principal_id` is that account's
+    /// principal, and `created_at` equals the envelope time byte for byte.
     pub fn validate_envelope(&self, event: &Event) -> Result<()> {
         let controller = event.actor_id.as_account_id().ok_or_else(|| {
             WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
@@ -87,9 +88,16 @@ impl AgentProvisionPayload {
                     .to_owned(),
             ));
         }
-        if event.executed_by.is_some() || event.authorization_ref.is_some() {
+        if event.executed_by.is_some()
+            || event
+                .authorization_ref
+                .as_deref()
+                .is_some_and(|reference| reference != self.controller_authorization_ref.as_str())
+        {
             return Err(WireError::Protocol(
-                "ak.agent.provision is authored by the controller itself".to_owned(),
+                "ak.agent.provision is authored by the controller itself, under at most its own \
+                 controller delegation"
+                    .to_owned(),
             ));
         }
         if canonical::format_timestamp_canonical(self.created_at)
@@ -739,6 +747,18 @@ mod tests {
             json!({"selector_visibility": "public"}),
         );
         payload.controller_principal_id = DidCoreId::new("ak:did_core:web:bob.example").unwrap();
+        assert!(payload.validate_envelope(&event).is_err());
+        let (payload, mut event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "public"}),
+        );
+        event.authorization_ref =
+            Some(AuthorizationRef::new(payload.controller_authorization_ref.as_str()).unwrap());
+        payload.validate_envelope(&event).unwrap();
+        event.authorization_ref = Some(
+            AuthorizationRef::new("did:webvh:z6mkfixture:other.example#managed-controller")
+                .unwrap(),
+        );
         assert!(payload.validate_envelope(&event).is_err());
     }
 
