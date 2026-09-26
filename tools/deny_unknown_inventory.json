@@ -2838,6 +2838,32 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentProvisioningValue",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/events_payloads/agent.rs",
+      "line": 154,
+      "kind": "struct",
+      "value_kind": "AgentProvisioningValue",
+      "spec_pointer": "typed-current-result.schema.json#/$defs/agent_provisioning_value",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentPcrGenesisDeclarationValue",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/events_payloads/agent.rs",
+      "line": 166,
+      "kind": "struct",
+      "value_kind": "AgentPcrGenesisDeclarationValue",
+      "spec_pointer": "typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentActionApprovePayload",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/agent.rs",

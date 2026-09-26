@@ -1054,6 +1054,14 @@
       "schema": "typed-current-result.schema.json#/$defs/agent_selector_claim_value"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentProvisioningValue",
+      "schema": "typed-current-result.schema.json#/$defs/agent_provisioning_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentPcrGenesisDeclarationValue",
+      "schema": "typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value"
+    },
+    {
       "rust_type": "crates/wire/src/authority_commit.rs::RealmStreamRow",
       "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row"
     },

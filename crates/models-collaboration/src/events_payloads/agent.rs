@@ -72,6 +72,100 @@ impl AgentProvisionPayload {
         }
         Ok(())
     }
+
+    /// The registered admission checks of `ak.agent.provision` that bind this
+    /// payload to its carrying envelope: the controller authors it as its own
+    /// account, `controller_principal_id` is that account's principal, and
+    /// `created_at` equals the envelope time byte for byte.
+    pub fn validate_envelope(&self, event: &Event) -> Result<()> {
+        let controller = event.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
+        })?;
+        if controller.principal_id != self.controller_principal_id {
+            return Err(WireError::Protocol(
+                "ak.agent.provision controller_principal_id must equal the actor principal"
+                    .to_owned(),
+            ));
+        }
+        if event.executed_by.is_some() || event.authorization_ref.is_some() {
+            return Err(WireError::Protocol(
+                "ak.agent.provision is authored by the controller itself".to_owned(),
+            ));
+        }
+        if canonical::format_timestamp_canonical(self.created_at)
+            != canonical::format_timestamp_canonical(event.created_at)
+        {
+            return Err(WireError::Protocol(
+                "ak.agent.provision payload.created_at must equal envelope.created_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// The `agent_provisioning` value projection.
+    #[must_use]
+    pub fn provisioning_value(&self) -> AgentProvisioningValue {
+        AgentProvisioningValue {
+            controller_principal_id: self.controller_principal_id.clone(),
+            principal_control_realm_id: self.principal_control_realm_id.clone(),
+            controller_authorization_ref: self.controller_authorization_ref.clone(),
+            requested_scope_digest: self.requested_scope_digest.clone(),
+        }
+    }
+
+    /// The `agent_pcr_genesis_declaration` value projection.
+    #[must_use]
+    pub fn genesis_declaration_value(&self) -> AgentPcrGenesisDeclarationValue {
+        AgentPcrGenesisDeclarationValue {
+            agent_id: self.agent_id.clone(),
+        }
+    }
+
+    /// The Agent account named by the registered derivation
+    /// `agent_account_id_from_provision`: the principal is the signed
+    /// `agent_id`, the Station is the carrying envelope actor's Station.
+    pub fn agent_account_id(&self, event: &Event) -> Result<AccountId> {
+        let controller = event.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
+        })?;
+        Ok(AccountId::new(
+            self.agent_id.clone(),
+            controller.station_id.clone(),
+        ))
+    }
+
+    /// The `agent_selector_claim` value projection.
+    pub fn selector_claim_value(
+        &self,
+        event: &Event,
+    ) -> Result<arkret_models_identity::AgentSelectorClaimValue> {
+        Ok(arkret_models_identity::AgentSelectorClaimValue {
+            subject_account_id: self.agent_account_id(event)?,
+            visibility: self.selector_visibility,
+            audience: self.selector_audience.clone(),
+        })
+    }
+}
+
+/// Value of the `agent_provisioning` typed current result
+/// (`typed-current-result.schema.json#/$defs/agent_provisioning_value`): the
+/// create-locked members a reader holding only the Agent DID needs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisioningValue {
+    pub controller_principal_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: DidUrl,
+    pub requested_scope_digest: Hash,
+}
+
+/// Value of the `agent_pcr_genesis_declaration` typed current result
+/// (`typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value`):
+/// the index from a forward-declared Agent PCR id to its Agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentPcrGenesisDeclarationValue {
+    pub agent_id: DidCoreId,
 }
 
 /// Why an Event does not carry the registered Agent provision payload.
@@ -561,6 +655,91 @@ mod tests {
         let mut retired = approve_value();
         retired["approved_at"] = json!("2026-09-24T07:00:00.000Z");
         assert!(serde_json::from_value::<AgentActionApprovePayload>(retired).is_err());
+    }
+
+    fn provision_event(created_at: &str, selector: Value) -> (AgentProvisionPayload, Event) {
+        let controller = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let mut payload = json!({
+            "schema": "ak.schema.agent_provision.v1",
+            "agent_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+            "controller_principal_id": controller,
+            "principal_control_realm_id": "ak:realm:AfnUfJvZuZpWOPXnnKIwf1dg2Dee77NZ0MxYh1uFxCLF",
+            "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+            "agent_slug": "summary",
+            "accountability_scope": "agent_operator",
+            "requested_scope_digest": format!("sha256:{}", "a".repeat(64)),
+            "created_at": created_at
+        });
+        payload
+            .as_object_mut()
+            .unwrap()
+            .extend(selector.as_object().unwrap().clone());
+        let event = test_support::raw_event_at(
+            EventKind::AgentProvision.as_str(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new(
+                    "ak:realm:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-".to_owned(),
+                )
+                .unwrap(),
+            },
+            controller,
+            station,
+            payload,
+            canonical::parse_timestamp_canonical("2026-09-26T08:00:00.000Z").unwrap(),
+        )
+        .unwrap();
+        (AgentProvisionPayload::try_from(&event).unwrap(), event)
+    }
+
+    #[test]
+    fn provision_projects_the_three_provision_owned_values() {
+        let (payload, event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "restricted", "selector_audience": "team"}),
+        );
+        payload.validate_envelope(&event).unwrap();
+        assert_eq!(
+            serde_json::to_value(payload.provisioning_value()).unwrap(),
+            json!({
+                "controller_principal_id": "ak:did_core:web:alice.example",
+                "principal_control_realm_id": "ak:realm:AfnUfJvZuZpWOPXnnKIwf1dg2Dee77NZ0MxYh1uFxCLF",
+                "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+                "requested_scope_digest": format!("sha256:{}", "a".repeat(64))
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(payload.genesis_declaration_value()).unwrap(),
+            json!({"agent_id": "ak:did_core:webvh:z6mkfixture:agent.example"})
+        );
+        let selector = serde_json::to_value(payload.selector_claim_value(&event).unwrap()).unwrap();
+        assert_eq!(
+            selector["subject_account_id"],
+            json!({
+                "principal_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+                "station_id": "ak:did_core:web:station.example"
+            })
+        );
+        assert_eq!(selector["visibility"], "restricted");
+        assert_eq!(selector["audience"], "team");
+        assert!(
+            serde_json::from_value::<AgentProvisioningValue>(json!({"agent_id": "x"})).is_err()
+        );
+    }
+
+    #[test]
+    fn provision_envelope_binds_the_controller_and_the_signed_time() {
+        let (payload, event) = provision_event(
+            "2026-09-26T08:00:00.001Z",
+            json!({"selector_visibility": "private"}),
+        );
+        assert!(payload.validate_envelope(&event).is_err());
+        let (mut payload, event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "public"}),
+        );
+        payload.controller_principal_id = DidCoreId::new("ak:did_core:web:bob.example").unwrap();
+        assert!(payload.validate_envelope(&event).is_err());
     }
 
     #[test]
