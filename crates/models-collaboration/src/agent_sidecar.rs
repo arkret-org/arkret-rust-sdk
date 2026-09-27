@@ -507,6 +507,61 @@ pub struct PendingSidecarAccessReconciliation {
 /// decoder `maximum_collection_items`.
 pub const SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS: usize = 64;
 
+/// Domain member for the signed Sidecar participant-authority transcript.
+pub const SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN: &str = "ak.sidecar.participant_authority.v1";
+
+#[derive(Serialize)]
+struct SidecarParticipantAuthorityTranscript<'a> {
+    domain: &'static str,
+    sidecar_id: &'a SidecarId,
+    realm_id: &'a RealmId,
+    controller_account_id: &'a AccountId,
+    desired_agent_ids: Vec<DidCoreId>,
+}
+
+/// Compute the canonical participant-authority digest for one Sidecar.
+///
+/// `desired_agent_ids` is normalized by UTF-8 byte order before the exact
+/// five-member transcript is hashed. The effective MLS roster and authority
+/// stream head are deliberately not part of this digest.
+pub fn sidecar_participant_authority_digest(
+    sidecar_id: &SidecarId,
+    realm_id: &RealmId,
+    controller_account_id: &AccountId,
+    desired_agent_ids: &[DidCoreId],
+) -> Result<Hash> {
+    controller_account_id.validate()?;
+    let mut desired_agent_ids = desired_agent_ids.to_vec();
+    desired_agent_ids
+        .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+    desired_agent_ids.dedup_by(|left, right| left.as_str() == right.as_str());
+
+    Hash::new(arkret_canonical::canonical_sha256(
+        &SidecarParticipantAuthorityTranscript {
+            domain: SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN,
+            sidecar_id,
+            realm_id,
+            controller_account_id,
+            desired_agent_ids,
+        },
+    )?)
+    .map_err(Into::into)
+}
+
+/// Return the canonical Sidecar authority cut: UTF-8 sorted, deduplicated and
+/// bounded to the MLS governance-binding decoder's 64-item limit.
+pub fn normalize_sidecar_authority_stream_head(authority_refs: &[EventId]) -> Result<Vec<EventId>> {
+    let mut normalized = authority_refs.to_vec();
+    normalized.sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+    normalized.dedup_by(|left, right| left.as_str() == right.as_str());
+    if normalized.is_empty() || normalized.len() > SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS {
+        return Err(WireError::Protocol(
+            "sidecar MLS authority refs must normalize to 1..=64 items".to_owned(),
+        ));
+    }
+    Ok(normalized)
+}
+
 /// MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
 /// own accepted `ak.mls.genesis` and irreversibly activates to standard
 /// RFC 9420 afterwards.
@@ -597,6 +652,10 @@ mod tests {
             "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
             "station_id": "ak:did_core:web:station.example"
         })
+    }
+
+    fn typed_account_id() -> AccountId {
+        serde_json::from_value(account_id()).unwrap()
     }
 
     const AGENT_ID: &str = "ak:did_core:webvh:z6mkfixture:agent.example";
@@ -909,6 +968,60 @@ mod tests {
         context
             .validate_shape()
             .expect("64 refs fit the decoder bound");
+    }
+
+    #[test]
+    fn participant_authority_digest_normalizes_desired_agents_and_matches_kat() {
+        let agent_a = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-a.example").unwrap();
+        let agent_b = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-b.example").unwrap();
+        let unordered = vec![agent_b.clone(), agent_a.clone(), agent_b];
+        let digest = sidecar_participant_authority_digest(
+            &SidecarId::new("ak:sidecar:AZUfzdx1qBOtCsg2CGmS3QLP7vlDe_kxRx0pxdxefWTa").unwrap(),
+            &RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap(),
+            &typed_account_id(),
+            &unordered,
+        )
+        .unwrap();
+
+        assert_eq!(
+            digest.as_str(),
+            "sha256:8dd408915026b3c60d80b0d4f8959196ea9efcdcfff0f8227c3ba97fcc6224d6"
+        );
+        assert_eq!(
+            digest,
+            sidecar_participant_authority_digest(
+                &SidecarId::new("ak:sidecar:AZUfzdx1qBOtCsg2CGmS3QLP7vlDe_kxRx0pxdxefWTa",)
+                    .unwrap(),
+                &RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",).unwrap(),
+                &typed_account_id(),
+                &[
+                    agent_a,
+                    DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-b.example",).unwrap(),
+                ],
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn authority_stream_head_normalizer_sorts_deduplicates_and_bounds() {
+        let normalized = normalize_sidecar_authority_stream_head(&[
+            event_id(3),
+            event_id(1),
+            event_id(3),
+            event_id(2),
+        ])
+        .unwrap();
+        assert_eq!(normalized.len(), 3);
+        assert!(
+            normalized
+                .windows(2)
+                .all(|pair| pair[0].as_str() < pair[1].as_str())
+        );
+        assert!(normalize_sidecar_authority_stream_head(&[]).is_err());
+
+        let too_many = (0..=64_u8).map(event_id).collect::<Vec<_>>();
+        assert!(normalize_sidecar_authority_stream_head(&too_many).is_err());
     }
 
     #[test]
