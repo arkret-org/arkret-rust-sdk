@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-26.2;
-//! sha256=d474231438c0591a908d070de85884e6bbbbe6cfe782ac80fc3a78884b69f939 Input: registry/
-//! contract-registry.json; version=2026-09-26.7;
-//! sha256=3a3836eaf30eb27e158c2cb874db602848cae69c63fe16166ce201bf75217042 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-27.0;
+//! sha256=5aba249142eaa57526752d77f76d4e4932c51a7f6feb5c5eb81e4c692ee412e3 Input: registry/
+//! contract-registry.json; version=2026-09-27.0;
+//! sha256=ee8e2350440db73aa8154c094df9ea46b94593df30a85b8a7b162223ac7eb816 Input: registry/
 //! error-code-registry.json; version=2026-09-26.4;
 //! sha256=c84b22e85d0863d61323c2baaffb699579f75469a6b0813c3017170e3b777335 Entries: operations=205
 
@@ -605,7 +605,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         ReasonCode::SnapshotCapacityExceeded,
     )],
     &[],
-    &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
