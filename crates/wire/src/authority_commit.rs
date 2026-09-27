@@ -983,6 +983,15 @@ pub enum CurrentSelector {
     SpaceChildScopePolicy {
         space_id: SpaceId,
     },
+    /// The registered Circle object current, keyed by its create-derived id.
+    Circle {
+        circle_id: CircleId,
+    },
+    /// One Circle's exact member Actor current, including its effective time.
+    CircleMemberState {
+        circle_id: CircleId,
+        member_actor_id: ActorId,
+    },
     MessageRevision {
         message_id: MessageId,
     },
@@ -1093,6 +1102,13 @@ enum FlatCurrentSelector {
     },
     SpaceChildScopePolicy {
         space_id: SpaceId,
+    },
+    Circle {
+        circle_id: CircleId,
+    },
+    CircleMemberState {
+        circle_id: CircleId,
+        member_actor_id: ActorId,
     },
     MessageRevision {
         message_id: MessageId,
@@ -1269,6 +1285,14 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::SpaceChildScopePolicy { space_id } => {
                         Self::SpaceChildScopePolicy { space_id }
                     }
+                    FlatCurrentSelector::Circle { circle_id } => Self::Circle { circle_id },
+                    FlatCurrentSelector::CircleMemberState {
+                        circle_id,
+                        member_actor_id,
+                    } => Self::CircleMemberState {
+                        circle_id,
+                        member_actor_id,
+                    },
                     FlatCurrentSelector::MessageRevision { message_id } => {
                         Self::MessageRevision { message_id }
                     }
@@ -1417,6 +1441,16 @@ pub struct MemberStateCurrent {
         with = "crate::serde_helpers::optional_canonical_timestamp"
     )]
     pub joined_at: Option<DateTime<Utc>>,
+}
+
+/// The existing `circle_member_state_value` schema's complete current value.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CircleMemberStateCurrent {
+    pub membership: MembershipState,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub effective_at: DateTime<Utc>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2611,6 +2645,64 @@ mod tests {
         ] {
             assert!(
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn circle_currents_reject_foreign_subjects_and_noncanonical_effective_time() {
+        let circle_id = CircleId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [42; 32],
+        ));
+        let member_actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:member.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        for (selector, wire) in [
+            (
+                CurrentSelector::Circle {
+                    circle_id: circle_id.clone(),
+                },
+                json!({"kind":"circle","circle_id":circle_id}),
+            ),
+            (
+                CurrentSelector::CircleMemberState {
+                    circle_id: circle_id.clone(),
+                    member_actor_id: member_actor_id.clone(),
+                },
+                json!({"kind":"circle_member_state","circle_id":circle_id,"member_actor_id":member_actor_id}),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        for invalid in [
+            json!({"kind":"circle"}),
+            json!({"kind":"circle","circle_id":member_actor_id}),
+            json!({"kind":"circle","circle_id":circle_id,"member_actor_id":member_actor_id}),
+            json!({"kind":"circle_member_state","circle_id":circle_id}),
+            json!({"kind":"circle_member_state","circle_id":circle_id,"member_actor_id":member_actor_id,"realm_id":"extra"}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+        let current = json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z"});
+        let parsed = serde_json::from_value::<CircleMemberStateCurrent>(current.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), current);
+        for invalid in [
+            json!({"membership":"join"}),
+            json!({"membership":"join","effective_at":"2026-09-27T12:00:00Z"}),
+            json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z","revision":1}),
+        ] {
+            assert!(
+                serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),
                 "{invalid}"
             );
         }

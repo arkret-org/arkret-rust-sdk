@@ -3,11 +3,11 @@
 //! A selector is a domain coordinate and a revision is an authority commit
 //! coordinate; those two are the whole vocabulary this surface exposes.
 
-use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
 pub use arkret_wire::{
-    CurrentRevision, CurrentSelector, MemberStateCurrent, MembershipState, MlsGroupCurrent,
-    ReactionCurrent, TypedCurrentResult,
+    CircleMemberStateCurrent, CurrentRevision, CurrentSelector, MemberStateCurrent,
+    MembershipState, MlsGroupCurrent, ReactionCurrent, TypedCurrentResult,
 };
+use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 /// How much of one Realm a current-state read actually covered.
