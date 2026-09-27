@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId, WireError,
+    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, SpaceId, StrandId,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::ser::SerializeMap;
@@ -17,6 +18,18 @@ use crate::objects::profiles::{
     STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack, resolve_primary_track,
     validate_strand_track_name,
 };
+
+/// The placed branch of the registered `strand_position` current value.
+///
+/// The unplaced branch is `Option::<StrandPositionCurrent>::None` on the wire.
+/// The Board and Strand belong to the result selector, never to this value;
+/// `contains` is derived from this value rather than a canonical Relation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandPositionCurrent {
+    pub list_space_id: SpaceId,
+    pub rank: String,
+}
 
 const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
     "id",
@@ -442,5 +455,36 @@ impl Strand {
         }
         resolve_primary_track(&self.tracks, None)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod position_current_tests {
+    use serde_json::json;
+
+    use super::StrandPositionCurrent;
+
+    #[test]
+    fn position_current_keeps_null_and_closed_placed_values_distinct() {
+        let list = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let placed = json!({"list_space_id":list,"rank":"a0"});
+        let value: Option<StrandPositionCurrent> = serde_json::from_value(placed.clone()).unwrap();
+        assert_eq!(serde_json::to_value(value).unwrap(), placed);
+        let unplaced: Option<StrandPositionCurrent> = serde_json::from_value(json!(null)).unwrap();
+        assert!(unplaced.is_none());
+        assert_eq!(serde_json::to_value(unplaced).unwrap(), json!(null));
+        for invalid in [
+            json!({"list_space_id":list}),
+            json!({"rank":"a0"}),
+            json!({"space_id":list,"rank":"a0"}),
+            json!({"list_space_id":"ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7","rank":"a0"}),
+            json!({"list_space_id":list,"rank":null}),
+            json!({"list_space_id":list,"rank":"a0","relation_id":"ak:relation:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+        ] {
+            assert!(
+                serde_json::from_value::<Option<StrandPositionCurrent>>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
     }
 }
