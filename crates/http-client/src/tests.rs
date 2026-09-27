@@ -101,6 +101,37 @@ fn dpop_auth_adds_dpop_token_and_per_request_proof() {
 }
 
 #[test]
+fn rebased_authenticated_client_signs_the_authority_request_url() {
+    let client = Client::builder(Url::parse("https://station.example/").unwrap())
+        .auth(Auth::Dpop(DpopAuth::with_dpop_token("grant.jwt", |req| {
+            assert_eq!(req.method, "POST");
+            assert_eq!(
+                req.htu,
+                "https://account.example/_arkret/gate/account/device-pair"
+            );
+            assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
+            Ok("authority.proof.jwt".to_owned())
+        })))
+        .build()
+        .unwrap();
+    let authority = client
+        .with_base_url(Url::parse("https://account.example/").unwrap())
+        .unwrap();
+    let request = authority
+        .request(Method::POST, "/_arkret/gate/account/device-pair")
+        .unwrap()
+        .build()
+        .unwrap();
+    assert_eq!(request.headers()["authorization"], "DPoP grant.jwt");
+    assert_eq!(request.headers()["dpop"], "authority.proof.jwt");
+    assert_eq!(client.base_url().as_str(), "https://station.example/");
+    assert!(matches!(
+        client.with_base_url(Url::parse("http://account.example/").unwrap()),
+        Err(Error::InsecureUrl(_))
+    ));
+}
+
+#[test]
 fn account_handoff_auth_uses_the_same_dpop_authorization_scheme() {
     let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
         .auth(Auth::Dpop(DpopAuth::with_dpop_token(

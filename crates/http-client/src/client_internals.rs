@@ -54,6 +54,19 @@ impl Client {
         &self.base_url
     }
 
+    /// Clone this authenticated transport for another trusted service base URL.
+    ///
+    /// The caller must establish that the target is the intended authority
+    /// before forwarding credentials (for example through ServiceDescribe).
+    /// DPoP proofs are generated for the new request URL; the grant, signer,
+    /// refresh reader, and transport settings are retained.
+    pub fn with_base_url(&self, base_url: Url) -> Result<Self> {
+        validate_base_url(&base_url, self.allow_insecure_localhost)?;
+        let mut client = self.clone();
+        client.base_url = base_url;
+        Ok(client)
+    }
+
     pub fn retry_config(&self) -> &RetryConfig {
         &self.retry
     }
