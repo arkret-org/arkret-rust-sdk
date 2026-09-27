@@ -1,6 +1,7 @@
 //! Strand lifecycle and ordering event payloads.
 
 use crate::internal_prelude::*;
+use crate::strand_watch_operations::StrandWatchCurrentValue;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_create_payload`.
@@ -221,8 +222,8 @@ pub enum StrandWatchLevel {
 /// CAS guard for `ak.strand.watch.set`
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `expected_value`).
 ///
-/// Carries the prior value `{ level, level_public? }` for an
-/// `expected_revision` compare. `additionalProperties:false`; `level` is
+/// Carries the prior value `{ level, level_public? }` for a
+/// whole-value compare. `additionalProperties:false`; `level` is
 /// required when present.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -247,11 +248,34 @@ pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,
     pub watcher_actor_id: ActorId,
     /// `None` serializes as JSON `null`, clearing the cell.
+    #[serde(deserialize_with = "deserialize_required_watch_level")]
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_value: Option<StrandWatchExpectedValue>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_watch_preimage"
+    )]
+    pub expected_value: Option<StrandWatchCurrentValue>,
+}
+
+fn deserialize_required_watch_level<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandWatchLevel>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<StrandWatchLevel>::deserialize(deserializer)
+}
+
+fn deserialize_watch_preimage<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandWatchCurrentValue>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    StrandWatchCurrentValue::deserialize(deserializer).map(Some)
 }
 
 impl StrandWatchSetPayload {
@@ -282,6 +306,13 @@ impl StrandWatchSetPayload {
             level_public: None,
             expected_value: None,
         }
+    }
+
+    /// Compare the complete written value, including an explicitly cleared cell.
+    /// Omission remains reserved for a Station-confirmed never-written cell.
+    pub fn with_expected_value(mut self, expected: StrandWatchCurrentValue) -> Self {
+        self.expected_value = Some(expected);
+        self
     }
 
     pub fn to_value(&self) -> Result<Value> {

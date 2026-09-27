@@ -997,6 +997,11 @@ pub enum CurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    /// The registered watch cell is keyed by the complete watcher Actor.
+    StrandWatch {
+        strand_id: StrandId,
+        watcher_actor_id: ActorId,
+    },
     StrandPosition {
         board_space_id: SpaceId,
         strand_id: StrandId,
@@ -1134,6 +1139,10 @@ enum FlatCurrentSelector {
     },
     Strand {
         strand_id: StrandId,
+    },
+    StrandWatch {
+        strand_id: StrandId,
+        watcher_actor_id: ActorId,
     },
     StrandPosition {
         board_space_id: SpaceId,
@@ -1334,6 +1343,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::StrandWatch {
+                        strand_id,
+                        watcher_actor_id,
+                    } => Self::StrandWatch {
+                        strand_id,
+                        watcher_actor_id,
+                    },
                     FlatCurrentSelector::StrandPosition {
                         board_space_id,
                         strand_id,
