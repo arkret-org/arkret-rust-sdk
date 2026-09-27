@@ -503,17 +503,8 @@ impl RealmFreezePayload {
     }
 }
 
-/// `relationship` discriminator for [`RealmOrganizationPayload`]
-/// (event-payload.schema.json `#/$defs/realm_organization_payload`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RealmOrganizationRelationship {
-    Owner,
-    Governance,
-    Sponsor,
-    DirectoryCertifier,
-}
+/// Shared discriminator used by the payload and its typed-current selector.
+pub use arkret_wire::RealmOrganizationRelationship;
 
 /// `status` discriminator for [`RealmOrganizationPayload`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

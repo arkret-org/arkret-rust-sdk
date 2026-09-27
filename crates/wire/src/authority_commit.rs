@@ -923,11 +923,26 @@ pub struct CurrentRevision {
     pub stream_position: u64,
 }
 
+/// Registered discriminator of a Realm's organization endorsement current.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationRelationship {
+    Owner,
+    Governance,
+    Sponsor,
+    DirectoryCertifier,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
     RealmGenesis,
+    RealmOrganization {
+        organization_id: DidCoreId,
+        relationship: RealmOrganizationRelationship,
+    },
     RealmAuthorityRoot,
     RealmProfile,
     RealmPolicyBundle,
@@ -1003,6 +1018,10 @@ pub enum CurrentSelector {
     ModerationReport {
         event_id: EventId,
     },
+    /// The encrypted target Event identity, not the proof carrier Event.
+    ModerationFrankingProof {
+        event_id: EventId,
+    },
     /// The moderated target of `ak.moderation.decision` and its lift
     /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
     ModerationState {
@@ -1059,6 +1078,10 @@ pub enum CurrentSelector {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum FlatCurrentSelector {
     RealmGenesis,
+    RealmOrganization {
+        organization_id: DidCoreId,
+        relationship: RealmOrganizationRelationship,
+    },
     RealmAuthorityRoot,
     RealmProfile,
     RealmPolicyBundle,
@@ -1119,6 +1142,9 @@ enum FlatCurrentSelector {
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
+        event_id: EventId,
+    },
+    ModerationFrankingProof {
         event_id: EventId,
     },
     /// The moderated target of `ak.moderation.decision` and its lift
@@ -1243,6 +1269,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     .map_err(serde::de::Error::custom)?;
                 Ok(match flat {
                     FlatCurrentSelector::RealmGenesis => Self::RealmGenesis,
+                    FlatCurrentSelector::RealmOrganization {
+                        organization_id,
+                        relationship,
+                    } => Self::RealmOrganization {
+                        organization_id,
+                        relationship,
+                    },
                     FlatCurrentSelector::RealmAuthorityRoot => Self::RealmAuthorityRoot,
                     FlatCurrentSelector::RealmProfile => Self::RealmProfile,
                     FlatCurrentSelector::RealmPolicyBundle => Self::RealmPolicyBundle,
@@ -1301,6 +1334,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     }
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
+                    }
+                    FlatCurrentSelector::ModerationFrankingProof { event_id } => {
+                        Self::ModerationFrankingProof { event_id }
                     }
                     FlatCurrentSelector::ModerationState { target_ref } => {
                         Self::ModerationState { target_ref }
@@ -2244,6 +2280,56 @@ mod tests {
             json!({"kind":"moderation_report"}),
             json!({"kind":"moderation_report","event_id":event_id,"report_id":"forged"}),
             json!({"kind":"moderation_report","event_id":MessageId::from_event_id(&event_id)}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn franking_selector_is_the_encrypted_target_event_identity() {
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [43; 32]);
+        let selector = CurrentSelector::ModerationFrankingProof {
+            event_id: event_id.clone(),
+        };
+        let wire = json!({"kind":"moderation_franking_proof","event_id":event_id});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        for invalid in [
+            json!({"kind":"moderation_franking_proof"}),
+            json!({"kind":"moderation_franking_proof","event_id":event_id,"proof_event_id":event_id}),
+            json!({"kind":"moderation_franking_proof","event_id":MessageId::from_event_id(&event_id)}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn organization_selector_binds_the_existing_relationship_cell() {
+        let organization = DidCoreId::new("ak:did_core:web:organization.example").unwrap();
+        for relationship in [
+            RealmOrganizationRelationship::Owner,
+            RealmOrganizationRelationship::Governance,
+            RealmOrganizationRelationship::Sponsor,
+            RealmOrganizationRelationship::DirectoryCertifier,
+        ] {
+            let selector = CurrentSelector::RealmOrganization {
+                organization_id: organization.clone(),
+                relationship,
+            };
+            let wire = serde_json::to_value(&selector).unwrap();
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        for invalid in [
+            json!({"kind":"realm_organization","organization_id":organization}),
+            json!({"kind":"realm_organization","organization_id":organization,"relationship":"moderation_policy"}),
+            json!({"kind":"realm_organization","organization_id":organization,"relationship":"owner","realm_id":"forged"}),
+            json!({"kind":"realm_organization","organization_id":"did:web:organization.example","relationship":"owner"}),
         ] {
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
