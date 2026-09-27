@@ -29,12 +29,12 @@ pub struct ValidatedRealmGenesis {
 pub fn validate_realm_genesis_event(
     event: &Event,
 ) -> std::result::Result<ValidatedRealmGenesis, WireError> {
-    let expected_scope = ScopeRef::Realm {
-        realm_id: event.realm_id.clone(),
-    };
-    if event.kind != EventKind::RealmCreate || event.scope_ref != expected_scope {
+    if event.kind != EventKind::RealmCreate
+        || event.scope_ref != ScopeRef::RealmGenesis
+        || event.realm_id != RealmId::from_event_id(&event.event_id)
+    {
         return Err(WireError::Protocol(
-            "realm genesis must be a Realm-scoped ak.realm.create Event".to_owned(),
+            "realm genesis must be an ak.realm.create with realm_genesis scope and event-derived Realm identity".to_owned(),
         ));
     }
 
@@ -45,6 +45,71 @@ pub fn validate_realm_genesis_event(
         creator_actor_id: event.actor_id.clone(),
         governance_station_id: payload.object.governance_station_id,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_models_collaboration::events_payloads::{RealmGenesis, RealmPurpose};
+    use arkret_wire::{
+        AccountId, DidCoreId, Discoverability, GenesisSalt, HistoryAccess, JoinRule, SecurityClass,
+        TrustDomainId,
+    };
+
+    use super::*;
+
+    #[test]
+    fn authored_genesis_accepts_only_the_create_scope_and_derived_identity() {
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let actor = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            station.clone(),
+        ));
+        let payload = RealmCreatePayload::new(
+            RealmGenesis::new(
+                RealmPurpose::Collaboration,
+                GenesisSalt::new("A".repeat(43)).unwrap(),
+                TrustDomainId::new("ak:trust_domain:example").unwrap(),
+                SecurityClass::Standard,
+                station.clone(),
+                JoinRule::Invite,
+                HistoryAccess::SinceJoin,
+                Discoverability::Unlisted,
+                None,
+                None,
+            )
+            .unwrap(),
+        );
+        let authored = TypedEventDraft::<event_spec::RealmCreate>::new(
+            ScopeRef::RealmGenesis,
+            actor.clone(),
+            payload,
+        )
+        .unwrap()
+        .author_with_digest_suite(
+            "2026-09-27T00:00:00.000Z".parse().unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        let event = authored.event().clone();
+        let valid = validate_realm_genesis_event(&event).unwrap();
+        assert_eq!(valid.realm_id, RealmId::from_event_id(&event.event_id));
+        assert_eq!(valid.creator_actor_id, actor);
+        assert_eq!(valid.governance_station_id, station);
+        let mut carried_scope = event.clone();
+        carried_scope.scope_ref = ScopeRef::Realm {
+            realm_id: event.realm_id.clone(),
+        };
+        assert!(validate_realm_genesis_event(&carried_scope).is_err());
+        let mut foreign_identity = event.clone();
+        foreign_identity.realm_id = RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(b"another genesis"),
+        ));
+        assert!(validate_realm_genesis_event(&foreign_identity).is_err());
+        let mut wrong_kind = event;
+        wrong_kind.kind = EventKind::ProfileCreate;
+        assert!(validate_realm_genesis_event(&wrong_kind).is_err());
+    }
 }
 
 /// Draft a Realm owner transfer Event.
