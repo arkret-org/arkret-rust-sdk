@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::generated::EventWireScope;
 pub use crate::generated::event_kinds::{
-    EVENT_KIND_COUNT, EventKind, EventKindDescriptor, EventRegistryCategory,
+    EVENT_KIND_COUNT, EventEffectDescriptor, EventEffectOwnership, EventKind, EventKindDescriptor,
+    EventRegistryCategory,
 };
 
 /// Closed escape set for an archived or frozen Realm. Authorization and the

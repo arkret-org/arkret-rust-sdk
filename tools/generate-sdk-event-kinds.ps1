@@ -1,13 +1,14 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs"),
+    [switch]$Check
 )
 
 . (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
 
 # Emits the clean-break Event kind surface. Ordering, finality and projection
-# state no longer live in the producer Event, so only intrinsic Event metadata
-# is projected into the SDK catalog.
+# state no longer live in the producer Event. Effect ownership is local catalog
+# metadata for implementation closure checks, never an additional wire member.
 $registryPath = Join-Path $ArtifactsDir "registry\contract-registry.json"
 if (!(Test-Path -LiteralPath $registryPath)) {
     throw "canonical contract registry artifact not found: $registryPath"
@@ -39,6 +40,68 @@ function ConvertTo-OptionString {
     'Some(' + ([string]$Value | ConvertTo-Json -Compress) + ')'
 }
 
+function Get-EffectMetadata {
+    param($Row)
+    $kind = [string]$Row.event_kind
+    $persistent = $Row.wire_scope -in @('durable_event', 'actor_private_event')
+    $owner = $Row.result_effect_ownership
+    if (!$persistent) {
+        if ($null -ne $owner -or @($Row.result_writes).Count -gt 0) { throw "$kind has orphaned persistent effect metadata" }
+        return $null
+    }
+    if ($null -eq $owner -or $owner -isnot [PSCustomObject]) { throw "$kind is missing closed result_effect_ownership" }
+    if ($Row.reducer_input -isnot [bool]) { throw "$kind reducer_input must be a boolean" }
+    if ($null -ne $Row.result_writes -and $Row.result_writes -isnot [Array]) { throw "$kind result_writes must be an array" }
+    $writes = @($Row.result_writes | Where-Object { $null -ne $_ })
+    $keys = switch ([string]$owner.kind) {
+        'typed_result_writer' { @('kind') }
+        'durable_fact_no_current_projection' { @('kind', 'defined_in') }
+        'private_service_effect' { @('kind', 'service_contract_id') }
+        'authority_commit_effect' { @('kind', 'service_contract_id') }
+        'owned_gap' { @('kind', 'owner_report', 'closure_condition') }
+        default { throw "$kind has unknown effect ownership '$($owner.kind)'" }
+    }
+    $actualKeys = @($owner.PSObject.Properties.Name)
+    if (@(Compare-Object $keys $actualKeys).Count -ne 0) { throw "$kind effect ownership must be a closed $($owner.kind) object" }
+    foreach ($key in $keys) {
+        if ($owner.$key -isnot [string] -or [string]::IsNullOrWhiteSpace($owner.$key)) { throw "$kind ownership.$key must be a nonempty string" }
+    }
+    if ($owner.kind -eq 'typed_result_writer') {
+        if ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input -or $writes.Count -eq 0) { throw "$kind typed result owner requires durable reducer input and nonempty result_writes" }
+    } elseif ($writes.Count -ne 0) {
+        throw "$kind $($owner.kind) must not declare typed result_writes"
+    }
+    if ($owner.kind -eq 'private_service_effect' -and $Row.reducer_input) { throw "$kind private service effect cannot be a shared reducer input" }
+    if ($owner.kind -eq 'authority_commit_effect' -and ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input)) { throw "$kind authority effect requires a durable reducer input" }
+    if ($owner.kind -eq 'durable_fact_no_current_projection' -and $owner.defined_in -notmatch '^zh/.+\.md$') { throw "$kind durable fact must cite normative zh prose" }
+    if ($owner.kind -eq 'owned_gap' -and $owner.owner_report -notmatch '^arkret-work/tasks/spec-open/.+\.md$') { throw "$kind gap must cite its live specification owner" }
+    if ($owner.kind -in @('private_service_effect', 'authority_commit_effect')) {
+        $services = @($artifact.service_contracts | Where-Object { $_.contract_id -eq $owner.service_contract_id -and $_.status -eq 'active' })
+        if ($services.Count -ne 1) { throw "$kind ownership service contract is not uniquely active" }
+        $service = $services[0]
+        $covering = @($service.branches | Where-Object {
+            $_.event_kind -eq $kind -or @([regex]::Matches([string]$_.branch, '\bak\.[a-z0-9_]+(?:\.[a-z0-9_]+)*\b') | ForEach-Object Value) -contains $kind
+        })
+        if ($covering.Count -ne 1) { throw "$kind service contract needs exactly one covering branch" }
+        if ($owner.kind -eq 'authority_commit_effect' -and $service.contract_kind -ne 'authority_commit_effect_owner') { throw "$kind has the wrong authority effect service owner" }
+        if ($service.contract_kind -eq 'actor_private_effect_owner' -and ($Row.wire_scope -ne 'actor_private_event' -or $service.wire_scope -ne 'actor_private_event')) { throw "$kind actor-private owner cannot own shared scope" }
+    }
+    $families = @($writes | ForEach-Object {
+        if ($_ -isnot [PSCustomObject] -or [string]::IsNullOrWhiteSpace($_.result_family)) { throw "$kind result write has no registered family" }
+        $family = [string]$_.result_family
+        if (@($artifact.current_result_registry.result_kinds | Where-Object result_kind -eq $family).Count -ne 1) { throw "$kind writes unknown result family $family" }
+        $family
+    })
+    [PSCustomObject]@{
+        Ownership = ConvertTo-Variant -Value $owner.kind
+        ResultFamilies = '&[' + (($families | ForEach-Object { $_ | ConvertTo-Json -Compress }) -join ', ') + ']'
+        ServiceContractId = ConvertTo-OptionString $owner.service_contract_id
+        DefinedIn = ConvertTo-OptionString $owner.defined_in
+        OwnerReport = ConvertTo-OptionString $owner.owner_report
+        ClosureCondition = ConvertTo-OptionString $owner.closure_condition
+    }
+}
+
 $rowsByKind = @{}
 foreach ($row in $registry.event_kinds) {
     if ([string]$row.status -ne 'active') { continue }
@@ -64,6 +127,7 @@ $entries = @($kinds | ForEach-Object {
         Admission = ConvertTo-OptionString -Value $row.admission
         PayloadSchemaRef = ConvertTo-OptionString -Value $row.payload_schema_ref
         ReducerInput = $(if ($row.reducer_input) { 'true' } else { 'false' })
+        Effect = Get-EffectMetadata $row
     }
 })
 
@@ -108,6 +172,23 @@ Add-Line '    EphemeralEvent,'
 Add-Line '    Custom,'
 Add-Line '}'
 Add-Line
+Add-Line '/// Non-wire classification of the registered effect owner.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]'
+Add-Line 'pub enum EventEffectOwnership {'
+foreach ($owner in @('TypedResultWriter', 'DurableFactNoCurrentProjection', 'PrivateServiceEffect', 'AuthorityCommitEffect', 'OwnedGap')) { Add-Line "    $owner," }
+Add-Line '}'
+Add-Line
+Add-Line '/// Local implementation metadata; these fields are never serialized into an Event.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq)]'
+Add-Line 'pub struct EventEffectDescriptor {'
+Add-Line '    pub ownership: EventEffectOwnership,'
+Add-Line "    pub result_families: &'static [&'static str],"
+Add-Line "    pub service_contract_id: Option<&'static str>,"
+Add-Line "    pub defined_in: Option<&'static str>,"
+Add-Line "    pub owner_report: Option<&'static str>,"
+Add-Line "    pub closure_condition: Option<&'static str>,"
+Add-Line '}'
+Add-Line
 Add-Line '/// Registry metadata that is intrinsic to the producer Event.'
 Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq)]'
 Add-Line 'pub struct EventKindDescriptor {'
@@ -117,6 +198,7 @@ Add-Line '    pub wire_scope: EventWireScope,'
 Add-Line "    pub admission: Option<&'static str>,"
 Add-Line "    pub payload_schema_ref: Option<&'static str>,"
 Add-Line '    pub reducer_input: bool,'
+Add-Line '    pub effect: Option<EventEffectDescriptor>,'
 Add-Line '}'
 Add-Line
 Add-Line '/// Canonical wire strings for active standard Event kinds.'
@@ -172,6 +254,14 @@ Add-Line '    }'
 Add-Line
 Add-Line '    pub fn registry_category(&self) -> Option<EventRegistryCategory> {'
 Add-Line '        self.descriptor().map(|descriptor| descriptor.category)'
+Add-Line '    }'
+Add-Line
+Add-Line "    pub fn effect_descriptor(&self) -> Option<&'static EventEffectDescriptor> {"
+Add-Line '        self.descriptor().and_then(|descriptor| descriptor.effect.as_ref())'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn effect_ownership(&self) -> Option<EventEffectOwnership> {'
+Add-Line '        self.effect_descriptor().map(|descriptor| descriptor.ownership)'
 Add-Line '    }'
 Add-Line
 Add-Line '    pub fn product_class(&self) -> EventProductClass { event_product_class(self) }'
@@ -247,6 +337,18 @@ foreach ($entry in $entries) {
     Add-Line "        admission: $($entry.Admission),"
     Add-Line "        payload_schema_ref: $($entry.PayloadSchemaRef),"
     Add-Line "        reducer_input: $($entry.ReducerInput),"
+    if ($null -eq $entry.Effect) {
+        Add-Line '        effect: None,'
+    } else {
+        Add-Line '        effect: Some(EventEffectDescriptor {'
+        Add-Line "            ownership: EventEffectOwnership::$($entry.Effect.Ownership),"
+        Add-Line "            result_families: $($entry.Effect.ResultFamilies),"
+        Add-Line "            service_contract_id: $($entry.Effect.ServiceContractId),"
+        Add-Line "            defined_in: $($entry.Effect.DefinedIn),"
+        Add-Line "            owner_report: $($entry.Effect.OwnerReport),"
+        Add-Line "            closure_condition: $($entry.Effect.ClosureCondition),"
+        Add-Line '        }),'
+    }
     Add-Line '    },'
 }
 Add-Line '];'
@@ -261,6 +363,51 @@ Add-Line '        for kind in EventKind::ALL {'
 Add-Line '            assert_eq!(kind.descriptor().map(|descriptor| descriptor.kind), Some(kind.as_str()));'
 Add-Line '        }'
 Add-Line '    }'
+@'
+    #[test]
+    fn effect_owners_preserve_scope_reducer_and_write_contracts() {
+        for kind in EventKind::ALL {
+            let descriptor = kind.descriptor().unwrap();
+            if descriptor.wire_scope == EventWireScope::EphemeralEvent {
+                assert!(kind.effect_descriptor().is_none());
+                continue;
+            }
+            let effect = kind.effect_descriptor().expect("persistent kind needs an owner");
+            assert_eq!(kind.effect_ownership(), Some(effect.ownership));
+            match effect.ownership {
+                EventEffectOwnership::TypedResultWriter => {
+                    assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
+                    assert!(descriptor.reducer_input);
+                    assert!(!effect.result_families.is_empty());
+                }
+                EventEffectOwnership::PrivateServiceEffect => {
+                    assert!(!descriptor.reducer_input);
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.service_contract_id.is_some());
+                }
+                EventEffectOwnership::AuthorityCommitEffect => {
+                    assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
+                    assert!(descriptor.reducer_input);
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.service_contract_id.is_some());
+                }
+                EventEffectOwnership::DurableFactNoCurrentProjection => {
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.defined_in.is_some());
+                }
+                EventEffectOwnership::OwnedGap => {
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.owner_report.is_some());
+                    assert!(effect.closure_condition.is_some());
+                }
+            }
+            assert_eq!(serde_json::to_value(kind).unwrap(), serde_json::Value::String(kind.as_str().to_owned()));
+        }
+        let unknown = EventKind::from_wire("custom.effect-owner-test");
+        assert!(unknown.effect_ownership().is_none());
+        assert!(unknown.effect_descriptor().is_none());
+    }
+'@ -split '\r?\n' | ForEach-Object { Add-Line $_ }
 Add-Line '}'
 
 $generatedSource = $lines -join [Environment]::NewLine
@@ -272,7 +419,19 @@ foreach ($entry in $entries) {
     }
 }
 
-Set-Content -LiteralPath $OutputPath -Value $generatedSource -NoNewline
-& rustfmt +nightly --edition 2024 $OutputPath
-if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $OutputPath" }
-Write-Host "Wrote $OutputPath ($($entries.Count) variants)"
+$generationTarget = if ($Check) {
+    Join-Path (Split-Path -Parent $OutputPath) (".event-kind-check-" + [guid]::NewGuid().ToString('N') + '.rs')
+} else { $OutputPath }
+try {
+    Set-Content -LiteralPath $generationTarget -Value $generatedSource -NoNewline
+    & rustfmt +nightly --edition 2024 $generationTarget
+    if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $generationTarget" }
+    if ($Check) {
+        if (!(Test-Path -LiteralPath $OutputPath) -or [IO.File]::ReadAllText($generationTarget) -cne [IO.File]::ReadAllText($OutputPath)) { throw "generated Event catalog is stale: $OutputPath" }
+        Write-Host "Verified $OutputPath ($($entries.Count) variants)"
+    } else {
+        Write-Host "Wrote $OutputPath ($($entries.Count) variants)"
+    }
+} finally {
+    if ($Check) { Remove-Item -LiteralPath $generationTarget -Force }
+}
