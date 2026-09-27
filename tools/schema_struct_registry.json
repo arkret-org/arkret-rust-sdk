@@ -1022,6 +1022,24 @@
       "schema": "event-payload.schema.json#/$defs/direct_conversation_bound_payload"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/direct_conversation.rs::DirectConversationBindingEndorsementEntry",
+      "schema": "typed-current-result.schema.json#/$defs/direct_conversation_binding_endorsement_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/direct_conversation.rs::DirectConversationBindingCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/direct_conversation_binding_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/consent_operations.rs::ConsentValue",
+      "schema": "typed-current-result.schema.json#/$defs/consent_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/device_messages.rs::DeviceMessageEnvelope",
+      "schema": "device-message.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) expands the closed DeviceMessageSender branch fields validated by the custom deserializer."
+    },
+    {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::BackupActiveSeriesState",
       "schema": "keys-operations.schema.json#/$defs/backup_active_series_state"
     },
@@ -1182,14 +1200,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/realm.rs::RealmOrganizationAuthorization",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['delegation_ref', 'executed_by', 'issuer_id', 'issuer_role', 'proof', 'signed_at', 'verification_method'], Spec-only=['authorization', 'control_scopes', 'expires_at', 'issued_at', 'not_before', 'organization_id', 'organization_policy_ref', 'realm_frontier_digest', 'realm_id', 'relationship', 'revokes_statement_id', 'statement_id', 'status', 'supersedes_statement_id']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/strand.rs::StrandMoveExpectedPosition",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['relation_id', 'space_id'], Spec-only=['board_space_id', 'expected_position', 'from_space_id', 'strand_id', 'target_space_id']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/strand.rs::StrandReorderExpectedPosition",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['relation_id'], Spec-only=['board_space_id', 'expected_position', 'space_id', 'strand_id']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/strand.rs::StrandWatchExpectedValue",

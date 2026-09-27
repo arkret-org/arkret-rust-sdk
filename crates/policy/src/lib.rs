@@ -5,8 +5,7 @@ use arkret_wire::*;
 pub mod applet_admission;
 pub mod authz;
 pub mod history_access;
-pub mod minimal_metadata_author;
-pub mod minimal_metadata_security;
+pub mod mls_group_state;
 pub mod ordinary_agent_mls;
 pub mod profile_claim;
 pub mod profile_feature_guard;
@@ -19,8 +18,7 @@ pub mod models {
 }
 
 pub use authz::*;
-pub use minimal_metadata_author::*;
-pub use minimal_metadata_security::*;
+pub use mls_group_state::*;
 pub use ordinary_agent_mls::*;
 pub use profile_claim::{
     ClaimedProfile, ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator,
