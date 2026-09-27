@@ -967,6 +967,10 @@ pub enum CurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    StrandPosition {
+        board_space_id: SpaceId,
+        strand_id: StrandId,
+    },
     /// Registered Space metadata current result.
     Space {
         space_id: SpaceId,
@@ -1075,6 +1079,10 @@ enum FlatCurrentSelector {
         mimi_room_uri: MimiRoomUri,
     },
     Strand {
+        strand_id: StrandId,
+    },
+    StrandPosition {
+        board_space_id: SpaceId,
         strand_id: StrandId,
     },
     Space {
@@ -1249,6 +1257,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::StrandPosition {
+                        board_space_id,
+                        strand_id,
+                    } => Self::StrandPosition {
+                        board_space_id,
+                        strand_id,
+                    },
                     FlatCurrentSelector::Space { space_id } => Self::Space { space_id },
                     FlatCurrentSelector::SpaceParent { space_id } => Self::SpaceParent { space_id },
                     FlatCurrentSelector::SpaceChildScopePolicy { space_id } => {
@@ -2376,6 +2391,37 @@ mod tests {
             json!({"kind":"capability_grant"}),
             json!({"kind":"capability_grant","grant_id":"ak:capability:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
             json!({"kind":"capability_grant","grant_id":grant_id,"realm_id":realm}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn strand_position_selector_validates_both_typed_components() {
+        let board = SpaceId::new("ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let strand =
+            StrandId::new("ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let selector = CurrentSelector::StrandPosition {
+            board_space_id: board.clone(),
+            strand_id: strand.clone(),
+        };
+        let wire = json!({"kind":"strand_position","board_space_id":board,"strand_id":strand});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+            selector
+        );
+        for invalid in [
+            json!({"kind":"strand_position","strand_id":strand}),
+            json!({"kind":"strand_position","board_space_id":board}),
+            json!({"kind":"strand_position","board_space_id":strand,"strand_id":strand}),
+            json!({"kind":"strand_position","board_space_id":board,"strand_id":board}),
+            json!({"kind":"strand_position","board_space_id":"AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7","strand_id":strand}),
+            json!({"kind":"strand_position","board_space_id":board,"strand_id":strand,"subject":"hash"}),
+            json!({"kind":"strand_position","subject":"AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
         ] {
             assert!(
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
