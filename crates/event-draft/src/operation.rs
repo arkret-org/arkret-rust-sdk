@@ -31,6 +31,9 @@ pub struct ProjectionContext {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
+    /// Verified accepting Commit facts, supplied by the local receiver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub committed_ref: Option<arkret_wire::CommittedEventRef>,
 }
 
 /// Erased heterogeneous reducer input projected from an accepted Event.
@@ -92,12 +95,31 @@ impl ProjectedEventOperation {
                 executed_by: event.executed_by.clone(),
                 authorization_ref: event.authorization_ref.clone(),
                 accepted_scope_ref: event.scope_ref.clone(),
+                committed_ref: None,
             },
         })
     }
 
     pub fn operation_digest(&self) -> Result<String> {
         Ok(canonical::canonical_sha256(self)?)
+    }
+
+    /// Attach receiver-verified Commit coordinates without changing the Event.
+    pub fn with_committed_ref(mut self, reference: arkret_wire::CommittedEventRef) -> Result<Self> {
+        let stream = arkret_wire::CommitStreamRef::from_scope(
+            &self.context.accepted_scope_ref,
+            Some(self.realm_id.clone()),
+        )?;
+        if reference.event_id != self.context.accepted_event_id
+            || reference.stream_ref != stream
+            || reference.stream_ref.realm_id() != &self.realm_id
+        {
+            return Err(EventDraftError::Protocol(
+                "accepting Commit does not cover the projected Event scope".to_owned(),
+            ));
+        }
+        self.context.committed_ref = Some(reference);
+        Ok(self)
     }
 
     pub fn validate_payload_object(&self) -> Result<()> {
@@ -319,5 +341,138 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
             LocalOperationDraft::new(operation_id, realm_id, self.clone())
                 .with_object_id(format!("{}:{}:{endpoint}", self.group_id, self.epoch)),
         )
+    }
+}
+
+#[cfg(test)]
+mod committed_projection_tests {
+    use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
+    use arkret_wire::{
+        AccountId, CircleId, CommitStreamRef, CommittedEventRef, DidCoreId, RealmCommitId,
+        StrandId, event_spec,
+    };
+    use chrono::TimeZone;
+
+    use super::*;
+
+    fn realm() -> RealmId {
+        RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir").unwrap()
+    }
+
+    fn circle_scope() -> ScopeRef {
+        ScopeRef::Circle {
+            realm_id: realm(),
+            circle_id: CircleId::new("ak:circle:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu")
+                .unwrap(),
+        }
+    }
+
+    fn authored_projection(scope: ScopeRef, body: &str) -> (Event, ProjectedEventOperation) {
+        let principal = DidCoreId::new("ak:did_core:web:projection-author.example").unwrap();
+        let payload = MessageCreatePayload::with_content(
+            StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+            "discussion",
+            ContentBlock::text(body),
+        );
+        let authored = crate::TypedEventDraft::<event_spec::MessageCreate>::new(
+            scope,
+            ActorId::account(AccountId::new(principal.clone(), principal)),
+            payload,
+        )
+        .unwrap()
+        .author_with_digest_suite(
+            Utc.with_ymd_and_hms(2026, 9, 28, 0, 0, 0).single().unwrap(),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        let event = authored.event().clone();
+        let operation = ProjectedEventOperation::from_accepted_event(
+            OperationId::new("ak:operation:018cc7fa-7c00-7000-8000-000000000001").unwrap(),
+            OperationKind::Create,
+            None,
+            &event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        (event, operation)
+    }
+
+    fn accepting_ref(event: &Event) -> CommittedEventRef {
+        CommittedEventRef {
+            event_id: event.event_id.clone(),
+            commit_id: RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+                event.event_id.as_str().as_bytes(),
+            )),
+            stream_ref: CommitStreamRef::from_scope(&event.scope_ref, Some(event.realm_id.clone()))
+                .unwrap(),
+            stream_position: 7,
+        }
+    }
+
+    #[test]
+    fn matching_realm_and_circle_commit_context_preserves_canonical_event_facts() {
+        for scope in [ScopeRef::Realm { realm_id: realm() }, circle_scope()] {
+            let (event, operation) = authored_projection(scope, "accepted message");
+            let preimage =
+                arkret_canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
+            let input = operation.projection_input().unwrap();
+            let payload = operation.payload.clone();
+            let digest = operation.context.canonical_event_digest.clone();
+            let reference = accepting_ref(&event);
+            let attached = operation.with_committed_ref(reference.clone()).unwrap();
+            assert_eq!(attached.context.committed_ref, Some(reference));
+            assert_eq!(attached.context.event_id, event.event_id);
+            assert_eq!(attached.context.accepted_event_id, event.event_id);
+            assert_eq!(attached.context.canonical_event_digest, digest);
+            assert_eq!(attached.payload, payload);
+            assert_eq!(attached.projection_input().unwrap(), input);
+            assert_eq!(
+                arkret_canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap(),
+                preimage
+            );
+        }
+    }
+
+    #[test]
+    fn commit_context_rejects_scope_and_realm_mismatch() {
+        let (event, operation) =
+            authored_projection(ScopeRef::Realm { realm_id: realm() }, "realm message");
+        let mismatches = [
+            CommitStreamRef::from_scope(&circle_scope(), None).unwrap(),
+            CommitStreamRef::Realm {
+                realm_id: RealmId::new("ak:realm:AR8FzptqPhujyMqtDIr2CTaKC301-QQGktovEDdHy_6R")
+                    .unwrap(),
+            },
+        ];
+        for stream_ref in mismatches {
+            let mut reference = accepting_ref(&event);
+            reference.stream_ref = stream_ref;
+            assert!(matches!(
+                operation.clone().with_committed_ref(reference),
+                Err(EventDraftError::Protocol(_))
+            ));
+        }
+        let (circle_event, circle_operation) =
+            authored_projection(circle_scope(), "circle message");
+        let mut reference = accepting_ref(&circle_event);
+        reference.stream_ref = CommitStreamRef::Realm { realm_id: realm() };
+        assert!(matches!(
+            circle_operation.with_committed_ref(reference),
+            Err(EventDraftError::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn commit_context_rejects_another_content_bound_event_in_the_same_stream() {
+        let scope = ScopeRef::Realm { realm_id: realm() };
+        let (event, operation) = authored_projection(scope.clone(), "original message");
+        let (other, _) = authored_projection(scope, "different message");
+        assert_ne!(event.event_id, other.event_id);
+        let mut reference = accepting_ref(&event);
+        reference.event_id = other.event_id;
+        assert!(matches!(
+            operation.with_committed_ref(reference),
+            Err(EventDraftError::Protocol(_))
+        ));
     }
 }
