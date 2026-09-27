@@ -722,11 +722,11 @@ impl ArkretMlsGroup {
             .collect())
     }
 
-    /// Snapshot the group's active leaves for minimal-metadata author
-    /// verification (encryption-and-audit.md §2.10.3). Unlike
+    /// Snapshot the group's active leaves for identity and key binding
+    /// verification. Unlike
     /// [`Self::member_principal_ids`] this does NOT dedupe — duplicate
     /// credential identities must stay visible so
-    /// [`crate::verify_minimal_metadata_author`] can reject them.
+    /// callers can verify identity and key bindings against the exact winning state.
     pub fn active_author_leaves(&self) -> Vec<crate::AuthorLeaf> {
         self.group
             .members()

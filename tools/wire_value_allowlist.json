@@ -3937,17 +3937,6 @@
       "adjudication": "manual"
     },
     {
-      "finding": "paired_api:inkson/src/mls/runtime/backup.rs::carries_item_kind",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by item_kind",
-      "owner_repository": "inkson",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
       "finding": "paired_api:inkson/src/views/realm_admin/metadata.rs::projection_home_realm_for_admin",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
