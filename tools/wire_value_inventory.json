@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 484,
+    "total": 483,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -72,22 +72,19 @@
     "by_category": {
       "json_authoring": 67,
       "json_path_mutation": 60,
-      "paired_api": 17,
+      "paired_api": 16,
       "public_value_field": 340
     },
     "by_classification": {
-      "closed_discriminated": 1,
       "independent": 12,
       "internal_or_fixture": 12,
       "open_json": 69,
       "polymorphic_boundary": 390
     },
     "by_lifecycle": {
-      "pending_migration": 1,
       "retained_boundary": 483
     },
     "by_decision": {
-      "closed": 1,
       "independent": 12,
       "open": 69,
       "raw": 402
@@ -99,7 +96,7 @@
       "coauth": 46,
       "floria": 12,
       "garth": 2,
-      "inkson": 40,
+      "inkson": 39,
       "sodmin": 1,
       "soland": 199,
       "teabay": 1
@@ -109,7 +106,7 @@
       "open_json": 2,
       "open_json_container": 17,
       "open_map": 51,
-      "unknown": 406
+      "unknown": 405
     }
   },
   "entries": [
@@ -8712,31 +8709,6 @@
       "test": "cargo test -p arkret-wire --lib forbidden_wire",
       "reason": "Raw rejection boundary for obsolete fields, selected by the registered document kind/schema. The original object and nested paths must remain visible before serde can drop unknown members; this validator never constructs a wire payload.",
       "evidence": "pub fn validate_event_payload_forbidden_fields( kind: &crate::EventKind, payload: &Value, )"
-    },
-    {
-      "finding": "paired_api:inkson/src/mls/runtime/backup.rs::carries_item_kind",
-      "category": "paired_api",
-      "rust_field": null,
-      "crate": null,
-      "file": "inkson/src/mls/runtime/backup.rs",
-      "path": "inkson/src/mls/runtime/backup.rs",
-      "owner": "carries_item_kind",
-      "owner_repository": "inkson",
-      "symbol": "carries_item_kind",
-      "field": "body",
-      "discriminator": "item_kind",
-      "data_field": "body",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by item_kind",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
-      "evidence": "fn carries_item_kind(body: &Value, item_kind: arkret_sdk::SecretStorageItemKind)"
     },
     {
       "finding": "paired_api:inkson/src/views/realm_admin/metadata.rs::projection_home_realm_for_admin",
