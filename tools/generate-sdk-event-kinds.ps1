@@ -45,12 +45,12 @@ function Get-EffectMetadata {
     $kind = [string]$Row.event_kind
     $persistent = $Row.wire_scope -in @('durable_event', 'actor_private_event')
     $owner = $Row.result_effect_ownership
+    if ($Row.reducer_input -isnot [bool]) { throw "$kind reducer_input must be a boolean" }
     if (!$persistent) {
         if ($null -ne $owner -or @($Row.result_writes).Count -gt 0) { throw "$kind has orphaned persistent effect metadata" }
         return $null
     }
     if ($null -eq $owner -or $owner -isnot [PSCustomObject]) { throw "$kind is missing closed result_effect_ownership" }
-    if ($Row.reducer_input -isnot [bool]) { throw "$kind reducer_input must be a boolean" }
     if ($null -ne $Row.result_writes -and $Row.result_writes -isnot [Array]) { throw "$kind result_writes must be an array" }
     $writes = @($Row.result_writes | Where-Object { $null -ne $_ })
     $keys = switch ([string]$owner.kind) {
