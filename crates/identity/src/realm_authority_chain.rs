@@ -146,6 +146,18 @@ use RealmAuthorityChainError as E;
 /// only ever asks, and treats a `None` as incomplete material.
 pub trait RealmAuthorityKeyDirectory {
     fn public_key(&self, verification_method: &DidUrl) -> Option<PublicKeyMaterial>;
+
+    /// Resolve the method at this signature's own authenticated time. A method
+    /// URL may retain its name across a key rotation; its current key cannot
+    /// substitute for the key that signed an accepted historical object.
+    fn public_key_at(
+        &self,
+        verification_method: &DidUrl,
+        signed_at: DateTime<Utc>,
+    ) -> Option<PublicKeyMaterial> {
+        let _ = signed_at;
+        self.public_key(verification_method)
+    }
 }
 
 /// Pre-resolved key material, keyed by the exact verification-method DID URL.
@@ -764,7 +776,7 @@ fn verify_detached(
     keys: &dyn RealmAuthorityKeyDirectory,
 ) -> ChainResult<()> {
     let key = keys
-        .public_key(&signature.verification_method)
+        .public_key_at(&signature.verification_method, signature.created_at)
         .ok_or_else(|| {
             E::MaterialIncomplete(format!(
                 "no public key for verification method {}",

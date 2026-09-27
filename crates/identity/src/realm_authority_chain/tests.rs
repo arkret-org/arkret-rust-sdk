@@ -689,3 +689,145 @@ fn chain_errors_map_to_registered_protocol_codes() {
         assert_eq!(error.error_code(), expected, "{error:?}");
     }
 }
+
+#[derive(Default)]
+struct HistoricalKeys {
+    keys: BTreeMap<(DidUrl, DateTime<Utc>), PublicKeyMaterial>,
+}
+
+impl RealmAuthorityKeyDirectory for HistoricalKeys {
+    fn public_key(&self, _method: &DidUrl) -> Option<PublicKeyMaterial> {
+        None
+    }
+
+    fn public_key_at(&self, method: &DidUrl, at: DateTime<Utc>) -> Option<PublicKeyMaterial> {
+        self.keys.get(&(method.clone(), at)).cloned()
+    }
+}
+
+fn same_method_rotation() -> (RealmAuthorityBundle, CommittedEventFullView, HistoricalKeys) {
+    let old_key = signing_key(0x81);
+    let new_key = signing_key(0x82);
+    let genesis_event = event(EventKind::RealmCreate, 0);
+    let item_event = event(EventKind::MessageCreate, 1);
+    let mut genesis_commit = commit(
+        0x61,
+        0,
+        None,
+        &genesis_event.event_id,
+        0,
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
+        STATION_A,
+        &old_key,
+    );
+    let mut item_commit = commit(
+        0x62,
+        1,
+        Some(0x61),
+        &item_event.event_id,
+        0,
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
+        STATION_A,
+        &old_key,
+    );
+    let mut keys = HistoricalKeys::default();
+    for (index, commit) in [&mut genesis_commit, &mut item_commit]
+        .into_iter()
+        .enumerate()
+    {
+        let at = issued_at() - Duration::seconds(40 - index as i64);
+        commit.committed_at = at;
+        commit.signature = sign_detached_object(
+            &canonical::unsigned_value(commit, &["signature"]).unwrap(),
+            DetachedSignatureContext::RealmCommit,
+            method(STATION_A),
+            at,
+            &old_key,
+        )
+        .unwrap();
+        keys.keys.insert((method(STATION_A), at), public(&old_key));
+    }
+    let head = CommitStreamHead {
+        stream_ref: realm_stream(),
+        stream_position: 1,
+        commit_id: item_commit.commit_id.clone(),
+    };
+    let mut assertion = RealmAuthorityCurrentAssertion {
+        realm_id: realm_id(),
+        current_generation: 0,
+        current_service_id: core_id(STATION_A),
+        last_handoff_ref: None,
+        realm_stream_head: head.clone(),
+        nonce: Base64UrlString::new(NONCE.to_owned()).unwrap(),
+        expires_at: expires_at(),
+        signature: placeholder_signature(DetachedSignatureContext::RealmAuthorityCurrentAssertion),
+    };
+    assertion.signature = sign_detached_object(
+        &canonical::unsigned_value(&assertion, &["signature"]).unwrap(),
+        DetachedSignatureContext::RealmAuthorityCurrentAssertion,
+        method(STATION_A),
+        issued_at(),
+        &new_key,
+    )
+    .unwrap();
+    let bundle = RealmAuthorityBundle {
+        realm_id: realm_id(),
+        genesis_event,
+        genesis_commit,
+        authority_transitions: vec![],
+        current_generation: 0,
+        current_service_id: core_id(STATION_A),
+        current_route_record: route_record(STATION_A, &new_key),
+        realm_stream_head: head,
+        bundle_issued_at: issued_at(),
+        current_assertion: assertion,
+    };
+    (
+        bundle,
+        CommittedEventFullView {
+            commit: item_commit,
+            event: item_event,
+        },
+        keys,
+    )
+}
+
+#[test]
+fn same_method_rotation_preserves_historical_genesis_and_receipt_verification() {
+    let (bundle, item, keys) = same_method_rotation();
+    let verified = verify_realm_authority_bundle(&bundle, &freshness(), &keys).unwrap();
+    verified.verify_committed_item(&item, &keys).unwrap();
+    assert_eq!(verified.current_generation(), 0);
+}
+
+#[test]
+fn same_method_rotation_missing_historical_key_fails_closed() {
+    let (bundle, item, mut keys) = same_method_rotation();
+    let verified = verify_realm_authority_bundle(&bundle, &freshness(), &keys).unwrap();
+    keys.keys
+        .remove(&(method(STATION_A), item.commit.signature.created_at));
+    assert!(matches!(
+        verified.verify_committed_item(&item, &keys),
+        Err(RealmAuthorityChainError::MaterialIncomplete(_))
+    ));
+}
+
+#[test]
+fn same_method_rotation_current_key_cannot_replace_historical_key() {
+    let (bundle, item, mut keys) = same_method_rotation();
+    let verified = verify_realm_authority_bundle(&bundle, &freshness(), &keys).unwrap();
+    keys.keys.insert(
+        (method(STATION_A), item.commit.signature.created_at),
+        public(&signing_key(0x82)),
+    );
+    assert!(matches!(
+        verified.verify_committed_item(&item, &keys),
+        Err(RealmAuthorityChainError::SignatureInvalid(_))
+    ));
+    let current_only =
+        RealmAuthorityKeyMap::new().with_key(&method(STATION_A), public(&signing_key(0x82)));
+    assert!(matches!(
+        verify_realm_authority_bundle(&bundle, &freshness(), &current_only),
+        Err(RealmAuthorityChainError::SignatureInvalid(_))
+    ));
+}
