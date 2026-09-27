@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-26.4;
-//! sha256=c84b22e85d0863d61323c2baaffb699579f75469a6b0813c3017170e3b777335
+//! Input: registry/error-code-registry.json; version=2026-09-28.2;
+//! sha256=f2539155635bdfee4d7396d96b01af7a5a4936a06bec1b50ac295802637d50e7
 //! Entries: error_codes=162, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
@@ -1563,7 +1563,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Idempotency cache replay is served only as a historical diagnostic after key or binding state changed; receivers MUST NOT perform new reducer side effects.",
+        description: "Historical-only diagnostic for endpoints that explicitly register this outcome; it does not bypass current authentication and is not emitted by the closed peer event submit path after origin service-key revocation.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HistoryNotVisible,
@@ -2073,7 +2073,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md §2.6.0. Terminal tombstone/destroy states use realm_terminal_state.",
+        description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md §2.6.0. A tombstoned Realm rejects ordinary writes with active failed_precondition; realm_terminal_state remains a reserved reason.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmStateSnapshotAuthorityUnverified,

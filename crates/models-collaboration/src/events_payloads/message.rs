@@ -955,6 +955,11 @@ impl MessageCreatePayload {
     /// Bind the exact accepted response Events this message supersedes.
     /// An empty declaration is represented by omission on the wire.
     pub fn with_poll_response_heads(mut self, heads: Vec<PollResponseHead>) -> Result<Self> {
+        if self.encrypted_content.is_some() && !heads.is_empty() {
+            return Err(WireError::Protocol(
+                "encrypted messages cannot carry poll_response_heads in v1".to_owned(),
+            ));
+        }
         if !heads.is_empty() && !poll_response_heads_valid(&heads) {
             return Err(WireError::Protocol(
                 "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
@@ -965,6 +970,11 @@ impl MessageCreatePayload {
     }
 
     pub fn validate_poll_response_heads(&self) -> Result<()> {
+        if self.encrypted_content.is_some() && !self.poll_response_heads.is_empty() {
+            return Err(WireError::Protocol(
+                "encrypted messages cannot carry poll_response_heads in v1".to_owned(),
+            ));
+        }
         if self.poll_response_heads.is_empty()
             || poll_response_heads_valid(&self.poll_response_heads)
         {
@@ -1078,6 +1088,7 @@ impl MessageCreatePayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
+        self.validate_poll_response_heads()?;
         if self.metadata.is_some() && self.encrypted_metadata.is_some() {
             return Err(WireError::Protocol(
                 "message create payload must not carry both metadata and encrypted_metadata"

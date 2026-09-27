@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-26.4;
-//! sha256=c84b22e85d0863d61323c2baaffb699579f75469a6b0813c3017170e3b777335
-//! Entries: reason_codes=311, reserved_not_emitted=70
+//! Input: registry/error-code-registry.json; version=2026-09-28.2;
+//! sha256=f2539155635bdfee4d7396d96b01af7a5a4936a06bec1b50ac295802637d50e7
+//! Entries: reason_codes=308, reserved_not_emitted=71
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -121,8 +121,6 @@ pub enum ReasonCode {
     IdentityCreationChallengeAlreadyConsumed,
     IdentityCreationChallengeExpired,
     IdentityCreationLeaseFenced,
-    IdentityLinkNoLongerVisible,
-    IdentityLinkPolicyTightened,
     IdentityMethodEvidenceInvalid,
     Illegal,
     InitialSessionRequestMismatch,
@@ -257,7 +255,6 @@ pub enum ReasonCode {
     SeriesChainBroken,
     SeriesPredecessorNotFound,
     SeriesSeqNotMonotonic,
-    ServiceKeyRevoked,
     ServiceNotPlaintextVisible,
     ServicePrerotationInvalid,
     ServiceRouteFork,
@@ -476,8 +473,6 @@ impl ReasonCode {
     pub const IDENTITY_CREATION_CHALLENGE_EXPIRED: &'static str =
         "identity_creation_challenge_expired";
     pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
-    pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
-    pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
     pub const IDENTITY_METHOD_EVIDENCE_INVALID: &'static str = "identity_method_evidence_invalid";
     pub const ILLEGAL: &'static str = "illegal";
     pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
@@ -631,7 +626,6 @@ impl ReasonCode {
     pub const SERIES_CHAIN_BROKEN: &'static str = "series_chain_broken";
     pub const SERIES_PREDECESSOR_NOT_FOUND: &'static str = "series_predecessor_not_found";
     pub const SERIES_SEQ_NOT_MONOTONIC: &'static str = "series_seq_not_monotonic";
-    pub const SERVICE_KEY_REVOKED: &'static str = "service_key_revoked";
     pub const SERVICE_NOT_PLAINTEXT_VISIBLE: &'static str = "service_not_plaintext_visible";
     pub const SERVICE_PREROTATION_INVALID: &'static str = "service_prerotation_invalid";
     pub const SERVICE_ROUTE_FORK: &'static str = "service_route_fork";
@@ -851,8 +845,6 @@ impl ReasonCode {
             }
             Self::IdentityCreationChallengeExpired => Self::IDENTITY_CREATION_CHALLENGE_EXPIRED,
             Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
-            Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
-            Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
             Self::IdentityMethodEvidenceInvalid => Self::IDENTITY_METHOD_EVIDENCE_INVALID,
             Self::Illegal => Self::ILLEGAL,
             Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
@@ -1005,7 +997,6 @@ impl ReasonCode {
             Self::SeriesChainBroken => Self::SERIES_CHAIN_BROKEN,
             Self::SeriesPredecessorNotFound => Self::SERIES_PREDECESSOR_NOT_FOUND,
             Self::SeriesSeqNotMonotonic => Self::SERIES_SEQ_NOT_MONOTONIC,
-            Self::ServiceKeyRevoked => Self::SERVICE_KEY_REVOKED,
             Self::ServiceNotPlaintextVisible => Self::SERVICE_NOT_PLAINTEXT_VISIBLE,
             Self::ServicePrerotationInvalid => Self::SERVICE_PREROTATION_INVALID,
             Self::ServiceRouteFork => Self::SERVICE_ROUTE_FORK,
@@ -1230,8 +1221,6 @@ impl ReasonCode {
             }
             Self::IDENTITY_CREATION_CHALLENGE_EXPIRED => Self::IdentityCreationChallengeExpired,
             Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
-            Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
-            Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
             Self::IDENTITY_METHOD_EVIDENCE_INVALID => Self::IdentityMethodEvidenceInvalid,
             Self::ILLEGAL => Self::Illegal,
             Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
@@ -1384,7 +1373,6 @@ impl ReasonCode {
             Self::SERIES_CHAIN_BROKEN => Self::SeriesChainBroken,
             Self::SERIES_PREDECESSOR_NOT_FOUND => Self::SeriesPredecessorNotFound,
             Self::SERIES_SEQ_NOT_MONOTONIC => Self::SeriesSeqNotMonotonic,
-            Self::SERVICE_KEY_REVOKED => Self::ServiceKeyRevoked,
             Self::SERVICE_NOT_PLAINTEXT_VISIBLE => Self::ServiceNotPlaintextVisible,
             Self::SERVICE_PREROTATION_INVALID => Self::ServicePrerotationInvalid,
             Self::SERVICE_ROUTE_FORK => Self::ServiceRouteFork,
@@ -2097,16 +2085,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The identity-creation lease fence is no longer current. A stale holder cannot publish or complete the frozen account/principal registration.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::IDENTITY_LINK_NO_LONGER_VISIBLE,
-        applies_to: &["identity_resolution"],
-        description: "An identity-link resolution was invalidated because the linked identity is no longer visible to the requester after a membership transition or capability revoke; directory / sync / invite caches MUST drop the stale link. See zh/conformance/conformance-vectors.md §3.5 (ak.vector.identity_link.eager_invalidation.v1).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::IDENTITY_LINK_POLICY_TIGHTENED,
-        applies_to: &["identity_resolution"],
-        description: "An identity-link resolution was invalidated because the governing visibility / link policy was tightened after the link was cached. See zh/conformance/conformance-vectors.md §3.5 (ak.vector.identity_link.policy_tightening_invalidation.v1).",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_METHOD_EVIDENCE_INVALID,
         applies_to: &["identity_resolution", "auth_decision"],
         description: "Submitted method_history_evidence fails independent verification: broken inception/current hash chain, SCID mismatch, invalid controller proof, unmet witness threshold, or stale evidence. An Applet-managed principal MUST carry a complete webvh_log; did:web snapshots, did:key expansion and service attestation are not substitutes. See zh/extensions/applet-integration.md.",
@@ -2784,11 +2762,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SERIES_SEQ_NOT_MONOTONIC,
         applies_to: &["schema_validation", "state_resolution"],
         description: "A PUT /_arkret/self/keys/backups/{backup_id} request whose `series_seq` is not strictly greater than the current maximum sequence within the same (actor_id, series_id), or whose genesis envelope sets series_seq != 0. See zh/crypto-media/device-lifecycle.md §12.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_KEY_REVOKED,
-        applies_to: &["federation_transaction", "auth_decision"],
-        description: "Federation idempotency replay outcome: a cached federated request was re-evaluated and the origin service's signing key is now revoked, so the cache hit is treated as historical_only and MUST NOT bypass current key-state verification. See zh/conformance/conformance-vectors.md §3.9 (ak.vector.federation.idempotency_after_key_revoke.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_NOT_PLAINTEXT_VISIBLE,
