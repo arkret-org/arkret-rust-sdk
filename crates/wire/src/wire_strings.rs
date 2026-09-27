@@ -327,6 +327,7 @@ validated_wire_string!(
 fn is_authorization_ref(value: &str) -> bool {
     value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
         || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
+        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
         || EventId::new(value).is_ok()
@@ -1191,13 +1192,13 @@ mod tests {
             "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "did:web:alice.example#managed-controller",
             crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1,
+            crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
         ] {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }
         for value in [
             "state-slot:ak.component.realm.genesis.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
             "state-slot:ak.component.realm.authority_root.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
-            crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
             crate::AuthoritySourceId::SIDECAR_PARENT_BOOTSTRAP_V1,
             "ak:grant:not-a-uuid",
             "did:web:alice.example",
