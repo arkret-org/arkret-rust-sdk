@@ -681,7 +681,7 @@ impl CallCreatePayload {
         ) {
             Ok(())
         } else {
-            Err(ErrorCode::SCHEMA_VIOLATION)
+            Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
         }
     }
 }
@@ -691,6 +691,42 @@ impl CallCreatePayload {
 pub struct CallStateTransition {
     pub from: CallLifecycleState,
     pub to: CallLifecycleState,
+}
+
+/// The lifecycle current includes the accepted creation's null predecessor;
+/// subsequent Event deltas still require a non-null `from` state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallStateCurrentValue {
+    #[serde(deserialize_with = "deserialize_call_current_from")]
+    pub from: Option<CallLifecycleState>,
+    pub to: CallLifecycleState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
+}
+
+fn deserialize_call_current_from<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<CallLifecycleState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<CallLifecycleState>::deserialize(deserializer)
+}
+
+impl CallStateCurrentValue {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.from.is_none() {
+            CallCreatePayload {
+                initial_state: self.to,
+            }
+            .validate()?;
+        }
+        if (self.to == CallLifecycleState::Failed) != self.failure_reason_code.is_some() {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -941,4 +977,47 @@ fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()
         "recording_artifact_pipeline_bypassed: {}",
         message.into()
     )))
+}
+
+#[cfg(test)]
+mod call_current_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn call_current_creation_has_a_required_null_predecessor_only_for_initial_states() {
+        for state in ["scheduled", "ringing", "connecting"] {
+            let wire = json!({"from":null,"to":state});
+            let current: CallStateCurrentValue = serde_json::from_value(wire.clone()).unwrap();
+            current.validate().unwrap();
+            assert_eq!(serde_json::to_value(current).unwrap(), wire);
+        }
+        for state in ["active", "ended", "missed", "failed", "cancelled"] {
+            let current: CallStateCurrentValue =
+                serde_json::from_value(json!({"from":null,"to":state})).unwrap();
+            assert_eq!(
+                current.validate(),
+                Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
+            );
+            assert_eq!(
+                CallCreatePayload {
+                    initial_state: current.to
+                }
+                .validate(),
+                Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
+            );
+        }
+        assert!(serde_json::from_value::<CallStateCurrentValue>(json!({"to":"ringing"})).is_err());
+        assert!(
+            serde_json::from_value::<CallStateTransition>(json!({"from":null,"to":"ringing"}))
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CallStateCurrentValue>(
+                json!({"from":null,"to":"ringing","call_id":"extra"})
+            )
+            .is_err()
+        );
+    }
 }

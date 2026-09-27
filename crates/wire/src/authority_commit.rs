@@ -4,7 +4,7 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
+    ActorProfileId, AppletId, CallId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
     KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId,
     RealmCommitId, RealmId, RealmSnapshotId, SidecarId, SpaceId, StrandId,
 };
@@ -1033,6 +1033,9 @@ pub enum CurrentSelector {
     MessageReactions {
         event_id: EventId,
     },
+    CallState {
+        call_id: CallId,
+    },
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
@@ -1169,6 +1172,9 @@ enum FlatCurrentSelector {
     },
     MessageReactions {
         event_id: EventId,
+    },
+    CallState {
+        call_id: CallId,
     },
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
@@ -1376,6 +1382,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::MessageReactions { event_id } => {
                         Self::MessageReactions { event_id }
                     }
+                    FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
                     }
@@ -2836,6 +2843,28 @@ mod tests {
                 serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),
                 "{invalid}"
             );
+        }
+    }
+
+    #[test]
+    fn call_current_selector_requires_the_create_derived_call_identity() {
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [43; 32]);
+        let call_id = CallId::from_event_id(&event);
+        let value = json!({"kind":"call_state","call_id":call_id});
+        let selector: CurrentSelector = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            selector,
+            CurrentSelector::CallState {
+                call_id: call_id.clone()
+            }
+        );
+        assert_eq!(serde_json::to_value(selector).unwrap(), value);
+        for invalid in [
+            json!({"kind":"call_state"}),
+            json!({"kind":"call_state","call_id":event}),
+            json!({"kind":"call_state","call_id":call_id,"realm_id":"extra"}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
     }
 
