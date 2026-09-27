@@ -8,13 +8,7 @@ use crate::internal_prelude::*;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentPeer {
-    Actor {
-        actor_id: ActorId,
-    },
-    PairwisePrincipal {
-        realm_id: RealmId,
-        principal_id: DidCoreId,
-    },
+    Actor { actor_id: ActorId },
 }
 
 /// Counterpart for
