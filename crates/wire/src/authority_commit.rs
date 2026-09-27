@@ -4,9 +4,9 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId, KeypackageClaimId,
-    MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId, RealmCommitId, RealmId,
-    RealmSnapshotId, SidecarId, SpaceId, StrandId,
+    ActorProfileId, AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
+    KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId,
+    RealmCommitId, RealmId, RealmSnapshotId, SidecarId, SpaceId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -934,11 +934,22 @@ pub enum RealmOrganizationRelationship {
     DirectoryCertifier,
 }
 
+/// The sole v1 full MemberIdentity replacement segment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum MemberIdentitySegment {
+    MemberIdentity,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
     RealmGenesis,
+    AppletRegistration {
+        applet_id: AppletId,
+    },
     RealmOrganization {
         organization_id: DidCoreId,
         relationship: RealmOrganizationRelationship,
@@ -968,6 +979,10 @@ pub enum CurrentSelector {
     },
     MemberState {
         actor_id: ActorId,
+    },
+    MemberIdentityUpdates {
+        member_id: ActorId,
+        segment: MemberIdentitySegment,
     },
     AgentKey {
         agent_id: DidCoreId,
@@ -1078,6 +1093,9 @@ pub enum CurrentSelector {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum FlatCurrentSelector {
     RealmGenesis,
+    AppletRegistration {
+        applet_id: AppletId,
+    },
     RealmOrganization {
         organization_id: DidCoreId,
         relationship: RealmOrganizationRelationship,
@@ -1099,6 +1117,10 @@ enum FlatCurrentSelector {
     },
     MemberState {
         actor_id: ActorId,
+    },
+    MemberIdentityUpdates {
+        member_id: ActorId,
+        segment: MemberIdentitySegment,
     },
     AgentKey {
         agent_id: DidCoreId,
@@ -1269,6 +1291,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     .map_err(serde::de::Error::custom)?;
                 Ok(match flat {
                     FlatCurrentSelector::RealmGenesis => Self::RealmGenesis,
+                    FlatCurrentSelector::AppletRegistration { applet_id } => {
+                        Self::AppletRegistration { applet_id }
+                    }
                     FlatCurrentSelector::RealmOrganization {
                         organization_id,
                         relationship,
@@ -1294,6 +1319,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::DeviceRevocationProposals { device_id }
                     }
                     FlatCurrentSelector::MemberState { actor_id } => Self::MemberState { actor_id },
+                    FlatCurrentSelector::MemberIdentityUpdates { member_id, segment } => {
+                        Self::MemberIdentityUpdates { member_id, segment }
+                    }
                     FlatCurrentSelector::AgentKey {
                         agent_id,
                         agent_key_id,
@@ -2792,6 +2820,23 @@ mod tests {
                 serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),
                 "{invalid}"
             );
+        }
+    }
+
+    #[test]
+    fn applet_registration_selector_has_one_closed_subject() {
+        let wire = json!({"kind":"applet_registration","applet_id":"ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d"});
+        let selector: CurrentSelector = serde_json::from_value(wire.clone()).unwrap();
+        assert!(matches!(
+            selector,
+            CurrentSelector::AppletRegistration { .. }
+        ));
+        assert_eq!(serde_json::to_value(selector).unwrap(), wire);
+        for invalid in [
+            json!({"kind":"applet_registration"}),
+            json!({"kind":"applet_registration","applet_id":"ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d","realm_id":"extra"}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
     }
 

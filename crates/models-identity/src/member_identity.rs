@@ -139,11 +139,7 @@ pub enum MemberIdentitySignatureAlgorithm {
 /// defines a single full `member_identity` segment; v1 receivers MUST
 /// reject any other value. Narrower segments require a future
 /// schema/profile revision that extends this enum.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MemberIdentitySegment {
-    MemberIdentity,
-}
+pub use arkret_wire::MemberIdentitySegment;
 
 /// One edge in [`MemberIdentityUpdatePayload::replaces`]. Identifies the
 /// prior event id + the `payload_digest` of that event's
@@ -191,7 +187,7 @@ impl IdentityPayloadCarrier {
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityUpdatePayload {
     pub realm_id: RealmId,
-    pub actor_id: ActorId,
+    pub member_id: ActorId,
     pub segment: MemberIdentitySegment,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
@@ -202,6 +198,59 @@ pub struct MemberIdentityUpdatePayload {
     /// derived carrier digest or the roster `member_display_state_digest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
+}
+
+/// One accepted identity dot. The payload stays raw because the digest names
+/// its exact signed field set, including explicitly present empty members.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemberIdentityUpdateAssertion {
+    pub tag_id: String,
+    pub value: Value,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemberIdentityUpdatesCurrentValue {
+    pub assertions: Vec<MemberIdentityUpdateAssertion>,
+}
+
+impl MemberIdentityUpdatesCurrentValue {
+    /// Validate the closed family without verifying display proofs or folding
+    /// replacement edges, neither of which may reject an accepted assertion.
+    pub fn validate_for_tuple(
+        &self,
+        realm_id: &RealmId,
+        member_id: &ActorId,
+        segment: MemberIdentitySegment,
+    ) -> Result<()> {
+        let mut dots = BTreeSet::new();
+        for assertion in &self.assertions {
+            let event_id = assertion.tag_id.strip_suffix(":0").ok_or_else(|| {
+                arkret_wire::WireError::Protocol(
+                    "member identity dot must name its one registered assertion".to_owned(),
+                )
+            })?;
+            EventId::new(event_id)?;
+            if !dots.insert(&assertion.tag_id) {
+                return Err(arkret_wire::WireError::Protocol(
+                    "duplicate member identity assertion dot".to_owned(),
+                ));
+            }
+            let payload: MemberIdentityUpdatePayload =
+                serde_json::from_value(assertion.value.clone())
+                    .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+            if &payload.realm_id != realm_id
+                || &payload.member_id != member_id
+                || payload.segment != segment
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "member identity assertion differs from its exact selector".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Per-(event_id, segment) entry used by
@@ -420,7 +469,7 @@ mod tests {
 
         let payload_a = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
@@ -428,7 +477,7 @@ mod tests {
         };
         let payload_b = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![MemberIdentityReplacementRef {
                 event_id: event_a.clone(),
@@ -460,7 +509,7 @@ mod tests {
 
         let payload_a = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
@@ -468,7 +517,7 @@ mod tests {
         };
         let payload_b = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![MemberIdentityReplacementRef {
                 event_id: event_a.clone(),
@@ -511,6 +560,68 @@ mod tests {
         assert_eq!(
             member_identity_effective_set_digest(&[]).unwrap(),
             "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        );
+    }
+    #[test]
+    fn current_assertions_preserve_signed_empty_members_and_bad_inner_proof() {
+        let realm = fake_realm();
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:identity.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let raw = serde_json::json!({"realm_id":realm,"member_id":actor,"segment":"member_identity",
+            "replaces":[],"identity_payload":{"member_identity":sample_identity("Unverified")}});
+        let value = serde_json::json!({"assertions":[{"tag_id":format!("{}:0",fake_event_ref("raw-current")),"value":raw}]});
+        let parsed: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(value.clone()).unwrap();
+        parsed
+            .validate_for_tuple(&realm, &actor, MemberIdentitySegment::MemberIdentity)
+            .unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+    }
+
+    #[test]
+    fn current_assertion_selector_keeps_station_and_rejects_duplicate_dots_and_aliases() {
+        let realm = fake_realm();
+        let principal = DidCoreId::new("ak:did_core:web:identity.example").unwrap();
+        let first = ActorId::account(arkret_wire::AccountId::new(
+            principal.clone(),
+            DidCoreId::new("ak:did_core:web:first.example").unwrap(),
+        ));
+        let second = ActorId::account(arkret_wire::AccountId::new(
+            principal,
+            DidCoreId::new("ak:did_core:web:second.example").unwrap(),
+        ));
+        let raw = serde_json::json!({"realm_id":realm,"member_id":first,"segment":"member_identity","identity_payload":{"member_identity":sample_identity("Unverified")}});
+        let assertion = serde_json::json!({"tag_id":format!("{}:0",fake_event_ref("selector-current")),"value":raw});
+        let parsed: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[assertion.clone()]})).unwrap();
+        parsed
+            .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+            .unwrap();
+        assert!(
+            parsed
+                .validate_for_tuple(&realm, &second, MemberIdentitySegment::MemberIdentity)
+                .is_err()
+        );
+        let duplicate: MemberIdentityUpdatesCurrentValue = serde_json::from_value(
+            serde_json::json!({"assertions":[assertion.clone(),assertion.clone()]}),
+        )
+        .unwrap();
+        assert!(
+            duplicate
+                .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+                .is_err()
+        );
+        let mut alias = assertion;
+        alias["value"]["actor_id"] = alias["value"]["member_id"].take();
+        alias["value"].as_object_mut().unwrap().remove("member_id");
+        let invalid: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[alias]})).unwrap();
+        assert!(
+            invalid
+                .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+                .is_err()
         );
     }
 }
