@@ -29,7 +29,7 @@ pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
 ///
 /// This is a blob/attachment algorithm id, NOT an `aead_profile`. §10.1 routes
 /// `aead_profile` by how the key was obtained, and the MLS-exporter-derived
-/// domains (`mls_exporter_aead_v1` content, ephemeral signal AEAD) take the
+/// domains (encrypted blobs and ephemeral Signal AEAD) take the
 /// `canonical_id` of the group's negotiated `mls-ciphersuite-registry.json`
 /// row — a value that MUST NOT be an HPKE suite name or a local alias such as
 /// this one.

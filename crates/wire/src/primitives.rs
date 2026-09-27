@@ -1046,26 +1046,17 @@ pub enum RelationDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-// Deliberate exception to the crate-wide `snake_case` enum convention: the
-// `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
-// `mls_rfc9420`. The exception is made explicit per-variant rather than via
-// `rename_all = "kebab-case"` so a future `snake_case` variant added by habit
-// doesn't silently produce a wire-incompatible token.
+/// The only registered Event content encryption scheme in v1.
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedPayloadScheme {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
-    // §2.10 exporter content scheme: content is encrypted under the local
-    // per-epoch `epoch_content_root` derived from the MLS exporter.
-    #[serde(rename = "mls_exporter_aead_v1")]
-    MlsExporterAeadV1,
 }
 
 impl EncryptedPayloadScheme {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::MlsRfc9420 => "mls_rfc9420",
-            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
         }
     }
 }

@@ -1519,7 +1519,6 @@ impl ArkretMlsGroup {
             epoch,
             content_type: header.content_type.clone(),
             ciphertext,
-            counter: None,
             pre_encryption_header: header,
             payload_digest,
         })

@@ -32,7 +32,6 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
         || header.content_type != envelope.content_type
         || header.epoch != epoch
         || &header.group_state_ref != envelope.encryption_context.group_state_ref()
-        || header.counter != envelope.encryption_context.counter()
     {
         return Err(Error::Protocol(
             "reconstructed pre-encryption header does not match the minimal envelope".to_owned(),
@@ -46,7 +45,6 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
         ciphertext: envelope.ciphertext.clone(),
         pre_encryption_header: header,
         payload_digest: envelope.payload_digest()?,
-        counter: envelope.encryption_context.counter(),
     })
 }
 

@@ -21,58 +21,39 @@ fn encrypted_envelope_wire() -> serde_json::Value {
 }
 
 #[test]
-fn encrypted_envelope_wire_preserves_scheme_branch_and_canonical_range_counter() {
-    for counter in [None, Some(0), Some(1), Some(MAX_EVENT_CONTENT_INTEGER)] {
-        let mut wire = encrypted_envelope_wire();
-        if let Some(counter) = counter {
-            wire["encryption_context"]["counter"] = counter.into();
-        }
-        let decoded: EncryptedEnvelope = serde_json::from_value(wire.clone()).unwrap();
-        assert_eq!(decoded.encryption_context.counter(), counter);
-        assert_eq!(serde_json::to_value(&decoded).unwrap(), wire);
-        let scope = ScopeRef::Realm {
-            realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
-                .unwrap(),
-        };
-        let scheme = if counter.is_some() {
-            EncryptedPayloadScheme::MlsExporterAeadV1
-        } else {
-            EncryptedPayloadScheme::MlsRfc9420
-        };
-        let header = decoded
-            .reconstruct_pre_encryption_header(
-                scheme,
-                scope,
-                "ak.strand.update",
-                "sender.example",
-                None,
-            )
-            .unwrap();
-        assert_eq!(header.counter, counter);
-    }
+fn encrypted_envelope_wire_preserves_standard_mls_context() {
+    let wire = encrypted_envelope_wire();
+    let decoded: EncryptedEnvelope = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&decoded).unwrap(), wire);
+    let scope = ScopeRef::Realm {
+        realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
+    };
+    decoded
+        .reconstruct_pre_encryption_header(
+            EncryptedPayloadScheme::MlsRfc9420,
+            scope,
+            "ak.strand.update",
+            "sender.example",
+            None,
+        )
+        .unwrap()
+        .validate()
+        .unwrap();
 }
 
 #[test]
-fn encrypted_envelope_invalid_counter_cannot_fall_back_to_standard_mls() {
-    for invalid in [
+fn encrypted_envelope_exporter_counter_is_never_a_valid_context() {
+    for counter in [
         serde_json::Value::Null,
+        serde_json::json!(0),
+        serde_json::json!(MAX_EVENT_CONTENT_INTEGER),
         serde_json::json!("0"),
         serde_json::json!(-1),
         serde_json::json!(0.5),
-        // encoding.md section 1 bounds canonical JSON integers; a counter
-        // past that bound is not a wider counter, it is an invalid envelope.
         serde_json::json!(MAX_EVENT_CONTENT_INTEGER + 1),
     ] {
         let mut wire = encrypted_envelope_wire();
-        wire["encryption_context"]["counter"] = invalid;
-        assert!(serde_json::from_value::<EncryptedEnvelope>(wire).is_err());
-    }
-    for counter in [None, Some(0)] {
-        let mut wire = encrypted_envelope_wire();
-        if let Some(counter) = counter {
-            wire["encryption_context"]["counter"] = counter.into();
-        }
-        wire["encryption_context"]["unknown"] = true.into();
+        wire["encryption_context"]["counter"] = counter;
         assert!(serde_json::from_value::<EncryptedEnvelope>(wire).is_err());
     }
 }
