@@ -10,6 +10,8 @@ use arkret_models_integration::{
     AppletTransactionRequestBody, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
     GhostPreviewOutcome, GhostPreviewRequestBody,
 };
+use arkret_signatures::http_signature::HttpSignatureScenario;
+use arkret_wire::DidCoreId;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 use url::Url;
@@ -122,6 +124,39 @@ impl Client {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/edge/applet/transactions", request, &options)
             .await
+    }
+
+    /// Send the registered transaction with the exact two service identities
+    /// and the generated service-to-service RFC 9421 signature scenario.
+    pub async fn applet_transaction_from_service(
+        &self,
+        idempotency_key: &str,
+        request: &AppletTransactionRequestBody,
+        source_id: &DidCoreId,
+        destination_id: &DidCoreId,
+    ) -> Result<AppletTransactionOutcome> {
+        request.validate()?;
+        if request.source_id() != source_id {
+            return Err(crate::Error::Protocol(
+                "Applet body source differs from its authenticated service".to_owned(),
+            ));
+        }
+        let body = arkret_canonical::canonical::canonical_json_bytes(request)?;
+        let builder = self
+            .service_request(Method::POST, "/_arkret/edge/applet/transactions")?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source_id.as_str())
+            .header(
+                crate::HEADER_DESTINATION_SERVICE_ID,
+                destination_id.as_str(),
+            )
+            .header(crate::HEADER_IDEMPOTENCY_KEY, idempotency_key)
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
+        self.send_json_protocol_replay_safe_for_scenario(
+            builder,
+            HttpSignatureScenario::ServiceToServiceV1,
+        )
+        .await
     }
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
