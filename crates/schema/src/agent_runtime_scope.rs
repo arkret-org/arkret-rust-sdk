@@ -278,7 +278,6 @@ mod tests {
         for activation in [
             "ak.self.keys.keypackages.upload.create.v1",
             "ak.self.keys.keypackages.command.consume.v1",
-            "ak.self.keys.keypackages.command.revoke.v1",
         ] {
             let selected = selected_agent_runtime_capabilities([activation]).unwrap();
             assert!(selected.contains(&AgentRuntimeCapability::E2ee));
@@ -286,6 +285,7 @@ mod tests {
         let selected = selected_agent_runtime_capabilities([
             "ak.self.authz.read.check.v1",
             "ak.self.device_messages.read.list.v1",
+            "ak.self.keys.keypackages.command.revoke.v1",
         ])
         .unwrap();
         assert!(selected.is_empty());
@@ -331,10 +331,7 @@ mod tests {
             ["ak.self.events.command.submit.v1"]
         );
 
-        for activation in [
-            "ak.self.keys.keypackages.command.consume.v1",
-            "ak.self.keys.keypackages.command.revoke.v1",
-        ] {
+        for activation in ["ak.self.keys.keypackages.command.consume.v1"] {
             let deficiency = assess_agent_runtime_scopes([activation], [activation], [activation])
                 .unwrap()
                 .unwrap();
