@@ -728,6 +728,21 @@ impl DirectConversationFoundingAcceptanceOutcome {
         for commit in &self.commits {
             commit.validate_shape()?;
         }
+        let first = &self.commits[0];
+        if first.stream_position != 0
+            || first.previous_commit_ref.is_some()
+            || self.commits.iter().any(|commit| {
+                commit.realm_id != first.realm_id
+                    || commit.stream_ref
+                        != CommitStreamRef::Realm {
+                            realm_id: first.realm_id.clone(),
+                        }
+            })
+        {
+            return Err(WireError::Protocol(
+                "Direct Conversation founding must begin at zero in one Realm stream".to_owned(),
+            ));
+        }
         if !self.commits.windows(2).all(|pair| {
             pair[1].stream_position == pair[0].stream_position.saturating_add(1)
                 && pair[1].previous_commit_ref == Some(pair[0].commit_id.clone())
@@ -793,6 +808,19 @@ impl SelfAuthoritySubmitOutcome {
             )
         );
         if branch_matches {
+            if let (
+                SelfAuthoritySubmitRequest::DirectConversationFounding(request),
+                Self::DirectConversationFounding(outcome),
+            ) = (request, self)
+            {
+                for (submission, commit) in request.events.iter().zip(&outcome.commits) {
+                    arkret_wire::CommittedEventFullView {
+                        event: submission.event.clone(),
+                        commit: commit.clone(),
+                    }
+                    .validate_shape()?;
+                }
+            }
             if let (
                 SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(request),
                 Self::OrdinaryRealmBootstrap(outcome),
