@@ -88,22 +88,13 @@ impl StrandPatchPayload {
             .map_err(|err| WireError::Protocol(format!("strand patch payload serialize: {err}")))
     }
 }
-/// Optional CAS guard carried on `ak.strand.move`
-/// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
-///
-/// Compiles to an `expected_revision` precondition against the current
-/// position typed current result.
-/// All three fields are optional in the spec sub-schema; `additionalProperties
-/// :false`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandMoveExpectedPosition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
+fn deserialize_position_preimage<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandPositionCurrent>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    StrandPositionCurrent::deserialize(deserializer).map(Some)
 }
 
 /// Strong type for `ak.strand.move` payloads
@@ -124,8 +115,12 @@ pub struct StrandMovePayload {
     pub from_space_id: Option<SpaceId>,
     pub target_space_id: SpaceId,
     pub rank: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<StrandMoveExpectedPosition>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_position_preimage"
+    )]
+    pub expected_position: Option<StrandPositionCurrent>,
 }
 
 impl StrandMovePayload {
@@ -150,7 +145,7 @@ impl StrandMovePayload {
         self
     }
 
-    pub fn with_expected_position(mut self, expected: StrandMoveExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandPositionCurrent) -> Self {
         self.expected_position = Some(expected);
         self
     }
@@ -159,21 +154,6 @@ impl StrandMovePayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("strand move payload serialize: {err}")))
     }
-}
-
-/// Optional CAS guard carried on `ak.strand.reorder`
-/// (`event-payload.schema.json#/$defs/strand_reorder_payload` `expected_position`).
-///
-/// The reorder happens within a single List Space, so unlike
-/// [`StrandMoveExpectedPosition`] there is no `space_id` field here.
-/// `additionalProperties:false`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandReorderExpectedPosition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
 }
 
 /// Strong type for `ak.strand.reorder` payloads
@@ -189,8 +169,12 @@ pub struct StrandReorderPayload {
     pub strand_id: StrandId,
     pub space_id: SpaceId,
     pub rank: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<StrandReorderExpectedPosition>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_position_preimage"
+    )]
+    pub expected_position: Option<StrandPositionCurrent>,
 }
 
 impl StrandReorderPayload {
@@ -209,7 +193,7 @@ impl StrandReorderPayload {
         }
     }
 
-    pub fn with_expected_position(mut self, expected: StrandReorderExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandPositionCurrent) -> Self {
         self.expected_position = Some(expected);
         self
     }
@@ -304,5 +288,54 @@ impl StrandWatchSetPayload {
         serde_json::to_value(self).map_err(|err| {
             WireError::Protocol(format!("strand watch set payload serialize: {err}"))
         })
+    }
+}
+
+#[cfg(test)]
+mod position_preimage_tests {
+    use serde_json::json;
+
+    use super::{StrandMovePayload, StrandReorderPayload};
+
+    #[test]
+    fn move_and_reorder_require_complete_current_value_when_cas_is_present() {
+        let board = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let strand = "ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let mut move_wire =
+            json!({"board_space_id":board,"strand_id":strand,"target_space_id":board,"rank":"b0"});
+        let mut reorder_wire =
+            json!({"board_space_id":board,"strand_id":strand,"space_id":board,"rank":"b0"});
+        assert!(
+            serde_json::from_value::<StrandMovePayload>(move_wire.clone())
+                .unwrap()
+                .expected_position
+                .is_none()
+        );
+        assert!(
+            serde_json::from_value::<StrandReorderPayload>(reorder_wire.clone())
+                .unwrap()
+                .expected_position
+                .is_none()
+        );
+        for preimage in [
+            json!({"list_space_id":board,"rank":"a0"}),
+            json!({"rank":"a0"}),
+            json!(null),
+            json!({"space_id":board,"rank":"a0"}),
+            json!({"list_space_id":board,"rank":"a0","relation_id":"ak:relation:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+        ] {
+            let valid =
+                preimage.get("list_space_id").is_some() && preimage.as_object().unwrap().len() == 2;
+            move_wire["expected_position"] = preimage.clone();
+            reorder_wire["expected_position"] = preimage;
+            assert_eq!(
+                serde_json::from_value::<StrandMovePayload>(move_wire.clone()).is_ok(),
+                valid
+            );
+            assert_eq!(
+                serde_json::from_value::<StrandReorderPayload>(reorder_wire.clone()).is_ok(),
+                valid
+            );
+        }
     }
 }
