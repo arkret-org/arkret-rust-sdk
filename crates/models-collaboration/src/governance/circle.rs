@@ -38,9 +38,8 @@ use crate::objects::space::ChildScopePolicy;
 pub enum CircleDirectoryVisibility {
     /// Only Circle member_ids see this Circle in any directory listing.
     Members,
-    /// Any active parent-Realm member sees the directory entry (title,
-    /// short_name, member_count) but does NOT gain history or event
-    /// access.
+    /// Active parent-Realm members see only the closed directory preview,
+    /// without a title, short name, exact member count or private events.
     RealmMembers,
 }
 
@@ -231,6 +230,96 @@ pub struct CircleView {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CirclePreviewDisplay {
+    pub color_token: CircleColorToken,
+    pub symbol: CircleSymbol,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum CircleMemberCountBucket {
+    #[serde(rename = "0")]
+    Zero,
+    #[serde(rename = "1")]
+    One,
+    #[serde(rename = "2-3")]
+    TwoToThree,
+    #[serde(rename = "4-7")]
+    FourToSeven,
+    #[serde(rename = "8-15")]
+    EightToFifteen,
+    #[serde(rename = "16-31")]
+    SixteenToThirtyOne,
+    #[serde(rename = "32-63")]
+    ThirtyTwoToSixtyThree,
+    #[serde(rename = "64-127")]
+    SixtyFourToOneHundredTwentySeven,
+    #[serde(rename = "128+")]
+    OneHundredTwentyEightPlus,
+}
+
+impl CircleMemberCountBucket {
+    pub fn from_count(count: usize) -> Self {
+        match count {
+            0 => Self::Zero,
+            1 => Self::One,
+            2..=3 => Self::TwoToThree,
+            4..=7 => Self::FourToSeven,
+            8..=15 => Self::EightToFifteen,
+            16..=31 => Self::SixteenToThirtyOne,
+            32..=63 => Self::ThirtyTwoToSixtyThree,
+            64..=127 => Self::SixtyFourToOneHundredTwentySeven,
+            _ => Self::OneHundredTwentyEightPlus,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CirclePreview {
+    pub circle_id: CircleId,
+    pub realm_id: RealmId,
+    pub visibility: CirclePreviewVisibility,
+    pub display: CirclePreviewDisplay,
+    pub member_count_bucket: CircleMemberCountBucket,
+    pub join_rule: CircleJoinRule,
+    #[serde(deserialize_with = "deserialize_preview_commitment")]
+    pub opaque_commitment: String,
+}
+
+fn deserialize_preview_commitment<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom(
+            "opaque_commitment must be 64 lowercase SHA-256 hex characters",
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum CirclePreviewVisibility {
+    #[serde(rename = "realm_members")]
+    RealmMembers,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum CircleReadView {
+    Full(CircleView),
+    Preview(CirclePreview),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleCreateRequestBody {
     /// Initial publication of the caller-signed `ak.circle.create` Event.
     ///
@@ -249,8 +338,7 @@ pub struct CircleCreateRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleList {
     pub realm_id: RealmId,
-    #[serde(default)]
-    pub circle_views: Vec<CircleView>,
+    pub circles: Vec<CircleReadView>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
