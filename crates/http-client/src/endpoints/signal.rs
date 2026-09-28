@@ -95,7 +95,10 @@ impl Client {
         let started = Instant::now();
         let response = self.send_response(request).await?;
         let status = response.status().as_u16();
+        #[cfg(not(target_arch = "wasm32"))]
         let http_version = format!("{:?}", response.version());
+        #[cfg(target_arch = "wasm32")]
+        let http_version = String::new();
         let content_type = response
             .headers()
             .get(CONTENT_TYPE)
