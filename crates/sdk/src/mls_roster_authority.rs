@@ -228,7 +228,8 @@ pub fn verify_mls_roster_authority_pages(
 mod tests {
     use arkret_models_crypto::KeyOperationSignature;
     use arkret_wire::{
-        ActorId, Base64UrlString, EventId, Hash, MlsGroupId, NonEmptyString, RealmId, ScopeRef,
+        ActorId, Base64UrlString, BlobRef, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
+        ScopeRef,
     };
 
     use super::*;
@@ -262,6 +263,8 @@ mod tests {
             effective_scope: request.effective_scope.clone(),
             mls_group_id: request.mls_group_id.clone(),
             genesis_event_ref: event(),
+            group_info_ref: BlobRef::new(format!("ak:blob:sha256:{}", "1".repeat(64))).unwrap(),
+            ratchet_tree_ref: BlobRef::new(format!("ak:blob:sha256:{}", "2".repeat(64))).unwrap(),
             target_commit_event_ref: event(),
             target_epoch: 0,
             authority_head_commit_event_ref: event(),
@@ -309,6 +312,29 @@ mod tests {
             &manifest.signature,
         )
         .unwrap();
+        let signed_manifest = manifest.clone();
+        for mutate in [
+            |manifest: &mut MlsRosterAuthorityManifest| {
+                manifest.group_info_ref =
+                    BlobRef::new(format!("ak:blob:sha256:{}", "3".repeat(64))).unwrap();
+            },
+            |manifest: &mut MlsRosterAuthorityManifest| {
+                manifest.ratchet_tree_ref =
+                    BlobRef::new(format!("ak:blob:sha256:{}", "4".repeat(64))).unwrap();
+            },
+        ] {
+            let mut tampered = signed_manifest.clone();
+            mutate(&mut tampered);
+            assert!(
+                arkret_signatures::keypackages::verify_keypackage_signing_input(
+                    &public_key,
+                    kid,
+                    &tampered.signing_bytes().unwrap(),
+                    &tampered.signature,
+                )
+                .is_err()
+            );
+        }
         manifest.total_records = 9;
         assert!(
             arkret_signatures::keypackages::verify_keypackage_signing_input(

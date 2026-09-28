@@ -6,7 +6,7 @@ use arkret_models_crypto::{
     KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimOutcome,
 };
 use arkret_wire::{
-    ActorId, Base64UrlString, DidCoreId, EventId, Hash, KeypackageClaimId, MlsGroupId,
+    ActorId, Base64UrlString, BlobRef, DidCoreId, EventId, Hash, KeypackageClaimId, MlsGroupId,
     MlsWelcomeDeliveryId, MlsWelcomeRecipientEndpoint, RealmId, ScopeRef,
 };
 use chrono::{DateTime, Utc};
@@ -275,6 +275,8 @@ pub struct MlsRosterAuthorityManifest {
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub genesis_event_ref: EventId,
+    pub group_info_ref: BlobRef,
+    pub ratchet_tree_ref: BlobRef,
     pub target_commit_event_ref: EventId,
     pub target_epoch: u64,
     pub authority_head_commit_event_ref: EventId,
@@ -294,6 +296,8 @@ impl MlsRosterAuthorityManifest {
 
     pub fn validate_for_request(&self, request: &MlsRosterAuthorityReadRequestBody) -> Result<()> {
         request.validate()?;
+        crate::mls_group_state_material::material_digest_from_ref(&self.group_info_ref)?;
+        crate::mls_group_state_material::material_digest_from_ref(&self.ratchet_tree_ref)?;
         if self.realm_id != request.realm_id
             || self.effective_scope != request.effective_scope
             || self.mls_group_id != request.mls_group_id

@@ -4,7 +4,7 @@
 //! Input version: 2026-09-29.1;
 //! sha256=2d514574e216cbb55d98c57e99766010642c8aa5a55965d0085a66add485274f; requirements=78.
 //! Event kinds input version: 2026-09-28.3;
-//! sha256=2a63871bfd54b91d7107bab7a92b096d60e5ee0b8c63bdf32bca92f9667f751c; registered=133.
+//! sha256=b20b3a2cfcfd2d5b99609756f4f0c34fff8c56df63de4846936127bd2a5790d2; registered=133.
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
