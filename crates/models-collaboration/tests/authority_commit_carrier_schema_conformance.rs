@@ -212,7 +212,7 @@ fn committed_replication_keeps_event_and_commit_but_omits_private_approval() {
     let source = approved_event_submission();
     let submission: EventAdmissionSubmission = serde_json::from_value(source.clone()).unwrap();
     let commit = serde_json::from_value(source_commit_for(&source)).unwrap();
-    let replica = CommittedEventSubmission::from_source_submission(&submission, commit, None);
+    let replica = CommittedEventSubmission::from_source_submission(&submission, commit, None, None);
     assert_eq!(
         serde_json::to_value(&replica.event_submission).unwrap(),
         json!({"event": source["event"]})
@@ -249,6 +249,51 @@ fn committed_replication_keeps_event_and_commit_but_omits_private_approval() {
     }))
     .unwrap();
     assert!(peer.validate().is_err());
+}
+
+#[test]
+fn replicated_mls_commit_requires_only_its_immutable_genesis_ref() {
+    let fixture_path = artifacts_dir()
+        .join("fixtures")
+        .join("mls-cross-station-welcome-replication-fixture.json");
+    let fixture: Value = serde_json::from_str(&fs::read_to_string(fixture_path).unwrap()).unwrap();
+    let item = fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "mls_commit_item_with_welcomes_valid")
+        .unwrap()["instance"]
+        .clone();
+    let parsed: CommittedEventSubmission = serde_json::from_value(item.clone()).unwrap();
+    parsed.validate().unwrap();
+    validate_fragment(PEER_SCHEMA, "#/$defs/committed_event_submission", &item);
+
+    let mut missing = item;
+    missing.as_object_mut().unwrap().remove("genesis_event_ref");
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/committed_event_submission",
+        &missing,
+    ));
+    let parsed: CommittedEventSubmission = serde_json::from_value(missing).unwrap();
+    assert_eq!(
+        parsed.validate().unwrap_err().error_code(),
+        Some(ErrorCode::SchemaViolation)
+    );
+
+    let mut non_commit = replication_item();
+    non_commit["genesis_event_ref"] =
+        json!("ak:event:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB");
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/committed_event_submission",
+        &non_commit,
+    ));
+    let parsed: CommittedEventSubmission = serde_json::from_value(non_commit).unwrap();
+    assert_eq!(
+        parsed.validate().unwrap_err().error_code(),
+        Some(ErrorCode::SchemaViolation)
+    );
 }
 
 fn replication_request(count: usize) -> Value {

@@ -61,6 +61,11 @@ pub struct OperationSignature {
 pub struct CommittedEventSubmission {
     pub event_submission: EventAdmissionSubmission,
     pub source_commit: RealmCommit,
+    /// Exact accepted Genesis of an MLS Commit's effective scope and group,
+    /// frozen by governance and carried in the authenticated peer body.
+    /// Required for MLS Commit replication and forbidden for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub genesis_event_ref: Option<EventId>,
     /// Welcomes of an `ak.mls.commit` whose recipients the destination
     /// Station hosts, in submission order; absent for every other kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,11 +80,13 @@ impl CommittedEventSubmission {
     pub fn from_source_submission(
         source: &EventAdmissionSubmission,
         source_commit: RealmCommit,
+        genesis_event_ref: Option<EventId>,
         welcomes: Option<Vec<MlsWelcomeDelivery>>,
     ) -> Self {
         Self {
             event_submission: EventAdmissionSubmission::new(source.event.clone()),
             source_commit,
+            genesis_event_ref,
             welcomes,
         }
     }
@@ -94,6 +101,14 @@ impl CommittedEventSubmission {
         }
         self.source_commit.validate_shape()?;
         let event = &self.event_submission.event;
+        if (event.kind == EventKind::MlsCommit) != self.genesis_event_ref.is_some() {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message:
+                    "committed replication genesis_event_ref is required only for ak.mls.commit"
+                        .to_owned(),
+            });
+        }
         if let Some(welcomes) = &self.welcomes {
             if event.kind != EventKind::MlsCommit {
                 return Err(WireError::ProtocolCode {
