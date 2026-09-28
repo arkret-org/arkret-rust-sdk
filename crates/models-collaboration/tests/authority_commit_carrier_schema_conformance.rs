@@ -4,9 +4,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::authority_commit::{
-    DirectConversationFoundingDependencyMissingProblem, PeerAuthorityForwardEventRequest,
-    PeerAuthorityForwardMlsRequest, PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest,
-    SelfAuthoritySubmitRequest,
+    CommittedEventSubmission, DirectConversationFoundingDependencyMissingProblem,
+    PeerAuthorityForwardEventRequest, PeerAuthorityForwardMlsRequest, PeerAuthoritySubmitOutcome,
+    PeerAuthoritySubmitRequest, SelfAuthoritySubmitRequest,
 };
 use arkret_models_crypto::{
     DeviceAuthorizationWindow, DeviceProjectionAttestation, DeviceProjectionAttestationCore,
@@ -94,8 +94,8 @@ fn approved_event_submission() -> Value {
 fn event_submission_sidecar_and_both_endpoint_unions_reuse_one_shape() {
     let submission = approved_event_submission();
     assert_schema_and_serde::<EventAdmissionSubmission>(
-        "authority-commit-operations.schema.json",
-        "#/$defs/committed_event_submission/properties/event_submission",
+        "service-operation-dtos.schema.json",
+        "#/$defs/EventAdmissionSubmission",
         submission.clone(),
     );
     assert_schema_and_serde::<SelfAuthoritySubmitRequest>(
@@ -198,9 +198,57 @@ fn source_commit_for(submission: &Value) -> Value {
 }
 
 fn replication_item() -> Value {
-    let submission = approved_event_submission();
+    let mut submission = approved_event_submission();
+    submission
+        .as_object_mut()
+        .unwrap()
+        .remove("approval_signatures");
     let source_commit = source_commit_for(&submission);
     json!({"event_submission": submission, "source_commit": source_commit})
+}
+
+#[test]
+fn committed_replication_keeps_event_and_commit_but_omits_private_approval() {
+    let source = approved_event_submission();
+    let submission: EventAdmissionSubmission = serde_json::from_value(source.clone()).unwrap();
+    let commit = serde_json::from_value(source_commit_for(&source)).unwrap();
+    let replica = CommittedEventSubmission::from_source_submission(&submission, commit, None);
+    assert_eq!(
+        serde_json::to_value(&replica.event_submission).unwrap(),
+        json!({"event": source["event"]})
+    );
+    assert_eq!(
+        serde_json::to_value(&replica.source_commit).unwrap(),
+        source_commit_for(&source)
+    );
+    replica.validate().unwrap();
+    validate_fragment(
+        PEER_SCHEMA,
+        "#/$defs/committed_event_submission",
+        &serde_json::to_value(&replica).unwrap(),
+    );
+
+    let mut leaked = serde_json::to_value(&replica).unwrap();
+    leaked["event_submission"]["approval_signatures"] = source["approval_signatures"].clone();
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/committed_event_submission",
+        &leaked,
+    ));
+    let parsed: CommittedEventSubmission = serde_json::from_value(leaked.clone()).unwrap();
+    assert!(matches!(
+        parsed.validate(),
+        Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            ..
+        })
+    ));
+    let peer: PeerAuthoritySubmitRequest = serde_json::from_value(json!({
+        "branch": "committed_replication",
+        "replications": [leaked]
+    }))
+    .unwrap();
+    assert!(peer.validate().is_err());
 }
 
 fn replication_request(count: usize) -> Value {

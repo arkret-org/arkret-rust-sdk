@@ -68,8 +68,30 @@ pub struct CommittedEventSubmission {
 }
 
 impl CommittedEventSubmission {
+    /// Build a member-Station replica from an accepted source submission.
+    /// Approval evidence stays in the governance Station's private audit;
+    /// the exact canonical Event and source Commit are the replica proof.
+    #[must_use]
+    pub fn from_source_submission(
+        source: &EventAdmissionSubmission,
+        source_commit: RealmCommit,
+        welcomes: Option<Vec<MlsWelcomeDelivery>>,
+    ) -> Self {
+        Self {
+            event_submission: EventAdmissionSubmission::new(source.event.clone()),
+            source_commit,
+            welcomes,
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
+        if self.event_submission.approval_signatures.is_some() {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: "committed replication must omit private approval_signatures".to_owned(),
+            });
+        }
         self.source_commit.validate_shape()?;
         let event = &self.event_submission.event;
         if let Some(welcomes) = &self.welcomes {
