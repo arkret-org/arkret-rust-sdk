@@ -1,11 +1,12 @@
 //! Encrypted-only Signal send and live-subscribe endpoint methods.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use arkret_models_collaboration::signal_operations::SignalSubmitOutcome;
 use arkret_wire::{SignalEnvelope, SignalStreamFrame};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, Response};
+use web_time::Instant;
 
 use crate::client_internals::{MAX_RESPONSE_BODY_BYTES, read_body_limited};
 use crate::{Client, Error, Result};
