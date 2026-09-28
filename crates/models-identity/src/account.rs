@@ -179,7 +179,7 @@ pub struct AccountRegistrationAudit {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::Event,
+    pub set_event: arkret_wire::EventAdmissionSubmission,
 }
 
 /// Body of `ak.self.account_data.resource.delete.v1`.
@@ -194,7 +194,7 @@ pub struct AccountDataReplaceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::Event,
+    pub set_event: arkret_wire::EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
