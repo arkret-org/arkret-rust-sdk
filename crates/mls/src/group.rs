@@ -2188,6 +2188,7 @@ mod tests {
             epoch,
             added_leaves,
             sender_leaf,
+            consumed_proposals,
             ..
         } = transition
         else {
@@ -2204,10 +2205,95 @@ mod tests {
             "ak:did_core:web:mls.example"
         );
         assert_eq!(added_leaves.len(), 1);
+        assert_eq!(consumed_proposals.len(), 2);
+        assert_eq!(consumed_proposals[0].ordinal, 0);
+        assert_eq!(consumed_proposals[0].proposal_type, 1);
+        assert_eq!(consumed_proposals[1].ordinal, 1);
+        assert_eq!(consumed_proposals[1].proposal_type, 7);
+        assert!(consumed_proposals.iter().all(|proposal| !proposal.proposal_wire.is_empty()));
+        assert_eq!(
+            consumed_proposals[0].target_after.as_ref(),
+            added_leaves.first()
+        );
         assert_eq!(
             added_leaves[0].actor_id.signing_principal_id().as_str(),
             "ak:did_core:web:mls-member.example"
         );
+    }
+
+    #[test]
+    fn public_tracker_freezes_add_context_remove_from_one_signed_commit_in_wire_order() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let member = second_identity();
+        let first_binding = transition_binding(&scope, event(9), 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &first_binding)
+            .unwrap();
+        tracker
+            .process_public_handshake(&decode(&first.commit.commit).unwrap())
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                member.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let replacement = group
+            .replace_member_endpoint(
+                &claimed_keypackage(&member),
+                &member.actor_id,
+                Some(&binding_for_epochs(&scope, event(10), 1, 2, 2)),
+            )
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&replacement.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            consumed_proposals,
+            added_leaves,
+            ..
+        } = transition
+        else {
+            panic!("replacement is one signed public Commit")
+        };
+        assert_eq!(consumed_proposals.len(), 3);
+        assert_eq!(consumed_proposals[0].ordinal, 0);
+        assert_eq!(consumed_proposals[0].proposal_type, 1);
+        assert_eq!(consumed_proposals[1].ordinal, 1);
+        assert_eq!(consumed_proposals[1].proposal_type, 7);
+        assert_eq!(consumed_proposals[2].ordinal, 2);
+        assert_eq!(consumed_proposals[2].proposal_type, 3);
+        assert!(consumed_proposals.iter().all(|proposal| {
+            proposal.sender_leaf.actor_id == group.identity.actor_id
+                && !proposal.proposal_wire.is_empty()
+        }));
+        let removed = consumed_proposals[2].target_before.as_ref().unwrap();
+        let added = consumed_proposals[0].target_after.as_ref().unwrap();
+        assert_eq!(removed.actor_id, member.actor_id);
+        assert_eq!(added.actor_id, member.actor_id);
+        assert_eq!(added_leaves, vec![added.clone()]);
+        assert!(consumed_proposals[2].target_after.is_none());
+        assert!(consumed_proposals[0].target_before.is_none());
     }
 
     #[test]

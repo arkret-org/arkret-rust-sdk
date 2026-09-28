@@ -233,9 +233,38 @@ pub enum MlsRosterRecord {
     },
     Add {
         commit_event_ref: EventId,
+        consumed_proposal_ordinal: u64,
+        sender_actor_id: ActorId,
         proposal_wire_b64u: Base64UrlString,
         attestation: MlsAddAuthorityAttestation,
     },
+}
+
+impl MlsRosterRecord {
+    pub fn validate_shape(&self) -> Result<()> {
+        if let Self::Add {
+            proposal_wire_b64u,
+            attestation,
+            ..
+        } = self
+        {
+            let proposal =
+                arkret_canonical::base64url::base64url_decode(proposal_wire_b64u.as_str())
+                    .map_err(|_| {
+                        WireError::Protocol("MLS roster Proposal is not base64url".to_owned())
+                    })?;
+            if proposal.is_empty()
+                || arkret_canonical::base64url::base64url_encode(&proposal)
+                    != proposal_wire_b64u.as_str()
+            {
+                return Err(WireError::Protocol(
+                    "MLS roster Proposal is not canonical TLS bytes".to_owned(),
+                ));
+            }
+            attestation.validate_shape()?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

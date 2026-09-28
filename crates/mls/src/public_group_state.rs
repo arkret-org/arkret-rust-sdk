@@ -23,6 +23,20 @@ pub struct MlsPublicEndpointLeaf {
     pub signature_key: Base64UrlString,
 }
 
+/// One Proposal actually consumed by a verified signed Commit. The ordinal
+/// counts every RFC 9420 Proposal kind in the Commit's original wire order.
+/// These fields are Station-private transition facts, not a roster wire DTO.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsVerifiedConsumedProposal {
+    pub ordinal: u64,
+    pub proposal_ref: Vec<u8>,
+    pub proposal_type: u16,
+    pub proposal_wire: Vec<u8>,
+    pub sender_leaf: MlsPublicEndpointLeaf,
+    pub target_before: Option<MlsPublicEndpointLeaf>,
+    pub target_after: Option<MlsPublicEndpointLeaf>,
+}
+
 /// Validate an MLSMessage carrying GroupInfo together with the exact external
 /// ratchet tree, then return occupied leaves with their real tree indices.
 ///
@@ -165,8 +179,11 @@ pub enum MlsPublicHandshakeTransition {
         sender_leaf: Option<MlsPublicEndpointLeaf>,
         previous_epoch: u64,
         epoch: u64,
-        /// Includes the actual resolved inline and referenced proposals.
+        /// Includes every inline Proposal actually consumed by the Commit.
         consumed_proposal_refs: Vec<Vec<u8>>,
+        /// Exact verified inline Proposal bodies, wire ordinals, senders and
+        /// pre/post leaf targets. A referenced Proposal is rejected in v1.
+        consumed_proposals: Vec<MlsVerifiedConsumedProposal>,
         referenced_proposal_refs: Vec<Vec<u8>>,
         removed_leaf_indices: Vec<u32>,
         /// A remove followed by an add at the same index occurs in both lists.
@@ -303,6 +320,11 @@ impl MlsPublicGroupTracker {
     }
     fn process_inner(&mut self, bytes: &[u8]) -> Result<MlsPublicHandshakeTransition> {
         let message = MlsMessageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+        if message.tls_serialize_detached().map_err(mls_error)? != bytes {
+            return Err(Error::Protocol(
+                "public MLSMessage does not round-trip to its exact signed wire".into(),
+            ));
+        }
         let MlsMessageBodyIn::PublicMessage(message) = message.extract() else {
             return Err(Error::Protocol(
                 "public MLS tracker requires PublicMessage Proposal/Commit".into(),
@@ -372,6 +394,65 @@ impl MlsPublicGroupTracker {
                 })
             }
             ProcessedMessageContent::StagedCommitMessage(staged) => {
+                // OpenMLS StagedCommit::queued_proposals preserves the original
+                // Commit.proposals[] order. The parsed MLSMessage above must
+                // round-trip to the exact signed input before we use that
+                // verified queue as the historical ordinal/body source.
+                let mut consumed_proposals = Vec::new();
+                for (ordinal, proposal) in staged.queued_proposals().enumerate() {
+                    if proposal.proposal_or_ref_type()
+                        == openmls::prelude::ProposalOrRefType::Reference
+                    {
+                        return Err(Error::UnsupportedFeature(
+                            "v1 Commit cannot consume a referenced Proposal".to_owned(),
+                        ));
+                    }
+                    let Sender::Member(sender_index) = proposal.sender() else {
+                        return Err(Error::UnsupportedFeature(
+                            "v1 Commit Proposal sender must be a member".to_owned(),
+                        ));
+                    };
+                    let sender_leaf = previous_leaves
+                        .get(&sender_index.u32())
+                        .ok_or_else(|| {
+                            Error::Protocol("consumed Proposal sender leaf is absent".into())
+                        })?
+                        .clone();
+                    let target_before = match proposal.proposal() {
+                        openmls::prelude::Proposal::Add(_)
+                        | openmls::prelude::Proposal::PreSharedKey(_)
+                        | openmls::prelude::Proposal::GroupContextExtensions(_) => None,
+                        openmls::prelude::Proposal::Remove(remove) => Some(
+                            previous_leaves
+                                .get(&remove.removed().u32())
+                                .ok_or_else(|| {
+                                    Error::Protocol("removed Proposal target leaf is absent".into())
+                                })?
+                                .clone(),
+                        ),
+                        openmls::prelude::Proposal::Update(_) => Some(sender_leaf.clone()),
+                        _ => {
+                            return Err(Error::UnsupportedFeature(
+                                "v1 Commit contains an unsupported Proposal kind".to_owned(),
+                            ));
+                        }
+                    };
+                    consumed_proposals.push(MlsVerifiedConsumedProposal {
+                        ordinal: u64::try_from(ordinal).map_err(mls_error)?,
+                        proposal_ref: proposal
+                            .proposal_reference_ref()
+                            .tls_serialize_detached()
+                            .map_err(mls_error)?,
+                        proposal_type: u16::from(proposal.proposal().proposal_type()),
+                        proposal_wire: proposal
+                            .proposal()
+                            .tls_serialize_detached()
+                            .map_err(mls_error)?,
+                        sender_leaf,
+                        target_before,
+                        target_after: None,
+                    });
+                }
                 let mut removed = staged
                     .remove_proposals()
                     .map(|p| p.remove_proposal().removed().u32())
@@ -494,6 +575,44 @@ impl MlsPublicGroupTracker {
                         "staged Add proposals do not match installed public leaves".into(),
                     ));
                 }
+                for proposal in &mut consumed_proposals {
+                    match proposal.proposal_type {
+                        1 => {
+                            let matches = added_leaf_proposal_refs
+                                .iter()
+                                .filter(|(_, reference)| reference == &proposal.proposal_ref)
+                                .collect::<Vec<_>>();
+                            if matches.len() != 1 {
+                                return Err(Error::Protocol(
+                                    "consumed Add has no unique installed leaf".into(),
+                                ));
+                            }
+                            proposal.target_after = Some(
+                                added_leaves
+                                    .iter()
+                                    .find(|leaf| leaf.leaf_index == matches[0].0)
+                                    .ok_or_else(|| {
+                                        Error::Protocol("installed Add leaf disappeared".into())
+                                    })?
+                                    .clone(),
+                            );
+                        }
+                        2 => {
+                            let before = proposal.target_before.as_ref().ok_or_else(|| {
+                                Error::Protocol("Update has no prior target leaf".into())
+                            })?;
+                            proposal.target_after = Some(
+                                self.leaves()?
+                                    .into_iter()
+                                    .find(|leaf| leaf.leaf_index == before.leaf_index)
+                                    .ok_or_else(|| {
+                                        Error::Protocol("updated target leaf disappeared".into())
+                                    })?,
+                            );
+                        }
+                        _ => {}
+                    }
+                }
                 for index in &removed {
                     updated.remove(index);
                 }
@@ -503,6 +622,7 @@ impl MlsPublicGroupTracker {
                     previous_epoch,
                     epoch: self.epoch(),
                     consumed_proposal_refs,
+                    consumed_proposals,
                     referenced_proposal_refs,
                     removed_leaf_indices: removed,
                     added_leaves,

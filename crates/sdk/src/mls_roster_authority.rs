@@ -5,7 +5,7 @@ use arkret_models_collaboration::mls_roster_authority::{
     MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody, MlsRosterRecord,
 };
 use arkret_models_identity::AuthenticatedServiceResolution;
-use arkret_wire::{DidCoreId, DidUrl, EventId, WireError};
+use arkret_wire::{ActorId, DidCoreId, DidUrl, EventId, WireError};
 
 use crate::verify_peer_keypackage_claim_receipt_signature;
 
@@ -155,8 +155,9 @@ pub fn verify_mls_roster_authority_pages(
             "MLS roster record digest mismatch".to_owned(),
         ));
     }
-    let mut previous_add: Option<(u64, u64, EventId)> = None;
+    let mut previous_add: Option<(u64, u64, EventId, u64, ActorId)> = None;
     for (index, record) in records.iter().enumerate() {
+        record.validate_shape()?;
         match record {
             MlsRosterRecord::Genesis {
                 genesis_event_ref, ..
@@ -169,6 +170,8 @@ pub fn verify_mls_roster_authority_pages(
             }
             MlsRosterRecord::Add {
                 commit_event_ref,
+                consumed_proposal_ordinal,
+                sender_actor_id,
                 attestation,
                 ..
             } if index > 0 => {
@@ -183,11 +186,13 @@ pub fn verify_mls_roster_authority_pages(
                         "MLS roster Add does not belong to signed group cut".to_owned(),
                     ));
                 }
-                if let Some((position, epoch, commit)) = &previous_add
+                if let Some((position, epoch, commit, ordinal, sender)) = &previous_add
                     && (attestation.commit_stream_position < *position
                         || attestation.epoch < *epoch
                         || (attestation.commit_stream_position == *position
-                            && commit_event_ref != commit))
+                            && (commit_event_ref != commit
+                                || consumed_proposal_ordinal <= ordinal
+                                || sender_actor_id != sender)))
                 {
                     return Err(WireError::Protocol(
                         "MLS roster Add chronology conflicts with signed order".to_owned(),
@@ -205,6 +210,8 @@ pub fn verify_mls_roster_authority_pages(
                     attestation.commit_stream_position,
                     attestation.epoch,
                     commit_event_ref.clone(),
+                    *consumed_proposal_ordinal,
+                    sender_actor_id.clone(),
                 ));
             }
             _ => {
