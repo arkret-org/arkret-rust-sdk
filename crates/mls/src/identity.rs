@@ -283,6 +283,10 @@ impl ArkretMlsIdentity {
         }
         let keypackage = base64url_decode(record.keypackage.as_bytes())
             .map_err(|error| Error::Protocol(error.to_string()))?;
+        if canonical::sha256_digest(&keypackage) != record.keypackage_ref.as_str() {
+            return Err(Error::Protocol("MLS KeyPackage hash mismatch".to_owned()));
+        }
+        validate_record_ciphersuite(record)?;
         let leaf = author_leaf_from_key_package_bytes(&keypackage, 0)?;
         let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
             return Err(Error::Protocol(
@@ -751,11 +755,41 @@ pub(super) fn decode_key_package(
         return Err(Error::Protocol("MLS KeyPackage hash mismatch".to_owned()));
     }
 
-    let key_package_in =
-        KeyPackageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
-    key_package_in
+    validate_record_ciphersuite(record)?;
+    let keypackage = parse_active_key_package(provider, &bytes)?;
+    let credential = keypackage.leaf_node().credential();
+    if credential.credential_type() != openmls::prelude::CredentialType::Basic
+        || decode_leaf_credential(credential.serialized_content())? != record.actor_id
+    {
+        return Err(Error::Protocol(
+            "claimed KeyPackage BasicCredential differs from record actor_id".to_owned(),
+        ));
+    }
+    Ok(keypackage)
+}
+
+fn validate_record_ciphersuite(record: &MlsKeyPackageRecord) -> Result<()> {
+    if record.cipher_suites.as_slice() != [ARKRET_MLS_CIPHERSUITE_CANONICAL_ID] {
+        return Err(Error::Protocol(format!(
+            "{}: KeyPackage record cipher_suites must name the active suite",
+            arkret_wire::ReasonCode::UNSUPPORTED_CIPHERSUITE
+        )));
+    }
+    Ok(())
+}
+
+fn parse_active_key_package(provider: &OpenMlsRustCrypto, bytes: &[u8]) -> Result<KeyPackage> {
+    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+    let keypackage = key_package_in
         .validate(provider.crypto(), ProtocolVersion::Mls10)
-        .map_err(mls_error)
+        .map_err(mls_error)?;
+    if keypackage.ciphersuite() != ARKRET_MLS_CIPHERSUITE {
+        return Err(Error::Protocol(format!(
+            "{}: KeyPackage cipher suite has no active registry row",
+            arkret_wire::ReasonCode::UNSUPPORTED_CIPHERSUITE
+        )));
+    }
+    Ok(keypackage)
 }
 
 /// Decode a TLS-serialized wire KeyPackage into minimal-metadata author-leaf
@@ -769,21 +803,17 @@ pub fn author_leaf_from_key_package_bytes(
     leaf_index: u32,
 ) -> Result<crate::AuthorLeaf> {
     let provider = OpenMlsRustCrypto::default();
-    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
-    let keypackage = key_package_in
-        .validate(provider.crypto(), ProtocolVersion::Mls10)
-        .map_err(mls_error)?;
+    let keypackage = parse_active_key_package(&provider, bytes)?;
     let leaf = keypackage.leaf_node();
     let leaf_credential = leaf.credential();
-    let credential = if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic
-    {
-        crate::AuthorLeafCredential::Basic {
-            identity: leaf_credential.serialized_content().to_vec(),
-        }
-    } else {
-        crate::AuthorLeafCredential::Other {
-            credential_type: format!("{:?}", leaf_credential.credential_type()),
-        }
+    if leaf_credential.credential_type() != openmls::prelude::CredentialType::Basic {
+        return Err(Error::Protocol(
+            "KeyPackage LeafNode must carry an Arkret BasicCredential".to_owned(),
+        ));
+    }
+    decode_leaf_credential(leaf_credential.serialized_content())?;
+    let credential = crate::AuthorLeafCredential::Basic {
+        identity: leaf_credential.serialized_content().to_vec(),
     };
     Ok(crate::AuthorLeaf {
         leaf_index,
@@ -802,28 +832,15 @@ pub fn author_leaf_from_key_package_bytes(
 /// suite.
 pub fn keypackage_ciphersuite_canonical_id(bytes: &[u8]) -> Result<&'static str> {
     let provider = OpenMlsRustCrypto::default();
-    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
-    let keypackage = key_package_in
-        .validate(provider.crypto(), ProtocolVersion::Mls10)
-        .map_err(mls_error)?;
-    if keypackage.ciphersuite() == ARKRET_MLS_CIPHERSUITE {
-        Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
-    } else {
-        Err(Error::Protocol(format!(
-            "{}: KeyPackage cipher suite has no active registry row",
-            arkret_wire::ReasonCode::UNSUPPORTED_CIPHERSUITE
-        )))
-    }
+    parse_active_key_package(&provider, bytes)?;
+    Ok(ARKRET_MLS_CIPHERSUITE_CANONICAL_ID)
 }
 
 /// Return the application capabilities authenticated by the KeyPackage
 /// LeafNode signature.
 pub fn keypackage_capabilities_from_key_package_bytes(bytes: &[u8]) -> Result<Vec<String>> {
     let provider = OpenMlsRustCrypto::default();
-    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
-    let keypackage = key_package_in
-        .validate(provider.crypto(), ProtocolVersion::Mls10)
-        .map_err(mls_error)?;
+    let keypackage = parse_active_key_package(&provider, bytes)?;
     let extension = keypackage
         .leaf_node()
         .extensions()

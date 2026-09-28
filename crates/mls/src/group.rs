@@ -1884,7 +1884,7 @@ mod tests {
             base64url_decode(identity.key_package_record().unwrap().keypackage.as_bytes()).unwrap();
         assert_eq!(
             crate::identity::keypackage_ciphersuite_canonical_id(&active).unwrap(),
-            crate::ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
+            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
         );
 
         let reserved =
@@ -1908,6 +1908,49 @@ mod tests {
             error.to_string().contains("unsupported_ciphersuite"),
             "unexpected error: {error}"
         );
+        assert!(
+            crate::identity::author_leaf_from_key_package_bytes(&reserved_bytes, 0)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+        assert!(
+            crate::identity::keypackage_capabilities_from_key_package_bytes(&reserved_bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+        let mut reserved_record = identity.key_package_record().unwrap();
+        reserved_record.keypackage = base64url_encode(&reserved_bytes);
+        reserved_record.keypackage_ref =
+            Hash::new(canonical::sha256_digest(&reserved_bytes)).unwrap();
+        reserved_record.cipher_suites = vec![format!("{reserved:?}")];
+        assert!(identity.key_package_upload_entry(&reserved_record).is_err());
+        assert!(
+            decode_key_package(&identity.provider, &reserved_record)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+
+        let mut wrong_outer_suite = identity.key_package_record().unwrap();
+        wrong_outer_suite.cipher_suites = vec![format!("{reserved:?}")];
+        assert!(
+            identity
+                .key_package_upload_entry(&wrong_outer_suite)
+                .is_err()
+        );
+        assert!(
+            decode_key_package(&identity.provider, &wrong_outer_suite)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+
+        let mut wrong_actor = identity.key_package_record().unwrap();
+        wrong_actor.actor_id = second_identity().actor_id;
+        assert!(identity.key_package_upload_entry(&wrong_actor).is_err());
+        assert!(decode_key_package(&identity.provider, &wrong_actor).is_err());
         assert!(crate::identity::keypackage_ciphersuite_canonical_id(b"not a keypackage").is_err());
     }
 
