@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.4;
-//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Entries: registered=209
+//! Input: registry/contract-registry.json; version=2026-09-29.1;
+//! sha256=e8e1ba111871ea8b1dfdd89c1f770cac370d10efd3e3e1133cd41d4bf8685161 Entries: registered=210
 
 use serde::{Deserialize, Serialize};
 
@@ -191,6 +191,7 @@ pub enum ServiceOperationId {
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
     SelfMessagesCommandPrepareV1,
+    SelfMlsReadGroupStateMaterialV1,
     SelfMlsReadRosterAuthorityV1,
     SelfModerationCommandReportV1,
     SelfMorphReadListV1,
@@ -403,6 +404,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
     ServiceOperationId::SELF_MESSAGES_COMMAND_PREPARE_V1,
+    ServiceOperationId::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
@@ -657,6 +659,7 @@ impl ServiceOperationId {
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
         Self::SelfMessagesCommandPrepareV1,
+        Self::SelfMlsReadGroupStateMaterialV1,
         Self::SelfMlsReadRosterAuthorityV1,
         Self::SelfModerationCommandReportV1,
         Self::SelfMorphReadListV1,
@@ -998,6 +1001,8 @@ impl ServiceOperationId {
         "ak.self.media_service_binding.read.resolve.v1";
     pub const SELF_MESSAGES_COMMAND_PREPARE_V1: &'static str =
         "ak.self.messages.command.prepare.v1";
+    pub const SELF_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
+        "ak.self.mls.read.group_state_material.v1";
     pub const SELF_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
         "ak.self.mls.read.roster_authority.v1";
     pub const SELF_MODERATION_COMMAND_REPORT_V1: &'static str =
@@ -1323,6 +1328,7 @@ impl ServiceOperationId {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
             }
             Self::SelfMessagesCommandPrepareV1 => Self::SELF_MESSAGES_COMMAND_PREPARE_V1,
+            Self::SelfMlsReadGroupStateMaterialV1 => Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::SelfMlsReadRosterAuthorityV1 => Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
             Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
             Self::SelfMorphReadListV1 => Self::SELF_MORPH_READ_LIST_V1,
@@ -1725,6 +1731,9 @@ impl ServiceOperationId {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
             }
             Self::SELF_MESSAGES_COMMAND_PREPARE_V1 => Some(Self::SelfMessagesCommandPrepareV1),
+            Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
+                Some(Self::SelfMlsReadGroupStateMaterialV1)
+            }
             Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1 => Some(Self::SelfMlsReadRosterAuthorityV1),
             Self::SELF_MODERATION_COMMAND_REPORT_V1 => Some(Self::SelfModerationCommandReportV1),
             Self::SELF_MORPH_READ_LIST_V1 => Some(Self::SelfMorphReadListV1),
@@ -6016,6 +6025,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfMlsReadGroupStateMaterialV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/mls/group-state-material/query",
+        grpc: Some("SelfMls/GroupStateMaterial"),
+        mq: Some("self.mls.query.group_state_material"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/member_group_state_material_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMlsReadRosterAuthorityV1,

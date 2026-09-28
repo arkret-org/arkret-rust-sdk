@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-29.1;
-//! sha256=b273309bfa7ade88e8c54bd501262eedad4ebfbde67b5bd1c1962e9a7634d781 Input: registry/
-//! contract-registry.json; version=2026-09-28.7;
-//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-29.3;
+//! sha256=3aa71b9e1363dc6109a17bf4ac1e7aba727278963f99fdcd33659f22846b2d68 Input: registry/
+//! contract-registry.json; version=2026-09-29.2;
+//! sha256=e8e1ba111871ea8b1dfdd89c1f770cac370d10efd3e3e1133cd41d4bf8685161 Input: registry/
 //! error-code-registry.json; version=2026-09-28.5;
-//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3 Entries: operations=209
+//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3 Entries: operations=210
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -334,6 +334,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DigestMismatch),
         OperationSpecificError::Code(ErrorCode::StateMismatch),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
@@ -785,6 +786,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),
     ],
+    &[OperationSpecificError::Code(ErrorCode::RevisionUnavailable)],
     &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),

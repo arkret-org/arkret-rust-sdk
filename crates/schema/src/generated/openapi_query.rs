@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: openapi/arkret-service-api.openapi.yaml; version=1.0.0;
-//! sha256=a5d1a91be2314119dbc0c8d08d4f751935200975661fc035e2c7b0d13643a3d5
+//! sha256=4101144648b4ad4549942531d917b57a1157ba726a1ccddc5dab8f7ca642968b
 
 pub fn openapi_query_operations() -> Vec<(&'static str, serde_json::Value)> {
     vec![(
