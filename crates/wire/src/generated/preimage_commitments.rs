@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-28.3;
-//! sha256=4c794f14a62ed4005bf4ef4265a495d99044e15325e7439ef789aef2c97f5b7f Input: reachable event
+//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=345ee4fae6b6fc1b51bfb0704aa7d90be2b26b9fdbb3fd9f71e7ecb8802f8156
+//! sha256=21767b78247ac8f02417ffa003d6cc8a4e9c3ab75ef1b6ed98705df46ece8a0b
 //! Entries: preimage_commitments=36
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

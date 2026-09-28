@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-27.0;
-//! sha256=5aba249142eaa57526752d77f76d4e4932c51a7f6feb5c5eb81e4c692ee412e3 Input: registry/
-//! contract-registry.json; version=2026-09-28.4;
-//! sha256=4c794f14a62ed4005bf4ef4265a495d99044e15325e7439ef789aef2c97f5b7f Input: registry/
-//! error-code-registry.json; version=2026-09-28.4;
-//! sha256=b3e93116513fcfbb7cc2ee8e25f0c00107676dee8aa4dd86bfd6076b01f22dfe Entries: operations=205
+//! Input: registry/operations-error-mapping.json; version=2026-09-28.2;
+//! sha256=3c0e4eabe9557d7512ae8e3ed4109a4ce31967a33b514a546dcd5345246beefb Input: registry/
+//! contract-registry.json; version=2026-09-28.6;
+//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Input: registry/
+//! error-code-registry.json; version=2026-09-28.5;
+//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3 Entries: operations=206
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -169,6 +169,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
     &[
+        OperationSpecificError::Reason(ReasonCode::AppletDelegatedSessionInventoryChanged),
         OperationSpecificError::Code(ErrorCode::SessionGrantNotFound),
         OperationSpecificError::Code(ErrorCode::SessionRevokeSelectorConflict),
         OperationSpecificError::Reason(ReasonCode::ProofInvalid),
@@ -179,6 +180,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ProofInvalid),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
+    &[],
     &[],
     &[],
     &[OperationSpecificError::Reason(

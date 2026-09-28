@@ -2216,10 +2216,9 @@ pub struct SessionGrantAppletSelector {
     pub applet_id: AppletId,
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub service_id: DidCoreId,
     pub capability_grant_refs: Vec<String>,
+    pub expected_inventory_digest: Hash,
 }
 
 impl AccountLifecycleProof {

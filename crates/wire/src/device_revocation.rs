@@ -288,6 +288,7 @@ pub enum DeviceRevocationAdmissionAction {
     SessionGrantIssue,
     ReturningSessionGrantIssue,
     SessionGrantRefresh,
+    SessionGrantRevoke,
     DevicePairingCodeClaim,
     KeypackageClaim,
     ToDeviceWrite,
@@ -309,9 +310,9 @@ pub struct DeviceRevocationAdmissionInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_generation_ref: Option<u64>,
     pub action_class: DeviceRevocationAdmissionAction,
-    /// Digest of the complete immutable issue or refresh intent, including the
-    /// exact grant id, jti, subject, device, audience, scope, holder binding,
-    /// issued_at and expiry. For `DevicePairingCodeClaim`, the digest binds
+    /// Digest of the complete immutable issue, refresh or revoke intent. Issue
+    /// and refresh bind the exact grant id, jti, subject, device, audience,
+    /// scope, holder binding, issued_at and expiry. For `DevicePairingCodeClaim`, the digest binds
     /// the operation id, exact account, caller device and canonical claim
     /// request without disclosing the plaintext pairing code to the origin.
     pub intent_digest: Hash,
@@ -1001,6 +1002,20 @@ mod tests {
         write.expected_device_authorize_event_id = Some(authorize_event());
         write.expected_device_generation_ref = Some(7);
         write.validate().unwrap();
+
+        let mut revoke = request();
+        revoke.action_class = DeviceRevocationAdmissionAction::SessionGrantRevoke;
+        assert!(revoke.validate().is_err());
+        revoke.expected_device_authorize_event_id = Some(authorize_event());
+        revoke.expected_device_generation_ref = Some(7);
+        revoke.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(revoke.action_class).unwrap(),
+            serde_json::json!("session_grant_revoke")
+        );
+        revoke.accepted_device_possession_proof =
+            Some(issue_possession_proof(revoke.intent_digest.clone()));
+        assert!(revoke.validate().is_err());
 
         let mut code_claim = request();
         code_claim.action_class = DeviceRevocationAdmissionAction::DevicePairingCodeClaim;

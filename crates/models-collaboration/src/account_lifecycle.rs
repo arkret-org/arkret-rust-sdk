@@ -21,6 +21,7 @@ use arkret_wire::{
     WireError,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 
 use crate::account_status::{AccountStatusReceipt, AccountStatusRecord};
 
@@ -257,6 +258,101 @@ impl AccountStatusResolveOutcome {
     }
 }
 
+/// Exact Account Authority selector for one effective Applet installation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletDelegatedSessionInventoryRequestBody {
+    pub applet_id: AppletId,
+    pub effective_scope: ScopeRef,
+    pub registration_epoch: Hash,
+    pub service_id: DidCoreId,
+    pub capability_grant_refs: Vec<String>,
+}
+
+impl AppletDelegatedSessionInventoryRequestBody {
+    pub fn validate_shape(&self) -> Result<()> {
+        let unique = self
+            .capability_grant_refs
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            == self.capability_grant_refs.len();
+        if !unique {
+            return Err(WireError::Protocol(
+                "applet inventory grant refs must be unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Complete issuer snapshot, including an empty set, for that installation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletDelegatedSessionInventoryOutcome {
+    pub applet_id: AppletId,
+    pub effective_scope: ScopeRef,
+    pub registration_epoch: Hash,
+    pub service_id: DidCoreId,
+    pub capability_grant_refs: Vec<String>,
+    pub inventory_revision: u64,
+    pub active_session_grant_ids: Vec<SessionGrantId>,
+    pub snapshot_digest: Hash,
+}
+
+impl AppletDelegatedSessionInventoryOutcome {
+    pub fn compute_snapshot_digest(&self) -> Result<Hash> {
+        let mut value =
+            serde_json::to_value(self).map_err(|error| WireError::Protocol(error.to_string()))?;
+        value
+            .as_object_mut()
+            .expect("inventory outcome is an object")
+            .remove("snapshot_digest");
+        let canonical = arkret_canonical::canonical::canonical_json_bytes(&value)
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        let mut digest = Sha256::new();
+        digest.update(b"ak.applet_delegated_session_inventory.v1\n");
+        digest.update(canonical);
+        let digest = digest.finalize();
+        let hex = digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        Ok(Hash::new(format!("sha256:{hex}"))?)
+    }
+
+    pub fn validate_against(
+        &self,
+        request: &AppletDelegatedSessionInventoryRequestBody,
+    ) -> Result<()> {
+        request.validate_shape()?;
+        if self.applet_id != request.applet_id
+            || self.effective_scope != request.effective_scope
+            || self.registration_epoch != request.registration_epoch
+            || self.service_id != request.service_id
+            || self.capability_grant_refs != request.capability_grant_refs
+        {
+            return Err(WireError::Protocol(
+                "applet inventory selector does not match request".to_owned(),
+            ));
+        }
+        if self.active_session_grant_ids.len() > 256
+            || self
+                .active_session_grant_ids
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+            || self.snapshot_digest != self.compute_snapshot_digest()?
+        {
+            return Err(WireError::Protocol(
+                "applet inventory is incomplete or has an invalid snapshot digest".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/session_revoke_request_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -276,8 +372,12 @@ pub struct SessionRevokeRequestBody {
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub capability_grant_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_grant_refs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_inventory_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorizing_session_grant_id: Option<SessionGrantId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
 }
@@ -312,9 +412,26 @@ impl SessionRevokeRequestBody {
                     .to_owned(),
             ));
         }
-        if !applet_group && (self.service_id.is_some() || !self.capability_grant_refs.is_empty()) {
+        if applet_group
+            && (self.service_id.is_none()
+                || self.capability_grant_refs.is_none()
+                || self.expected_inventory_digest.is_none()
+                || self.authorizing_session_grant_id.is_none()
+                || self.proof.is_none())
+        {
             return Err(WireError::Protocol(
-                "session revoke service_id and capability_grant_refs require the applet group"
+                "session revoke applet selector requires service, grant refs and inventory digest"
+                    .to_owned(),
+            ));
+        }
+        if !applet_group
+            && (self.service_id.is_some()
+                || self.capability_grant_refs.is_some()
+                || self.expected_inventory_digest.is_some()
+                || self.authorizing_session_grant_id.is_some())
+        {
+            return Err(WireError::Protocol(
+                "session revoke service_id, capability_grant_refs and expected_inventory_digest require the applet group"
                     .to_owned(),
             ));
         }
@@ -329,8 +446,9 @@ impl SessionRevokeRequestBody {
             applet_id: self.applet_id.clone()?,
             effective_scope: self.effective_scope.clone()?,
             registration_epoch: self.registration_epoch.clone()?,
-            service_id: self.service_id.clone(),
-            capability_grant_refs: self.capability_grant_refs.clone(),
+            service_id: self.service_id.clone()?,
+            capability_grant_refs: self.capability_grant_refs.clone()?,
+            expected_inventory_digest: self.expected_inventory_digest.clone()?,
         })
     }
 }
@@ -475,6 +593,34 @@ mod tests {
             serde_json::from_value::<SessionRevokeOutcome>(json!({})).is_err(),
             "revoked_count must not become optional"
         );
+    }
+
+    #[test]
+    fn applet_inventory_empty_snapshot_is_verified_and_revision_prevents_aba() {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("fixtures/applet-revoke-saga-fixture.json")).unwrap(),
+        )
+        .unwrap();
+        let kat = &fixture["preview_plan_digest_kat"]["delegated_session_inventory_kat"];
+        let request: AppletDelegatedSessionInventoryRequestBody =
+            serde_json::from_value(kat["request"].clone()).unwrap();
+        let mut unsorted = request.clone();
+        unsorted.capability_grant_refs = vec!["second".to_owned(), "first".to_owned()];
+        unsorted.validate_shape().unwrap();
+        unsorted.capability_grant_refs.push("first".to_owned());
+        assert!(unsorted.validate_shape().is_err());
+        let outcome: AppletDelegatedSessionInventoryOutcome =
+            serde_json::from_value(kat["outcome"].clone()).unwrap();
+        outcome.validate_against(&request).unwrap();
+        assert!(outcome.active_session_grant_ids.is_empty());
+        let mut after_aba = outcome.clone();
+        after_aba.inventory_revision = 2;
+        assert_ne!(
+            after_aba.compute_snapshot_digest().unwrap(),
+            outcome.snapshot_digest
+        );
+        assert!(after_aba.validate_against(&request).is_err());
     }
 
     #[test]

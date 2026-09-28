@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.1;
-//! sha256=4c794f14a62ed4005bf4ef4265a495d99044e15325e7439ef789aef2c97f5b7f Entries: registered=205
+//! Input: registry/contract-registry.json; version=2026-09-28.3;
+//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Entries: registered=206
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +38,7 @@ pub enum ServiceOperationId {
     GateAccountCommandRequestErasureV1,
     GateAccountCommandRevokeSessionV1,
     GateAccountExchangeCreateHandoffV1,
+    GateAccountReadAppletDelegatedSessionInventoryV1,
     GateAccountReadClaimDevicePairingCodeV1,
     GateAccountReadOnboardingV1,
     OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
@@ -246,6 +247,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1,
+    ServiceOperationId::GATE_ACCOUNT_READ_APPLET_DELEGATED_SESSION_INVENTORY_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1,
@@ -496,6 +498,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandRequestErasureV1,
         Self::GateAccountCommandRevokeSessionV1,
         Self::GateAccountExchangeCreateHandoffV1,
+        Self::GateAccountReadAppletDelegatedSessionInventoryV1,
         Self::GateAccountReadClaimDevicePairingCodeV1,
         Self::GateAccountReadOnboardingV1,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
@@ -728,6 +731,8 @@ impl ServiceOperationId {
         "ak.gate.account.command.revoke_session.v1";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1: &'static str =
         "ak.gate.account.exchange.create_handoff.v1";
+    pub const GATE_ACCOUNT_READ_APPLET_DELEGATED_SESSION_INVENTORY_V1: &'static str =
+        "ak.gate.account.read.applet_delegated_session_inventory.v1";
     pub const GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1: &'static str =
         "ak.gate.account.read.claim_device_pairing_code.v1";
     pub const GATE_ACCOUNT_READ_ONBOARDING_V1: &'static str = "ak.gate.account.read.onboarding.v1";
@@ -1077,6 +1082,9 @@ impl ServiceOperationId {
             Self::GateAccountExchangeCreateHandoffV1 => {
                 Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1
             }
+            Self::GateAccountReadAppletDelegatedSessionInventoryV1 => {
+                Self::GATE_ACCOUNT_READ_APPLET_DELEGATED_SESSION_INVENTORY_V1
+            }
             Self::GateAccountReadClaimDevicePairingCodeV1 => {
                 Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1
             }
@@ -1410,6 +1418,9 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1 => {
                 Some(Self::GateAccountExchangeCreateHandoffV1)
+            }
+            Self::GATE_ACCOUNT_READ_APPLET_DELEGATED_SESSION_INVENTORY_V1 => {
+                Some(Self::GateAccountReadAppletDelegatedSessionInventoryV1)
             }
             Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1 => {
                 Some(Self::GateAccountReadClaimDevicePairingCodeV1)
@@ -2534,6 +2545,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountReadAppletDelegatedSessionInventoryV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/session-grants/applet-inventory",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/applet_delegated_session_inventory_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/account-operations.schema.json#/$defs/applet_delegated_session_inventory_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
@@ -4842,7 +4873,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
+        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_read_view"),
         uncertain_outcome: None,
         durable_effect: None,
     },

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-28.4;
-//! sha256=b3e93116513fcfbb7cc2ee8e25f0c00107676dee8aa4dd86bfd6076b01f22dfe
-//! Entries: reason_codes=308, reserved_not_emitted=71
+//! Input: registry/error-code-registry.json; version=2026-09-28.5;
+//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3
+//! Entries: reason_codes=309, reserved_not_emitted=71
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -31,6 +31,7 @@ pub enum ReasonCode {
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
     AgentSessionScopeRefreshRequired,
+    AppletDelegatedSessionInventoryChanged,
     AppletManagedActorProvisionInvalid,
     AppletManagedPcrGenesisInvalid,
     AppletManagedPcrGenesisRequiresClosedAggregate,
@@ -360,6 +361,8 @@ impl ReasonCode {
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
     pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
         "agent_session_scope_refresh_required";
+    pub const APPLET_DELEGATED_SESSION_INVENTORY_CHANGED: &'static str =
+        "applet_delegated_session_inventory_changed";
     pub const APPLET_MANAGED_ACTOR_PROVISION_INVALID: &'static str =
         "applet_managed_actor_provision_invalid";
     pub const APPLET_MANAGED_PCR_GENESIS_INVALID: &'static str =
@@ -731,6 +734,9 @@ impl ReasonCode {
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
+            Self::AppletDelegatedSessionInventoryChanged => {
+                Self::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED
+            }
             Self::AppletManagedActorProvisionInvalid => {
                 Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID
             }
@@ -1107,6 +1113,9 @@ impl ReasonCode {
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
+            Self::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED => {
+                Self::AppletDelegatedSessionInventoryChanged
+            }
             Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID => {
                 Self::AppletManagedActorProvisionInvalid
             }
@@ -1629,6 +1638,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED,
+        applies_to: &["service_call"],
+        description: "The Account Authority atomically compared the Applet revoke selector's expected_inventory_digest with its complete current issuer-ledger inventory and found a different revision or active SessionGrant set. ak.gate.account.command.revoke_session.v1 returns HTTP 409 failed_precondition with this reason_code and zero new issuer effects; the Station must not continue Event steps or treat a pending saga ledger as proof of non-acceptance. See zh/extensions/applet-integration.md §4b.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_MANAGED_ACTOR_PROVISION_INVALID,

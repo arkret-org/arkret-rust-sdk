@@ -470,13 +470,14 @@ pub struct AppletRevokePlan {
     pub membership_removals: Vec<AppletMembershipRemoveIntent>,
     pub widget_token_refs: Vec<String>,
     pub delegated_session_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegated_session_snapshot_digest: Option<Hash>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokePreviewOutcome {
-    pub revoke_plan_digest: Hash,
     pub revoke_plan: AppletRevokePlan,
 }
 
