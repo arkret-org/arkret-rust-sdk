@@ -683,8 +683,16 @@ impl ActorPrivateEventSubmitOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "context_kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ApprovalContext {
-    Grant { grant_id: GrantId },
+    Grant {
+        grant_id: GrantId,
+    },
     RealmGovernance,
+    /// A separate one-vote requirement of the exact target List's WIP policy.
+    /// The revision is the List metadata current result at the authority cut.
+    ListWip {
+        list_space_id: SpaceId,
+        list_policy_revision: CurrentRevision,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -718,6 +726,40 @@ impl ApprovalSignatureInput {
     /// remain the governing Station reducer's responsibility.
     pub fn validate_approved_at(&self, verification_time: DateTime<Utc>) -> Result<()> {
         validate_approval_timestamp(self.approved_at, verification_time)
+    }
+
+    /// Check the signed List WIP context against an exact move and the
+    /// authority-read List metadata revision. Signature, digest, approver
+    /// capability and nonce verification still belong to the governing unit.
+    pub fn validate_list_wip_binding(
+        &self,
+        event: &Event,
+        operation: &str,
+        list_space_id: &SpaceId,
+        list_policy_revision: &CurrentRevision,
+    ) -> Result<()> {
+        if !matches!(
+            &self.approval_context,
+            ApprovalContext::ListWip {
+                list_space_id: signed_list,
+                list_policy_revision: signed_revision,
+            } if signed_list == list_space_id && signed_revision == list_policy_revision
+        ) || !matches!(
+            &self.approval_target,
+            ApprovalTarget::Event { event_id } if event_id == &event.event_id
+        ) || self.action != CapabilityActionId::StrandMove
+            || event.kind != crate::EventKind::StrandMove
+            || self.operation != operation
+            || self.realm_id != event.realm_id
+            || self.initiating_actor_id != event.actor_id
+            || event.payload.get("target_space_id")
+                != Some(&Value::String(list_space_id.as_str().to_owned()))
+        {
+            return Err(WireError::Protocol(
+                "List WIP approval does not bind the exact move and List revision".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -3283,5 +3325,83 @@ mod tests {
 
     fn canonical_json_bytes_for_test(value: &CommitStreamRef) -> Vec<u8> {
         arkret_canonical::canonical::canonical_json_bytes(value).unwrap()
+    }
+
+    #[test]
+    fn list_wip_approval_context_is_closed_and_revision_bound() {
+        let list = SpaceId::new("ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let revision = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([7; 32]),
+            stream_position: 9,
+        };
+        let context = ApprovalContext::ListWip {
+            list_space_id: list.clone(),
+            list_policy_revision: revision.clone(),
+        };
+        let wire =
+            json!({"context_kind":"list_wip","list_space_id":list,"list_policy_revision":revision});
+        assert_eq!(serde_json::to_value(&context).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<ApprovalContext>(wire.clone()).unwrap(),
+            context
+        );
+        for invalid in [
+            json!({"context_kind":"list_wip","list_space_id":list}),
+            json!({"context_kind":"list_wip","list_space_id":list,"list_policy_revision":revision,"grant_id":"ak:grant:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+            json!({"context_kind":"realm_governance","list_space_id":list,"list_policy_revision":revision}),
+        ] {
+            assert!(serde_json::from_value::<ApprovalContext>(invalid).is_err());
+        }
+
+        let realm = RealmId::new("ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let at = Utc.timestamp_opt(1_800_000_000, 0).unwrap();
+        let event = test_support::raw_event_at(
+            EventKind::StrandMove.as_str(),
+            ScopeRef::Realm {
+                realm_id: realm.clone(),
+            },
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            json!({"target_space_id":list}),
+            at,
+        )
+        .unwrap();
+        let input = ApprovalSignatureInput {
+            approval_context: context,
+            approval_target: ApprovalTarget::Event {
+                event_id: event.event_id.clone(),
+            },
+            request_canonical_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+            operation: "ak.self.events.command.submit.v1".to_owned(),
+            action: CapabilityActionId::StrandMove,
+            realm_id: realm,
+            initiating_actor_id: event.actor_id.clone(),
+            approver_did: Did::new("did:web:manager.example".to_owned()).unwrap(),
+            approved_at: at,
+            nonce: "ABCDEFGHIJKLMNOPQRSTUV".to_owned(),
+        };
+        assert!(
+            input
+                .validate_list_wip_binding(
+                    &event,
+                    "ak.self.events.command.submit.v1",
+                    &list,
+                    &revision
+                )
+                .is_ok()
+        );
+        assert!(
+            input
+                .validate_list_wip_binding(
+                    &event,
+                    "ak.self.events.command.submit.v1",
+                    &list,
+                    &CurrentRevision {
+                        stream_position: 10,
+                        ..revision
+                    }
+                )
+                .is_err()
+        );
     }
 }
