@@ -686,7 +686,7 @@ pub enum ApprovalContext {
     Grant {
         grant_id: GrantId,
     },
-    RealmGovernance,
+    RealmGovernance {},
     /// A separate one-vote requirement of the exact target List's WIP policy.
     /// The revision is the List metadata current result at the authority cut.
     ListWip {
@@ -3350,7 +3350,10 @@ mod tests {
             json!({"context_kind":"list_wip","list_space_id":list,"list_policy_revision":revision,"grant_id":"ak:grant:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
             json!({"context_kind":"realm_governance","list_space_id":list,"list_policy_revision":revision}),
         ] {
-            assert!(serde_json::from_value::<ApprovalContext>(invalid).is_err());
+            assert!(
+                serde_json::from_value::<ApprovalContext>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
         }
 
         let realm = RealmId::new("ak:realm:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();

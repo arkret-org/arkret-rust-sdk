@@ -130,7 +130,7 @@ mod tests {
             bytes: signer.verifying_key().to_bytes().to_vec(),
         };
         let input = ApprovalSignatureInput {
-            approval_context: ApprovalContext::RealmGovernance,
+            approval_context: ApprovalContext::RealmGovernance {},
             approval_target: ApprovalTarget::Event {
                 event_id: event.event_id.clone(),
             },
