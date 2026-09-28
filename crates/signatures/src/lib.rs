@@ -19,6 +19,8 @@ pub mod service_resolution;
 // model features alongside the other HTTP message-signature helpers.
 pub mod federation;
 
+// Detached approval signatures use the same unconditional wire/verifier base.
+pub mod approval_signature;
 // Detached authority/delivery object signatures. Unconditional: the model is
 // `arkret_wire::DetachedObjectSignature` and the authority-commit, snapshot and
 // MLS Welcome seams all need it without any model feature.
