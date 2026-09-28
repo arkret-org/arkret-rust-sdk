@@ -30,4 +30,4 @@ pub use events::{
     COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
     CommittedEventSubscribeOptions, STREAM_SCAN_MAX_LIMIT,
 };
-pub use signal::SignalSubscribeFrameStream;
+pub use signal::{SignalSendTransportObservation, SignalSubscribeFrameStream};

@@ -63,7 +63,8 @@ pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
     COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
     CommittedEventSubscribeOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
-    STREAM_SCAN_MAX_LIMIT, SignalSubscribeFrameStream, blob_resumable_upload_base_url,
+    STREAM_SCAN_MAX_LIMIT, SignalSendTransportObservation, SignalSubscribeFrameStream,
+    blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
 pub use key_backup_client::KeyBackupClient;

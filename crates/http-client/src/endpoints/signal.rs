@@ -1,11 +1,24 @@
 //! Encrypted-only Signal send and live-subscribe endpoint methods.
 
+use std::time::{Duration, Instant};
+
 use arkret_models_collaboration::signal_operations::SignalSubmitOutcome;
 use arkret_wire::{SignalEnvelope, SignalStreamFrame};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, Response};
 
+use crate::client_internals::{MAX_RESPONSE_BODY_BYTES, read_body_limited};
 use crate::{Client, Error, Result};
+
+/// Metadata from the actual Signal HTTP request. It contains no encrypted
+/// envelope, credentials, response body or target-specific header values.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SignalSendTransportObservation {
+    pub status: u16,
+    pub http_version: String,
+    pub content_type: String,
+    pub start_to_full_response: Duration,
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 type BoxSignalSubscribeFrameStream =
@@ -63,8 +76,44 @@ impl SignalSubscribeFrameStream {
 impl Client {
     /// Send one encrypted Signal envelope.
     pub async fn signal_send(&self, envelope: &SignalEnvelope) -> Result<SignalSubmitOutcome> {
+        self.signal_send_with_transport_observation(envelope)
+            .await
+            .map(|(outcome, _observation)| outcome)
+    }
+
+    /// Send through the same production path and return the bounded HTTP
+    /// response observation alongside the typed outcome.
+    pub async fn signal_send_with_transport_observation(
+        &self,
+        envelope: &SignalEnvelope,
+    ) -> Result<(SignalSubmitOutcome, SignalSendTransportObservation)> {
         envelope.validate_structural()?;
-        self.post("/_arkret/self/signal", envelope).await
+        let request = self.canonical_json_body(
+            self.request(Method::POST, "/_arkret/self/signal")?,
+            envelope,
+        )?;
+        let started = Instant::now();
+        let response = self.send_response(request).await?;
+        let status = response.status().as_u16();
+        let http_version = format!("{:?}", response.version());
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
+        let body = read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await?;
+        let start_to_full_response = started.elapsed();
+        let outcome = serde_json::from_slice(&body)?;
+        Ok((
+            outcome,
+            SignalSendTransportObservation {
+                status,
+                http_version,
+                content_type,
+                start_to_full_response,
+            },
+        ))
     }
 
     async fn signal_subscribe_stream(&self) -> Result<Response> {
