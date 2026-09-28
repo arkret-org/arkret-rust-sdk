@@ -6,13 +6,14 @@ use arkret_models_collaboration::events_payloads::mls_proposal_admission::MlsPro
 use arkret_wire::{ActorId, Base64UrlString};
 use openmls::prelude::{
     GroupId, LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider,
-    ProcessedMessageContent, ProposalStore, ProtocolMessage, PublicGroup, RatchetTreeIn, Sender,
+    ProcessedMessageContent, ProposalIn, ProposalStore, ProtocolMessage, PublicGroup,
+    RatchetTreeIn, Sender,
 };
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
-use crate::identity::decode_leaf_credential;
+use crate::identity::{decode_leaf_credential, verified_key_package_actor_and_signature_key};
 use crate::{MlsError as Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,6 +36,49 @@ pub struct MlsVerifiedConsumedProposal {
     pub sender_leaf: MlsPublicEndpointLeaf,
     pub target_before: Option<MlsPublicEndpointLeaf>,
     pub target_after: Option<MlsPublicEndpointLeaf>,
+}
+
+/// Facts authenticated by the KeyPackage embedded in one exact RFC 9420 Add
+/// Proposal body. A Proposal has no tree position or accepted Commit context;
+/// callers must separately verify the signed Commit and its resulting public
+/// tree before assigning a leaf index or installing an authority binding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsVerifiedAddProposalLeaf {
+    pub actor_id: ActorId,
+    pub leaf_signature_key: Base64UrlString,
+    pub key_package_bytes: Vec<u8>,
+}
+
+/// Decode the complete TLS Proposal with OpenMLS, reject every non-Add kind,
+/// and validate the embedded KeyPackage signature, suite, and Arkret Actor
+/// credential. The returned KeyPackage bytes are the exact Add body bytes.
+pub fn verify_add_proposal_leaf(proposal_wire: &[u8]) -> Result<MlsVerifiedAddProposalLeaf> {
+    let proposal = ProposalIn::tls_deserialize_exact(proposal_wire).map_err(mls_error)?;
+    if proposal.tls_serialize_detached().map_err(mls_error)? != proposal_wire {
+        return Err(Error::Protocol(
+            "MLS Add Proposal TLS bytes are not canonical".to_owned(),
+        ));
+    }
+    let ProposalIn::Add(add) = proposal else {
+        return Err(Error::Protocol(
+            "MLS Proposal is not an RFC 9420 Add".to_owned(),
+        ));
+    };
+    let key_package_bytes = add.tls_serialize_detached().map_err(mls_error)?;
+    let (actor_id, signature_key) =
+        verified_key_package_actor_and_signature_key(&key_package_bytes)?;
+    if signature_key.len() != 32 {
+        return Err(Error::Protocol(
+            "MLS Add KeyPackage leaf signature key is not Ed25519".to_owned(),
+        ));
+    }
+    let leaf_signature_key = Base64UrlString::new(base64url_encode(signature_key))
+        .map_err(|error| Error::Protocol(error.to_owned()))?;
+    Ok(MlsVerifiedAddProposalLeaf {
+        actor_id,
+        leaf_signature_key,
+        key_package_bytes,
+    })
 }
 
 /// Validate an MLSMessage carrying GroupInfo together with the exact external

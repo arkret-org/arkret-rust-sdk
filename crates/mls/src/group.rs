@@ -2210,6 +2210,23 @@ mod tests {
         assert_eq!(consumed_proposals[0].proposal_type, 1);
         assert_eq!(consumed_proposals[1].ordinal, 1);
         assert_eq!(consumed_proposals[1].proposal_type, 7);
+        let parsed_add =
+            crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(parsed_add.actor_id, member.actor_id);
+        assert_eq!(parsed_add.leaf_signature_key, added_leaves[0].signature_key);
+        assert!(crate::verify_add_proposal_leaf(&consumed_proposals[1].proposal_wire).is_err());
+        for malformed in [
+            &consumed_proposals[0].proposal_wire[..1],
+            &consumed_proposals[0].proposal_wire[..consumed_proposals[0].proposal_wire.len() - 1],
+        ] {
+            assert!(crate::verify_add_proposal_leaf(malformed).is_err());
+        }
+        let mut trailing = consumed_proposals[0].proposal_wire.clone();
+        trailing.push(0);
+        assert!(crate::verify_add_proposal_leaf(&trailing).is_err());
+        let mut wrong_signature = consumed_proposals[0].proposal_wire.clone();
+        *wrong_signature.last_mut().unwrap() ^= 1;
+        assert!(crate::verify_add_proposal_leaf(&wrong_signature).is_err());
         assert!(
             consumed_proposals
                 .iter()
@@ -2295,9 +2312,173 @@ mod tests {
         let added = consumed_proposals[0].target_after.as_ref().unwrap();
         assert_eq!(removed.actor_id, member.actor_id);
         assert_eq!(added.actor_id, member.actor_id);
+        let parsed = crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(parsed.actor_id, member.actor_id);
+        assert_eq!(parsed.leaf_signature_key, added.signature_key);
         assert_eq!(added_leaves, vec![added.clone()]);
         assert!(consumed_proposals[2].target_after.is_none());
         assert!(consumed_proposals[0].target_before.is_none());
+    }
+
+    #[test]
+    fn add_proposal_parser_does_not_bind_reused_leaf_index_to_old_device() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let first_device = second_identity();
+        let first_binding = binding_for_epochs(&scope, event(9), 0, 1, 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&first_device), &first_binding)
+            .unwrap();
+        let first_transition = tracker
+            .process_public_handshake(&decode(&first.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves: first_leaves,
+            consumed_proposals: first_proposals,
+            ..
+        } = first_transition
+        else {
+            panic!("first Add must be a Commit")
+        };
+        let first_parsed =
+            crate::verify_add_proposal_leaf(&first_proposals[0].proposal_wire).unwrap();
+        assert_eq!(
+            first_parsed.leaf_signature_key,
+            first_leaves[0].signature_key
+        );
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                first_device.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let remove_binding = binding_for_epochs(&scope, event(10), 1, 2, 2);
+        let removed = group
+            .remove_members_by_actor_with_governance_binding(
+                std::slice::from_ref(&first_device.actor_id),
+                &remove_binding,
+            )
+            .unwrap();
+        tracker
+            .process_public_handshake(&decode(&removed.commit.commit).unwrap())
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &removed.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(10)), 1, 2),
+                &remove_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone()])
+            .unwrap();
+
+        let new_device = ArkretMlsIdentity::new_test_human_device(
+            first_device.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000075").unwrap(),
+        )
+        .unwrap();
+        let readd_binding = binding_for_epochs(&scope, event(11), 2, 3, 3);
+        let readd = group
+            .add_member_with_governance_binding(&claimed_keypackage(&new_device), &readd_binding)
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&readd.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("second Add must be a Commit")
+        };
+        assert_eq!(added_leaves[0].leaf_index, first_leaves[0].leaf_index);
+        let readd_parsed =
+            crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(readd_parsed.actor_id, first_parsed.actor_id);
+        assert_eq!(
+            readd_parsed.leaf_signature_key,
+            added_leaves[0].signature_key
+        );
+        assert_ne!(
+            readd_parsed.leaf_signature_key,
+            first_parsed.leaf_signature_key
+        );
+    }
+
+    #[test]
+    fn add_proposal_parser_distinguishes_simultaneous_devices_of_one_actor() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let first = second_identity();
+        let second = ArkretMlsIdentity::new_test_human_device(
+            first.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000076").unwrap(),
+        )
+        .unwrap();
+        let binding = transition_binding(&scope, event(9), 1);
+        let committed = group
+            .add_members_with_optional_governance_binding(
+                &[claimed_keypackage(&first), claimed_keypackage(&second)],
+                Some(&binding),
+                &[],
+            )
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&committed.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("two Add Proposals must be one Commit")
+        };
+        let parsed = consumed_proposals
+            .iter()
+            .filter(|proposal| proposal.proposal_type == 1)
+            .map(|proposal| crate::verify_add_proposal_leaf(&proposal.proposal_wire).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].actor_id, parsed[1].actor_id);
+        assert_ne!(parsed[0].leaf_signature_key, parsed[1].leaf_signature_key);
+        assert_eq!(added_leaves.len(), 2);
+        assert_ne!(added_leaves[0].leaf_index, added_leaves[1].leaf_index);
+        for leaf in added_leaves {
+            assert!(parsed.iter().any(|add| {
+                add.actor_id == leaf.actor_id && add.leaf_signature_key == leaf.signature_key
+            }));
+        }
     }
 
     #[test]

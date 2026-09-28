@@ -792,6 +792,24 @@ fn parse_active_key_package(provider: &OpenMlsRustCrypto, bytes: &[u8]) -> Resul
     Ok(keypackage)
 }
 
+pub(crate) fn verified_key_package_actor_and_signature_key(
+    bytes: &[u8],
+) -> Result<(ActorId, Vec<u8>)> {
+    let provider = OpenMlsRustCrypto::default();
+    let keypackage = parse_active_key_package(&provider, bytes)?;
+    let leaf = keypackage.leaf_node();
+    let credential = leaf.credential();
+    if credential.credential_type() != openmls::prelude::CredentialType::Basic {
+        return Err(Error::Protocol(
+            "KeyPackage LeafNode must carry an Arkret BasicCredential".to_owned(),
+        ));
+    }
+    Ok((
+        decode_leaf_credential(credential.serialized_content())?,
+        leaf.signature_key().as_slice().to_vec(),
+    ))
+}
+
 /// Decode a TLS-serialized wire KeyPackage into minimal-metadata author-leaf
 /// material (encryption-and-audit.md §2.10.3). The KeyPackage is
 /// cryptographically validated (RFC 9420 §10) before its leaf fields are
