@@ -1026,6 +1026,10 @@ pub enum CurrentSelector {
         member_id: ActorId,
         segment: MemberIdentitySegment,
     },
+    /// One canonical Direct Conversation binding inside its own Realm.
+    DirectConversationBinding {
+        pair_key: Hash,
+    },
     AgentKey {
         agent_id: DidCoreId,
         agent_key_id: AgentKeyId,
@@ -1177,6 +1181,9 @@ enum FlatCurrentSelector {
     MemberIdentityUpdates {
         member_id: ActorId,
         segment: MemberIdentitySegment,
+    },
+    DirectConversationBinding {
+        pair_key: Hash,
     },
     AgentKey {
         agent_id: DidCoreId,
@@ -1392,6 +1399,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::MemberState { actor_id } => Self::MemberState { actor_id },
                     FlatCurrentSelector::MemberIdentityUpdates { member_id, segment } => {
                         Self::MemberIdentityUpdates { member_id, segment }
+                    }
+                    FlatCurrentSelector::DirectConversationBinding { pair_key } => {
+                        Self::DirectConversationBinding { pair_key }
                     }
                     FlatCurrentSelector::AgentKey {
                         agent_id,
@@ -2983,6 +2993,26 @@ mod tests {
         for invalid in [
             json!({"kind":"applet_registration"}),
             json!({"kind":"applet_registration","applet_id":"ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d","realm_id":"extra"}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn direct_conversation_binding_selector_has_only_pair_key() {
+        let pair_key = Hash::new(format!("sha256:{}", "42".repeat(32))).unwrap();
+        let selector = CurrentSelector::DirectConversationBinding {
+            pair_key: pair_key.clone(),
+        };
+        let wire = json!({"kind":"direct_conversation_binding","pair_key":pair_key});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+        assert_eq!(
+            serde_json::from_value::<CurrentSelector>(wire.clone()).unwrap(),
+            selector
+        );
+        for invalid in [
+            json!({"kind":"direct_conversation_binding"}),
+            json!({"kind":"direct_conversation_binding","pair_key":pair_key,"realm_id":"extra"}),
         ] {
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
