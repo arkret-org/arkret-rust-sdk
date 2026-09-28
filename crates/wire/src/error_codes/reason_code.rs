@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-28.2;
-//! sha256=f2539155635bdfee4d7396d96b01af7a5a4936a06bec1b50ac295802637d50e7
+//! Input: registry/error-code-registry.json; version=2026-09-28.4;
+//! sha256=b3e93116513fcfbb7cc2ee8e25f0c00107676dee8aa4dd86bfd6076b01f22dfe
 //! Entries: reason_codes=308, reserved_not_emitted=71
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1723,7 +1723,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CALL_MODERATION_UNAUTHORISED,
         applies_to: &["service_call", "event_envelope"],
-        description: "A moderator action (kick / ban / force-mute / end-for-all, via `ak.call.signal{moderation}` or a `ak.call.state` moderation field) was attempted by an actor lacking `ak.call.moderate`. Reducer / receiver MUST reject. See zh/crypto-media/webrtc-signaling.md §3a (kick / ban / end-for-all) and §6.1 (force-mute via `mute_state{by=moderator}`).",
+        description: "A v1 moderator action (kick / ban / end-for-all, via `ak.call.signal{moderation}` or a `ak.call.state` moderation field) was attempted by an actor lacking `ak.call.moderate`. Reducer / receiver MUST reject. Moderator force-mute is deferred in v1: a mute_state{by=moderator} is unsupported_feature and an ak.call.state mute_override is schema_violation before this authorization check.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CALL_PARTICIPANT_REMOVED,

@@ -807,20 +807,18 @@ pub struct CallStatePayload {
 
 impl CallStatePayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        // v1 has no per-leg current selector or CAS carrier for moderator mute.
+        if self.mute_override.is_some() {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         if self.state_transition.is_none()
             && self.focus.is_none()
             && self.recording_transition.is_none()
             && self.transcript_transition.is_none()
             && self.roster_delta.is_none()
             && self.moderation_delta.is_none()
-            && self.mute_override.is_none()
         {
             return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if let Some(mute_override) = &self.mute_override {
-            mute_override
-                .validate()
-                .map_err(|_| ErrorCode::SCHEMA_VIOLATION)?;
         }
         if let Some(CallModerationDelta::RemoveParticipant { removal }) = &self.moderation_delta {
             let valid_subject = match removal.action {

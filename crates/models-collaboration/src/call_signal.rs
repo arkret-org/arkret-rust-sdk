@@ -160,11 +160,14 @@ pub struct CallMuteStateSignalData {
 
 impl CallMuteStateSignalData {
     pub fn validate(&self) -> Result<()> {
-        let has_target = self.target_actor_id.is_some() && self.target_device_id.is_some();
-        if (self.changed_by == MuteChangedBy::Moderator) != has_target {
+        if self.changed_by == MuteChangedBy::Moderator {
             return Err(WireError::Protocol(
-                "moderator mute requires target_actor_id and target_device_id; self mute forbids them"
-                    .to_owned(),
+                "unsupported_feature: moderator force-mute is deferred in v1".to_owned(),
+            ));
+        }
+        if self.target_actor_id.is_some() || self.target_device_id.is_some() {
+            return Err(WireError::Protocol(
+                "self mute forbids target_actor_id and target_device_id".to_owned(),
             ));
         }
         Ok(())
@@ -422,5 +425,29 @@ impl CallSignalPlaintext {
 
     pub const fn signal_kind(&self) -> CallSignalKind {
         self.signal.kind()
+    }
+}
+
+#[cfg(test)]
+mod v1_mute_tests {
+    use super::*;
+
+    #[test]
+    fn moderator_force_mute_is_rejected_while_self_mute_remains_valid() {
+        let mut mute = CallMuteStateSignalData {
+            audio_muted: true,
+            video_muted: false,
+            changed_by: MuteChangedBy::SelfActor,
+            target_actor_id: None,
+            target_device_id: None,
+        };
+        assert!(mute.validate().is_ok());
+        mute.changed_by = MuteChangedBy::Moderator;
+        assert!(
+            mute.validate()
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_feature")
+        );
     }
 }

@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json; version=2026-09-27.0;
 //! sha256=5aba249142eaa57526752d77f76d4e4932c51a7f6feb5c5eb81e4c692ee412e3 Input: registry/
-//! contract-registry.json; version=2026-09-28.3;
-//! sha256=37d172392ce563242a3b8e567a4b54e4bf2f16dad3e3374cce7f4d7e0e901b1b Input: registry/
-//! error-code-registry.json; version=2026-09-28.2;
-//! sha256=f2539155635bdfee4d7396d96b01af7a5a4936a06bec1b50ac295802637d50e7 Entries: operations=205
+//! contract-registry.json; version=2026-09-28.4;
+//! sha256=4c794f14a62ed4005bf4ef4265a495d99044e15325e7439ef789aef2c97f5b7f Input: registry/
+//! error-code-registry.json; version=2026-09-28.4;
+//! sha256=b3e93116513fcfbb7cc2ee8e25f0c00107676dee8aa4dd86bfd6076b01f22dfe Entries: operations=205
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 

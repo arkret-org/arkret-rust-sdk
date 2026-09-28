@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-28.2;
-//! sha256=f2539155635bdfee4d7396d96b01af7a5a4936a06bec1b50ac295802637d50e7
+//! Input: registry/error-code-registry.json; version=2026-09-28.4;
+//! sha256=b3e93116513fcfbb7cc2ee8e25f0c00107676dee8aa4dd86bfd6076b01f22dfe
 //! Entries: error_codes=162, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
@@ -1523,7 +1523,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Reducer state-machine precondition failed. Carried with a reason_code in the {strand,space,morph}_not_active / _not_archived family or the {strand,space,morph,message,relation}_already_terminal family, or with object-specific reasons like space_parent_cycle. See zh/models/common-fields.md §5.1.",
+        description: "Reducer state-machine or typed CAS precondition failed. A stale typed revision writes nothing and does not carry a generic current/current_result Problem extension; authorized current is obtained only through a separately registered read. Other failures may carry a registered reason_code in the {strand,space,morph}_not_active / _not_archived or {strand,space,morph,message,relation}_already_terminal families, or an object-specific reason such as space_parent_cycle. See zh/models/common-fields.md §5.1 and zh/sync/current-results.md §2.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingProofUnavailable,
