@@ -50,6 +50,27 @@ fn public(key: &SigningKey) -> PublicKeyMaterial {
     }
 }
 
+#[test]
+fn authority_key_map_keeps_rotated_keys_at_their_signed_times() {
+    let method = method(STATION_A);
+    let earlier = issued_at();
+    let later = now();
+    let old_key = public(&signing_key(0xA1));
+    let new_key = public(&signing_key(0xA2));
+    let mut keys = RealmAuthorityKeyMap::new();
+    keys.insert(&method, new_key.clone());
+    keys.insert_at(&method, earlier, old_key.clone());
+    keys.insert_at(&method, later, new_key.clone());
+
+    assert_eq!(keys.public_key_at(&method, earlier), Some(old_key));
+    assert_eq!(keys.public_key_at(&method, later), Some(new_key.clone()));
+    assert_eq!(
+        keys.public_key_at(&method, later + Duration::seconds(1)),
+        None
+    );
+    assert_eq!(keys.public_key(&method), Some(new_key));
+}
+
 fn multibase(key: &SigningKey) -> String {
     arkret_canonical::ed25519_pubkey_to_did_key_multibase(key.verifying_key().as_bytes())
 }

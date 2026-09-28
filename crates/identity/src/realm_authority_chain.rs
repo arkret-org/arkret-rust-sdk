@@ -164,6 +164,7 @@ pub trait RealmAuthorityKeyDirectory {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RealmAuthorityKeyMap {
     keys: BTreeMap<String, PublicKeyMaterial>,
+    historical_keys: BTreeMap<(String, DateTime<Utc>), PublicKeyMaterial>,
 }
 
 impl RealmAuthorityKeyMap {
@@ -181,6 +182,17 @@ impl RealmAuthorityKeyMap {
             .insert(verification_method.as_str().to_owned(), key)
     }
 
+    /// Store the verified key for this exact method and signature time.
+    pub fn insert_at(
+        &mut self,
+        verification_method: &DidUrl,
+        signed_at: DateTime<Utc>,
+        key: PublicKeyMaterial,
+    ) -> Option<PublicKeyMaterial> {
+        self.historical_keys
+            .insert((verification_method.as_str().to_owned(), signed_at), key)
+    }
+
     #[must_use]
     pub fn with_key(mut self, verification_method: &DidUrl, key: PublicKeyMaterial) -> Self {
         self.insert(verification_method, key);
@@ -189,18 +201,37 @@ impl RealmAuthorityKeyMap {
 
     #[must_use]
     pub fn len(&self) -> usize {
-        self.keys.len()
+        self.keys.len() + self.historical_keys.len()
     }
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.keys.is_empty()
+        self.keys.is_empty() && self.historical_keys.is_empty()
     }
 }
 
 impl RealmAuthorityKeyDirectory for RealmAuthorityKeyMap {
     fn public_key(&self, verification_method: &DidUrl) -> Option<PublicKeyMaterial> {
         self.keys.get(verification_method.as_str()).cloned()
+    }
+
+    fn public_key_at(
+        &self,
+        verification_method: &DidUrl,
+        signed_at: DateTime<Utc>,
+    ) -> Option<PublicKeyMaterial> {
+        let method = verification_method.as_str();
+        if let Some(key) = self.historical_keys.get(&(method.to_owned(), signed_at)) {
+            return Some(key.clone());
+        }
+        if self
+            .historical_keys
+            .keys()
+            .any(|(known_method, _)| known_method == method)
+        {
+            return None;
+        }
+        self.public_key(verification_method)
     }
 }
 
