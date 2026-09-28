@@ -4,7 +4,7 @@ use arkret_models_collaboration::mls_roster_authority::{
     MlsAddAuthorityAttestation, MlsAttestAddRequestBody, MlsRosterAuthorityManifest,
     MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody, MlsRosterRecord,
 };
-use arkret_models_identity::AuthenticatedServiceResolution;
+use arkret_models_identity::{AuthenticatedServiceResolution, DidDocument};
 use arkret_wire::{ActorId, DidCoreId, DidUrl, EventId, WireError};
 
 use crate::verify_peer_keypackage_claim_receipt_signature;
@@ -24,8 +24,23 @@ fn verify_station_signature(
     let document =
         arkret_identity::authenticated_service_document_at(resolution, station_id, signed_at)
             .map_err(|error| WireError::Protocol(error.to_string()))?;
+    verify_station_signature_in_document(signature, signing_bytes, &document)
+}
+
+fn verify_station_signature_in_document(
+    signature: &arkret_models_crypto::KeyOperationSignature,
+    signing_bytes: &[u8],
+    document: &DidDocument,
+) -> Result<(), WireError> {
     let verification_method = DidUrl::new(signature.kid.as_str().to_owned())
         .map_err(|error| WireError::Protocol(error.to_owned()))?;
+    arkret_identity::validate_verification_method_relationship(
+        &document,
+        &verification_method,
+        &document.id,
+        arkret_identity::DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|error| WireError::Protocol(error.to_string()))?;
     let public_key =
         arkret_identity::public_key_material_from_document(&document, &verification_method)
             .map_err(|error| WireError::Protocol(error.to_string()))?
@@ -226,13 +241,76 @@ pub fn verify_mls_roster_authority_pages(
 
 #[cfg(test)]
 mod tests {
+    use arkret_identity::{DidKeyResolver, DidResolver};
     use arkret_models_crypto::KeyOperationSignature;
+    use arkret_models_identity::{
+        AuthenticatedServiceResolution, ResolutionDidBindingEvidenceKind,
+        ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
+        ResolutionMethodHistoryEvidence,
+    };
     use arkret_wire::{
-        ActorId, Base64UrlString, BlobRef, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
-        ScopeRef,
+        ActorId, Base64UrlString, BlobRef, Did, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
+        ScopeRef, project_did_to_core_id,
     };
 
     use super::*;
+
+    #[test]
+    fn roster_station_signatures_require_historical_assertion_method() {
+        let seed = [41_u8; 32];
+        let signer = ed25519_dalek::SigningKey::from_bytes(&seed);
+        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            signer.verifying_key().as_bytes(),
+        );
+        let did = Did::new(format!("did:key:{multibase}")).unwrap();
+        let station = project_did_to_core_id(&did).unwrap();
+        let document = DidKeyResolver::new().resolve_did(&did).unwrap().document;
+        let head = arkret_canonical::sha256_digest(did.as_str().as_bytes());
+        let version = format!(
+            "synthetic-did-sha256:{}",
+            head.trim_start_matches("sha256:")
+        );
+        let resolution = AuthenticatedServiceResolution {
+            service_id: station.clone(),
+            service_kind: "station".to_owned(),
+            method_history_evidence: ResolutionMethodHistoryEvidence::DidKeyExpansion {
+                boundary: ResolutionMethodEvidenceBoundary {
+                    from_method_history_head: head.clone(),
+                    to_method_history_head: head,
+                    from_version_id: version.clone(),
+                    to_version_id: version,
+                },
+                evidence: ResolutionDidBindingEvidenceReceipt {
+                    kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                    method: "key".to_owned(),
+                    document_digest: arkret_models_identity::normalized_did_document_digest(
+                        &document,
+                    )
+                    .unwrap(),
+                    method_proofs: vec![],
+                },
+            },
+            normalized_did_document: document.clone(),
+        };
+        let method = format!("{}#{multibase}", did.as_str());
+        let bytes = b"ak.mls_roster_authority_manifest.v1\n{\"fixture\":true}";
+        let signature =
+            arkret_signatures::keypackages::sign_keypackage_signing_input(&seed, &method, bytes)
+                .unwrap();
+        let at = "2026-09-29T00:00:00Z".parse().unwrap();
+        assert!(verify_station_signature(&station, at, &signature, bytes, &resolution).is_ok());
+        assert!(
+            verify_station_signature(&station, at, &signature, b"changed", &resolution).is_err()
+        );
+        let mut revoked = document.clone();
+        revoked.raw_properties.remove("assertionMethod");
+        assert!(verify_station_signature_in_document(&signature, bytes, &revoked).is_err());
+        let mut non_assertion = document;
+        non_assertion
+            .raw_properties
+            .insert("assertionMethod".to_owned(), serde_json::json!([]));
+        assert!(verify_station_signature_in_document(&signature, bytes, &non_assertion).is_err());
+    }
 
     fn event() -> EventId {
         EventId::new("ak:event:ARELvWOpF6BRhrks3DlbQy-9XIE6aAQQumDQp7fA4Ape").unwrap()
