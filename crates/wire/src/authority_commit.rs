@@ -1039,6 +1039,12 @@ pub enum CurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    /// One Calendar event occurrence and responder's complete RSVP entry.
+    Rsvp {
+        event_ref: StrandId,
+        occurrence: Option<String>,
+        responder_actor_id: ActorId,
+    },
     /// The registered watch cell is keyed by the complete watcher Actor.
     StrandWatch {
         strand_id: StrandId,
@@ -1185,6 +1191,11 @@ enum FlatCurrentSelector {
     Strand {
         strand_id: StrandId,
     },
+    Rsvp {
+        event_ref: StrandId,
+        occurrence: Option<String>,
+        responder_actor_id: ActorId,
+    },
     StrandWatch {
         strand_id: StrandId,
         watcher_actor_id: ActorId,
@@ -1312,6 +1323,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 }
                 Ok(Self::DeviceGeneration)
             }
+            Some("rsvp") if !wire.contains_key("occurrence") => Err(serde::de::Error::custom(
+                "rsvp selector requires occurrence, including null",
+            )),
             Some(
                 kind @ ("realm_genesis"
                 | "realm_authority_root"
@@ -1391,6 +1405,15 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::Rsvp {
+                        event_ref,
+                        occurrence,
+                        responder_actor_id,
+                    } => Self::Rsvp {
+                        event_ref,
+                        occurrence,
+                        responder_actor_id,
+                    },
                     FlatCurrentSelector::StrandWatch {
                         strand_id,
                         watcher_actor_id,
@@ -2636,6 +2659,44 @@ mod tests {
             json!({"kind":"strand_position","board_space_id":"AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7","strand_id":strand}),
             json!({"kind":"strand_position","board_space_id":board,"strand_id":strand,"subject":"hash"}),
             json!({"kind":"strand_position","subject":"AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+        ] {
+            assert!(
+                serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn rsvp_current_selector_round_trips_the_closed_subject() {
+        let event_ref =
+            StrandId::new("ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+        let responder_actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:member.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        for occurrence in [None, Some("2026-09-28".to_owned())] {
+            let selector = CurrentSelector::Rsvp {
+                event_ref: event_ref.clone(),
+                occurrence: occurrence.clone(),
+                responder_actor_id: responder_actor_id.clone(),
+            };
+            let wire = json!({
+                "kind": "rsvp",
+                "event_ref": event_ref,
+                "occurrence": occurrence,
+                "responder_actor_id": responder_actor_id,
+            });
+            assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<CurrentSelector>(wire).unwrap(),
+                selector
+            );
+        }
+        for invalid in [
+            json!({"kind":"rsvp","event_ref":event_ref,"responder_actor_id":responder_actor_id}),
+            json!({"kind":"rsvp","event_ref":event_ref,"occurrence":null}),
+            json!({"kind":"rsvp","event_ref":event_ref,"occurrence":null,"responder_actor_id":responder_actor_id,"extra":true}),
         ] {
             assert!(
                 serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
