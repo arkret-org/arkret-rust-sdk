@@ -49,6 +49,7 @@
 pub mod contact_authorization;
 mod keypackage_claim_receipt;
 pub mod managed_actor_authoring;
+mod mls_roster_authority;
 mod push_registration_receipt;
 mod sdk_error;
 
@@ -188,6 +189,7 @@ pub use arkret_models_collaboration::message_authoring::{
 };
 pub use arkret_models_collaboration::mimi_operations::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
+pub use arkret_models_collaboration::mls_roster_authority::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
 pub use arkret_models_collaboration::objects::account_status::{
     AccountStatus, AccountStatusTransitionRejection,
@@ -439,6 +441,10 @@ pub use managed_actor_authoring::{
     APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
     AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,
     applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
+};
+pub use mls_roster_authority::{
+    verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
+    verify_mls_roster_authority_manifest_signature, verify_mls_roster_authority_pages,
 };
 pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};

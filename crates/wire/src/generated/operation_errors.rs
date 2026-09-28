@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-28.2;
-//! sha256=3c0e4eabe9557d7512ae8e3ed4109a4ce31967a33b514a546dcd5345246beefb Input: registry/
-//! contract-registry.json; version=2026-09-28.6;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-09-29.1;
+//! sha256=b273309bfa7ade88e8c54bd501262eedad4ebfbde67b5bd1c1962e9a7634d781 Input: registry/
+//! contract-registry.json; version=2026-09-28.7;
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Input: registry/
 //! error-code-registry.json; version=2026-09-28.5;
-//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3 Entries: operations=206
+//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3 Entries: operations=209
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -325,10 +325,19 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[
+        OperationSpecificError::Code(ErrorCode::Conflict),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::SignatureInvalid),
+    ],
+    &[
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
         OperationSpecificError::Code(ErrorCode::DigestMismatch),
         OperationSpecificError::Code(ErrorCode::StateMismatch),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::CursorInvalid),
     ],
     &[OperationSpecificError::Code(ErrorCode::FailedPrecondition)],
     &[
@@ -775,6 +784,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::CursorInvalid),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),

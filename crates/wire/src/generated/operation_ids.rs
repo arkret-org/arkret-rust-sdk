@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.3;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Entries: registered=206
+//! Input: registry/contract-registry.json; version=2026-09-28.4;
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Entries: registered=209
 
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,9 @@ pub enum ServiceOperationId {
     PeerKeysKeypackagesCommandClaimV1,
     PeerKeysKeypackagesReadClaimV1,
     PeerKeysReadLookupV1,
+    PeerMlsCommandAttestAddV1,
     PeerMlsReadGroupStateMaterialV1,
+    PeerMlsReadRosterAuthorityV1,
     PeerRealmAuthorityCommandHandoffV1,
     PeerRealmJoinReadBootstrapV1,
     PeerRealmJoinReadPreviewV1,
@@ -189,6 +191,7 @@ pub enum ServiceOperationId {
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
     SelfMessagesCommandPrepareV1,
+    SelfMlsReadRosterAuthorityV1,
     SelfModerationCommandReportV1,
     SelfMorphReadListV1,
     SelfMorphResourceGetV1,
@@ -285,7 +288,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
     ServiceOperationId::PEER_KEYS_READ_LOOKUP_V1,
+    ServiceOperationId::PEER_MLS_COMMAND_ATTEST_ADD_V1,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
+    ServiceOperationId::PEER_MLS_READ_ROSTER_AUTHORITY_V1,
     ServiceOperationId::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
@@ -398,6 +403,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
     ServiceOperationId::SELF_MESSAGES_COMMAND_PREPARE_V1,
+    ServiceOperationId::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET_V1,
@@ -536,7 +542,9 @@ impl ServiceOperationId {
         Self::PeerKeysKeypackagesCommandClaimV1,
         Self::PeerKeysKeypackagesReadClaimV1,
         Self::PeerKeysReadLookupV1,
+        Self::PeerMlsCommandAttestAddV1,
         Self::PeerMlsReadGroupStateMaterialV1,
+        Self::PeerMlsReadRosterAuthorityV1,
         Self::PeerRealmAuthorityCommandHandoffV1,
         Self::PeerRealmJoinReadBootstrapV1,
         Self::PeerRealmJoinReadPreviewV1,
@@ -649,6 +657,7 @@ impl ServiceOperationId {
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
         Self::SelfMessagesCommandPrepareV1,
+        Self::SelfMlsReadRosterAuthorityV1,
         Self::SelfModerationCommandReportV1,
         Self::SelfMorphReadListV1,
         Self::SelfMorphResourceGetV1,
@@ -799,8 +808,11 @@ impl ServiceOperationId {
     pub const PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1: &'static str =
         "ak.peer.keys.keypackages.read.claim.v1";
     pub const PEER_KEYS_READ_LOOKUP_V1: &'static str = "ak.peer.keys.read.lookup.v1";
+    pub const PEER_MLS_COMMAND_ATTEST_ADD_V1: &'static str = "ak.peer.mls.command.attest_add.v1";
     pub const PEER_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
         "ak.peer.mls.read.group_state_material.v1";
+    pub const PEER_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
+        "ak.peer.mls.read.roster_authority.v1";
     pub const PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1: &'static str =
         "ak.peer.realm_authority.command.handoff.v1";
     pub const PEER_REALM_JOIN_READ_BOOTSTRAP_V1: &'static str =
@@ -986,6 +998,8 @@ impl ServiceOperationId {
         "ak.self.media_service_binding.read.resolve.v1";
     pub const SELF_MESSAGES_COMMAND_PREPARE_V1: &'static str =
         "ak.self.messages.command.prepare.v1";
+    pub const SELF_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
+        "ak.self.mls.read.roster_authority.v1";
     pub const SELF_MODERATION_COMMAND_REPORT_V1: &'static str =
         "ak.self.moderation.command.report.v1";
     pub const SELF_MORPH_READ_LIST_V1: &'static str = "ak.self.morph.read.list.v1";
@@ -1138,7 +1152,9 @@ impl ServiceOperationId {
             Self::PeerKeysKeypackagesCommandClaimV1 => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
             Self::PeerKeysKeypackagesReadClaimV1 => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
             Self::PeerKeysReadLookupV1 => Self::PEER_KEYS_READ_LOOKUP_V1,
+            Self::PeerMlsCommandAttestAddV1 => Self::PEER_MLS_COMMAND_ATTEST_ADD_V1,
             Self::PeerMlsReadGroupStateMaterialV1 => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
+            Self::PeerMlsReadRosterAuthorityV1 => Self::PEER_MLS_READ_ROSTER_AUTHORITY_V1,
             Self::PeerRealmAuthorityCommandHandoffV1 => {
                 Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1
             }
@@ -1307,6 +1323,7 @@ impl ServiceOperationId {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
             }
             Self::SelfMessagesCommandPrepareV1 => Self::SELF_MESSAGES_COMMAND_PREPARE_V1,
+            Self::SelfMlsReadRosterAuthorityV1 => Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
             Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
             Self::SelfMorphReadListV1 => Self::SELF_MORPH_READ_LIST_V1,
             Self::SelfMorphResourceGetV1 => Self::SELF_MORPH_RESOURCE_GET_V1,
@@ -1489,9 +1506,11 @@ impl ServiceOperationId {
             }
             Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1 => Some(Self::PeerKeysKeypackagesReadClaimV1),
             Self::PEER_KEYS_READ_LOOKUP_V1 => Some(Self::PeerKeysReadLookupV1),
+            Self::PEER_MLS_COMMAND_ATTEST_ADD_V1 => Some(Self::PeerMlsCommandAttestAddV1),
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
                 Some(Self::PeerMlsReadGroupStateMaterialV1)
             }
+            Self::PEER_MLS_READ_ROSTER_AUTHORITY_V1 => Some(Self::PeerMlsReadRosterAuthorityV1),
             Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1 => {
                 Some(Self::PeerRealmAuthorityCommandHandoffV1)
             }
@@ -1706,6 +1725,7 @@ impl ServiceOperationId {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
             }
             Self::SELF_MESSAGES_COMMAND_PREPARE_V1 => Some(Self::SelfMessagesCommandPrepareV1),
+            Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1 => Some(Self::SelfMlsReadRosterAuthorityV1),
             Self::SELF_MODERATION_COMMAND_REPORT_V1 => Some(Self::SelfModerationCommandReportV1),
             Self::SELF_MORPH_READ_LIST_V1 => Some(Self::SelfMorphReadListV1),
             Self::SELF_MORPH_RESOURCE_GET_V1 => Some(Self::SelfMorphResourceGetV1),
@@ -3411,6 +3431,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerMlsCommandAttestAddV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/mls/add-authority-attestations",
+        grpc: Some("PeerMls/AttestAdd"),
+        mq: Some("peer.mls.command.attest_add"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/attest_add_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/attest_add_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.peer.mls.command.attest_add.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_verified_historical_mls_provenance_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
         http_method: "POST",
         http_path: "/_arkret/peer/mls/group-state-material",
@@ -3426,6 +3473,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerMlsReadRosterAuthorityV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/mls/roster-authority/query",
+        grpc: Some("PeerMls/RosterAuthority"),
+        mq: Some("peer.mls.query.roster_authority"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5949,6 +6016,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfMlsReadRosterAuthorityV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/mls/roster-authority/query",
+        grpc: Some("SelfMls/RosterAuthority"),
+        mq: Some("self.mls.query.roster_authority"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfModerationCommandReportV1,

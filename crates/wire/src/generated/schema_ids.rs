@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.6;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Entries: schema_ids=219,
-//! active=219
+//! Input: registry/contract-registry.json; version=2026-09-28.7;
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Entries: schema_ids=220,
+//! active=220
 
 use serde::{Deserialize, Serialize};
 
@@ -137,6 +137,7 @@ pub enum SchemaId {
     MimiInteropV1,
     MimiOperationsV1,
     MlsCommitSubmissionV1,
+    MlsRosterAuthorityV1,
     MlsWelcomeDeliveryV1,
     ModerationEvidenceV1,
     ModerationQueueItemV1,
@@ -360,6 +361,7 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsCommitSubmissionV1,
+        Self::MlsRosterAuthorityV1,
         Self::MlsWelcomeDeliveryV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
@@ -583,6 +585,7 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsCommitSubmissionV1,
+        Self::MlsRosterAuthorityV1,
         Self::MlsWelcomeDeliveryV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
@@ -1061,6 +1064,9 @@ impl SchemaId {
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
     /// Atomic MLS Commit and Welcome submission.
     pub const MLS_COMMIT_SUBMISSION_V1: &'static str = "ak.schema.mls_commit_submission.v1";
+    /// Signed historical MLS leaf provenance attestation and member-authorized complete roster
+    /// read.
+    pub const MLS_ROSTER_AUTHORITY_V1: &'static str = "ak.schema.mls_roster_authority.v1";
     /// Producer-signed recipient Welcome delivery.
     pub const MLS_WELCOME_DELIVERY_V1: &'static str = "ak.schema.mls_welcome_delivery.v1";
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
@@ -1467,6 +1473,7 @@ impl SchemaId {
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsCommitSubmissionV1 => Self::MLS_COMMIT_SUBMISSION_V1,
+            Self::MlsRosterAuthorityV1 => Self::MLS_ROSTER_AUTHORITY_V1,
             Self::MlsWelcomeDeliveryV1 => Self::MLS_WELCOME_DELIVERY_V1,
             Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
@@ -1733,6 +1740,7 @@ impl SchemaId {
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsCommitSubmissionV1 => "schemas/mls-commit-submission.schema.json",
+            Self::MlsRosterAuthorityV1 => "schemas/mls-roster-authority.schema.json",
             Self::MlsWelcomeDeliveryV1 => "schemas/mls-welcome-delivery.schema.json",
             Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
@@ -1993,6 +2001,7 @@ impl SchemaId {
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_COMMIT_SUBMISSION_V1 => Some(Self::MlsCommitSubmissionV1),
+            Self::MLS_ROSTER_AUTHORITY_V1 => Some(Self::MlsRosterAuthorityV1),
             Self::MLS_WELCOME_DELIVERY_V1 => Some(Self::MlsWelcomeDeliveryV1),
             Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),

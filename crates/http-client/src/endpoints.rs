@@ -13,6 +13,7 @@ mod key_backup;
 mod media;
 mod message_authoring;
 mod mimi;
+mod mls;
 mod moderation;
 mod peer;
 mod push;

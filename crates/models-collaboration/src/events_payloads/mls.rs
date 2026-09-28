@@ -4,9 +4,9 @@ pub use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_crypto::{MlsGovernanceBindingPayload, MlsKeyPackageState};
 pub use arkret_wire::MlsCommitSubmission;
 use arkret_wire::{
-    ActorId, BlobRef, DeviceId, DidCoreId, DidUrl, ErrorCode, EventId, EventKind, Hash, MlsGroupId,
-    MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, NonEmptyString, ObjectRef, RealmId, Result,
-    ScopeRef, WireError,
+    ActorId, Base64UrlString, BlobRef, DeviceId, DidCoreId, DidUrl, ErrorCode, EventId, EventKind,
+    Hash, MlsGroupId, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, NonEmptyString, ObjectRef,
+    RealmId, Result, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -129,6 +129,7 @@ pub struct MlsGenesisPayload {
     pub cipher_suite: NonEmptyString,
     pub group_info_ref: BlobRef,
     pub ratchet_tree_ref: BlobRef,
+    pub creator_leaf_authority: MlsGenesisCreatorLeafAuthority,
     pub governance_binding: MlsGovernanceBindingPayload,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -136,6 +137,7 @@ pub struct MlsGenesisPayload {
 
 impl MlsGenesisPayload {
     pub fn validate(&self) -> Result<()> {
+        self.creator_leaf_authority.validate()?;
         self.governance_binding.validate()?;
         if self.governance_binding.previous_epoch() != 0
             || self.governance_binding.next_epoch() != 0
@@ -154,6 +156,36 @@ impl MlsGenesisPayload {
 
     pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.governance_binding.mls_group_id()
+    }
+}
+
+/// Producer-signed binding of the sole epoch-0 RFC leaf to its historical
+/// endpoint authorization. The Event signer and MLS leaf keys may differ.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct MlsGenesisCreatorLeafAuthority {
+    pub leaf_signature_key_b64u: Base64UrlString,
+    pub endpoint: MlsWelcomeRecipientEndpoint,
+    pub authorization_event_ref: EventId,
+}
+
+impl MlsGenesisCreatorLeafAuthority {
+    pub fn validate(&self) -> Result<()> {
+        let key =
+            arkret_canonical::base64url::base64url_decode(self.leaf_signature_key_b64u.as_str())
+                .map_err(|_| {
+                    WireError::Protocol("MLS creator leaf key is not base64url".to_owned())
+                })?;
+        if key.len() != 32
+            || arkret_canonical::base64url::base64url_encode(&key)
+                != self.leaf_signature_key_b64u.as_str()
+        {
+            return Err(WireError::Protocol(
+                "MLS creator leaf key must be canonical Ed25519 public key bytes".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 

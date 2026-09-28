@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.6;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589
+//! Input: registry/contract-registry.json; version=2026-09-28.7;
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5
 //! Entries: operation_bundles=38 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -606,7 +606,15 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::PeerMlsCommandAttestAddV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerMlsReadRosterAuthorityV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -895,6 +903,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfMessagesCommandPrepareV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfMlsReadRosterAuthorityV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

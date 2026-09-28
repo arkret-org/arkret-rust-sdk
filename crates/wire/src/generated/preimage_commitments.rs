@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-28.3;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Input: reachable event
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=21767b78247ac8f02417ffa003d6cc8a4e9c3ab75ef1b6ed98705df46ece8a0b
-//! Entries: preimage_commitments=36
+//! sha256=becdf531e38b61223f17f5ba0cbcf8a112b8d807f7dc27553fee96945089a700
+//! Entries: preimage_commitments=37
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -147,6 +147,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/mimi_room_binding_migration_proof/properties/previous_accepted_event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/mls_genesis_creator_leaf_authority/properties/authorization_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

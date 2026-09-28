@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-28.6;
-//! sha256=b12f518b3d413d0f625658af31caead53a6b6f8bc1cd751c1f18c885e2c78589 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-09-28.7;
+//! sha256=d908de9ff4960bddf840709f21fa55bdb87760b364897ce3942cea7a17d812f5 Input: registry/
 //! account-data-key-registry.json; version=2026-09-28.1;
 //! sha256=cc7ef465c7e428e9621e489a45c5e79eefc69bbaf3def07db84b07c0bb86427c Entries: id_kinds=48,
-//! special_forms=15, actions=145, approval_carriers=1, schemas=219, account_data_patterns=24
+//! special_forms=15, actions=145, approval_carriers=1, schemas=220, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3406,6 +3406,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MLS_COMMIT_SUBMISSION_V1,
         file: "schemas/mls-commit-submission.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MLS_ROSTER_AUTHORITY_V1,
+        file: "schemas/mls-roster-authority.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MLS_WELCOME_DELIVERY_V1,
