@@ -495,6 +495,7 @@ pub struct RealmStateSnapshot {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MlsWelcomeRecipientEndpoint {
     Device { device_id: DeviceId },
