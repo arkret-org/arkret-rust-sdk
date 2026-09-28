@@ -293,7 +293,11 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = String::deserialize(deserializer)?;
-    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
+    if value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
         Ok(value)
     } else {
         Err(serde::de::Error::custom(
