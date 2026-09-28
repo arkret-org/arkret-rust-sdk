@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use arkret_models_crypto::{
     KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimOutcome,
 };
+use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::{
     ActorId, Base64UrlString, BlobRef, DidCoreId, EventId, Hash, KeypackageClaimId, MlsGroupId,
     MlsWelcomeDeliveryId, MlsWelcomeRecipientEndpoint, RealmId, ScopeRef,
@@ -237,6 +238,7 @@ pub enum MlsRosterRecord {
         sender_actor_id: ActorId,
         proposal_wire_b64u: Base64UrlString,
         attestation: MlsAddAuthorityAttestation,
+        attestor_resolution: AuthenticatedServiceResolution,
     },
 }
 
@@ -245,9 +247,17 @@ impl MlsRosterRecord {
         if let Self::Add {
             proposal_wire_b64u,
             attestation,
+            attestor_resolution,
             ..
         } = self
         {
+            if attestor_resolution.service_id != attestation.attestor_station_id
+                || attestor_resolution.service_kind != "station"
+            {
+                return Err(WireError::Protocol(
+                    "MLS roster Add attestor resolution names another Station".to_owned(),
+                ));
+            }
             let proposal =
                 arkret_canonical::base64url::base64url_decode(proposal_wire_b64u.as_str())
                     .map_err(|_| {
@@ -306,7 +316,8 @@ impl MlsRosterAuthorityManifest {
             || self.target_epoch != request.target_epoch
             || self.caller_actor_id != request.caller_actor_id
             || self.total_records == 0
-            || self.page_count != self.total_records.div_ceil(8)
+            || self.page_count < self.total_records.div_ceil(8)
+            || self.page_count > self.total_records
             || (self.target_epoch == 0
                 && (self.target_commit_event_ref != self.genesis_event_ref
                     || self.authority_head_commit_event_ref != self.genesis_event_ref))
