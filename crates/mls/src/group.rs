@@ -2210,7 +2210,11 @@ mod tests {
         assert_eq!(consumed_proposals[0].proposal_type, 1);
         assert_eq!(consumed_proposals[1].ordinal, 1);
         assert_eq!(consumed_proposals[1].proposal_type, 7);
-        assert!(consumed_proposals.iter().all(|proposal| !proposal.proposal_wire.is_empty()));
+        assert!(
+            consumed_proposals
+                .iter()
+                .all(|proposal| !proposal.proposal_wire.is_empty())
+        );
         assert_eq!(
             consumed_proposals[0].target_after.as_ref(),
             added_leaves.first()
