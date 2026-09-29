@@ -827,4 +827,57 @@ mod tests {
         );
         assert!(verify(&oversized).is_err());
     }
+
+    #[test]
+    fn roster_did_key_closure_survives_canonical_wire_round_trip() {
+        let (request, pages, resolution) = signed_two_page_roster();
+        let wire = arkret_canonical::canonical_json_bytes(&pages).unwrap();
+        let restored: Vec<MlsRosterAuthorityReadOutcome> = serde_json::from_slice(&wire).unwrap();
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(&restored).unwrap(),
+            wire
+        );
+        if let MlsRosterRecord::Add {
+            attestation,
+            attestor_resolution,
+            ..
+        } = &restored[1].records[0]
+        {
+            verify_peer_keypackage_claim_receipt_signature(
+                &attestation.claim_receipt,
+                attestor_resolution,
+            )
+            .unwrap();
+        }
+        verify_mls_roster_authority_pages(
+            &restored,
+            &request,
+            &resolution.service_id,
+            &pages[0].manifest.authority_head_commit_event_ref,
+            &resolution,
+        )
+        .unwrap();
+        let mut without_assertion = restored;
+        if let MlsRosterRecord::Add {
+            attestor_resolution,
+            ..
+        } = &mut without_assertion[1].records[0]
+        {
+            attestor_resolution
+                .normalized_did_document
+                .raw_properties
+                .insert("assertion_methods".to_owned(), serde_json::json!([]));
+        }
+        resign_roster_pages(&mut without_assertion);
+        assert!(
+            verify_mls_roster_authority_pages(
+                &without_assertion,
+                &request,
+                &resolution.service_id,
+                &pages[0].manifest.authority_head_commit_event_ref,
+                &resolution,
+            )
+            .is_err()
+        );
+    }
 }

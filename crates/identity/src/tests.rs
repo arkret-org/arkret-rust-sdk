@@ -262,6 +262,100 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
 }
 
 #[test]
+fn webvh_service_closure_round_trip_preserves_historical_assertion_method() {
+    let key = SigningKey::from_bytes(&[31; 32]);
+    let update_key = vector_update_key(&key);
+    let next_key = vector_update_key(&SigningKey::from_bytes(&[32; 32]));
+    let next_commitment = arkret_signatures::webvh::webvh_next_key_hash(&next_key).unwrap();
+    let template_did = "did:webvh:{SCID}:station.example.com";
+    let template_method = format!("{template_did}#assertion");
+    let template_state = json!({
+        "id": template_did,
+        "verificationMethod": [{
+            "id": template_method,
+            "type": "Multikey",
+            "controller": template_did,
+            "publicKeyMultibase": update_key
+        }],
+        "assertionMethod": [template_method]
+    });
+    let preliminary = json!({
+        "versionId": "{SCID}",
+        "versionTime": "2026-05-06T00:00:00.000Z",
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": "{SCID}",
+            "updateKeys": [update_key],
+            "nextKeyHashes": [next_commitment]
+        },
+        "state": template_state
+    });
+    let scid = vector_derive_scid(&preliminary);
+    let did = Did::new(format!("did:webvh:{scid}:station.example.com")).unwrap();
+    let method = DidUrl::new(format!("{}#assertion", did.as_str())).unwrap();
+    let state = json!({
+        "id": did,
+        "verificationMethod": [{
+            "id": method,
+            "type": "Multikey",
+            "controller": did,
+            "publicKeyMultibase": update_key
+        }],
+        "assertionMethod": [method]
+    });
+    let mut entry_body = json!({
+        "versionId": scid,
+        "versionTime": "2026-05-06T00:00:00.000Z",
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": scid,
+            "updateKeys": [update_key],
+            "nextKeyHashes": [next_commitment]
+        },
+        "state": state
+    });
+    let version = format!("1-{}", vector_multihash(&entry_body));
+    entry_body["versionId"] = json!(version);
+    let entry = vector_sign_entry(entry_body, &key);
+    let station = project_did_to_core_id(&did).unwrap();
+    let at = "2026-05-06T00:00:00Z".parse().unwrap();
+    let document: DidDocument = serde_json::from_value(state).unwrap();
+    let resolution = build_authenticated_webvh_service_resolution(
+        station.clone(),
+        "station".to_owned(),
+        document,
+        vec![entry],
+        vec![],
+        at,
+    )
+    .unwrap();
+    let wire = arkret_canonical::canonical_json_bytes(&resolution).unwrap();
+    let restored: arkret_models_identity::AuthenticatedServiceResolution =
+        serde_json::from_slice(&wire).unwrap();
+    assert_eq!(
+        arkret_canonical::canonical_json_bytes(&restored).unwrap(),
+        wire
+    );
+    let historical = authenticated_service_document_at(&restored, &station, at).unwrap();
+    validate_verification_method_relationship(
+        &historical,
+        &method,
+        &did,
+        DidVerificationRelationship::AssertionMethod,
+    )
+    .unwrap();
+
+    let mut altered = restored;
+    if let arkret_models_identity::ResolutionMethodHistoryEvidence::WebvhLog {
+        log_entries, ..
+    } = &mut altered.method_history_evidence
+    {
+        log_entries[0]["state"]["assertionMethod"] = json!([]);
+    }
+    assert!(authenticated_service_document_at(&altered, &station, at).is_err());
+}
+
+#[test]
 fn webvh_document_and_log_bytes_require_the_verified_head_document() {
     let key1 = SigningKey::from_bytes(&[7u8; 32]);
     let key2 = SigningKey::from_bytes(&[9u8; 32]);

@@ -404,7 +404,13 @@ pub fn authenticated_service_document_at(
             })
         }
         ResolutionMethodHistoryEvidence::DidKeyExpansion { .. } => {
-            Ok(resolution.normalized_did_document.clone())
+            // The carrier contains the canonical normalized projection. Its
+            // relationship members use projection names such as
+            // `assertion_methods`, while signature checks consume W3C DID
+            // Document relationships. The immutable did:key document was
+            // matched against this projection above, so reconstruct its W3C
+            // form instead of treating the projection as a raw document.
+            Ok(DidKeyResolver::new().resolve_did(did)?.document)
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => Err(IdentityError::Protocol(
             "mutable did:web cannot be used for historical service key selection".to_owned(),

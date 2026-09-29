@@ -21,6 +21,13 @@ pub fn verify_peer_keypackage_claim_receipt_signature(
     .map_err(|error| WireError::Protocol(error.to_string()))?;
     let verification_method = arkret_wire::DidUrl::new(receipt.signature.kid.as_str().to_owned())
         .map_err(|error| WireError::Protocol(error.to_owned()))?;
+    arkret_identity::validate_verification_method_relationship(
+        &document,
+        &verification_method,
+        &document.id,
+        arkret_identity::DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|error| WireError::Protocol(error.to_string()))?;
     let public_key =
         arkret_identity::public_key_material_from_document(&document, &verification_method)
             .map_err(|error| WireError::Protocol(error.to_string()))?
