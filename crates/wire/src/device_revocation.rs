@@ -1065,13 +1065,29 @@ mod tests {
     }
 
     #[test]
-    fn issue_and_refresh_share_one_action_class_distinguished_by_their_proof() {
-        assert_eq!(
-            serde_json::to_value(DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh)
-                .unwrap(),
-            serde_json::json!(DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh)
-        );
+    fn admission_action_text_is_its_wire_spelling() {
+        for action in [
+            DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh,
+            DeviceRevocationAdmissionAction::SessionGrantRevoke,
+            DeviceRevocationAdmissionAction::DevicePairingCodeClaim,
+            DeviceRevocationAdmissionAction::KeypackageClaim,
+            DeviceRevocationAdmissionAction::ToDeviceWrite,
+            DeviceRevocationAdmissionAction::EventWrite,
+        ] {
+            assert_eq!(
+                serde_json::to_value(action).unwrap(),
+                serde_json::json!(action.as_str())
+            );
+        }
+        for denied in DEVICE_REVOCATION_DENIED_ACTIONS {
+            let action: DeviceRevocationAdmissionAction =
+                serde_json::from_value(serde_json::to_value(denied).unwrap()).unwrap();
+            assert_ne!(action, DeviceRevocationAdmissionAction::SessionGrantRevoke);
+        }
+    }
 
+    #[test]
+    fn issue_and_refresh_share_one_action_class_distinguished_by_their_proof() {
         let registration = request();
         assert!(registration.is_session_grant_issue());
         registration.validate().unwrap();
