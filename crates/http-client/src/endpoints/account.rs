@@ -635,7 +635,6 @@ mod tests {
             dpop_binding_proof: SessionGrantDpopBindingProof {
                 proof_jwt: "holder.proof.jwt".to_owned(),
             },
-            applet_authority: None,
             proof: AgentSessionGrantProof {
                 proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
                 challenge: arkret_wire::base64url::base64url_encode([0u8; 16]),

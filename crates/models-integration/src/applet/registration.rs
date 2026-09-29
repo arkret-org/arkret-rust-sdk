@@ -396,20 +396,52 @@ pub struct AppletAcceptedSigningKeyEvidence {
     pub public_key_digest: Hash,
 }
 
-/// Method-specific resolution evidence captured with an Applet registration
-/// epoch. Versioned methods carry at least one stable version selector;
-/// unversioned methods carry neither selector and require a fresh canonical
-/// resolution whenever the epoch is verified.
+/// Method-specific version evidence captured with an Applet registration
+/// epoch (`applet-registration-epoch-transcript.schema.json#/$defs/did_method_version`).
+///
+/// Only the versioned `did:webvh` and `did:key` adapters are accepted: a
+/// `did:key` carries its synthetic immutable `version_id`, and a `did:webvh`
+/// carries `version_id`, `version_time`, or both. `unversioned_refetch` is
+/// always `false`, because a `did:web` current snapshot cannot support
+/// historical producer verification. Deserialization enforces the same
+/// closed shape.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AppletDidMethodVersionEvidence {
     pub method: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version_time: Option<DateTime<Utc>>,
     pub unversioned_refetch: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AppletDidMethodVersionEvidenceWire {
+    method: String,
+    #[serde(default)]
+    version_id: Option<String>,
+    #[serde(default)]
+    version_time: Option<DateTime<Utc>>,
+    unversioned_refetch: bool,
+}
+
+impl<'de> Deserialize<'de> for AppletDidMethodVersionEvidence {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = AppletDidMethodVersionEvidenceWire::deserialize(deserializer)?;
+        let evidence = Self {
+            method: wire.method,
+            version_id: wire.version_id,
+            version_time: wire.version_time,
+            unversioned_refetch: wire.unversioned_refetch,
+        };
+        evidence.validate().map_err(serde::de::Error::custom)?;
+        Ok(evidence)
+    }
 }
 
 impl AppletDidMethodVersionEvidence {
@@ -428,42 +460,41 @@ impl AppletDidMethodVersionEvidence {
         Ok(evidence)
     }
 
-    pub fn unversioned(method: impl Into<String>) -> Result<Self> {
-        let evidence = Self {
-            method: method.into(),
-            version_id: None,
-            version_time: None,
-            unversioned_refetch: true,
-        };
-        evidence.validate()?;
-        Ok(evidence)
-    }
-
+    /// The closed `did_method_version` shape.
     pub fn validate(&self) -> Result<()> {
-        if !self.method.starts_with("did:")
-            || self.method.len() <= 4
-            || !self.method[4..]
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-        {
-            return Err(WireError::Protocol(
-                "applet registration epoch DID method is invalid".to_owned(),
-            ));
-        }
         if self.unversioned_refetch {
-            if self.version_id.is_some() || self.version_time.is_some() {
-                return Err(WireError::Protocol(
-                    "unversioned DID evidence cannot carry version selectors".to_owned(),
-                ));
-            }
-        } else if self.version_id.as_deref().is_none_or(str::is_empty)
-            && self.version_time.is_none()
-        {
             return Err(WireError::Protocol(
-                "versioned DID evidence requires version_id or version_time".to_owned(),
+                "applet registration epoch DID method version evidence is always versioned"
+                    .to_owned(),
             ));
         }
-        Ok(())
+        // `non_empty_string` + `non_typed_identifier_floor`.
+        if self
+            .version_id
+            .as_deref()
+            .is_some_and(|version_id| version_id.is_empty() || version_id.starts_with("ak:"))
+        {
+            return Err(WireError::Protocol(
+                "applet registration epoch DID version_id must be a non-empty untyped identifier"
+                    .to_owned(),
+            ));
+        }
+        match self.method.as_str() {
+            "did:key" if self.version_id.is_none() => Err(WireError::Protocol(
+                "did:key registration epoch evidence requires its synthetic immutable version_id"
+                    .to_owned(),
+            )),
+            "did:webvh" if self.version_id.is_none() && self.version_time.is_none() => {
+                Err(WireError::Protocol(
+                    "did:webvh registration epoch evidence requires version_id or version_time"
+                        .to_owned(),
+                ))
+            }
+            "did:webvh" | "did:key" => Ok(()),
+            _ => Err(WireError::Protocol(
+                "applet registration epoch DID method must be did:webvh or did:key".to_owned(),
+            )),
+        }
     }
 
     pub fn validate_for_did(&self, did: &Did) -> Result<()> {
@@ -473,28 +504,6 @@ impl AppletDidMethodVersionEvidence {
                 "applet registration epoch DID method does not match did".to_owned(),
             ));
         }
-        match self.method.as_str() {
-            "did:webvh" if self.unversioned_refetch => Err(WireError::Protocol(
-                "did:webvh registration epoch evidence requires a stable version selector"
-                    .to_owned(),
-            )),
-            "did:web" if !self.unversioned_refetch => Err(WireError::Protocol(
-                "did:web registration epoch evidence requires unversioned refetch".to_owned(),
-            )),
-            "did:key"
-                if self.unversioned_refetch
-                    || self.version_id.as_deref().is_none_or(str::is_empty) =>
-            {
-                Err(WireError::Protocol(
-                    "did:key registration epoch evidence requires its synthetic immutable version_id"
-                        .to_owned(),
-                ))
-            }
-            "did:webvh" | "did:web" | "did:key" => Ok(()),
-            _ => Err(WireError::Protocol(
-                "applet registration epoch DID method has no active v1 adapter".to_owned(),
-            )),
-        }?;
         Ok(())
     }
 }
@@ -648,6 +657,31 @@ pub fn applet_signing_key_material_digest(public_key_material: &str) -> Result<H
     Hash::new(canonical::sha256_digest(public_key_material.as_bytes())).map_err(Into::into)
 }
 
+/// `common-ids.schema.json#/$defs/webvh_did`:
+/// `^did:webvh:[^\s:/?#]+:[^\s/?#]+$`.
+fn is_bare_webvh_did(did: &str) -> bool {
+    did.strip_prefix("did:webvh:")
+        .and_then(|rest| rest.split_once(':'))
+        .is_some_and(|(scid, tail)| {
+            !scid.is_empty()
+                && !tail.is_empty()
+                && !scid.contains(is_did_delimiter)
+                && !tail.contains(|ch: char| ch != ':' && is_did_delimiter(ch))
+        })
+}
+
+/// The `did:key` branch of `applet-registration-epoch-evidence.schema.json`:
+/// `^did:key:[^\s/?#]+$`.
+fn is_bare_key_did(did: &str) -> bool {
+    did.strip_prefix("did:key:").is_some_and(|key| {
+        !key.is_empty() && !key.contains(|ch: char| ch != ':' && is_did_delimiter(ch))
+    })
+}
+
+fn is_did_delimiter(ch: char) -> bool {
+    ch.is_whitespace() || matches!(ch, ':' | '/' | '?' | '#')
+}
+
 pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> String {
     if key_ref.starts_with("did:") {
         key_ref.to_owned()
@@ -661,14 +695,47 @@ pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> Str
 /// epoch. Reducers expand this snapshot when checking delegated Applet grants
 /// and fail closed if the service DID document or accepted signing key set no
 /// longer matches the install-time epoch.
+///
+/// Deserialization enforces the closed
+/// `applet-registration-epoch-evidence.schema.json` shape: `did` is a bare
+/// `did:webvh` or `did:key` whose method equals
+/// `method_version_evidence.method`, and `accepted_signing_keys` is
+/// `minItems: 1` / `uniqueItems: true`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct AppletRegistrationEpochEvidence {
     pub did: Did,
     pub document_digest: Hash,
     pub method_version_evidence: AppletDidMethodVersionEvidence,
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AppletRegistrationEpochEvidenceWire {
+    did: Did,
+    document_digest: Hash,
+    method_version_evidence: AppletDidMethodVersionEvidence,
+    accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
+}
+
+impl<'de> Deserialize<'de> for AppletRegistrationEpochEvidence {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = AppletRegistrationEpochEvidenceWire::deserialize(deserializer)?;
+        let evidence = Self {
+            did: wire.did,
+            document_digest: wire.document_digest,
+            method_version_evidence: wire.method_version_evidence,
+            accepted_signing_keys: wire.accepted_signing_keys,
+        };
+        evidence
+            .validate_schema_shape()
+            .map_err(serde::de::Error::custom)?;
+        Ok(evidence)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -753,12 +820,14 @@ impl AppletRegistrationEpochEvidence {
                 "applet registration_epoch evidence has no signing keys".to_owned(),
             ));
         }
-        Ok(Self {
+        let evidence = Self {
             did: document.id.clone(),
             document_digest,
             method_version_evidence,
             accepted_signing_keys,
-        })
+        };
+        evidence.validate_schema_shape()?;
+        Ok(evidence)
     }
 
     pub fn validate_against_did_document(
@@ -820,6 +889,39 @@ impl AppletRegistrationEpochEvidence {
         }
         if captured != current {
             return Err(AppletEpochEvidenceError::SigningKeySetMismatch);
+        }
+        Ok(())
+    }
+
+    /// The closed schema shape: the `did:webvh` / `did:key` method branch
+    /// bound to `method_version_evidence.method`, and a non-empty accepted
+    /// signing key set without duplicate members.
+    pub fn validate_schema_shape(&self) -> Result<()> {
+        self.method_version_evidence.validate()?;
+        let method_matches = match self.method_version_evidence.method.as_str() {
+            "did:webvh" => is_bare_webvh_did(self.did.as_str()),
+            "did:key" => is_bare_key_did(self.did.as_str()),
+            _ => false,
+        };
+        if !method_matches {
+            return Err(WireError::Protocol(
+                "applet registration epoch evidence did must be a bare did:webvh or did:key matching method_version_evidence.method"
+                    .to_owned(),
+            ));
+        }
+        if self.accepted_signing_keys.is_empty() {
+            return Err(WireError::Protocol(
+                "applet registration epoch evidence accepted_signing_keys must not be empty"
+                    .to_owned(),
+            ));
+        }
+        for (index, key) in self.accepted_signing_keys.iter().enumerate() {
+            if self.accepted_signing_keys[..index].contains(key) {
+                return Err(WireError::Protocol(
+                    "applet registration epoch evidence accepted_signing_keys must be unique"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }

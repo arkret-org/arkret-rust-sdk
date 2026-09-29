@@ -125,6 +125,31 @@ fn missing_untyped_or_unknown_revision_carriers_are_rejected() {
 }
 
 #[test]
+fn plan_carries_no_delegated_session_inventory() {
+    let value = fixture()["preview_plan_digest_kat"]["revoke_plan"].clone();
+    for (field, carrier) in [
+        ("delegated_session_refs", json!([])),
+        (
+            "delegated_session_snapshot_digest",
+            json!(format!("sha256:{}", "a".repeat(64))),
+        ),
+    ] {
+        let mut extended = value.clone();
+        extended[field] = carrier;
+        assert!(!schema_accepts(&extended), "formal schema accepted {field}");
+        assert!(
+            serde_json::from_value::<AppletRevokePlan>(extended).is_err(),
+            "SDK accepted {field}"
+        );
+    }
+
+    let mut delegated_mode = value;
+    delegated_mode["revoke_mode"] = json!("revoke_delegated_sessions");
+    assert!(!schema_accepts(&delegated_mode));
+    assert!(serde_json::from_value::<AppletRevokePlan>(delegated_mode).is_err());
+}
+
+#[test]
 fn formal_step_reference_matrix_round_trips_through_closed_sdk_union() {
     let fixture = fixture();
     let cases = fixture["step_reference_kat"].as_object().unwrap();

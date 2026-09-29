@@ -24,7 +24,7 @@ use arkret_models_identity::{
 use arkret_signatures::Ed25519PayloadSigner;
 use arkret_wire::{
     AppletId, Did, DidCoreId, DidUrl, Discoverability, EventId, GenesisSalt, GrantId, Hash,
-    HistoryAccess, JoinRule, RealmId, SecurityClass, TrustDomainId,
+    HistoryAccess, JoinRule, RealmId, ScopeRef, SecurityClass, TrustDomainId,
 };
 use chrono::{DateTime, TimeZone, Utc};
 use ed25519_dalek::SigningKey;
@@ -341,6 +341,43 @@ fn a_profile_that_drops_its_accountability_ref_is_rejected() {
     let error = applet_managed_actor_unit_submissions(&mis_bound, &request)
         .expect_err("a Profile without its accountability ref must fail closed");
     assert!(error.to_string().contains("Profile"), "{error}");
+}
+
+/// `zh/discovery/profiles-presence.md` section 2.3: `ak.profile.create` is
+/// principal-scoped and its Realm MUST be the actor's principal control Realm,
+/// which is the Realm the unit's own PCR genesis founds.
+#[test]
+fn the_profile_is_written_to_the_managed_actor_principal_control_realm() {
+    let (_, bundle) = authored_unit();
+    let pcr_realm_id = RealmId::from_event_id(&bundle.pcr_genesis_event.event_id);
+    assert_eq!(bundle.profile_event.realm_id, pcr_realm_id);
+    assert_eq!(
+        bundle.profile_event.scope_ref,
+        ScopeRef::Realm {
+            realm_id: pcr_realm_id
+        }
+    );
+    for event in [
+        &bundle.managed_actor_provision_event,
+        &bundle.accountability_grant_event,
+    ] {
+        assert_eq!(event.realm_id, realm_id());
+    }
+}
+
+#[test]
+fn a_profile_outside_the_principal_control_realm_is_rejected() {
+    let (request, mut mis_scoped) = authored_unit();
+    mis_scoped.profile_event.realm_id = realm_id();
+    mis_scoped.profile_event.scope_ref = ScopeRef::Realm {
+        realm_id: realm_id(),
+    };
+    let error = applet_managed_actor_unit_submissions(&mis_scoped, &request)
+        .expect_err("a Profile written to the portal Realm must fail closed");
+    assert!(
+        error.to_string().contains("principal control Realm"),
+        "{error}"
+    );
 }
 
 #[test]

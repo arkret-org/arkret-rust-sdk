@@ -1,7 +1,7 @@
 //! Applet revoke-mode closed vocabulary.
 //!
 //! Relocated from `arkret-models-integration` so the collaboration-owned
-//! `AppletRevokeRequestBody` (which also binds `AccountLifecycleProof`) can
+//! `AppletRevokeRequestBody` can
 //! name it within the frozen layering. `arkret-models-integration`
 //! re-exports it for path stability.
 
@@ -13,5 +13,4 @@ pub enum AppletRevokeMode {
     RevokeAll,
     RevokeRuntimeOnly,
     RevokeWidgetOnly,
-    RevokeDelegatedSessions,
 }

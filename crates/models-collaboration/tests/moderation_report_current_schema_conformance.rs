@@ -80,9 +80,7 @@ fn moderation_report_current_row_round_trips_through_strong_types() {
     let value = row();
     assert!(row_accepted_by_both(&value));
     let typed: TypedCurrentResult = serde_json::from_value(value.clone()).unwrap();
-    let TypedCurrentResult::Value { selector, .. } = &typed else {
-        panic!("moderation_report is a value row");
-    };
+    let TypedCurrentResult::Value { selector, .. } = &typed;
     assert_eq!(
         selector,
         &CurrentSelector::ModerationReport {

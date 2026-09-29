@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-29.7;
-//! sha256=f4d6eb26aa30d108cdea6edcd90d1170f0fe322d1469a9a639ded2c9c618d0ec
+//! Input: registry/contract-registry.json; version=2026-09-29.9;
+//! sha256=9ef1d7c1097838eb72ac02e751a298468872170a1005a05d66a2d3fd1ef1bcb5
 //! Entries: operation_bundles=38 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -539,10 +539,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandRevokeSessionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::GateAccountReadAppletDelegatedSessionInventoryV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

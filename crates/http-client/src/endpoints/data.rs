@@ -161,10 +161,6 @@ impl Client {
         self.apply_auth(builder, &method_for_auth, &url)
     }
 
-    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutcome> {
-        self.post("/_arkret/self/blob/upload", body).await
-    }
-
     pub async fn blob_presign(&self, body: &BlobPresignRequestBody) -> Result<BlobPresignOutcome> {
         self.post("/_arkret/self/blob/presign", body).await
     }

@@ -308,14 +308,19 @@ impl RelationPrimaryConflictDomain {
         ) {
             return Err(WireError::Protocol(format!("schema_violation: {reason}")));
         }
-        if let Some(descriptor) = self.relation_kind.descriptor()
-            && descriptor.primary_conflict_domain != self.domain_kind.as_registry_value()
-        {
-            return Err(WireError::Protocol(format!(
-                "schema_violation: {} keys its primary conflict domain on {}",
-                self.relation_kind.as_str(),
-                descriptor.primary_conflict_domain
-            )));
+        if let Some(descriptor) = self.relation_kind.descriptor() {
+            let Some(direct_domain) = descriptor.direct_write_primary_conflict_domain else {
+                return Err(WireError::Protocol(format!(
+                    "schema_violation: {} has no directly writable shape",
+                    self.relation_kind.as_str()
+                )));
+            };
+            if direct_domain != self.domain_kind.as_registry_value() {
+                return Err(WireError::Protocol(format!(
+                    "schema_violation: {} keys its primary conflict domain on {direct_domain}",
+                    self.relation_kind.as_str()
+                )));
+            }
         }
         match (self.domain_kind, self.to_ref.is_some()) {
             (RelationPrimaryConflictDomainKind::Tuple, true)

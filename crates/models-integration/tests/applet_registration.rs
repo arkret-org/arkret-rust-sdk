@@ -427,16 +427,39 @@ fn applet_ping_consumes_protocol_version_bootstrap() {
 
 #[test]
 fn epoch_method_version_rules_follow_the_active_v1_adapters() {
-    let web_did = Did::new("did:web:applet.example".to_owned()).unwrap();
-    let disguised_web =
+    assert!(
         AppletDidMethodVersionEvidence::versioned("did:web", Some("synthetic".to_owned()), None)
-            .unwrap();
-    assert!(disguised_web.validate_for_did(&web_did).is_err());
+            .is_err()
+    );
+    assert!(AppletDidMethodVersionEvidence::versioned("did:key", None, Some(Utc::now())).is_err());
+    assert!(AppletDidMethodVersionEvidence::versioned("did:webvh", None, None).is_err());
+    assert!(
+        AppletDidMethodVersionEvidence::versioned(
+            "did:webvh",
+            Some("ak:event:typed".to_owned()),
+            None
+        )
+        .is_err()
+    );
+    for invalid in [
+        json!({"method": "did:web", "unversioned_refetch": true}),
+        json!({"method": "did:webvh", "unversioned_refetch": true}),
+        json!({"method": "did:webvh", "version_id": "1-Qm", "unversioned_refetch": true}),
+        json!({"method": "did:key", "version_time": "2026-01-01T00:00:00Z", "unversioned_refetch": false}),
+    ] {
+        assert!(
+            serde_json::from_value::<AppletDidMethodVersionEvidence>(invalid.clone()).is_err(),
+            "{invalid}"
+        );
+    }
+    serde_json::from_value::<AppletDidMethodVersionEvidence>(json!({
+        "method": "did:webvh",
+        "version_time": "2026-01-01T00:00:00Z",
+        "unversioned_refetch": false
+    }))
+    .unwrap();
 
     let webvh_did = Did::new("did:webvh:z6mkfixture:applet.example".to_owned()).unwrap();
-    let unpinned_webvh = AppletDidMethodVersionEvidence::unversioned("did:webvh").unwrap();
-    assert!(unpinned_webvh.validate_for_did(&webvh_did).is_err());
-
     let wrong_method = AppletDidMethodVersionEvidence::versioned(
         "did:key",
         Some("synthetic-did-sha256:abc".to_owned()),
@@ -569,6 +592,47 @@ fn registration_epoch_evidence_rejects_deactivated_and_swapped_did() {
             .validate_against_did_document(&other_document)
             .is_err()
     );
+}
+
+/// `applet-registration-epoch-evidence.schema.json`: `accepted_signing_keys`
+/// is `minItems: 1` / `uniqueItems: true`, and `did` is only a bare
+/// `did:webvh` or `did:key` bound to `method_version_evidence.method`.
+#[test]
+fn registration_epoch_evidence_wire_enforces_the_closed_schema_shape() {
+    let evidence = sample_epoch_evidence(&service("slackbridge"));
+    let valid = serde_json::to_value(&evidence).unwrap();
+    validate_fragment("applet-registration-epoch-evidence.schema.json", "#", &valid);
+    assert_eq!(
+        serde_json::from_value::<AppletRegistrationEpochEvidence>(valid.clone()).unwrap(),
+        evidence
+    );
+
+    let mut empty_keys = valid.clone();
+    empty_keys["accepted_signing_keys"] = json!([]);
+    let mut duplicate_keys = valid.clone();
+    let key = valid["accepted_signing_keys"][0].clone();
+    duplicate_keys["accepted_signing_keys"] = json!([key.clone(), key]);
+    let mut current_snapshot_did = valid.clone();
+    current_snapshot_did["did"] = json!("did:web:slackbridge.example");
+    let mut method_mismatch = valid.clone();
+    method_mismatch["did"] = json!("did:key:z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT");
+    let mut webvh_without_host = valid;
+    webvh_without_host["did"] = json!("did:webvh:slackbridge");
+    for (label, value) in [
+        ("empty accepted_signing_keys", empty_keys),
+        ("duplicate accepted_signing_keys", duplicate_keys),
+        ("did:web current snapshot", current_snapshot_did),
+        (
+            "did method differs from method_version_evidence",
+            method_mismatch,
+        ),
+        ("did:webvh without a host segment", webvh_without_host),
+    ] {
+        assert!(
+            serde_json::from_value::<AppletRegistrationEpochEvidence>(value).is_err(),
+            "{label} must not deserialize"
+        );
+    }
 }
 
 #[test]

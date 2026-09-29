@@ -8987,19 +8987,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantAppletDelegation",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/session_grants.rs",
-      "line": 209,
-      "kind": "struct",
-      "value_kind": "SessionGrantAppletDelegation",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantAppletDelegation",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/session_grants.rs::AgentSessionGrantProof",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/session_grants.rs",

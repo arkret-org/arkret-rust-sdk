@@ -7,7 +7,6 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_identity::account::AccountLifecycleProof;
 use arkret_models_identity::authenticated_signer_resolution_evidence::{
     AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
 };
@@ -297,9 +296,6 @@ pub struct AppletRevokeRequestBody {
     pub capability_revoke_events: Vec<EventAdmissionSubmission>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub membership_state_events: Vec<EventAdmissionSubmission>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof: Option<AccountLifecycleProof>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -361,14 +357,14 @@ pub enum AppletInstallEffectiveStatus {
 pub struct AppletInstallOutcome {
     pub install_id: String,
     pub applet_id: AppletId,
-    pub registration_event_ref: CommittedEventRef,
+    pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
     pub bot_actor_id: ActorId,
-    pub bot_actor_provision_ref: CommittedEventRef,
+    pub bot_actor_provision_ref: EventId,
     pub bot_principal_control_realm_id: RealmId,
     pub capability_grant_refs: Vec<GrantId>,
-    pub e2ee_authorization_refs: Vec<CommittedEventRef>,
-    pub widget_policy_ref: Option<CommittedEventRef>,
+    pub e2ee_authorization_refs: Vec<EventId>,
+    pub widget_policy_ref: Option<EventId>,
     pub effective_status: AppletInstallEffectiveStatus,
     pub rejections: Vec<AppletScopeRejection>,
 }
@@ -469,9 +465,6 @@ pub struct AppletRevokePlan {
     pub capability_revocations: Vec<AppletCapabilityRevokeIntent>,
     pub membership_removals: Vec<AppletMembershipRemoveIntent>,
     pub widget_token_refs: Vec<String>,
-    pub delegated_session_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delegated_session_snapshot_digest: Option<Hash>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -503,7 +496,6 @@ pub enum AppletRevokeEventEffectKind {
 #[serde(rename_all = "snake_case")]
 pub enum AppletRevokeLocalEffectKind {
     WidgetTokenInvalidation,
-    DelegatedSessionRevocation,
     LocalAppletFence,
 }
 

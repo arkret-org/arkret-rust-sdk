@@ -1011,7 +1011,7 @@ mod tests {
         let contract = SdkConformanceContract::from_value(contract_value, active).unwrap();
         assert_eq!(
             contract.digest(),
-            "sha256:9ce3899dabee98d2d0957c74db408b3e48f34b42955b01758747018d0787f01b"
+            "sha256:2734014eddd328ba1a4d1714f9e70fdd6d13c811535f056e2298179c1f62576c"
         );
 
         let evidence = contract

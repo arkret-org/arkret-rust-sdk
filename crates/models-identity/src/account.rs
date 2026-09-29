@@ -1,8 +1,8 @@
 use arkret_wire::{
-    AppletId, DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId,
-    DidUrl, EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result,
-    SchemaId, ScopeRef, ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError,
-    canonical, project_did_to_core_id,
+    DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId, DidUrl,
+    EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId,
+    ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -2207,22 +2207,7 @@ pub struct AccountLifecycleProof {
 /// Maximum issued lifetime of an account lifecycle proof, in seconds.
 pub const ACCOUNT_LIFECYCLE_PROOF_MAX_LIFETIME_SECONDS: i64 = 15 * 60;
 
-/// Applet selector bound into the session-revoke request digest. It is not a
-/// standalone wire object: `session_revoke_request_body` inlines these members
-/// under `dependentRequired`, and this grouping keeps the digest transcript and
-/// the request body from drifting apart.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SessionGrantAppletSelector {
-    pub applet_id: AppletId,
-    pub effective_scope: ScopeRef,
-    pub registration_epoch: Hash,
-    pub service_id: DidCoreId,
-    pub capability_grant_refs: Vec<String>,
-    pub expected_inventory_digest: Hash,
-}
-
 impl AccountLifecycleProof {
-    #[allow(clippy::too_many_arguments)]
     pub fn session_revoke_request_digest(
         actor_id: &DidCoreId,
         service_id: &DidCoreId,
@@ -2230,7 +2215,6 @@ impl AccountLifecycleProof {
         target_session_grant_id: Option<&SessionGrantId>,
         target_device_id: Option<&DeviceId>,
         all_sessions: bool,
-        applet_selector: Option<&SessionGrantAppletSelector>,
     ) -> Result<Hash> {
         let request = json!({
             "schema": SchemaId::ACCOUNT_OPERATIONS_V1,
@@ -2241,7 +2225,6 @@ impl AccountLifecycleProof {
             "target_session_grant_id": target_session_grant_id,
             "target_device_id": target_device_id,
             "all_sessions": all_sessions,
-            "applet_selector": applet_selector,
         });
         Ok(Hash::new(canonical::canonical_sha256(&request)?)?)
     }

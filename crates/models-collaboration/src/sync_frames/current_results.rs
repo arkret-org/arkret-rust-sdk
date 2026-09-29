@@ -5,7 +5,7 @@
 
 pub use arkret_wire::{
     CircleMemberStateCurrent, CurrentRevision, CurrentSelector, MemberStateCurrent,
-    MembershipState, MlsGroupCurrent, ReactionCurrent, TypedCurrentResult,
+    MembershipState, MlsGroupCurrent, TypedCurrentResult,
 };
 use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
@@ -84,8 +84,7 @@ impl AccountCurrentResult {
 
 const fn selector_of(entry: &TypedCurrentResult) -> &CurrentSelector {
     match entry {
-        TypedCurrentResult::Value { selector, .. }
-        | TypedCurrentResult::MessageReactions { selector, .. } => selector,
+        TypedCurrentResult::Value { selector, .. } => selector,
     }
 }
 

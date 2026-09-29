@@ -36,8 +36,8 @@ use arkret_signatures::{EventSigner, SignEventOptions, sign_event};
 use arkret_wire::{
     AccountId, ActorId, ActorKind, AppletId, AuthorizationRef, DidCoreId, Discoverability, Event,
     EventAdmissionSubmission, EventId, EventKind, GenesisSalt, GrantId, Hash, HistoryAccess,
-    JoinRule, PayloadProof, PayloadSigner, ScopeRef, SecurityClass, SemanticRef, TrustDomainId,
-    event_spec, proof_kind,
+    JoinRule, PayloadProof, PayloadSigner, RealmId, ScopeRef, SecurityClass, SemanticRef,
+    TrustDomainId, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -239,6 +239,11 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
         signer,
     )?;
 
+    // The Profile is principal-scoped state: its Realm is the managed actor's
+    // own principal control Realm, which the PCR genesis above founds.
+    let principal_control_scope = ScopeRef::Realm {
+        realm_id: RealmId::from_event_id(&pcr_genesis_event.event_id),
+    };
     let delegation = AppletDelegatedEventAuthorization::new(
         branch.service_id.clone(),
         authorization_ref,
@@ -248,6 +253,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + EventSigner + ?Size
     let profile_event = author_and_sign(
         profile_intent(
             &branch,
+            principal_control_scope,
             actor_id,
             &delegation,
             managed_actor_id,
@@ -391,7 +397,11 @@ pub fn applet_managed_actor_unit_submissions(
         AppletManagedActorRole::Bot => ActorKind::Bot,
         AppletManagedActorRole::Ghost => ActorKind::Integration,
     };
+    let principal_control_scope = ScopeRef::Realm {
+        realm_id: RealmId::from_event_id(&genesis.event_id),
+    };
     if !profile_binds_accountability
+        || profile.scope_ref != principal_control_scope
         || profile.actor_id != payload.actor_id
         || profile.executed_by.as_ref() != Some(&service_actor_id)
         || &profile_payload.object.principal_id != payload.actor_id.signing_principal_id()
@@ -402,7 +412,7 @@ pub fn applet_managed_actor_unit_submissions(
             .contains(&payload.service_id)
     {
         return Err(protocol(
-            "Applet-managed actor Profile does not bind its accountability grant, principal and service",
+            "Applet-managed actor Profile does not bind its principal control Realm, accountability grant, principal and service",
         ));
     }
 
@@ -423,6 +433,7 @@ fn typed_payload<T: serde::de::DeserializeOwned>(event: &Event) -> Result<T> {
 
 fn profile_intent(
     branch: &Branch,
+    principal_control_scope: ScopeRef,
     principal_id: DidCoreId,
     delegation: &AppletDelegatedEventAuthorization,
     managed_actor_id: ActorId,
@@ -440,14 +451,14 @@ fn profile_intent(
             )
             .with_accountable_principal_ids(vec![branch.service_id.clone()]);
             profile.profile_create_intent(
-                branch.realm_scope.clone(),
+                principal_control_scope,
                 managed_actor_id,
                 created_at,
                 Some(delegation),
             )?
         }
         (None, AppletManagedActorRole::Bot) => TypedEventDraft::<event_spec::ProfileCreate>::new(
-            branch.realm_scope.clone(),
+            principal_control_scope,
             managed_actor_id,
             ActorProfileCreatePayload {
                 object: bot_profile(branch, principal_id),

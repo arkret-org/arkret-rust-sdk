@@ -138,7 +138,7 @@ struct ServerTranscriptBody<'a> {
     device_pairing_request_id: &'a str,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    gate_audience: &'a str,
+    gate_audience_uri: &'a str,
     device_metadata_digest: &'a str,
     new_device_pubkey_digest: &'a str,
     pairing_code: &'a str,
@@ -157,7 +157,7 @@ pub fn server_device_pairing_transcript(
         client_nonce: challenge.client_nonce.as_str(),
         device_pairing_request_id: challenge.device_pairing_request_id.as_str(),
         expires_at: challenge.expires_at,
-        gate_audience: &challenge.gate_audience_uri,
+        gate_audience_uri: &challenge.gate_audience_uri,
         device_metadata_digest: &metadata_digest,
         new_device_pubkey_digest: &public_key_digest,
         pairing_code: challenge.pairing_code.as_str(),

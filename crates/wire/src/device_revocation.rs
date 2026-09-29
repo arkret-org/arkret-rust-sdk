@@ -284,8 +284,8 @@ impl DeviceRevocationGateRecord {
 
 /// Action class a current-device admission decision is linearized for.
 ///
-/// Every class except `SessionGrantRevoke` is one of the closed
-/// [`DEVICE_REVOCATION_DENIED_ACTIONS`]. Session-grant issue and refresh are
+/// Every class is one of the closed [`DEVICE_REVOCATION_DENIED_ACTIONS`].
+/// Session-grant issue and refresh are
 /// the single `session_grant_issue_or_refresh` class; which of them an input
 /// is follows from its accepted-device proof alone: none for
 /// registration/recovery issue, an issue proof for returning account-handoff
@@ -294,7 +294,6 @@ impl DeviceRevocationGateRecord {
 #[serde(rename_all = "snake_case")]
 pub enum DeviceRevocationAdmissionAction {
     SessionGrantIssueOrRefresh,
-    SessionGrantRevoke,
     DevicePairingCodeClaim,
     KeypackageClaim,
     ToDeviceWrite,
@@ -306,7 +305,6 @@ impl DeviceRevocationAdmissionAction {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::SessionGrantIssueOrRefresh => "session_grant_issue_or_refresh",
-            Self::SessionGrantRevoke => "session_grant_revoke",
             Self::DevicePairingCodeClaim => "device_pairing_code_claim",
             Self::KeypackageClaim => "keypackage_claim",
             Self::ToDeviceWrite => "to_device_write",
@@ -1031,20 +1029,6 @@ mod tests {
         write.expected_device_generation_ref = Some(7);
         write.validate().unwrap();
 
-        let mut revoke = request();
-        revoke.action_class = DeviceRevocationAdmissionAction::SessionGrantRevoke;
-        assert!(revoke.validate().is_err());
-        revoke.expected_device_authorize_event_id = Some(authorize_event());
-        revoke.expected_device_generation_ref = Some(7);
-        revoke.validate().unwrap();
-        assert_eq!(
-            serde_json::to_value(revoke.action_class).unwrap(),
-            serde_json::json!("session_grant_revoke")
-        );
-        revoke.accepted_device_possession_proof =
-            Some(issue_possession_proof(revoke.intent_digest.clone()));
-        assert!(revoke.validate().is_err());
-
         let mut code_claim = request();
         code_claim.action_class = DeviceRevocationAdmissionAction::DevicePairingCodeClaim;
         assert!(code_claim.validate().is_err());
@@ -1068,7 +1052,6 @@ mod tests {
     fn admission_action_text_is_its_wire_spelling() {
         for action in [
             DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh,
-            DeviceRevocationAdmissionAction::SessionGrantRevoke,
             DeviceRevocationAdmissionAction::DevicePairingCodeClaim,
             DeviceRevocationAdmissionAction::KeypackageClaim,
             DeviceRevocationAdmissionAction::ToDeviceWrite,
@@ -1082,7 +1065,10 @@ mod tests {
         for denied in DEVICE_REVOCATION_DENIED_ACTIONS {
             let action: DeviceRevocationAdmissionAction =
                 serde_json::from_value(serde_json::to_value(denied).unwrap()).unwrap();
-            assert_ne!(action, DeviceRevocationAdmissionAction::SessionGrantRevoke);
+            assert_eq!(
+                serde_json::to_value(action).unwrap(),
+                serde_json::to_value(denied).unwrap()
+            );
         }
     }
 

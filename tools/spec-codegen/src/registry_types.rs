@@ -2006,7 +2006,7 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(string(row, "canonical_id")?, &[])
         )?;
     }
-    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub primary_conflict_domain: &'static str,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
+    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub primary_conflict_domain: &'static str,\n    /// Primary conflict domain of the directly writable shape, if any.\n    pub direct_write_primary_conflict_domain: Option<&'static str>,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
     for row in &rows {
         writeln!(
             output,
@@ -2034,9 +2034,35 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     }
     output.push_str("            _ => Self::Custom(value.to_owned()),\n        }\n    }\n\n    pub fn descriptor(&self) -> Option<&'static RelationKindDescriptor> {\n        RELATION_KIND_DESCRIPTORS.iter().find(|row| row.canonical_id == self.as_str())\n    }\n\n    pub fn is_standard(&self) -> bool {\n        self.descriptor().is_some()\n    }\n\n    pub fn is_structural(&self) -> bool {\n        self.descriptor().is_some_and(|row| !row.weak_semantic)\n    }\n}\n\nimpl Serialize for RelationKind {\n    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for RelationKind {\n    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        Ok(Self::from_wire(&String::deserialize(deserializer)?))\n    }\n}\n\npub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[\n");
     for row in rows {
+        let direct_write_domain = match row.get("shapes") {
+            Some(shapes) => {
+                let direct = shapes
+                    .as_array()
+                    .context("relation kind shapes is not an array")?
+                    .iter()
+                    .filter(|shape| {
+                        shape.get("writability").and_then(Value::as_str) == Some("direct")
+                    })
+                    .collect::<Vec<_>>();
+                match direct.as_slice() {
+                    [] => None,
+                    [shape] => Some(string(
+                        shape
+                            .as_object()
+                            .context("relation kind shape is not an object")?,
+                        "primary_conflict_domain",
+                    )?),
+                    _ => bail!(
+                        "relation kind {} declares more than one directly writable shape",
+                        string(row, "canonical_id")?
+                    ),
+                }
+            }
+            None => Some(string(row, "primary_conflict_domain")?),
+        };
         writeln!(
             output,
-            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        primary_conflict_domain: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
+            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        primary_conflict_domain: {},\n        direct_write_primary_conflict_domain: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
             rust_string(string(row, "canonical_id")?),
             rust_string(string(row, "default_cardinality")?),
             rust_string(if row.get("shapes").is_some() {
@@ -2044,6 +2070,10 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             } else {
                 string(row, "primary_conflict_domain")?
             }),
+            match direct_write_domain {
+                Some(domain) => format!("Some({})", rust_string(domain)),
+                None => "None".to_owned(),
+            },
             variant(string(row, "truth_source_class")?, &[]),
             field(row, "weak_semantic")?
                 .as_bool()

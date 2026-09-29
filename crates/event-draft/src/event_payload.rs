@@ -225,7 +225,7 @@ event_payload_accessors! {
     event_spec::CircleArchive => (as_circle_archive, ObjectLifecyclePayload),
     event_spec::CircleRestore => (as_circle_restore, ObjectLifecyclePayload),
     event_spec::CircleTombstone => (as_circle_tombstone, ObjectLifecyclePayload),
-    event_spec::CircleMemberState => (as_circle_member_state, CircleMemberStatePayload),
+    event_spec::CircleMemberState => (as_circle_member_state, CircleMemberStatePayload, CircleMemberStatePayload::validate),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::MemberState => (as_member_state, MembershipPayload),
     event_spec::MemberIdentityUpdate => (as_member_identity_update, MemberIdentityUpdatePayload),

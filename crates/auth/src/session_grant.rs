@@ -69,7 +69,6 @@ pub fn agent_key_proof_session_grant_request(
         agent_scope_request,
         requested_scope_disclosure,
         dpop_binding_proof,
-        None,
         UnsignedAgentSessionGrantProof {
             challenge: challenge.into(),
             audience_id,

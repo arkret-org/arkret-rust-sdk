@@ -494,6 +494,31 @@ pub struct RealmStateSnapshot {
     pub signature: DetachedObjectSignature,
 }
 
+impl RealmStateSnapshot {
+    /// The exact typed revision of `member`'s current parent Realm
+    /// `member_state` join in this snapshot's cut -- the value a Circle join
+    /// signs as `parent_membership_revision` (`zh/models/circle.md` section
+    /// 9.1). `None` unless that current is `join` on this Realm's stream.
+    pub fn parent_membership_revision(&self, member: &ActorId) -> Option<CurrentRevision> {
+        self.current_state_entries.iter().find_map(|entry| {
+            let TypedCurrentResult::Value {
+                selector: CurrentSelector::MemberState { actor_id },
+                source_stream_ref: CommitStreamRef::Realm { realm_id },
+                revision,
+                value,
+            } = entry
+            else {
+                return None;
+            };
+            (actor_id == member
+                && realm_id == &self.realm_id
+                && serde_json::from_value::<MemberStateCurrent>(value.clone())
+                    .is_ok_and(|current| current.membership == MembershipState::Join))
+            .then(|| revision.clone())
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -1083,8 +1108,11 @@ pub enum CurrentSelector {
     MessageRevision {
         message_id: MessageId,
     },
+    /// The reacted-to object: a reaction set is keyed per target and the
+    /// payload carries no other target field
+    /// (`typed-current-result.schema.json#/$defs/message_reactions_result`).
     MessageReactions {
-        event_id: EventId,
+        target_ref: crate::ObjectRef,
     },
     CallState {
         call_id: CallId,
@@ -1232,7 +1260,7 @@ enum FlatCurrentSelector {
         message_id: MessageId,
     },
     MessageReactions {
-        event_id: EventId,
+        target_ref: crate::ObjectRef,
     },
     CallState {
         call_id: CallId,
@@ -1455,8 +1483,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::MessageRevision { message_id } => {
                         Self::MessageRevision { message_id }
                     }
-                    FlatCurrentSelector::MessageReactions { event_id } => {
-                        Self::MessageReactions { event_id }
+                    FlatCurrentSelector::MessageReactions { target_ref } => {
+                        if !crate::is_object_ref(&target_ref) {
+                            return Err(serde::de::Error::custom(
+                                "message_reactions target_ref is not a formal object_ref",
+                            ));
+                        }
+                        Self::MessageReactions { target_ref }
                     }
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
                     FlatCurrentSelector::ModerationReport { event_id } => {
@@ -1608,21 +1641,102 @@ pub struct MemberStateCurrent {
 }
 
 /// The existing `circle_member_state_value` schema's complete current value.
+///
+/// A `join` value carries the producer-signed `parent_membership_revision`
+/// copied verbatim from the accepted Event; every other value forbids it.
+/// Deserialization enforces that conditional, so no invalid register exists.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "CircleMemberStateCurrentWire")]
 pub struct CircleMemberStateCurrent {
     pub membership: MembershipState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_membership_revision: Option<CurrentRevision>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub effective_at: DateTime<Utc>,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ReactionCurrent {
-    pub actor_id: ActorId,
-    pub key: String,
+struct CircleMemberStateCurrentWire {
+    membership: MembershipState,
+    #[serde(default, deserialize_with = "deserialize_present_revision")]
+    parent_membership_revision: Option<CurrentRevision>,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    effective_at: DateTime<Utc>,
+}
+
+fn deserialize_present_revision<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<CurrentRevision>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    CurrentRevision::deserialize(deserializer).map(Some)
+}
+
+impl TryFrom<CircleMemberStateCurrentWire> for CircleMemberStateCurrent {
+    type Error = WireError;
+
+    fn try_from(value: CircleMemberStateCurrentWire) -> Result<Self> {
+        let current = Self {
+            membership: value.membership,
+            parent_membership_revision: value.parent_membership_revision,
+            effective_at: value.effective_at,
+        };
+        current.validate()?;
+        Ok(current)
+    }
+}
+
+impl CircleMemberStateCurrent {
+    /// `parent_membership_revision` is present exactly on a `join` value.
+    pub fn validate(&self) -> Result<()> {
+        validate_parent_membership_revision(
+            self.membership == MembershipState::Join,
+            self.parent_membership_revision.is_some(),
+        )
+    }
+
+    /// Conditions (a) and (b) of effective Circle membership
+    /// (`zh/models/circle.md` section 9.1): this canonical value is `join`
+    /// and the parent Realm `member_state` current of the same actor, read in
+    /// the same durable cut, is `join` on the parent Realm stream at exactly
+    /// the bound revision. The comparison is by the content-addressed Commit
+    /// identity together with its parent Realm stream position, never by a
+    /// position number shared with a Circle stream. Condition (c), the rest of
+    /// the parent Realm effective membership, stays with the caller.
+    pub fn is_effective_under_parent(
+        &self,
+        realm_id: &RealmId,
+        parent_source_stream_ref: &CommitStreamRef,
+        parent_revision: &CurrentRevision,
+        parent_membership: MembershipState,
+    ) -> bool {
+        self.membership == MembershipState::Join
+            && parent_membership == MembershipState::Join
+            && matches!(
+                parent_source_stream_ref,
+                CommitStreamRef::Realm { realm_id: parent_realm } if parent_realm == realm_id
+            )
+            && self.parent_membership_revision.as_ref() == Some(parent_revision)
+    }
+}
+
+/// Shared presence rule of `parent_membership_revision` on the
+/// `ak.circle.member.state` payload and on its current value.
+pub fn validate_parent_membership_revision(is_join: bool, present: bool) -> Result<()> {
+    match (is_join, present) {
+        (true, true) | (false, false) => Ok(()),
+        (true, false) => Err(WireError::ProtocolCode {
+            code: crate::ErrorCode::SchemaViolation,
+            message: "a Circle join requires parent_membership_revision".to_owned(),
+        }),
+        (false, true) => Err(WireError::ProtocolCode {
+            code: crate::ErrorCode::SchemaViolation,
+            message: "only a Circle join carries parent_membership_revision".to_owned(),
+        }),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1639,7 +1753,9 @@ pub struct MlsGroupCurrent {
 
 /// Closed selector union for snapshot/current reads. Complex domain values
 /// remain their canonical schema JSON until their owning model crates expose a
-/// dependency-safe shared representation.
+/// dependency-safe shared representation; the owning model crate decodes
+/// `value` against the selector's family (for example `message_reactions`
+/// through `arkret_models_collaboration::events_payloads::reaction`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -1649,12 +1765,6 @@ pub enum TypedCurrentResult {
         source_stream_ref: CommitStreamRef,
         revision: CurrentRevision,
         value: Value,
-    },
-    MessageReactions {
-        selector: CurrentSelector,
-        source_stream_ref: CommitStreamRef,
-        revision: CurrentRevision,
-        reactions: Vec<ReactionCurrent>,
     },
 }
 
@@ -2945,13 +3055,68 @@ mod tests {
                 "{invalid}"
             );
         }
-        let current = json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z"});
+        let parent = json!({
+            "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            "stream_position": 7
+        });
+        let current = json!({
+            "membership": "join",
+            "parent_membership_revision": parent,
+            "effective_at": "2026-09-27T12:00:00.000Z"
+        });
         let parsed = serde_json::from_value::<CircleMemberStateCurrent>(current.clone()).unwrap();
-        assert_eq!(serde_json::to_value(parsed).unwrap(), current);
+        assert_eq!(serde_json::to_value(&parsed).unwrap(), current);
+        let leave = json!({"membership":"leave","effective_at":"2026-09-27T12:00:00.000Z"});
+        let parsed_leave =
+            serde_json::from_value::<CircleMemberStateCurrent>(leave.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed_leave).unwrap(), leave);
+        let realm_id = realm(41);
+        let parent_revision: CurrentRevision = serde_json::from_value(parent.clone()).unwrap();
+        let realm_stream = CommitStreamRef::Realm {
+            realm_id: realm_id.clone(),
+        };
+        assert!(parsed.is_effective_under_parent(
+            &realm_id,
+            &realm_stream,
+            &parent_revision,
+            MembershipState::Join
+        ));
+        for membership in [MembershipState::Leave, MembershipState::Ban] {
+            assert!(!parsed.is_effective_under_parent(
+                &realm_id,
+                &realm_stream,
+                &parent_revision,
+                membership
+            ));
+        }
+        let rejoined = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([15; 32]),
+            stream_position: 15,
+        };
+        assert!(!parsed.is_effective_under_parent(
+            &realm_id,
+            &realm_stream,
+            &rejoined,
+            MembershipState::Join
+        ));
+        let circle_stream = CommitStreamRef::Circle {
+            realm_id: realm_id.clone(),
+            circle_id: circle_id.clone(),
+        };
+        assert!(!parsed.is_effective_under_parent(
+            &realm_id,
+            &circle_stream,
+            &parent_revision,
+            MembershipState::Join
+        ));
         for invalid in [
             json!({"membership":"join"}),
-            json!({"membership":"join","effective_at":"2026-09-27T12:00:00Z"}),
-            json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z","revision":1}),
+            json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z"}),
+            json!({"membership":"join","parent_membership_revision":null,"effective_at":"2026-09-27T12:00:00.000Z"}),
+            json!({"membership":"join","parent_membership_revision":{"commit_id":"ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"},"effective_at":"2026-09-27T12:00:00.000Z"}),
+            json!({"membership":"leave","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00.000Z"}),
+            json!({"membership":"join","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00Z"}),
+            json!({"membership":"join","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00.000Z","revision":1}),
         ] {
             assert!(
                 serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),

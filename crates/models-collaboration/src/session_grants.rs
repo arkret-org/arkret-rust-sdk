@@ -8,9 +8,8 @@ use arkret_models_identity::{
 };
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    AcceptedDevicePossessionProof, AccountId, AppletId, DeviceId, DidCoreId, DidUrl, EventId, Hash,
-    NonEmptyString, RealmId, RequestId, Result, ScopeRef, SessionGrantId, StrandId, WireError,
-    canonical,
+    AcceptedDevicePossessionProof, AccountId, DeviceId, DidCoreId, DidUrl, EventId, Hash,
+    NonEmptyString, RealmId, RequestId, Result, SessionGrantId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -145,8 +144,6 @@ pub struct AgentSessionGrantRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     pub dpop_binding_proof: SessionGrantDpopBindingProof,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_authority: Option<SessionGrantAppletDelegation>,
     pub proof: AgentSessionGrantProof,
 }
 
@@ -203,18 +200,6 @@ pub struct SessionGrantAgentScopeRequest {
     pub strand_ids: Vec<StrandId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub track_names: Vec<NonEmptyString>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantAppletDelegation {
-    pub applet_id: AppletId,
-    pub effective_scope: ScopeRef,
-    pub registration_epoch: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub capability_grant_refs: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -305,7 +290,6 @@ pub struct UnsignedAgentSessionGrantRequest {
     pub agent_scope_request: SessionGrantAgentScopeRequest,
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     pub dpop_binding_proof: SessionGrantDpopBindingProof,
-    pub applet_authority: Option<SessionGrantAppletDelegation>,
     pub proof: UnsignedAgentSessionGrantProof,
 }
 
@@ -318,7 +302,6 @@ impl UnsignedAgentSessionGrantRequest {
         agent_scope_request: SessionGrantAgentScopeRequest,
         requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
         dpop_binding_proof: SessionGrantDpopBindingProof,
-        applet_authority: Option<SessionGrantAppletDelegation>,
         proof: UnsignedAgentSessionGrantProof,
     ) -> Result<Self> {
         if !valid_agent_session_challenge(&proof.challenge) {
@@ -337,7 +320,6 @@ impl UnsignedAgentSessionGrantRequest {
             agent_scope_request,
             requested_scope_disclosure,
             dpop_binding_proof,
-            applet_authority,
             proof,
         })
     }
@@ -355,7 +337,6 @@ impl UnsignedAgentSessionGrantRequest {
             agent_scope_request: self.agent_scope_request,
             requested_scope_disclosure: self.requested_scope_disclosure,
             dpop_binding_proof: self.dpop_binding_proof,
-            applet_authority: self.applet_authority,
             proof: AgentSessionGrantProof {
                 proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
                 challenge: self.proof.challenge,
@@ -377,7 +358,6 @@ impl UnsignedAgentSessionGrantRequest {
             "agent_scope_request": &self.agent_scope_request,
             "requested_scope_disclosure": &self.requested_scope_disclosure,
             "dpop_binding_proof": &self.dpop_binding_proof,
-            "applet_authority": &self.applet_authority,
             "proof": {
                 "proof_kind": AgentSessionGrantProofKind::AgentKeyProof,
                 "challenge": &self.proof.challenge,
@@ -388,10 +368,11 @@ impl UnsignedAgentSessionGrantRequest {
             },
         });
         let object = value.as_object_mut().expect("session request is an object");
-        for field in ["requested_scope_disclosure", "applet_authority"] {
-            if object.get(field).is_some_and(Value::is_null) {
-                object.remove(field);
-            }
+        if object
+            .get("requested_scope_disclosure")
+            .is_some_and(Value::is_null)
+        {
+            object.remove("requested_scope_disclosure");
         }
         value
     }
@@ -1146,7 +1127,6 @@ mod tests {
             SessionGrantDpopBindingProof {
                 proof_jwt: "header.body.signature".to_owned(),
             },
-            None,
             UnsignedAgentSessionGrantProof {
                 challenge: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
                 audience_id: DidCoreId::new(AUDIENCE).unwrap(),

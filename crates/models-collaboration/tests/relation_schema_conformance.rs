@@ -137,3 +137,30 @@ fn old_top_level_rank_and_materialized_members_fail_both_gates() {
     assert!(registry.validate_value(&schema_id, &nested_rank).is_err());
     assert!(serde_json::from_value::<RelationCreatePayload>(nested_rank).is_err());
 }
+
+#[test]
+fn shape_dependent_contains_keys_its_direct_shape_on_the_tuple_domain() {
+    let mut direct = create_payload();
+    direct["primary_conflict_domain"]["relation_kind"] = json!("contains");
+    direct["relation"]["relation_kind"] = json!("contains");
+    assert_schema_and_serde::<RelationCreatePayload>(
+        "event-payload.schema.json",
+        "#/$defs/relation_create_payload",
+        direct.clone(),
+    );
+
+    let mut from_domain = direct.clone();
+    from_domain["primary_conflict_domain"]["domain_kind"] = json!("from");
+    from_domain["primary_conflict_domain"]
+        .as_object_mut()
+        .unwrap()
+        .remove("to_ref");
+    assert!(serde_json::from_value::<RelationCreatePayload>(from_domain).is_err());
+
+    let mut derived_space_parent = direct;
+    derived_space_parent["primary_conflict_domain"]["from_ref"] =
+        json!("ak:space:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4");
+    derived_space_parent["relation"]["from_ref"] =
+        json!("ak:space:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4");
+    assert!(serde_json::from_value::<RelationCreatePayload>(derived_space_parent).is_err());
+}

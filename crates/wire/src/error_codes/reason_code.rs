@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-28.5;
-//! sha256=fb65b9b81bef6483ce685fbd7c0763add401208c6458a37fe5bc846a924e02a3
-//! Entries: reason_codes=309, reserved_not_emitted=71
+//! Input: registry/error-code-registry.json; version=2026-09-29.4;
+//! sha256=9eed3823a4fc32ec3f0c90aaabb365796ac90ae042b3f63df3e06eb0fdf5d16f
+//! Entries: reason_codes=308, reserved_not_emitted=69
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -31,7 +31,6 @@ pub enum ReasonCode {
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
     AgentSessionScopeRefreshRequired,
-    AppletDelegatedSessionInventoryChanged,
     AppletManagedActorProvisionInvalid,
     AppletManagedPcrGenesisInvalid,
     AppletManagedPcrGenesisRequiresClosedAggregate,
@@ -361,8 +360,6 @@ impl ReasonCode {
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
     pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
         "agent_session_scope_refresh_required";
-    pub const APPLET_DELEGATED_SESSION_INVENTORY_CHANGED: &'static str =
-        "applet_delegated_session_inventory_changed";
     pub const APPLET_MANAGED_ACTOR_PROVISION_INVALID: &'static str =
         "applet_managed_actor_provision_invalid";
     pub const APPLET_MANAGED_PCR_GENESIS_INVALID: &'static str =
@@ -734,9 +731,6 @@ impl ReasonCode {
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
-            Self::AppletDelegatedSessionInventoryChanged => {
-                Self::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED
-            }
             Self::AppletManagedActorProvisionInvalid => {
                 Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID
             }
@@ -1113,9 +1107,6 @@ impl ReasonCode {
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
-            Self::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED => {
-                Self::AppletDelegatedSessionInventoryChanged
-            }
             Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID => {
                 Self::AppletManagedActorProvisionInvalid
             }
@@ -1640,11 +1631,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::APPLET_DELEGATED_SESSION_INVENTORY_CHANGED,
-        applies_to: &["service_call"],
-        description: "The Account Authority atomically compared the Applet revoke selector's expected_inventory_digest with its complete current issuer-ledger inventory and found a different revision or active SessionGrant set. ak.gate.account.command.revoke_session.v1 returns HTTP 409 failed_precondition with this reason_code and zero new issuer effects; the Station must not continue Event steps or treat a pending saga ledger as proof of non-acceptance. See zh/extensions/applet-integration.md §4b.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::APPLET_MANAGED_ACTOR_PROVISION_INVALID,
         applies_to: &["event_envelope", "auth_decision"],
         description: "An ak.applet.managed_actor.provision Event in the closed Applet managed-actor creation aggregate does not satisfy its binding rules: actor_id.account_id.station_id is not the receiving Station, the actor collides with the service or controller principal, or the provisioned actor is not the registration's declared bot_actor_id. See zh/extensions/applet-integration.md.",
@@ -1787,7 +1773,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition on ak.circle.member.state -> join when target actor is not yet a `join` member of the parent Realm. Circle.members âŠ† Realm.members is a hard invariant. See zh/models/circle.md §9.1.",
+        description: "Sub-reason for failed_precondition on ak.circle.member.state -> join when, in the accepting cut, the target actor's parent Realm member_state current is not `join` or its typed revision differs from the payload's parent_membership_revision. Circle.members ⊆ Realm.members is a hard invariant bound to the exact current parent join. See zh/models/circle.md §9.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_NOT_ACTIVE,
