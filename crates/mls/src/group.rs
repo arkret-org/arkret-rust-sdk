@@ -1616,6 +1616,74 @@ impl ArkretMlsGroup {
         )
     }
 
+    /// Finish this device's durably staged Commit after recovering its exact
+    /// accepted Event. The installed checkpoint supplies the accepted base
+    /// Event; the authenticated pending GroupContext supplies the immutable
+    /// historical binding. This cannot install a remote or newly authored
+    /// transition and does not use a later current result as its base.
+    pub fn install_recovered_own_commit(
+        &mut self,
+        item: &CommittedEventFullView,
+        installed_base: &EventId,
+    ) -> Result<u64> {
+        item.validate_shape()?;
+        if item.event.kind != EventKind::MlsCommit {
+            return Err(Error::Protocol(
+                "recovery requires an accepted MLS Commit".to_owned(),
+            ));
+        }
+        let payload: MlsCommitPayload = serde_json::from_value(serde_json::Value::Object(
+            item.event.payload.clone().into_iter().collect(),
+        ))?;
+        payload.validate()?;
+        let binding = payload.governance_binding();
+        if binding.effective_scope() != &item.event.scope_ref
+            || binding.effective_scope() != self.scope()
+            || binding.base_group_state_ref() != Some(installed_base)
+            || binding.previous_epoch() != self.epoch()
+        {
+            return Err(Error::Protocol(
+                "recovered MLS Commit differs from its installed base".to_owned(),
+            ));
+        }
+        let envelope = payload.commit_envelope()?;
+        if envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "recovered MLS Commit is not the next local epoch".to_owned(),
+            ));
+        }
+        let bytes = decode(&envelope.commit)?;
+        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
+            return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
+        }
+        let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
+        let protocol = message
+            .try_into_protocol_message()
+            .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".to_owned()))?;
+        let processed = self
+            .group
+            .process_message(&self.identity.provider, protocol)
+            .map_err(mls_error)?;
+        if !matches!(
+            processed.into_content(),
+            ProcessedMessageContent::OwnPendingCommit
+        ) {
+            return Err(Error::Protocol(
+                "recovery requires the exact own pending Commit".to_owned(),
+            ));
+        }
+        let pending = self
+            .group
+            .pending_commit()
+            .ok_or_else(|| Error::Protocol("own MLS Commit has no pending state".to_owned()))?;
+        let authenticated = decode_group_context_governance_binding(pending.group_context())?;
+        let verified = crate::verify_historical_governance_binding(&authenticated, binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        self.merge_verified_pending_commit(&envelope, verified)
+    }
+
     fn merge_accepted_commit_envelope(
         &mut self,
         envelope: &MlsCommitEnvelope,
