@@ -35,11 +35,14 @@ pub struct MlsGroupStateMaterialRequestBody {
 impl MlsGroupStateMaterialRequestBody {
     pub fn validate(&self) -> Result<()> {
         match &self.effective_scope {
-            ScopeRef::Realm { realm_id } | ScopeRef::Circle { realm_id, .. }
+            ScopeRef::Realm { realm_id }
+            | ScopeRef::Circle { realm_id, .. }
+            | ScopeRef::Sidecar { realm_id, .. }
                 if realm_id == &self.realm_id => {}
             _ => {
                 return Err(WireError::Protocol(
-                    "MLS group-state material requires a matching Realm or Circle scope".to_owned(),
+                    "MLS group-state material requires a matching Realm, Circle or Sidecar scope"
+                        .to_owned(),
                 ));
             }
         }
@@ -227,6 +230,7 @@ fn decode_and_validate_bytes(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::SidecarId;
     use serde_json::json;
 
     use super::*;
@@ -253,6 +257,36 @@ mod tests {
             "group_info_ref": "ak:blob:sha256:1111111111111111111111111111111111111111111111111111111111111111",
             "ratchet_tree_ref": "ak:blob:sha256:2222222222222222222222222222222222222222222222222222222222222222"
         })
+    }
+
+    #[test]
+    fn private_sidecar_material_and_roster_keep_exact_scope_selectors() {
+        let mut request: MlsMemberGroupStateMaterialReadRequestBody =
+            serde_json::from_value(member_request_json()).unwrap();
+        request.effective_scope = ScopeRef::Sidecar {
+            realm_id: request.realm_id.clone(),
+            sidecar_id: SidecarId::from_event_id(&request.group_state_event_id),
+        };
+        request.validate().unwrap();
+        request.as_peer_request().validate().unwrap();
+        let mut roster = crate::mls_roster_authority::MlsRosterAuthorityReadRequestBody {
+            realm_id: request.realm_id.clone(),
+            effective_scope: request.effective_scope.clone(),
+            mls_group_id: request.mls_group_id.clone(),
+            genesis_event_ref: request.group_state_event_id.clone(),
+            target_commit_event_ref: request.target_commit_event_ref.clone(),
+            target_epoch: request.target_epoch,
+            caller_actor_id: request.caller_actor_id.clone(),
+            cursor: None,
+        };
+        roster.validate().unwrap();
+        let other_realm = RealmId::from_event_id(
+            &EventId::new("ak:event:AfZbqEPRJlRM-xYwGIXrxWkwgHYHegqlBXpFrtofzYJM").unwrap(),
+        );
+        request.realm_id = other_realm.clone();
+        assert!(request.validate().is_err());
+        roster.realm_id = other_realm;
+        assert!(roster.validate().is_err());
     }
 
     #[test]

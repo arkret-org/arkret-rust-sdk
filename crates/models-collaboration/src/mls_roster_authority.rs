@@ -206,7 +206,7 @@ impl MlsRosterAuthorityReadRequestBody {
         if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
             || !matches!(
                 &self.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
             )
             || (self.target_epoch == 0 && self.target_commit_event_ref != self.genesis_event_ref)
             || self
