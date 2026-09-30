@@ -500,22 +500,9 @@ impl RealmStateSnapshot {
     /// signs as `parent_membership_revision` (`zh/models/circle.md` section
     /// 9.1). `None` unless that current is `join` on this Realm's stream.
     pub fn parent_membership_revision(&self, member: &ActorId) -> Option<CurrentRevision> {
-        self.current_state_entries.iter().find_map(|entry| {
-            let TypedCurrentResult::Value {
-                selector: CurrentSelector::MemberState { actor_id },
-                source_stream_ref: CommitStreamRef::Realm { realm_id },
-                revision,
-                value,
-            } = entry
-            else {
-                return None;
-            };
-            (actor_id == member
-                && realm_id == &self.realm_id
-                && serde_json::from_value::<MemberStateCurrent>(value.clone())
-                    .is_ok_and(|current| current.membership == MembershipState::Join))
-            .then(|| revision.clone())
-        })
+        self.current_state_entries
+            .iter()
+            .find_map(|entry| entry.parent_membership_revision(&self.realm_id, member))
     }
 }
 
@@ -1870,6 +1857,31 @@ pub enum TypedCurrentResult {
         revision: CurrentRevision,
         value: Value,
     },
+}
+
+impl TypedCurrentResult {
+    /// Circle join basis from one already verified parent Realm current row.
+    /// The complete ActorId and exact Realm stream must match; only join qualifies.
+    pub fn parent_membership_revision(
+        &self,
+        parent_realm: &RealmId,
+        member: &ActorId,
+    ) -> Option<CurrentRevision> {
+        let Self::Value {
+            selector: CurrentSelector::MemberState { actor_id },
+            source_stream_ref: CommitStreamRef::Realm { realm_id },
+            revision,
+            value,
+        } = self
+        else {
+            return None;
+        };
+        (actor_id == member
+            && realm_id == parent_realm
+            && serde_json::from_value::<MemberStateCurrent>(value.clone())
+                .is_ok_and(|current| current.membership == MembershipState::Join))
+        .then(|| revision.clone())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -3247,6 +3259,71 @@ mod tests {
                 "{invalid}"
             );
         }
+    }
+
+    #[test]
+    fn parent_membership_revision_requires_exact_realm_actor_and_join() {
+        let parent = realm(41);
+        let member = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:member.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let revision = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([42; 32]),
+            stream_position: 7,
+        };
+        let row = TypedCurrentResult::Value {
+            selector: CurrentSelector::MemberState {
+                actor_id: member.clone(),
+            },
+            source_stream_ref: CommitStreamRef::Realm {
+                realm_id: parent.clone(),
+            },
+            revision: revision.clone(),
+            value: json!({"membership":"join"}),
+        };
+        assert_eq!(
+            row.parent_membership_revision(&parent, &member),
+            Some(revision)
+        );
+        let other_station = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:member.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+        ));
+        assert!(
+            row.parent_membership_revision(&parent, &other_station)
+                .is_none()
+        );
+        assert!(
+            row.parent_membership_revision(&realm(43), &member)
+                .is_none()
+        );
+        for state in ["leave", "ban", "knock"] {
+            let mut excluded = row.clone();
+            let TypedCurrentResult::Value { value, .. } = &mut excluded;
+            *value = json!({"membership":state});
+            assert!(
+                excluded
+                    .parent_membership_revision(&parent, &member)
+                    .is_none()
+            );
+        }
+        let mut foreign_stream = row;
+        let TypedCurrentResult::Value {
+            source_stream_ref, ..
+        } = &mut foreign_stream;
+        *source_stream_ref = CommitStreamRef::Circle {
+            realm_id: parent.clone(),
+            circle_id: CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [44; 32],
+            )),
+        };
+        assert!(
+            foreign_stream
+                .parent_membership_revision(&parent, &member)
+                .is_none()
+        );
     }
 
     #[test]
