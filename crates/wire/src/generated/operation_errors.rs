@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-09-29.4;
-//! sha256=a9ee2cbf6f5bfa8ac24db17a3e9fce601eb09cee418c42aa891774729ac3c7cc Input: registry/
-//! contract-registry.json; version=2026-09-29.9;
-//! sha256=9ef1d7c1097838eb72ac02e751a298468872170a1005a05d66a2d3fd1ef1bcb5 Input: registry/
-//! error-code-registry.json; version=2026-09-29.4;
-//! sha256=9eed3823a4fc32ec3f0c90aaabb365796ac90ae042b3f63df3e06eb0fdf5d16f Entries: operations=209
+//! Input: registry/operations-error-mapping.json; version=2026-09-30.1;
+//! sha256=32fec78b18ebb060e95864764c82b3d43fa81acab211aed2970b7744e15d98d3 Input: registry/
+//! contract-registry.json; version=2026-09-30.6;
+//! sha256=5df6fb6a55ae0f9b8096dc6e16b89be359e99d7f01d64e0ddf4abecd80f659dd Input: registry/
+//! error-code-registry.json; version=2026-09-30.1;
+//! sha256=9c0a5f8c5c16e8c20ac7cfbf7a3ddfffaffe9e61b0bddfa61d86be1ef4c5a8d8 Entries: operations=209
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -31,6 +31,8 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
         OperationSpecificError::Reason(ReasonCode::AppletNamespaceMismatch),
         OperationSpecificError::Reason(ReasonCode::QueueFull),
+        OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
+        OperationSpecificError::Code(ErrorCode::AppletRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
@@ -304,6 +306,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
         OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
         OperationSpecificError::Code(ErrorCode::DigestMismatch),
+        OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -697,6 +700,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceRevoked),
         OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
         OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
+        OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[OperationSpecificError::Code(ErrorCode::ParamInvalid)],

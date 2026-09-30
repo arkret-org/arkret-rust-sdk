@@ -248,7 +248,8 @@ fn validate_signer_root(
 
 /// Current authority context for an Applet-managed Actor.
 ///
-/// All four members are required: an accepted authoring result is conditional
+/// The original request, independent portal head, accepted PCR Commit and
+/// signer roots are required: an accepted authoring result is conditional
 /// on both signer roots having been verified and frozen inside the one
 /// recoverable atomic commit, so a context without them could never have been
 /// accepted in the first place. Authorization is checked again when the
@@ -262,14 +263,40 @@ pub struct AppletManagedActorAuthoringContext {
     pub committed_request: AppletManagedActorCommittedRequest,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_stream_head: CommitStreamHead,
+    pub principal_control_commit: RealmCommit,
     pub applet_service_signer_evidence: AppletServiceSignerEvidence,
     pub managed_actor_signer_evidence: ManagedActorPrincipalSignerEvidence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution_update: Option<crate::ManagedActorResolutionUpdateEvidence>,
 }
 
 impl AppletManagedActorAuthoringContext {
     pub fn validate(&self) -> Result<()> {
         self.applet_service_signer_evidence.validate()?;
-        self.managed_actor_signer_evidence.validate()
+        self.managed_actor_signer_evidence.validate()?;
+        self.principal_control_commit.validate_shape()?;
+        let principal = &self
+            .managed_actor_signer_evidence
+            .authenticated_signer_evidence;
+        let attester = &self.managed_actor_signer_evidence.attester_signer_evidence;
+        if principal.authority_commit_id != self.principal_control_commit.commit_id
+            || principal.resolved_at != self.principal_control_commit.committed_at
+            || attester.authority_commit_id != self.principal_control_commit.commit_id
+            || attester.resolved_at != self.principal_control_commit.committed_at
+        {
+            return Err(WireError::Protocol(
+                "managed signer leaves must bind the actual PCR Commit id and time".into(),
+            ));
+        }
+        if let Some(update) = &self.resolution_update {
+            update.validate_shape()?;
+            if update.commits.last() != Some(&self.principal_control_commit) {
+                return Err(WireError::Protocol(
+                    "resolution update must end at the reported PCR Commit".into(),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -432,13 +459,17 @@ mod membership_remove_identity_tests {
             )),
             ActorId::service(principal.clone()),
         ] {
-            let wire = json!({"event_kind": "ak.member.state", "member_id": actor, "membership": "remove", "reason_code": "applet_revoked"});
+            let wire = json!({"event_kind": "ak.member.state", "member_id": actor, "membership": "leave", "reason_code": "applet_revoked"});
             registry.validate_value(&schema, &wire).unwrap();
             let decoded: AppletMembershipRemoveIntent =
                 serde_json::from_value(wire.clone()).unwrap();
             assert_eq!(decoded.member_id, actor);
             assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
             assert!(identities.insert(actor));
+            let mut invalid = wire;
+            invalid["membership"] = json!("remove");
+            assert!(registry.validate_value(&schema, &invalid).is_err());
+            assert!(serde_json::from_value::<AppletMembershipRemoveIntent>(invalid).is_err());
         }
         assert_eq!(identities.len(), 3);
     }
@@ -449,7 +480,6 @@ mod membership_remove_identity_tests {
 #[serde(rename_all = "snake_case")]
 pub enum AppletManagedMembershipRemoval {
     Leave,
-    Remove,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1298,9 +1328,9 @@ pub struct AppletInstallReuseRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct ReuseExistingManagedActor {
     pub actor_id: ActorId,
-    pub managed_actor_provision_ref: CommittedEventRef,
-    pub pcr_genesis_ref: CommittedEventRef,
-    pub accountability_grant_ref: CommittedEventRef,
-    pub profile_event_ref: CommittedEventRef,
+    pub managed_actor_provision_ref: EventId,
+    pub pcr_genesis_ref: EventId,
+    pub accountability_grant_ref: EventId,
+    pub profile_event_ref: EventId,
     pub initial_package_bot_actor_id: ActorId,
 }

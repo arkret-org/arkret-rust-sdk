@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-29.4;
-//! sha256=9eed3823a4fc32ec3f0c90aaabb365796ac90ae042b3f63df3e06eb0fdf5d16f
-//! Entries: reason_codes=308, reserved_not_emitted=69
+//! Input: registry/error-code-registry.json; version=2026-09-30.1;
+//! sha256=9c0a5f8c5c16e8c20ac7cfbf7a3ddfffaffe9e61b0bddfa61d86be1ef4c5a8d8
+//! Entries: reason_codes=309, reserved_not_emitted=68
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -130,6 +130,7 @@ pub enum ReasonCode {
     InvalidCanonicalJson,
     InvalidCursor,
     InvalidEncoding,
+    InvalidMembershipTransition,
     InvalidatedByRateLimit,
     InviteAlreadyTerminal,
     InviteDirectedInviteeMismatch,
@@ -482,6 +483,7 @@ impl ReasonCode {
     pub const INVALID_CANONICAL_JSON: &'static str = "invalid_canonical_json";
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
+    pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
     pub const INVITE_DIRECTED_INVITEE_MISMATCH: &'static str = "invite_directed_invitee_mismatch";
@@ -854,6 +856,7 @@ impl ReasonCode {
             Self::InvalidCanonicalJson => Self::INVALID_CANONICAL_JSON,
             Self::InvalidCursor => Self::INVALID_CURSOR,
             Self::InvalidEncoding => Self::INVALID_ENCODING,
+            Self::InvalidMembershipTransition => Self::INVALID_MEMBERSHIP_TRANSITION,
             Self::InvalidatedByRateLimit => Self::INVALIDATED_BY_RATE_LIMIT,
             Self::InviteAlreadyTerminal => Self::INVITE_ALREADY_TERMINAL,
             Self::InviteDirectedInviteeMismatch => Self::INVITE_DIRECTED_INVITEE_MISMATCH,
@@ -1230,6 +1233,7 @@ impl ReasonCode {
             Self::INVALID_CANONICAL_JSON => Self::InvalidCanonicalJson,
             Self::INVALID_CURSOR => Self::InvalidCursor,
             Self::INVALID_ENCODING => Self::InvalidEncoding,
+            Self::INVALID_MEMBERSHIP_TRANSITION => Self::InvalidMembershipTransition,
             Self::INVALIDATED_BY_RATE_LIMIT => Self::InvalidatedByRateLimit,
             Self::INVITE_ALREADY_TERMINAL => Self::InviteAlreadyTerminal,
             Self::INVITE_DIRECTED_INVITEE_MISMATCH => Self::InviteDirectedInviteeMismatch,
@@ -2128,6 +2132,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::INVALID_ENCODING,
         applies_to: &["encoding"],
         description: "Generic encoding violation (HLC format, UUIDv7 format, base64url alphabet, etc.) not otherwise classified.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::INVALID_MEMBERSHIP_TRANSITION,
+        applies_to: &["authz", "state_resolution"],
+        description: "Realm or Circle membership admission rejects an illegal FSM edge with failed_precondition and zero writes; see models/common-fields.md section 4.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALIDATED_BY_RATE_LIMIT,

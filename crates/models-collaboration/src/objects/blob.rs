@@ -10,6 +10,31 @@ use arkret_wire::{ActorId, BlobId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlobStorageEncryptionScheme {
+    #[serde(rename = "ak.blob.whole_file_aead.v1")]
+    WholeFileV1,
+    #[serde(rename = "ak.blob.stream_aead.v1")]
+    StreamV1,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BlobStorageEncryption {
+    pub scheme: BlobStorageEncryptionScheme,
+}
+
+fn deserialize_storage_encryption<'de, D>(
+    deserializer: D,
+) -> Result<Option<BlobStorageEncryption>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<BlobStorageEncryption>::deserialize(deserializer)
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -45,8 +70,8 @@ pub struct Blob {
     pub media_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encryption: Option<EncryptedAttachment>,
+    #[serde(deserialize_with = "deserialize_storage_encryption")]
+    pub encryption: Option<BlobStorageEncryption>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail_blob_ref: Option<BlobRef>,
     pub created_by: ActorId,
@@ -87,6 +112,7 @@ impl BlobVisibility {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BlobUploadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -98,8 +124,8 @@ pub struct BlobUploadMetadata {
     pub media_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<String>,
+    #[serde(deserialize_with = "deserialize_storage_encryption")]
+    pub encryption: Option<BlobStorageEncryption>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -187,4 +213,37 @@ pub struct BlobPresignDetachedJwsProof {
 pub struct BlobPresignEnvelope {
     pub payload: BlobPresignPayload,
     pub proof: BlobPresignDetachedJwsProof,
+}
+
+#[cfg(test)]
+mod storage_encryption_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn upload_requires_explicit_storage_classification() {
+        let mut body = json!({"size_bytes": 3});
+        assert!(serde_json::from_value::<BlobUploadMetadata>(body.clone()).is_err());
+        body["encryption"] = serde_json::Value::Null;
+        let metadata: BlobUploadMetadata = serde_json::from_value(body.clone()).unwrap();
+        assert_eq!(
+            serde_json::to_value(metadata).unwrap()["encryption"],
+            json!(null)
+        );
+        for scheme in ["ak.blob.whole_file_aead.v1", "ak.blob.stream_aead.v1"] {
+            body["encryption"] = json!({"scheme": scheme});
+            assert!(serde_json::from_value::<BlobUploadMetadata>(body.clone()).is_ok());
+        }
+        for invalid in [
+            json!({"scheme": "unknown"}),
+            json!({"scheme": "ak.blob.stream_aead.v1", "key_ref": "private"}),
+        ] {
+            body["encryption"] = invalid;
+            assert!(serde_json::from_value::<BlobUploadMetadata>(body.clone()).is_err());
+        }
+        body["encryption"] = json!(null);
+        body["purpose"] = json!("file_transfer");
+        assert!(serde_json::from_value::<BlobUploadMetadata>(body).is_err());
+    }
 }

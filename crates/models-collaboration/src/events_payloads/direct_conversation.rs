@@ -164,7 +164,7 @@ impl DirectConversationBindingCurrentValue {
         }
         self.endorsements.push(entry);
         self.endorsements
-            .sort_by(|left, right| left.tag_id.to_string().cmp(&right.tag_id.to_string()));
+            .sort_by(|left, right| left.tag_id.cmp(&right.tag_id));
         Ok(self)
     }
 

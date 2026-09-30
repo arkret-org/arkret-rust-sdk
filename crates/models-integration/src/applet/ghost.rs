@@ -1,6 +1,4 @@
-use arkret_wire::{
-    ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result,
-};
+use arkret_wire::{ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest};

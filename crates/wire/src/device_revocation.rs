@@ -26,7 +26,10 @@ pub enum DeviceRevocationStateSchema {
 }
 
 /// Closed canonical action-class list blocked by `revocation_pending` on every
-/// deployment.
+/// deployment. This same closed type is the action class for current-device
+/// admission decisions. Session issuance and refresh share
+/// `session_grant_issue_or_refresh`; the accepted-device possession proof
+/// distinguishes registration/recovery issuance, returning issuance, and refresh.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -282,25 +285,7 @@ impl DeviceRevocationGateRecord {
     }
 }
 
-/// Action class a current-device admission decision is linearized for.
-///
-/// Every class is one of the closed [`DEVICE_REVOCATION_DENIED_ACTIONS`].
-/// Session-grant issue and refresh are
-/// the single `session_grant_issue_or_refresh` class; which of them an input
-/// is follows from its accepted-device proof alone: none for
-/// registration/recovery issue, an issue proof for returning account-handoff
-/// issue, and a refresh proof for human refresh.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceRevocationAdmissionAction {
-    SessionGrantIssueOrRefresh,
-    DevicePairingCodeClaim,
-    KeypackageClaim,
-    ToDeviceWrite,
-    EventWrite,
-}
-
-impl DeviceRevocationAdmissionAction {
+impl DeviceRevocationDeniedAction {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -326,7 +311,7 @@ pub struct DeviceRevocationAdmissionInput {
     pub expected_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_device_generation_ref: Option<u64>,
-    pub action_class: DeviceRevocationAdmissionAction,
+    pub action_class: DeviceRevocationDeniedAction,
     /// Digest of the complete immutable issue, refresh or revoke intent. Issue
     /// and refresh bind the exact grant id, jti, subject, device, audience,
     /// scope, holder binding, issued_at and expiry. For `DevicePairingCodeClaim`, the digest binds
@@ -350,7 +335,7 @@ impl DeviceRevocationAdmissionInput {
     /// that is `SessionGrantIssueOrRefresh` without a refresh proof.
     #[must_use]
     pub fn is_session_grant_issue(&self) -> bool {
-        self.action_class == DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh
+        self.action_class == DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh
             && !matches!(
                 self.accepted_device_possession_proof,
                 Some(AcceptedDevicePossessionProof::Refresh(_))
@@ -360,7 +345,7 @@ impl DeviceRevocationAdmissionInput {
     pub fn validate(&self) -> Result<()> {
         self.account_id.validate()?;
         if let Some(proof) = &self.accepted_device_possession_proof {
-            if self.action_class != DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh {
+            if self.action_class != DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh {
                 return Err(WireError::Protocol(
                     "accepted-device proof is forbidden outside session-grant issue or refresh"
                         .to_owned(),
@@ -451,7 +436,7 @@ pub struct DeviceRevocationAdmissionRecord {
     pub target_device_authorize_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_generation_ref: Option<u64>,
-    pub action_class: DeviceRevocationAdmissionAction,
+    pub action_class: DeviceRevocationDeniedAction,
     pub intent_digest: Hash,
     /// SHA-256 of the exact canonical `AcceptedDevicePossessionProof`, present
     /// for a returning session-grant issue or human refresh once the proof was validated
@@ -512,11 +497,11 @@ fn validate_gate_decision_witness(
 }
 
 fn validate_possession_verification_presence(
-    action_class: DeviceRevocationAdmissionAction,
+    action_class: DeviceRevocationDeniedAction,
     proof_digest: Option<&Hash>,
 ) -> Result<()> {
     if proof_digest.is_some()
-        && action_class != DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh
+        && action_class != DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh
     {
         return Err(WireError::Protocol(
             "gate receipt device-possession verification does not match its action class"
@@ -743,7 +728,7 @@ mod tests {
             device_id: device_id(),
             expected_device_authorize_event_id: None,
             expected_device_generation_ref: None,
-            action_class: DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh,
+            action_class: DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
             intent_digest: hash('a'),
             accepted_device_possession_proof: None,
             requested_at: at(0),
@@ -756,7 +741,7 @@ mod tests {
             device_id: device_id(),
             target_device_authorize_event_id: Some(authorize_event()),
             target_device_generation_ref: Some(7),
-            action_class: DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh,
+            action_class: DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
             intent_digest: hash('a'),
             accepted_device_possession_proof_digest: None,
             decision: DeviceRevocationAdmissionDecision::Allow,
@@ -996,7 +981,7 @@ mod tests {
         assert!(overlong.validate().is_err());
 
         let mut stray_proof = receipt();
-        stray_proof.action_class = DeviceRevocationAdmissionAction::EventWrite;
+        stray_proof.action_class = DeviceRevocationDeniedAction::EventWrite;
         stray_proof.accepted_device_possession_proof_digest = Some(hash('e'));
         assert!(stray_proof.validate().is_err());
     }
@@ -1023,14 +1008,14 @@ mod tests {
         assert!(value.get("expected_device_authorize_event_id").is_none());
 
         let mut write = request();
-        write.action_class = DeviceRevocationAdmissionAction::EventWrite;
+        write.action_class = DeviceRevocationDeniedAction::EventWrite;
         assert!(write.validate().is_err());
         write.expected_device_authorize_event_id = Some(authorize_event());
         write.expected_device_generation_ref = Some(7);
         write.validate().unwrap();
 
         let mut code_claim = request();
-        code_claim.action_class = DeviceRevocationAdmissionAction::DevicePairingCodeClaim;
+        code_claim.action_class = DeviceRevocationDeniedAction::DevicePairingCodeClaim;
         assert!(code_claim.validate().is_err());
         code_claim.expected_device_authorize_event_id = Some(authorize_event());
         code_claim.expected_device_generation_ref = Some(7);
@@ -1049,25 +1034,17 @@ mod tests {
     }
 
     #[test]
-    fn admission_action_text_is_its_wire_spelling() {
+    fn denied_action_text_is_its_wire_spelling() {
         for action in [
-            DeviceRevocationAdmissionAction::SessionGrantIssueOrRefresh,
-            DeviceRevocationAdmissionAction::DevicePairingCodeClaim,
-            DeviceRevocationAdmissionAction::KeypackageClaim,
-            DeviceRevocationAdmissionAction::ToDeviceWrite,
-            DeviceRevocationAdmissionAction::EventWrite,
+            DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
+            DeviceRevocationDeniedAction::DevicePairingCodeClaim,
+            DeviceRevocationDeniedAction::KeypackageClaim,
+            DeviceRevocationDeniedAction::ToDeviceWrite,
+            DeviceRevocationDeniedAction::EventWrite,
         ] {
             assert_eq!(
                 serde_json::to_value(action).unwrap(),
                 serde_json::json!(action.as_str())
-            );
-        }
-        for denied in DEVICE_REVOCATION_DENIED_ACTIONS {
-            let action: DeviceRevocationAdmissionAction =
-                serde_json::from_value(serde_json::to_value(denied).unwrap()).unwrap();
-            assert_eq!(
-                serde_json::to_value(action).unwrap(),
-                serde_json::to_value(denied).unwrap()
             );
         }
     }

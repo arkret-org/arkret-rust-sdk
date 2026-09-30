@@ -191,13 +191,65 @@ pub enum GrantApprovalRelation {
     Custom,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GrantApprovalThreshold {
     Majority,
     Unanimous,
-    Quorum,
-    Custom,
+    Count(std::num::NonZeroU64),
+}
+
+impl Default for GrantApprovalThreshold {
+    fn default() -> Self {
+        Self::Unanimous
+    }
+}
+
+impl GrantApprovalThreshold {
+    pub fn required_votes(self, eligible_approvers: u64) -> Option<u64> {
+        if eligible_approvers == 0 {
+            return None;
+        }
+        let required = match self {
+            Self::Majority => eligible_approvers / 2 + 1,
+            Self::Unanimous => eligible_approvers,
+            Self::Count(count) => count.get(),
+        };
+        (required <= eligible_approvers).then_some(required)
+    }
+}
+
+impl Serialize for GrantApprovalThreshold {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::Majority => serializer.serialize_str("majority"),
+            Self::Unanimous => serializer.serialize_str("unanimous"),
+            Self::Count(count) => serializer.serialize_u64(count.get()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for GrantApprovalThreshold {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        match Value::deserialize(deserializer)? {
+            Value::String(value) if value == "majority" => Ok(Self::Majority),
+            Value::String(value) if value == "unanimous" => Ok(Self::Unanimous),
+            Value::Number(value) => value
+                .as_u64()
+                .and_then(std::num::NonZeroU64::new)
+                .map(Self::Count)
+                .ok_or_else(|| {
+                    serde::de::Error::custom("approval threshold must be a positive integer")
+                }),
+            _ => Err(serde::de::Error::custom(
+                "approval threshold must be majority, unanimous or a positive integer",
+            )),
+        }
+    }
 }
 
 /// Conditional claim requirement in a grant constraint.
@@ -457,11 +509,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_reject_on_timeout: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approver_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -579,9 +627,7 @@ impl GrantConstraint {
             approval_actor_ids: Vec::new(),
             approval_relation: None,
             timeout: None,
-            auto_reject_on_timeout: None,
             approval_threshold: None,
-            approver_ids: Vec::new(),
             accountability_required: None,
             guardian_approval_required: None,
             controller_approval_required: None,
@@ -727,6 +773,27 @@ pub struct CapabilityGrant {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn executable_approval_threshold_uses_the_eligible_roster() {
+        assert_eq!(GrantApprovalThreshold::default().required_votes(3), Some(3));
+        assert_eq!(GrantApprovalThreshold::Majority.required_votes(4), Some(3));
+        assert_eq!(GrantApprovalThreshold::Majority.required_votes(0), None);
+        let count: GrantApprovalThreshold = serde_json::from_value(serde_json::json!(2)).unwrap();
+        assert_eq!(count.required_votes(3), Some(2));
+        assert_eq!(count.required_votes(1), None);
+        assert_eq!(serde_json::to_value(count).unwrap(), serde_json::json!(2));
+        for value in [
+            serde_json::json!("quorum"),
+            serde_json::json!("custom"),
+            serde_json::json!(0),
+            serde_json::json!(-1),
+            serde_json::json!(1.5),
+            serde_json::Value::Null,
+        ] {
+            assert!(serde_json::from_value::<GrantApprovalThreshold>(value).is_err());
+        }
+    }
 
     #[test]
     fn grant_constraint_rejects_retired_proposal_morph_kind() {

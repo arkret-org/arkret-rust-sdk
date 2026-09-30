@@ -7,8 +7,8 @@
 //! controller-private plaintext or device-local caches.
 
 use arkret_wire::{
-    AccountId, DeviceId, DidCoreId, EventId, Hash, Hlc, RealmId, Result, SidecarId, StrandId,
-    WireError,
+    AccountId, CommitStreamHead, DeviceId, DidCoreId, EventId, Hash, Hlc, RealmId, Result,
+    SidecarId, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,19 @@ use serde::{Deserialize, Serialize};
 pub const SIDECAR_EXCHANGE_CLOSED_EMPTY_REASON: &str = "controller_closed_empty";
 /// Failure reason a controller derives when it cancels an exchange.
 pub const SIDECAR_EXCHANGE_CANCELLED_REASON: &str = "controller_cancelled";
+
+/// Accepted participant inputs at one durable cut. This internal authority
+/// provider result does not introduce a new wire object or operation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SidecarParticipantAuthorityCut {
+    pub realm_id: RealmId,
+    pub sidecar_id: SidecarId,
+    pub controller_account_id: AccountId,
+    pub desired_agent_ids: Vec<DidCoreId>,
+    pub participant_authority_digest: Hash,
+    pub authority_stream_head: Vec<EventId>,
+    pub visible_stream_heads: Vec<CommitStreamHead>,
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

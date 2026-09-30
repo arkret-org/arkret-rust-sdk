@@ -23,6 +23,7 @@ pub mod jws;
 // Cryptographic genesis-to-current Realm authority-chain verification. It
 // lives here, not in a downstream service, because a rule re-implemented per
 // repository drifts away from the verifier it is supposed to mirror.
+pub mod principal_control;
 pub mod realm_authority_chain;
 mod records;
 pub mod registration_anchor;

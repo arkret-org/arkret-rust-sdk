@@ -99,6 +99,32 @@ impl CanonicalEventDot {
     }
 }
 
+#[cfg(test)]
+mod canonical_dot_order_tests {
+    use super::*;
+
+    #[test]
+    fn dots_compare_numeric_write_indices_after_event_id_bytes() {
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x11; 32]);
+        let two = CanonicalEventDot::new(event.clone(), 2).unwrap();
+        let ten = CanonicalEventDot::new(event, 10).unwrap();
+        assert!(two < ten);
+        assert!(two.to_string() > ten.to_string());
+        let other = CanonicalEventDot::new(
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x22; 32]),
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            two.cmp(&other),
+            two.event_id()
+                .as_str()
+                .as_bytes()
+                .cmp(other.event_id().as_str().as_bytes())
+        );
+    }
+}
+
 impl fmt::Display for CanonicalEventDot {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}:{}", self.event_id.as_str(), self.write_index)

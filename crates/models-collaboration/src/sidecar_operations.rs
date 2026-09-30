@@ -6,8 +6,8 @@
 //! accepted Sidecar plus its MLS access readiness.
 
 use arkret_wire::{
-    AccountId, DidCoreId, Event, EventId, IdempotencyKey, ProtocolOperationId, RealmId, RelationId,
-    ReservationHandle, Result, SidecarId, StrandId, WireError,
+    AccountId, DidCoreId, Event, EventId, IdempotencyKey, ProtocolOperationId, RealmId,
+    ReservationHandle, Result, SidecarId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,15 +21,7 @@ pub const SIDECAR_CREATE_EVENT_KIND: &str = "ak.sidecar.create";
 /// Event kind of the Sidecar context attach Event.
 pub const SIDECAR_CONTEXT_ATTACH_EVENT_KIND: &str = "ak.sidecar.context.attach";
 
-// Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_context_ref.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarContextRef {
-    Relation { relation_id: RelationId },
-    Strand { strand_id: StrandId },
-}
+pub use arkret_wire::SidecarContextRef;
 
 /// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar
 /// selection refs are forbidden here.
@@ -262,6 +254,7 @@ impl SidecarEnsureOutcome {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::StrandId;
     use serde_json::json;
 
     use super::*;

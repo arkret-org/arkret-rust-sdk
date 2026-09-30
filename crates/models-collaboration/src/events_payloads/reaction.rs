@@ -126,7 +126,7 @@ impl MessageReactionsCurrentValue {
         }
         if assertions
             .windows(2)
-            .any(|pair| pair[0].tag_id.to_string() >= pair[1].tag_id.to_string())
+            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
         {
             return Err(WireError::Protocol(
                 "message_reactions dots are not a canonically sorted set".to_owned(),
@@ -146,10 +146,9 @@ impl MessageReactionsCurrentValue {
     /// Insert one more assertion at its canonical position. A dot already
     /// present is refused; each accepted Event contributes its dot once.
     pub fn with_assertion(mut self, entry: ReactionAssertionEntry) -> Result<Self> {
-        let tag = entry.tag_id.to_string();
         match self
             .assertions
-            .binary_search_by(|existing| existing.tag_id.to_string().cmp(&tag))
+            .binary_search_by(|existing| existing.tag_id.cmp(&entry.tag_id))
         {
             Ok(_) => Err(WireError::Protocol(
                 "message_reactions already holds this assertion dot".to_owned(),

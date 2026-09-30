@@ -375,12 +375,78 @@ pub enum KeyBackupKdfDigestAlgorithm {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupKdfParams {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_kdf_parameter"
+    )]
     pub memory_kib: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_kdf_parameter"
+    )]
     pub iterations: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_kdf_parameter"
+    )]
     pub parallelism: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_kdf_parameter"
+    )]
     pub digest_algorithm: Option<KeyBackupKdfDigestAlgorithm>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
+}
+
+fn deserialize_present_kdf_parameter<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[cfg(test)]
+mod kdf_parameter_tests {
+    use super::*;
+
+    #[test]
+    fn argon2_parameters_preserve_absent_digest_in_the_signed_value() {
+        let value = serde_json::json!({"memory_kib": 65536, "iterations": 3, "parallelism": 1});
+        let params: KeyBackupKdfParams = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(params).unwrap(), value);
+    }
+
+    #[test]
+    fn pbkdf2_parameters_do_not_emit_argon2_null_members() {
+        let value = serde_json::json!({"iterations": 600000, "digest_algorithm": "sha256"});
+        let params: KeyBackupKdfParams = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(params).unwrap(), value);
+    }
+
+    #[test]
+    fn explicit_null_parameters_are_rejected_before_signature_verification() {
+        for member in [
+            "memory_kib",
+            "iterations",
+            "parallelism",
+            "digest_algorithm",
+        ] {
+            let mut value = serde_json::json!({});
+            value[member] = Value::Null;
+            assert!(
+                serde_json::from_value::<KeyBackupKdfParams>(value).is_err(),
+                "{member}"
+            );
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

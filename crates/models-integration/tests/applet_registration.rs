@@ -601,7 +601,11 @@ fn registration_epoch_evidence_rejects_deactivated_and_swapped_did() {
 fn registration_epoch_evidence_wire_enforces_the_closed_schema_shape() {
     let evidence = sample_epoch_evidence(&service("slackbridge"));
     let valid = serde_json::to_value(&evidence).unwrap();
-    validate_fragment("applet-registration-epoch-evidence.schema.json", "#", &valid);
+    validate_fragment(
+        "applet-registration-epoch-evidence.schema.json",
+        "#",
+        &valid,
+    );
     assert_eq!(
         serde_json::from_value::<AppletRegistrationEpochEvidence>(valid.clone()).unwrap(),
         evidence
@@ -1367,7 +1371,7 @@ fn station_attester(commit: &RealmCommitId) -> AuthenticatedSignerResolutionEvid
         DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
         sample_jwk(),
         commit.clone(),
-        DateTime::from_timestamp_millis(1_756_000_001_000).unwrap(),
+        DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
     )
     .unwrap()
 }
@@ -1388,9 +1392,30 @@ fn managed_actor_root(commit: &RealmCommitId) -> ManagedActorPrincipalSignerEvid
     }
 }
 
+fn structural_pcr_commit(commit_id: RealmCommitId, event: &Event) -> arkret_wire::RealmCommit {
+    serde_json::from_value(json!({
+        "commit_id":commit_id, "realm_id":event.realm_id,
+        "stream_ref":{"kind":"realm","realm_id":event.realm_id},
+        "stream_position":0,"previous_commit_ref":null,"event_ref":event.event_id,
+        "governance_generation":0,"authority_ref":event.event_id,
+        "committed_at":DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
+        "signature":{"context":"ak.realm_commit_signature.v1", "signature_algorithm":"Ed25519",
+        "verification_method":format!("{}#authority-key",did("station")),
+        "signed_digest":format!("sha256:{}","00".repeat(32)),
+        "created_at":DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
+        "sig":canonical::base64url_encode(&[0u8;64])}
+    }))
+    .unwrap()
+}
+
 fn sample_authoring_context() -> AppletManagedActorAuthoringContext {
     let commit = authority_commit(0x2c);
+    let pcr_id = authority_commit(0x2d);
     let (request, _) = sample_install_request_body();
+    let pcr = structural_pcr_commit(
+        pcr_id.clone(),
+        &request.managed_actor_bundle().unwrap().pcr_genesis_event,
+    );
     AppletManagedActorAuthoringContext {
         committed_request: AppletManagedActorCommittedRequest::Install(Box::new(request)),
         realm_stream_head: CommitStreamHead {
@@ -1398,8 +1423,10 @@ fn sample_authoring_context() -> AppletManagedActorAuthoringContext {
             stream_position: 41,
             commit_id: commit.clone(),
         },
+        principal_control_commit: pcr,
+        resolution_update: None,
         applet_service_signer_evidence: service_root(&commit),
-        managed_actor_signer_evidence: managed_actor_root(&commit),
+        managed_actor_signer_evidence: managed_actor_root(&pcr_id),
     }
 }
 
@@ -1435,10 +1462,16 @@ fn the_authoring_context_matches_the_published_fragment_and_round_trips() {
     // `ak.applet.managed_actor.provision` payloads that this repository has no
     // fixture for. The context's own shape is therefore pinned against the
     // published member lists instead, and the install body has its own task.
-    assert_matches_published_shape(
-        EDGE_SCHEMA,
-        "applet_managed_actor_authoring_context",
-        &context,
+    let declared = declared_member_names(&serde_json::to_string(&context).unwrap());
+    assert_eq!(
+        declared,
+        published_required(EDGE_SCHEMA, "applet_managed_actor_authoring_context")
+    );
+    let mut all_members = declared;
+    all_members.push("resolution_update".into());
+    assert_eq!(
+        all_members,
+        published_property_order(EDGE_SCHEMA, "applet_managed_actor_authoring_context")
     );
     assert_matches_published_shape(
         EDGE_SCHEMA,
@@ -1464,6 +1497,7 @@ fn every_authoring_context_member_is_required() {
     for member in [
         "committed_request",
         "realm_stream_head",
+        "principal_control_commit",
         "applet_service_signer_evidence",
         "managed_actor_signer_evidence",
     ] {
@@ -1554,4 +1588,39 @@ fn the_attester_leaf_is_pinned_to_the_commit_the_context_froze() {
         authenticated_signer_evidence: evidence,
     };
     independent_service_commit.validate().unwrap();
+}
+
+#[test]
+fn managed_actor_reuse_anchors_are_closed_bare_event_ids() {
+    let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+        arkret_wire::DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+        arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    ));
+    let id = arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x31; 32])
+        .to_string();
+    let value = serde_json::json!({"actor_id":actor,"initial_package_bot_actor_id":actor,
+        "managed_actor_provision_ref":id,"pcr_genesis_ref":id,"accountability_grant_ref":id,"profile_event_ref":id});
+    let model: arkret_models_integration::ReuseExistingManagedActor =
+        serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(serde_json::to_value(model).unwrap(), value);
+    for field in [
+        "managed_actor_provision_ref",
+        "pcr_genesis_ref",
+        "accountability_grant_ref",
+        "profile_event_ref",
+    ] {
+        let mut old = value.clone();
+        old[field] = serde_json::json!({"event_id":id,"commit_id":"legacy-ref","stream_ref":{},"stream_position":1});
+        assert!(
+            serde_json::from_value::<arkret_models_integration::ReuseExistingManagedActor>(old)
+                .is_err(),
+            "{field}"
+        );
+    }
+    let mut extra = value;
+    extra["commit_id"] = serde_json::json!("legacy-ref");
+    assert!(
+        serde_json::from_value::<arkret_models_integration::ReuseExistingManagedActor>(extra)
+            .is_err()
+    );
 }

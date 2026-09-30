@@ -6,7 +6,7 @@
 use arkret_identifiers::{
     ActorProfileId, AppletId, CallId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
     KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId,
-    RealmCommitId, RealmId, RealmSnapshotId, SidecarId, SpaceId, StrandId,
+    RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId, SpaceId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -1010,10 +1010,26 @@ pub enum MemberIdentitySegment {
     MemberIdentity,
 }
 
+/// Closed source identity of a native Sidecar context current result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum SidecarContextRef {
+    Relation { relation_id: RelationId },
+    Strand { strand_id: StrandId },
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
+    Sidecar {
+        sidecar_id: SidecarId,
+    },
+    SidecarContext {
+        sidecar_id: SidecarId,
+        source_context_ref: SidecarContextRef,
+    },
     RealmGenesis,
     AppletRegistration {
         applet_id: AppletId,
@@ -1027,6 +1043,9 @@ pub enum CurrentSelector {
     RealmPolicyBundle,
     RealmJoinRule,
     RealmHistoryAccess,
+    RealmTombstone,
+    RealmArchive,
+    RealmFreeze,
     RealmDiscovery,
     RealmAlias,
     RealmPlaintextVisibleServices,
@@ -1062,6 +1081,9 @@ pub enum CurrentSelector {
     },
     AgentStatus {
         agent_id: DidCoreId,
+    },
+    AgentActionApproval {
+        approval_id: String,
     },
     MimiRoomBinding {
         mimi_room_uri: MimiRoomUri,
@@ -1181,6 +1203,13 @@ pub enum CurrentSelector {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum FlatCurrentSelector {
+    Sidecar {
+        sidecar_id: SidecarId,
+    },
+    SidecarContext {
+        sidecar_id: SidecarId,
+        source_context_ref: SidecarContextRef,
+    },
     RealmGenesis,
     AppletRegistration {
         applet_id: AppletId,
@@ -1194,6 +1223,9 @@ enum FlatCurrentSelector {
     RealmPolicyBundle,
     RealmJoinRule,
     RealmHistoryAccess,
+    RealmTombstone,
+    RealmArchive,
+    RealmFreeze,
     RealmDiscovery,
     RealmAlias,
     RealmPlaintextVisibleServices,
@@ -1220,6 +1252,9 @@ enum FlatCurrentSelector {
     },
     AgentStatus {
         agent_id: DidCoreId,
+    },
+    AgentActionApproval {
+        approval_id: String,
     },
     MimiRoomBinding {
         mimi_room_uri: MimiRoomUri,
@@ -1369,6 +1404,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_policy_bundle"
                 | "realm_join_rule"
                 | "realm_history_access"
+                | "realm_tombstone"
+                | "realm_archive"
+                | "realm_freeze"
                 | "realm_discovery"
                 | "realm_alias"
                 | "realm_plaintext_visible_services"
@@ -1386,6 +1424,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_policy_bundle" => Self::RealmPolicyBundle,
                     "realm_join_rule" => Self::RealmJoinRule,
                     "realm_history_access" => Self::RealmHistoryAccess,
+                    "realm_tombstone" => Self::RealmTombstone,
+                    "realm_archive" => Self::RealmArchive,
+                    "realm_freeze" => Self::RealmFreeze,
                     "realm_discovery" => Self::RealmDiscovery,
                     "realm_alias" => Self::RealmAlias,
                     "realm_plaintext_visible_services" => Self::RealmPlaintextVisibleServices,
@@ -1397,6 +1438,14 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 let flat = serde_json::from_value::<FlatCurrentSelector>(Value::Object(wire))
                     .map_err(serde::de::Error::custom)?;
                 Ok(match flat {
+                    FlatCurrentSelector::Sidecar { sidecar_id } => Self::Sidecar { sidecar_id },
+                    FlatCurrentSelector::SidecarContext {
+                        sidecar_id,
+                        source_context_ref,
+                    } => Self::SidecarContext {
+                        sidecar_id,
+                        source_context_ref,
+                    },
                     FlatCurrentSelector::RealmGenesis => Self::RealmGenesis,
                     FlatCurrentSelector::AppletRegistration { applet_id } => {
                         Self::AppletRegistration { applet_id }
@@ -1413,6 +1462,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmPolicyBundle => Self::RealmPolicyBundle,
                     FlatCurrentSelector::RealmJoinRule => Self::RealmJoinRule,
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
+                    FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
+                    FlatCurrentSelector::RealmArchive => Self::RealmArchive,
+                    FlatCurrentSelector::RealmFreeze => Self::RealmFreeze,
                     FlatCurrentSelector::RealmDiscovery => Self::RealmDiscovery,
                     FlatCurrentSelector::RealmAlias => Self::RealmAlias,
                     FlatCurrentSelector::RealmPlaintextVisibleServices => {
@@ -1440,6 +1492,14 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         agent_key_id,
                     },
                     FlatCurrentSelector::AgentStatus { agent_id } => Self::AgentStatus { agent_id },
+                    FlatCurrentSelector::AgentActionApproval { approval_id } => {
+                        if approval_id.is_empty() || approval_id.starts_with("ak:") {
+                            return Err(serde::de::Error::custom(
+                                "Agent confirmation approval_id must be nonempty and outside the ak: namespace",
+                            ));
+                        }
+                        Self::AgentActionApproval { approval_id }
+                    }
                     FlatCurrentSelector::MimiRoomBinding { mimi_room_uri } => {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
@@ -2432,6 +2492,9 @@ mod tests {
             (CurrentSelector::RealmPolicyBundle, "realm_policy_bundle"),
             (CurrentSelector::RealmJoinRule, "realm_join_rule"),
             (CurrentSelector::RealmHistoryAccess, "realm_history_access"),
+            (CurrentSelector::RealmTombstone, "realm_tombstone"),
+            (CurrentSelector::RealmArchive, "realm_archive"),
+            (CurrentSelector::RealmFreeze, "realm_freeze"),
             (CurrentSelector::RealmDiscovery, "realm_discovery"),
             (CurrentSelector::RealmAlias, "realm_alias"),
             (
@@ -3122,6 +3185,30 @@ mod tests {
                 serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),
                 "{invalid}"
             );
+        }
+    }
+
+    #[test]
+    fn sidecar_current_selectors_preserve_exact_native_context_and_reject_extra_fields() {
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [46; 32]);
+        let sidecar = SidecarId::from_event_id(&event);
+        let strand = StrandId::from_event_id(&event);
+        let relation = RelationId::from_event_id(&event);
+        for value in [
+            json!({"kind":"sidecar","sidecar_id":sidecar}),
+            json!({"kind":"sidecar_context","sidecar_id":sidecar,"source_context_ref":{"kind":"strand","strand_id":strand}}),
+            json!({"kind":"sidecar_context","sidecar_id":sidecar,"source_context_ref":{"kind":"relation","relation_id":relation}}),
+        ] {
+            let selector: CurrentSelector = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(selector).unwrap(), value);
+        }
+        for value in [
+            json!({"kind":"sidecar","sidecar_id":sidecar,"controller_account_id":"extra"}),
+            json!({"kind":"sidecar_context","sidecar_id":sidecar}),
+            json!({"kind":"sidecar_context","sidecar_id":sidecar,"source_context_ref":{"kind":"strand","strand_id":relation}}),
+            json!({"kind":"sidecar_context","sidecar_id":sidecar,"source_context_ref":{"kind":"strand","strand_id":strand,"relation_id":relation}}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(value).is_err());
         }
     }
 

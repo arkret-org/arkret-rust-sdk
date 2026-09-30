@@ -146,7 +146,7 @@ impl ObjectRedactionCurrentValue {
         if self
             .assertions
             .windows(2)
-            .any(|pair| pair[0].tag_id.to_string() >= pair[1].tag_id.to_string())
+            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
         {
             return Err(WireError::Protocol(
                 "object_redaction dots are not a canonically sorted set".to_owned(),

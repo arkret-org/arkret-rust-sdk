@@ -49,6 +49,30 @@ pub fn verify_event_approval_signature(
     verification_time: DateTime<Utc>,
     approver_public_key: &PublicKeyMaterial,
 ) -> Result<(), ApprovalEventVerificationError> {
+    verify_event_approval_signature_with_verified_controller(
+        signature,
+        event,
+        operation,
+        action,
+        verification_time,
+        approver_public_key,
+        None,
+    )
+}
+
+/// `verified_controller` is the principal independently established by the
+/// authenticated historical native-control adapter, never a caller wire hint.
+/// The identity behavior layer checks the exact method and selected native key
+/// before passing this binding. Ordinary DID-document callers use None.
+pub fn verify_event_approval_signature_with_verified_controller(
+    signature: &ApprovalSignature,
+    event: &Event,
+    operation: &str,
+    action: CapabilityActionId,
+    verification_time: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    verified_controller: Option<&arkret_wire::DidCoreId>,
+) -> Result<(), ApprovalEventVerificationError> {
     signature
         .input
         .validate_approved_at(verification_time)
@@ -59,7 +83,15 @@ pub fn verify_event_approval_signature(
         .as_str()
         .split_once('#')
         .map(|(did, _)| did);
-    if method_did != Some(signature.input.approver_did.as_str())
+    let controller_matches = if let Some(controller) = verified_controller {
+        arkret_wire::project_did_to_core_id(&signature.input.approver_did)
+            .ok()
+            .as_ref()
+            == Some(controller)
+    } else {
+        method_did == Some(signature.input.approver_did.as_str())
+    };
+    if !controller_matches
         || !matches!(
             &signature.input.approval_target,
             ApprovalTarget::Event { event_id } if event_id == &event.event_id

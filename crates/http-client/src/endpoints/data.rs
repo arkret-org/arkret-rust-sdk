@@ -6,7 +6,8 @@ use arkret_models_collaboration::device_messages::{
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };
 use arkret_models_collaboration::objects::blob::{
-    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
+    BlobPresignOutcome, BlobPresignRequestBody, BlobStorageEncryption, BlobUploadMetadata,
+    BlobUploadOutcome,
 };
 use arkret_models_crypto::{
     KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody, KeyPackagesClaimRequestBody,
@@ -44,26 +45,21 @@ const DEFAULT_MAX_CHUNK_RETRIES: usize = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlobResumableUploadOptions {
+    pub encryption: Option<BlobStorageEncryption>,
     pub metadata: Vec<(String, String)>,
     pub chunk_bytes: usize,
     pub max_chunk_retries: usize,
 }
 
-impl Default for BlobResumableUploadOptions {
-    fn default() -> Self {
+impl BlobResumableUploadOptions {
+    pub fn new(encryption: Option<BlobStorageEncryption>) -> Self {
         Self {
+            encryption,
             metadata: Vec::new(),
             chunk_bytes: DEFAULT_RESUMABLE_CHUNK_BYTES,
             max_chunk_retries: DEFAULT_MAX_CHUNK_RETRIES,
         }
     }
-}
-
-impl BlobResumableUploadOptions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     #[must_use]
     pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.push((key.into(), value.into()));
@@ -175,6 +171,15 @@ impl Client {
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or("application/octet-stream");
+        if metadata.encryption.is_some() && media_type != "application/octet-stream" {
+            return Err(Error::Protocol(
+                "ciphertext blob media_type must be application/octet-stream".to_owned(),
+            ));
+        }
+        let encryption =
+            reqwest::multipart::Part::text(serde_json::to_string(&metadata.encryption)?)
+                .mime_str("application/json")
+                .map_err(|error| Error::Protocol(format!("blob encryption: {error}")))?;
         let mut content = reqwest::multipart::Part::bytes(bytes)
             .mime_str(media_type)
             .map_err(|error| Error::Protocol(format!("blob media_type: {error}")))?;
@@ -183,6 +188,7 @@ impl Client {
         }
         let mut form = reqwest::multipart::Form::new()
             .part("content", content)
+            .part("encryption", encryption)
             .text("size_bytes", metadata.size_bytes.to_string())
             .text("media_type", media_type.to_owned());
         if let Some(realm_id) = metadata.realm_id.as_ref() {
@@ -193,9 +199,6 @@ impl Client {
         }
         if let Some(filename) = metadata.filename.as_ref() {
             form = form.text("filename", filename.clone());
-        }
-        if let Some(purpose) = metadata.purpose.as_ref() {
-            form = form.text("purpose", purpose.clone());
         }
         let builder = self
             .request(Method::POST, "/_arkret/self/blob/upload")?
@@ -292,12 +295,37 @@ impl Client {
                 "resumable upload chunk_bytes must be greater than zero".to_owned(),
             ));
         }
-        let upload_metadata = options
+        let mut keys = std::collections::HashSet::new();
+        for (key, value) in &options.metadata {
+            if !matches!(
+                key.as_str(),
+                "realm_id" | "content_digest" | "media_type" | "filename"
+            ) || !keys.insert(key)
+            {
+                return Err(Error::Protocol(
+                    "invalid resumable upload metadata key".to_owned(),
+                ));
+            }
+            if options.encryption.is_some()
+                && (key == "filename"
+                    || (key == "media_type" && value != "application/octet-stream"))
+            {
+                return Err(Error::Protocol(
+                    "ciphertext upload metadata exposes plaintext metadata".to_owned(),
+                ));
+            }
+        }
+        let encryption = serde_json::to_string(&options.encryption)?;
+        let mut upload_metadata = options
             .metadata
             .iter()
             .map(|(key, value)| format!("{key} {}", b64_metadata_value(value)))
             .collect::<Vec<_>>()
             .join(",");
+        if !upload_metadata.is_empty() {
+            upload_metadata.push(',');
+        }
+        upload_metadata.push_str(&format!("encryption {}", b64_metadata_value(&encryption)));
         let mut create_request = self
             .tus_request(Method::POST, base_url.clone())?
             .header(
@@ -306,9 +334,7 @@ impl Client {
             )
             .header("tus-resumable", TUS_VERSION)
             .header("upload-length", payload.len().to_string());
-        if !upload_metadata.is_empty() {
-            create_request = create_request.header("upload-metadata", upload_metadata);
-        }
+        create_request = create_request.header("upload-metadata", upload_metadata);
         let create = self.execute(create_request).await?;
         if create.status() != reqwest::StatusCode::CREATED {
             return Err(Error::Protocol(format!(
@@ -570,6 +596,46 @@ mod tests {
     fn resumable_metadata_values_use_standard_base64() {
         assert_eq!(b64_metadata_value("file_transfer"), "ZmlsZV90cmFuc2Zlcg==");
         assert_eq!(b64_metadata_value("true"), "dHJ1ZQ==");
+    }
+
+    #[tokio::test]
+    async fn ciphertext_uploads_reject_plaintext_metadata_before_transport() {
+        use arkret_models_collaboration::objects::blob::BlobStorageEncryptionScheme;
+        let client = ClientBuilder::new(Url::parse("https://server.local/").unwrap())
+            .build()
+            .unwrap();
+        let encryption = Some(BlobStorageEncryption {
+            scheme: BlobStorageEncryptionScheme::StreamV1,
+        });
+        let metadata = BlobUploadMetadata {
+            realm_id: None,
+            content_digest: None,
+            size_bytes: 1,
+            media_type: Some("image/png".to_owned()),
+            filename: None,
+            encryption,
+        };
+        assert!(matches!(
+            client.blob_upload_bytes(&metadata, vec![0]).await,
+            Err(Error::Protocol(_))
+        ));
+        for options in [
+            BlobResumableUploadOptions::new(encryption).metadata("media_type", "image/png"),
+            BlobResumableUploadOptions::new(encryption).metadata("filename", "private.png"),
+            BlobResumableUploadOptions::new(None).metadata("purpose", "file_transfer"),
+            BlobResumableUploadOptions::new(None).metadata("encryption", "null"),
+        ] {
+            assert!(matches!(
+                client
+                    .blob_upload_resumable(
+                        Url::parse("https://server.local/uploads").unwrap(),
+                        &[0],
+                        &options
+                    )
+                    .await,
+                Err(Error::Protocol(_))
+            ));
+        }
     }
 
     #[test]
