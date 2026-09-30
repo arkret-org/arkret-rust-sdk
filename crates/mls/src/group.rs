@@ -547,6 +547,16 @@ impl ArkretMlsGroup {
         &self.scope
     }
 
+    /// The full local actor restored with this group's private state.
+    pub fn local_actor_id(&self) -> &ActorId {
+        &self.identity.actor_id
+    }
+
+    /// The local endpoint restored with this group's private state.
+    pub fn local_endpoint_identity(&self) -> MlsEndpointIdentity {
+        self.identity.endpoint_identity()
+    }
+
     /// The RFC 9420 `group_id` in its wire spelling, always 43 characters.
     ///
     /// Equal by construction to `self.scope().canonical_mls_group_id()` and to
