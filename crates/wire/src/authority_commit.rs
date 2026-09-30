@@ -845,6 +845,50 @@ pub struct ApprovalSignature {
     pub proof: ApprovalSignatureProof,
 }
 
+impl ApprovalSignature {
+    /// Complete shape checks not already enforced by the closed serde carriers
+    /// and typed IDs in approval-signature.schema.json. This establishes no
+    /// signature, historical control, voting qualification, or consumed nonce.
+    pub fn validate(&self) -> Result<()> {
+        if !(22..=256).contains(&self.input.nonce.chars().count()) {
+            return Err(WireError::Protocol(
+                "approval nonce must contain 22..=256 characters".into(),
+            ));
+        }
+        if self.input.request_canonical_digest.digest_suite()?
+            != arkret_canonical::DigestSuite::Sha256
+        {
+            return Err(WireError::Protocol(
+                "approval request digest must use SHA-256".into(),
+            ));
+        }
+        if crate::ServiceOperationId::from_wire(&self.input.operation).is_none() {
+            return Err(WireError::Protocol(
+                "approval operation is not registered".into(),
+            ));
+        }
+        if self.input.approval_target == ApprovalTarget::Operation
+            && self.input.operation != "ak.self.events.command.submit.v1"
+        {
+            return Err(WireError::Protocol(
+                "approval operation target has no registered evidence carrier".into(),
+            ));
+        }
+        if !crate::is_compact_detached_jws(&self.proof.jws) {
+            return Err(WireError::Protocol(
+                "approval proof must be compact detached JWS".into(),
+            ));
+        }
+        arkret_canonical::canonical::validate_timestamp_canonical(
+            &arkret_canonical::canonical::format_timestamp_canonical(self.input.approved_at),
+        )?;
+        // Existing canonical numeric validation also checks a directly
+        // constructed List current revision before it can be signed.
+        arkret_canonical::canonical::canonical_json_bytes(self)?;
+        Ok(())
+    }
+}
+
 /// Exact ordered, atomic PCR genesis unit: an identity-root signed
 /// `ak.realm.create` followed by a founding-device signed
 /// `ak.device.authorize`. These Events are replayable only inside this complete
@@ -2445,6 +2489,136 @@ mod tests {
 
     use super::*;
     use crate::{DidCoreId, EventKind, test_support};
+
+    fn approval_shape_fixture() -> ApprovalSignature {
+        let id = crate::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
+        serde_json::from_value(json!({
+            "input": {
+                "approval_context":{"context_kind":"realm_governance"},
+                "approval_target":{"target_kind":"event","event_id":id},
+                "request_canonical_digest":format!("sha256:{}", "11".repeat(32)),
+                "operation":"ak.self.events.command.submit.v1",
+                "action":"ak.strand.move",
+                "realm_id":crate::RealmId::from_event_id(&id),
+                "initiating_actor_id":crate::ActorId::account(crate::AccountId::new(
+                    DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap()
+                )),
+                "approver_did":"did:web:approver.example",
+                "approved_at":"2026-09-30T00:00:00.000Z",
+                "nonce":"ABCDEFGHIJKLMNOPQRSTUV"
+            },
+            "proof":{"kind":"detached_jws","verification_method":"did:web:approver.example#key","jws":"AA..AA"}
+        })).unwrap()
+    }
+
+    #[test]
+    fn approval_shape_validates_nonce_character_boundaries_and_registered_primitives() {
+        let mut approval = approval_shape_fixture();
+        approval.validate().unwrap();
+        for count in [22, 256] {
+            approval.input.nonce = "票".repeat(count);
+            approval.validate().unwrap();
+        }
+        for count in [0, 21, 257] {
+            approval.input.nonce = "票".repeat(count);
+            assert!(approval.validate().is_err(), "nonce characters={count}");
+        }
+        let mut approval = approval_shape_fixture();
+        approval.input.request_canonical_digest =
+            Hash::new(format!("blake3:{}", "11".repeat(32))).unwrap();
+        assert!(approval.validate().is_err());
+        let mut approval = approval_shape_fixture();
+        approval.input.operation = "ak.unregistered.command.submit.v1".into();
+        assert!(approval.validate().is_err());
+        let mut approval = approval_shape_fixture();
+        approval.input.approval_target = ApprovalTarget::Operation;
+        approval.validate().unwrap();
+        approval.input.operation = "ak.self.account.read.describe.v1".into();
+        assert!(crate::ServiceOperationId::from_wire(&approval.input.operation).is_some());
+        assert!(approval.validate().is_err());
+        for jws in ["", "AA.AA.AA", "AA..", "..AA", "AA..AA.AA", "AA=..AA"] {
+            let mut approval = approval_shape_fixture();
+            approval.proof.jws = jws.into();
+            assert!(approval.validate().is_err(), "{jws}");
+        }
+        let mut approval = approval_shape_fixture();
+        approval.input.approval_context = ApprovalContext::ListWip {
+            list_space_id: SpaceId::from_event_id(&crate::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [32; 32],
+            )),
+            list_policy_revision: CurrentRevision {
+                commit_id: RealmCommitId::from_digest([33; 32]),
+                stream_position: 9_007_199_254_740_992,
+            },
+        };
+        assert!(approval.validate().is_err());
+    }
+
+    #[test]
+    fn approval_shape_closed_carriers_reject_missing_extra_and_invalid_ids() {
+        let value = serde_json::to_value(approval_shape_fixture()).unwrap();
+        for field in ["input", "proof"] {
+            let mut invalid = value.clone();
+            invalid.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<ApprovalSignature>(invalid).is_err(),
+                "missing {field}"
+            );
+        }
+        for field in ["kind", "verification_method", "jws"] {
+            let mut invalid = value.clone();
+            invalid["proof"].as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<ApprovalSignature>(invalid).is_err(),
+                "missing proof.{field}"
+            );
+        }
+        for field in [
+            "approval_context",
+            "approval_target",
+            "request_canonical_digest",
+            "operation",
+            "action",
+            "realm_id",
+            "initiating_actor_id",
+            "approver_did",
+            "approved_at",
+            "nonce",
+        ] {
+            let mut invalid = value.clone();
+            invalid["input"].as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<ApprovalSignature>(invalid).is_err(),
+                "missing {field}"
+            );
+        }
+        for parent in ["input", "proof"] {
+            let mut invalid = value.clone();
+            invalid[parent]["unregistered"] = json!(true);
+            assert!(
+                serde_json::from_value::<ApprovalSignature>(invalid).is_err(),
+                "extra {parent}"
+            );
+        }
+        let mut invalid = value.clone();
+        invalid["unregistered"] = json!(true);
+        assert!(serde_json::from_value::<ApprovalSignature>(invalid).is_err());
+        for (field, bad) in [
+            ("realm_id", "not-a-realm"),
+            ("action", "ak.unregistered.action"),
+            ("request_canonical_digest", "sha256:00"),
+            ("approved_at", "2026-09-30T00:00:00Z"),
+        ] {
+            let mut invalid = value.clone();
+            invalid["input"][field] = json!(bad);
+            assert!(
+                serde_json::from_value::<ApprovalSignature>(invalid).is_err(),
+                "invalid {field}"
+            );
+        }
+    }
 
     #[test]
     fn actor_private_submit_outcome_is_closed_per_event_kind() {
