@@ -33,6 +33,7 @@ pub mod governance_payloads;
 mod internal_prelude;
 pub mod message_authoring;
 pub mod mimi_operations;
+pub mod mls_creator_bootstrap;
 pub mod mls_group_state_material;
 pub mod mls_roster_authority;
 pub mod object_lifecycle;
