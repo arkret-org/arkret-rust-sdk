@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::authority_commit::SelfAuthoritySubmitRequest;
 use crate::events_payloads::MlsGenesisBindingProposalCarrier;
 use crate::internal_prelude::{Result, WireError};
+use crate::sync_frames::account_subscribe::RealmDetailBaseline;
+use crate::sync_frames::current_results::AccountCurrentResult;
 
 crate::string_marker!(MlsCreatorBootstrapOperation, MlsGenesis, "mls_genesis");
 
@@ -65,8 +67,10 @@ impl MlsCreatorBootstrapIntent {
         let proof = create.producer_proof.as_ref().ok_or_else(|| {
             WireError::Protocol("creator intent requires the exact signed create unit".into())
         })?;
+        let device_producer = create.human_device_producer()?;
         if proof.verification_method != self.creator_signer_method
-            || create.human_device_producer()?.is_some_and(|producer| {
+            || (self.owner_actor_id.as_account_id().is_some() && device_producer.is_none())
+            || device_producer.is_some_and(|producer| {
                 producer.device_id != self.creator_device_id
                     || self
                         .owner_actor_id
@@ -140,6 +144,87 @@ impl MlsCreatorBootstrapIntent {
     }
     pub fn scope_create_event_id(&self) -> &EventId {
         &self.scope_create_event_id
+    }
+}
+
+/// A complete authorized current cut retained with pinned creator evidence.
+/// These existing carriers provide coverage and current values together;
+/// neither a missing projection nor an empty incomplete result proves absence.
+/// Signature, authority-chain and source authentication remain host duties.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapCurrentCut {
+    baseline: RealmDetailBaseline,
+    current: AccountCurrentResult,
+}
+
+impl MlsCreatorBootstrapCurrentCut {
+    pub fn new(baseline: RealmDetailBaseline, current: AccountCurrentResult) -> Self {
+        Self { baseline, current }
+    }
+
+    /// Check byte-local coverage and exact-scope absence against the independently
+    /// verified authority coordinates of this cut. This is not authentication.
+    pub fn validate_absence_binding(
+        &self,
+        scope: &ScopeRef,
+        governance_generation: u64,
+        realm_head: &arkret_wire::CommitStreamHead,
+    ) -> Result<()> {
+        use arkret_wire::{CommitStreamRef, CurrentSelector};
+
+        let stream = match scope {
+            ScopeRef::Realm { .. } | ScopeRef::Circle { .. } => {
+                CommitStreamRef::from_scope(scope, None)?
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "creator current cut requires a Realm or Circle scope".into(),
+                ));
+            }
+        };
+        self.baseline.validate()?;
+        self.current.validate()?;
+        let coverage = &self.baseline.coverage;
+        if !self.baseline.complete
+            || !coverage.complete_for_authorized_streams
+            || coverage.realm_id != *stream.realm_id()
+            || self.current.realm_id != coverage.realm_id
+            || self.current.governance_generation != governance_generation
+            || realm_head.stream_ref
+                != (CommitStreamRef::Realm {
+                    realm_id: coverage.realm_id.clone(),
+                })
+            || !coverage.stream_heads.contains(realm_head)
+            || !coverage
+                .stream_heads
+                .iter()
+                .any(|head| head.stream_ref == stream)
+            || coverage.stream_heads.len() != self.current.stream_heads.len()
+            || coverage.stream_heads.iter().any(|head| {
+                head.stream_ref.realm_id() != &coverage.realm_id
+                    || !self.current.stream_heads.contains(head)
+            })
+            || self
+                .current
+                .entry(&CurrentSelector::MlsGroup {
+                    scope_ref: scope.clone(),
+                })
+                .is_some()
+        {
+            return Err(WireError::Protocol(
+                "creator current cut does not bind complete exact-scope Genesis absence".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn baseline(&self) -> &RealmDetailBaseline {
+        &self.baseline
+    }
+
+    pub fn current(&self) -> &AccountCurrentResult {
+        &self.current
     }
 }
 
@@ -308,5 +393,151 @@ mod tests {
         let mut altered = original;
         altered.mls_group_id = intent(true).mls_group_id;
         assert!(altered.validate().is_err());
+    }
+
+    #[test]
+    fn human_creator_cannot_replace_the_device_proof_with_a_generic_account_key() {
+        let mut altered = intent(false);
+        let method = DidUrl::new("did:web:alice.example#key").unwrap();
+        altered.creator_signer_method = method.clone();
+        let SelfAuthoritySubmitRequest::Event(event) = &mut altered.signed_scope_create_unit else {
+            panic!("fixture must be an Event");
+        };
+        event
+            .event
+            .producer_proof
+            .as_mut()
+            .unwrap()
+            .verification_method = method;
+        assert!(altered.validate().is_err());
+    }
+
+    fn current_cut(
+        circle: bool,
+    ) -> (
+        ScopeRef,
+        arkret_wire::CommitStreamHead,
+        MlsCreatorBootstrapCurrentCut,
+    ) {
+        use arkret_wire::{CommitStreamHead, CommitStreamRef, RealmCommitId};
+
+        use crate::sync_frames::current_results::AccountCurrentCoverage;
+
+        let scope = intent(circle).effective_scope;
+        let stream = CommitStreamRef::from_scope(&scope, None).unwrap();
+        let realm_id = stream.realm_id().clone();
+        let realm_head = CommitStreamHead {
+            stream_ref: CommitStreamRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            stream_position: 7,
+            commit_id: RealmCommitId::new(
+                "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            )
+            .unwrap(),
+        };
+        let mut heads = vec![realm_head.clone()];
+        if circle {
+            heads.push(CommitStreamHead {
+                stream_ref: stream,
+                stream_position: 2,
+                commit_id: RealmCommitId::new(
+                    "ak:realm_commit:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+                )
+                .unwrap(),
+            });
+        }
+        let cut = MlsCreatorBootstrapCurrentCut::new(
+            RealmDetailBaseline {
+                snapshot_cursor: "ak:cursor:creator_cut".into(),
+                cut_revision: 11,
+                coverage: AccountCurrentCoverage {
+                    realm_id: realm_id.clone(),
+                    stream_heads: heads.clone(),
+                    complete_for_authorized_streams: true,
+                },
+                complete: true,
+            },
+            AccountCurrentResult {
+                realm_id,
+                governance_generation: 3,
+                stream_heads: heads,
+                entries: vec![],
+            },
+        );
+        (scope, realm_head, cut)
+    }
+
+    #[test]
+    fn complete_realm_and_circle_cuts_preserve_independent_heads_across_reload() {
+        for circle in [false, true] {
+            let (scope, head, cut) = current_cut(circle);
+            let bytes = arkret_canonical::canonical_json_bytes(&cut).unwrap();
+            let mut restored: MlsCreatorBootstrapCurrentCut =
+                serde_json::from_slice(&bytes).unwrap();
+            restored.current.stream_heads.reverse();
+            restored.validate_absence_binding(&scope, 3, &head).unwrap();
+        }
+    }
+
+    #[test]
+    fn empty_incomplete_or_uncovered_cuts_never_prove_genesis_absence() {
+        let (scope, head, cut) = current_cut(true);
+        let mut altered = cut.clone();
+        altered.baseline.complete = false;
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        altered = cut.clone();
+        altered.baseline.coverage.complete_for_authorized_streams = false;
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        altered = cut.clone();
+        altered.baseline.coverage.stream_heads.pop();
+        altered.current.stream_heads.pop();
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        altered = cut;
+        altered.baseline.coverage.stream_heads.clear();
+        altered.current.stream_heads.clear();
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+    }
+
+    #[test]
+    fn creator_cut_cannot_mix_generations_heads_realms_or_duplicate_coverage() {
+        let (scope, head, cut) = current_cut(true);
+        assert!(cut.validate_absence_binding(&scope, 4, &head).is_err());
+        let mut altered = cut.clone();
+        altered.current.stream_heads[1].stream_position += 1;
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        altered = cut.clone();
+        altered.baseline.coverage.stream_heads.push(head.clone());
+        altered.current.stream_heads.push(head.clone());
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        altered = cut.clone();
+        let other = current_cut(false).1;
+        altered.baseline.coverage.stream_heads.push(other.clone());
+        altered.current.stream_heads.push(other);
+        assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
+        let mut advanced_head = head;
+        advanced_head.stream_position += 1;
+        assert!(
+            cut.validate_absence_binding(&scope, 3, &advanced_head)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn an_exact_scope_mls_current_entry_is_a_winner_even_if_its_value_is_empty() {
+        let (scope, head, mut cut) = current_cut(true);
+        let entry = arkret_wire::TypedCurrentResult::Value {
+            selector: arkret_wire::CurrentSelector::MlsGroup {
+                scope_ref: scope.clone(),
+            },
+            source_stream_ref: cut.current.stream_heads[1].stream_ref.clone(),
+            revision: arkret_wire::CurrentRevision {
+                commit_id: cut.current.stream_heads[1].commit_id.clone(),
+                stream_position: 2,
+            },
+            value: json!({}),
+        };
+        cut.current.entries.push(entry);
+        assert!(cut.validate_absence_binding(&scope, 3, &head).is_err());
     }
 }
