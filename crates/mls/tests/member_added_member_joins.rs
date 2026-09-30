@@ -167,6 +167,19 @@ fn a_member_that_joined_from_a_welcome_adds_the_next_member() {
     )
     .unwrap();
     assert_eq!(bob_group.epoch(), 1);
+    #[cfg(feature = "test-utils")]
+    let alice_epoch_one = {
+        alice_group
+            .install_recovered_own_commit(&first_view, &genesis)
+            .unwrap();
+        alice_group
+            .install_test_leaf_bindings(vec![
+                identity(&alice, 1).endpoint_identity(),
+                identity(&bob, 2).endpoint_identity(),
+            ])
+            .unwrap();
+        alice_group.export_state_record().unwrap()
+    };
 
     let carol_identity = identity(&carol, 3);
     let second_binding =
@@ -183,4 +196,49 @@ fn a_member_that_joined_from_a_welcome_adds_the_next_member() {
     )
     .expect("the joined member's Welcome carries the ratchet tree");
     assert_eq!(carol_group.epoch(), 2);
+    #[cfg(feature = "test-utils")]
+    {
+        let base = &first_view.event.event_id;
+        let wrong_base = genesis.clone();
+        let mut rejected = ArkretMlsGroup::restore_from_state_record(&alice_epoch_one).unwrap();
+        assert!(
+            rejected
+                .install_recovered_remote_commit(&second_view, &wrong_base)
+                .is_err()
+        );
+        assert_eq!(rejected.epoch(), 1);
+        let mut rejected = ArkretMlsGroup::restore_from_state_record(&alice_epoch_one).unwrap();
+        assert!(
+            rejected
+                .install_recovered_own_commit(&second_view, base)
+                .is_err()
+        );
+        assert_eq!(rejected.epoch(), 1);
+        let mut changed = second_view.clone();
+        changed.event.payload.get_mut("governance_binding").unwrap()["key_access_revision"] =
+            serde_json::json!(1);
+        changed.event.payload.insert(
+            "covers_key_access_revision".to_owned(),
+            serde_json::json!(1),
+        );
+        let mut rejected = ArkretMlsGroup::restore_from_state_record(&alice_epoch_one).unwrap();
+        assert!(
+            rejected
+                .install_recovered_remote_commit(&changed, base)
+                .is_err()
+        );
+        assert_eq!(rejected.epoch(), 1);
+        let mut restored = ArkretMlsGroup::restore_from_state_record(&alice_epoch_one).unwrap();
+        assert_eq!(
+            restored
+                .install_recovered_remote_commit(&second_view, base)
+                .unwrap(),
+            2
+        );
+        assert!(
+            restored
+                .install_recovered_remote_commit(&second_view, base)
+                .is_err()
+        );
+    }
 }
