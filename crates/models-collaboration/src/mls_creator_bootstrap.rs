@@ -228,6 +228,102 @@ impl MlsCreatorBootstrapCurrentCut {
     }
 }
 
+/// Exact accepted creation and its authority-root resolution retained by the
+/// transaction. Shape checks cannot replace producer/Commit/route verification.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapAcceptedCreate {
+    accepted_event: Event,
+    covering_commit: arkret_wire::RealmCommit,
+    digest_suite: arkret_canonical::DigestSuite,
+    accepted_bytes_digest: arkret_wire::Hash,
+    authority_root: arkret_wire::RealmAuthorityBundle,
+}
+
+impl MlsCreatorBootstrapAcceptedCreate {
+    pub fn new(
+        intent: &MlsCreatorBootstrapIntent,
+        accepted_event: Event,
+        covering_commit: arkret_wire::RealmCommit,
+        digest_suite: arkret_canonical::DigestSuite,
+        authority_root: arkret_wire::RealmAuthorityBundle,
+    ) -> Result<Self> {
+        let bytes = arkret_canonical::canonical_json_bytes(&accepted_event)?;
+        let value = Self {
+            accepted_event,
+            covering_commit,
+            digest_suite,
+            accepted_bytes_digest: arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+                digest_suite,
+                &bytes,
+            ))?,
+            authority_root,
+        };
+        value.validate_binding(intent)?;
+        Ok(value)
+    }
+
+    /// Require the unchanged signed creation, covering independent-stream
+    /// Commit and the exact authority root. The host verifies all signatures
+    /// and complete accepted history before advancing the transaction.
+    pub fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        intent.validate()?;
+        self.covering_commit.validate_shape()?;
+        self.authority_root.validate_shape()?;
+        self.accepted_event
+            .verify_event_id_matches_content_with_digest_suite(self.digest_suite)?;
+        self.accepted_event
+            .validate_proof_bindings_with_digest_suite(self.digest_suite)?;
+        self.authority_root
+            .genesis_event
+            .verify_event_id_matches_content_with_digest_suite(self.digest_suite)?;
+        let original = scope_create_event(intent.signed_scope_create_unit())?;
+        let expected_stream = arkret_wire::CommitStreamRef::from_scope(
+            &original.scope_ref,
+            Some(original.realm_id.clone()),
+        )?;
+        let bytes = arkret_canonical::canonical_json_bytes(&self.accepted_event)?;
+        if &self.accepted_event != original
+            || self.accepted_bytes_digest.as_str()
+                != arkret_canonical::canonical::digest(self.digest_suite, &bytes)
+            || self.covering_commit.event_ref != original.event_id
+            || self.covering_commit.realm_id != original.realm_id
+            || self.covering_commit.stream_ref != expected_stream
+            || self.authority_root.realm_id != original.realm_id
+            || self.covering_commit.governance_generation > self.authority_root.current_generation
+            || (original.kind == EventKind::RealmCreate
+                && (self.authority_root.genesis_event != self.accepted_event
+                    || self.authority_root.genesis_commit != self.covering_commit))
+        {
+            return Err(WireError::Protocol(
+                "accepted creator evidence changed the exact creation, digest, stream, or root"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn accepted_event(&self) -> &Event {
+        &self.accepted_event
+    }
+
+    pub fn covering_commit(&self) -> &arkret_wire::RealmCommit {
+        &self.covering_commit
+    }
+
+    pub fn digest_suite(&self) -> arkret_canonical::DigestSuite {
+        self.digest_suite
+    }
+
+    pub fn accepted_bytes_digest(&self) -> &arkret_wire::Hash {
+        &self.accepted_bytes_digest
+    }
+
+    pub fn authority_root(&self) -> &arkret_wire::RealmAuthorityBundle {
+        &self.authority_root
+    }
+}
+
 fn scope_create_event(request: &SelfAuthoritySubmitRequest) -> Result<&Event> {
     match request {
         SelfAuthoritySubmitRequest::Event(submission) => Ok(&submission.event),
@@ -253,14 +349,20 @@ mod tests {
 
     const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
 
-    fn intent(circle: bool) -> MlsCreatorBootstrapIntent {
+    fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
         let actor = ActorId::account(AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         ));
-        let parent =
+        let parent = if circle {
+            scope_create_event(fixture_intent(false).signed_scope_create_unit())
+                .unwrap()
+                .realm_id
+                .clone()
+        } else {
             arkret_wire::RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                .unwrap();
+                .unwrap()
+        };
         let timestamp = Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap();
         let mut create = arkret_wire::test_support::raw_event_for_actor_at(
             if circle {
@@ -322,7 +424,7 @@ mod tests {
     #[test]
     fn realm_and_circle_intents_retain_exact_create_bytes_and_derived_group() {
         for circle in [false, true] {
-            let original = intent(circle);
+            let original = fixture_intent(circle);
             let bytes = arkret_canonical::canonical_json_bytes(&original).unwrap();
             let restored: MlsCreatorBootstrapIntent = serde_json::from_slice(&bytes).unwrap();
             restored.validate().unwrap();
@@ -336,7 +438,7 @@ mod tests {
 
     #[test]
     fn creator_intent_rejects_foreign_station_device_signer_and_create_identity() {
-        let original = intent(false);
+        let original = fixture_intent(false);
         let mut altered = original.clone();
         altered.owner_actor_id = ActorId::account(AccountId::new(
             original
@@ -356,15 +458,15 @@ mod tests {
         altered.creator_signer_method = DidUrl::new("did:web:other.example#key").unwrap();
         assert!(altered.validate().is_err());
         altered = original.clone();
-        altered.scope_create_event_id = intent(true).scope_create_event_id;
+        altered.scope_create_event_id = fixture_intent(true).scope_create_event_id;
         assert!(altered.validate().is_err());
     }
 
     #[test]
     fn intent_cannot_borrow_another_scope_or_serialize_an_open_or_partial_record() {
-        let original = intent(false);
+        let original = fixture_intent(false);
         let mut altered = original.clone();
-        altered.effective_scope = intent(true).effective_scope;
+        altered.effective_scope = fixture_intent(true).effective_scope;
         assert!(altered.validate().is_err());
         let value = serde_json::to_value(original).unwrap();
         for field in value.as_object().unwrap().keys() {
@@ -382,7 +484,7 @@ mod tests {
 
     #[test]
     fn deserialized_intent_cannot_rebind_genesis_coordinates_or_its_derived_group() {
-        let original = intent(false);
+        let original = fixture_intent(false);
         for field in ["previous_epoch", "next_epoch", "key_access_revision"] {
             let mut value = serde_json::to_value(&original).unwrap();
             value["proposed_group_genesis_binding"]["proposed_group_genesis_binding"][field] =
@@ -391,13 +493,13 @@ mod tests {
             assert!(altered.validate().is_err(), "changed {field}");
         }
         let mut altered = original;
-        altered.mls_group_id = intent(true).mls_group_id;
+        altered.mls_group_id = fixture_intent(true).mls_group_id;
         assert!(altered.validate().is_err());
     }
 
     #[test]
     fn human_creator_cannot_replace_the_device_proof_with_a_generic_account_key() {
-        let mut altered = intent(false);
+        let mut altered = fixture_intent(false);
         let method = DidUrl::new("did:web:alice.example#key").unwrap();
         altered.creator_signer_method = method.clone();
         let SelfAuthoritySubmitRequest::Event(event) = &mut altered.signed_scope_create_unit else {
@@ -423,7 +525,7 @@ mod tests {
 
         use crate::sync_frames::current_results::AccountCurrentCoverage;
 
-        let scope = intent(circle).effective_scope;
+        let scope = fixture_intent(circle).effective_scope;
         let stream = CommitStreamRef::from_scope(&scope, None).unwrap();
         let realm_id = stream.realm_id().clone();
         let realm_head = CommitStreamHead {
@@ -511,7 +613,13 @@ mod tests {
         altered.current.stream_heads.push(head.clone());
         assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
         altered = cut.clone();
-        let other = current_cut(false).1;
+        let mut other = current_cut(false).1;
+        other.stream_ref = arkret_wire::CommitStreamRef::Realm {
+            realm_id: arkret_wire::RealmId::new(
+                "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            )
+            .unwrap(),
+        };
         altered.baseline.coverage.stream_heads.push(other.clone());
         altered.current.stream_heads.push(other);
         assert!(altered.validate_absence_binding(&scope, 3, &head).is_err());
@@ -539,5 +647,158 @@ mod tests {
         };
         cut.current.entries.push(entry);
         assert!(cut.validate_absence_binding(&scope, 3, &head).is_err());
+    }
+
+    fn accepted_create(
+        circle: bool,
+    ) -> (MlsCreatorBootstrapIntent, MlsCreatorBootstrapAcceptedCreate) {
+        use arkret_wire::{
+            Base64UrlString, CommitStreamHead, CommitStreamRef, DetachedObjectSignature,
+            DetachedSignatureAlgorithm, DetachedSignatureContext, RealmAuthorityBundle,
+            RealmAuthorityCurrentAssertion, RealmCommit, RealmCommitAuthorityRef, RealmCommitId,
+        };
+
+        let intent = fixture_intent(circle);
+        let root_event = scope_create_event(fixture_intent(false).signed_scope_create_unit())
+            .unwrap()
+            .clone();
+        let realm_id = root_event.realm_id.clone();
+        let service = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let timestamp = root_event.created_at;
+        // These detached signatures exercise shape bindings only. No test
+        // claims independently verified acceptance from this synthetic bundle.
+        let signature = |context| DetachedObjectSignature {
+            context,
+            signature_algorithm: DetachedSignatureAlgorithm::Ed25519,
+            verification_method: DidUrl::new("did:web:station.example#key").unwrap(),
+            signed_digest: Hash::new(
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .unwrap(),
+            created_at: timestamp,
+            sig: Base64UrlString::new("AA").unwrap(),
+        };
+        let root_commit = RealmCommit {
+            commit_id: RealmCommitId::new(
+                "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            )
+            .unwrap(),
+            realm_id: realm_id.clone(),
+            stream_ref: CommitStreamRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            stream_position: 0,
+            previous_commit_ref: None,
+            event_ref: root_event.event_id.clone(),
+            governance_generation: 0,
+            authority_ref: RealmCommitAuthorityRef::GenesisOrChangeEvent(
+                root_event.event_id.clone(),
+            ),
+            committed_at: timestamp,
+            signature: signature(DetachedSignatureContext::RealmCommit),
+        };
+        let head = CommitStreamHead {
+            stream_ref: root_commit.stream_ref.clone(),
+            stream_position: 0,
+            commit_id: root_commit.commit_id.clone(),
+        };
+        let root = RealmAuthorityBundle {
+            realm_id: realm_id.clone(),
+            genesis_event: root_event,
+            genesis_commit: root_commit.clone(),
+            authority_transitions: vec![],
+            current_generation: 0,
+            current_service_id: service.clone(),
+            current_route_record: json!({}),
+            realm_stream_head: head.clone(),
+            bundle_issued_at: timestamp,
+            current_assertion: RealmAuthorityCurrentAssertion {
+                realm_id,
+                current_generation: 0,
+                current_service_id: service,
+                last_handoff_ref: None,
+                realm_stream_head: head,
+                nonce: Base64UrlString::new("AAAAAAAAAAAAAAAAAAAAAA").unwrap(),
+                expires_at: timestamp + chrono::TimeDelta::minutes(5),
+                signature: signature(DetachedSignatureContext::RealmAuthorityCurrentAssertion),
+            },
+        };
+        let event = scope_create_event(intent.signed_scope_create_unit())
+            .unwrap()
+            .clone();
+        let mut commit = root_commit;
+        if circle {
+            commit.previous_commit_ref = Some(commit.commit_id.clone());
+            commit.commit_id =
+                RealmCommitId::new("ak:realm_commit:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                    .unwrap();
+            commit.stream_position = 1;
+            commit.event_ref = event.event_id.clone();
+        }
+        let accepted = MlsCreatorBootstrapAcceptedCreate::new(
+            &intent,
+            event,
+            commit,
+            arkret_canonical::DigestSuite::Sha256,
+            root,
+        )
+        .unwrap();
+        (intent, accepted)
+    }
+
+    #[test]
+    fn accepted_creation_keeps_its_exact_signed_event_and_parent_authorization_stream() {
+        for circle in [false, true] {
+            let (intent, accepted) = accepted_create(circle);
+            let bytes = arkret_canonical::canonical_json_bytes(&accepted).unwrap();
+            let restored: MlsCreatorBootstrapAcceptedCreate =
+                serde_json::from_slice(&bytes).unwrap();
+            restored.validate_binding(&intent).unwrap();
+            assert_eq!(accepted, restored);
+            if circle {
+                assert_ne!(
+                    restored.covering_commit.stream_ref,
+                    arkret_wire::CommitStreamRef::from_scope(intent.effective_scope(), None)
+                        .unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn accepted_creation_cannot_rebind_proof_commit_scope_or_digest_suite() {
+        let (intent, accepted) = accepted_create(true);
+        assert!(
+            MlsCreatorBootstrapAcceptedCreate::new(
+                &intent,
+                accepted.accepted_event.clone(),
+                accepted.covering_commit.clone(),
+                arkret_canonical::DigestSuite::Blake3,
+                accepted.authority_root.clone()
+            )
+            .is_err()
+        );
+        let mut altered = accepted.clone();
+        altered
+            .accepted_event
+            .producer_proof
+            .as_mut()
+            .unwrap()
+            .jws
+            .push('x');
+        assert!(altered.validate_binding(&intent).is_err());
+        altered = accepted.clone();
+        altered.covering_commit.stream_ref =
+            arkret_wire::CommitStreamRef::from_scope(intent.effective_scope(), None).unwrap();
+        assert!(altered.validate_binding(&intent).is_err());
+        altered = accepted.clone();
+        altered.digest_suite = arkret_canonical::DigestSuite::Blake3;
+        assert!(altered.validate_binding(&intent).is_err());
+        altered = accepted.clone();
+        altered.covering_commit.event_ref = fixture_intent(false).scope_create_event_id;
+        assert!(altered.validate_binding(&intent).is_err());
+        altered = accepted;
+        altered.covering_commit.governance_generation = 1;
+        assert!(altered.validate_binding(&intent).is_err());
     }
 }
