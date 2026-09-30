@@ -24,6 +24,7 @@ pub struct MlsCreatorBootstrapIntent {
     operation: MlsCreatorBootstrapOperation,
     creator_device_id: DeviceId,
     creator_signer_method: DidUrl,
+    creator_endpoint: arkret_wire::MlsWelcomeRecipientEndpoint,
     mls_group_id: MlsGroupId,
     proposed_group_genesis_binding: MlsGenesisBindingProposalCarrier,
     signed_scope_create_unit: SelfAuthoritySubmitRequest,
@@ -39,6 +40,31 @@ impl MlsCreatorBootstrapIntent {
         proposed_group_genesis_binding: MlsGovernanceBindingPayload,
         signed_scope_create_unit: SelfAuthoritySubmitRequest,
     ) -> Result<Self> {
+        let endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+            device_id: creator_device_id.clone(),
+        };
+        Self::new_with_endpoint(
+            owner_actor_id,
+            effective_scope,
+            creator_device_id,
+            creator_signer_method,
+            endpoint,
+            proposed_group_genesis_binding,
+            signed_scope_create_unit,
+        )
+    }
+
+    /// Preserve the explicit endpoint slot for human, Agent or service authoring.
+    /// The authoring device remains immutable vault metadata, not the Actor class.
+    pub fn new_with_endpoint(
+        owner_actor_id: ActorId,
+        effective_scope: ScopeRef,
+        creator_device_id: DeviceId,
+        creator_signer_method: DidUrl,
+        creator_endpoint: arkret_wire::MlsWelcomeRecipientEndpoint,
+        proposed_group_genesis_binding: MlsGovernanceBindingPayload,
+        signed_scope_create_unit: SelfAuthoritySubmitRequest,
+    ) -> Result<Self> {
         let create = scope_create_event(&signed_scope_create_unit)?;
         let value = Self {
             owner_actor_id: owner_actor_id.clone(),
@@ -46,6 +72,7 @@ impl MlsCreatorBootstrapIntent {
             operation: MlsCreatorBootstrapOperation::MlsGenesis,
             creator_device_id,
             creator_signer_method,
+            creator_endpoint,
             mls_group_id: effective_scope.canonical_mls_group_id()?,
             proposed_group_genesis_binding: MlsGenesisBindingProposalCarrier::new(
                 owner_actor_id,
@@ -68,8 +95,16 @@ impl MlsCreatorBootstrapIntent {
             WireError::Protocol("creator intent requires the exact signed create unit".into())
         })?;
         let device_producer = create.human_device_producer()?;
+        let endpoint_matches = match &self.creator_endpoint {
+            arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => {
+                device_id == &self.creator_device_id && device_producer.is_some()
+            }
+            arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+                verification_method,
+            } => verification_method == &self.creator_signer_method && device_producer.is_none(),
+        };
         if proof.verification_method != self.creator_signer_method
-            || (self.owner_actor_id.as_account_id().is_some() && device_producer.is_none())
+            || !endpoint_matches
             || device_producer.is_some_and(|producer| {
                 producer.device_id != self.creator_device_id
                     || self
@@ -132,6 +167,9 @@ impl MlsCreatorBootstrapIntent {
     }
     pub fn creator_signer_method(&self) -> &DidUrl {
         &self.creator_signer_method
+    }
+    pub fn creator_endpoint(&self) -> &arkret_wire::MlsWelcomeRecipientEndpoint {
+        &self.creator_endpoint
     }
     pub fn mls_group_id(&self) -> &MlsGroupId {
         &self.mls_group_id
@@ -512,6 +550,45 @@ mod tests {
             .unwrap()
             .verification_method = method;
         assert!(altered.validate().is_err());
+    }
+
+    #[test]
+    fn runtime_endpoint_does_not_classify_an_agent_account_as_a_human_device() {
+        let mut original = fixture_intent(false);
+        let method = DidUrl::new("did:web:alice.example#agent-key").unwrap();
+        let SelfAuthoritySubmitRequest::Event(event) = &mut original.signed_scope_create_unit
+        else {
+            panic!("fixture must be an Event");
+        };
+        event
+            .event
+            .producer_proof
+            .as_mut()
+            .unwrap()
+            .verification_method = method.clone();
+        let endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+            verification_method: method.clone(),
+        };
+        let mut runtime = MlsCreatorBootstrapIntent::new_with_endpoint(
+            original.owner_actor_id.clone(),
+            original.effective_scope.clone(),
+            original.creator_device_id.clone(),
+            method,
+            endpoint,
+            original.proposal().proposed_group_genesis_binding().clone(),
+            original.signed_scope_create_unit.clone(),
+        )
+        .unwrap();
+        runtime.validate().unwrap();
+        runtime.creator_endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+            device_id: runtime.creator_device_id.clone(),
+        };
+        assert!(runtime.validate().is_err());
+        let mut device = fixture_intent(false);
+        device.creator_endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+            verification_method: device.creator_signer_method.clone(),
+        };
+        assert!(device.validate().is_err());
     }
 
     fn current_cut(
