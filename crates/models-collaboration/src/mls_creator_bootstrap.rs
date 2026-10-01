@@ -278,6 +278,142 @@ pub struct MlsCreatorBootstrapAcceptedCreate {
     authority_root: arkret_wire::RealmAuthorityBundle,
 }
 
+/// Durable prefix of the normative creator transaction. Unsupported later
+/// states are deliberately not deserializable until their recovery units are
+/// implemented. Hosts authenticate evidence before committing a transition;
+/// the checks here bind the saved bytes, not their signatures.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MlsCreatorBootstrapRecord {
+    GenesisIntentPersisted {
+        intent: MlsCreatorBootstrapIntent,
+    },
+    RealmAccepted {
+        intent: MlsCreatorBootstrapIntent,
+        accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+        genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
+    },
+}
+
+impl MlsCreatorBootstrapRecord {
+    pub fn new(intent: MlsCreatorBootstrapIntent) -> Result<Self> {
+        intent.validate()?;
+        Ok(Self::GenesisIntentPersisted { intent })
+    }
+
+    pub fn intent(&self) -> &MlsCreatorBootstrapIntent {
+        match self {
+            Self::GenesisIntentPersisted { intent } | Self::RealmAccepted { intent, .. } => intent,
+        }
+    }
+
+    pub fn state(&self) -> arkret_wire::MlsCreatorBootstrapState {
+        match self {
+            Self::GenesisIntentPersisted { .. } => {
+                arkret_wire::MlsCreatorBootstrapState::GenesisIntentPersisted
+            }
+            Self::RealmAccepted { .. } => arkret_wire::MlsCreatorBootstrapState::RealmAccepted,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.intent().validate()?;
+        if let Self::RealmAccepted {
+            intent,
+            accepted_create,
+            genesis_absence,
+        } = self
+        {
+            accepted_create.validate_binding(intent)?;
+            validate_creator_genesis_absence_snapshot(intent, accepted_create, genesis_absence)?;
+        }
+        Ok(())
+    }
+
+    /// Advance exactly the registered acceptance arrow. Once accepted, retain
+    /// the original cut; an idempotent replay cannot replace it with a new one.
+    pub fn accept_realm(
+        &mut self,
+        accepted_create: MlsCreatorBootstrapAcceptedCreate,
+        genesis_absence: arkret_wire::RealmStateSnapshot,
+    ) -> Result<()> {
+        let next = Self::RealmAccepted {
+            intent: self.intent().clone(),
+            accepted_create: Box::new(accepted_create),
+            genesis_absence: Box::new(genesis_absence),
+        };
+        next.validate()?;
+        if *self == next {
+            return Ok(());
+        }
+        let arrow =
+            arkret_wire::MlsCreatorBootstrapTransition::GenesisIntentPersistedToRealmAccepted;
+        if Some(self.state()) != arrow.from_state() || next.state() != arrow.to_state() {
+            return Err(WireError::Protocol(
+                "creator acceptance cannot replace an immutable durable cut".into(),
+            ));
+        }
+        *self = next;
+        Ok(())
+    }
+}
+
+/// Bind an independently authenticated complete snapshot to exact Genesis
+/// absence. A signed current snapshot is an existing complete current carrier;
+/// no fabricated Account baseline or empty projection is used as evidence.
+pub fn validate_creator_genesis_absence_snapshot(
+    intent: &MlsCreatorBootstrapIntent,
+    accepted: &MlsCreatorBootstrapAcceptedCreate,
+    snapshot: &arkret_wire::RealmStateSnapshot,
+) -> Result<()> {
+    use arkret_wire::{CommitStreamRef, CurrentSelector, TypedCurrentResult};
+    let stream = CommitStreamRef::from_scope(intent.effective_scope(), None)?;
+    let root = accepted.authority_root();
+    let create = accepted.covering_commit();
+    let scope_head = snapshot
+        .visible_stream_heads
+        .iter()
+        .find(|head| head.stream_ref == stream);
+    let create_head = snapshot
+        .visible_stream_heads
+        .iter()
+        .find(|head| head.stream_ref == create.stream_ref);
+    let distinct: std::collections::BTreeSet<_> = snapshot
+        .visible_stream_heads
+        .iter()
+        .map(|head| &head.stream_ref)
+        .collect();
+    if snapshot.realm_id != root.realm_id
+        || snapshot.governance_generation != root.current_generation
+        || distinct.len() != snapshot.visible_stream_heads.len()
+        || snapshot
+            .visible_stream_heads
+            .iter()
+            .any(|head| head.stream_ref.realm_id() != &root.realm_id)
+        || scope_head.is_none()
+        || create_head.is_none_or(|head| {
+            head.stream_position < create.stream_position
+                || (head.stream_position == create.stream_position
+                    && head.commit_id != create.commit_id)
+        })
+        || !snapshot
+            .visible_stream_heads
+            .contains(&root.realm_stream_head)
+        || snapshot.current_state_entries.iter().any(|entry| {
+            let selector = match entry {
+                TypedCurrentResult::Value { selector, .. } => selector,
+            };
+            selector
+                == &CurrentSelector::MlsGroup {
+                    scope_ref: intent.effective_scope().clone(),
+                }
+        })
+    {
+        return Err(WireError::Protocol("creator snapshot does not prove complete exact-scope Genesis absence at the accepted authority cut".into()));
+    }
+    Ok(())
+}
+
 impl MlsCreatorBootstrapAcceptedCreate {
     pub fn new(
         intent: &MlsCreatorBootstrapIntent,
@@ -821,6 +957,85 @@ mod tests {
         )
         .unwrap();
         (intent, accepted)
+    }
+
+    fn absence_snapshot(
+        accepted: &MlsCreatorBootstrapAcceptedCreate,
+    ) -> arkret_wire::RealmStateSnapshot {
+        let root = accepted.authority_root();
+        let head = root.realm_stream_head.clone();
+        let mut signature = root.current_assertion.signature.clone();
+        signature.context = arkret_wire::DetachedSignatureContext::RealmSnapshot;
+        // Structural fixture only; the host must authenticate this carrier.
+        arkret_wire::RealmStateSnapshot {
+            snapshot_id: arkret_wire::RealmSnapshotId::from_digest([3; 32]),
+            realm_id: root.realm_id.clone(),
+            governance_generation: root.current_generation,
+            visible_stream_heads: vec![head.clone()],
+            current_state_entries: vec![],
+            retention_and_history_floor: arkret_wire::RetentionAndHistoryFloor {
+                history_access: arkret_wire::HistoryAccess::SinceJoin,
+                stream_floors: vec![arkret_wire::StreamHistoryFloor {
+                    stream_ref: head.stream_ref,
+                    oldest_position: 0,
+                }],
+            },
+            created_at: root.bundle_issued_at,
+            signature,
+        }
+    }
+
+    #[test]
+    fn creator_record_acceptance_roundtrips_without_replacing_its_cut() {
+        let (intent, accepted) = accepted_create(false);
+        let snapshot = absence_snapshot(&accepted);
+        let mut record = MlsCreatorBootstrapRecord::new(intent).unwrap();
+        record
+            .accept_realm(accepted.clone(), snapshot.clone())
+            .unwrap();
+        record
+            .accept_realm(accepted.clone(), snapshot.clone())
+            .unwrap();
+        let bytes = serde_json::to_vec(&record).unwrap();
+        let restored: MlsCreatorBootstrapRecord = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored, record);
+        restored.validate().unwrap();
+        let mut changed = snapshot;
+        changed.created_at += chrono::TimeDelta::seconds(1);
+        assert!(record.accept_realm(accepted, changed).is_err());
+        assert_eq!(record, restored);
+    }
+
+    #[test]
+    fn creator_record_unknown_or_incomplete_acceptance_keeps_intent_unchanged() {
+        let (intent, accepted) = accepted_create(false);
+        let snapshot = absence_snapshot(&accepted);
+        let original = MlsCreatorBootstrapRecord::new(intent).unwrap();
+        let mut missing = snapshot.clone();
+        missing.visible_stream_heads.clear();
+        let mut stale = snapshot.clone();
+        stale.governance_generation += 1;
+        let mut duplicate = snapshot.clone();
+        duplicate
+            .visible_stream_heads
+            .push(duplicate.visible_stream_heads[0].clone());
+        for invalid in [missing, stale, duplicate] {
+            let mut record = original.clone();
+            assert!(record.accept_realm(accepted.clone(), invalid).is_err());
+            assert_eq!(record, original);
+        }
+        let mut changed = serde_json::to_value(&original).unwrap();
+        changed["state"] = serde_json::json!("ready");
+        assert!(serde_json::from_value::<MlsCreatorBootstrapRecord>(changed).is_err());
+    }
+
+    #[test]
+    fn creator_circle_absence_cannot_borrow_its_parent_realm_head() {
+        let (intent, accepted) = accepted_create(true);
+        let parent_only = absence_snapshot(&accepted);
+        assert!(
+            validate_creator_genesis_absence_snapshot(&intent, &accepted, &parent_only).is_err()
+        );
     }
 
     #[test]
