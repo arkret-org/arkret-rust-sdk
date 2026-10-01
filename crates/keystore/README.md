@@ -11,7 +11,7 @@ target-specific features. The `arkret` umbrella re-exports the public surface:
 | `EncryptedFileKeyStore` | `keystore-encrypted-file` | native targets |
 | `MacOsKeychainKeyStore` | `keystore-macos` | `macos` |
 | `LinuxSecretServiceKeyStore` | `keystore-linux` | `linux` |
-| `WindowsCredentialKeyStore` | `keystore-windows` | `windows` |
+| `WindowsProtectedKeyStore` | `keystore-windows` | `windows` |
 
 Each platform type still compiles on every target; off-target constructors
 return `KeyStoreError::Unsupported`. Use `durable_platform_keystore` whenever
@@ -34,7 +34,7 @@ The backends are not semantically identical:
 | `EncryptedFileKeyStore` | survives reboot with caller-custodied master key | XChaCha20-Poly1305 authenticated encryption | stable lock file + atomic same-directory replacement |
 | `MacOsKeychainKeyStore` | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | Keychain serializes item ops; no SDK-level CAS |
 | `LinuxSecretServiceKeyStore` | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | D-Bus daemon serializes ops; no SDK-level CAS |
-| `WindowsCredentialKeyStore` | survives logout and reboot (`CRED_PERSIST_LOCAL_MACHINE`) | DPAPI, scoped to the user profile | Win32 credential API serializes ops; no SDK-level CAS |
+| `WindowsProtectedKeyStore` | survives logout and reboot (current-user DPAPI) | XChaCha20-Poly1305 vault; 32-byte master key protected by user-profile DPAPI | stable lock files + atomic same-directory replacement |
 
 Every backend is last-writer-wins for `store` on the same id and provides no
 compare-and-swap. The encrypted-file backend serializes whole-map updates;

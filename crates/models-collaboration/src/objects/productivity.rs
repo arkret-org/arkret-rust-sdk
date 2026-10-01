@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    AccountDataKey, ActorId, BlobId, CallId, CircleId, DeviceId, DidCoreId, EventId,
+    AccountDataKey, ActorId, BlobId, CallId, DeviceId, DidCoreId, EventId,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, Hash, Hlc, RealmId, Result, ScheduledSendId, SchemaId,
-    ScopeRef, SpaceId, StrandId, WireError, canonical,
+    ScopeRef, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -789,14 +789,7 @@ pub fn validate_canonical_occurrence_key(occurrence: &str) -> Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
-pub enum PinScope {
-    Strand { id: StrandId },
-    Realm { id: RealmId },
-    Circle { id: CircleId },
-    Space { id: SpaceId },
-}
+pub use arkret_wire::PinScope;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -825,6 +818,148 @@ pub struct PinReorderPayload {
     pub rank: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_rank: Option<String>,
+}
+
+/// Payload shape alone never identifies assertion polarity: the signed Event does.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PinAssertionPayload {
+    Add(PinAddPayload),
+    Remove(PinRemovePayload),
+    Reorder(PinReorderPayload),
+}
+
+impl PinAssertionPayload {
+    pub fn from_event(event: &arkret_wire::Event) -> Result<Self> {
+        let value = serde_json::to_value(&event.payload)?;
+        Ok(match event.kind {
+            arkret_wire::EventKind::PinAdd => Self::Add(serde_json::from_value(value)?),
+            arkret_wire::EventKind::PinRemove => Self::Remove(serde_json::from_value(value)?),
+            arkret_wire::EventKind::PinReorder => Self::Reorder(serde_json::from_value(value)?),
+            _ => return Err(WireError::Protocol("not a Pin assertion Event".into())),
+        })
+    }
+
+    pub fn pin_scope(&self) -> &PinScope {
+        match self {
+            Self::Add(p) => &p.pin_scope,
+            Self::Remove(p) => &p.pin_scope,
+            Self::Reorder(p) => &p.pin_scope,
+        }
+    }
+    pub fn target_ref(&self) -> &str {
+        match self {
+            Self::Add(p) => &p.target_ref,
+            Self::Remove(p) => &p.target_ref,
+            Self::Reorder(p) => &p.target_ref,
+        }
+    }
+    pub fn expected_rank(&self) -> Option<&str> {
+        match self {
+            Self::Add(_) => None,
+            Self::Remove(p) => p.expected_rank.as_deref(),
+            Self::Reorder(p) => p.expected_rank.as_deref(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PinAssertionEntry {
+    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub value: PinAssertionPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PinCurrentValue {
+    assertions: Vec<PinAssertionEntry>,
+}
+
+impl PinCurrentValue {
+    pub fn new(assertions: Vec<PinAssertionEntry>) -> Result<Self> {
+        if assertions
+            .windows(2)
+            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
+            || assertions
+                .iter()
+                .any(|entry| entry.tag_id.write_index() != 0)
+        {
+            return Err(WireError::Protocol(
+                "noncanonical Pin assertion dots".into(),
+            ));
+        }
+        for entry in &assertions {
+            let rank = match &entry.value {
+                PinAssertionPayload::Add(p) => Some(p.rank.as_str()),
+                PinAssertionPayload::Reorder(p) => Some(p.rank.as_str()),
+                _ => None,
+            };
+            if !arkret_wire::is_object_ref(entry.value.target_ref())
+                || rank
+                    .into_iter()
+                    .chain(entry.value.expected_rank())
+                    .any(|rank| {
+                        !(1..=128).contains(&rank.len())
+                            || !rank.bytes().all(|byte| byte.is_ascii_alphanumeric())
+                    })
+            {
+                return Err(WireError::Protocol("invalid Pin target or rank".into()));
+            }
+        }
+        let value = Self { assertions };
+        if let Some(first) = value.assertions.first() {
+            value.validate_for_scope(first.value.pin_scope())?;
+        }
+        Ok(value)
+    }
+    pub fn assertions(&self) -> &[PinAssertionEntry] {
+        &self.assertions
+    }
+    pub fn validate_for_scope(&self, scope: &PinScope) -> Result<()> {
+        if self
+            .assertions
+            .windows(2)
+            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
+            || self
+                .assertions
+                .iter()
+                .any(|entry| entry.value.pin_scope() != scope)
+        {
+            return Err(WireError::Protocol(
+                "Pin assertions differ from their canonical scope set".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn add_assertion(&mut self, assertion: PinAssertionEntry) -> Result<()> {
+        if self
+            .assertions
+            .iter()
+            .any(|entry| entry.tag_id == assertion.tag_id)
+        {
+            return Err(WireError::Protocol("duplicate Pin assertion dot".into()));
+        }
+        let mut assertions = self.assertions.clone();
+        assertions.push(assertion);
+        assertions.sort_by(|a, b| a.tag_id.cmp(&b.tag_id));
+        *self = Self::new(assertions)?;
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for PinCurrentValue {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            assertions: Vec<PinAssertionEntry>,
+        }
+        let wire = Wire::deserialize(deserializer)?;
+        Self::new(wire.assertions).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

@@ -1,232 +1,184 @@
-//! Windows Credential Manager backend for [`KeyStore`].
+//! Durable Windows user-profile-protected encrypted key storage.
 //!
-//! Wraps the Win32 `Cred*W` family
-//! (`CredReadW` / `CredWriteW` / `CredDeleteW` / `CredEnumerateW`) via the
-//! `windows` crate. Each entry is stored as a generic credential whose
-//! `TargetName` is `"arkret.<application_id>:<key_id>"`. The
-//! `"arkret.<application_id>"` prefix namespaces multiple Arkret apps on
-//! the same host; the `<key_id>` is the caller-supplied opaque id.
+//! DPAPI protects the vault master key for the current user. The existing
+//! encrypted-file backend owns authenticated secret CRUD and atomic updates.
+//! Neither master custody nor secrets depend on Credential Manager blob or
+//! credential quota limits. There is no plaintext or ephemeral fallback.
 
-use std::ffi::OsString;
-use std::os::windows::ffi::{OsStrExt, OsStringExt};
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
-use windows::Win32::Foundation::ERROR_NOT_FOUND;
-use windows::Win32::Security::Credentials::{
-    CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW,
-    CredFree, CredReadW, CredWriteW,
+use windows::Win32::Foundation::{HLOCAL, LocalFree};
+use windows::Win32::Security::Cryptography::{
+    CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
 };
-use windows::core::PCWSTR;
+use zeroize::{Zeroize, Zeroizing};
 
-use crate::contract::{KeyBytes, Result, service_name, validate_id};
-use crate::{KeyStore, KeyStoreError};
+use crate::contract::Result;
+use crate::{EncryptedFileKeyStore, KeyBytes, KeyStore, KeyStoreError};
 
-/// Windows Credential Manager-backed [`KeyStore`].
-pub struct WindowsCredentialKeyStore {
-    /// `"arkret.<application_id>"`. Used as the prefix on the generic
-    /// credential `TargetName`, so we can enumerate by filter.
-    service: String,
+fn backend(error: impl std::fmt::Display) -> KeyStoreError {
+    KeyStoreError::backend(error.to_string())
 }
 
-impl WindowsCredentialKeyStore {
-    /// Construct a keystore for the given application id.
+/// Durable Windows key storage with a DPAPI-custodied master key.
+pub struct WindowsProtectedKeyStore {
+    vault: EncryptedFileKeyStore,
+}
+
+impl WindowsProtectedKeyStore {
     pub fn new(application_id: &str) -> std::result::Result<Self, KeyStoreError> {
+        use sha2::{Digest, Sha256};
+        let root = std::env::var_os("LOCALAPPDATA")
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| backend("LOCALAPPDATA is unavailable"))?;
+        let namespace = Sha256::digest(application_id.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        Self::open(
+            application_id,
+            PathBuf::from(root)
+                .join("Arkret")
+                .join("keystore")
+                .join(namespace)
+                .join("secrets.v1"),
+        )
+    }
+
+    fn open(application_id: &str, path: PathBuf) -> std::result::Result<Self, KeyStoreError> {
         if application_id.is_empty() {
             return Err(KeyStoreError::invalid_id(
                 "application_id must be non-empty",
             ));
         }
-        Ok(Self {
-            service: service_name(application_id),
-        })
-    }
-
-    fn target_name(&self, id: &str) -> String {
-        format!("{}:{}", self.service, id)
-    }
-
-    fn filter(&self) -> String {
-        // `CredEnumerateW` filters use `*` as a wildcard. The empty
-        // suffix then matches any key id.
-        format!("{}:*", self.service)
+        let parent = path
+            .parent()
+            .ok_or_else(|| backend("vault path has no parent"))?;
+        std::fs::create_dir_all(parent).map_err(backend)?;
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(parent.join("master.lock"))
+            .map_err(backend)?;
+        lock.lock().map_err(backend)?;
+        let master_path = parent.join("master.dpapi");
+        // The stable lock serializes first-open across processes. Existing
+        // ciphertext without its master custody must never be overwritten.
+        let master = match std::fs::File::open(&master_path) {
+            Ok(file) => {
+                let mut protected = Vec::new();
+                file.take(16_385)
+                    .read_to_end(&mut protected)
+                    .map_err(backend)?;
+                if protected.len() > 16_384 {
+                    return Err(backend("Windows vault master file exceeds the size limit"));
+                }
+                protect(&protected, application_id.as_bytes(), false)?
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !path.exists() => {
+                let mut master = Zeroizing::new(vec![0; 32]);
+                getrandom::fill(master.as_mut_slice()).map_err(backend)?;
+                let protected = protect(master.as_slice(), application_id.as_bytes(), true)?;
+                let mut file = atomic_write_file::OpenOptions::new()
+                    .open(&master_path)
+                    .map_err(backend)?;
+                file.write_all(protected.as_slice()).map_err(backend)?;
+                file.commit().map_err(backend)?;
+                master
+            }
+            Err(error) => return Err(backend(error)),
+        };
+        let master: [u8; 32] = master
+            .as_slice()
+            .try_into()
+            .map_err(|_| backend("Windows vault master key has invalid length"))?;
+        let master = Zeroizing::new(master);
+        let vault = EncryptedFileKeyStore::new(path, application_id, *master)?;
+        Ok(Self { vault })
     }
 }
 
-impl KeyStore for WindowsCredentialKeyStore {
+impl KeyStore for WindowsProtectedKeyStore {
     fn load(&self, id: &str) -> Result<KeyBytes> {
-        validate_id(id)?;
-        let target = wide(&self.target_name(id));
-        let mut cred_ptr: *mut CREDENTIALW = std::ptr::null_mut();
-        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the
-        // call; `cred_ptr` is an out-parameter the Win32 API writes into.
-        let res = unsafe {
-            CredReadW(
-                PCWSTR(target.as_ptr()),
-                CRED_TYPE_GENERIC,
-                None,
-                &mut cred_ptr,
-            )
-        };
-        match res {
-            Ok(()) => {
-                if cred_ptr.is_null() {
-                    return Err(KeyStoreError::not_found(id));
-                }
-                // SAFETY: CredReadW returned Ok and cred_ptr is non-null; the credential
-                // struct and its CredentialBlob buffer are valid until we call CredFree below.
-                let bytes = unsafe {
-                    let cred = &*cred_ptr;
-                    let len = cred.CredentialBlobSize as usize;
-                    if len == 0 || cred.CredentialBlob.is_null() {
-                        KeyBytes::new(Vec::new())
-                    } else {
-                        KeyBytes::new(std::slice::from_raw_parts(cred.CredentialBlob, len).to_vec())
-                    }
-                };
-                // SAFETY: cred_ptr was allocated by CredReadW and is freed exactly once here.
-                unsafe { CredFree(cred_ptr as *const _) };
-                Ok(bytes)
-            }
-            Err(err) => {
-                if err.code() == ERROR_NOT_FOUND.to_hresult() {
-                    Err(KeyStoreError::not_found(id))
-                } else {
-                    Err(KeyStoreError::backend(format!("CredReadW: {err}")))
-                }
-            }
-        }
+        self.vault.load(id)
     }
-
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
-        validate_id(id)?;
-        let target = wide(&self.target_name(id));
-        let user = wide(id);
-        let mut blob = KeyBytes::new(key.to_vec());
-        let cred = CREDENTIALW {
-            Flags: windows::Win32::Security::Credentials::CRED_FLAGS(0),
-            Type: CRED_TYPE_GENERIC,
-            TargetName: PWSTR_from_slice(&target),
-            Comment: windows::core::PWSTR::null(),
-            LastWritten: windows::Win32::Foundation::FILETIME::default(),
-            CredentialBlobSize: blob.len() as u32,
-            CredentialBlob: blob.as_mut_ptr(),
-            // Durable persistence (SDK-FEAT-03): device signing keys MUST
-            // survive logoff/reboot. `CRED_PERSIST_SESSION` destroys the
-            // credential when the interactive logon session ends, which
-            // silently discarded device identity on every logout.
-            // Trade-off: LOCAL_MACHINE credentials stay resident on this
-            // machine until deleted (wider at-rest window than SESSION),
-            // but remain DPAPI-protected per user profile — other local
-            // users cannot read them. ENTERPRISE (AD roaming) is
-            // deliberately not used: device keys are device-bound.
-            Persist: CRED_PERSIST_LOCAL_MACHINE,
-            AttributeCount: 0,
-            Attributes: std::ptr::null_mut(),
-            TargetAlias: windows::core::PWSTR::null(),
-            UserName: PWSTR_from_slice(&user),
-        };
-        // SAFETY: `cred` is a valid CREDENTIALW whose pointer members (TargetName,
-        // CredentialBlob, UserName) remain valid through the call because their
-        // backing buffers (`target`, `blob`, `user`) outlive this expression.
-        let res = unsafe { CredWriteW(&cred, 0) };
-        res.map_err(|err| KeyStoreError::backend(format!("CredWriteW: {err}")))?;
-        Ok(())
+        self.vault.store(id, key)
     }
-
     fn list(&self) -> Result<Vec<String>> {
-        let filter = wide(&self.filter());
-        let mut count: u32 = 0;
-        let mut creds: *mut *mut CREDENTIALW = std::ptr::null_mut();
-        // SAFETY: `filter` is a NUL-terminated UTF-16 buffer; `count` and `creds`
-        // are out-parameters that Win32 writes into.
-        let res = unsafe { CredEnumerateW(PCWSTR(filter.as_ptr()), None, &mut count, &mut creds) };
-        match res {
-            Ok(()) => {
-                let mut ids = Vec::with_capacity(count as usize);
-                let prefix_len = self.service.len() + 1; // service + ':'
-                for i in 0..count as isize {
-                    // SAFETY: `creds` points to a Win32-allocated array of length `count`;
-                    // `i` is strictly less than `count` so the offset and double-deref are
-                    // in-bounds.
-                    let cred = unsafe { &**(creds.offset(i)) };
-                    // SAFETY: TargetName originates from the Win32 credential array above;
-                    // the pointer is valid until CredFree(creds) runs below.
-                    let target = unsafe { read_pwstr(cred.TargetName.as_ptr()) };
-                    if let Some(id) = target.strip_prefix(&format!("{}:", self.service)) {
-                        ids.push(id.to_owned());
-                    } else if target.len() > prefix_len {
-                        // Defensive: filter pattern matched but prefix
-                        // shape is unexpected; skip.
-                    }
-                }
-                if !creds.is_null() {
-                    // SAFETY: `creds` was allocated by CredEnumerateW and is freed exactly once
-                    // here.
-                    unsafe { CredFree(creds as *const _) };
-                }
-                ids.sort();
-                ids.dedup();
-                Ok(ids)
-            }
-            Err(err) => {
-                if err.code() == ERROR_NOT_FOUND.to_hresult() {
-                    return Ok(Vec::new());
-                }
-                Err(KeyStoreError::backend(format!("CredEnumerateW: {err}")))
-            }
-        }
+        self.vault.list()
     }
-
     fn delete(&self, id: &str) -> Result<()> {
-        validate_id(id)?;
-        let target = wide(&self.target_name(id));
-        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the
-        // call.
-        let res = unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None) };
-        match res {
-            Ok(()) => Ok(()),
-            Err(err) => {
-                if err.code() == ERROR_NOT_FOUND.to_hresult() {
-                    Ok(()) // idempotent
-                } else {
-                    Err(KeyStoreError::backend(format!("CredDeleteW: {err}")))
-                }
+        self.vault.delete(id)
+    }
+}
+
+struct ProtectedOutput(CRYPT_INTEGER_BLOB);
+
+impl Drop for ProtectedOutput {
+    fn drop(&mut self) {
+        if !self.0.pbData.is_null() {
+            // SAFETY: DPAPI allocated this output; it remains valid until
+            // LocalFree. Clear decrypted key material before releasing it.
+            unsafe {
+                std::slice::from_raw_parts_mut(self.0.pbData, self.0.cbData as usize).zeroize();
+                LocalFree(Some(HLOCAL(self.0.pbData.cast())));
             }
         }
     }
 }
 
-/// Encode `s` as a NUL-terminated UTF-16 buffer suitable for `PCWSTR`.
-fn wide(s: &str) -> Vec<u16> {
-    let os: &std::ffi::OsStr = s.as_ref();
-    os.encode_wide().chain(std::iter::once(0)).collect()
-}
-
-/// Read a NUL-terminated UTF-16 string from a raw pointer into a
-/// `String`. Returns the empty string on null pointer.
-unsafe fn read_pwstr(ptr: *const u16) -> String {
-    if ptr.is_null() {
-        return String::new();
+fn protect(bytes: &[u8], namespace: &[u8], encrypt: bool) -> Result<Zeroizing<Vec<u8>>> {
+    let input = CRYPT_INTEGER_BLOB {
+        cbData: u32::try_from(bytes.len()).map_err(backend)?,
+        pbData: bytes.as_ptr().cast_mut(),
+    };
+    let entropy = CRYPT_INTEGER_BLOB {
+        cbData: u32::try_from(namespace.len()).map_err(backend)?,
+        pbData: namespace.as_ptr().cast_mut(),
+    };
+    let mut output = ProtectedOutput(CRYPT_INTEGER_BLOB::default());
+    // SAFETY: both input blobs borrow live immutable slices. DPAPI only
+    // reads them and writes a separately allocated output owned by the guard.
+    // The default protection scope is CurrentUser, never LOCAL_MACHINE.
+    unsafe {
+        if encrypt {
+            CryptProtectData(
+                &input,
+                windows::core::PCWSTR::null(),
+                Some(&entropy),
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output.0,
+            )
+        } else {
+            CryptUnprotectData(
+                &input,
+                None,
+                Some(&entropy),
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output.0,
+            )
+        }
     }
-    let mut len = 0;
-    // SAFETY: caller-contract requires `ptr` to reference a NUL-terminated UTF-16 string,
-    // so walking until the first 0 word stays within the allocation.
-    while unsafe { *ptr.offset(len) } != 0 {
-        len += 1;
+    .map_err(|error| backend(format!("Windows vault DPAPI: {error}")))?;
+    if output.0.pbData.is_null() {
+        return Err(backend("Windows vault DPAPI returned no output"));
     }
-    // SAFETY: `len` was just measured as the distance to the NUL terminator,
-    // so `ptr..ptr+len` covers a valid, initialised UTF-16 sequence.
-    let slice = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
-    OsString::from_wide(slice).to_string_lossy().into_owned()
-}
-
-#[allow(non_snake_case)]
-fn PWSTR_from_slice(buf: &[u16]) -> windows::core::PWSTR {
-    windows::core::PWSTR(buf.as_ptr() as *mut u16)
+    // SAFETY: a successful DPAPI call owns this buffer until the guard drops.
+    let bytes = unsafe { std::slice::from_raw_parts(output.0.pbData, output.0.cbData as usize) };
+    Ok(Zeroizing::new(bytes.to_vec()))
 }
 
 #[cfg(test)]
 mod tests {
-    //! Live Credential Manager round-trip tests. They write under
+    //! Live CurrentUser DPAPI vault round-trip tests. They write under
     //! per-test unique application ids so concurrent runs don't collide.
 
     use super::*;
@@ -240,9 +192,59 @@ mod tests {
         format!("test.{nanos:x}")
     }
 
+    struct TestVault {
+        store: WindowsProtectedKeyStore,
+        app: String,
+        root: std::path::PathBuf,
+    }
+
+    impl TestVault {
+        fn new(app: String) -> Self {
+            let root = std::env::temp_dir().join(format!("arkret-windows-vault-{app}"));
+            let store = WindowsProtectedKeyStore::open(&app, root.join("secrets.v1")).unwrap();
+            Self { store, app, root }
+        }
+    }
+
+    impl std::ops::Deref for TestVault {
+        type Target = WindowsProtectedKeyStore;
+        fn deref(&self) -> &Self::Target {
+            &self.store
+        }
+    }
+
+    impl Drop for TestVault {
+        fn drop(&mut self) {
+            assert_eq!(self.root.parent(), Some(std::env::temp_dir().as_path()));
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn large_secrets_reopen_and_corruption_fails_closed() {
+        let store = TestVault::new(unique_app_id());
+        let secret = vec![0x5a; 8192];
+        store.store("checkpoint", &secret).unwrap();
+        let reopened =
+            WindowsProtectedKeyStore::open(&store.app, store.root.join("secrets.v1")).unwrap();
+        assert_eq!(reopened.load("checkpoint").unwrap().as_slice(), secret);
+        assert_eq!(reopened.list().unwrap(), vec!["checkpoint"]);
+        std::fs::write(store.root.join("secrets.v1"), b"corrupt").unwrap();
+        assert!(reopened.load("checkpoint").is_err());
+        assert!(reopened.store("checkpoint", b"replacement").is_err());
+    }
+
+    #[test]
+    fn lost_master_custody_cannot_replace_an_existing_vault() {
+        let store = TestVault::new(unique_app_id());
+        store.store("secret", b"original").unwrap();
+        std::fs::remove_file(store.root.join("master.dpapi")).unwrap();
+        assert!(WindowsProtectedKeyStore::open(&store.app, store.root.join("secrets.v1")).is_err());
+    }
+
     #[test]
     fn round_trip_store_load_delete() {
-        let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
+        let store = TestVault::new(unique_app_id());
         let id = "arkret:signer:alice:k1";
         store.store(id, b"win-secret-1").unwrap();
         assert_eq!(store.load(id).unwrap().as_slice(), b"win-secret-1");
@@ -253,7 +255,7 @@ mod tests {
 
     #[test]
     fn store_overwrites_existing_id() {
-        let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
+        let store = TestVault::new(unique_app_id());
         let id = "arkret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
@@ -263,13 +265,13 @@ mod tests {
 
     #[test]
     fn delete_missing_id_is_idempotent() {
-        let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
+        let store = TestVault::new(unique_app_id());
         store.delete("never-stored").unwrap();
     }
 
     #[test]
     fn rejects_empty_id() {
-        let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
+        let store = TestVault::new(unique_app_id());
         assert!(store.store("", b"x").is_err());
         assert!(store.load("").is_err());
         assert!(store.delete("").is_err());
@@ -279,8 +281,8 @@ mod tests {
     fn list_returns_only_keys_in_service_namespace() {
         let app_a = unique_app_id();
         let app_b = unique_app_id();
-        let store_a = WindowsCredentialKeyStore::new(&app_a).unwrap();
-        let store_b = WindowsCredentialKeyStore::new(&app_b).unwrap();
+        let store_a = TestVault::new(app_a);
+        let store_b = TestVault::new(app_b);
         store_a.store("k-a-1", b"a1").unwrap();
         store_a.store("k-a-2", b"a2").unwrap();
         store_b.store("k-b-1", b"b1").unwrap();

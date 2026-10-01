@@ -46,16 +46,69 @@ pub enum AppletTransactionStatus {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletTransactionOutcome {
-    pub status: AppletTransactionStatus,
-    /// Exact authority commits accepted from this transaction. Each reference
-    /// retains its Realm, Circle, or Sidecar stream coordinate.
-    pub committed_event_refs: Vec<CommittedEventRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejections: Vec<AppletEventRejection>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AppletTransactionOutcome {
+    Accepted {
+        /// Required even when the transaction accepts only Signals.
+        committed_event_refs: Vec<CommittedEventRef>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        rejections: Vec<AppletEventRejection>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        retry_after_ms: Option<u64>,
+    },
+    Partial {
+        committed_event_refs: Vec<CommittedEventRef>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        rejections: Vec<AppletEventRejection>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        retry_after_ms: Option<u64>,
+    },
+    Rejected {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        rejections: Vec<AppletEventRejection>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        retry_after_ms: Option<u64>,
+    },
+}
+
+impl AppletTransactionOutcome {
+    pub fn status(&self) -> AppletTransactionStatus {
+        match self {
+            Self::Accepted { .. } => AppletTransactionStatus::Accepted,
+            Self::Partial { .. } => AppletTransactionStatus::Partial,
+            Self::Rejected { .. } => AppletTransactionStatus::Rejected,
+        }
+    }
+
+    pub fn committed_event_refs(&self) -> &[CommittedEventRef] {
+        match self {
+            Self::Accepted {
+                committed_event_refs,
+                ..
+            }
+            | Self::Partial {
+                committed_event_refs,
+                ..
+            } => committed_event_refs,
+            Self::Rejected { .. } => &[],
+        }
+    }
+
+    pub fn rejections(&self) -> &[AppletEventRejection] {
+        match self {
+            Self::Accepted { rejections, .. }
+            | Self::Partial { rejections, .. }
+            | Self::Rejected { rejections, .. } => rejections,
+        }
+    }
+
+    pub fn retry_after_ms(&self) -> Option<u64> {
+        match self {
+            Self::Accepted { retry_after_ms, .. }
+            | Self::Partial { retry_after_ms, .. }
+            | Self::Rejected { retry_after_ms, .. } => *retry_after_ms,
+        }
+    }
 }
 
 /// Current Applet edge transaction. Producer submissions and committed

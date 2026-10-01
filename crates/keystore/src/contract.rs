@@ -48,11 +48,6 @@ impl KeyBytes {
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
-
-    #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
-    pub(crate) fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.0.as_mut_ptr()
-    }
 }
 
 impl AsRef<[u8]> for KeyBytes {

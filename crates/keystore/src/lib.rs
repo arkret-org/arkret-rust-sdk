@@ -11,7 +11,7 @@
 //! | [`EncryptedFileKeyStore`] | `keystore-encrypted-file` | native targets |
 //! | [`MacOsKeychainKeyStore`] | `keystore-macos` | `macos` |
 //! | [`LinuxSecretServiceKeyStore`] | `keystore-linux` | `linux` |
-//! | [`WindowsCredentialKeyStore`] | `keystore-windows` | `windows` |
+//! | [`WindowsProtectedKeyStore`] | `keystore-windows` | `windows` |
 //!
 //! Off-target compilation: each platform type still **compiles** on every
 //! target so downstream code can reference it unconditionally; constructors
@@ -28,7 +28,7 @@
 //! | [`EncryptedFileKeyStore`] | survives reboot with caller-custodied master key | XChaCha20-Poly1305 authenticated encryption | stable lock file + atomic same-directory replacement |
 //! | [`MacOsKeychainKeyStore`] | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | Keychain serializes item ops; no SDK-level CAS |
 //! | [`LinuxSecretServiceKeyStore`] | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | D-Bus daemon serializes ops; no SDK-level CAS |
-//! | [`WindowsCredentialKeyStore`] | survives logout and reboot (`CRED_PERSIST_LOCAL_MACHINE`) | DPAPI, scoped to the user profile | Win32 credential API serializes ops; no SDK-level CAS |
+//! | [`WindowsProtectedKeyStore`] | survives logout and reboot (current-user DPAPI) | XChaCha20-Poly1305 vault; 32-byte master key protected by user-profile DPAPI | stable lock files + atomic same-directory replacement |
 //!
 //! Concurrency: every backend is last-writer-wins for `store` on the same id
 //! and provides no compare-and-swap. The encrypted-file backend serializes
@@ -74,7 +74,7 @@ pub use linux::LinuxSecretServiceKeyStore;
 #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
 mod windows;
 #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
-pub use windows::WindowsCredentialKeyStore;
+pub use windows::WindowsProtectedKeyStore;
 
 // ---------------------------------------------------------------------------
 // Off-target stubs.
@@ -99,7 +99,7 @@ pub use linux_stub::LinuxSecretServiceKeyStore;
 #[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
 mod windows_stub;
 #[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
-pub use windows_stub::WindowsCredentialKeyStore;
+pub use windows_stub::WindowsProtectedKeyStore;
 
 /// Resolve a durable platform-native key store or fail closed when the target,
 /// feature set, or host service cannot provide one.
@@ -118,7 +118,7 @@ pub fn durable_platform_keystore(application_id: &str) -> Result<Box<dyn KeyStor
     }
     #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
     {
-        if let Ok(store) = WindowsCredentialKeyStore::new(application_id) {
+        if let Ok(store) = WindowsProtectedKeyStore::new(application_id) {
             return Ok(Box::new(store));
         }
     }

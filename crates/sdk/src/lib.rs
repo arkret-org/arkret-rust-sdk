@@ -111,7 +111,7 @@ pub use arkret_identity::service_identity::{
 };
 pub use arkret_keystore::{
     KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
-    WindowsCredentialKeyStore, durable_platform_keystore,
+    WindowsProtectedKeyStore, durable_platform_keystore,
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::account_operations::*;

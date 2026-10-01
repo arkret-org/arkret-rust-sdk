@@ -723,8 +723,7 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
         "sidecar"
     );
 
-    let outcome = AppletTransactionOutcome {
-        status: arkret_models_integration::AppletTransactionStatus::Accepted,
+    let outcome = AppletTransactionOutcome::Accepted {
         committed_event_refs: vec![circle_ref],
         rejections: Vec::new(),
         retry_after_ms: None,
@@ -733,6 +732,33 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
     assert_eq!(
         outcome_wire["committed_event_refs"][0]["stream_ref"]["kind"],
         "circle"
+    );
+}
+
+#[test]
+fn transaction_outcome_requires_commit_refs_only_for_successful_branches() {
+    for status in ["accepted", "partial"] {
+        assert!(
+            serde_json::from_value::<AppletTransactionOutcome>(json!({"status": status})).is_err()
+        );
+        let outcome: AppletTransactionOutcome =
+            serde_json::from_value(json!({"status": status, "committed_event_refs": []})).unwrap();
+        assert_eq!(
+            serde_json::to_value(outcome).unwrap(),
+            json!({"status": status, "committed_event_refs": []})
+        );
+    }
+    let rejected: AppletTransactionOutcome =
+        serde_json::from_value(json!({"status": "rejected", "retry_after_ms": 1000})).unwrap();
+    assert_eq!(
+        serde_json::to_value(rejected).unwrap(),
+        json!({"status": "rejected", "retry_after_ms": 1000})
+    );
+    assert!(
+        serde_json::from_value::<AppletTransactionOutcome>(
+            json!({"status": "rejected", "committed_event_refs": []})
+        )
+        .is_err()
     );
 }
 

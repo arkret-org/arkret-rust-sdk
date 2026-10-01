@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-30.1;
-//! sha256=9c0a5f8c5c16e8c20ac7cfbf7a3ddfffaffe9e61b0bddfa61d86be1ef4c5a8d8
-//! Entries: reason_codes=309, reserved_not_emitted=68
+//! Input: registry/error-code-registry.json; version=2026-10-01;
+//! sha256=076f66796e1cbcde5639bfeea65f20d387eff7c47977ace60369e30c9ee118f9
+//! Entries: reason_codes=310, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -190,6 +190,7 @@ pub enum ReasonCode {
     PcrGenesisConflict,
     PcrGenesisUnitInvalid,
     PermissionDenied,
+    PinTargetNotPinned,
     PolicyDenied,
     PolicyRevisionGap,
     PolicyRevoked,
@@ -549,6 +550,7 @@ impl ReasonCode {
     pub const PCR_GENESIS_CONFLICT: &'static str = "pcr_genesis_conflict";
     pub const PCR_GENESIS_UNIT_INVALID: &'static str = "pcr_genesis_unit_invalid";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
+    pub const PIN_TARGET_NOT_PINNED: &'static str = "pin_target_not_pinned";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_REVISION_GAP: &'static str = "policy_revision_gap";
     pub const POLICY_REVOKED: &'static str = "policy_revoked";
@@ -924,6 +926,7 @@ impl ReasonCode {
             Self::PcrGenesisConflict => Self::PCR_GENESIS_CONFLICT,
             Self::PcrGenesisUnitInvalid => Self::PCR_GENESIS_UNIT_INVALID,
             Self::PermissionDenied => Self::PERMISSION_DENIED,
+            Self::PinTargetNotPinned => Self::PIN_TARGET_NOT_PINNED,
             Self::PolicyDenied => Self::POLICY_DENIED,
             Self::PolicyRevisionGap => Self::POLICY_REVISION_GAP,
             Self::PolicyRevoked => Self::POLICY_REVOKED,
@@ -1301,6 +1304,7 @@ impl ReasonCode {
             Self::PCR_GENESIS_CONFLICT => Self::PcrGenesisConflict,
             Self::PCR_GENESIS_UNIT_INVALID => Self::PcrGenesisUnitInvalid,
             Self::PERMISSION_DENIED => Self::PermissionDenied,
+            Self::PIN_TARGET_NOT_PINNED => Self::PinTargetNotPinned,
             Self::POLICY_DENIED => Self::PolicyDenied,
             Self::POLICY_REVISION_GAP => Self::PolicyRevisionGap,
             Self::POLICY_REVOKED => Self::PolicyRevoked,
@@ -2432,6 +2436,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::PERMISSION_DENIED,
         applies_to: &["event_envelope", "service_call"],
         description: "A recording or transcription backend could not obtain the required media permission.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::PIN_TARGET_NOT_PINNED,
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Sub-reason for failed_precondition when ak.pin.reorder addresses a (pin_scope, target_ref) that has no causally earlier surviving ak.pin.add assertion to inherit note and the remaining entry fields from. Reducers MUST NOT synthesize a rank-only entry that would put the target back into the roster. See zh/models/pins.md section 4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_DENIED,

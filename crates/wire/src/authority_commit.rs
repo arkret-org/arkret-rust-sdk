@@ -14,6 +14,17 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use uuid::Uuid;
 
+/// A Pin projection home; this does not define a security boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PinScope {
+    Strand { id: StrandId },
+    Realm { id: RealmId },
+    Circle { id: CircleId },
+    Space { id: SpaceId },
+}
+
 use crate::{
     AccountId, AccountabilityScopeSet, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId,
     DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
@@ -1084,6 +1095,12 @@ pub enum CurrentSelector {
     Policy {
         policy_id: PolicyId,
     },
+    SchemaDefinition {
+        schema_id: String,
+    },
+    Pin {
+        pin_scope: PinScope,
+    },
     PolicyAction {
         #[serde(flatten)]
         subject: PolicyActionSelector,
@@ -1398,6 +1415,54 @@ impl<'de> Deserialize<'de> for CurrentSelector {
     {
         let mut wire = serde_json::Map::<String, Value>::deserialize(deserializer)?;
         match wire.get("kind").and_then(Value::as_str) {
+            Some("pin") => {
+                wire.remove("kind");
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Subject {
+                    pin_scope: PinScope,
+                }
+                let subject = serde_json::from_value::<Subject>(Value::Object(wire))
+                    .map_err(serde::de::Error::custom)?;
+                Ok(Self::Pin {
+                    pin_scope: subject.pin_scope,
+                })
+            }
+            Some("schema_definition") => {
+                wire.remove("kind");
+                #[derive(Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Subject {
+                    schema_id: String,
+                }
+                let subject = serde_json::from_value::<Subject>(Value::Object(wire))
+                    .map_err(serde::de::Error::custom)?;
+                let valid = subject
+                    .schema_id
+                    .strip_prefix("ak.schema.")
+                    .and_then(|name| name.rsplit_once(".v"))
+                    .is_some_and(|(name, version)| {
+                        !name.is_empty()
+                            && name.split('.').all(|segment| {
+                                !segment.is_empty()
+                                    && segment.bytes().all(|byte| {
+                                        byte.is_ascii_lowercase()
+                                            || byte.is_ascii_digit()
+                                            || byte == b'_'
+                                    })
+                            })
+                            && !version.is_empty()
+                            && version.bytes().all(|byte| byte.is_ascii_digit())
+                    });
+                if !valid {
+                    return Err(serde::de::Error::custom(
+                        "invalid schema definition subject",
+                    ));
+                }
+                Ok(Self::SchemaDefinition {
+                    schema_id: subject.schema_id,
+                })
+            }
             Some("policy") => {
                 wire.remove("kind");
                 #[derive(Deserialize)]
@@ -2501,6 +2566,20 @@ mod tests {
 
     use super::*;
     use crate::{DidCoreId, EventKind, test_support};
+
+    #[test]
+    fn schema_definition_subject_is_closed_and_bound_to_a_schema_id() {
+        let value = json!({"kind":"schema_definition","schema_id":"ak.schema.custom_example.v1"});
+        let selector: CurrentSelector = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(selector).unwrap(), value);
+        for value in [
+            json!({"kind":"schema_definition","schema_id":"ak.schema.custom_example.v1","extra":true}),
+            json!({"kind":"schema_definition","schema_id":"ak.schema..v1"}),
+            json!({"kind":"schema_definition","schema_id":"custom"}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(value).is_err());
+        }
+    }
 
     fn approval_shape_fixture() -> ApprovalSignature {
         let id = crate::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
