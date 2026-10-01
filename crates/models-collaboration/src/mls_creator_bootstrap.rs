@@ -422,6 +422,9 @@ impl MlsCreatorBootstrapGovernanceEvidence {
         Ok(())
     }
 
+    pub fn accepted_create(&self) -> &MlsCreatorBootstrapAcceptedCreate {
+        &self.accepted_create
+    }
     pub fn governance_binding(&self) -> &MlsGovernanceBindingPayload {
         &self.governance_binding
     }
@@ -599,6 +602,73 @@ impl MlsCreatorBootstrapQueuedGenesis {
     }
 }
 
+/// Exact accepted Genesis and the independently verified authority root.
+/// Hosts authenticate the complete stream before constructing this carrier.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapAcceptedGenesis {
+    accepted: arkret_wire::CommittedEventFullView,
+    canonical_accepted_bytes: Vec<u8>,
+    accepted_bytes_digest: arkret_wire::Hash,
+    authority_root: arkret_wire::RealmAuthorityBundle,
+}
+
+impl MlsCreatorBootstrapAcceptedGenesis {
+    pub fn new(
+        intent: &MlsCreatorBootstrapIntent,
+        queued: &MlsCreatorBootstrapQueuedGenesis,
+        accepted: arkret_wire::CommittedEventFullView,
+        authority_root: arkret_wire::RealmAuthorityBundle,
+    ) -> Result<Self> {
+        let bytes = arkret_canonical::canonical_json_bytes(&accepted.event)?;
+        let value = Self {
+            accepted_bytes_digest: arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+                queued.signed_genesis.digest_suite(),
+                &bytes,
+            ))?,
+            canonical_accepted_bytes: bytes,
+            accepted,
+            authority_root,
+        };
+        value.validate_binding(intent, queued)?;
+        Ok(value)
+    }
+    pub fn validate_binding(
+        &self,
+        intent: &MlsCreatorBootstrapIntent,
+        queued: &MlsCreatorBootstrapQueuedGenesis,
+    ) -> Result<()> {
+        self.accepted.validate_shape()?;
+        self.authority_root.validate_shape()?;
+        let suite = queued.signed_genesis.digest_suite();
+        self.accepted
+            .event
+            .verify_event_id_matches_content_with_digest_suite(suite)?;
+        self.accepted
+            .event
+            .validate_proof_bindings_with_digest_suite(suite)?;
+        if self.accepted.event != *queued.signed_genesis.event()
+            || self.canonical_accepted_bytes != queued.canonical_signed_bytes
+            || self.canonical_accepted_bytes
+                != arkret_canonical::canonical_json_bytes(&self.accepted.event)?
+            || self.accepted_bytes_digest != queued.canonical_bytes_digest
+            || self.authority_root.realm_id != *intent.effective_scope().realm_id()
+            || self.accepted.commit.governance_generation > self.authority_root.current_generation
+        {
+            return Err(WireError::Protocol(
+                "accepted Genesis does not bind the exact frozen signed bytes and authority".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn accepted(&self) -> &arkret_wire::CommittedEventFullView {
+        &self.accepted
+    }
+    pub fn accepted_bytes_digest(&self) -> &arkret_wire::Hash {
+        &self.accepted_bytes_digest
+    }
+}
+
 /// Durable prefix of the normative creator transaction. Unsupported later
 /// states are deliberately not deserializable until their recovery units are
 /// implemented. Hosts authenticate evidence before committing a transition;
@@ -635,6 +705,15 @@ pub enum MlsCreatorBootstrapRecord {
         epoch_zero: Box<MlsCreatorBootstrapEpochZero>,
         queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
     },
+    GenesisAccepted {
+        intent: MlsCreatorBootstrapIntent,
+        accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+        genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
+        governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
+        epoch_zero: Box<MlsCreatorBootstrapEpochZero>,
+        queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
+        accepted_genesis: Box<MlsCreatorBootstrapAcceptedGenesis>,
+    },
 }
 
 impl MlsCreatorBootstrapRecord {
@@ -649,7 +728,8 @@ impl MlsCreatorBootstrapRecord {
             | Self::RealmAccepted { intent, .. }
             | Self::GovernanceResultPinned { intent, .. }
             | Self::Epoch0StatePersisted { intent, .. }
-            | Self::GenesisQueued { intent, .. } => intent,
+            | Self::GenesisQueued { intent, .. }
+            | Self::GenesisAccepted { intent, .. } => intent,
         }
     }
 
@@ -666,6 +746,7 @@ impl MlsCreatorBootstrapRecord {
                 arkret_wire::MlsCreatorBootstrapState::Epoch0StatePersisted
             }
             Self::GenesisQueued { .. } => arkret_wire::MlsCreatorBootstrapState::GenesisQueued,
+            Self::GenesisAccepted { .. } => arkret_wire::MlsCreatorBootstrapState::GenesisAccepted,
         }
     }
 
@@ -693,6 +774,12 @@ impl MlsCreatorBootstrapRecord {
             accepted_create,
             genesis_absence,
             ..
+        }
+        | Self::GenesisAccepted {
+            intent,
+            accepted_create,
+            genesis_absence,
+            ..
         } = self
         {
             accepted_create.validate_binding(intent)?;
@@ -715,6 +802,14 @@ impl MlsCreatorBootstrapRecord {
                     .ok_or_else(|| WireError::Protocol("creator queue lost epoch zero".into()))?,
             )?;
         }
+        if let Some(accepted) = self.accepted_genesis() {
+            accepted.validate_binding(
+                self.intent(),
+                self.queued_genesis().ok_or_else(|| {
+                    WireError::Protocol("accepted Genesis lost its signed original".into())
+                })?,
+            )?;
+        }
         Ok(())
     }
 
@@ -731,6 +826,10 @@ impl MlsCreatorBootstrapRecord {
             | Self::GenesisQueued {
                 governance_evidence,
                 ..
+            }
+            | Self::GenesisAccepted {
+                governance_evidence,
+                ..
             } => Some(governance_evidence),
             _ => None,
         }
@@ -739,15 +838,67 @@ impl MlsCreatorBootstrapRecord {
     pub fn epoch_zero(&self) -> Option<&MlsCreatorBootstrapEpochZero> {
         match self {
             Self::Epoch0StatePersisted { epoch_zero, .. }
-            | Self::GenesisQueued { epoch_zero, .. } => Some(epoch_zero),
+            | Self::GenesisQueued { epoch_zero, .. }
+            | Self::GenesisAccepted { epoch_zero, .. } => Some(epoch_zero),
             _ => None,
         }
     }
     pub fn queued_genesis(&self) -> Option<&MlsCreatorBootstrapQueuedGenesis> {
         match self {
-            Self::GenesisQueued { queued_genesis, .. } => Some(queued_genesis),
+            Self::GenesisQueued { queued_genesis, .. }
+            | Self::GenesisAccepted { queued_genesis, .. } => Some(queued_genesis),
             _ => None,
         }
+    }
+    pub fn accepted_genesis(&self) -> Option<&MlsCreatorBootstrapAcceptedGenesis> {
+        match self {
+            Self::GenesisAccepted {
+                accepted_genesis, ..
+            } => Some(accepted_genesis),
+            _ => None,
+        }
+    }
+    pub fn accept_genesis(&mut self, accepted: MlsCreatorBootstrapAcceptedGenesis) -> Result<()> {
+        if let Some(existing) = self.accepted_genesis() {
+            return if existing == &accepted {
+                Ok(())
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace creator accepted Genesis evidence".into(),
+                ))
+            };
+        }
+        let Self::GenesisQueued {
+            intent,
+            accepted_create,
+            genesis_absence,
+            governance_evidence,
+            epoch_zero,
+            queued_genesis,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "creator acceptance requires durable signed original".into(),
+            ));
+        };
+        let next = Self::GenesisAccepted {
+            intent: intent.clone(),
+            accepted_create: accepted_create.clone(),
+            genesis_absence: genesis_absence.clone(),
+            governance_evidence: governance_evidence.clone(),
+            epoch_zero: epoch_zero.clone(),
+            queued_genesis: queued_genesis.clone(),
+            accepted_genesis: Box::new(accepted),
+        };
+        let arrow = arkret_wire::MlsCreatorBootstrapTransition::GenesisQueuedToGenesisAccepted;
+        if Some(self.state()) != arrow.from_state() || next.state() != arrow.to_state() {
+            return Err(WireError::Protocol(
+                "invalid registered creator acceptance arrow".into(),
+            ));
+        }
+        next.validate()?;
+        *self = next;
+        Ok(())
     }
     pub fn persist_epoch_zero(&mut self, unit: MlsCreatorBootstrapEpochZero) -> Result<()> {
         if let Some(existing) = self.epoch_zero() {
@@ -1702,6 +1853,110 @@ mod tests {
         changed.attach_proof(proof);
         assert!(record.queue_genesis(changed).is_err());
         assert_eq!(record, reopened);
+    }
+
+    #[test]
+    fn creator_new_query_cut_keeps_the_original_governance_pin_immutable() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let mut record = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        record
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        record.pin_governance(evidence.clone()).unwrap();
+        let frozen = record.clone();
+        // Shape-only later cut. Its real signatures are verified by the host.
+        let mut root = create.authority_root().clone();
+        root.realm_stream_head.stream_position += 1;
+        root.realm_stream_head.commit_id = arkret_wire::RealmCommitId::from_digest([23; 32]);
+        root.current_assertion.realm_stream_head = root.realm_stream_head.clone();
+        let current = MlsCreatorBootstrapAcceptedCreate::new(
+            &intent,
+            create.accepted_event().clone(),
+            create.covering_commit().clone(),
+            create.digest_suite(),
+            root,
+        )
+        .unwrap();
+        let later = absence_snapshot(&current);
+        assert!(validate_creator_genesis_absence_snapshot(&intent, &create, &later).is_err());
+        validate_creator_genesis_absence_snapshot(&intent, &current, &later).unwrap();
+        assert_eq!(record, frozen);
+        assert_eq!(record.governance_evidence(), Some(&evidence));
+    }
+
+    #[test]
+    fn creator_exact_accepted_genesis_retains_bytes_commit_and_original_unit() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let queued = MlsCreatorBootstrapQueuedGenesis::new(&intent, &unit, signed.clone()).unwrap();
+        // Synthetic Commit exercises structure only, not authority signatures.
+        let mut commit = create.covering_commit().clone();
+        commit.stream_position += 1;
+        commit.previous_commit_ref = Some(create.covering_commit().commit_id.clone());
+        commit.event_ref = signed.event_id().clone();
+        let row = arkret_wire::CommittedEventFullView {
+            event: signed.event().clone(),
+            commit,
+        };
+        let accepted = MlsCreatorBootstrapAcceptedGenesis::new(
+            &intent,
+            &queued,
+            row.clone(),
+            create.authority_root().clone(),
+        )
+        .unwrap();
+        let mut record = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        assert!(record.accept_genesis(accepted.clone()).is_err());
+        record
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        record.pin_governance(evidence).unwrap();
+        record.persist_epoch_zero(unit.clone()).unwrap();
+        assert!(record.accept_genesis(accepted.clone()).is_err());
+        record.queue_genesis(signed.clone()).unwrap();
+        record.accept_genesis(accepted.clone()).unwrap();
+        record.accept_genesis(accepted.clone()).unwrap();
+        assert_eq!(
+            record.state(),
+            arkret_wire::MlsCreatorBootstrapState::GenesisAccepted
+        );
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        assert_eq!(reopened.epoch_zero(), Some(&unit));
+        let mut changed = accepted.clone();
+        changed.accepted.commit.committed_at += chrono::TimeDelta::milliseconds(1);
+        assert!(record.accept_genesis(changed).is_err());
+        assert_eq!(record, reopened);
+        let mut changed = row.clone();
+        changed.event.producer_proof.as_mut().unwrap().created_at +=
+            chrono::TimeDelta::milliseconds(1);
+        assert!(
+            MlsCreatorBootstrapAcceptedGenesis::new(
+                &intent,
+                &queued,
+                changed,
+                create.authority_root().clone()
+            )
+            .is_err()
+        );
+        let mut changed = row.clone();
+        changed.commit.event_ref = intent.scope_create_event_id().clone();
+        assert!(
+            MlsCreatorBootstrapAcceptedGenesis::new(
+                &intent,
+                &queued,
+                changed,
+                create.authority_root().clone()
+            )
+            .is_err()
+        );
+        let mut changed = accepted;
+        changed.canonical_accepted_bytes.push(0);
+        assert!(changed.validate_binding(&intent, &queued).is_err());
     }
 
     #[test]

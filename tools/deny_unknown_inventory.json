@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1335,
+    "total": 1336,
     "by_classification": {
       "A": 4,
       "B": 744,
-      "needs_review": 587
+      "needs_review": 588
     },
     "by_openness": {
       "closed": 748,
-      "unresolved": 586,
+      "unresolved": 587,
       "unspecified": 1
     },
     "by_crate": {
@@ -16,7 +16,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 773,
+      "models-collaboration": 774,
       "models-crypto": 161,
       "models-discovery": 15,
       "models-identity": 134,
@@ -7404,7 +7404,7 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapEpochZero",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 437,
+      "line": 440,
       "kind": "struct",
       "value_kind": "MlsCreatorBootstrapEpochZero",
       "spec_pointer": null,
@@ -7417,9 +7417,22 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapQueuedGenesis",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 536,
+      "line": 539,
       "kind": "struct",
       "value_kind": "MlsCreatorBootstrapQueuedGenesis",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapAcceptedGenesis",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 608,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapAcceptedGenesis",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -7430,7 +7443,7 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapRecord",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 607,
+      "line": 677,
       "kind": "enum",
       "value_kind": "MlsCreatorBootstrapRecord",
       "spec_pointer": null,
