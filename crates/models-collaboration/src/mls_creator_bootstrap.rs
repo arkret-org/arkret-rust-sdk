@@ -278,6 +278,158 @@ pub struct MlsCreatorBootstrapAcceptedCreate {
     authority_root: arkret_wire::RealmAuthorityBundle,
 }
 
+/// Local retention of one exact row from the authenticated own-Station self
+/// keys/query surface. It is not portable origin evidence and must never be
+/// exposed to a peer as an attestation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapDeviceAuthority {
+    account_id: arkret_wire::AccountId,
+    device_id: DeviceId,
+    signer_evidence_ref: arkret_wire::SignerEvidenceRef,
+    projection: arkret_models_crypto::VerifiedDeviceProjection,
+    generation: arkret_models_crypto::DeviceGenerationState,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    verified_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl MlsCreatorBootstrapDeviceAuthority {
+    pub fn from_self_keys_query(
+        intent: &MlsCreatorBootstrapIntent,
+        outcome: &arkret_models_crypto::KeysQueryOutcome,
+        verified_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Self> {
+        outcome.validate()?;
+        let account_id = intent.owner_actor_id().as_account_id().ok_or_else(|| {
+            WireError::Protocol("Device creator needs an exact Account ActorId".into())
+        })?;
+        let row = outcome
+            .devices_for(account_id)
+            .and_then(|rows| rows.get(intent.creator_device_id()))
+            .ok_or_else(|| {
+                WireError::Protocol("creator Device authorization unavailable".into())
+            })?;
+        row.validate_projection()?;
+        let generation = outcome
+            .generation_for(account_id)
+            .ok_or_else(|| WireError::Protocol("creator Device generation unavailable".into()))?;
+        let value = Self {
+            account_id: account_id.clone(),
+            device_id: intent.creator_device_id().clone(),
+            signer_evidence_ref: row.signer_evidence_ref.clone(),
+            projection: row.device_projection.clone(),
+            generation: generation.clone(),
+            verified_at: arkret_canonical::normalize_timestamp_canonical(verified_at),
+        };
+        value.validate_binding(intent)?;
+        Ok(value)
+    }
+
+    pub fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        let window = &self.projection.authorization_window;
+        self.signer_evidence_ref.content_digest()?;
+        if intent.owner_actor_id().as_account_id() != Some(&self.account_id)
+            || intent.creator_device_id() != &self.device_id
+            || intent.creator_endpoint()
+                != &(arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+                    device_id: self.device_id.clone(),
+                })
+            || self.projection.device_status != arkret_models_crypto::DeviceStatus::Active
+            || self.projection.authorized_generation_ref
+                != self.generation.current_device_generation_ref
+            || self.projection.attested_at > self.verified_at
+            || self.verified_at >= self.projection.expires_at
+            || self.verified_at < window.not_before
+            || window.expires_at.is_some_and(|at| self.verified_at >= at)
+        {
+            return Err(WireError::Protocol("creator Device evidence does not bind the exact current endpoint at the verified cut".into()));
+        }
+        Ok(())
+    }
+
+    pub fn projection(&self) -> &arkret_models_crypto::VerifiedDeviceProjection {
+        &self.projection
+    }
+}
+
+/// One immutable local pin of independently verified authority/current data
+/// and the exact original proposal. Cryptographic and authenticated transport
+/// verification are host duties, before the atomic pin commit.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapGovernanceEvidence {
+    accepted_create: MlsCreatorBootstrapAcceptedCreate,
+    genesis_absence: arkret_wire::RealmStateSnapshot,
+    creator_device_authority: MlsCreatorBootstrapDeviceAuthority,
+    canonical_proposal_bytes: Vec<u8>,
+    proposal_digest: arkret_wire::Hash,
+    governance_binding: MlsGovernanceBindingPayload,
+}
+
+impl MlsCreatorBootstrapGovernanceEvidence {
+    pub fn new_device(
+        intent: &MlsCreatorBootstrapIntent,
+        accepted_create: MlsCreatorBootstrapAcceptedCreate,
+        genesis_absence: arkret_wire::RealmStateSnapshot,
+        creator_device_authority: MlsCreatorBootstrapDeviceAuthority,
+    ) -> Result<Self> {
+        let canonical_proposal_bytes = arkret_canonical::canonical_json_bytes(intent.proposal())?;
+        let proposal_digest = arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+            accepted_create.digest_suite(),
+            &canonical_proposal_bytes,
+        ))?;
+        let value = Self {
+            accepted_create,
+            genesis_absence,
+            creator_device_authority,
+            canonical_proposal_bytes,
+            proposal_digest,
+            governance_binding: intent.proposal().proposed_group_genesis_binding().clone(),
+        };
+        value.validate_binding(intent)?;
+        Ok(value)
+    }
+
+    pub fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        self.accepted_create.validate_binding(intent)?;
+        validate_creator_genesis_absence_snapshot(
+            intent,
+            &self.accepted_create,
+            &self.genesis_absence,
+        )?;
+        self.creator_device_authority.validate_binding(intent)?;
+        let verified_at = self.creator_device_authority.verified_at;
+        let authority = self.accepted_create.authority_root();
+        if verified_at < authority.bundle_issued_at
+            || verified_at >= authority.current_assertion.expires_at
+            || self.genesis_absence.created_at > verified_at
+        {
+            return Err(WireError::Protocol("creator pin does not bind fresh authority and current evidence at the verified cut".into()));
+        }
+        if self.canonical_proposal_bytes
+            != arkret_canonical::canonical_json_bytes(intent.proposal())?
+            || self.proposal_digest.as_str()
+                != arkret_canonical::canonical::digest(
+                    self.accepted_create.digest_suite(),
+                    &self.canonical_proposal_bytes,
+                )
+            || &self.governance_binding != intent.proposal().proposed_group_genesis_binding()
+        {
+            return Err(WireError::Protocol(
+                "pinned creator proposal or binding changed".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn governance_binding(&self) -> &MlsGovernanceBindingPayload {
+        &self.governance_binding
+    }
+    pub fn creator_device_authority(&self) -> &MlsCreatorBootstrapDeviceAuthority {
+        &self.creator_device_authority
+    }
+}
+
 /// Durable prefix of the normative creator transaction. Unsupported later
 /// states are deliberately not deserializable until their recovery units are
 /// implemented. Hosts authenticate evidence before committing a transition;
@@ -293,6 +445,12 @@ pub enum MlsCreatorBootstrapRecord {
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
     },
+    GovernanceResultPinned {
+        intent: MlsCreatorBootstrapIntent,
+        accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+        genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
+        governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
+    },
 }
 
 impl MlsCreatorBootstrapRecord {
@@ -303,7 +461,9 @@ impl MlsCreatorBootstrapRecord {
 
     pub fn intent(&self) -> &MlsCreatorBootstrapIntent {
         match self {
-            Self::GenesisIntentPersisted { intent } | Self::RealmAccepted { intent, .. } => intent,
+            Self::GenesisIntentPersisted { intent }
+            | Self::RealmAccepted { intent, .. }
+            | Self::GovernanceResultPinned { intent, .. } => intent,
         }
     }
 
@@ -313,6 +473,9 @@ impl MlsCreatorBootstrapRecord {
                 arkret_wire::MlsCreatorBootstrapState::GenesisIntentPersisted
             }
             Self::RealmAccepted { .. } => arkret_wire::MlsCreatorBootstrapState::RealmAccepted,
+            Self::GovernanceResultPinned { .. } => {
+                arkret_wire::MlsCreatorBootstrapState::GovernanceResultPinned
+            }
         }
     }
 
@@ -322,11 +485,72 @@ impl MlsCreatorBootstrapRecord {
             intent,
             accepted_create,
             genesis_absence,
+        }
+        | Self::GovernanceResultPinned {
+            intent,
+            accepted_create,
+            genesis_absence,
+            ..
         } = self
         {
             accepted_create.validate_binding(intent)?;
             validate_creator_genesis_absence_snapshot(intent, accepted_create, genesis_absence)?;
         }
+        if let Some(evidence) = self.governance_evidence() {
+            evidence.validate_binding(self.intent())?;
+        }
+        Ok(())
+    }
+
+    pub fn governance_evidence(&self) -> Option<&MlsCreatorBootstrapGovernanceEvidence> {
+        match self {
+            Self::GovernanceResultPinned {
+                governance_evidence,
+                ..
+            } => Some(governance_evidence),
+            _ => None,
+        }
+    }
+
+    pub fn pin_governance(
+        &mut self,
+        evidence: MlsCreatorBootstrapGovernanceEvidence,
+    ) -> Result<()> {
+        evidence.validate_binding(self.intent())?;
+        if let Some(existing) = self.governance_evidence() {
+            return if existing == &evidence {
+                Ok(())
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace pinned creator governance evidence".into(),
+                ))
+            };
+        }
+        let Self::RealmAccepted {
+            intent,
+            accepted_create,
+            genesis_absence,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "creator governance pin requires durable Realm acceptance".into(),
+            ));
+        };
+        let next = Self::GovernanceResultPinned {
+            intent: intent.clone(),
+            accepted_create: accepted_create.clone(),
+            genesis_absence: genesis_absence.clone(),
+            governance_evidence: Box::new(evidence),
+        };
+        let arrow =
+            arkret_wire::MlsCreatorBootstrapTransition::RealmAcceptedToGovernanceResultPinned;
+        if Some(self.state()) != arrow.from_state() || next.state() != arrow.to_state() {
+            return Err(WireError::Protocol(
+                "invalid registered creator governance pin arrow".into(),
+            ));
+        }
+        next.validate()?;
+        *self = next;
         Ok(())
     }
 
@@ -983,6 +1207,143 @@ mod tests {
             created_at: root.bundle_issued_at,
             signature,
         }
+    }
+
+    fn device_query_fixture(
+        intent: &MlsCreatorBootstrapIntent,
+    ) -> arkret_models_crypto::KeysQueryOutcome {
+        let now = scope_create_event(intent.signed_scope_create_unit())
+            .unwrap()
+            .created_at;
+        // Shape-only local evidence fixture, never an authenticated Station response.
+        serde_json::from_value(json!({
+            "device_keys": [{"account_id": intent.owner_actor_id().as_account_id().unwrap(), "device_keys": {
+                intent.creator_device_id().as_str(): {
+                    "signer_evidence_ref": "ak:signer_evidence:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "algorithms": {}, "trust_algorithms": [],
+                    "device_projection": {
+                        "device_signing_key_did": "did:key:z6MkhHrTbtosB4xyyJM217fS4ry35F7JhZ5oA9uVHErBJDL5",
+                        "hpke_key": "hpke-test", "device_authorize_event_id": intent.scope_create_event_id(),
+                        "authorized_generation_ref": 7, "device_status": "active",
+                        "attested_at": arkret_canonical::format_timestamp_canonical(now), "expires_at": arkret_canonical::format_timestamp_canonical(now + chrono::TimeDelta::minutes(5)),
+                        "authorization_window": {"not_before": arkret_canonical::format_timestamp_canonical(now), "expires_at": null}
+                    }
+                }
+            }}],
+            "failures": [],
+            "device_generations": [{"account_id": intent.owner_actor_id().as_account_id().unwrap(),
+                "generation_state": {"current_device_generation_ref": 7}}]
+        })).unwrap()
+    }
+
+    fn pinned_fixture(
+        intent: &MlsCreatorBootstrapIntent,
+        accepted: &MlsCreatorBootstrapAcceptedCreate,
+    ) -> MlsCreatorBootstrapGovernanceEvidence {
+        let device = MlsCreatorBootstrapDeviceAuthority::from_self_keys_query(
+            intent,
+            &device_query_fixture(intent),
+            accepted.authority_root().bundle_issued_at,
+        )
+        .unwrap();
+        MlsCreatorBootstrapGovernanceEvidence::new_device(
+            intent,
+            accepted.clone(),
+            absence_snapshot(accepted),
+            device,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn creator_pin_requires_acceptance_and_retains_the_exact_immutable_evidence() {
+        let (intent, accepted) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &accepted);
+        let mut record = MlsCreatorBootstrapRecord::new(intent).unwrap();
+        let initial = record.clone();
+        assert!(record.pin_governance(evidence.clone()).is_err());
+        assert_eq!(record, initial);
+        record
+            .accept_realm(accepted.clone(), absence_snapshot(&accepted))
+            .unwrap();
+        record.pin_governance(evidence.clone()).unwrap();
+        assert_eq!(
+            record.state(),
+            arkret_wire::MlsCreatorBootstrapState::GovernanceResultPinned
+        );
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        assert_eq!(reopened, record);
+        record.pin_governance(evidence.clone()).unwrap();
+        let mut changed = evidence;
+        changed.creator_device_authority.verified_at += chrono::TimeDelta::milliseconds(1);
+        assert!(record.pin_governance(changed).is_err());
+        assert_eq!(record, reopened);
+    }
+
+    #[test]
+    fn creator_pin_rejects_wrong_device_station_generation_and_expired_authority() {
+        let (intent, accepted) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &accepted);
+        let mut bad = Vec::new();
+        let mut changed = evidence.clone();
+        changed.creator_device_authority.account_id.station_id =
+            DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed.creator_device_authority.device_id =
+            DeviceId::new("ak:device:0198ff00-0000-7000-8000-000000000002").unwrap();
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed
+            .creator_device_authority
+            .generation
+            .current_device_generation_ref += 1;
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed.creator_device_authority.verified_at =
+            changed.creator_device_authority.projection.expires_at;
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed
+            .creator_device_authority
+            .projection
+            .authorization_window
+            .expires_at = Some(changed.creator_device_authority.verified_at);
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed.canonical_proposal_bytes.push(0);
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed
+            .accepted_create
+            .authority_root
+            .current_assertion
+            .expires_at = changed.creator_device_authority.verified_at;
+        bad.push(changed);
+        let mut changed = evidence.clone();
+        changed.genesis_absence.visible_stream_heads.clear();
+        bad.push(changed);
+        let mut record = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        record
+            .accept_realm(accepted.clone(), absence_snapshot(&accepted))
+            .unwrap();
+        let original = record.clone();
+        for invalid in bad {
+            assert!(record.pin_governance(invalid).is_err());
+            assert_eq!(record, original);
+        }
+        let mut missing = device_query_fixture(&intent);
+        missing.device_keys.clear();
+        assert!(
+            MlsCreatorBootstrapDeviceAuthority::from_self_keys_query(
+                &intent,
+                &missing,
+                evidence.creator_device_authority.verified_at
+            )
+            .is_err()
+        );
     }
 
     #[test]

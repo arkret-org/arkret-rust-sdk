@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1331,
+    "total": 1333,
     "by_classification": {
       "A": 4,
       "B": 744,
-      "needs_review": 583
+      "needs_review": 585
     },
     "by_openness": {
       "closed": 748,
-      "unresolved": 582,
+      "unresolved": 584,
       "unspecified": 1
     },
     "by_crate": {
@@ -16,7 +16,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 769,
+      "models-collaboration": 771,
       "models-crypto": 161,
       "models-discovery": 15,
       "models-identity": 134,
@@ -7375,10 +7375,36 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapDeviceAuthority",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 285,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapDeviceAuthority",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapGovernanceEvidence",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 359,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapGovernanceEvidence",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapRecord",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 286,
+      "line": 438,
       "kind": "enum",
       "value_kind": "MlsCreatorBootstrapRecord",
       "spec_pointer": null,
