@@ -1083,6 +1083,7 @@ pub enum CurrentSelector {
     RealmAuthorityRoot,
     RealmProfile,
     RealmPolicyBundle,
+    RealmReadReceiptPolicy,
     RealmJoinRule,
     RealmHistoryAccess,
     RealmTombstone,
@@ -1269,6 +1270,7 @@ enum FlatCurrentSelector {
     RealmAuthorityRoot,
     RealmProfile,
     RealmPolicyBundle,
+    RealmReadReceiptPolicy,
     RealmJoinRule,
     RealmHistoryAccess,
     RealmTombstone,
@@ -1498,6 +1500,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_authority_root"
                 | "realm_profile"
                 | "realm_policy_bundle"
+                | "realm_read_receipt_policy"
                 | "realm_join_rule"
                 | "realm_history_access"
                 | "realm_tombstone"
@@ -1518,6 +1521,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_authority_root" => Self::RealmAuthorityRoot,
                     "realm_profile" => Self::RealmProfile,
                     "realm_policy_bundle" => Self::RealmPolicyBundle,
+                    "realm_read_receipt_policy" => Self::RealmReadReceiptPolicy,
                     "realm_join_rule" => Self::RealmJoinRule,
                     "realm_history_access" => Self::RealmHistoryAccess,
                     "realm_tombstone" => Self::RealmTombstone,
@@ -1556,6 +1560,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmAuthorityRoot => Self::RealmAuthorityRoot,
                     FlatCurrentSelector::RealmProfile => Self::RealmProfile,
                     FlatCurrentSelector::RealmPolicyBundle => Self::RealmPolicyBundle,
+                    FlatCurrentSelector::RealmReadReceiptPolicy => Self::RealmReadReceiptPolicy,
                     FlatCurrentSelector::RealmJoinRule => Self::RealmJoinRule,
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
@@ -2755,6 +2760,10 @@ mod tests {
             (CurrentSelector::RealmAuthorityRoot, "realm_authority_root"),
             (CurrentSelector::RealmProfile, "realm_profile"),
             (CurrentSelector::RealmPolicyBundle, "realm_policy_bundle"),
+            (
+                CurrentSelector::RealmReadReceiptPolicy,
+                "realm_read_receipt_policy",
+            ),
             (CurrentSelector::RealmJoinRule, "realm_join_rule"),
             (CurrentSelector::RealmHistoryAccess, "realm_history_access"),
             (CurrentSelector::RealmTombstone, "realm_tombstone"),
