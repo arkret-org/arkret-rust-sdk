@@ -669,6 +669,138 @@ impl MlsCreatorBootstrapAcceptedGenesis {
     }
 }
 
+/// A distinct accepted slot winner. The host authenticates its covering
+/// Commit, full authority chain and exact current cut before construction.
+/// This carrier never licenses adoption of the losing private state.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapWinner {
+    accepted: arkret_wire::CommittedEventFullView,
+    canonical_accepted_bytes: Vec<u8>,
+    accepted_bytes_digest: arkret_wire::Hash,
+    digest_suite: arkret_canonical::DigestSuite,
+    immutable_genesis_binding: MlsGovernanceBindingPayload,
+    authority_root: arkret_wire::RealmAuthorityBundle,
+}
+
+impl MlsCreatorBootstrapWinner {
+    pub fn new(
+        record: &MlsCreatorBootstrapRecord,
+        accepted: arkret_wire::CommittedEventFullView,
+        authority_root: arkret_wire::RealmAuthorityBundle,
+    ) -> Result<Self> {
+        let suite = record
+            .accepted_create()
+            .ok_or_else(|| {
+                WireError::Protocol("creator winner requires accepted scope create".into())
+            })?
+            .digest_suite();
+        let payload: crate::events_payloads::MlsGenesisPayload = serde_json::from_value(
+            serde_json::Value::Object(accepted.event.payload.clone().into_iter().collect()),
+        )
+        .map_err(|error| {
+            WireError::Protocol(format!("invalid winning Genesis payload: {error}"))
+        })?;
+        let bytes = arkret_canonical::canonical_json_bytes(&accepted.event)?;
+        let value = Self {
+            accepted_bytes_digest: arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+                suite, &bytes,
+            ))?,
+            canonical_accepted_bytes: bytes,
+            digest_suite: suite,
+            accepted,
+            immutable_genesis_binding: payload.governance_binding,
+            authority_root,
+        };
+        value.validate_binding(record)?;
+        Ok(value)
+    }
+    pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
+        let intent = record.intent();
+        let create = record.accepted_create().ok_or_else(|| {
+            WireError::Protocol("creator winner lost scope-create authority".into())
+        })?;
+        self.accepted.validate_shape()?;
+        self.authority_root.validate_shape()?;
+        self.accepted
+            .event
+            .verify_event_id_matches_content_with_digest_suite(self.digest_suite)?;
+        self.accepted
+            .event
+            .validate_proof_bindings_with_digest_suite(self.digest_suite)?;
+        let payload: crate::events_payloads::MlsGenesisPayload = serde_json::from_value(
+            serde_json::Value::Object(self.accepted.event.payload.clone().into_iter().collect()),
+        )
+        .map_err(|error| {
+            WireError::Protocol(format!("invalid winning Genesis payload: {error}"))
+        })?;
+        payload.validate()?;
+        let original = match record {
+            MlsCreatorBootstrapRecord::Superseded { loser_record, .. } => loser_record.as_ref(),
+            _ => record,
+        };
+        let producer = self.accepted.event.human_device_producer()?;
+        let endpoint_matches = match &payload.creator_leaf_authority.endpoint {
+            arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => {
+                producer.is_some_and(|producer| &producer.device_id == device_id)
+            }
+            arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+                verification_method,
+            } => {
+                producer.is_none()
+                    && self
+                        .accepted
+                        .event
+                        .producer_proof
+                        .as_ref()
+                        .is_some_and(|proof| &proof.verification_method == verification_method)
+            }
+        };
+        if self.digest_suite != create.digest_suite()
+            || self.accepted.event.producer_proof.is_none()
+            || !endpoint_matches
+            || !arkret_wire::generated::security_strings::MLS_CIPHERSUITES
+                .iter()
+                .any(|suite| {
+                    suite.canonical_id == payload.cipher_suite.as_str()
+                        && suite.status == "active"
+                        && suite.profile_gate.is_none()
+                })
+            || self.accepted.event.kind != EventKind::MlsGenesis
+            || &self.accepted.event.scope_ref != intent.effective_scope()
+            || self.accepted.commit.stream_ref
+                != arkret_wire::CommitStreamRef::from_scope(intent.effective_scope(), None)?
+            || &self.authority_root.realm_id != intent.effective_scope().realm_id()
+            || self.accepted.commit.governance_generation > self.authority_root.current_generation
+            || payload.governance_binding != self.immutable_genesis_binding
+            || self.immutable_genesis_binding.effective_scope() != intent.effective_scope()
+            || self.immutable_genesis_binding.mls_group_id()? != *intent.mls_group_id()
+            || payload.created_at != self.accepted.event.created_at
+            || self.canonical_accepted_bytes
+                != arkret_canonical::canonical_json_bytes(&self.accepted.event)?
+            || self.accepted_bytes_digest.as_str()
+                != arkret_canonical::canonical::digest(
+                    self.digest_suite,
+                    &self.canonical_accepted_bytes,
+                )
+            || original.queued_genesis().is_some_and(|queued| {
+                queued.signed_genesis().event_id() == &self.accepted.event.event_id
+            })
+        {
+            return Err(WireError::Protocol(
+                "creator winner is not a distinct exact-scope accepted Genesis".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn accepted(&self) -> &arkret_wire::CommittedEventFullView {
+        &self.accepted
+    }
+    pub fn immutable_genesis_binding(&self) -> &MlsGovernanceBindingPayload {
+        &self.immutable_genesis_binding
+    }
+}
+
 /// Complete observations made by restoring the original private MLS state.
 /// Hosts obtain these from the engine, never from a UI or an emitted flag.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -892,6 +1024,12 @@ pub enum MlsCreatorBootstrapRecord {
         artifacts: Box<MlsCreatorBootstrapArtifacts>,
         ready_receipt: Box<MlsCreatorBootstrapReadyReceipt>,
     },
+    Superseded {
+        intent: MlsCreatorBootstrapIntent,
+        winner: Box<MlsCreatorBootstrapWinner>,
+        loser_genesis: Option<(EventId, arkret_wire::Hash)>,
+        loser_record: Box<MlsCreatorBootstrapRecord>,
+    },
 }
 
 impl MlsCreatorBootstrapRecord {
@@ -909,7 +1047,8 @@ impl MlsCreatorBootstrapRecord {
             | Self::GenesisQueued { intent, .. }
             | Self::GenesisAccepted { intent, .. }
             | Self::ArtifactsConverged { intent, .. }
-            | Self::Ready { intent, .. } => intent,
+            | Self::Ready { intent, .. }
+            | Self::Superseded { intent, .. } => intent,
         }
     }
 
@@ -931,11 +1070,40 @@ impl MlsCreatorBootstrapRecord {
                 arkret_wire::MlsCreatorBootstrapState::ArtifactsConverged
             }
             Self::Ready { .. } => arkret_wire::MlsCreatorBootstrapState::Ready,
+            Self::Superseded { .. } => arkret_wire::MlsCreatorBootstrapState::Superseded,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
         self.intent().validate()?;
+        if let Self::Superseded {
+            intent,
+            winner,
+            loser_genesis,
+            loser_record,
+        } = self
+        {
+            loser_record.validate()?;
+            if intent != loser_record.intent()
+                || !loser_record
+                    .state()
+                    .allowed_exits()
+                    .contains(&arkret_wire::MlsCreatorBootstrapState::Superseded)
+                || *loser_genesis
+                    != loser_record.queued_genesis().map(|queued| {
+                        (
+                            queued.signed_genesis().event_id().clone(),
+                            queued.canonical_bytes_digest.clone(),
+                        )
+                    })
+            {
+                return Err(WireError::Protocol(
+                    "superseded creator changed its immutable loser or terminal diagnostics".into(),
+                ));
+            }
+            winner.validate_binding(loser_record)?;
+            return Ok(());
+        }
         if let Self::RealmAccepted {
             intent,
             accepted_create,
@@ -1015,6 +1183,74 @@ impl MlsCreatorBootstrapRecord {
         Ok(())
     }
 
+    pub fn accepted_create(&self) -> Option<&MlsCreatorBootstrapAcceptedCreate> {
+        match self {
+            Self::RealmAccepted {
+                accepted_create, ..
+            }
+            | Self::GovernanceResultPinned {
+                accepted_create, ..
+            }
+            | Self::Epoch0StatePersisted {
+                accepted_create, ..
+            }
+            | Self::GenesisQueued {
+                accepted_create, ..
+            }
+            | Self::GenesisAccepted {
+                accepted_create, ..
+            }
+            | Self::ArtifactsConverged {
+                accepted_create, ..
+            }
+            | Self::Ready {
+                accepted_create, ..
+            } => Some(accepted_create),
+            Self::Superseded { loser_record, .. } => loser_record.accepted_create(),
+            _ => None,
+        }
+    }
+    pub fn superseded_winner(&self) -> Option<&MlsCreatorBootstrapWinner> {
+        match self {
+            Self::Superseded { winner, .. } => Some(winner),
+            _ => None,
+        }
+    }
+    pub fn supersede(&mut self, winner: MlsCreatorBootstrapWinner) -> Result<()> {
+        if let Some(existing) = self.superseded_winner() {
+            return if existing == &winner {
+                self.validate()
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace terminal creator winner".into(),
+                ))
+            };
+        }
+        if !self
+            .state()
+            .allowed_exits()
+            .contains(&arkret_wire::MlsCreatorBootstrapState::Superseded)
+        {
+            return Err(WireError::Protocol(
+                "creator state has no registered superseded exit".into(),
+            ));
+        }
+        winner.validate_binding(self)?;
+        let next = Self::Superseded {
+            intent: self.intent().clone(),
+            loser_genesis: self.queued_genesis().map(|queued| {
+                (
+                    queued.signed_genesis().event_id().clone(),
+                    queued.canonical_bytes_digest.clone(),
+                )
+            }),
+            loser_record: Box::new(self.clone()),
+            winner: Box::new(winner),
+        };
+        next.validate()?;
+        *self = next;
+        Ok(())
+    }
     pub fn governance_evidence(&self) -> Option<&MlsCreatorBootstrapGovernanceEvidence> {
         match self {
             Self::GovernanceResultPinned {
@@ -2283,6 +2519,144 @@ mod tests {
         let mut changed = accepted;
         changed.canonical_accepted_bytes.push(0);
         assert!(changed.validate_binding(&intent, &queued).is_err());
+    }
+
+    #[test]
+    fn creator_distinct_winner_stops_the_original_attempt_without_adopting_its_private_unit() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let mut original = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        original
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        original.pin_governance(evidence).unwrap();
+        original.persist_epoch_zero(unit.clone()).unwrap();
+        original.queue_genesis(signed.clone()).unwrap();
+        // A distinct structural winner, not an authenticated Station fixture.
+        let mut foreign_unit = unit.clone();
+        let mut event = unit.unsigned_genesis().event().clone();
+        event.created_at += chrono::TimeDelta::milliseconds(1);
+        event.payload.insert(
+            "created_at".into(),
+            serde_json::Value::String(arkret_canonical::format_timestamp_canonical(
+                event.created_at,
+            )),
+        );
+        foreign_unit.unsigned_genesis =
+            arkret_wire::AuthoredEvent::finalize_with_digest_suite(event, signed.digest_suite())
+                .unwrap();
+        let foreign = sign_epoch_zero_fixture(&intent, &foreign_unit);
+        let mut commit = create.covering_commit().clone();
+        commit.stream_position += 1;
+        commit.previous_commit_ref = Some(create.covering_commit().commit_id.clone());
+        commit.event_ref = foreign.event_id().clone();
+        let row = arkret_wire::CommittedEventFullView {
+            event: foreign.event().clone(),
+            commit,
+        };
+        let winner =
+            MlsCreatorBootstrapWinner::new(&original, row.clone(), create.authority_root().clone())
+                .unwrap();
+        // The accepted slot is scope-wide, not restricted to the loser's Actor.
+        // Producer authentication and roster validation remain host obligations.
+        let mut other_event = row.event.clone();
+        other_event.actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        other_event.producer_proof = None;
+        let mut other_signed = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+            other_event,
+            signed.digest_suite(),
+        )
+        .unwrap();
+        let digest = Hash::new(
+            other_signed
+                .event_digest_with_digest_suite(signed.digest_suite())
+                .unwrap(),
+        )
+        .unwrap();
+        other_signed.attach_proof(ProducerEventProof {
+            kind: "detached_jws".into(),
+            verification_method: DidUrl::new(format!("did:web:bob.example#{DEVICE}")).unwrap(),
+            event_digest: digest.clone(),
+            created_at: other_signed.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: arkret_wire::test_support::structural_only_detached_jws(&digest),
+        });
+        let mut other_row = row.clone();
+        other_row.event = other_signed.event().clone();
+        other_row.commit.event_ref = other_signed.event_id().clone();
+        let other_winner =
+            MlsCreatorBootstrapWinner::new(&original, other_row, create.authority_root().clone())
+                .unwrap();
+        let mut other_terminal = original.clone();
+        other_terminal.supersede(other_winner).unwrap();
+        assert_eq!(other_terminal.intent(), &intent);
+        let mut terminal = original.clone();
+        terminal.supersede(winner.clone()).unwrap();
+        terminal.supersede(winner.clone()).unwrap();
+        assert_eq!(
+            terminal.state(),
+            arkret_wire::MlsCreatorBootstrapState::Superseded
+        );
+        assert_eq!(terminal.intent(), &intent);
+        assert!(terminal.epoch_zero().is_none());
+        assert!(terminal.queued_genesis().is_none());
+        assert!(terminal.accepted_genesis().is_none());
+        assert!(terminal.ready_receipt().is_none());
+        assert!(terminal.persist_epoch_zero(unit.clone()).is_err());
+        assert!(terminal.queue_genesis(signed.clone()).is_err());
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&terminal).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        let saved_record = &reopened;
+        if let MlsCreatorBootstrapRecord::Superseded {
+            loser_genesis,
+            loser_record,
+            ..
+        } = saved_record
+        {
+            assert_eq!(loser_record.as_ref(), &original);
+            assert_eq!(loser_record.epoch_zero(), Some(&unit));
+            assert_eq!(loser_genesis.as_ref().unwrap().0, *signed.event_id());
+        } else {
+            panic!("terminal state lost");
+        }
+        let mut different = winner.clone();
+        different.authority_root.bundle_issued_at += chrono::TimeDelta::milliseconds(1);
+        assert!(terminal.supersede(different).is_err());
+        assert_eq!(terminal, reopened);
+        let mut original_row = row.clone();
+        original_row.event = signed.event().clone();
+        original_row.commit.event_ref = signed.event_id().clone();
+        assert!(
+            MlsCreatorBootstrapWinner::new(
+                &original,
+                original_row.clone(),
+                create.authority_root().clone()
+            )
+            .is_err()
+        );
+        let accepted = MlsCreatorBootstrapAcceptedGenesis::new(
+            &intent,
+            original.queued_genesis().unwrap(),
+            original_row,
+            create.authority_root().clone(),
+        )
+        .unwrap();
+        original.accept_genesis(accepted).unwrap();
+        assert!(original.supersede(winner).is_err());
+        let mut changed = row;
+        changed.commit.event_ref = intent.scope_create_event_id().clone();
+        assert!(
+            MlsCreatorBootstrapWinner::new(&reopened, changed, create.authority_root().clone())
+                .is_err()
+        );
     }
 
     #[test]
