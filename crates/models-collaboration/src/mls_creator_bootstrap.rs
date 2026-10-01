@@ -669,6 +669,163 @@ impl MlsCreatorBootstrapAcceptedGenesis {
     }
 }
 
+/// Complete observations made by restoring the original private MLS state.
+/// Hosts obtain these from the engine, never from a UI or an emitted flag.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapArtifactChecks {
+    pub effective_scope: ScopeRef,
+    pub mls_group_id: MlsGroupId,
+    pub epoch: u64,
+    pub cipher_suite: String,
+    pub creator_leaf_authority: crate::events_payloads::MlsGenesisCreatorLeafAuthority,
+    pub group_info_bytes: Vec<u8>,
+    pub ratchet_tree_bytes: Vec<u8>,
+}
+
+/// One installed winning epoch, bound to the retained exact recovery unit.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapArtifacts {
+    accepted_artifact_ref: EventId,
+    private_state_binding: arkret_wire::Hash,
+    public_material_binding: (arkret_wire::BlobRef, arkret_wire::BlobRef),
+    consistency_checks: MlsCreatorBootstrapArtifactChecks,
+}
+
+impl MlsCreatorBootstrapArtifacts {
+    pub fn new(
+        record: &MlsCreatorBootstrapRecord,
+        checks: MlsCreatorBootstrapArtifactChecks,
+    ) -> Result<Self> {
+        let unit = record
+            .epoch_zero()
+            .ok_or_else(|| WireError::Protocol("creator artifact lost private unit".into()))?;
+        let accepted = record.accepted_genesis().ok_or_else(|| {
+            WireError::Protocol("creator artifact requires exact acceptance".into())
+        })?;
+        let payload = unit.payload()?;
+        let value = Self {
+            accepted_artifact_ref: accepted.accepted().event.event_id.clone(),
+            private_state_binding: arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+                unit.unsigned_genesis().digest_suite(),
+                unit.encrypted_private_state(),
+            ))?,
+            public_material_binding: (payload.group_info_ref, payload.ratchet_tree_ref),
+            consistency_checks: checks,
+        };
+        value.validate_binding(record)?;
+        Ok(value)
+    }
+    pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
+        let unit = record
+            .epoch_zero()
+            .ok_or_else(|| WireError::Protocol("creator artifact lost private unit".into()))?;
+        let accepted = record
+            .accepted_genesis()
+            .ok_or_else(|| WireError::Protocol("creator artifact lost exact acceptance".into()))?;
+        let payload = unit.payload()?;
+        let checks = &self.consistency_checks;
+        if self.accepted_artifact_ref != accepted.accepted().event.event_id
+            || self.private_state_binding.as_str()
+                != arkret_canonical::canonical::digest(
+                    unit.unsigned_genesis().digest_suite(),
+                    unit.encrypted_private_state(),
+                )
+            || self.public_material_binding != (payload.group_info_ref, payload.ratchet_tree_ref)
+            || &checks.effective_scope != record.intent().effective_scope()
+            || &checks.mls_group_id != record.intent().mls_group_id()
+            || checks.epoch != 0
+            || checks.cipher_suite != payload.cipher_suite.as_str()
+            || checks.creator_leaf_authority != payload.creator_leaf_authority
+            || checks.group_info_bytes != unit.group_info_bytes()
+            || checks.ratchet_tree_bytes != unit.ratchet_tree_bytes()
+        {
+            return Err(WireError::Protocol(
+                "creator accepted artifact differs from its private/public winning epoch".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn accepted_artifact_ref(&self) -> &EventId {
+        &self.accepted_artifact_ref
+    }
+}
+
+/// Local terminal receipt; its position names the atomic vault commit that
+/// publishes both this receipt and the send-gate index. It has no wire weight.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapReadyReceipt {
+    owner_actor_id: ActorId,
+    effective_scope: ScopeRef,
+    operation: MlsCreatorBootstrapOperation,
+    accepted_genesis_event_id: EventId,
+    accepted_genesis_digest: arkret_wire::Hash,
+    immutable_genesis_binding: MlsGovernanceBindingPayload,
+    accepted_artifact_ref: EventId,
+    ready_commit_position: u64,
+}
+
+impl MlsCreatorBootstrapReadyReceipt {
+    pub fn new(record: &MlsCreatorBootstrapRecord, ready_commit_position: u64) -> Result<Self> {
+        let accepted = record
+            .accepted_genesis()
+            .ok_or_else(|| WireError::Protocol("creator readiness lost exact acceptance".into()))?;
+        let artifacts = record.artifacts().ok_or_else(|| {
+            WireError::Protocol("creator readiness lost installed artifacts".into())
+        })?;
+        let value = Self {
+            owner_actor_id: record.intent().owner_actor_id().clone(),
+            effective_scope: record.intent().effective_scope().clone(),
+            operation: MlsCreatorBootstrapOperation::MlsGenesis,
+            accepted_genesis_event_id: accepted.accepted().event.event_id.clone(),
+            accepted_genesis_digest: accepted.accepted_bytes_digest().clone(),
+            immutable_genesis_binding: record
+                .intent()
+                .proposal()
+                .proposed_group_genesis_binding()
+                .clone(),
+            accepted_artifact_ref: artifacts.accepted_artifact_ref().clone(),
+            ready_commit_position,
+        };
+        value.validate_binding(record)?;
+        Ok(value)
+    }
+    pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
+        let accepted = record
+            .accepted_genesis()
+            .ok_or_else(|| WireError::Protocol("creator readiness lost acceptance".into()))?;
+        let artifacts = record
+            .artifacts()
+            .ok_or_else(|| WireError::Protocol("creator readiness lost artifacts".into()))?;
+        artifacts.validate_binding(record)?;
+        if &self.owner_actor_id != record.intent().owner_actor_id()
+            || &self.effective_scope != record.intent().effective_scope()
+            || self.accepted_genesis_event_id != accepted.accepted().event.event_id
+            || self.accepted_genesis_digest != *accepted.accepted_bytes_digest()
+            || &self.immutable_genesis_binding
+                != record.intent().proposal().proposed_group_genesis_binding()
+            || &self.accepted_artifact_ref != artifacts.accepted_artifact_ref()
+            || self.ready_commit_position == 0
+        {
+            return Err(WireError::Protocol(
+                "creator readiness receipt changed its winning epoch or commit position".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn effective_scope(&self) -> &ScopeRef {
+        &self.effective_scope
+    }
+    pub fn accepted_genesis_event_id(&self) -> &EventId {
+        &self.accepted_genesis_event_id
+    }
+    pub fn ready_commit_position(&self) -> u64 {
+        self.ready_commit_position
+    }
+}
+
 /// Durable prefix of the normative creator transaction. Unsupported later
 /// states are deliberately not deserializable until their recovery units are
 /// implemented. Hosts authenticate evidence before committing a transition;
@@ -714,6 +871,27 @@ pub enum MlsCreatorBootstrapRecord {
         queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
         accepted_genesis: Box<MlsCreatorBootstrapAcceptedGenesis>,
     },
+    ArtifactsConverged {
+        intent: MlsCreatorBootstrapIntent,
+        accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+        genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
+        governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
+        epoch_zero: Box<MlsCreatorBootstrapEpochZero>,
+        queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
+        accepted_genesis: Box<MlsCreatorBootstrapAcceptedGenesis>,
+        artifacts: Box<MlsCreatorBootstrapArtifacts>,
+    },
+    Ready {
+        intent: MlsCreatorBootstrapIntent,
+        accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+        genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
+        governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
+        epoch_zero: Box<MlsCreatorBootstrapEpochZero>,
+        queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
+        accepted_genesis: Box<MlsCreatorBootstrapAcceptedGenesis>,
+        artifacts: Box<MlsCreatorBootstrapArtifacts>,
+        ready_receipt: Box<MlsCreatorBootstrapReadyReceipt>,
+    },
 }
 
 impl MlsCreatorBootstrapRecord {
@@ -729,7 +907,9 @@ impl MlsCreatorBootstrapRecord {
             | Self::GovernanceResultPinned { intent, .. }
             | Self::Epoch0StatePersisted { intent, .. }
             | Self::GenesisQueued { intent, .. }
-            | Self::GenesisAccepted { intent, .. } => intent,
+            | Self::GenesisAccepted { intent, .. }
+            | Self::ArtifactsConverged { intent, .. }
+            | Self::Ready { intent, .. } => intent,
         }
     }
 
@@ -747,6 +927,10 @@ impl MlsCreatorBootstrapRecord {
             }
             Self::GenesisQueued { .. } => arkret_wire::MlsCreatorBootstrapState::GenesisQueued,
             Self::GenesisAccepted { .. } => arkret_wire::MlsCreatorBootstrapState::GenesisAccepted,
+            Self::ArtifactsConverged { .. } => {
+                arkret_wire::MlsCreatorBootstrapState::ArtifactsConverged
+            }
+            Self::Ready { .. } => arkret_wire::MlsCreatorBootstrapState::Ready,
         }
     }
 
@@ -776,6 +960,18 @@ impl MlsCreatorBootstrapRecord {
             ..
         }
         | Self::GenesisAccepted {
+            intent,
+            accepted_create,
+            genesis_absence,
+            ..
+        }
+        | Self::ArtifactsConverged {
+            intent,
+            accepted_create,
+            genesis_absence,
+            ..
+        }
+        | Self::Ready {
             intent,
             accepted_create,
             genesis_absence,
@@ -810,6 +1006,12 @@ impl MlsCreatorBootstrapRecord {
                 })?,
             )?;
         }
+        if let Some(artifacts) = self.artifacts() {
+            artifacts.validate_binding(self)?;
+        }
+        if let Some(receipt) = self.ready_receipt() {
+            receipt.validate_binding(self)?;
+        }
         Ok(())
     }
 
@@ -830,6 +1032,14 @@ impl MlsCreatorBootstrapRecord {
             | Self::GenesisAccepted {
                 governance_evidence,
                 ..
+            }
+            | Self::ArtifactsConverged {
+                governance_evidence,
+                ..
+            }
+            | Self::Ready {
+                governance_evidence,
+                ..
             } => Some(governance_evidence),
             _ => None,
         }
@@ -839,14 +1049,18 @@ impl MlsCreatorBootstrapRecord {
         match self {
             Self::Epoch0StatePersisted { epoch_zero, .. }
             | Self::GenesisQueued { epoch_zero, .. }
-            | Self::GenesisAccepted { epoch_zero, .. } => Some(epoch_zero),
+            | Self::GenesisAccepted { epoch_zero, .. }
+            | Self::ArtifactsConverged { epoch_zero, .. }
+            | Self::Ready { epoch_zero, .. } => Some(epoch_zero),
             _ => None,
         }
     }
     pub fn queued_genesis(&self) -> Option<&MlsCreatorBootstrapQueuedGenesis> {
         match self {
             Self::GenesisQueued { queued_genesis, .. }
-            | Self::GenesisAccepted { queued_genesis, .. } => Some(queued_genesis),
+            | Self::GenesisAccepted { queued_genesis, .. }
+            | Self::ArtifactsConverged { queued_genesis, .. }
+            | Self::Ready { queued_genesis, .. } => Some(queued_genesis),
             _ => None,
         }
     }
@@ -854,9 +1068,121 @@ impl MlsCreatorBootstrapRecord {
         match self {
             Self::GenesisAccepted {
                 accepted_genesis, ..
+            }
+            | Self::ArtifactsConverged {
+                accepted_genesis, ..
+            }
+            | Self::Ready {
+                accepted_genesis, ..
             } => Some(accepted_genesis),
             _ => None,
         }
+    }
+    pub fn artifacts(&self) -> Option<&MlsCreatorBootstrapArtifacts> {
+        match self {
+            Self::ArtifactsConverged { artifacts, .. } | Self::Ready { artifacts, .. } => {
+                Some(artifacts)
+            }
+            _ => None,
+        }
+    }
+    pub fn ready_receipt(&self) -> Option<&MlsCreatorBootstrapReadyReceipt> {
+        match self {
+            Self::Ready { ready_receipt, .. } => Some(ready_receipt),
+            _ => None,
+        }
+    }
+    pub fn converge_artifacts(&mut self, artifacts: MlsCreatorBootstrapArtifacts) -> Result<()> {
+        artifacts.validate_binding(self)?;
+        if let Some(existing) = self.artifacts() {
+            return if existing == &artifacts {
+                Ok(())
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace installed creator artifacts".into(),
+                ))
+            };
+        }
+        let Self::GenesisAccepted {
+            intent,
+            accepted_create,
+            genesis_absence,
+            governance_evidence,
+            epoch_zero,
+            queued_genesis,
+            accepted_genesis,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "creator artifact install requires exact accepted Genesis".into(),
+            ));
+        };
+        let next = Self::ArtifactsConverged {
+            intent: intent.clone(),
+            accepted_create: accepted_create.clone(),
+            genesis_absence: genesis_absence.clone(),
+            governance_evidence: governance_evidence.clone(),
+            epoch_zero: epoch_zero.clone(),
+            queued_genesis: queued_genesis.clone(),
+            accepted_genesis: accepted_genesis.clone(),
+            artifacts: Box::new(artifacts),
+        };
+        let arrow = arkret_wire::MlsCreatorBootstrapTransition::GenesisAcceptedToArtifactsConverged;
+        if Some(self.state()) != arrow.from_state() || next.state() != arrow.to_state() {
+            return Err(WireError::Protocol(
+                "invalid registered creator artifact arrow".into(),
+            ));
+        }
+        next.validate()?;
+        *self = next;
+        Ok(())
+    }
+    pub fn publish_ready(&mut self, ready_receipt: MlsCreatorBootstrapReadyReceipt) -> Result<()> {
+        ready_receipt.validate_binding(self)?;
+        if let Some(existing) = self.ready_receipt() {
+            return if existing == &ready_receipt {
+                Ok(())
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace creator ready receipt".into(),
+                ))
+            };
+        }
+        let Self::ArtifactsConverged {
+            intent,
+            accepted_create,
+            genesis_absence,
+            governance_evidence,
+            epoch_zero,
+            queued_genesis,
+            accepted_genesis,
+            artifacts,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "creator readiness requires durable artifacts".into(),
+            ));
+        };
+        let next = Self::Ready {
+            intent: intent.clone(),
+            accepted_create: accepted_create.clone(),
+            genesis_absence: genesis_absence.clone(),
+            governance_evidence: governance_evidence.clone(),
+            epoch_zero: epoch_zero.clone(),
+            queued_genesis: queued_genesis.clone(),
+            accepted_genesis: accepted_genesis.clone(),
+            artifacts: artifacts.clone(),
+            ready_receipt: Box::new(ready_receipt),
+        };
+        let arrow = arkret_wire::MlsCreatorBootstrapTransition::ArtifactsConvergedToReady;
+        if Some(self.state()) != arrow.from_state() || next.state() != arrow.to_state() {
+            return Err(WireError::Protocol(
+                "invalid registered creator ready arrow".into(),
+            ));
+        }
+        next.validate()?;
+        *self = next;
+        Ok(())
     }
     pub fn accept_genesis(&mut self, accepted: MlsCreatorBootstrapAcceptedGenesis) -> Result<()> {
         if let Some(existing) = self.accepted_genesis() {
@@ -1957,6 +2283,112 @@ mod tests {
         let mut changed = accepted;
         changed.canonical_accepted_bytes.push(0);
         assert!(changed.validate_binding(&intent, &queued).is_err());
+    }
+
+    #[test]
+    fn creator_artifact_and_ready_receipt_bind_the_whole_original_winning_epoch() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let queued = MlsCreatorBootstrapQueuedGenesis::new(&intent, &unit, signed.clone()).unwrap();
+        let mut commit = create.covering_commit().clone();
+        commit.stream_position += 1;
+        commit.previous_commit_ref = Some(create.covering_commit().commit_id.clone());
+        commit.event_ref = signed.event_id().clone();
+        let accepted = MlsCreatorBootstrapAcceptedGenesis::new(
+            &intent,
+            &queued,
+            arkret_wire::CommittedEventFullView {
+                event: signed.event().clone(),
+                commit,
+            },
+            create.authority_root().clone(),
+        )
+        .unwrap();
+        let mut record = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        record
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        record.pin_governance(evidence).unwrap();
+        record.persist_epoch_zero(unit.clone()).unwrap();
+        record.queue_genesis(signed).unwrap();
+        let payload = unit.payload().unwrap();
+        let checks = MlsCreatorBootstrapArtifactChecks {
+            effective_scope: intent.effective_scope().clone(),
+            mls_group_id: intent.mls_group_id().clone(),
+            epoch: 0,
+            cipher_suite: payload.cipher_suite.to_string(),
+            creator_leaf_authority: payload.creator_leaf_authority,
+            group_info_bytes: unit.group_info_bytes().to_vec(),
+            ratchet_tree_bytes: unit.ratchet_tree_bytes().to_vec(),
+        };
+        assert!(MlsCreatorBootstrapArtifacts::new(&record, checks.clone()).is_err());
+        record.accept_genesis(accepted).unwrap();
+        assert!(MlsCreatorBootstrapReadyReceipt::new(&record, 1).is_err());
+        let artifacts = MlsCreatorBootstrapArtifacts::new(&record, checks.clone()).unwrap();
+        for field in ["epoch", "scope", "suite", "leaf", "info", "tree"] {
+            let mut bad = checks.clone();
+            match field {
+                "epoch" => bad.epoch = 1,
+                "scope" => {
+                    bad.effective_scope = ScopeRef::Realm {
+                        realm_id: arkret_wire::RealmId::from_event_id(
+                            intent.scope_create_event_id(),
+                        ),
+                    }
+                }
+                "suite" => bad.cipher_suite.push('x'),
+                "leaf" => {
+                    bad.creator_leaf_authority.authorization_event_ref =
+                        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [43; 32])
+                }
+                "info" => bad.group_info_bytes.push(0),
+                _ => bad.ratchet_tree_bytes.clear(),
+            }
+            if field == "scope" {
+                bad.effective_scope = ScopeRef::Realm {
+                    realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [42; 32],
+                    )),
+                };
+            }
+            assert!(
+                MlsCreatorBootstrapArtifacts::new(&record, bad).is_err(),
+                "{field}"
+            );
+        }
+        record.converge_artifacts(artifacts.clone()).unwrap();
+        record.converge_artifacts(artifacts.clone()).unwrap();
+        assert!(MlsCreatorBootstrapReadyReceipt::new(&record, 0).is_err());
+        let receipt = MlsCreatorBootstrapReadyReceipt::new(&record, 7).unwrap();
+        record.publish_ready(receipt.clone()).unwrap();
+        let frozen = record.clone();
+        record.publish_ready(receipt.clone()).unwrap();
+        let mut changed = receipt;
+        changed.ready_commit_position += 1;
+        assert!(record.publish_ready(changed).is_err());
+        assert_eq!(record, frozen);
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        assert_eq!(
+            reopened.state(),
+            arkret_wire::MlsCreatorBootstrapState::Ready
+        );
+        assert_eq!(reopened.epoch_zero(), Some(&unit));
+        let mut bad = artifacts;
+        bad.private_state_binding = arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+            arkret_canonical::DigestSuite::Sha256,
+            b"different",
+        ))
+        .unwrap();
+        assert!(record.converge_artifacts(bad).is_err());
+        let mut changed = serde_json::to_value(&reopened).unwrap();
+        changed["artifacts"]["consistency_checks"]["epoch"] = serde_json::json!(1);
+        let changed: MlsCreatorBootstrapRecord = serde_json::from_value(changed).unwrap();
+        assert!(changed.validate().is_err());
     }
 
     #[test]

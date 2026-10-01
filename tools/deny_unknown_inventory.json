@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1336,
+    "total": 1339,
     "by_classification": {
       "A": 4,
       "B": 744,
-      "needs_review": 588
+      "needs_review": 591
     },
     "by_openness": {
       "closed": 748,
-      "unresolved": 587,
+      "unresolved": 590,
       "unspecified": 1
     },
     "by_crate": {
@@ -16,7 +16,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 774,
+      "models-collaboration": 777,
       "models-crypto": 161,
       "models-discovery": 15,
       "models-identity": 134,
@@ -7440,10 +7440,49 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapArtifactChecks",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 675,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapArtifactChecks",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapArtifacts",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 688,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapArtifacts",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapReadyReceipt",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 758,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapReadyReceipt",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapRecord",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 677,
+      "line": 834,
       "kind": "enum",
       "value_kind": "MlsCreatorBootstrapRecord",
       "spec_pointer": null,
