@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1340,
+    "total": 1342,
     "by_classification": {
       "A": 4,
       "B": 744,
-      "needs_review": 592
+      "needs_review": 594
     },
     "by_openness": {
       "closed": 748,
-      "unresolved": 591,
+      "unresolved": 593,
       "unspecified": 1
     },
     "by_crate": {
@@ -16,7 +16,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 778,
+      "models-collaboration": 780,
       "models-crypto": 161,
       "models-discovery": 15,
       "models-identity": 134,
@@ -7456,7 +7456,7 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapArtifactChecks",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 807,
+      "line": 811,
       "kind": "struct",
       "value_kind": "MlsCreatorBootstrapArtifactChecks",
       "spec_pointer": null,
@@ -7469,7 +7469,7 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapArtifacts",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 820,
+      "line": 824,
       "kind": "struct",
       "value_kind": "MlsCreatorBootstrapArtifacts",
       "spec_pointer": null,
@@ -7482,9 +7482,35 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapReadyReceipt",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 890,
+      "line": 894,
       "kind": "struct",
       "value_kind": "MlsCreatorBootstrapReadyReceipt",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapVerifiedAbsence",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 968,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapVerifiedAbsence",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapRejection",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "line": 1012,
+      "kind": "struct",
+      "value_kind": "MlsCreatorBootstrapRejection",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -7495,7 +7521,7 @@
       "rust_type": "crates/models-collaboration/src/mls_creator_bootstrap.rs::MlsCreatorBootstrapRecord",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
-      "line": 966,
+      "line": 1193,
       "kind": "enum",
       "value_kind": "MlsCreatorBootstrapRecord",
       "spec_pointer": null,

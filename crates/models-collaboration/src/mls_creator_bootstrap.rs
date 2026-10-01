@@ -783,9 +783,13 @@ impl MlsCreatorBootstrapWinner {
                     self.digest_suite,
                     &self.canonical_accepted_bytes,
                 )
-            || original.queued_genesis().is_some_and(|queued| {
+            || original.diagnostic_queued_genesis().is_some_and(|queued| {
                 queued.signed_genesis().event_id() == &self.accepted.event.event_id
             })
+            || record
+                .closed_attempts()
+                .iter()
+                .any(|closed| closed.event_id() == &self.accepted.event.event_id)
         {
             return Err(WireError::Protocol(
                 "creator winner is not a distinct exact-scope accepted Genesis".into(),
@@ -958,6 +962,229 @@ impl MlsCreatorBootstrapReadyReceipt {
     }
 }
 
+/// An independently authenticated exact absence decision. Hosts verify the
+/// current authority and snapshot signatures before constructing this carrier.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapVerifiedAbsence {
+    accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
+    current_snapshot: Box<arkret_wire::RealmStateSnapshot>,
+}
+
+impl MlsCreatorBootstrapVerifiedAbsence {
+    pub fn new(
+        intent: &MlsCreatorBootstrapIntent,
+        accepted_create: MlsCreatorBootstrapAcceptedCreate,
+        current_snapshot: arkret_wire::RealmStateSnapshot,
+    ) -> Result<Self> {
+        let value = Self {
+            accepted_create: Box::new(accepted_create),
+            current_snapshot: Box::new(current_snapshot),
+        };
+        value.validate_binding(intent)?;
+        Ok(value)
+    }
+    pub fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        self.accepted_create.validate_binding(intent)?;
+        validate_creator_genesis_absence_snapshot(
+            intent,
+            &self.accepted_create,
+            &self.current_snapshot,
+        )
+    }
+    pub fn accepted_create(&self) -> &MlsCreatorBootstrapAcceptedCreate {
+        &self.accepted_create
+    }
+    pub fn current_snapshot(&self) -> &arkret_wire::RealmStateSnapshot {
+        &self.current_snapshot
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsCreatorBootstrapRejectionStage {
+    AuthoritySubmit,
+}
+
+/// The terminal diagnostic doubles as the closed-attempt tombstone. It keeps
+/// the original reason rather than a UI error or a locally synthesized refusal.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapRejection {
+    intent: MlsCreatorBootstrapIntent,
+    event_id: EventId,
+    canonical_bytes_digest: arkret_wire::Hash,
+    signed_genesis: Box<arkret_wire::AuthoredEvent>,
+    reason_code: String,
+    stage: MlsCreatorBootstrapRejectionStage,
+    last_verified: MlsCreatorBootstrapVerifiedAbsence,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    authority_problem: Option<Box<arkret_wire::Problem>>,
+}
+
+impl MlsCreatorBootstrapRejection {
+    pub fn new(
+        record: &MlsCreatorBootstrapRecord,
+        reason_code: String,
+        last_verified: MlsCreatorBootstrapVerifiedAbsence,
+    ) -> Result<Self> {
+        let queued = record.queued_genesis().ok_or_else(|| {
+            WireError::Protocol("creator rejection requires the exact signed original".into())
+        })?;
+        let value = Self {
+            intent: record.intent().clone(),
+            event_id: queued.signed_genesis().event_id().clone(),
+            canonical_bytes_digest: queued.canonical_bytes_digest.clone(),
+            signed_genesis: Box::new(queued.signed_genesis().clone()),
+            reason_code,
+            stage: MlsCreatorBootstrapRejectionStage::AuthoritySubmit,
+            last_verified,
+            authority_problem: None,
+        };
+        value.validate_original(record)?;
+        Ok(value)
+    }
+    /// Only a definite Event-admission refusal closes this attempt. Session,
+    /// availability, routing and HTTP precondition failures do not qualify.
+    pub fn terminal_problem_reason(problem: &arkret_wire::Problem) -> Option<&str> {
+        let admitted = matches!(
+            problem.code(),
+            "capability_denied"
+                | "device_revoked"
+                | "device_revocation_pending"
+                | "device_generation_fenced"
+                | "device_unauthorized"
+                | "signature_invalid"
+                | "schema_violation"
+                | "digest_mismatch"
+                | "event_id_digest_mismatch"
+                | "duplicate_conflict"
+                | "failed_precondition"
+                | "unsupported_event_kind"
+        );
+        if !admitted || !matches!(problem.status, 400 | 403 | 409 | 422) {
+            return None;
+        }
+        Some(
+            problem
+                .extensions
+                .get("reason_code")
+                .and_then(serde_json::Value::as_str)
+                .filter(|reason| arkret_wire::ReasonCode::is_registered(reason))
+                .unwrap_or_else(|| problem.code()),
+        )
+    }
+    pub fn from_problem(
+        record: &MlsCreatorBootstrapRecord,
+        problem: arkret_wire::Problem,
+        last_verified: MlsCreatorBootstrapVerifiedAbsence,
+    ) -> Result<Self> {
+        let reason = Self::terminal_problem_reason(&problem).ok_or_else(|| {
+            WireError::Protocol("authority Problem is not a definite Genesis rejection".into())
+        })?;
+        let mut value = Self::new(record, reason.to_owned(), last_verified)?;
+        value.authority_problem = Some(Box::new(problem));
+        value.validate_original(record)?;
+        Ok(value)
+    }
+    pub fn authority_problem(&self) -> Option<&arkret_wire::Problem> {
+        self.authority_problem.as_deref()
+    }
+    fn validate_tombstone(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        self.last_verified.validate_binding(intent)?;
+        self.signed_genesis.verify_identity()?;
+        let event = self.signed_genesis.event();
+        event.validate_proof_bindings_with_digest_suite(self.signed_genesis.digest_suite())?;
+        if self.signed_genesis.event_id() != &self.event_id
+            || event.kind != EventKind::MlsGenesis
+            || &event.actor_id != intent.owner_actor_id()
+            || &event.scope_ref != intent.effective_scope()
+            || event
+                .producer_proof
+                .as_ref()
+                .is_none_or(|proof| &proof.verification_method != intent.creator_signer_method())
+            || self.canonical_bytes_digest.as_str()
+                != arkret_canonical::canonical::digest(
+                    self.signed_genesis.digest_suite(),
+                    &arkret_canonical::canonical_json_bytes(event)?,
+                )
+        {
+            return Err(WireError::Protocol(
+                "creator rejection changed its original signed evidence".into(),
+            ));
+        }
+        if self.authority_problem.as_deref().is_some_and(|problem| {
+            Self::terminal_problem_reason(problem) != Some(self.reason_code.as_str())
+        }) {
+            return Err(WireError::Protocol(
+                "creator rejection changed its authority Problem".into(),
+            ));
+        }
+        if &self.intent != intent
+            || self.reason_code.is_empty()
+            || self.canonical_bytes_digest.digest_suite()?
+                != self.last_verified.accepted_create.digest_suite()
+            || self.event_id.digest_suite_code().digest_suite()
+                != self.last_verified.accepted_create.digest_suite()
+        {
+            return Err(WireError::Protocol(
+                "creator rejection lost its original diagnostic".into(),
+            ));
+        }
+        Ok(())
+    }
+    fn validate_original(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
+        self.validate_tombstone(record.intent())?;
+        let queued = record.queued_genesis().ok_or_else(|| {
+            WireError::Protocol("creator rejection lost its exact signed original".into())
+        })?;
+        if &self.event_id != queued.signed_genesis().event_id()
+            || self.canonical_bytes_digest != queued.canonical_bytes_digest
+            || self.signed_genesis.as_ref() != queued.signed_genesis()
+        {
+            return Err(WireError::Protocol(
+                "creator rejection changed the rejected bytes".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Retain public signed evidence after erasing a closed attempt's private
+    /// unit, so a host can identify its derived unaccepted epoch-zero cache.
+    pub fn matches_epoch_zero_public_material(
+        &self,
+        group_info: &[u8],
+        tree: &[u8],
+    ) -> Result<bool> {
+        self.validate_tombstone(&self.intent)?;
+        let payload: crate::events_payloads::MlsGenesisPayload =
+            serde_json::from_value(serde_json::Value::Object(
+                self.signed_genesis
+                    .event()
+                    .payload
+                    .clone()
+                    .into_iter()
+                    .collect(),
+            ))?;
+        payload.validate()?;
+        let matches = |reference: &arkret_wire::BlobRef, bytes: &[u8]| -> Result<bool> {
+            let digest = crate::mls_group_state_material::material_digest_from_ref(reference)?;
+            Ok(digest.as_str()
+                == arkret_canonical::canonical::digest(digest.digest_suite()?, bytes))
+        };
+        Ok(matches(&payload.group_info_ref, group_info)?
+            && matches(&payload.ratchet_tree_ref, tree)?)
+    }
+    pub fn event_id(&self) -> &EventId {
+        &self.event_id
+    }
+    pub fn canonical_bytes_digest(&self) -> &arkret_wire::Hash {
+        &self.canonical_bytes_digest
+    }
+    pub fn reason_code(&self) -> &str {
+        &self.reason_code
+    }
+}
+
 /// Durable prefix of the normative creator transaction. Unsupported later
 /// states are deliberately not deserializable until their recovery units are
 /// implemented. Hosts authenticate evidence before committing a transition;
@@ -966,28 +1193,38 @@ impl MlsCreatorBootstrapReadyReceipt {
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MlsCreatorBootstrapRecord {
     GenesisIntentPersisted {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
     },
     RealmAccepted {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
     },
     GovernanceResultPinned {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
     },
     Epoch0StatePersisted {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
         epoch_zero: Box<MlsCreatorBootstrapEpochZero>,
     },
     GenesisQueued {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
@@ -995,7 +1232,9 @@ pub enum MlsCreatorBootstrapRecord {
         queued_genesis: Box<MlsCreatorBootstrapQueuedGenesis>,
     },
     GenesisAccepted {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
@@ -1004,7 +1243,9 @@ pub enum MlsCreatorBootstrapRecord {
         accepted_genesis: Box<MlsCreatorBootstrapAcceptedGenesis>,
     },
     ArtifactsConverged {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
@@ -1014,7 +1255,9 @@ pub enum MlsCreatorBootstrapRecord {
         artifacts: Box<MlsCreatorBootstrapArtifacts>,
     },
     Ready {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        closed_attempts: Vec<MlsCreatorBootstrapRejection>,
         accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
         genesis_absence: Box<arkret_wire::RealmStateSnapshot>,
         governance_evidence: Box<MlsCreatorBootstrapGovernanceEvidence>,
@@ -1024,8 +1267,13 @@ pub enum MlsCreatorBootstrapRecord {
         artifacts: Box<MlsCreatorBootstrapArtifacts>,
         ready_receipt: Box<MlsCreatorBootstrapReadyReceipt>,
     },
+    Rejected {
+        intent: Box<MlsCreatorBootstrapIntent>,
+        rejection: Box<MlsCreatorBootstrapRejection>,
+        rejected_record: Box<MlsCreatorBootstrapRecord>,
+    },
     Superseded {
-        intent: MlsCreatorBootstrapIntent,
+        intent: Box<MlsCreatorBootstrapIntent>,
         winner: Box<MlsCreatorBootstrapWinner>,
         loser_genesis: Option<(EventId, arkret_wire::Hash)>,
         loser_record: Box<MlsCreatorBootstrapRecord>,
@@ -1035,12 +1283,15 @@ pub enum MlsCreatorBootstrapRecord {
 impl MlsCreatorBootstrapRecord {
     pub fn new(intent: MlsCreatorBootstrapIntent) -> Result<Self> {
         intent.validate()?;
-        Ok(Self::GenesisIntentPersisted { intent })
+        Ok(Self::GenesisIntentPersisted {
+            intent: Box::new(intent),
+            closed_attempts: Vec::new(),
+        })
     }
 
     pub fn intent(&self) -> &MlsCreatorBootstrapIntent {
         match self {
-            Self::GenesisIntentPersisted { intent }
+            Self::GenesisIntentPersisted { intent, .. }
             | Self::RealmAccepted { intent, .. }
             | Self::GovernanceResultPinned { intent, .. }
             | Self::Epoch0StatePersisted { intent, .. }
@@ -1048,6 +1299,7 @@ impl MlsCreatorBootstrapRecord {
             | Self::GenesisAccepted { intent, .. }
             | Self::ArtifactsConverged { intent, .. }
             | Self::Ready { intent, .. }
+            | Self::Rejected { intent, .. }
             | Self::Superseded { intent, .. } => intent,
         }
     }
@@ -1070,12 +1322,58 @@ impl MlsCreatorBootstrapRecord {
                 arkret_wire::MlsCreatorBootstrapState::ArtifactsConverged
             }
             Self::Ready { .. } => arkret_wire::MlsCreatorBootstrapState::Ready,
+            Self::Rejected { .. } => arkret_wire::MlsCreatorBootstrapState::Rejected,
             Self::Superseded { .. } => arkret_wire::MlsCreatorBootstrapState::Superseded,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
         self.intent().validate()?;
+        if self.state() == arkret_wire::MlsCreatorBootstrapState::GenesisIntentPersisted
+            && !self.closed_attempts().is_empty()
+        {
+            return Err(WireError::Protocol(
+                "a closed creator attempt cannot reopen at intent persistence".into(),
+            ));
+        }
+        let mut closed_ids = std::collections::BTreeSet::new();
+        for closed in self.closed_attempts() {
+            closed.validate_tombstone(self.intent())?;
+            if !closed_ids.insert(closed.event_id()) {
+                return Err(WireError::Protocol(
+                    "creator attempt tombstone was duplicated".into(),
+                ));
+            }
+        }
+        if self
+            .diagnostic_queued_genesis()
+            .is_some_and(|queued| closed_ids.contains(queued.signed_genesis().event_id()))
+        {
+            return Err(WireError::Protocol(
+                "creator cannot reopen rejected signed bytes".into(),
+            ));
+        }
+        if let Self::Rejected {
+            intent,
+            rejection,
+            rejected_record,
+        } = self
+        {
+            rejected_record.validate()?;
+            if intent.as_ref() != rejected_record.intent()
+                || rejected_record.state() != arkret_wire::MlsCreatorBootstrapState::GenesisQueued
+                || !rejected_record
+                    .state()
+                    .allowed_exits()
+                    .contains(&arkret_wire::MlsCreatorBootstrapState::Rejected)
+            {
+                return Err(WireError::Protocol(
+                    "creator rejection changed the original attempt".into(),
+                ));
+            }
+            rejection.validate_original(rejected_record)?;
+            return Ok(());
+        }
         if let Self::Superseded {
             intent,
             winner,
@@ -1084,13 +1382,13 @@ impl MlsCreatorBootstrapRecord {
         } = self
         {
             loser_record.validate()?;
-            if intent != loser_record.intent()
+            if intent.as_ref() != loser_record.intent()
                 || !loser_record
                     .state()
                     .allowed_exits()
                     .contains(&arkret_wire::MlsCreatorBootstrapState::Superseded)
                 || *loser_genesis
-                    != loser_record.queued_genesis().map(|queued| {
+                    != loser_record.diagnostic_queued_genesis().map(|queued| {
                         (
                             queued.signed_genesis().event_id().clone(),
                             queued.canonical_bytes_digest.clone(),
@@ -1108,6 +1406,7 @@ impl MlsCreatorBootstrapRecord {
             intent,
             accepted_create,
             genesis_absence,
+            ..
         }
         | Self::GovernanceResultPinned {
             intent,
@@ -1207,8 +1506,121 @@ impl MlsCreatorBootstrapRecord {
                 accepted_create, ..
             } => Some(accepted_create),
             Self::Superseded { loser_record, .. } => loser_record.accepted_create(),
+            Self::Rejected {
+                rejected_record, ..
+            } => rejected_record.accepted_create(),
             _ => None,
         }
+    }
+    pub fn closed_attempts(&self) -> &[MlsCreatorBootstrapRejection] {
+        match self {
+            Self::GenesisIntentPersisted {
+                closed_attempts, ..
+            }
+            | Self::RealmAccepted {
+                closed_attempts, ..
+            }
+            | Self::GovernanceResultPinned {
+                closed_attempts, ..
+            }
+            | Self::Epoch0StatePersisted {
+                closed_attempts, ..
+            }
+            | Self::GenesisQueued {
+                closed_attempts, ..
+            }
+            | Self::GenesisAccepted {
+                closed_attempts, ..
+            }
+            | Self::ArtifactsConverged {
+                closed_attempts, ..
+            }
+            | Self::Ready {
+                closed_attempts, ..
+            } => closed_attempts,
+            Self::Superseded { loser_record, .. } => loser_record.closed_attempts(),
+            Self::Rejected {
+                rejected_record, ..
+            } => rejected_record.closed_attempts(),
+        }
+    }
+    fn diagnostic_queued_genesis(&self) -> Option<&MlsCreatorBootstrapQueuedGenesis> {
+        match self {
+            Self::Rejected {
+                rejected_record, ..
+            } => rejected_record.diagnostic_queued_genesis(),
+            Self::Superseded { loser_record, .. } => loser_record.diagnostic_queued_genesis(),
+            _ => self.queued_genesis(),
+        }
+    }
+    pub fn rejection(&self) -> Option<&MlsCreatorBootstrapRejection> {
+        match self {
+            Self::Rejected { rejection, .. } => Some(rejection),
+            _ => None,
+        }
+    }
+    pub fn reject(&mut self, rejection: MlsCreatorBootstrapRejection) -> Result<()> {
+        if let Some(existing) = self.rejection() {
+            return if existing == &rejection {
+                self.validate()
+            } else {
+                Err(WireError::Protocol(
+                    "cannot replace the original creator rejection".into(),
+                ))
+            };
+        }
+        rejection.validate_original(self)?;
+        let next = Self::Rejected {
+            intent: Box::new(self.intent().clone()),
+            rejection: Box::new(rejection),
+            rejected_record: Box::new(self.clone()),
+        };
+        next.validate()?;
+        *self = next;
+        Ok(())
+    }
+    /// Close the old attempt and carry its tombstone into the next generation
+    /// under the same key. Hosts commit this whole replacement atomically.
+    pub fn reopen_rejected(&mut self, absence: MlsCreatorBootstrapVerifiedAbsence) -> Result<()> {
+        self.validate()?;
+        let Self::Rejected {
+            intent,
+            rejection,
+            rejected_record,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "only a rejected creator attempt may reopen".into(),
+            ));
+        };
+        absence.validate_binding(intent)?;
+        if absence
+            .accepted_create
+            .authority_root()
+            .current_assertion
+            .nonce
+            == rejection
+                .last_verified
+                .accepted_create
+                .authority_root()
+                .current_assertion
+                .nonce
+        {
+            return Err(WireError::Protocol(
+                "reopening requires a new independently verified absence query".into(),
+            ));
+        }
+        let mut closed_attempts = rejected_record.closed_attempts().to_vec();
+        closed_attempts.push((**rejection).clone());
+        let next = Self::RealmAccepted {
+            intent: intent.clone(),
+            closed_attempts,
+            accepted_create: absence.accepted_create,
+            genesis_absence: absence.current_snapshot,
+        };
+        next.validate()?;
+        *self = next;
+        Ok(())
     }
     pub fn superseded_winner(&self) -> Option<&MlsCreatorBootstrapWinner> {
         match self {
@@ -1237,8 +1649,8 @@ impl MlsCreatorBootstrapRecord {
         }
         winner.validate_binding(self)?;
         let next = Self::Superseded {
-            intent: self.intent().clone(),
-            loser_genesis: self.queued_genesis().map(|queued| {
+            intent: Box::new(self.intent().clone()),
+            loser_genesis: self.diagnostic_queued_genesis().map(|queued| {
                 (
                     queued.signed_genesis().event_id().clone(),
                     queued.canonical_bytes_digest.clone(),
@@ -1341,6 +1753,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::GenesisAccepted {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
             governance_evidence,
@@ -1355,6 +1768,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::ArtifactsConverged {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: governance_evidence.clone(),
@@ -1386,6 +1800,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::ArtifactsConverged {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
             governance_evidence,
@@ -1401,6 +1816,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::Ready {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: governance_evidence.clone(),
@@ -1432,6 +1848,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::GenesisQueued {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
             governance_evidence,
@@ -1445,6 +1862,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::GenesisAccepted {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: governance_evidence.clone(),
@@ -1474,6 +1892,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::GovernanceResultPinned {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
             governance_evidence,
@@ -1485,6 +1904,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::Epoch0StatePersisted {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: governance_evidence.clone(),
@@ -1516,6 +1936,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::Epoch0StatePersisted {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
             governance_evidence,
@@ -1528,6 +1949,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::GenesisQueued {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: governance_evidence.clone(),
@@ -1561,6 +1983,7 @@ impl MlsCreatorBootstrapRecord {
         }
         let Self::RealmAccepted {
             intent,
+            closed_attempts,
             accepted_create,
             genesis_absence,
         } = self
@@ -1571,6 +1994,7 @@ impl MlsCreatorBootstrapRecord {
         };
         let next = Self::GovernanceResultPinned {
             intent: intent.clone(),
+            closed_attempts: closed_attempts.clone(),
             accepted_create: accepted_create.clone(),
             genesis_absence: genesis_absence.clone(),
             governance_evidence: Box::new(evidence),
@@ -1595,7 +2019,8 @@ impl MlsCreatorBootstrapRecord {
         genesis_absence: arkret_wire::RealmStateSnapshot,
     ) -> Result<()> {
         let next = Self::RealmAccepted {
-            intent: self.intent().clone(),
+            intent: Box::new(self.intent().clone()),
+            closed_attempts: self.closed_attempts().to_vec(),
             accepted_create: Box::new(accepted_create),
             genesis_absence: Box::new(genesis_absence),
         };
@@ -2519,6 +2944,154 @@ mod tests {
         let mut changed = accepted;
         changed.canonical_accepted_bytes.push(0);
         assert!(changed.validate_binding(&intent, &queued).is_err());
+    }
+
+    #[test]
+    fn creator_terminal_rejection_reopens_only_from_a_new_verified_absence_and_keeps_tombstones() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let mut original = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        original
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        original.pin_governance(evidence).unwrap();
+        original.persist_epoch_zero(unit.clone()).unwrap();
+        original.queue_genesis(signed.clone()).unwrap();
+        let last_verified = MlsCreatorBootstrapVerifiedAbsence::new(
+            &intent,
+            create.clone(),
+            absence_snapshot(&create),
+        )
+        .unwrap();
+        assert!(
+            MlsCreatorBootstrapRejection::new(&original, String::new(), last_verified.clone())
+                .is_err()
+        );
+        for (code, status) in [
+            ("failed_precondition", 412),
+            ("unauthorized", 401),
+            ("not_found", 404),
+            ("rate_limited", 429),
+            ("internal_error", 500),
+            ("failed_precondition", 503),
+        ] {
+            assert!(
+                MlsCreatorBootstrapRejection::from_problem(
+                    &original,
+                    arkret_wire::Problem::new(code, status, "not a definite admission decision"),
+                    last_verified.clone()
+                )
+                .is_err()
+            );
+        }
+        let problem = arkret_wire::Problem::new("failed_precondition", 409, "admission refused")
+            .with_extension(
+                "reason_code",
+                serde_json::json!("governance_binding_mismatch"),
+            );
+        let rejection = MlsCreatorBootstrapRejection::from_problem(
+            &original,
+            problem.clone(),
+            last_verified.clone(),
+        )
+        .unwrap();
+        assert_eq!(rejection.reason_code(), "governance_binding_mismatch");
+        assert_eq!(rejection.authority_problem(), Some(&problem));
+        let irreversible =
+            arkret_wire::Problem::new("failed_precondition", 409, "already accepted")
+                .with_extension(
+                    "reason_code",
+                    serde_json::json!("mls_activation_irreversible"),
+                );
+        assert_eq!(
+            MlsCreatorBootstrapRejection::terminal_problem_reason(&irreversible),
+            Some("mls_activation_irreversible")
+        );
+        assert_eq!(
+            MlsCreatorBootstrapRejection::terminal_problem_reason(&arkret_wire::Problem::new(
+                "digest_mismatch",
+                400,
+                "Genesis public material digest mismatch"
+            )),
+            Some("digest_mismatch")
+        );
+        let rejection = MlsCreatorBootstrapRejection::new(
+            &original,
+            "capability_denied".into(),
+            last_verified.clone(),
+        )
+        .unwrap();
+        let mut record = original.clone();
+        record.reject(rejection.clone()).unwrap();
+        record.reject(rejection.clone()).unwrap();
+        assert_eq!(
+            record.state(),
+            arkret_wire::MlsCreatorBootstrapState::Rejected
+        );
+        assert_eq!(record.rejection().unwrap().event_id(), signed.event_id());
+        assert_eq!(
+            record.rejection().unwrap().reason_code(),
+            "capability_denied"
+        );
+        assert!(record.epoch_zero().is_none());
+        assert!(record.queued_genesis().is_none());
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        assert!(record.reopen_rejected(last_verified.clone()).is_err());
+        assert_eq!(record, reopened);
+        let mut changed = rejection.clone();
+        changed.reason_code = "different_reason".into();
+        assert!(record.reject(changed).is_err());
+        assert_eq!(record, reopened);
+        let mut fresh_create = create.clone();
+        fresh_create.authority_root.current_assertion.nonce =
+            arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap();
+        let fresh = MlsCreatorBootstrapVerifiedAbsence::new(
+            &intent,
+            fresh_create.clone(),
+            absence_snapshot(&fresh_create),
+        )
+        .unwrap();
+        let mut incomplete = fresh.clone();
+        incomplete.current_snapshot.visible_stream_heads.clear();
+        assert!(record.reopen_rejected(incomplete).is_err());
+        assert_eq!(record, reopened);
+        record.reopen_rejected(fresh).unwrap();
+        assert_eq!(
+            record.state(),
+            arkret_wire::MlsCreatorBootstrapState::RealmAccepted
+        );
+        assert_eq!(record.intent(), &intent);
+        assert_eq!(record.closed_attempts(), &[rejection]);
+        assert!(
+            record.closed_attempts()[0]
+                .matches_epoch_zero_public_material(
+                    unit.group_info_bytes(),
+                    unit.ratchet_tree_bytes()
+                )
+                .unwrap()
+        );
+        assert!(
+            !record.closed_attempts()[0]
+                .matches_epoch_zero_public_material(
+                    b"unrelated public bytes",
+                    unit.ratchet_tree_bytes()
+                )
+                .unwrap()
+        );
+        assert!(record.epoch_zero().is_none());
+        assert!(record.queued_genesis().is_none());
+        record
+            .pin_governance(pinned_fixture(&intent, &fresh_create))
+            .unwrap();
+        record.persist_epoch_zero(unit).unwrap();
+        let before = record.clone();
+        assert!(record.queue_genesis(signed).is_err());
+        assert_eq!(record, before);
+        assert_eq!(record.closed_attempts().len(), 1);
     }
 
     #[test]
