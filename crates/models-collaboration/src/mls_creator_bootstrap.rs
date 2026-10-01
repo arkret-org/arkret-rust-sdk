@@ -695,6 +695,17 @@ impl MlsCreatorBootstrapWinner {
                 WireError::Protocol("creator winner requires accepted scope create".into())
             })?
             .digest_suite();
+        let value = Self::from_accepted(record.intent(), suite, accepted, authority_root)?;
+        value.validate_binding(record)?;
+        Ok(value)
+    }
+
+    fn from_accepted(
+        intent: &MlsCreatorBootstrapIntent,
+        suite: arkret_canonical::DigestSuite,
+        accepted: arkret_wire::CommittedEventFullView,
+        authority_root: arkret_wire::RealmAuthorityBundle,
+    ) -> Result<Self> {
         let payload: crate::events_payloads::MlsGenesisPayload = serde_json::from_value(
             serde_json::Value::Object(accepted.event.payload.clone().into_iter().collect()),
         )
@@ -712,14 +723,14 @@ impl MlsCreatorBootstrapWinner {
             immutable_genesis_binding: payload.governance_binding,
             authority_root,
         };
-        value.validate_binding(record)?;
+        value.validate_scope_binding(intent, suite)?;
         Ok(value)
     }
-    pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
-        let intent = record.intent();
-        let create = record.accepted_create().ok_or_else(|| {
-            WireError::Protocol("creator winner lost scope-create authority".into())
-        })?;
+    fn validate_scope_binding(
+        &self,
+        intent: &MlsCreatorBootstrapIntent,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
         self.accepted.validate_shape()?;
         self.authority_root.validate_shape()?;
         self.accepted
@@ -735,10 +746,6 @@ impl MlsCreatorBootstrapWinner {
             WireError::Protocol(format!("invalid winning Genesis payload: {error}"))
         })?;
         payload.validate()?;
-        let original = match record {
-            MlsCreatorBootstrapRecord::Superseded { loser_record, .. } => loser_record.as_ref(),
-            _ => record,
-        };
         let producer = self.accepted.event.human_device_producer()?;
         let endpoint_matches = match &payload.creator_leaf_authority.endpoint {
             arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => {
@@ -756,7 +763,7 @@ impl MlsCreatorBootstrapWinner {
                         .is_some_and(|proof| &proof.verification_method == verification_method)
             }
         };
-        if self.digest_suite != create.digest_suite()
+        if self.digest_suite != suite
             || self.accepted.event.producer_proof.is_none()
             || !endpoint_matches
             || !arkret_wire::generated::security_strings::MLS_CIPHERSUITES
@@ -783,13 +790,31 @@ impl MlsCreatorBootstrapWinner {
                     self.digest_suite,
                     &self.canonical_accepted_bytes,
                 )
-            || original.diagnostic_queued_genesis().is_some_and(|queued| {
-                queued.signed_genesis().event_id() == &self.accepted.event.event_id
-            })
-            || record
-                .closed_attempts()
-                .iter()
-                .any(|closed| closed.event_id() == &self.accepted.event.event_id)
+        {
+            return Err(WireError::Protocol(
+                "creator winner is not a distinct exact-scope accepted Genesis".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
+        let suite = record
+            .accepted_create()
+            .ok_or_else(|| {
+                WireError::Protocol("creator winner lost scope-create authority".into())
+            })?
+            .digest_suite();
+        self.validate_scope_binding(record.intent(), suite)?;
+        let original = match record {
+            MlsCreatorBootstrapRecord::Superseded { loser_record, .. } => loser_record.as_ref(),
+            _ => record,
+        };
+        if original.diagnostic_queued_genesis().is_some_and(|queued| {
+            queued.signed_genesis().event_id() == &self.accepted.event.event_id
+        }) || record
+            .closed_attempts()
+            .iter()
+            .any(|closed| closed.event_id() == &self.accepted.event.event_id)
         {
             return Err(WireError::Protocol(
                 "creator winner is not a distinct exact-scope accepted Genesis".into(),
@@ -1185,9 +1210,227 @@ impl MlsCreatorBootstrapRejection {
     }
 }
 
-/// Durable prefix of the normative creator transaction. Unsupported later
-/// states are deliberately not deserializable until their recovery units are
-/// implemented. Hosts authenticate evidence before committing a transition;
+/// The local invariant that stopped an authenticated creator recovery unit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsCreatorBootstrapInvariant {
+    RecordBinding,
+    QueueBinding,
+    PrivateMaterial,
+    PublicMaterial,
+    SignedBytes,
+    AcceptedResult,
+    ReadyIndex,
+}
+
+impl MlsCreatorBootstrapInvariant {
+    pub const fn reason_code(self) -> &'static str {
+        match self {
+            Self::RecordBinding => "creator_record_binding_mismatch",
+            Self::QueueBinding => "creator_queue_binding_mismatch",
+            Self::PrivateMaterial => "creator_private_material_mismatch",
+            Self::PublicMaterial => "creator_public_material_mismatch",
+            Self::SignedBytes => "creator_signed_bytes_mismatch",
+            Self::AcceptedResult => "creator_accepted_result_mismatch",
+            Self::ReadyIndex => "creator_ready_index_mismatch",
+        }
+    }
+}
+
+/// Exact accepted evidence already verified by the host, retained only for
+/// quarantine diagnosis. Neither branch permits a private install or send.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MlsCreatorBootstrapKnownGenesis {
+    Original {
+        acceptance: Box<MlsCreatorBootstrapAcceptedGenesis>,
+    },
+    Winner {
+        winner: Box<MlsCreatorBootstrapWinner>,
+    },
+}
+
+impl MlsCreatorBootstrapKnownGenesis {
+    /// Hosts independently authenticate this accepted row and authority root.
+    /// A closed/original Event is retained as a contradiction, never adopted.
+    pub fn authenticated_winner(
+        record: &MlsCreatorBootstrapRecord,
+        accepted: arkret_wire::CommittedEventFullView,
+        authority_root: arkret_wire::RealmAuthorityBundle,
+    ) -> Result<Self> {
+        let suite = record
+            .accepted_create()
+            .ok_or_else(|| {
+                WireError::Protocol("known creator winner lost scope-create authority".into())
+            })?
+            .digest_suite();
+        Ok(Self::Winner {
+            winner: Box::new(MlsCreatorBootstrapWinner::from_accepted(
+                record.intent(),
+                suite,
+                accepted,
+                authority_root,
+            )?),
+        })
+    }
+}
+
+/// A local terminal diagnostic, retaining the authenticated original even if
+/// its corrupt recovery unit cannot deserialize into the active record DTO.
+/// Hosts authenticate the vault and independently verify any known winner.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsCreatorBootstrapQuarantine {
+    last_state: arkret_wire::MlsCreatorBootstrapState,
+    invariant: MlsCreatorBootstrapInvariant,
+    invariant_detail: String,
+    event_id: Option<EventId>,
+    canonical_bytes_digest: Option<arkret_wire::Hash>,
+    outbound_queue_item_id: Option<EventId>,
+    accepted_winner: Option<Box<MlsCreatorBootstrapKnownGenesis>>,
+    reason_code: String,
+    detected_at: chrono::DateTime<chrono::Utc>,
+    recovery_record: Box<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    related_recovery_records: Vec<serde_json::Value>,
+    recovery_queue_items: Vec<serde_json::Value>,
+}
+
+impl MlsCreatorBootstrapQuarantine {
+    fn original_attempt(mut raw: &serde_json::Value) -> &serde_json::Value {
+        while let Some(inner) = raw
+            .get("rejected_record")
+            .or_else(|| raw.get("loser_record"))
+        {
+            raw = inner;
+        }
+        raw
+    }
+    fn signed_coordinates(
+        raw: &serde_json::Value,
+    ) -> (Option<EventId>, Option<arkret_wire::Hash>, Option<EventId>) {
+        let queued = Self::original_attempt(raw).get("queued_genesis");
+        let typed = |value: Option<&serde_json::Value>| {
+            value
+                .cloned()
+                .and_then(|value| serde_json::from_value::<EventId>(value).ok())
+        };
+        (
+            typed(queued.and_then(|queued| queued.pointer("/signed_genesis/event/event_id"))),
+            queued
+                .and_then(|queued| queued.get("canonical_bytes_digest"))
+                .cloned()
+                .and_then(|value| serde_json::from_value(value).ok()),
+            typed(queued.and_then(|queued| queued.get("outbound_queue_item_id"))),
+        )
+    }
+    fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
+        let original_intent: MlsCreatorBootstrapIntent =
+            serde_json::from_value(self.recovery_record.get("intent").cloned().ok_or_else(
+                || WireError::Protocol("quarantine lost its original intent".into()),
+            )?)?;
+        let coordinates = Self::signed_coordinates(&self.recovery_record);
+        if &original_intent != intent
+            || self
+                .recovery_record
+                .get("state")
+                .and_then(serde_json::Value::as_str)
+                != Some(self.last_state.as_str())
+            || self.last_state.failure_disposition()
+                != arkret_wire::MlsCreatorBootstrapFailureDisposition::Quarantined
+            || self.invariant_detail.trim().is_empty()
+            || self.reason_code != self.invariant.reason_code()
+            || self.detected_at != arkret_canonical::normalize_timestamp_canonical(self.detected_at)
+            || (
+                &self.event_id,
+                &self.canonical_bytes_digest,
+                &self.outbound_queue_item_id,
+            ) != (&coordinates.0, &coordinates.1, &coordinates.2)
+        {
+            return Err(WireError::Protocol(
+                "creator quarantine changed its original diagnostic or logical key".into(),
+            ));
+        }
+        for raw in &self.related_recovery_records {
+            let related: MlsCreatorBootstrapIntent = serde_json::from_value(
+                raw.get("intent")
+                    .cloned()
+                    .ok_or_else(|| WireError::Protocol("related recovery lost intent".into()))?,
+            )?;
+            related.validate()?;
+            let state = raw
+                .get("state")
+                .and_then(serde_json::Value::as_str)
+                .and_then(arkret_wire::MlsCreatorBootstrapState::from_wire)
+                .ok_or_else(|| {
+                    WireError::Protocol("related recovery lost its last state".into())
+                })?;
+            if related.owner_actor_id() != intent.owner_actor_id()
+                || related.effective_scope() != intent.effective_scope()
+                || state.failure_disposition()
+                    != arkret_wire::MlsCreatorBootstrapFailureDisposition::Quarantined
+            {
+                return Err(WireError::Protocol(
+                    "related quarantine material changed its logical key or terminal state".into(),
+                ));
+            }
+        }
+        if let Some(known) = &self.accepted_winner {
+            match known.as_ref() {
+                MlsCreatorBootstrapKnownGenesis::Original { acceptance } => {
+                    let queued: MlsCreatorBootstrapQueuedGenesis = serde_json::from_value(
+                        Self::original_attempt(&self.recovery_record)
+                            .get("queued_genesis")
+                            .cloned()
+                            .ok_or_else(|| {
+                                WireError::Protocol(
+                                    "quarantine accepted original lost its signed bytes".into(),
+                                )
+                            })?,
+                    )?;
+                    acceptance.validate_binding(intent, &queued)?;
+                }
+                MlsCreatorBootstrapKnownGenesis::Winner { winner } => {
+                    winner.validate_scope_binding(
+                        intent,
+                        intent
+                            .scope_create_event_id()
+                            .digest_suite_code()
+                            .digest_suite(),
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn last_state(&self) -> arkret_wire::MlsCreatorBootstrapState {
+        self.last_state
+    }
+    pub fn invariant(&self) -> MlsCreatorBootstrapInvariant {
+        self.invariant
+    }
+    pub fn event_id(&self) -> Option<&EventId> {
+        self.event_id.as_ref()
+    }
+    pub fn outbound_queue_item_id(&self) -> Option<&EventId> {
+        self.outbound_queue_item_id.as_ref()
+    }
+    pub fn recovery_record(&self) -> &serde_json::Value {
+        &self.recovery_record
+    }
+    pub fn related_recovery_records(&self) -> &[serde_json::Value] {
+        &self.related_recovery_records
+    }
+    pub fn recovery_queue_items(&self) -> &[serde_json::Value] {
+        &self.recovery_queue_items
+    }
+    pub fn accepted_winner(&self) -> Option<&MlsCreatorBootstrapKnownGenesis> {
+        self.accepted_winner.as_deref()
+    }
+}
+
+/// Durable recovery units of the normative creator transaction.
+/// Hosts authenticate evidence before committing a transition;
 /// the checks here bind the saved bytes, not their signatures.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
@@ -1278,6 +1521,10 @@ pub enum MlsCreatorBootstrapRecord {
         loser_genesis: Option<(EventId, arkret_wire::Hash)>,
         loser_record: Box<MlsCreatorBootstrapRecord>,
     },
+    Quarantined {
+        intent: Box<MlsCreatorBootstrapIntent>,
+        diagnostic: Box<MlsCreatorBootstrapQuarantine>,
+    },
 }
 
 impl MlsCreatorBootstrapRecord {
@@ -1300,7 +1547,8 @@ impl MlsCreatorBootstrapRecord {
             | Self::ArtifactsConverged { intent, .. }
             | Self::Ready { intent, .. }
             | Self::Rejected { intent, .. }
-            | Self::Superseded { intent, .. } => intent,
+            | Self::Superseded { intent, .. }
+            | Self::Quarantined { intent, .. } => intent,
         }
     }
 
@@ -1324,11 +1572,15 @@ impl MlsCreatorBootstrapRecord {
             Self::Ready { .. } => arkret_wire::MlsCreatorBootstrapState::Ready,
             Self::Rejected { .. } => arkret_wire::MlsCreatorBootstrapState::Rejected,
             Self::Superseded { .. } => arkret_wire::MlsCreatorBootstrapState::Superseded,
+            Self::Quarantined { .. } => arkret_wire::MlsCreatorBootstrapState::Quarantined,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
         self.intent().validate()?;
+        if let Self::Quarantined { diagnostic, .. } = self {
+            return diagnostic.validate_binding(self.intent());
+        }
         if self.state() == arkret_wire::MlsCreatorBootstrapState::GenesisIntentPersisted
             && !self.closed_attempts().is_empty()
         {
@@ -1482,6 +1734,87 @@ impl MlsCreatorBootstrapRecord {
         Ok(())
     }
 
+    /// Convert only an authenticated local record with a valid immutable
+    /// intent. This is not a repair: all active getters become unavailable and
+    /// the entire original recovery material remains inside the protected vault.
+    pub fn quarantine_authenticated_record(
+        recovery_record: serde_json::Value,
+        recovery_queue_items: Vec<serde_json::Value>,
+        invariant: MlsCreatorBootstrapInvariant,
+        invariant_detail: String,
+        accepted_winner: Option<MlsCreatorBootstrapKnownGenesis>,
+        detected_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Self> {
+        Self::quarantine_authenticated_records(
+            vec![recovery_record],
+            recovery_queue_items,
+            invariant,
+            invariant_detail,
+            accepted_winner,
+            detected_at,
+        )
+    }
+
+    /// Collapse conflicting authenticated records for one logical key while
+    /// retaining every original. Terminal diagnostics cannot be amended.
+    pub fn quarantine_authenticated_records(
+        mut recovery_records: Vec<serde_json::Value>,
+        recovery_queue_items: Vec<serde_json::Value>,
+        invariant: MlsCreatorBootstrapInvariant,
+        invariant_detail: String,
+        accepted_winner: Option<MlsCreatorBootstrapKnownGenesis>,
+        detected_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Self> {
+        if recovery_records.is_empty() {
+            return Err(WireError::Protocol(
+                "quarantine requires original recovery material".into(),
+            ));
+        }
+        let recovery_record = recovery_records.remove(0);
+        let intent: MlsCreatorBootstrapIntent =
+            serde_json::from_value(recovery_record.get("intent").cloned().ok_or_else(|| {
+                WireError::Protocol(
+                    "cannot quarantine a record without its authenticated intent".into(),
+                )
+            })?)?;
+        intent.validate()?;
+        let last_state = recovery_record
+            .get("state")
+            .and_then(serde_json::Value::as_str)
+            .and_then(arkret_wire::MlsCreatorBootstrapState::from_wire)
+            .ok_or_else(|| {
+                WireError::Protocol("cannot quarantine an unknown creator state".into())
+            })?;
+        let (event_id, canonical_bytes_digest, outbound_queue_item_id) =
+            MlsCreatorBootstrapQuarantine::signed_coordinates(&recovery_record);
+        let diagnostic = MlsCreatorBootstrapQuarantine {
+            last_state,
+            invariant,
+            invariant_detail,
+            event_id,
+            canonical_bytes_digest,
+            outbound_queue_item_id,
+            accepted_winner: accepted_winner.map(Box::new),
+            reason_code: invariant.reason_code().to_owned(),
+            detected_at: arkret_canonical::normalize_timestamp_canonical(detected_at),
+            recovery_record: Box::new(recovery_record),
+            related_recovery_records: recovery_records,
+            recovery_queue_items,
+        };
+        let next = Self::Quarantined {
+            intent: Box::new(intent),
+            diagnostic: Box::new(diagnostic),
+        };
+        next.validate()?;
+        Ok(next)
+    }
+    pub fn quarantine_diagnostic(&self) -> Option<&MlsCreatorBootstrapQuarantine> {
+        match self {
+            Self::Quarantined { diagnostic, .. } => Some(diagnostic),
+            _ => None,
+        }
+    }
+
     pub fn accepted_create(&self) -> Option<&MlsCreatorBootstrapAcceptedCreate> {
         match self {
             Self::RealmAccepted {
@@ -1542,6 +1875,7 @@ impl MlsCreatorBootstrapRecord {
             Self::Rejected {
                 rejected_record, ..
             } => rejected_record.closed_attempts(),
+            Self::Quarantined { .. } => &[],
         }
     }
     fn diagnostic_queued_genesis(&self) -> Option<&MlsCreatorBootstrapQueuedGenesis> {
@@ -3037,6 +3371,49 @@ mod tests {
         );
         assert!(record.epoch_zero().is_none());
         assert!(record.queued_genesis().is_none());
+        let mut contradiction_commit = create.covering_commit().clone();
+        contradiction_commit.stream_position += 1;
+        contradiction_commit.previous_commit_ref = Some(create.covering_commit().commit_id.clone());
+        contradiction_commit.event_ref = signed.event_id().clone();
+        let contradiction = arkret_wire::CommittedEventFullView {
+            event: signed.event().clone(),
+            commit: contradiction_commit,
+        };
+        assert!(
+            MlsCreatorBootstrapWinner::new(
+                &record,
+                contradiction.clone(),
+                create.authority_root().clone()
+            )
+            .is_err()
+        );
+        let known = MlsCreatorBootstrapKnownGenesis::authenticated_winner(
+            &record,
+            contradiction.clone(),
+            create.authority_root().clone(),
+        )
+        .unwrap();
+        let quarantined = MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+            serde_json::to_value(&record).unwrap(),
+            vec![],
+            MlsCreatorBootstrapInvariant::AcceptedResult,
+            "definitely rejected original is independently proved accepted".into(),
+            Some(known.clone()),
+            create.authority_root().bundle_issued_at,
+        )
+        .unwrap();
+        assert_eq!(
+            quarantined.quarantine_diagnostic().unwrap().last_state(),
+            arkret_wire::MlsCreatorBootstrapState::Rejected
+        );
+        assert_eq!(
+            quarantined
+                .quarantine_diagnostic()
+                .unwrap()
+                .accepted_winner(),
+            Some(&known)
+        );
+        assert!(quarantined.epoch_zero().is_none());
         let reopened: MlsCreatorBootstrapRecord =
             serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
         reopened.validate().unwrap();
@@ -3060,6 +3437,33 @@ mod tests {
         assert!(record.reopen_rejected(incomplete).is_err());
         assert_eq!(record, reopened);
         record.reopen_rejected(fresh).unwrap();
+        assert!(
+            MlsCreatorBootstrapWinner::new(
+                &record,
+                contradiction.clone(),
+                create.authority_root().clone()
+            )
+            .is_err()
+        );
+        let known = MlsCreatorBootstrapKnownGenesis::authenticated_winner(
+            &record,
+            contradiction,
+            create.authority_root().clone(),
+        )
+        .unwrap();
+        let quarantined = MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+            serde_json::to_value(&record).unwrap(),
+            vec![],
+            MlsCreatorBootstrapInvariant::AcceptedResult,
+            "closed original is independently proved accepted".into(),
+            Some(known),
+            create.authority_root().bundle_issued_at,
+        )
+        .unwrap();
+        assert_eq!(
+            quarantined.quarantine_diagnostic().unwrap().last_state(),
+            arkret_wire::MlsCreatorBootstrapState::RealmAccepted
+        );
         assert_eq!(
             record.state(),
             arkret_wire::MlsCreatorBootstrapState::RealmAccepted
@@ -3233,6 +3637,148 @@ mod tests {
     }
 
     #[test]
+    fn creator_quarantine_retains_undecodable_recovery_material_without_an_active_exit() {
+        let (intent, create) = accepted_create(false);
+        let evidence = pinned_fixture(&intent, &create);
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let mut original = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        original
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        original.pin_governance(evidence).unwrap();
+        original.persist_epoch_zero(unit).unwrap();
+        original.queue_genesis(signed.clone()).unwrap();
+        let mut raw = serde_json::to_value(&original).unwrap();
+        raw["epoch_zero"]["encrypted_private_state"] =
+            serde_json::json!({"damaged_bytes": [1, 2, 3]});
+        assert!(serde_json::from_value::<MlsCreatorBootstrapRecord>(raw.clone()).is_err());
+        // Opaque local queue corruption is retained, never accepted as sendable.
+        let queues = vec![serde_json::json!({"undecodable_queue_bytes": [7, 8, 9]})];
+        let mut quarantined = MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+            raw.clone(),
+            queues.clone(),
+            MlsCreatorBootstrapInvariant::PrivateMaterial,
+            "undecodable encrypted_private_state".into(),
+            None,
+            create.authority_root().bundle_issued_at,
+        )
+        .unwrap();
+        quarantined.validate().unwrap();
+        let diagnostic = quarantined.quarantine_diagnostic().unwrap();
+        assert_eq!(
+            diagnostic.last_state(),
+            arkret_wire::MlsCreatorBootstrapState::GenesisQueued
+        );
+        assert_eq!(diagnostic.event_id(), Some(signed.event_id()));
+        assert_eq!(diagnostic.outbound_queue_item_id(), Some(signed.event_id()));
+        assert_eq!(diagnostic.recovery_record(), &raw);
+        assert_eq!(diagnostic.recovery_queue_items(), queues);
+        assert!(quarantined.epoch_zero().is_none());
+        assert!(quarantined.queued_genesis().is_none());
+        assert!(quarantined.accepted_genesis().is_none());
+        assert!(quarantined.ready_receipt().is_none());
+        assert!(quarantined.queue_genesis(signed).is_err());
+        assert!(
+            quarantined
+                .accept_realm(create.clone(), absence_snapshot(&create))
+                .is_err()
+        );
+        let mut next_root = create.authority_root().clone();
+        next_root.current_assertion.nonce =
+            arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap();
+        let next_create = MlsCreatorBootstrapAcceptedCreate::new(
+            &intent,
+            create.accepted_event().clone(),
+            create.covering_commit().clone(),
+            create.digest_suite(),
+            next_root,
+        )
+        .unwrap();
+        let absence = MlsCreatorBootstrapVerifiedAbsence::new(
+            &intent,
+            next_create,
+            absence_snapshot(&create),
+        )
+        .unwrap();
+        assert!(quarantined.reopen_rejected(absence).is_err());
+        let reopened: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&quarantined).unwrap()).unwrap();
+        reopened.validate().unwrap();
+        assert_eq!(reopened, quarantined);
+        for field in ["reason_code", "event_id", "last_state"] {
+            let mut bad = serde_json::to_value(&quarantined).unwrap();
+            bad["diagnostic"][field] = match field {
+                "last_state" => serde_json::json!("realm_accepted"),
+                "event_id" => serde_json::json!(EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [91; 32]
+                )),
+                _ => serde_json::json!("cleared"),
+            };
+            let bad: MlsCreatorBootstrapRecord = serde_json::from_value(bad).unwrap();
+            assert!(bad.validate().is_err(), "{field}");
+        }
+        for state in ["superseded", "quarantined", "unknown"] {
+            let mut forbidden = raw.clone();
+            forbidden["state"] = serde_json::json!(state);
+            assert!(
+                MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+                    forbidden,
+                    vec![],
+                    MlsCreatorBootstrapInvariant::RecordBinding,
+                    "forbidden original state".into(),
+                    None,
+                    create.authority_root().bundle_issued_at
+                )
+                .is_err()
+            );
+        }
+        let mut untrusted = raw;
+        untrusted.as_object_mut().unwrap().remove("intent");
+        assert!(
+            MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+                untrusted,
+                vec![],
+                MlsCreatorBootstrapInvariant::RecordBinding,
+                "original record binding mismatch".into(),
+                None,
+                create.authority_root().bundle_issued_at
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn creator_ready_and_rejected_failure_dispositions_come_from_the_registry() {
+        use arkret_wire::{
+            MlsCreatorBootstrapFailureDisposition as Disposition, MlsCreatorBootstrapState as State,
+        };
+        assert_eq!(State::ALL.len(), 11);
+        for state in State::ALL {
+            assert_eq!(
+                state.failure_disposition(),
+                if matches!(state, State::Superseded | State::Quarantined) {
+                    Disposition::Terminal
+                } else {
+                    Disposition::Quarantined
+                }
+            );
+        }
+        assert!(State::Ready.allowed_exits().is_empty());
+        assert!(
+            !State::Rejected
+                .allowed_exits()
+                .contains(&State::Quarantined)
+        );
+        assert_eq!(State::Ready.failure_disposition(), Disposition::Quarantined);
+        assert_eq!(
+            State::Rejected.failure_disposition(),
+            Disposition::Quarantined
+        );
+    }
+
+    #[test]
     fn creator_artifact_and_ready_receipt_bind_the_whole_original_winning_epoch() {
         let (intent, create) = accepted_create(false);
         let evidence = pinned_fixture(&intent, &create);
@@ -3312,6 +3858,41 @@ mod tests {
         let receipt = MlsCreatorBootstrapReadyReceipt::new(&record, 7).unwrap();
         record.publish_ready(receipt.clone()).unwrap();
         let frozen = record.clone();
+        let known = MlsCreatorBootstrapKnownGenesis::Original {
+            acceptance: Box::new(record.accepted_genesis().unwrap().clone()),
+        };
+        let quarantined = MlsCreatorBootstrapRecord::quarantine_authenticated_record(
+            serde_json::to_value(&record).unwrap(),
+            vec![],
+            MlsCreatorBootstrapInvariant::PrivateMaterial,
+            "restored private state disagrees with accepted public bytes".into(),
+            Some(known.clone()),
+            create.authority_root().bundle_issued_at,
+        )
+        .unwrap();
+        assert_eq!(
+            quarantined.state(),
+            arkret_wire::MlsCreatorBootstrapState::Quarantined
+        );
+        let diagnostic = quarantined.quarantine_diagnostic().unwrap();
+        assert_eq!(
+            diagnostic.last_state(),
+            arkret_wire::MlsCreatorBootstrapState::Ready
+        );
+        assert_eq!(diagnostic.accepted_winner(), Some(&known));
+        assert_eq!(
+            diagnostic.recovery_record(),
+            &serde_json::to_value(&record).unwrap()
+        );
+        assert!(quarantined.ready_receipt().is_none());
+        assert!(quarantined.artifacts().is_none());
+        assert_eq!(
+            serde_json::from_value::<MlsCreatorBootstrapRecord>(
+                serde_json::to_value(&quarantined).unwrap()
+            )
+            .unwrap(),
+            quarantined
+        );
         record.publish_ready(receipt.clone()).unwrap();
         let mut changed = receipt;
         changed.ready_commit_position += 1;

@@ -2348,6 +2348,11 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
         kinds.insert(string(row, "kind")?);
     }
 
+    let mut failure_dispositions = BTreeSet::new();
+    for row in &states {
+        failure_dispositions.insert(string(row, "failure_disposition")?);
+    }
+
     let mut output = header(
         &[&artifact.source],
         &format!(
@@ -2357,8 +2362,37 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
             kinds.len()
         ),
     );
+    output.push_str("use serde::{Deserialize, Serialize};\n\n/// Registered disposition of a failed creator invariant.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapFailureDisposition {\n");
+    for value in &failure_dispositions {
+        writeln!(output, "    {},", variant(value, &[]))?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapFailureDisposition {\n    pub const ALL: &'static [Self] = &[\n");
+    for value in &failure_dispositions {
+        writeln!(output, "        Self::{},", variant(value, &[]))?;
+    }
     output.push_str(
-        "use serde::{Deserialize, Serialize};\n\n/// Lifecycle class of one creator MLS Genesis bootstrap state.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapStateKind {\n",
+        "    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n",
+    );
+    for value in &failure_dispositions {
+        writeln!(
+            output,
+            "            Self::{} => {},",
+            variant(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for value in &failure_dispositions {
+        writeln!(
+            output,
+            "            {} => Some(Self::{}),",
+            rust_string(value),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n\n");
+    output.push_str(
+        "/// Lifecycle class of one creator MLS Genesis bootstrap state.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapStateKind {\n",
     );
     for kind in &kinds {
         writeln!(output, "    {},", variant(kind, &[]))?;
@@ -2435,7 +2469,7 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
             variant(value, &[])
         )?;
     }
-    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapStateDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_STATES[self as usize]\n    }\n\n    pub fn ordinal(self) -> u32 {\n        self.descriptor().ordinal\n    }\n\n    pub fn kind(self) -> MlsCreatorBootstrapStateKind {\n        self.descriptor().kind\n    }\n\n    /// States a recoverer may move to from here. A terminal state has none.\n    pub fn allowed_exits(self) -> &'static [MlsCreatorBootstrapState] {\n        self.descriptor().allowed_exits\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapStateDescriptor {\n    pub state: MlsCreatorBootstrapState,\n    pub ordinal: u32,\n    pub kind: MlsCreatorBootstrapStateKind,\n    pub allowed_exits: &'static [MlsCreatorBootstrapState],\n}\n\npub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = &[\n");
+    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapStateDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_STATES[self as usize]\n    }\n\n    pub fn ordinal(self) -> u32 {\n        self.descriptor().ordinal\n    }\n\n    pub fn kind(self) -> MlsCreatorBootstrapStateKind {\n        self.descriptor().kind\n    }\n\n    pub fn failure_disposition(self) -> MlsCreatorBootstrapFailureDisposition {\n        self.descriptor().failure_disposition\n    }\n\n    /// States a recoverer may move to from here. A terminal state has none.\n    pub fn allowed_exits(self) -> &'static [MlsCreatorBootstrapState] {\n        self.descriptor().allowed_exits\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapStateDescriptor {\n    pub state: MlsCreatorBootstrapState,\n    pub ordinal: u32,\n    pub kind: MlsCreatorBootstrapStateKind,\n    pub failure_disposition: MlsCreatorBootstrapFailureDisposition,\n    pub allowed_exits: &'static [MlsCreatorBootstrapState],\n}\n\npub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = &[\n");
     for row in &states {
         let value = string(row, "state_id")?;
         let exits = strings(row, "allowed_exits")?
@@ -2445,12 +2479,13 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
             .join(", ");
         writeln!(
             output,
-            "    MlsCreatorBootstrapStateDescriptor {{ state: MlsCreatorBootstrapState::{}, ordinal: {}, kind: MlsCreatorBootstrapStateKind::{}, allowed_exits: &[{}] }},",
+            "    MlsCreatorBootstrapStateDescriptor {{ state: MlsCreatorBootstrapState::{}, ordinal: {}, kind: MlsCreatorBootstrapStateKind::{}, failure_disposition: MlsCreatorBootstrapFailureDisposition::{}, allowed_exits: &[{}] }},",
             variant(value, &[]),
             field(row, "ordinal")?
                 .as_u64()
                 .context("state ordinal is not an integer")?,
             variant(string(row, "kind")?, &[]),
+            variant(string(row, "failure_disposition")?, &[]),
             exits
         )?;
     }
@@ -2533,6 +2568,7 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
     }
     output.push_str("];\n\n");
     for name in [
+        "MlsCreatorBootstrapFailureDisposition",
         "MlsCreatorBootstrapStateKind",
         "MlsCreatorBootstrapState",
         "MlsCreatorBootstrapTransition",

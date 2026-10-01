@@ -6,6 +6,32 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Registered disposition of a failed creator invariant.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MlsCreatorBootstrapFailureDisposition {
+    Quarantined,
+    Terminal,
+}
+
+impl MlsCreatorBootstrapFailureDisposition {
+    pub const ALL: &'static [Self] = &[Self::Quarantined, Self::Terminal];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Quarantined => "quarantined",
+            Self::Terminal => "terminal",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "quarantined" => Some(Self::Quarantined),
+            "terminal" => Some(Self::Terminal),
+            _ => None,
+        }
+    }
+}
+
 /// Lifecycle class of one creator MLS Genesis bootstrap state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MlsCreatorBootstrapStateKind {
@@ -133,6 +159,10 @@ impl MlsCreatorBootstrapState {
         self.descriptor().kind
     }
 
+    pub fn failure_disposition(self) -> MlsCreatorBootstrapFailureDisposition {
+        self.descriptor().failure_disposition
+    }
+
     /// States a recoverer may move to from here. A terminal state has none.
     pub fn allowed_exits(self) -> &'static [MlsCreatorBootstrapState] {
         self.descriptor().allowed_exits
@@ -144,6 +174,7 @@ pub struct MlsCreatorBootstrapStateDescriptor {
     pub state: MlsCreatorBootstrapState,
     pub ordinal: u32,
     pub kind: MlsCreatorBootstrapStateKind,
+    pub failure_disposition: MlsCreatorBootstrapFailureDisposition,
     pub allowed_exits: &'static [MlsCreatorBootstrapState],
 }
 
@@ -152,6 +183,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::GenesisIntentPersisted,
         ordinal: 1,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::GenesisIntentPersisted,
             MlsCreatorBootstrapState::RealmAccepted,
@@ -162,6 +194,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::RealmAccepted,
         ordinal: 2,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::GovernanceResultPinned,
             MlsCreatorBootstrapState::Superseded,
@@ -172,6 +205,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::GovernanceResultPinned,
         ordinal: 3,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::Epoch0StatePersisted,
             MlsCreatorBootstrapState::Superseded,
@@ -182,6 +216,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::Epoch0StatePersisted,
         ordinal: 4,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::GenesisQueued,
             MlsCreatorBootstrapState::Superseded,
@@ -192,6 +227,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::GenesisQueued,
         ordinal: 5,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::GenesisAccepted,
             MlsCreatorBootstrapState::Rejected,
@@ -203,6 +239,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::GenesisAccepted,
         ordinal: 6,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::ArtifactsConverged,
             MlsCreatorBootstrapState::Quarantined,
@@ -212,6 +249,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::ArtifactsConverged,
         ordinal: 7,
         kind: MlsCreatorBootstrapStateKind::Progress,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::Ready,
             MlsCreatorBootstrapState::Quarantined,
@@ -221,12 +259,14 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::Ready,
         ordinal: 8,
         kind: MlsCreatorBootstrapStateKind::TerminalSuccess,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[],
     },
     MlsCreatorBootstrapStateDescriptor {
         state: MlsCreatorBootstrapState::Rejected,
         ordinal: 9,
         kind: MlsCreatorBootstrapStateKind::TerminalAttempt,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Quarantined,
         allowed_exits: &[
             MlsCreatorBootstrapState::RealmAccepted,
             MlsCreatorBootstrapState::Superseded,
@@ -236,12 +276,14 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         state: MlsCreatorBootstrapState::Superseded,
         ordinal: 10,
         kind: MlsCreatorBootstrapStateKind::TerminalFailure,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Terminal,
         allowed_exits: &[],
     },
     MlsCreatorBootstrapStateDescriptor {
         state: MlsCreatorBootstrapState::Quarantined,
         ordinal: 11,
         kind: MlsCreatorBootstrapStateKind::TerminalFailure,
+        failure_disposition: MlsCreatorBootstrapFailureDisposition::Terminal,
         allowed_exits: &[],
     },
 ];
@@ -413,6 +455,26 @@ pub const MLS_CREATOR_BOOTSTRAP_TRANSITIONS: &[MlsCreatorBootstrapTransitionDesc
     },
 ];
 
+impl std::fmt::Display for MlsCreatorBootstrapFailureDisposition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl Serialize for MlsCreatorBootstrapFailureDisposition {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for MlsCreatorBootstrapFailureDisposition {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        Self::from_wire(&raw).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "unknown MlsCreatorBootstrapFailureDisposition value: {raw}"
+            ))
+        })
+    }
+}
 impl std::fmt::Display for MlsCreatorBootstrapStateKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
