@@ -330,6 +330,34 @@ impl ResolvedSignerKey {
     }
 }
 
+/// Own-Station verified human current key; never a portable authorization.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CurrentDeviceSigningKey {
+    pub public_key_b64u: Base64UrlString,
+}
+
+impl CurrentDeviceSigningKey {
+    pub fn validate(&self) -> Result<()> {
+        validate_ed25519_public_key(self.public_key_b64u.as_str())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum QueryKeyWire {
+    Device(CurrentDeviceSigningKey),
+    Committed(ResolvedSignerKey),
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum QueryKeyWireRef<'a> {
+    Device(&'a CurrentDeviceSigningKey),
+    Committed(&'a ResolvedSignerKey),
+}
+
 /// One answer to one exact selector.
 ///
 /// `resolved` carries key material and `unavailable` carries none. Historical
@@ -340,6 +368,10 @@ impl ResolvedSignerKey {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SignerKeyQueryResult {
+    CurrentDeviceResolved {
+        selector: SignerKeyQuerySelector,
+        key: CurrentDeviceSigningKey,
+    },
     CurrentResolved {
         selector: SignerKeyQuerySelector,
         key: ResolvedSignerKey,
@@ -360,7 +392,8 @@ pub enum SignerKeyQueryResult {
 impl SignerKeyQueryResult {
     pub fn selector(&self) -> &SignerKeyQuerySelector {
         match self {
-            Self::CurrentResolved { selector, .. }
+            Self::CurrentDeviceResolved { selector, .. }
+            | Self::CurrentResolved { selector, .. }
             | Self::HistoricalResolved { selector, .. }
             | Self::Unavailable { selector } => selector,
         }
@@ -369,7 +402,7 @@ impl SignerKeyQueryResult {
     pub fn key(&self) -> Option<&ResolvedSignerKey> {
         match self {
             Self::CurrentResolved { key, .. } | Self::HistoricalResolved { key, .. } => Some(key),
-            Self::Unavailable { .. } => None,
+            Self::CurrentDeviceResolved { .. } | Self::Unavailable { .. } => None,
         }
     }
 
@@ -377,7 +410,9 @@ impl SignerKeyQueryResult {
     pub fn accepted_at(&self) -> Option<DateTime<Utc>> {
         match self {
             Self::HistoricalResolved { accepted_at, .. } => Some(*accepted_at),
-            Self::CurrentResolved { .. } | Self::Unavailable { .. } => None,
+            Self::CurrentDeviceResolved { .. }
+            | Self::CurrentResolved { .. }
+            | Self::Unavailable { .. } => None,
         }
     }
 
@@ -385,8 +420,27 @@ impl SignerKeyQueryResult {
         validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
         self.selector().validate(realm_id)?;
         match self {
+            Self::CurrentDeviceResolved { selector, key } => {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::CurrentAdmission {
+                        sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
+                    }
+                ) {
+                    return Err(self_signer_error(
+                        ErrorCode::SchemaViolation,
+                        "human current key requires a current account_device selector",
+                    ));
+                }
+                key.validate()
+            }
             Self::CurrentResolved { selector, key } => {
-                if selector.is_historical() {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::CurrentAdmission {
+                        sender: CurrentSignerKeyQuerySender::Agent { .. }
+                    }
+                ) {
                     return Err(self_signer_error(
                         ErrorCode::SchemaViolation,
                         "current signer-key result requires a current_admission selector",
@@ -421,7 +475,7 @@ struct SignerKeyQueryResultWire {
     selector: SignerKeyQuerySelector,
     status: SignerKeyQueryStatus,
     #[serde(default)]
-    key: WireField<ResolvedSignerKey>,
+    key: WireField<QueryKeyWire>,
     #[serde(default)]
     accepted_at: WireField<CanonicalAcceptedAt>,
 }
@@ -462,7 +516,7 @@ struct SignerKeyQueryResultWireRef<'a> {
     selector: &'a SignerKeyQuerySelector,
     status: SignerKeyQueryStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
-    key: Option<&'a ResolvedSignerKey>,
+    key: Option<QueryKeyWireRef<'a>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
@@ -476,8 +530,31 @@ impl Serialize for SignerKeyQueryResult {
         S: serde::Serializer,
     {
         let wire = match self {
+            Self::CurrentDeviceResolved { selector, key } => {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::CurrentAdmission {
+                        sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
+                    }
+                ) {
+                    return Err(serde::ser::Error::custom(
+                        "human current key requires a current account_device selector",
+                    ));
+                }
+                SignerKeyQueryResultWireRef {
+                    selector,
+                    status: SignerKeyQueryStatus::Resolved,
+                    key: Some(QueryKeyWireRef::Device(key)),
+                    accepted_at: None,
+                }
+            }
             Self::CurrentResolved { selector, key } => {
-                if selector.is_historical() {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::CurrentAdmission {
+                        sender: CurrentSignerKeyQuerySender::Agent { .. }
+                    }
+                ) {
                     return Err(serde::ser::Error::custom(
                         "current signer-key result requires a current_admission selector",
                     ));
@@ -485,7 +562,7 @@ impl Serialize for SignerKeyQueryResult {
                 SignerKeyQueryResultWireRef {
                     selector,
                     status: SignerKeyQueryStatus::Resolved,
-                    key: Some(key),
+                    key: Some(QueryKeyWireRef::Committed(key)),
                     accepted_at: None,
                 }
             }
@@ -502,7 +579,7 @@ impl Serialize for SignerKeyQueryResult {
                 SignerKeyQueryResultWireRef {
                     selector,
                     status: SignerKeyQueryStatus::Resolved,
-                    key: Some(key),
+                    key: Some(QueryKeyWireRef::Committed(key)),
                     accepted_at: Some(*accepted_at),
                 }
             }
@@ -524,8 +601,32 @@ impl<'de> Deserialize<'de> for SignerKeyQueryResult {
     {
         let wire = SignerKeyQueryResultWire::deserialize(deserializer)?;
         match (wire.status, wire.key, wire.accepted_at) {
-            (SignerKeyQueryStatus::Resolved, WireField::Present(key), WireField::Missing)
-                if !wire.selector.is_historical() =>
+            (
+                SignerKeyQueryStatus::Resolved,
+                WireField::Present(QueryKeyWire::Device(key)),
+                WireField::Missing,
+            ) if matches!(
+                wire.selector,
+                SignerKeyQuerySelector::CurrentAdmission {
+                    sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
+                }
+            ) =>
+            {
+                Ok(Self::CurrentDeviceResolved {
+                    selector: wire.selector,
+                    key,
+                })
+            }
+            (
+                SignerKeyQueryStatus::Resolved,
+                WireField::Present(QueryKeyWire::Committed(key)),
+                WireField::Missing,
+            ) if matches!(
+                wire.selector,
+                SignerKeyQuerySelector::CurrentAdmission {
+                    sender: CurrentSignerKeyQuerySender::Agent { .. }
+                }
+            ) =>
             {
                 Ok(Self::CurrentResolved {
                     selector: wire.selector,
@@ -534,7 +635,7 @@ impl<'de> Deserialize<'de> for SignerKeyQueryResult {
             }
             (
                 SignerKeyQueryStatus::Resolved,
-                WireField::Present(key),
+                WireField::Present(QueryKeyWire::Committed(key)),
                 WireField::Present(CanonicalAcceptedAt(accepted_at)),
             ) if wire.selector.is_historical() => Ok(Self::HistoricalResolved {
                 selector: wire.selector,

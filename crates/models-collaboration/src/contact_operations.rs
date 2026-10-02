@@ -1965,6 +1965,45 @@ pub struct ContactAgentProjection {
     pub direct_conversation: Option<DirectConversationSummary>,
 }
 
+/// Historical Contact producer selector, never current Device/MLS authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactPeerEndpoint {
+    pub contact_event_ref: EventId,
+    pub device_id: arkret_wire::DeviceId,
+}
+
+impl ContactPeerEndpoint {
+    /// Derive only from a verified source receipt's direct human producer.
+    pub fn from_verified_producer(
+        account: &AccountId,
+        contact_event_ref: EventId,
+        producer: &ContactProducerSigner,
+    ) -> arkret_wire::Result<Self> {
+        let ContactProducerSigner::Direct(producer) = producer else {
+            return Err(arkret_wire::WireError::Protocol(
+                "human endpoint requires a direct producer".into(),
+            ));
+        };
+        let method = producer.verification_method.as_str();
+        let (did, fragment) = method.split_once('#').ok_or_else(|| {
+            arkret_wire::WireError::Protocol("device method has no fragment".into())
+        })?;
+        let did = Did::new(did)?;
+        if arkret_wire::project_did_to_core_id(&did)? != account.principal_id {
+            return Err(arkret_wire::WireError::Protocol(
+                "device method belongs to another principal".into(),
+            ));
+        }
+        let device_id = arkret_wire::DeviceId::new(fragment)?;
+        Ok(Self {
+            contact_event_ref,
+            device_id,
+        })
+    }
+}
+
 /// `contact-operations.schema.json#/$defs/contact_list_row`.
 ///
 /// The schema's conditional requirements (`next_prepare_input` exactly for
@@ -2009,6 +2048,8 @@ pub struct ContactListRow {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub contact_agent_projections: Vec<ContactAgentProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_endpoint: Option<ContactPeerEndpoint>,
 }
 
 #[derive(Deserialize)]
@@ -2037,6 +2078,11 @@ struct ContactListRowWire {
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
     contact_agents: Vec<ContactAgentProjection>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    peer_endpoint: Option<ContactPeerEndpoint>,
 }
 
 impl TryFrom<ContactListRowWire> for ContactListRow {
@@ -2058,6 +2104,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
             contact_agent_projections: wire.contact_agents,
+            peer_endpoint: wire.peer_endpoint,
         };
         row.validate_shape()?;
         Ok(row)
@@ -2066,6 +2113,15 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
 
 impl ContactListRow {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if self.peer_endpoint.is_some() {
+            if self.state != ContactState::Accepted
+                || !matches!(self.peer, ContactPeer::Human { .. })
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "peer endpoint requires accepted human row".into(),
+                ));
+            }
+        }
         if self.state == ContactState::PendingIncoming && self.request_event_ref.is_none() {
             return Err(arkret_wire::WireError::Protocol(
                 "pending_incoming requires request_event_ref".to_owned(),
@@ -2183,6 +2239,67 @@ mod contact_list_projection_tests {
                 "direct_conversation": direct_conversation()
             }]
         })
+    }
+
+    #[test]
+    fn endpoint_is_only_an_accepted_human_selector() {
+        let mut value = accepted_row();
+        value["peer_endpoint"] = json!({
+            "contact_event_ref": REQUEST_EVENT,
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000001"
+        });
+        let mut null = value.clone();
+        null["peer_endpoint"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<ContactListRow>(null).is_err());
+        let parsed: ContactListRow = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        for state in [
+            "pending_outgoing",
+            "pending_incoming",
+            "rejected",
+            "expired",
+            "tombstoned",
+        ] {
+            let mut changed = value.clone();
+            changed["state"] = json!(state);
+            changed
+                .as_object_mut()
+                .unwrap()
+                .remove("next_prepare_input");
+            assert!(serde_json::from_value::<ContactListRow>(changed).is_err());
+        }
+        let mut agent = value.clone();
+        agent["peer"] = json!({"kind":"agent", "actor_id": value["contact_agents"][0]["actor_id"],
+            "controller_account_id": value["contact_agents"][0]["controller_account_id"]});
+        assert!(serde_json::from_value::<ContactListRow>(agent).is_err());
+        let account =
+            serde_json::from_value::<AccountId>(human_peer()["account_id"].clone()).unwrap();
+        let method = "did:webvh:z6mkpeerprincipal:peer.example#ak:device:01964137-0000-7000-8000-000000000001";
+        let signer = ContactProducerSigner::direct(
+            arkret_wire::DidUrl::new(method).unwrap(),
+            arkret_wire::Base64UrlString::new("A".repeat(43)).unwrap(),
+        )
+        .unwrap();
+        let endpoint = ContactPeerEndpoint::from_verified_producer(
+            &account,
+            REQUEST_EVENT.parse().unwrap(),
+            &signer,
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(endpoint).unwrap(),
+            value["peer_endpoint"]
+        );
+        let mut wrong_account = account.clone();
+        wrong_account.principal_id = "ak:did_core:web:wrong.example".parse().unwrap();
+        assert!(
+            ContactPeerEndpoint::from_verified_producer(
+                &wrong_account,
+                REQUEST_EVENT.parse().unwrap(),
+                &signer
+            )
+            .is_err()
+        );
     }
 
     #[test]

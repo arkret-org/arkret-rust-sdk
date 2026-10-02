@@ -123,3 +123,37 @@ fn historical_request_and_station_response_match_the_published_schema() {
     });
     assert_schema_and_serde::<SignerKeysQueryOutcome>("#/$defs/query_outcome", outcome);
 }
+
+#[test]
+fn human_current_privacy_fixture_matches_sdk_and_schema() {
+    use arkret_models_identity::signer_key_operations::SignerKeyQueryResult;
+    let fixture: Value = serde_json::from_str(
+        &fs::read_to_string(
+            artifacts_dir().join("fixtures/current-signer-contact-endpoint-fixture.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    for case in fixture["schema_validation_cases"].as_array().unwrap() {
+        let schema = case["schema_ref"].as_str().unwrap();
+        if !schema.starts_with("schemas/signer-key-operations.schema.json") {
+            continue;
+        }
+        let instance = case["instance"].clone();
+        let parsed = serde_json::from_value::<SignerKeyQueryResult>(instance.clone());
+        if case["expect_valid"] == true {
+            validate_fragment(
+                &format!("#{}", schema.split_once('#').unwrap().1),
+                &instance,
+            );
+            let parsed = parsed.unwrap();
+            let realm = "ak:realm:AZocxLUuB-7lfxVbVJzNCcxSEn-aDa07Di6MnigFwGfd"
+                .parse()
+                .unwrap();
+            parsed.validate(&realm).unwrap();
+            assert_eq!(serde_json::to_value(parsed).unwrap(), instance);
+        } else {
+            assert!(parsed.is_err(), "{}", case["name"]);
+        }
+    }
+}
