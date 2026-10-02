@@ -104,7 +104,7 @@ pub fn sign_detached_object<T: Serialize>(
 ///
 /// The caller states the context it expects. A signature whose context is
 /// merely internally consistent is not enough: the enclosing object decides
-/// which of the six contexts is admissible in its position.
+/// which registered context is admissible in its position.
 pub fn verify_detached_object_signature<T: Serialize>(
     signature: &DetachedObjectSignature,
     unsigned_body: &T,
