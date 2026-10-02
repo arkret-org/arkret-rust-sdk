@@ -206,7 +206,7 @@ event_payload_accessors! {
     event_spec::RealmSetDefaultStrand => (as_realm_set_default_strand, RealmSetDefaultStrandPayload),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),
-    event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
+    event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload, ReadReceiptPolicyPayload::validate),
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),
     event_spec::RealmMediaService => (as_realm_media_service, RealmMediaServicePayload),
     event_spec::RealmSchema => (as_realm_schema, RealmSchemaPayload),
