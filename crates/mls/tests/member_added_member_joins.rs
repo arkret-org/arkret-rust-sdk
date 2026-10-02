@@ -156,10 +156,27 @@ fn a_member_that_joined_from_a_welcome_adds_the_next_member() {
     let bob_identity = identity(&bob, 2);
     let first_binding =
         MlsGovernanceBindingPayload::new(scope(), Some(genesis.clone()), 0, 1, 0).unwrap();
+    let bob_package = claimed(&bob_identity, 0x81);
+    assert!(
+        bob_identity
+            .holds_private_key_package(&bob_package)
+            .unwrap()
+    );
+    assert!(
+        !identity(&carol, 3)
+            .holds_private_key_package(&bob_package)
+            .unwrap()
+    );
     let first = alice_group
-        .add_member_with_governance_binding(&claimed(&bob_identity, 0x81), &first_binding)
+        .add_member_with_governance_binding(&bob_package, &first_binding)
         .unwrap();
     let first_view = accepted(&alice, &genesis, &first, first_binding, 1);
+    let queued = delivery(&first_view, &bob, &device(2), &first);
+    assert!(arkret_mls::welcome_addresses_key_package(&queued, &bob_package).unwrap());
+    assert!(
+        arkret_mls::welcome_addresses_key_package(&queued, &claimed(&bob_identity, 0x83))
+            .is_ok_and(|matched| !matched)
+    );
     let mut bob_group = ArkretMlsGroup::join_from_verified_welcome_delivery(
         bob_identity,
         &delivery(&first_view, &bob, &device(2), &first),

@@ -267,6 +267,16 @@ impl DirectConversationClientLocalBlocker {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationPeerMlsAdmission {
+    Missing,
+    Pending,
+    Durable,
+    RepairRequired,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectConversationResolveOutcome {
@@ -285,6 +295,9 @@ pub enum DirectConversationResolveOutcome {
         authorization_basis: DirectConversationAuthorizationBasis,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_state_ref: Option<EventId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        initial_exact_pair_group_state_ref: Option<EventId>,
+        peer_mls_admission: DirectConversationPeerMlsAdmission,
     },
     Found {
         coordinates: DirectConversationCoordinates,
@@ -317,10 +330,23 @@ impl DirectConversationResolveOutcome {
     pub fn validate_shape(&self) -> Result<()> {
         if let Self::Provisional {
             authorization_basis,
+            group_state_ref,
+            initial_exact_pair_group_state_ref,
+            peer_mls_admission,
             ..
         } = self
         {
             authorization_basis.validate_shape()?;
+            if (initial_exact_pair_group_state_ref.is_some() && group_state_ref.is_none())
+                || (matches!(
+                    peer_mls_admission,
+                    DirectConversationPeerMlsAdmission::Durable
+                ) && initial_exact_pair_group_state_ref.is_none())
+            {
+                return Err(WireError::Protocol(
+                    "provisional admission omits its accepted group state".into(),
+                ));
+            }
         }
         if let Self::Found { coordinates, .. } = self
             && coordinates.binding_event_ref.is_none()
@@ -349,7 +375,7 @@ mod resolve_material_tests {
             "pair_key":format!("sha256:{}", "ab".repeat(32)),
             "realm_id":"ak:realm:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn",
             "main_strand_id":"ak:strand:AcoR1oH31En1_7UqsmGtCAr0ByQ_638Axv43HIC06sGg"
-        }, "authorization_basis":basis});
+        }, "authorization_basis":basis, "peer_mls_admission":"missing"});
         let outcome: DirectConversationResolveOutcome =
             serde_json::from_value(value.clone()).unwrap();
         outcome.validate_shape().unwrap();

@@ -41,6 +41,30 @@ use crate::{
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
+/// Match a recipient Welcome's RFC 9420 KeyPackageRef to public local
+/// inventory. This is allocation bookkeeping only: it neither admits the
+/// Welcome nor authorizes opening it or issuing a durable consume receipt.
+pub fn welcome_addresses_key_package(
+    delivery: &MlsWelcomeDelivery,
+    record: &MlsKeyPackageRecord,
+) -> Result<bool> {
+    delivery.validate_shape()?;
+    let provider = OpenMlsRustCrypto::default();
+    let package = decode_key_package(&provider, record)?;
+    let reference = package.hash_ref(provider.crypto()).map_err(mls_error)?;
+    let bytes = decode(delivery.ciphertext_b64.as_str())?;
+    let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
+    let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
+        return Err(Error::Protocol(
+            "MLS delivery does not contain a Welcome".to_owned(),
+        ));
+    };
+    Ok(welcome
+        .secrets()
+        .iter()
+        .any(|secret| secret.new_member() == reference))
+}
+
 /// Realm and Circle groups carry handshakes as `PublicMessage`; a Sidecar group
 /// keeps its own policy and encrypts them.
 ///
