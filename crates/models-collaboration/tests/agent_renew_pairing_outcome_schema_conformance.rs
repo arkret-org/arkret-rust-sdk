@@ -33,7 +33,7 @@ fn outcome() -> Value {
         "controller_authorization_ref": "did:webvh:QmTnpRaadxso9gmuqCaoT54ib4kWKNt1F5UuqXN6i5hwey:agent.example#managed-controller",
         "requested_scope_digest": "sha256:fcdc0d9a579d073a680854d396140edf510ff90eff74f52124baca4cc2313e83",
         "pairing_request_id": "pairing_request:01964137-0000-7000-8000-000000000000",
-        "pairing_code": "AAAAAAAAAAAAAAAAAAAAAA",
+        "pairing_code": "01234567",
         "expires_at": "2026-07-17T13:50:07.734Z"
     })
 }

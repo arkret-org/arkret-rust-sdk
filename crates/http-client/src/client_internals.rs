@@ -28,7 +28,15 @@ use crate::{
 /// the crate boundary. The wire-model layer carries no reqwest dependency, so
 /// the conversion is explicit here instead of a `#[from]` impl.
 pub(crate) fn transport_error(error: reqwest::Error) -> Error {
-    Error::Http(error.to_string())
+    use std::error::Error as _;
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    Error::Http(message)
 }
 
 pub(crate) fn trim_ascii(mut bytes: &[u8]) -> &[u8] {

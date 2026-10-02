@@ -88,7 +88,7 @@ fn outcome(status: &str) -> Value {
                 "pairing_request_id".into(),
                 json!("pairing_request:01964137-0000-7000-8000-000000000000"),
             );
-            map.insert("pairing_code".into(), json!("AAAAAAAAAAAAAAAAAAAAAA"));
+            map.insert("pairing_code".into(), json!("01234567"));
             map.insert("expires_at".into(), json!("2026-07-17T13:50:07.734Z"));
         }
         _ => unreachable!(),

@@ -483,13 +483,9 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 impl AgentRuntimeApprovalStatusRequestBody {
     pub fn validate(&self) -> Result<()> {
         let code = self.pairing_code.as_str();
-        if !(22..=128).contains(&code.len())
-            || !code
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        {
+        if code.len() != 8 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
             return Err(WireError::Protocol(
-                "Agent pairing secret does not match the closed pairing_secret shape".to_owned(),
+                "Agent pairing code must contain exactly eight ASCII decimal digits".to_owned(),
             ));
         }
         Ok(())
@@ -826,11 +822,14 @@ mod tests {
             }))
             .unwrap()
         };
-        request("ABCDEFGHIJKLMNOPQRSTUV").validate().unwrap();
+        request("01234567").validate().unwrap();
+        request("99999999").validate().unwrap();
         for rejected in [
-            "too-short",
-            "ABCDEFGHIJKLMNOPQRSTU+",
-            "ABCDEFGHIJKLMNOPQRSTUV/",
+            "1234567",
+            "123456789",
+            "1234567a",
+            "１２３４５６７８",
+            "ABCDEFGHIJKLMNOPQRSTUV",
         ] {
             assert!(request(rejected).validate().is_err(), "{rejected}");
         }

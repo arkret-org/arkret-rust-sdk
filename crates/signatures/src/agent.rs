@@ -561,7 +561,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: "2026-07-14T14:43:48.784473Z"
                 .parse::<DateTime<Utc>>()
                 .unwrap(),
@@ -580,9 +580,7 @@ mod tests {
         .unwrap();
         let proof = &request.body.proof_of_possession;
         // The transcript binds the pairing code, so it has to be the one the builder used.
-        let transcript = proof
-            .canonical_transcript_bytes("AAAAAAAAAAAAAAAAAAAAAA")
-            .unwrap();
+        let transcript = proof.canonical_transcript_bytes("01234567").unwrap();
         let signature = base64url_decode(proof.signature.as_str()).unwrap();
         let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
 
@@ -615,7 +613,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at,
         };
 
@@ -649,7 +647,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
         };
         let verification_method = DidUrl::new("did:web:agent.example#runtime-1").unwrap();
@@ -685,7 +683,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
         };
         let wrong_method = DidUrl::new("did:web:other.example#runtime-1").unwrap();
@@ -752,7 +750,7 @@ mod tests {
             service_id: service_id.clone(),
             agent_id: agent_actor_id.clone(),
             pairing_request_id: arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
-            pairing_code: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: issued_at + chrono::Duration::minutes(5),
         };
         let endpoint_device_id =

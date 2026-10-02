@@ -307,13 +307,9 @@ pub struct AgentRuntimeApprovalRequestBody {
 impl AgentRuntimeApprovalRequestBody {
     pub fn validate(&self) -> Result<()> {
         let code = self.pairing_code.as_str();
-        if !(22..=128).contains(&code.len())
-            || !code
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        {
+        if code.len() != 8 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
             return Err(WireError::Protocol(
-                "Agent pairing secret does not match the closed pairing_secret shape".to_owned(),
+                "Agent pairing code must contain exactly eight ASCII decimal digits".to_owned(),
             ));
         }
         Ok(())
