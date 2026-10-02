@@ -2,12 +2,6 @@
   "note": "The audit for tools/lint-event-derived-id-minting.py. One entry per file that mints an id for a kind whose id MUST come from its create Event (zh/models/common-fields.md section 6.0). `verdict` is what the site should be, not permission to stay: `event_derived` and `local_ref` entries are open defects. Cross-repo: `repo` is the checkout directory name.",
   "entries": [
     {
-      "repo": "soland",
-      "path": "crates/server/tests/http_api/common.rs",
-      "verdict": "test_fixture",
-      "reason": "Synthetic Invite id used only by HTTP API fixture setup."
-    },
-    {
       "repo": "coauth",
       "path": "crates/storage-postgres/src/organization_control.rs",
       "verdict": "test_fixture",
