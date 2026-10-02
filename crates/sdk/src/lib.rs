@@ -442,6 +442,10 @@ pub use managed_actor_authoring::{
     AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,
     applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
 };
+#[cfg(feature = "mls")]
+pub use mls_roster_authority::{
+    install_verified_mls_roster_bindings, mls_roster_genesis_material_request,
+};
 pub use mls_roster_authority::{
     verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
     verify_mls_roster_authority_manifest_signature, verify_mls_roster_authority_pages,
