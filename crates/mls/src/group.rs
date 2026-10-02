@@ -908,14 +908,53 @@ impl ArkretMlsGroup {
     /// [`Self::install_accepted_commit`] after the governance Station has
     /// committed the Event to this scope's independent stream.
     pub fn self_update_commit(&mut self) -> Result<MlsCommitEnvelope> {
-        let bundle = self
-            .group
-            .self_update(
-                &self.identity.provider,
-                &self.identity.signer,
-                LeafNodeParameters::default(),
-            )
-            .map_err(mls_error)?;
+        self.self_update_commit_with_optional_governance_binding(None)
+    }
+
+    /// Rotate the sender's leaf and replace the fixed GroupContext binding in
+    /// the same inline Commit, without changing membership.
+    pub fn self_update_commit_with_governance_binding(
+        &mut self,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsCommitEnvelope> {
+        self.self_update_commit_with_optional_governance_binding(Some(binding))
+    }
+
+    fn self_update_commit_with_optional_governance_binding(
+        &mut self,
+        binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsCommitEnvelope> {
+        let bundle = if let Some(binding) = binding {
+            let extensions = self
+                .verify_governance_binding_for_next_epoch(binding)
+                .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                .and_then(group_context_extensions_for_verified_binding)?;
+            self.group
+                .commit_builder()
+                .consume_proposal_store(false)
+                .force_self_update(true)
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?
+                .load_psks(self.identity.provider.storage())
+                .map_err(mls_error)?
+                .build(
+                    self.identity.provider.rand(),
+                    self.identity.provider.crypto(),
+                    &self.identity.signer,
+                    |_| true,
+                )
+                .map_err(mls_error)?
+                .stage_commit(&self.identity.provider)
+                .map_err(mls_error)?
+        } else {
+            self.group
+                .self_update(
+                    &self.identity.provider,
+                    &self.identity.signer,
+                    LeafNodeParameters::default(),
+                )
+                .map_err(mls_error)?
+        };
         let commit_bytes = bundle
             .commit()
             .tls_serialize_detached()
@@ -2292,6 +2331,88 @@ mod tests {
             governed.export_state_record().unwrap().serialized_state,
             governed_snapshot_before
         );
+    }
+
+    #[test]
+    fn governed_self_update_survives_restart_and_advances_the_public_binding() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let base = event(9);
+        let binding = transition_binding(&scope, base.clone(), 3);
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let mut restarted =
+            ArkretMlsGroup::restore_from_state_record(&group.export_state_record().unwrap())
+                .unwrap();
+        assert_eq!(group.epoch(), 0);
+        assert_eq!(restarted.epoch(), 0);
+        let transition = tracker
+            .process_public_handshake(&decode(&commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            previous_epoch,
+            epoch,
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("a governed self-update must be a public Commit")
+        };
+        assert_eq!((previous_epoch, epoch), (0, 1));
+        assert!(added_leaves.is_empty());
+        assert_eq!(tracker.leaves().unwrap().len(), 1);
+        assert_eq!(consumed_proposals.len(), 1);
+        assert_eq!(consumed_proposals[0].proposal_type, 7);
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 3);
+        let authenticated = tracker.governance_binding().unwrap();
+        assert_eq!(authenticated, binding);
+        crate::verify_governance_binding_against_public_state_and_payload(
+            &authenticated,
+            &public_state,
+            &binding,
+        )
+        .unwrap();
+        for holder in [&mut group, &mut restarted] {
+            holder
+                .merge_accepted_commit_envelope(&commit, &public_state, &binding)
+                .unwrap();
+            assert_eq!(holder.epoch(), 1);
+            assert!(holder.group.pending_commit().is_none());
+        }
+    }
+
+    #[test]
+    fn rejected_self_update_binding_does_not_stage_or_write_a_commit() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let wrong_binding = binding_for_epochs(&scope, event(2), 1, 2, 2);
+        let before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        assert!(
+            group
+                .self_update_commit_with_governance_binding(&wrong_binding)
+                .is_err()
+        );
+        assert!(group.group.pending_commit().is_none());
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            before
+        );
+        assert_eq!(group.epoch(), 0);
     }
 
     #[test]
