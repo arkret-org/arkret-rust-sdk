@@ -3,9 +3,9 @@
 //! Input: registry/operations-error-mapping.json; version=2026-09-30.1;
 //! sha256=32fec78b18ebb060e95864764c82b3d43fa81acab211aed2970b7744e15d98d3 Input: registry/
 //! contract-registry.json; version=2026-10-02.3;
-//! sha256=92b723c2ee2c685e7f7db2fe6bc5020b8ee61d92aa658947ca49ee2ada5590f8 Input: registry/
+//! sha256=8cf402537c3794ef022dea7154b803fa62f245e8a2af81467a89759587fe9881 Input: registry/
 //! error-code-registry.json; version=2026-10-01;
-//! sha256=076f66796e1cbcde5639bfeea65f20d387eff7c47977ace60369e30c9ee118f9 Entries: operations=209
+//! sha256=2bcfab1f3375fce1f95b585f284287f08a8ca037e8cd77b754a882e7827f29be Entries: operations=209
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 

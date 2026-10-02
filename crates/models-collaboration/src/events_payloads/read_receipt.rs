@@ -45,3 +45,38 @@ impl ReadReceiptPolicyPayload {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn policy_value_matches_the_closed_registered_payload() {
+        for value in [
+            json!({"disclosure":"required"}),
+            json!({"visibility":"members"}),
+            json!({"scope_overrides_allowed":false}),
+        ] {
+            let policy: ReadReceiptPolicyPayload = serde_json::from_value(value.clone()).unwrap();
+            policy.validate().unwrap();
+            assert_eq!(serde_json::to_value(policy).unwrap(), value);
+        }
+        for value in [
+            json!({}),
+            json!({"visibility":"track_scoped"}),
+            json!({"disclosure":"on"}),
+            json!({"disclosure":null}),
+            json!({"visibility":null}),
+            json!({"scope_overrides_allowed":null}),
+            json!({"realm_id":"extra","disclosure":"required"}),
+        ] {
+            assert!(
+                serde_json::from_value::<ReadReceiptPolicyPayload>(value)
+                    .map(|policy| policy.validate().is_err())
+                    .unwrap_or(true)
+            );
+        }
+    }
+}

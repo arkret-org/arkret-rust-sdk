@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-10-02.3;
-//! sha256=92b723c2ee2c685e7f7db2fe6bc5020b8ee61d92aa658947ca49ee2ada5590f8 Entries: registered=3
+//! sha256=8cf402537c3794ef022dea7154b803fa62f245e8a2af81467a89759587fe9881 Entries: registered=3
 
 /// Method-history evidence kinds, keyed the way the registry keys them.
 ///
