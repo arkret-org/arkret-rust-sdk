@@ -16,12 +16,13 @@ use arkret_wire::{
 };
 use chrono::{Duration, Utc};
 use openmls::prelude::{
-    BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
-    MlsGroupCreateConfig, OpenMlsProvider, ProtocolVersion,
+    BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageBundle,
+    KeyPackageIn, MlsGroup, MlsGroupCreateConfig, OpenMlsProvider, ProtocolVersion,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use openmls_traits::signatures::Signer as _;
+use openmls_traits::storage::StorageProvider as _;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
@@ -583,6 +584,24 @@ impl ArkretMlsIdentity {
             expires_at: Some(created_at + Duration::days(7)),
             last_resort: false,
         })
+    }
+
+    /// Check the exact locally held private bundle before reconstructing
+    /// public inventory metadata from a verified Station claim.
+    pub fn holds_private_key_package(&self, record: &MlsKeyPackageRecord) -> Result<bool> {
+        if record.actor_id != self.actor_id || record.endpoint != self.endpoint {
+            return Ok(false);
+        }
+        let package = decode_key_package(&self.provider, record)?;
+        let reference = package
+            .hash_ref(self.provider.crypto())
+            .map_err(mls_error)?;
+        let bundle: Option<KeyPackageBundle> = self
+            .provider
+            .storage()
+            .key_package(&reference)
+            .map_err(mls_error)?;
+        Ok(bundle.is_some_and(|bundle| bundle.key_package() == &package))
     }
 
     pub fn export_private_state(&self) -> Result<Vec<u8>> {
