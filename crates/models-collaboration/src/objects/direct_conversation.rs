@@ -19,6 +19,7 @@ use crate::objects::strand::Strand;
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
     "ak.feature.direct_conversation_realm_role.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthorizationKind {
@@ -26,6 +27,7 @@ pub enum DirectConversationAuthorizationKind {
     AgentController,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationAuthorizationBasis {

@@ -11,7 +11,8 @@ use crate::contact_operations::ContactPeer;
 use crate::events_payloads::{RealmCreatePayload, StrandCreatePayload};
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
 use crate::objects::direct_conversation::{
-    DirectConversationFoundingAuthorityEvidence, DirectConversationRealmRole,
+    DirectConversationAuthorizationBasis, DirectConversationFoundingAuthorityEvidence,
+    DirectConversationRealmRole,
 };
 
 /// Coordinates derived from the exact four caller-authored founding Events.
@@ -281,6 +282,7 @@ pub enum DirectConversationResolveOutcome {
     },
     Provisional {
         coordinates: DirectConversationCoordinates,
+        authorization_basis: DirectConversationAuthorizationBasis,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_state_ref: Option<EventId>,
     },
@@ -313,6 +315,13 @@ impl DirectConversationResolveOutcome {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
+        if let Self::Provisional {
+            authorization_basis,
+            ..
+        } = self
+        {
+            authorization_basis.validate_shape()?;
+        }
         if let Self::Found { coordinates, .. } = self
             && coordinates.binding_event_ref.is_none()
         {
@@ -321,5 +330,34 @@ impl DirectConversationResolveOutcome {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod resolve_material_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn provisional_requires_the_exact_binding_material() {
+        let basis = json!({"kind":"agent_controller", "event_refs":[
+            "ak:event:AWgGCEbMHnelRQfzqg1C_onV9Ej_FdpdAZyM_JoFgAd3",
+            "ak:event:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn"
+        ]});
+        let mut value = json!({"state":"provisional", "coordinates":{
+            "pair_key":format!("sha256:{}", "ab".repeat(32)),
+            "realm_id":"ak:realm:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn",
+            "main_strand_id":"ak:strand:AcoR1oH31En1_7UqsmGtCAr0ByQ_638Axv43HIC06sGg"
+        }, "authorization_basis":basis});
+        let outcome: DirectConversationResolveOutcome =
+            serde_json::from_value(value.clone()).unwrap();
+        outcome.validate_shape().unwrap();
+        assert_eq!(serde_json::to_value(&outcome).unwrap(), value);
+        value.as_object_mut().unwrap().remove("authorization_basis");
+        assert!(serde_json::from_value::<DirectConversationResolveOutcome>(value.clone()).is_err());
+        value["authorization_basis"] = json!({"kind":"agent_controller", "event_refs":[]});
+        let outcome: DirectConversationResolveOutcome = serde_json::from_value(value).unwrap();
+        assert!(outcome.validate_shape().is_err());
     }
 }
