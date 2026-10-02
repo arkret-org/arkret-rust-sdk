@@ -944,6 +944,11 @@ impl ArkretMlsGroup {
         &mut self,
         binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsCommitEnvelope> {
+        if self.has_pending_commit() {
+            return Err(Error::Protocol(
+                "MLS self-update requires installation of the existing pending Commit".to_owned(),
+            ));
+        }
         let bundle = if let Some(binding) = binding {
             let extensions = self
                 .verify_governance_binding_for_next_epoch(binding)
@@ -989,53 +994,6 @@ impl ArkretMlsGroup {
             commit: encode(&commit_bytes),
             commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
-        })
-    }
-
-    /// Stage a self-update with the exact next-epoch governance binding in the
-    /// authenticated RFC 9420 GroupContext, as required for Arkret commits.
-    pub fn self_update_commit_with_governance_binding(
-        &mut self,
-        binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsCommitEnvelope> {
-        if self.has_pending_commit() {
-            return Err(Error::Protocol(
-                "MLS self-update requires installation of the existing pending Commit".to_owned(),
-            ));
-        }
-        let extensions = group_context_extensions_for_verified_binding(
-            self.verify_governance_binding_for_next_epoch(binding)
-                .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?,
-        )?;
-        let bundle = self
-            .group
-            .commit_builder()
-            .consume_proposal_store(false)
-            .force_self_update(true)
-            .propose_group_context_extensions(extensions)
-            .map_err(mls_error)?
-            .load_psks(self.identity.provider.storage())
-            .map_err(mls_error)?
-            .build(
-                self.identity.provider.rand(),
-                self.identity.provider.crypto(),
-                &self.identity.signer,
-                |_| true,
-            )
-            .map_err(mls_error)?
-            .stage_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-        let (commit, ..) = bundle.into_contents();
-        let bytes = commit.tls_serialize_detached().map_err(mls_error)?;
-        Ok(MlsCommitEnvelope {
-            group_id: self.group_id(),
-            epoch: self
-                .epoch()
-                .checked_add(1)
-                .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
-            commit: encode(&bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&bytes))?,
-            ratchet_tree: Some(self.ratchet_tree()?),
         })
     }
 
