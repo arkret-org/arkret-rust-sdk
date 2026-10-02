@@ -944,6 +944,11 @@ impl ArkretMlsGroup {
         &mut self,
         binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsCommitEnvelope> {
+        if self.has_pending_commit() {
+            return Err(Error::Protocol(
+                "MLS self-update requires installation of the existing pending Commit".to_owned(),
+            ));
+        }
         let bundle = if let Some(binding) = binding {
             let extensions = self
                 .verify_governance_binding_for_next_epoch(binding)
@@ -990,6 +995,130 @@ impl ArkretMlsGroup {
             commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
         })
+    }
+
+    /// Whether a local transition still awaits exact authority acceptance.
+    pub fn has_pending_commit(&self) -> bool {
+        self.group.pending_commit().is_some()
+    }
+
+    /// Restore one already frozen own transition on its identical private
+    /// base, retaining the live base's application ratchets and Signal nonce.
+    /// This does not install or authorize a Commit. The caller must still
+    /// obtain and verify authority acceptance before merging it.
+    pub fn resume_frozen_pending_commit(
+        &self,
+        frozen: &MlsGroupStateRecord,
+        envelope: &MlsCommitEnvelope,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<Self> {
+        let live_record = self.export_state_record()?;
+        let live: OpenMlsStateSnapshot = serde_json::from_slice(&live_record.serialized_state)?;
+        let mut saved: OpenMlsStateSnapshot = serde_json::from_slice(&frozen.serialized_state)?;
+        if live.context != saved.context
+            || live.group_id != saved.group_id
+            || live.scope != saved.scope
+            || live.epoch != saved.epoch
+            || live.actor_id != saved.actor_id
+            || live.endpoint != saved.endpoint
+            || live.profile != saved.profile
+            || live.signer_public_key != saved.signer_public_key
+            || live.leaf_bindings != saved.leaf_bindings
+        {
+            return Err(Error::Protocol(
+                "frozen MLS transition has another private base".into(),
+            ));
+        }
+        // These are the pinned MemoryStorage adapter's candidate-only entries.
+        // All epoch secrets, public context, tree, proposals and identity keys
+        // must remain byte-identical. Unknown storage entries also fail closed.
+        let candidate_entry = |key: &str| -> Result<bool> {
+            let key = decode(key)?;
+            Ok([
+                b"GroupState".as_slice(),
+                b"OwnLeafNodes",
+                b"EncryptionKeyPair",
+                b"MessageSecrets",
+            ]
+            .iter()
+            .any(|label| key.starts_with(label)))
+        };
+        for (key, value) in live
+            .storage_entries
+            .iter()
+            .chain(saved.storage_entries.iter())
+        {
+            if !candidate_entry(key)?
+                && (live.storage_entries.get(key) != Some(value)
+                    || saved.storage_entries.get(key) != Some(value))
+            {
+                return Err(Error::Protocol(
+                    "frozen MLS transition would replace its private base".into(),
+                ));
+            }
+        }
+        for (key, value) in &live.storage_entries {
+            if !decode(key)?.starts_with(b"MessageSecrets") {
+                continue;
+            }
+            let original = saved.storage_entries.get(key).ok_or_else(|| {
+                Error::Protocol("frozen MLS transition has no matching message secrets".into())
+            })?;
+            let mut live_secrets: serde_json::Value = serde_json::from_slice(&decode(value)?)?;
+            let mut saved_secrets: serde_json::Value = serde_json::from_slice(&decode(original)?)?;
+            strip_message_ratchets(&mut live_secrets)?;
+            strip_message_ratchets(&mut saved_secrets)?;
+            if live_secrets != saved_secrets {
+                return Err(Error::Protocol(
+                    "frozen MLS transition has another message-secret base".into(),
+                ));
+            }
+            // Preserve the entire live store, including every retained epoch's
+            // used and skipped generations. Never rewind to the frozen copy.
+            saved.storage_entries.insert(key.clone(), value.clone());
+        }
+        saved.signal_nonce_counter = live.signal_nonce_counter.max(saved.signal_nonce_counter);
+        let mut record = frozen.clone();
+        record.serialized_state = serde_json::to_vec(&saved)?;
+        let mut resumed = Self::restore_from_state_record(&record)?;
+        resumed
+            .verify_governance_binding_for_next_epoch(binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().into()))?;
+        if envelope.group_id != resumed.group_id()
+            || Some(envelope.epoch) != resumed.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "frozen MLS Commit has another group or epoch".into(),
+            ));
+        }
+        let bytes = decode(&envelope.commit)?;
+        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
+            return Err(Error::Protocol("MLS Commit hash mismatch".into()));
+        }
+        let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
+        let protocol = message
+            .try_into_protocol_message()
+            .map_err(|_| Error::Protocol("frozen MLS Commit is not a protocol message".into()))?;
+        let processed = resumed
+            .group
+            .process_message(&resumed.identity.provider, protocol)
+            .map_err(mls_error)?;
+        if !matches!(
+            processed.into_content(),
+            ProcessedMessageContent::OwnPendingCommit
+        ) {
+            return Err(Error::Protocol(
+                "frozen MLS state is not the exact own pending Commit".into(),
+            ));
+        }
+        let pending = resumed
+            .group
+            .pending_commit()
+            .ok_or_else(|| Error::Protocol("frozen MLS Commit has no pending state".into()))?;
+        let authenticated = decode_group_context_governance_binding(pending.group_context())?;
+        crate::verify_historical_governance_binding(&authenticated, binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().into()))?;
+        Ok(resumed)
     }
 
     pub fn add_member(
@@ -1931,6 +2060,35 @@ impl ArkretMlsGroup {
     }
 }
 
+// The pinned OpenMLS MessageSecretsStore has one current secret tree and a
+// list of past trees. Only ratchets may change while the public epoch is fixed.
+fn strip_message_ratchets(store: &mut serde_json::Value) -> Result<()> {
+    fn strip(secrets: &mut serde_json::Value) -> Result<()> {
+        secrets
+            .as_object_mut()
+            .and_then(|value| value.remove("secret_tree"))
+            .ok_or_else(|| Error::Protocol("unsupported OpenMLS message-secret shape".into()))?;
+        Ok(())
+    }
+    strip(
+        store
+            .get_mut("message_secrets")
+            .ok_or_else(|| Error::Protocol("missing OpenMLS current message secrets".into()))?,
+    )?;
+    let past = store
+        .get_mut("past_epoch_trees")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| Error::Protocol("missing OpenMLS past message secrets".into()))?;
+    for epoch in past {
+        strip(
+            epoch
+                .get_mut("message_secrets")
+                .ok_or_else(|| Error::Protocol("missing OpenMLS past epoch secrets".into()))?,
+        )?;
+    }
+    Ok(())
+}
+
 pub(super) fn snapshot_provider_storage(
     provider: &OpenMlsRustCrypto,
 ) -> Result<BTreeMap<String, String>> {
@@ -2351,6 +2509,127 @@ mod tests {
             governed.export_state_record().unwrap().serialized_state,
             governed_snapshot_before
         );
+    }
+
+    #[test]
+    fn self_update_authenticates_the_next_governance_binding_before_installation() {
+        let scope = realm_scope();
+        let base = event(1);
+        let genesis = genesis_binding(&scope);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        assert_eq!(group.epoch(), 0);
+        let snapshot = group.export_state_record().unwrap();
+        assert!(
+            group
+                .self_update_commit_with_governance_binding(&binding)
+                .is_err()
+        );
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            snapshot.serialized_state
+        );
+        let mut restored = ArkretMlsGroup::restore_from_state_record(&snapshot).unwrap();
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 1);
+        restored
+            .merge_accepted_commit_envelope(&commit, &public_state, &binding)
+            .unwrap();
+        assert_eq!(restored.epoch(), 1);
+        let (info, tree) = restored.public_group_state_bytes().unwrap();
+        let tracker = crate::MlsPublicGroupTracker::from_external(
+            &info,
+            &tree,
+            restored.group_id().as_str(),
+            1,
+        )
+        .unwrap();
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+    }
+
+    #[test]
+    fn frozen_commit_recovery_preserves_live_ratchets_and_rejects_another_private_base() {
+        let scope = realm_scope();
+        let binding = transition_binding(&scope, event(1), 1);
+        let base = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let base_record = base.export_state_record().unwrap();
+        let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let accepted = original
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let frozen = original.export_state_record().unwrap();
+        let mut live = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        live.group
+            .create_message(
+                &live.identity.provider,
+                &live.identity.signer,
+                b"one base-epoch application message",
+            )
+            .unwrap();
+        live.signal_nonce_counter = 7;
+        let competing = live
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let before = live.export_state_record().unwrap();
+        let mut resumed = live
+            .resume_frozen_pending_commit(&frozen, &accepted, &binding)
+            .unwrap();
+        assert_eq!(resumed.signal_nonce_counter, 7);
+        let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
+        let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
+        let frozen_snapshot: OpenMlsStateSnapshot =
+            serde_json::from_slice(&frozen.serialized_state).unwrap();
+        let mut saw_advanced_ratchet = false;
+        for (key, value) in &live_storage {
+            if decode(key).unwrap().starts_with(b"MessageSecrets") {
+                assert_eq!(resumed_storage.get(key), Some(value));
+                saw_advanced_ratchet |= frozen_snapshot.storage_entries.get(key) != Some(value);
+            }
+        }
+        assert!(saw_advanced_ratchet);
+        assert!(
+            live.resume_frozen_pending_commit(&frozen, &competing, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+        let mut wrong_base: OpenMlsStateSnapshot = frozen_snapshot;
+        let key = wrong_base
+            .storage_entries
+            .keys()
+            .find(|key| decode(key).unwrap().starts_with(b"EpochSecrets"))
+            .unwrap()
+            .clone();
+        wrong_base
+            .storage_entries
+            .insert(key, encode(b"another epoch secret"));
+        let mut wrong_record = frozen.clone();
+        wrong_record.serialized_state = serde_json::to_vec(&wrong_base).unwrap();
+        assert!(
+            live.resume_frozen_pending_commit(&wrong_record, &accepted, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+        resumed
+            .merge_accepted_commit_envelope(
+                &accepted,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(1)), 0, 1),
+                &binding,
+            )
+            .unwrap();
+        assert_eq!(resumed.epoch(), 1);
+        assert!(!resumed.has_pending_commit());
     }
 
     #[test]
