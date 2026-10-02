@@ -713,11 +713,7 @@ impl ArkretMlsGroup {
         let identity = std::str::from_utf8(actual_identity).map_err(|_| {
             Error::Protocol("active local MLS leaf identity is not canonical UTF-8".to_owned())
         })?;
-        let derived_sender_domain = identity
-            .rsplit_once('#')
-            .map(|(_, device)| device)
-            .unwrap_or(identity);
-        Ok(derived_sender_domain.to_owned())
+        Ok(identity.to_owned())
     }
 
     fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
