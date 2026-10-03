@@ -100,6 +100,18 @@ mod tests {
     }
 
     #[test]
+    fn native_bridge_error_is_an_exact_grant_exception_not_direct_event_coverage() {
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        for action in ["ak.applet.ghost.provision", "ak.applet.invoke"] {
+            assert!(!owner_may_grant(action).unwrap(), "{action}");
+        }
+        assert!(action_grants_authority_for("ak.realm.owner", "ak.applet.bridge_error").unwrap());
+        assert!(!action_grants_authority_for("ak.realm.admin", "ak.applet.bridge_error").unwrap());
+    }
+
+    #[test]
     fn owner_role_hard_denies_root_subject_personal_and_unknown_semantics() {
         for action in [
             "ak.realm.destroy",

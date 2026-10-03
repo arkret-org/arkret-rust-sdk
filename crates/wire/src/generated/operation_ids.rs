@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-02.2;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Entries: registered=209
+//! Input: registry/contract-registry.json; version=2026-10-03.1;
+//! sha256=237184a19183911cea5ae429e7d8f020b633225fecb01d1fc82138ce6eb27734 Entries: registered=211
 
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 #[repr(usize)]
 pub enum ServiceOperationId {
     EdgeAppletActorReadResolveV1,
+    EdgeAppletClientCommandExchangeV1,
     EdgeAppletCommandTransactionV1,
     EdgeAppletManagedActorCommandAuthorV1,
     EdgeAppletReadDescribeV1,
@@ -127,6 +128,7 @@ pub enum ServiceOperationId {
     SelfAppletCommandRevokeV1,
     SelfAppletGhostCommandPreviewV1,
     SelfAppletGhostCommandProvisionV1,
+    SelfAppletInstallCommandCancelV1,
     SelfAppletInstallCommandPreviewV1,
     SelfAppletRevokeCommandPreviewV1,
     SelfAuthzGrantsReadEffectiveV1,
@@ -221,6 +223,7 @@ pub enum ServiceOperationId {
 
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
+    ServiceOperationId::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1,
     ServiceOperationId::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1,
     ServiceOperationId::EDGE_APPLET_READ_DESCRIBE_V1,
@@ -339,6 +342,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
+    ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -475,6 +479,7 @@ pub struct ServiceOperationDescriptor {
 impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
         Self::EdgeAppletActorReadResolveV1,
+        Self::EdgeAppletClientCommandExchangeV1,
         Self::EdgeAppletCommandTransactionV1,
         Self::EdgeAppletManagedActorCommandAuthorV1,
         Self::EdgeAppletReadDescribeV1,
@@ -593,6 +598,7 @@ impl ServiceOperationId {
         Self::SelfAppletCommandRevokeV1,
         Self::SelfAppletGhostCommandPreviewV1,
         Self::SelfAppletGhostCommandProvisionV1,
+        Self::SelfAppletInstallCommandCancelV1,
         Self::SelfAppletInstallCommandPreviewV1,
         Self::SelfAppletRevokeCommandPreviewV1,
         Self::SelfAuthzGrantsReadEffectiveV1,
@@ -687,6 +693,8 @@ impl ServiceOperationId {
 
     pub const EDGE_APPLET_ACTOR_READ_RESOLVE_V1: &'static str =
         "ak.edge.applet.actor.read.resolve.v1";
+    pub const EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1: &'static str =
+        "ak.edge.applet.client.command.exchange.v1";
     pub const EDGE_APPLET_COMMAND_TRANSACTION_V1: &'static str =
         "ak.edge.applet.command.transaction.v1";
     pub const EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1: &'static str =
@@ -894,6 +902,8 @@ impl ServiceOperationId {
         "ak.self.applet.ghost.command.preview.v1";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION_V1: &'static str =
         "ak.self.applet.ghost.command.provision.v1";
+    pub const SELF_APPLET_INSTALL_COMMAND_CANCEL_V1: &'static str =
+        "ak.self.applet.install.command.cancel.v1";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.install.command.preview.v1";
     pub const SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1: &'static str =
@@ -1041,6 +1051,7 @@ impl ServiceOperationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::EdgeAppletActorReadResolveV1 => Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
+            Self::EdgeAppletClientCommandExchangeV1 => Self::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1,
             Self::EdgeAppletCommandTransactionV1 => Self::EDGE_APPLET_COMMAND_TRANSACTION_V1,
             Self::EdgeAppletManagedActorCommandAuthorV1 => {
                 Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1
@@ -1237,6 +1248,7 @@ impl ServiceOperationId {
             Self::SelfAppletCommandRevokeV1 => Self::SELF_APPLET_COMMAND_REVOKE_V1,
             Self::SelfAppletGhostCommandPreviewV1 => Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
             Self::SelfAppletGhostCommandProvisionV1 => Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
+            Self::SelfAppletInstallCommandCancelV1 => Self::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1,
             Self::SelfAppletInstallCommandPreviewV1 => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
             Self::SelfAppletRevokeCommandPreviewV1 => Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
             Self::SelfAuthzGrantsReadEffectiveV1 => Self::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -1365,6 +1377,9 @@ impl ServiceOperationId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1 => Some(Self::EdgeAppletActorReadResolveV1),
+            Self::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1 => {
+                Some(Self::EdgeAppletClientCommandExchangeV1)
+            }
             Self::EDGE_APPLET_COMMAND_TRANSACTION_V1 => Some(Self::EdgeAppletCommandTransactionV1),
             Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1 => {
                 Some(Self::EdgeAppletManagedActorCommandAuthorV1)
@@ -1606,6 +1621,9 @@ impl ServiceOperationId {
             }
             Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1 => {
                 Some(Self::SelfAppletGhostCommandProvisionV1)
+            }
+            Self::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1 => {
+                Some(Self::SelfAppletInstallCommandCancelV1)
             }
             Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1 => {
                 Some(Self::SelfAppletInstallCommandPreviewV1)
@@ -1878,6 +1896,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::EdgeAppletClientCommandExchangeV1,
+        http_method: "POST",
+        http_path: "/_arkret/edge/applet/client/exchange",
+        grpc: Some("EdgeApplet/ClientExchange"),
+        mq: Some("edge.applet.client.command.exchange"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-client-operations.schema.json#/$defs/exchange_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-client-operations.schema.json#/$defs/exchange_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Durable local request, bundle, queue and ack ledger only; Events retain dedicated admission.",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletCommandTransactionV1,
@@ -4570,6 +4615,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.profile.create",
             ])),
             rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletInstallCommandCancelV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/install/cancel",
+        grpc: Some("SelfApplet/InstallCancel"),
+        mq: Some("self.applet.install.command.cancel"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-client-operations.schema.json#/$defs/cancel_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-client-operations.schema.json#/$defs/cancel_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Cancel only the authenticated original installing administrator pending request; no Realm Event is admitted.",
+            ),
             branch_contract_json: None,
         }),
     },
