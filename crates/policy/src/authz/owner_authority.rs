@@ -97,6 +97,22 @@ mod tests {
         assert!(!owner_may_grant("ak.realm.tombstone").unwrap());
         assert!(!owner_may_grant("ak.agent.sidecar.write").unwrap());
         assert!(owner_may_grant("ak.rsvp.set").unwrap());
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_grant("ak.applet.invoke").unwrap());
+    }
+
+    #[test]
+    fn native_bridge_error_is_an_exact_grant_exception_not_direct_event_coverage() {
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        for action in ["ak.applet.ghost.provision", "ak.applet.invoke"] {
+            assert!(!owner_may_grant(action).unwrap(), "{action}");
+        }
+        assert!(action_grants_authority_for("ak.realm.owner", "ak.applet.bridge_error").unwrap());
+        assert!(!action_grants_authority_for("ak.realm.admin", "ak.applet.bridge_error").unwrap());
     }
 
     #[test]

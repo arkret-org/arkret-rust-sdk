@@ -1,10 +1,8 @@
 //! Closed exact-current Relation and moderation read carriers.
 //!
-//! These types intentionally live in the collaboration model crate: the
-//! Relation conflict-domain type is owned here, while moving it into
-//! `arkret-wire` would introduce a dependency cycle. The operation-specific
-//! selector is field-for-field equivalent to the formal closed selector and
-//! never falls back to `serde_json::Value`.
+//! The operation-specific selectors reuse the shared wire conflict-domain
+//! identity, remain field-for-field equivalent to the closed selectors, and
+//! never fall back to `serde_json::Value`.
 
 use std::fmt;
 use std::sync::OnceLock;

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-03.1;
-//! sha256=da17e87f85640ef75b59ff112d8b749ab33e27ef12209858ab5deb7c67b7c23b Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-03.3;
+//! sha256=237184a19183911cea5ae429e7d8f020b633225fecb01d1fc82138ce6eb27734 Input: registry/
 //! account-data-key-registry.json; version=2026-09-28.1;
 //! sha256=50238d9722dc0e93086bf3aee93280657a47d5f42ebad4336fd56830fd3e1ddb Entries: id_kinds=48,
 //! special_forms=15, actions=146, approval_carriers=1, schemas=224, account_data_patterns=24
@@ -2017,6 +2017,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[
             "ak.agent.key.authorize",
             "ak.agent.key.revoke",
+            "ak.applet.bridge_error",
             "ak.approval.vote",
             "ak.audit.accessed",
             "ak.audit.export",

@@ -1193,6 +1193,9 @@ pub enum CurrentSelector {
     MessageReactions {
         target_ref: crate::ObjectRef,
     },
+    Relation {
+        primary_conflict_domain: crate::relation::RelationPrimaryConflictDomain,
+    },
     CallState {
         call_id: CallId,
     },
@@ -1354,6 +1357,9 @@ enum FlatCurrentSelector {
     },
     MessageReactions {
         target_ref: crate::ObjectRef,
+    },
+    Relation {
+        primary_conflict_domain: crate::relation::RelationPrimaryConflictDomain,
     },
     CallState {
         call_id: CallId,
@@ -1660,6 +1666,11 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         }
                         Self::MessageReactions { target_ref }
                     }
+                    FlatCurrentSelector::Relation {
+                        primary_conflict_domain,
+                    } => Self::Relation {
+                        primary_conflict_domain,
+                    },
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
@@ -3616,6 +3627,67 @@ mod tests {
         ] {
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
         }
+    }
+
+    #[test]
+    fn relation_current_carrier_reuses_the_exact_primary_domain_and_closed_value() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../arkret-spec/spec/v1/artifacts/fixtures/exact-current-results-read-fixture.json");
+        let fixture: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let entry = fixture["valid_outcomes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == "authorized_relation_present_snapshot_carrier")
+            .unwrap()["value"]["entry"]
+            .clone();
+        let row: TypedCurrentResult = serde_json::from_value(entry.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&row).unwrap(), entry);
+        let TypedCurrentResult::Value {
+            selector:
+                CurrentSelector::Relation {
+                    primary_conflict_domain,
+                },
+            value,
+            ..
+        } = row
+        else {
+            panic!("expected the registered Relation carrier")
+        };
+        let relation: crate::relation::Relation = serde_json::from_value(value.clone()).unwrap();
+        relation
+            .validate_current_for_domain(&relation.realm_id, &primary_conflict_domain)
+            .unwrap();
+        for invalid in [
+            json!({"kind":"relation"}),
+            json!({"kind":"relation","primary_conflict_domain":primary_conflict_domain,"relation_id":relation.id}),
+        ] {
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+        let mut invalid = entry["selector"].clone();
+        invalid["primary_conflict_domain"]["scope_circle_id"] = Value::Null;
+        assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        let mut invalid = value.clone();
+        invalid["extra"] = Value::Null;
+        assert!(serde_json::from_value::<crate::relation::Relation>(invalid).is_err());
+        let mut changed = relation.clone();
+        changed.to_ref =
+            crate::relation::RelationEndpoint::Actor(ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )));
+        assert!(
+            changed
+                .validate_current_for_domain(&relation.realm_id, &primary_conflict_domain)
+                .is_err()
+        );
+        changed = relation.clone();
+        changed.state = Some(crate::RelationState::Tombstoned);
+        assert!(
+            changed
+                .validate_current_for_domain(&relation.realm_id, &primary_conflict_domain)
+                .is_err()
+        );
     }
 
     #[cfg(feature = "openapi")]
