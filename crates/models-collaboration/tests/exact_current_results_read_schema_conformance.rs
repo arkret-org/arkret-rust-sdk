@@ -40,6 +40,16 @@ fn moderation_request(outcome: &Value) -> Value {
     })
 }
 
+fn moderation_outcome(fixture: &Value) -> Value {
+    fixture["valid_outcomes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "authorized_moderation_present")
+        .expect("the formal fixture must include an authorized moderation result")["value"]
+        .clone()
+}
+
 #[test]
 fn formal_fixture_round_trips_through_strong_types() {
     let fixture = fixture();
@@ -90,7 +100,7 @@ fn moderation_never_written_is_rejected_by_schema_and_sdk() {
 #[test]
 fn missing_source_stream_is_rejected_by_schema_and_sdk() {
     let fixture = fixture();
-    let mut value = fixture["valid_outcomes"][1]["value"].clone();
+    let mut value = moderation_outcome(&fixture);
     value["entry"]
         .as_object_mut()
         .unwrap()
@@ -105,7 +115,7 @@ fn missing_source_stream_is_rejected_by_schema_and_sdk() {
 #[test]
 fn stale_or_mismatched_same_cut_response_fails_closed() {
     let fixture = fixture();
-    let value = fixture["valid_outcomes"][1]["value"].clone();
+    let value = moderation_outcome(&fixture);
     let request: ExactCurrentResultsReadRequestBody =
         serde_json::from_value(moderation_request(&value)).unwrap();
 
@@ -147,7 +157,7 @@ fn stale_or_mismatched_same_cut_response_fails_closed() {
 #[test]
 fn target_and_event_dot_are_validated_without_raw_json_carriers() {
     let fixture = fixture();
-    let value = fixture["valid_outcomes"][1]["value"].clone();
+    let value = moderation_outcome(&fixture);
 
     let mut bad_target = moderation_request(&value);
     bad_target["selector"]["target_ref"] = json!("not-an-object-ref");
