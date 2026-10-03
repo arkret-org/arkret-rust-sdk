@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-03.3;
-//! sha256=237184a19183911cea5ae429e7d8f020b633225fecb01d1fc82138ce6eb27734 Entries: schema_ids=224,
+//! Input: registry/contract-registry.json; version=2026-10-04.3;
+//! sha256=d673f74f21d473a3bc1b5c3cef310f92d81ccbc60b74143e267dcedfa596518d Entries: schema_ids=224,
 //! active=224
 
 use serde::{Deserialize, Serialize};
@@ -1242,7 +1242,9 @@ impl SchemaId {
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
-    /// Closed typed current-result selector and value union.
+    /// Closed typed current-result selector and value union. MLS current includes the immutable
+    /// accepted Genesis cipher_suite so signed snapshots prove the public encryption basis without
+    /// disclosing prejoin Genesis FullView.
     pub const RESULT_PROJECTION_V1: &'static str = "ak.schema.result_projection.v1";
     /// Payload schema for ak.rsvp.set.
     pub const RSVP_V1: &'static str = "ak.schema.rsvp.v1";
@@ -1268,7 +1270,9 @@ impl SchemaId {
     /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI
     /// inline components.
     pub const SERVICE_OPERATION_DTOS_V1: &'static str = "ak.schema.service_operation_dtos.v1";
-    /// Encrypted-only Signal Extension envelope; product payload types remain inside ciphertext.
+    /// Encrypted-only Signal envelope with exact scope authority_commit_id and Circle-only
+    /// parent_realm_authority_commit_id; both enter proof digest and pre-encryption AAD. Product
+    /// payloads remain encrypted.
     pub const SIGNAL_ENVELOPE_V1: &'static str = "ak.schema.signal_envelope.v1";
     /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta,
     /// and abort frames.

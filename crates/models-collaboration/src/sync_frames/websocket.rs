@@ -43,6 +43,17 @@ pub struct WebSocketFrameIngress {
     effective_max_bytes: usize,
 }
 
+/// Server ingress preserves selector refusals before decoding parameters.
+/// It is a local decoding result, never another application-frame schema.
+#[derive(Clone, Debug)]
+pub enum WebSocketClientIngress {
+    Frame(WebSocketClientFrame),
+    SelectorRefused {
+        channel_id: String,
+        error: WebSocketTransportError,
+    },
+}
+
 /// Transport decision after a socket closes or its upgrade fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WebSocketTransportAction {
@@ -231,11 +242,152 @@ impl WebSocketFrameIngress {
         Ok(frame)
     }
 
+    /// Apply §5's operation-selector precedence without relaxing the closed
+    /// shape or duplicate-key/byte gates of the normal direction decoder.
+    pub fn decode_server_ingress(
+        &self,
+        bytes: &[u8],
+    ) -> std::result::Result<WebSocketClientIngress, WebSocketIngressFailure> {
+        let value: serde_json::Value = self.decode(bytes)?;
+        let protocol = |message: &str| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: message.to_owned(),
+        };
+        if value.get("kind").and_then(serde_json::Value::as_str) == Some("open") {
+            let object = value
+                .as_object()
+                .ok_or_else(|| protocol("open must be an object"))?;
+            if object.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "kind" | "channel_id" | "operation_id" | "parameters"
+                )
+            }) {
+                return Err(protocol("open has an unknown field"));
+            }
+            let channel_id = object
+                .get("channel_id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| protocol("open requires channel_id"))?;
+            validate_websocket_channel_id(channel_id)
+                .map_err(|_| protocol("invalid channel_id"))?;
+            let refusal = |code| {
+                Ok(WebSocketClientIngress::SelectorRefused {
+                    channel_id: channel_id.to_owned(),
+                    error: WebSocketTransportError::new(
+                        code,
+                        "operation selector is not available for this channel",
+                    ),
+                })
+            };
+            let Some(selector) = object.get("operation_id") else {
+                return refusal(arkret_wire::ErrorCode::OperationSelectorRequired);
+            };
+            let selector = selector
+                .as_str()
+                .ok_or_else(|| protocol("operation selector must be a string"))?;
+            // Exact registered selectors on another operation family and
+            // canonical unknown versions are channel failures. Aliases and
+            // malformed registry names are connection protocol failures.
+            let parts = selector.split('.').collect::<Vec<_>>();
+            let canonical = parts.len() >= 4
+                && parts[0] == "ak"
+                && parts[..parts.len() - 1].iter().all(|part| {
+                    !part.is_empty()
+                        && part
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                })
+                && parts.last().is_some_and(|part| {
+                    part.strip_prefix('v').is_some_and(|version| {
+                        !version.is_empty()
+                            && !version.starts_with('0')
+                            && version.bytes().all(|b| b.is_ascii_digit())
+                    })
+                });
+            if !canonical {
+                return Err(protocol("operation selector is not canonical"));
+            }
+            if WebSocketOperationId::from_wire(selector).is_none() {
+                return refusal(arkret_wire::ErrorCode::UnsupportedOperationVersion);
+            }
+        }
+        let frame: WebSocketClientFrame = serde_json::from_value(value)
+            .map_err(|_| protocol("client frame violates its closed schema"))?;
+        frame
+            .validate()
+            .map_err(|_| protocol("client frame violates its field constraints"))?;
+        Ok(WebSocketClientIngress::Frame(frame))
+    }
+
     pub fn decode_server_frame(
         &self,
         bytes: &[u8],
     ) -> std::result::Result<WebSocketServerFrame, WebSocketIngressFailure> {
-        let frame: WebSocketServerFrame = self.decode(bytes)?;
+        self.decode_server_frame_for_channels(bytes, |_| None)
+    }
+
+    /// Shared control shapes have no operation discriminator. The opened
+    /// channel, rather than untagged union order, selects their closed schema.
+    pub fn decode_server_frame_for_channels(
+        &self,
+        bytes: &[u8],
+        operation_for: impl Fn(&str) -> Option<WebSocketOperationId>,
+    ) -> std::result::Result<WebSocketServerFrame, WebSocketIngressFailure> {
+        let value: serde_json::Value = self.decode(bytes)?;
+        let protocol = |error: serde_json::Error| WebSocketIngressFailure {
+            close_code: Some(WebSocketCloseCode::ProtocolError),
+            message: format!("WebSocket payload violates its channel operation schema: {error}"),
+        };
+        let mut frame: WebSocketServerFrame =
+            serde_json::from_value(value.clone()).map_err(protocol)?;
+        if let Some(operation) = frame.channel_id().and_then(operation_for) {
+            let payload = value
+                .get("payload")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
+            match &mut frame {
+                WebSocketServerFrame::Data { payload: slot, .. } => {
+                    *slot = match operation {
+                        WebSocketOperationId::AccountStreamSubscribe => {
+                            WebSocketDataPayload::Account(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                        WebSocketOperationId::CommittedEventStreamSubscribe => {
+                            WebSocketDataPayload::Events(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                        WebSocketOperationId::SignalStreamSubscribe => {
+                            WebSocketDataPayload::Signal(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                    };
+                }
+                WebSocketServerFrame::ChannelControl { payload: slot, .. } => {
+                    *slot = match operation {
+                        WebSocketOperationId::AccountStreamSubscribe => {
+                            WebSocketChannelControlPayload::Account(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                        WebSocketOperationId::CommittedEventStreamSubscribe => {
+                            WebSocketChannelControlPayload::Events(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                        WebSocketOperationId::SignalStreamSubscribe => {
+                            WebSocketChannelControlPayload::Signal(Box::new(
+                                serde_json::from_value(payload).map_err(protocol)?,
+                            ))
+                        }
+                    };
+                }
+                _ => {}
+            }
+        }
         frame.validate().map_err(|error| WebSocketIngressFailure {
             close_code: Some(WebSocketCloseCode::ProtocolError),
             message: error.to_string(),
@@ -1563,6 +1715,116 @@ impl WebSocketConnectionState {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shared_controls_use_the_opened_channel_schema() {
+        let ingress = WebSocketFrameIngress::new(262_144, None);
+        for kind in ["checkpoint", "catchup_complete"] {
+            let bytes=serde_json::to_vec(&serde_json::json!({"kind":"control","frame_scope":"channel","channel_id":"events","payload":{"kind":kind,"cursor":"ak:cursor:opaque-resume"}})).unwrap();
+            let frame = ingress
+                .decode_server_frame_for_channels(&bytes, |_| {
+                    Some(WebSocketOperationId::CommittedEventStreamSubscribe)
+                })
+                .unwrap();
+            assert!(matches!(
+                frame,
+                WebSocketServerFrame::ChannelControl {
+                    payload: WebSocketChannelControlPayload::Events(_),
+                    ..
+                }
+            ));
+            assert!(
+                ingress
+                    .decode_server_frame_for_channels(&bytes, |_| Some(
+                        WebSocketOperationId::SignalStreamSubscribe
+                    ))
+                    .is_err()
+            );
+        }
+        for &operation in WebSocketOperationId::ALL {
+            let frame=ingress.decode_server_frame_for_channels(br#"{"kind":"control","frame_scope":"channel","channel_id":"known","payload":{"kind":"unauthorized"}}"#, |_|Some(operation)).unwrap();
+            match (operation, frame) {
+                (
+                    WebSocketOperationId::AccountStreamSubscribe,
+                    WebSocketServerFrame::ChannelControl {
+                        payload: WebSocketChannelControlPayload::Account(_),
+                        ..
+                    },
+                )
+                | (
+                    WebSocketOperationId::CommittedEventStreamSubscribe,
+                    WebSocketServerFrame::ChannelControl {
+                        payload: WebSocketChannelControlPayload::Events(_),
+                        ..
+                    },
+                )
+                | (
+                    WebSocketOperationId::SignalStreamSubscribe,
+                    WebSocketServerFrame::ChannelControl {
+                        payload: WebSocketChannelControlPayload::Signal(_),
+                        ..
+                    },
+                ) => {}
+                _ => panic!("control was assigned by union order"),
+            }
+        }
+        assert!(ingress.decode_server_frame_for_channels(br#"{"kind":"control","frame_scope":"channel","channel_id":"known","payload":{"kind":"checkpoint","cursor":"opaque-resume","cursor":"duplicate"}}"#, |_|Some(WebSocketOperationId::CommittedEventStreamSubscribe)).is_err());
+    }
+
+    #[test]
+    fn server_ingress_checks_selectors_before_parameters() {
+        let ingress = WebSocketFrameIngress::new(262_144, None);
+        for (frame, code) in [
+            (
+                serde_json::json!({"kind":"open","channel_id":"events-1","parameters":null}),
+                arkret_wire::ErrorCode::OperationSelectorRequired,
+            ),
+            (
+                serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"ak.self.committed_event.stream.subscribe.v2","parameters":null}),
+                arkret_wire::ErrorCode::UnsupportedOperationVersion,
+            ),
+            (
+                serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"ak.self.signal.command.send.v1","parameters":{"invalid":true}}),
+                arkret_wire::ErrorCode::UnsupportedOperationVersion,
+            ),
+        ] {
+            let WebSocketClientIngress::SelectorRefused { channel_id, error } = ingress
+                .decode_server_ingress(&serde_json::to_vec(&frame).unwrap())
+                .unwrap()
+            else {
+                panic!("selector refusal must precede parameter decoding");
+            };
+            assert_eq!(channel_id, "events-1");
+            assert_eq!(error.code, code);
+        }
+        for frame in [
+            serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"events","parameters":{}}),
+            serde_json::json!({"kind":"open","channel_id":"events-1","unknown":true}),
+            serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"ak.self.signal.stream.subscribe.v1","parameters":{"after":"ak:cursor:old"}}),
+        ] {
+            assert_eq!(
+                ingress
+                    .decode_server_ingress(&serde_json::to_vec(&frame).unwrap())
+                    .unwrap_err()
+                    .close_code,
+                Some(WebSocketCloseCode::ProtocolError)
+            );
+        }
+        assert!(matches!(ingress.decode_server_ingress(br#"{"kind":"open","channel_id":"signal-1","operation_id":"ak.self.signal.stream.subscribe.v1","parameters":{}}"#).unwrap(),WebSocketClientIngress::Frame(WebSocketClientFrame::Open {parameters:WebSocketOpenParameters::Signal(_),..})));
+        assert_eq!(
+            ingress
+                .decode_server_ingress(br#"{"kind":"open","channel_id":"a","channel_id":"b"}"#)
+                .unwrap_err()
+                .close_code,
+            Some(WebSocketCloseCode::ProtocolError)
+        );
+        assert_eq!(
+            WebSocketFrameIngress::new(1024, None)
+                .decode_server_ingress(&vec![b' '; 1025])
+                .unwrap_err()
+                .close_code,
+            Some(WebSocketCloseCode::MessageTooBig)
+        );
+    }
     use chrono::TimeZone;
     use serde_json::json;
 

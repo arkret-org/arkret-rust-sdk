@@ -1939,6 +1939,7 @@ pub fn validate_parent_membership_revision(is_join: bool, present: bool) -> Resu
 pub struct MlsGroupCurrent {
     pub effective_scope: ScopeRef,
     pub genesis_event_ref: EventId,
+    pub cipher_suite: crate::NonEmptyString,
     pub current_mls_commit_event_ref: EventId,
     pub epoch: u64,
     pub current_key_access_revision: u64,
