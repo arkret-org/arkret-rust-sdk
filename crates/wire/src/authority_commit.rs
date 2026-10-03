@@ -1080,6 +1080,10 @@ pub enum CurrentSelector {
         sidecar_id: SidecarId,
         source_context_ref: SidecarContextRef,
     },
+    AgentSidecarExchangeControls {
+        sidecar_id: SidecarId,
+        source_context_ref: SidecarContextRef,
+    },
     RealmGenesis,
     AppletRegistration {
         applet_id: AppletId,
@@ -1267,6 +1271,10 @@ enum FlatCurrentSelector {
         sidecar_id: SidecarId,
     },
     SidecarContext {
+        sidecar_id: SidecarId,
+        source_context_ref: SidecarContextRef,
+    },
+    AgentSidecarExchangeControls {
         sidecar_id: SidecarId,
         source_context_ref: SidecarContextRef,
     },
@@ -1557,6 +1565,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         sidecar_id,
                         source_context_ref,
                     } => Self::SidecarContext {
+                        sidecar_id,
+                        source_context_ref,
+                    },
+                    FlatCurrentSelector::AgentSidecarExchangeControls {
+                        sidecar_id,
+                        source_context_ref,
+                    } => Self::AgentSidecarExchangeControls {
                         sidecar_id,
                         source_context_ref,
                     },

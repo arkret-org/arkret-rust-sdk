@@ -181,6 +181,29 @@ pub struct AgentSidecarExchangeControl {
 
 impl AgentSidecarExchangeControl {
     pub fn validate_shape(&self) -> Result<()> {
+        validate_exchange_token(&self.exchange_id, 22)?;
+        if self
+            .basis_event_ids
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+            || self
+                .response_event_ids
+                .as_ref()
+                .is_some_and(|ids| ids.windows(2).any(|pair| pair[0] >= pair[1]))
+        {
+            return Err(WireError::Protocol(
+                "exchange control Event sets must be sorted and unique".to_owned(),
+            ));
+        }
+        if self
+            .failure_reason_code
+            .as_ref()
+            .is_some_and(|reason| !sidecar_code(reason))
+        {
+            return Err(WireError::Protocol(
+                "exchange failure reason is not a registered code shape".to_owned(),
+            ));
+        }
         if self.schema != arkret_wire::SchemaId::AGENT_SIDECAR_EXCHANGE_CONTROL_V1 {
             return Err(WireError::Protocol(
                 "agent sidecar exchange control schema is invalid".to_owned(),
@@ -226,6 +249,104 @@ impl AgentSidecarExchangeControl {
             ));
         }
         Ok(())
+    }
+}
+
+/// One accepted encrypted control carrier, identified by the Event's only
+/// registered keyed-set write (`typed-current-result.schema.json`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeControlAssertion {
+    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub value: crate::events_payloads::sidecar::AgentSidecarExchangeControlPayload,
+}
+
+/// Closed, canonical assertion set for one native Sidecar source context.
+/// Exchange identities remain encrypted inside each carrier, never in this
+/// value's selector or an additional plaintext member.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentSidecarExchangeControlsCurrentValue {
+    assertions: Vec<AgentSidecarExchangeControlAssertion>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentSidecarExchangeControlsCurrentValueWire {
+    assertions: Vec<AgentSidecarExchangeControlAssertion>,
+}
+
+impl AgentSidecarExchangeControlsCurrentValue {
+    pub fn new(assertions: Vec<AgentSidecarExchangeControlAssertion>) -> Result<Self> {
+        if assertions
+            .iter()
+            .any(|entry| entry.tag_id.write_index() != 0)
+            || assertions
+                .windows(2)
+                .any(|pair| pair[0].tag_id >= pair[1].tag_id)
+        {
+            return Err(WireError::Protocol(
+                "Sidecar control assertions require sorted unique Event dots at write index 0"
+                    .to_owned(),
+            ));
+        }
+        for entry in &assertions {
+            entry.value.encrypted_payload.validate()?;
+        }
+        if assertions.windows(2).any(|pair| {
+            pair[0].value.sidecar_id != pair[1].value.sidecar_id
+                || pair[0].value.source_context_ref != pair[1].value.source_context_ref
+        }) {
+            return Err(WireError::Protocol(
+                "Sidecar control assertions cross their native source context".to_owned(),
+            ));
+        }
+        Ok(Self { assertions })
+    }
+
+    pub fn assertions(&self) -> &[AgentSidecarExchangeControlAssertion] {
+        &self.assertions
+    }
+
+    pub fn with_assertion(mut self, entry: AgentSidecarExchangeControlAssertion) -> Result<Self> {
+        match self
+            .assertions
+            .binary_search_by(|current| current.tag_id.cmp(&entry.tag_id))
+        {
+            Ok(_) => Err(WireError::Protocol(
+                "Sidecar control assertion dot already exists".to_owned(),
+            )),
+            Err(index) => {
+                self.assertions.insert(index, entry);
+                Self::new(self.assertions)
+            }
+        }
+    }
+
+    pub fn validate_for_context(
+        &self,
+        sidecar_id: &SidecarId,
+        source_context_ref: &arkret_wire::SidecarContextRef,
+    ) -> Result<()> {
+        if self.assertions.iter().any(|entry| {
+            &entry.value.sidecar_id != sidecar_id
+                || &entry.value.source_context_ref != source_context_ref
+        }) {
+            return Err(WireError::Protocol(
+                "Sidecar control value differs from its exact selector".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentSidecarExchangeControlsCurrentValue {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = AgentSidecarExchangeControlsCurrentValueWire::deserialize(deserializer)?;
+        Self::new(wire.assertions).map_err(serde::de::Error::custom)
     }
 }
 
@@ -434,6 +555,28 @@ pub struct AgentSidecarEventExchangeBinding {
 
 impl AgentSidecarEventExchangeBinding {
     pub fn validate_shape(&self) -> Result<()> {
+        validate_exchange_token(&self.exchange_id, 22)?;
+        if let Some(context) = &self.request_context {
+            validate_exchange_token(&context.client_order_key, 1)?;
+            if !sidecar_code(&context.source_track_ref.track_name)
+                || context.addressed_agent_ids.is_empty()
+                || context
+                    .addressed_agent_ids
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != context.addressed_agent_ids.len()
+                || match &context.coordinator_agent_id {
+                    Some(coordinator) => !context.addressed_agent_ids.contains(coordinator),
+                    None => context.addressed_agent_ids.len() != 1,
+                }
+            {
+                return Err(WireError::Protocol(
+                    "exchange request has an invalid track, addressed set or coordinator"
+                        .to_owned(),
+                ));
+            }
+        }
         if self.schema != arkret_wire::SchemaId::AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1 {
             return Err(WireError::Protocol(
                 "agent sidecar event exchange binding schema is invalid".to_owned(),
@@ -480,6 +623,27 @@ impl AgentSidecarEventExchangeBinding {
         }
         Ok(())
     }
+}
+
+fn validate_exchange_token(value: &str, minimum: usize) -> Result<()> {
+    if !(minimum..=128).contains(&value.len())
+        || !value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
+        })
+    {
+        return Err(WireError::Protocol(
+            "exchange identity or order key has an invalid opaque-token shape".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn sidecar_code(value: &str) -> bool {
+    (1..=64).contains(&value.len())
+        && value.as_bytes()[0].is_ascii_lowercase()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 /// Readiness of the controller device's access to the Sidecar MLS scope.
@@ -674,6 +838,81 @@ mod tests {
     const AGENT_ID: &str = "ak:did_core:webvh:z6mkfixture:agent.example";
     const EXCHANGE_ID: &str = "exchange-fixture-0000001";
     const HLC: &str = "0198ff000000-0001-0a0b0c0d";
+
+    #[test]
+    fn encrypted_control_current_is_closed_sorted_and_context_bound() {
+        use crate::exact_current_results::CanonicalEventDot;
+        let entry = |byte| {
+            AgentSidecarExchangeControlAssertion {
+            tag_id: CanonicalEventDot::new(event_id(byte), 0).unwrap(),
+            value: serde_json::from_value(json!({
+                "sidecar_id": sidecar_id(),
+                "source_context_ref": {"kind":"strand","strand_id":strand_id()},
+                "encrypted_payload": {"version":"1.0","content_type":"application/vnd.arkret.agent-sidecar-exchange-control+json",
+                    "encryption_context":{"epoch":1,"group_state_ref":event_id(7)},"ciphertext":"AQIDBA"}
+            })).unwrap(),
+        }
+        };
+        let mut entries = vec![entry(4), entry(5)];
+        entries.sort_by(|a, b| a.tag_id.cmp(&b.tag_id));
+        let current = AgentSidecarExchangeControlsCurrentValue::new(entries.clone()).unwrap();
+        let encoded = serde_json::to_value(&current).unwrap();
+        assert_eq!(
+            serde_json::from_value::<AgentSidecarExchangeControlsCurrentValue>(encoded.clone())
+                .unwrap(),
+            current
+        );
+        let mut unknown = encoded;
+        unknown["exchange_id"] = json!(EXCHANGE_ID);
+        assert!(
+            serde_json::from_value::<AgentSidecarExchangeControlsCurrentValue>(unknown).is_err()
+        );
+        entries.reverse();
+        assert!(AgentSidecarExchangeControlsCurrentValue::new(entries).is_err());
+        assert!(current.clone().with_assertion(entry(4)).is_err());
+        let mut wrong_dot = entry(6);
+        wrong_dot.tag_id = CanonicalEventDot::new(event_id(6), 1).unwrap();
+        assert!(current.clone().with_assertion(wrong_dot).is_err());
+        assert!(
+            current
+                .validate_for_context(
+                    &SidecarId::from_event_id(&event_id(8)),
+                    &arkret_wire::SidecarContextRef::Strand {
+                        strand_id: strand_id()
+                    }
+                )
+                .is_err()
+        );
+        let selector = arkret_wire::CurrentSelector::AgentSidecarExchangeControls {
+            sidecar_id: sidecar_id(),
+            source_context_ref: arkret_wire::SidecarContextRef::Strand {
+                strand_id: strand_id(),
+            },
+        };
+        assert_eq!(
+            serde_json::from_value::<arkret_wire::CurrentSelector>(
+                serde_json::to_value(&selector).unwrap()
+            )
+            .unwrap(),
+            selector
+        );
+    }
+
+    #[test]
+    fn exchange_control_rejects_noncanonical_sets_and_invalid_tokens() {
+        let mut control: AgentSidecarExchangeControl =
+            serde_json::from_value(control_value()).unwrap();
+        control.validate_shape().unwrap();
+        control
+            .basis_event_ids
+            .push(control.basis_event_ids[0].clone());
+        assert!(control.validate_shape().is_err());
+        control.basis_event_ids.pop();
+        control.exchange_id = "too-short".to_owned();
+        assert!(control.validate_shape().is_err());
+        control.exchange_id = "opaque.exchange~=0000000001".to_owned();
+        control.validate_shape().unwrap();
+    }
 
     fn sidecar_value() -> serde_json::Value {
         json!({
