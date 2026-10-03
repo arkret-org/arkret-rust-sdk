@@ -97,6 +97,10 @@ mod tests {
         assert!(!owner_may_grant("ak.realm.tombstone").unwrap());
         assert!(!owner_may_grant("ak.agent.sidecar.write").unwrap());
         assert!(owner_may_grant("ak.rsvp.set").unwrap());
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_grant("ak.applet.invoke").unwrap());
     }
 
     #[test]

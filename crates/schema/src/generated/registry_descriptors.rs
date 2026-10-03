@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-02.4;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-03.3;
+//! sha256=237184a19183911cea5ae429e7d8f020b633225fecb01d1fc82138ce6eb27734 Input: registry/
 //! account-data-key-registry.json; version=2026-09-28.1;
 //! sha256=cc7ef465c7e428e9621e489a45c5e79eefc69bbaf3def07db84b07c0bb86427c Entries: id_kinds=48,
-//! special_forms=15, actions=145, approval_carriers=1, schemas=220, account_data_patterns=24
+//! special_forms=15, actions=146, approval_carriers=1, schemas=224, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -599,6 +599,22 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletInvoke,
+        category: "content",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.applet_service.v1"),
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
@@ -2001,6 +2017,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[
             "ak.agent.key.authorize",
             "ak.agent.key.revoke",
+            "ak.applet.bridge_error",
             "ak.approval.vote",
             "ak.audit.accessed",
             "ak.audit.export",
@@ -3023,6 +3040,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPLET_CLIENT_OPERATIONS_V1,
+        file: "schemas/applet-client-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::APPLET_EDGE_OPERATIONS_V1,
         file: "schemas/applet-edge-operations.schema.json",
     },
@@ -3157,6 +3178,18 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,
         file: "schemas/contact-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_BLOCK_APPLET_INVOCATION_V1,
+        file: "schemas/content-block-applet.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_BLOCK_APPLET_RELAY_V1,
+        file: "schemas/content-block-applet.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_BLOCK_APPLET_RESULT_V1,
+        file: "schemas/content-block-applet.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
