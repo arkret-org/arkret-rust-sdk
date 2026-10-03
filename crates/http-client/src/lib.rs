@@ -36,6 +36,7 @@ mod endpoints;
 mod error;
 mod key_backup_client;
 mod request;
+mod service_method_resolution;
 pub mod station_connection;
 mod subscribe_body;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
