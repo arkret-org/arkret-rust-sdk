@@ -8,6 +8,7 @@ use arkret_wire::{
     AuthorityBundleRequest, AuthorityHandoffRequest, RealmAuthorityBundle, RealmAuthorityHandoff,
     StreamScanOutcome, StreamScanRequest,
 };
+use reqwest::Method;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
@@ -58,9 +59,11 @@ impl Client {
         request: &AuthorityBundleRequest,
     ) -> Result<RealmAuthorityBundle> {
         request.validate()?;
-        let outcome: RealmAuthorityBundle = self
-            .post("/_arkret/open/realm-authority/bundle", request)
-            .await?;
+        let builder = self.canonical_json_body(
+            self.public_request(Method::POST, "/_arkret/open/realm-authority/bundle")?,
+            request,
+        )?;
+        let outcome: RealmAuthorityBundle = self.send_json(builder).await?;
         outcome.validate_for_request(request, chrono::Utc::now())?;
         Ok(outcome)
     }
@@ -83,5 +86,54 @@ impl Client {
             ));
         }
         Ok(outcome)
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    use tokio::net::TcpListener;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn routed_open_authority_bundle_never_forwards_account_credentials() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let captured = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = [0_u8; 4096];
+            let count = stream.read(&mut bytes).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 2\r\n\r\n{}")
+                .await
+                .unwrap();
+            String::from_utf8_lossy(&bytes[..count]).to_ascii_lowercase()
+        });
+        let own = Client::builder(url::Url::parse("https://account.example/").unwrap())
+            .allow_insecure_localhost()
+            .auth(crate::Auth::Dpop(crate::DpopAuth::with_dpop_token(
+                "account-grant-must-stay-local",
+                |_| panic!("an open authority request must not sign an Account DPoP proof"),
+            )))
+            .build()
+            .unwrap();
+        let remote = own
+            .with_base_url(url::Url::parse(&format!("http://{address}/")).unwrap())
+            .unwrap();
+        let request = AuthorityBundleRequest {
+            realm_id: arkret_wire::RealmId::new(
+                "ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO",
+            )
+            .unwrap(),
+            nonce: arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),
+        };
+        assert!(remote.realm_authority_bundle(&request).await.is_err());
+        let request = captured.await.unwrap();
+        assert!(request.starts_with("post /_arkret/open/realm-authority/bundle "));
+        assert!(request.contains("ak.open.realm_authority.read.bundle.v1"));
+        assert!(!request.contains("authorization:"));
+        assert!(!request.contains("dpop:"));
+        assert!(!request.contains("account-grant-must-stay-local"));
     }
 }

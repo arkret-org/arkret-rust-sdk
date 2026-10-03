@@ -63,6 +63,7 @@ pub mod query_auth;
 pub mod realm_authority_signer;
 pub mod receive_policy;
 pub mod recovery_authority;
+pub mod relation;
 pub mod request_digest;
 pub mod resource_selector;
 pub mod self_contact_paths;
