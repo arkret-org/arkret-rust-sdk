@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-30.2;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Input: reachable event
+//! sha256=da17e87f85640ef75b59ff112d8b749ab33e27ef12209858ab5deb7c67b7c23b Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=7e2feed3959f8ea276bdf44b01792511f2a1edc7c9216dadd2e7646298baddc6
-//! Entries: preimage_commitments=37
+//! sha256=b5eb4e041978ac2728b87e5cda936039ba7920143d25ad2d3d190811d8b0ced0
+//! Entries: preimage_commitments=39
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -33,6 +33,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
         schema_file: "schemas/agent-provision.schema.json",
         json_pointer: "/properties/principal_control_realm_id",
         commitment: PreimageCommitment::LaterSubmission,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/authority-commit-operations.schema.json",
+        json_pointer: "/$defs/committed_event_ref/properties/event_id",
+        commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/call-recording-artifact.schema.json",
@@ -187,6 +192,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/key-backup-active-series.schema.json",
         json_pointer: "/properties/auth_data/properties/device_authorize_event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/keys-operations.schema.json",
+        json_pointer: "/$defs/device_projection_attestation_core/properties/device_authorize_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

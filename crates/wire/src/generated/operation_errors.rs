@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-02.1;
-//! sha256=bdb253e644f51958360008f2148e08546d51866ae7c59b77cdf883b3dfa9f41b Input: registry/
-//! contract-registry.json; version=2026-10-02.4;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Input: registry/
-//! error-code-registry.json; version=2026-10-01;
-//! sha256=2bcfab1f3375fce1f95b585f284287f08a8ca037e8cd77b754a882e7827f29be Entries: operations=209
+//! Input: registry/operations-error-mapping.json; version=2026-10-03.1;
+//! sha256=9e539a379c65bc804f69ec53e6b2161a0ca503da2e7f98846453f1da9abebfc6 Input: registry/
+//! contract-registry.json; version=2026-10-03.1;
+//! sha256=da17e87f85640ef75b59ff112d8b749ab33e27ef12209858ab5deb7c67b7c23b Input: registry/
+//! error-code-registry.json; version=2026-10-03.1;
+//! sha256=0dadbf058ad520ffbf6997774491ca750bc6dbd360d178602e7e6d227bcc489c Entries: operations=211
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -23,6 +23,12 @@ impl ServiceOperationId {
 
 pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::AuthoringRequestExpired),
+        OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
+        OperationSpecificError::Code(ErrorCode::AppletRevoked),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
         OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
@@ -539,6 +545,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::AppletNamespaceMismatch),
         OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::AuthoringRequestExpired),
+        OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
+        OperationSpecificError::Code(ErrorCode::AppletRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),

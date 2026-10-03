@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-02.4;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Entries: schema_ids=220,
-//! active=220
+//! Input: registry/contract-registry.json; version=2026-10-03.1;
+//! sha256=da17e87f85640ef75b59ff112d8b749ab33e27ef12209858ab5deb7c67b7c23b Entries: schema_ids=224,
+//! active=224
 
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +40,7 @@ pub enum SchemaId {
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
     AppletV1,
+    AppletClientOperationsV1,
     AppletEdgeOperationsV1,
     AppletGhostAuthoringRequestBasisV1,
     AppletGhostOperationsV1,
@@ -74,6 +75,9 @@ pub enum SchemaId {
     ContactOperationsV1,
     ContactRemarkV1,
     ContactScopeUpdateV1,
+    ContentBlockAppletInvocationV1,
+    ContentBlockAppletRelayV1,
+    ContentBlockAppletResultV1,
     ContentBlockPollV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
@@ -264,6 +268,7 @@ impl SchemaId {
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
         Self::AppletV1,
+        Self::AppletClientOperationsV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -298,6 +303,9 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
+        Self::ContentBlockAppletInvocationV1,
+        Self::ContentBlockAppletRelayV1,
+        Self::ContentBlockAppletResultV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
@@ -488,6 +496,7 @@ impl SchemaId {
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
         Self::AppletV1,
+        Self::AppletClientOperationsV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -522,6 +531,9 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
+        Self::ContentBlockAppletInvocationV1,
+        Self::ContentBlockAppletRelayV1,
+        Self::ContentBlockAppletResultV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
@@ -781,6 +793,8 @@ impl SchemaId {
     /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
     /// ak.applet.* use typed payload definitions in event-payload.schema.json.
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
+    /// applet client operations
+    pub const APPLET_CLIENT_OPERATIONS_V1: &'static str = "ak.schema.applet_client_operations.v1";
     /// Closed request/response DTO bundle for Applet edge and bridge operations.
     pub const APPLET_EDGE_OPERATIONS_V1: &'static str = "ak.schema.applet_edge_operations.v1";
     /// Station-derived Ghost basis binding the exact target server, active installation
@@ -808,7 +822,7 @@ impl SchemaId {
     /// service after validating an authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    /// Station-signed, expiry-bounded install_bot or provision_ghost managed-actor authoring
+    /// Station-signed, expiry-bounded install_applet or provision_ghost managed-actor authoring
     /// request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
@@ -894,6 +908,15 @@ impl SchemaId {
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// contact round, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
+    /// content block applet invocation
+    pub const CONTENT_BLOCK_APPLET_INVOCATION_V1: &'static str =
+        "ak.schema.content_block_applet_invocation.v1";
+    /// content block applet relay
+    pub const CONTENT_BLOCK_APPLET_RELAY_V1: &'static str =
+        "ak.schema.content_block_applet_relay.v1";
+    /// content block applet result
+    pub const CONTENT_BLOCK_APPLET_RESULT_V1: &'static str =
+        "ak.schema.content_block_applet_result.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
     /// Account Authority controller-account eligibility gate signed under
@@ -1358,6 +1381,7 @@ impl SchemaId {
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::AppletV1 => Self::APPLET_V1,
+            Self::AppletClientOperationsV1 => Self::APPLET_CLIENT_OPERATIONS_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1
@@ -1404,6 +1428,9 @@ impl SchemaId {
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
+            Self::ContentBlockAppletInvocationV1 => Self::CONTENT_BLOCK_APPLET_INVOCATION_V1,
+            Self::ContentBlockAppletRelayV1 => Self::CONTENT_BLOCK_APPLET_RELAY_V1,
+            Self::ContentBlockAppletResultV1 => Self::CONTENT_BLOCK_APPLET_RESULT_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
@@ -1615,6 +1642,7 @@ impl SchemaId {
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
+            Self::AppletClientOperationsV1 => "schemas/applet-client-operations.schema.json",
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 "schemas/applet-install-authoring.schema.json"
@@ -1665,6 +1693,9 @@ impl SchemaId {
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
+            Self::ContentBlockAppletInvocationV1 => "schemas/content-block-applet.schema.json",
+            Self::ContentBlockAppletRelayV1 => "schemas/content-block-applet.schema.json",
+            Self::ContentBlockAppletResultV1 => "schemas/content-block-applet.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => {
                 "schemas/agent-authority-evidence.schema.json"
@@ -1882,6 +1913,7 @@ impl SchemaId {
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
+            Self::APPLET_CLIENT_OPERATIONS_V1 => Some(Self::AppletClientOperationsV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1 => {
                 Some(Self::AppletGhostAuthoringRequestBasisV1)
@@ -1932,6 +1964,9 @@ impl SchemaId {
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
+            Self::CONTENT_BLOCK_APPLET_INVOCATION_V1 => Some(Self::ContentBlockAppletInvocationV1),
+            Self::CONTENT_BLOCK_APPLET_RELAY_V1 => Some(Self::ContentBlockAppletRelayV1),
+            Self::CONTENT_BLOCK_APPLET_RESULT_V1 => Some(Self::ContentBlockAppletResultV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)

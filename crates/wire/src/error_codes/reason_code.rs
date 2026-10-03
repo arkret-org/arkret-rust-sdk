@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-01;
-//! sha256=2bcfab1f3375fce1f95b585f284287f08a8ca037e8cd77b754a882e7827f29be
+//! Input: registry/error-code-registry.json; version=2026-10-03.1;
+//! sha256=0dadbf058ad520ffbf6997774491ca750bc6dbd360d178602e7e6d227bcc489c
 //! Entries: reason_codes=310, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1641,7 +1641,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_MANAGED_ACTOR_PROVISION_INVALID,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An ak.applet.managed_actor.provision Event in the closed Applet managed-actor creation aggregate does not satisfy its binding rules: actor_id.account_id.station_id is not the receiving Station, the actor collides with the service or controller principal, or the provisioned actor is not the registration's declared bot_actor_id. See zh/extensions/applet-integration.md.",
+        description: "An ak.applet.managed_actor.provision Event in the closed Applet managed-actor creation aggregate does not satisfy its binding rules: actor_id.account_id.station_id is not the receiving Station, the actor collides with the service or controller principal, or the provisioned actor is not the registration's declared applet_actor_id. See zh/extensions/applet-integration.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_MANAGED_PCR_GENESIS_INVALID,

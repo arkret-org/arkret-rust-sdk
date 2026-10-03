@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-02.4;
-//! sha256=1f3ed5794c9e10abeda0a382bccd0b8d83756e4c635499f0f7dbd643f4d75b23 Entries: registered=145
+//! Input: registry/contract-registry.json; version=2026-10-03.1;
+//! sha256=da17e87f85640ef75b59ff112d8b749ab33e27ef12209858ab5deb7c67b7c23b Entries: registered=146
 
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,7 @@ pub enum CapabilityActionId {
     AgentSidecarWrite,
     AppletBridgeError,
     AppletGhostProvision,
+    AppletInvoke,
     ApprovalVote,
     AuditAccessed,
     AuditExport,
@@ -168,6 +169,7 @@ impl CapabilityActionId {
         Self::AgentSidecarWrite,
         Self::AppletBridgeError,
         Self::AppletGhostProvision,
+        Self::AppletInvoke,
         Self::ApprovalVote,
         Self::AuditAccessed,
         Self::AuditExport,
@@ -315,6 +317,7 @@ impl CapabilityActionId {
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
     pub const APPLET_BRIDGE_ERROR: &'static str = "ak.applet.bridge_error";
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
+    pub const APPLET_INVOKE: &'static str = "ak.applet.invoke";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
     pub const AUDIT_EXPORT: &'static str = "ak.audit.export";
@@ -473,6 +476,7 @@ impl CapabilityActionId {
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
             Self::AppletBridgeError => Self::APPLET_BRIDGE_ERROR,
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
+            Self::AppletInvoke => Self::APPLET_INVOKE,
             Self::ApprovalVote => Self::APPROVAL_VOTE,
             Self::AuditAccessed => Self::AUDIT_ACCESSED,
             Self::AuditExport => Self::AUDIT_EXPORT,
@@ -631,6 +635,7 @@ impl CapabilityActionId {
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
             Self::APPLET_BRIDGE_ERROR => Some(Self::AppletBridgeError),
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
+            Self::APPLET_INVOKE => Some(Self::AppletInvoke),
             Self::APPROVAL_VOTE => Some(Self::ApprovalVote),
             Self::AUDIT_ACCESSED => Some(Self::AuditAccessed),
             Self::AUDIT_EXPORT => Some(Self::AuditExport),
