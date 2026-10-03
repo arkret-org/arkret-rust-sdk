@@ -3,7 +3,7 @@
 //! Input: registry/contract-registry.json; version=2026-10-04.4;
 //! sha256=5548c5876a5c8425532a130cfb760d0eefeb5d4a3d404a7197c1b88cdd17ce56 Input: registry/
 //! account-data-key-registry.json; version=2026-09-28.1;
-//! sha256=cc7ef465c7e428e9621e489a45c5e79eefc69bbaf3def07db84b07c0bb86427c Entries: id_kinds=48,
+//! sha256=50238d9722dc0e93086bf3aee93280657a47d5f42ebad4336fd56830fd3e1ddb Entries: id_kinds=48,
 //! special_forms=15, actions=146, approval_carriers=1, schemas=224, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
