@@ -20,10 +20,10 @@ use arkret_wire::{
 };
 use chrono::Utc;
 use openmls::prelude::{
-    BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
-    GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
+    BasicCredential, Capabilities, ContentType, CredentialWithKey, Extension, ExtensionType,
+    Extensions, GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
     MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
-    RequiredCapabilitiesExtension, StagedCommit, StagedWelcome, UnknownExtension,
+    RequiredCapabilitiesExtension, StagedCommit, StagedWelcome, UnknownExtension, WireFormat,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
@@ -254,6 +254,9 @@ pub struct ArkretMlsGroup {
     /// `ak.signal_exporter_aead.v1` Signal scheme. Persisted with the group
     /// snapshot so a device never repeats a nonce within one MLS epoch.
     pub(super) signal_nonce_counter: u64,
+    /// Exact wire identity of this holder's staged Commit. Own ciphertext
+    /// cannot be authenticated by replaying it through OpenMLS after sending.
+    pub(super) own_pending_commit_digest: Option<Hash>,
 }
 
 #[derive(Clone, Debug)]
@@ -339,6 +342,7 @@ struct OpenMlsStateSnapshot {
     /// missing field can only mean "never encrypted a Signal", i.e. 0.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     signal_nonce_counter: u64,
+    own_pending_commit_digest: Option<Hash>,
 }
 
 fn is_zero_u64(value: &u64) -> bool {
@@ -814,6 +818,11 @@ impl ArkretMlsGroup {
 
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
         self.require_complete_leaf_bindings()?;
+        if self.has_pending_commit() != self.own_pending_commit_digest.is_some() {
+            return Err(Error::Protocol(
+                "MLS pending Commit has no exact wire binding".into(),
+            ));
+        }
         let snapshot = OpenMlsStateSnapshot {
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
             group_id: self.group_id.clone(),
@@ -826,6 +835,7 @@ impl ArkretMlsGroup {
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
             leaf_bindings: self.leaf_bindings.clone(),
             signal_nonce_counter: self.signal_nonce_counter,
+            own_pending_commit_digest: self.own_pending_commit_digest.clone(),
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
@@ -899,6 +909,11 @@ impl ArkretMlsGroup {
                 "OpenMLS restored epoch mismatch".to_owned(),
             ));
         }
+        if group.pending_commit().is_some() != snapshot.own_pending_commit_digest.is_some() {
+            return Err(Error::Protocol(
+                "MLS snapshot pending Commit has no exact wire binding".into(),
+            ));
+        }
 
         let bindings = snapshot.leaf_bindings;
         let mut restored = Self {
@@ -915,6 +930,7 @@ impl ArkretMlsGroup {
             group_id,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: snapshot.signal_nonce_counter,
+            own_pending_commit_digest: snapshot.own_pending_commit_digest,
         };
         restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
         Ok(restored)
@@ -992,6 +1008,8 @@ impl ArkretMlsGroup {
             .tls_serialize_detached()
             .map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
+        let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
         Ok(MlsCommitEnvelope {
             group_id: self.group_id(),
             epoch: self
@@ -999,7 +1017,7 @@ impl ArkretMlsGroup {
                 .checked_add(1)
                 .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
             commit: encode(&commit_bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+            commit_digest,
             ratchet_tree,
         })
     }
@@ -1098,26 +1116,7 @@ impl ArkretMlsGroup {
                 "frozen MLS Commit has another group or epoch".into(),
             ));
         }
-        let bytes = decode(&envelope.commit)?;
-        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
-            return Err(Error::Protocol("MLS Commit hash mismatch".into()));
-        }
-        let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
-        let protocol = message
-            .try_into_protocol_message()
-            .map_err(|_| Error::Protocol("frozen MLS Commit is not a protocol message".into()))?;
-        let processed = resumed
-            .group
-            .process_message(&resumed.identity.provider, protocol)
-            .map_err(mls_error)?;
-        if !matches!(
-            processed.into_content(),
-            ProcessedMessageContent::OwnPendingCommit
-        ) {
-            return Err(Error::Protocol(
-                "frozen MLS state is not the exact own pending Commit".into(),
-            ));
-        }
+        resumed.verify_exact_own_pending_commit(envelope)?;
         let pending = resumed
             .group
             .pending_commit()
@@ -1331,6 +1330,7 @@ impl ArkretMlsGroup {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
 
         Ok(MlsAddMembersResult {
             commit: MlsCommitEnvelope {
@@ -1521,6 +1521,8 @@ impl ArkretMlsGroup {
             removed_leaves.push(idx.u32());
             removed_actors.push(principal);
         }
+        let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
 
         Ok(MlsRemoveMemberResult {
             commit: MlsCommitEnvelope {
@@ -1529,7 +1531,7 @@ impl ArkretMlsGroup {
                     .checked_add(1)
                     .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
                 commit: encode(&commit_bytes),
-                commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+                commit_digest,
                 ratchet_tree,
             },
             removed_leaves,
@@ -1704,6 +1706,7 @@ impl ArkretMlsGroup {
             group_id,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
+            own_pending_commit_digest: None,
         })
     }
 
@@ -1874,26 +1877,7 @@ impl ArkretMlsGroup {
                 "recovered MLS Commit is not the next local epoch".to_owned(),
             ));
         }
-        let bytes = decode(&envelope.commit)?;
-        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
-            return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
-        }
-        let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
-        let protocol = message
-            .try_into_protocol_message()
-            .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".to_owned()))?;
-        let processed = self
-            .group
-            .process_message(&self.identity.provider, protocol)
-            .map_err(mls_error)?;
-        if !matches!(
-            processed.into_content(),
-            ProcessedMessageContent::OwnPendingCommit
-        ) {
-            return Err(Error::Protocol(
-                "recovery requires the exact own pending Commit".to_owned(),
-            ));
-        }
+        self.verify_exact_own_pending_commit(&envelope)?;
         let pending = self
             .group
             .pending_commit()
@@ -1993,6 +1977,19 @@ impl ArkretMlsGroup {
             return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
         }
 
+        if self.own_pending_commit_digest.as_ref() == Some(&envelope.commit_digest) {
+            self.verify_exact_own_pending_commit(envelope)?;
+            let verified = verify_group_context_governance_binding(
+                self.group
+                    .pending_commit()
+                    .ok_or_else(|| Error::Protocol("own MLS Commit has no pending state".into()))?
+                    .group_context(),
+                public_state,
+                event_payload_binding,
+            )?;
+            return self.merge_verified_pending_commit(envelope, verified);
+        }
+
         let message =
             MlsMessageIn::tls_deserialize_exact(commit_bytes.as_slice()).map_err(mls_error)?;
         let protocol_message = message
@@ -2004,22 +2001,9 @@ impl ArkretMlsGroup {
             .map_err(mls_error)?;
 
         match processed.into_content() {
-            ProcessedMessageContent::OwnPendingCommit => {
-                let verified = self
-                    .group
-                    .pending_commit()
-                    .ok_or_else(|| {
-                        Error::Protocol("own MLS Commit has no pending state".to_owned())
-                    })
-                    .and_then(|pending| {
-                        verify_group_context_governance_binding(
-                            pending.group_context(),
-                            public_state,
-                            event_payload_binding,
-                        )
-                    })?;
-                self.merge_verified_pending_commit(envelope, verified)
-            }
+            ProcessedMessageContent::OwnPendingCommit => Err(Error::Protocol(
+                "own MLS Commit differs from its exact staged wire binding".into(),
+            )),
             ProcessedMessageContent::StagedCommitMessage(commit) => {
                 validate_staged_commit_capability_floor(
                     &self.group,
@@ -2037,14 +2021,67 @@ impl ArkretMlsGroup {
         }
     }
 
+    fn verify_exact_own_pending_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<()> {
+        if self.own_pending_commit_digest.as_ref() != Some(&envelope.commit_digest)
+            || !self.has_pending_commit()
+            || envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "MLS state is not the exact own pending Commit".into(),
+            ));
+        }
+        let bytes = decode(&envelope.commit)?;
+        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
+            return Err(Error::Protocol("MLS Commit hash mismatch".into()));
+        }
+        let protocol = MlsMessageIn::tls_deserialize_exact(bytes.as_slice())
+            .map_err(mls_error)?
+            .try_into_protocol_message()
+            .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".into()))?;
+        let public = self.scope.requires_public_mls_handshake()?;
+        if protocol.group_id() != self.group.group_id()
+            || protocol.epoch().as_u64() != self.epoch()
+            || protocol.content_type() != ContentType::Commit
+            || protocol.wire_format()
+                != if public {
+                    WireFormat::PublicMessage
+                } else {
+                    WireFormat::PrivateMessage
+                }
+        {
+            return Err(Error::Protocol(
+                "own MLS Commit has another framing or handshake policy".into(),
+            ));
+        }
+        if public {
+            let processed = self
+                .group
+                .process_message(&self.identity.provider, protocol)
+                .map_err(mls_error)?;
+            if !matches!(
+                processed.into_content(),
+                ProcessedMessageContent::OwnPendingCommit
+            ) {
+                return Err(Error::Protocol(
+                    "MLS state is not the exact own pending Commit".into(),
+                ));
+            }
+        }
+        // OpenMLS deliberately cannot authenticate its own PrivateMessage:
+        // sender data alone yields OwnPrivateMessage without verifying content.
+        // The digest persisted atomically with the original staged state binds
+        // the exact ciphertext instead; never accept that unauthenticated echo.
+        Ok(())
+    }
+
     fn merge_verified_pending_commit(
         &mut self,
         envelope: &MlsCommitEnvelope,
         _verified: VerifiedMlsGovernanceBinding,
     ) -> Result<u64> {
-        // OpenMLS authenticated the echoed Commit and matched its confirmation
-        // tag against the exact locally staged commit. The typed governance
-        // effect is consumed before the epoch mutation.
+        // The original staged wire identity and pending GroupContext have
+        // been verified. Authority acceptance is required before this mutation.
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
@@ -2055,6 +2092,7 @@ impl ArkretMlsGroup {
             ));
         }
         self.leaf_bindings.clear();
+        self.own_pending_commit_digest = None;
         Ok(applied_epoch)
     }
 
@@ -2078,6 +2116,7 @@ impl ArkretMlsGroup {
         // map is never a valid compatibility fallback; the caller must install
         // the every-and-only accepted-transition binding before roster access.
         self.leaf_bindings.clear();
+        self.own_pending_commit_digest = None;
         Ok(applied_epoch)
     }
 }
@@ -2652,6 +2691,183 @@ mod tests {
             .unwrap();
         assert_eq!(resumed.epoch(), 1);
         assert!(!resumed.has_pending_commit());
+    }
+
+    #[test]
+    fn sidecar_frozen_add_binds_exact_ciphertext_without_rewinding_live_ratchets() {
+        let realm_id = realm_scope().realm_id_opt().unwrap().clone();
+        let sidecar_id =
+            arkret_wire::SidecarId::new("ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+                .unwrap();
+        let scope = ScopeRef::Sidecar {
+            realm_id: realm_id.clone(),
+            sidecar_id: sidecar_id.clone(),
+        };
+        let binding_for = |base, previous, next, revision| {
+            MlsGovernanceBindingPayload::sidecar(
+                realm_id.clone(),
+                sidecar_id.clone(),
+                base,
+                previous,
+                next,
+                revision,
+                Hash::new(canonical::sha256_digest([4])).unwrap(),
+                vec![event(5)],
+            )
+            .unwrap()
+        };
+        let genesis = binding_for(None, 0, 0, 0);
+        let binding = binding_for(Some(event(1)), 0, 1, 1);
+        let agent = ArkretMlsIdentity::new_agent(
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls-agent.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
+            arkret_wire::DidUrl::new("did:web:mls-agent.example#runtime-31").unwrap(),
+            event(31),
+            crate::ArkretMlsSigner::from_ed25519_signing_key(
+                ed25519_dalek::SigningKey::from_bytes(&[31; 32]),
+            ),
+        )
+        .unwrap();
+        let base = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let base_record = base.export_state_record().unwrap();
+        let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let add = original
+            .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
+            .unwrap();
+        let frozen = original.export_state_record().unwrap();
+        let bytes = decode(&add.commit.commit).unwrap();
+        let protocol = MlsMessageIn::tls_deserialize_exact(bytes.as_slice())
+            .unwrap()
+            .try_into_protocol_message()
+            .unwrap();
+        assert_eq!(protocol.wire_format(), WireFormat::PrivateMessage);
+        let mut echoed = ArkretMlsGroup::restore_from_state_record(&frozen).unwrap();
+        assert!(matches!(
+            echoed
+                .group
+                .process_message(&echoed.identity.provider, protocol)
+                .unwrap()
+                .into_content(),
+            ProcessedMessageContent::OwnPrivateMessage,
+        ));
+
+        let mut live = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        live.group
+            .create_message(
+                &live.identity.provider,
+                &live.identity.signer,
+                b"later application",
+            )
+            .unwrap();
+        live.signal_nonce_counter = 7;
+        let competing = live
+            .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
+            .unwrap();
+        let before = live.export_state_record().unwrap();
+        let mut tampered = add.commit.clone();
+        let mut tampered_bytes = bytes;
+        *tampered_bytes.last_mut().unwrap() ^= 1;
+        tampered.commit = encode(&tampered_bytes);
+        tampered.commit_digest = Hash::new(canonical::sha256_digest(&tampered_bytes)).unwrap();
+        for candidate in [&competing.commit, &tampered] {
+            assert!(
+                live.resume_frozen_pending_commit(&frozen, candidate, &binding)
+                    .is_err()
+            );
+        }
+        let wrong_binding = binding_for(Some(event(2)), 0, 1, 1);
+        assert!(
+            live.resume_frozen_pending_commit(&frozen, &add.commit, &wrong_binding)
+                .is_err()
+        );
+        let mut wrong: OpenMlsStateSnapshot =
+            serde_json::from_slice(&frozen.serialized_state).unwrap();
+        wrong.own_pending_commit_digest = None;
+        let mut unbound = frozen.clone();
+        unbound.serialized_state = serde_json::to_vec(&wrong).unwrap();
+        assert!(ArkretMlsGroup::restore_from_state_record(&unbound).is_err());
+        assert!(
+            live.resume_frozen_pending_commit(&unbound, &add.commit, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+
+        let mut resumed = live
+            .resume_frozen_pending_commit(&frozen, &add.commit, &binding)
+            .unwrap();
+        assert_eq!(resumed.epoch(), 0);
+        assert!(resumed.has_pending_commit());
+        assert_eq!(resumed.signal_nonce_counter, 7);
+        let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
+        let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
+        for (key, value) in &live_storage {
+            if decode(key).unwrap().starts_with(b"MessageSecrets") {
+                assert_eq!(resumed_storage.get(key), Some(value));
+            }
+        }
+        resumed
+            .merge_accepted_commit_envelope(
+                &add.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(1)), 0, 1),
+                &binding,
+            )
+            .unwrap();
+        assert_eq!(resumed.epoch(), 1);
+        assert!(!resumed.has_pending_commit());
+        assert!(resumed.own_pending_commit_digest.is_none());
+        resumed
+            .install_test_leaf_bindings(vec![
+                resumed.identity.endpoint.clone(),
+                agent.endpoint.clone(),
+            ])
+            .unwrap();
+
+        // The same durable binding applies to encrypted self updates and Removes.
+        let rotation_binding = binding_for(Some(event(6)), 1, 2, 1);
+        let rotation = resumed
+            .self_update_commit_with_governance_binding(&rotation_binding)
+            .unwrap();
+        let rotation_record = resumed.export_state_record().unwrap();
+        let mut rotated = ArkretMlsGroup::restore_from_state_record(&rotation_record).unwrap();
+        rotated
+            .merge_accepted_commit_envelope(
+                &rotation,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(6)), 1, 1),
+                &rotation_binding,
+            )
+            .unwrap();
+        rotated
+            .install_test_leaf_bindings(vec![
+                rotated.identity.endpoint.clone(),
+                agent.endpoint.clone(),
+            ])
+            .unwrap();
+        let removal_binding = binding_for(Some(event(7)), 2, 3, 2);
+        let removal = rotated
+            .remove_members_by_actor_with_governance_binding(
+                std::slice::from_ref(&agent.actor_id),
+                &removal_binding,
+            )
+            .unwrap();
+        let removal_record = rotated.export_state_record().unwrap();
+        let mut removed = ArkretMlsGroup::restore_from_state_record(&removal_record).unwrap();
+        removed
+            .merge_accepted_commit_envelope(
+                &removal.commit,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(7)), 2, 2),
+                &removal_binding,
+            )
+            .unwrap();
+        assert_eq!(removed.epoch(), 3);
+        assert!(removed.own_pending_commit_digest.is_none());
+        assert_eq!(removed.group.members().count(), 1);
     }
 
     #[test]

@@ -701,6 +701,7 @@ impl ArkretMlsIdentity {
             group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
+            own_pending_commit_digest: None,
         };
         #[cfg(any(test, feature = "test-utils"))]
         result.install_test_leaf_bindings(vec![result.identity.endpoint.clone()])?;
@@ -757,6 +758,7 @@ impl ArkretMlsIdentity {
             group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
+            own_pending_commit_digest: None,
         };
         #[cfg(any(test, feature = "test-utils"))]
         result.install_test_leaf_bindings(vec![result.identity.endpoint.clone()])?;
