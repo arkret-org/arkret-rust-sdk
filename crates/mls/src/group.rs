@@ -2826,6 +2826,15 @@ mod tests {
 
     #[test]
     fn agent_runtime_repair_replaces_retired_authorization_in_one_same_group_commit() {
+        assert_agent_runtime_repair(false);
+    }
+
+    #[test]
+    fn agent_same_key_reauthorization_replaces_the_endpoint_without_membership_revision() {
+        assert_agent_runtime_repair(true);
+    }
+
+    fn assert_agent_runtime_repair(same_signing_key: bool) {
         let scope = realm_scope();
         let mut group = identity()
             .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
@@ -2834,19 +2843,19 @@ mod tests {
             DidCoreId::new("ak:did_core:web:mls-agent.example").unwrap(),
             DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
         ));
-        let runtime = |number: u8| {
+        let runtime = |number: u8, key_number: u8| {
             ArkretMlsIdentity::new_agent(
                 actor.clone(),
-                arkret_wire::DidUrl::new(format!("did:web:mls-agent.example#runtime-{number}"))
+                arkret_wire::DidUrl::new(format!("did:web:mls-agent.example#runtime-{key_number}"))
                     .unwrap(),
                 event(number),
                 crate::ArkretMlsSigner::from_ed25519_signing_key(
-                    ed25519_dalek::SigningKey::from_bytes(&[number; 32]),
+                    ed25519_dalek::SigningKey::from_bytes(&[key_number; 32]),
                 ),
             )
             .unwrap()
         };
-        let old = runtime(31);
+        let old = runtime(31, 31);
         let first_binding = transition_binding(&scope, event(9), 1);
         let first = group
             .add_member_with_governance_binding(&claimed_keypackage(&old), &first_binding)
@@ -2865,7 +2874,7 @@ mod tests {
         let mut tracker =
             crate::MlsPublicGroupTracker::from_external(&info, &tree, group.group_id().as_str(), 1)
                 .unwrap();
-        let new = runtime(32);
+        let new = runtime(32, if same_signing_key { 31 } else { 32 });
         let package = claimed_keypackage(&new);
         assert_eq!(
             group
@@ -2894,7 +2903,7 @@ mod tests {
             None
         );
         let group_id = group.group_id();
-        let second_binding = binding_for_epochs(&scope, event(10), 1, 2, 2);
+        let second_binding = binding_for_epochs(&scope, event(10), 1, 2, 1);
         let replacement = group
             .replace_member_endpoint(&package, &actor, Some(&second_binding))
             .unwrap();
@@ -2915,7 +2924,10 @@ mod tests {
             .find_map(|proposal| proposal.target_before.as_ref())
             .unwrap();
         assert_eq!(removed.actor_id, actor);
-        assert_ne!(removed.signature_key, added_leaves[0].signature_key);
+        assert_eq!(
+            removed.signature_key == added_leaves[0].signature_key,
+            same_signing_key
+        );
         assert_eq!(
             consumed_proposals
                 .iter()
@@ -2926,7 +2938,7 @@ mod tests {
         group
             .merge_accepted_commit_envelope(
                 &replacement.commit,
-                &MlsGovernanceBindingPublicState::new(scope, Some(event(10)), 1, 2),
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(10)), 1, 1),
                 &second_binding,
             )
             .unwrap();
