@@ -41,6 +41,13 @@ use crate::{
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
+fn endpoint_replaces(previous: &MlsEndpointIdentity, current: &MlsEndpointIdentity) -> bool {
+    previous == current
+        || matches!((previous, current),
+        (MlsEndpointIdentity::AgentRuntime { agent_id: old, .. },
+         MlsEndpointIdentity::AgentRuntime { agent_id: new, .. }) if old == new)
+}
+
 /// Match a recipient Welcome's RFC 9420 KeyPackageRef to public local
 /// inventory. This is allocation bookkeeping only: it neither admits the
 /// Welcome nor authorizes opening it or issuing a durable consume receipt.
@@ -1167,19 +1174,34 @@ impl ArkretMlsGroup {
         self.add_members_with_optional_governance_binding(member_key_packages, None, &[])
     }
 
+    /// Locate an accepted endpoint incarnation of the exact member. Human
+    /// devices are distinct endpoints; an Agent's current runtime replaces
+    /// that same Agent's previous runtime authorization.
+    pub fn member_endpoint_replacement_actor(
+        &self,
+        endpoint: &MlsEndpointIdentity,
+        actor: &ActorId,
+    ) -> Result<Option<ActorId>> {
+        Ok(self
+            .verified_leaf_bindings()?
+            .into_iter()
+            .find(|leaf| leaf.actor_id == *actor && endpoint_replaces(&leaf.endpoint, endpoint))
+            .map(|leaf| leaf.actor_id))
+    }
+
     pub fn replace_member_endpoint(
         &mut self,
         package: &MlsKeyPackageRecord,
         actor: &ActorId,
         binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsAddMemberResult> {
-        if !self
-            .leaf_bindings
-            .values()
-            .any(|leaf| leaf.actor_id == *actor && leaf.endpoint == package.endpoint)
+        if self
+            .member_endpoint_replacement_actor(&package.endpoint, actor)?
+            .is_none()
         {
             return Err(Error::Protocol(
-                "endpoint replacement requires the exact current Account ActorId".to_owned(),
+                "endpoint replacement requires the exact current member ActorId and endpoint"
+                    .to_owned(),
             ));
         }
         let result = self.add_members_with_optional_governance_binding(
@@ -1245,7 +1267,7 @@ impl ArkretMlsGroup {
                 replace_actors.contains(&binding.actor_id)
                     && member_key_packages
                         .iter()
-                        .any(|record| record.endpoint == binding.endpoint)
+                        .any(|record| endpoint_replaces(&binding.endpoint, &record.endpoint))
             })
             .map(|binding| LeafNodeIndex::new(binding.leaf_index))
             .collect();
@@ -2800,6 +2822,124 @@ mod tests {
             added_leaves[0].actor_id.signing_principal_id().as_str(),
             "ak:did_core:web:mls-member.example"
         );
+    }
+
+    #[test]
+    fn agent_runtime_repair_replaces_retired_authorization_in_one_same_group_commit() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:mls-agent.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+        ));
+        let runtime = |number: u8| {
+            ArkretMlsIdentity::new_agent(
+                actor.clone(),
+                arkret_wire::DidUrl::new(format!("did:web:mls-agent.example#runtime-{number}"))
+                    .unwrap(),
+                event(number),
+                crate::ArkretMlsSigner::from_ed25519_signing_key(
+                    ed25519_dalek::SigningKey::from_bytes(&[number; 32]),
+                ),
+            )
+            .unwrap()
+        };
+        let old = runtime(31);
+        let first_binding = transition_binding(&scope, event(9), 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&old), &first_binding)
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone(), old.endpoint.clone()])
+            .unwrap();
+        let (info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker =
+            crate::MlsPublicGroupTracker::from_external(&info, &tree, group.group_id().as_str(), 1)
+                .unwrap();
+        let new = runtime(32);
+        let package = claimed_keypackage(&new);
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(&new.endpoint, &actor)
+                .unwrap(),
+            Some(actor.clone())
+        );
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(&new.endpoint, &group.identity.actor_id)
+                .unwrap(),
+            None
+        );
+        let second_device = ArkretMlsIdentity::new_test_human_device(
+            group.identity.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000074").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(
+                    &second_device.endpoint,
+                    &group.identity.actor_id
+                )
+                .unwrap(),
+            None
+        );
+        let group_id = group.group_id();
+        let second_binding = binding_for_epochs(&scope, event(10), 1, 2, 2);
+        let replacement = group
+            .replace_member_endpoint(&package, &actor, Some(&second_binding))
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            consumed_proposals,
+            added_leaves,
+            ..
+        } = tracker
+            .process_public_handshake(&decode(&replacement.commit.commit).unwrap())
+            .unwrap()
+        else {
+            panic!("runtime replacement must be a signed Commit")
+        };
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(added_leaves[0].actor_id, actor);
+        let removed = consumed_proposals
+            .iter()
+            .find_map(|proposal| proposal.target_before.as_ref())
+            .unwrap();
+        assert_eq!(removed.actor_id, actor);
+        assert_ne!(removed.signature_key, added_leaves[0].signature_key);
+        assert_eq!(
+            consumed_proposals
+                .iter()
+                .filter(|proposal| proposal.proposal_type == 3)
+                .count(),
+            1
+        );
+        group
+            .merge_accepted_commit_envelope(
+                &replacement.commit,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(10)), 1, 2),
+                &second_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone(), new.endpoint.clone()])
+            .unwrap();
+        assert_eq!(group.group_id(), group_id);
+        assert_eq!(group.epoch(), 2);
+        let leaves = group.verified_leaf_bindings().unwrap();
+        assert_eq!(leaves.len(), 2);
+        assert!(leaves.iter().any(|leaf| leaf.endpoint == new.endpoint));
+        assert!(!leaves.iter().any(|leaf| leaf.endpoint == old.endpoint));
+        assert!(!replacement.welcome.ciphertext_b64.as_str().is_empty());
     }
 
     #[test]
