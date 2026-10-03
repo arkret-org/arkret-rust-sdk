@@ -70,7 +70,7 @@ impl MlsAddAuthorityAttestation {
         if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
             || !matches!(
                 &self.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
             )
             || self.commit_stream_position == 0
             || self.epoch == 0

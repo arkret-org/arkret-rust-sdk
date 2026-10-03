@@ -663,6 +663,82 @@ mod tests {
     }
 
     #[test]
+    fn sidecar_add_attestation_preserves_exact_scope_and_historical_signature_checks() {
+        let (request, pages, resolution) = signed_two_page_roster();
+        let MlsRosterRecord::Add { attestation, .. } = &pages[1].records[0] else {
+            panic!("the second record is an Add");
+        };
+        let mut attestation = attestation.clone();
+        attestation.effective_scope = ScopeRef::Sidecar {
+            realm_id: request.realm_id.clone(),
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:ASZ1iAvlGxgLC_-P6WHoR9vfijpaxbI5hoSwBx8zWTcT",
+            )
+            .unwrap(),
+        };
+        attestation.mls_group_id = attestation
+            .effective_scope
+            .canonical_mls_group_id()
+            .unwrap();
+        attestation.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            attestation.attestor_station_id.clone(),
+            attestation.attestor_station_id.clone(),
+        ));
+        attestation.claim_receipt.request.mls_group_id = attestation.mls_group_id.clone();
+        let kid = attestation.signature.kid.as_str().to_owned();
+        attestation.claim_receipt.signature =
+            arkret_signatures::keypackages::sign_keypackage_signing_input(
+                &[41; 32],
+                &kid,
+                &peer_keypackage_claim_receipt_signing_bytes(&attestation.claim_receipt).unwrap(),
+            )
+            .unwrap();
+        attestation.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[41; 32],
+            &kid,
+            &attestation.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        attestation.validate_shape().unwrap();
+        verify_mls_add_authority_attestation_signature(&attestation, &resolution).unwrap();
+        verify_peer_keypackage_claim_receipt_signature(&attestation.claim_receipt, &resolution)
+            .unwrap();
+
+        let mut another_sidecar = attestation.clone();
+        another_sidecar.effective_scope = ScopeRef::Sidecar {
+            realm_id: request.realm_id,
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            )
+            .unwrap(),
+        };
+        assert!(
+            verify_mls_add_authority_attestation_signature(&another_sidecar, &resolution).is_err()
+        );
+        let mut wrong = attestation.clone();
+        wrong.effective_scope = ScopeRef::RealmGenesis;
+        assert!(wrong.validate_shape().is_err());
+        wrong = attestation.clone();
+        wrong.realm_id =
+            RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV").unwrap();
+        assert!(wrong.validate_shape().is_err());
+        wrong = attestation.clone();
+        wrong.commit_stream_position = 0;
+        assert!(wrong.validate_shape().is_err());
+        wrong = attestation.clone();
+        wrong.epoch = 0;
+        assert!(wrong.validate_shape().is_err());
+        wrong = attestation.clone();
+        wrong.attestor_station_id =
+            project_did_to_core_id(&Did::new("did:web:another-station.example").unwrap()).unwrap();
+        assert!(wrong.validate_shape().is_err());
+        wrong = attestation;
+        wrong.leaf_signature_key_b64u =
+            Base64UrlString::new(arkret_canonical::base64url_encode([7; 31])).unwrap();
+        assert!(wrong.validate_shape().is_err());
+    }
+
+    #[test]
     fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historical_signatures() {
         let (request, mut pages, resolution) = signed_two_page_roster();
         let mut low = 0;
