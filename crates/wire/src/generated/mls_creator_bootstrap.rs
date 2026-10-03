@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/mls-creator-bootstrap-transaction-registry.json; version=2026-10-01;
-//! sha256=146a22d420b1a457bc83eb64df9d98c86f20b3cf0d8f875faf5877f98fb38716 Entries: states=11,
+//! Input: registry/mls-creator-bootstrap-transaction-registry.json; version=2026-10-04;
+//! sha256=acbf7bcb47168c4cf81e629b3801d57b7a84261b403b001dc810d2288c2a8e13 Entries: states=11,
 //! transitions=9, state_kinds=4
 
 use serde::{Deserialize, Serialize};
