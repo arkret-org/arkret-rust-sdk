@@ -83,11 +83,8 @@ pub fn welcome_addresses_key_package(
 /// `PURE_CIPHERTEXT` instead of failing loudly. The scope is therefore threaded
 /// down from the caller and persisted with the group.
 pub(super) fn handshake_policy(scope: &ScopeRef) -> Result<openmls::prelude::WireFormatPolicy> {
-    Ok(if scope.requires_public_mls_handshake()? {
-        openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
-    } else {
-        openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
-    })
+    scope.requires_public_mls_handshake()?;
+    Ok(openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
 }
 
 /// AEAD parameters fixed by the MLS ciphersuite for the live Signal rail.
@@ -2039,39 +2036,28 @@ impl ArkretMlsGroup {
             .map_err(mls_error)?
             .try_into_protocol_message()
             .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".into()))?;
-        let public = self.scope.requires_public_mls_handshake()?;
+        self.scope.requires_public_mls_handshake()?;
         if protocol.group_id() != self.group.group_id()
             || protocol.epoch().as_u64() != self.epoch()
             || protocol.content_type() != ContentType::Commit
-            || protocol.wire_format()
-                != if public {
-                    WireFormat::PublicMessage
-                } else {
-                    WireFormat::PrivateMessage
-                }
+            || protocol.wire_format() != WireFormat::PublicMessage
         {
             return Err(Error::Protocol(
                 "own MLS Commit has another framing or handshake policy".into(),
             ));
         }
-        if public {
-            let processed = self
-                .group
-                .process_message(&self.identity.provider, protocol)
-                .map_err(mls_error)?;
-            if !matches!(
-                processed.into_content(),
-                ProcessedMessageContent::OwnPendingCommit
-            ) {
-                return Err(Error::Protocol(
-                    "MLS state is not the exact own pending Commit".into(),
-                ));
-            }
+        let processed = self
+            .group
+            .process_message(&self.identity.provider, protocol)
+            .map_err(mls_error)?;
+        if !matches!(
+            processed.into_content(),
+            ProcessedMessageContent::OwnPendingCommit
+        ) {
+            return Err(Error::Protocol(
+                "MLS state is not the exact own pending Commit".into(),
+            ));
         }
-        // OpenMLS deliberately cannot authenticate its own PrivateMessage:
-        // sender data alone yields OwnPrivateMessage without verifying content.
-        // The digest persisted atomically with the original staged state binds
-        // the exact ciphertext instead; never accept that unauthenticated echo.
         Ok(())
     }
 
@@ -2376,7 +2362,7 @@ mod tests {
     /// and restored with. It is no longer recoverable from the `group_id`, and
     /// the point of this test is that nothing tries.
     #[test]
-    fn scope_groups_keep_independent_handshake_policies() {
+    fn all_effective_scopes_use_station_verifiable_handshakes() {
         let realm_id =
             RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV").unwrap();
         for scope in [
@@ -2404,7 +2390,7 @@ mod tests {
         };
         assert_eq!(
             handshake_policy(&sidecar).unwrap(),
-            openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
+            openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
         );
         assert!(handshake_policy(&ScopeRef::RealmGenesis).is_err());
     }
@@ -2694,7 +2680,7 @@ mod tests {
     }
 
     #[test]
-    fn sidecar_frozen_add_binds_exact_ciphertext_without_rewinding_live_ratchets() {
+    fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets() {
         let realm_id = realm_scope().realm_id_opt().unwrap().clone();
         let sidecar_id =
             arkret_wire::SidecarId::new("ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
@@ -2733,18 +2719,63 @@ mod tests {
         let base = identity()
             .create_group_with_governance_binding(&scope, &genesis)
             .unwrap();
+        let (group_info, tree) = base.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            base.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let public_base = tracker.export_state().unwrap();
         let base_record = base.export_state_record().unwrap();
+        let mut private = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let config = MlsGroupJoinConfig::builder()
+            .wire_format_policy(openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY)
+            .use_ratchet_tree_extension(true)
+            .build();
+        private
+            .group
+            .set_configuration(private.identity.provider.storage(), &config)
+            .unwrap();
+        let private_commit = private
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        assert!(
+            tracker
+                .process_public_handshake(&decode(&private_commit.commit).unwrap())
+                .is_err()
+        );
+        assert_eq!(tracker.export_state().unwrap(), public_base);
         let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
         let add = original
             .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
             .unwrap();
         let frozen = original.export_state_record().unwrap();
         let bytes = decode(&add.commit.commit).unwrap();
+        let transition = tracker.process_public_handshake(&bytes).unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("expected an Add Commit");
+        };
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(added_leaves[0].actor_id, agent.actor_id);
+        assert!(consumed_proposals.iter().any(|p| {
+            p.target_after
+                .as_ref()
+                .is_some_and(|l| l.actor_id == agent.actor_id)
+        }));
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+        assert_eq!(original.epoch(), 0);
         let protocol = MlsMessageIn::tls_deserialize_exact(bytes.as_slice())
             .unwrap()
             .try_into_protocol_message()
             .unwrap();
-        assert_eq!(protocol.wire_format(), WireFormat::PrivateMessage);
+        assert_eq!(protocol.wire_format(), WireFormat::PublicMessage);
         let mut echoed = ArkretMlsGroup::restore_from_state_record(&frozen).unwrap();
         assert!(matches!(
             echoed
@@ -2752,7 +2783,7 @@ mod tests {
                 .process_message(&echoed.identity.provider, protocol)
                 .unwrap()
                 .into_content(),
-            ProcessedMessageContent::OwnPrivateMessage,
+            ProcessedMessageContent::OwnPendingCommit,
         ));
 
         let mut live = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
@@ -2829,7 +2860,7 @@ mod tests {
             ])
             .unwrap();
 
-        // The same durable binding applies to encrypted self updates and Removes.
+        // Self updates and Removes retain the exact signed transition binding.
         let rotation_binding = binding_for(Some(event(6)), 1, 2, 1);
         let rotation = resumed
             .self_update_commit_with_governance_binding(&rotation_binding)

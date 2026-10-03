@@ -762,22 +762,18 @@ impl ScopeRef {
         .map_err(|message| WireError::Protocol(message.to_owned()))
     }
 
-    /// Whether this scope's MLS group carries handshake messages as
-    /// `PublicMessage`.
+    /// The RFC handshake wire format required by this effective scope.
     ///
-    /// Realm and Circle groups do; a Sidecar group keeps its own policy and
-    /// encrypts them. Before 2218 this was read back out of the `group_id`
-    /// bytes, which only worked because those bytes were the scope id in
-    /// clear — exactly the leak 2218 closed. It is a property of the scope, so
-    /// it is answered here and passed down, never re-derived from a
-    /// `group_id`.
+    /// Realm/Circle use the public-handshake contract. Sidecar independently
+    /// requires PublicMessage within its restricted disclosure and participant
+    /// authority contract; this never grants a parent Realm member access.
+    /// The hashed group id carries no scope or policy information.
     pub fn requires_public_mls_handshake(&self) -> Result<bool> {
         match self {
             Self::RealmGenesis => Err(WireError::Protocol(
                 "RealmGenesis has no executable MLS security scope".to_owned(),
             )),
-            Self::Realm { .. } | Self::Circle { .. } => Ok(true),
-            Self::Sidecar { .. } => Ok(false),
+            Self::Realm { .. } | Self::Circle { .. } | Self::Sidecar { .. } => Ok(true),
         }
     }
 
@@ -929,7 +925,7 @@ mod scope_mls_group_id_tests {
         let (realm, circle, sidecar) = kat_scopes();
         assert!(realm.requires_public_mls_handshake().unwrap());
         assert!(circle.requires_public_mls_handshake().unwrap());
-        assert!(!sidecar.requires_public_mls_handshake().unwrap());
+        assert!(sidecar.requires_public_mls_handshake().unwrap());
         assert!(
             ScopeRef::RealmGenesis
                 .requires_public_mls_handshake()
