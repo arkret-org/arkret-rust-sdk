@@ -1143,6 +1143,9 @@ pub enum CurrentSelector {
     AgentStatus {
         agent_id: DidCoreId,
     },
+    AgentInteraction {
+        agent_account_id: AccountId,
+    },
     AgentActionApproval {
         approval_id: String,
     },
@@ -1321,6 +1324,9 @@ enum FlatCurrentSelector {
     },
     AgentStatus {
         agent_id: DidCoreId,
+    },
+    AgentInteraction {
+        agent_account_id: AccountId,
     },
     AgentActionApproval {
         approval_id: String,
@@ -1622,6 +1628,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         agent_key_id,
                     },
                     FlatCurrentSelector::AgentStatus { agent_id } => Self::AgentStatus { agent_id },
+                    FlatCurrentSelector::AgentInteraction { agent_account_id } => {
+                        Self::AgentInteraction { agent_account_id }
+                    }
                     FlatCurrentSelector::AgentActionApproval { approval_id } => {
                         if approval_id.is_empty() || approval_id.starts_with("ak:") {
                             return Err(serde::de::Error::custom(

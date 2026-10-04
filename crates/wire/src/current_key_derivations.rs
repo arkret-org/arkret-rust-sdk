@@ -8,9 +8,10 @@ use std::fmt;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::{ActorId, DidCoreId, Result, WireError};
+use crate::{AccountId, ActorId, DidCoreId, Result, WireError};
 
 const MEMBER_STATE_DOMAIN: &str = "ak.current_key.member_state.v1";
+const AGENT_INTERACTION_DOMAIN: &str = "ak.current_key.agent_interaction.v1";
 const AGENT_STATUS_DOMAIN: &str = "ak.current_key.agent_status.v1";
 const AGENT_KEY_DOMAIN: &str = "ak.current_key.agent_key.v1";
 
@@ -108,6 +109,11 @@ pub fn derive_agent_status_current_key(agent_actor_id: &ActorId) -> Result<Strin
     derive(AGENT_STATUS_DOMAIN, &[agent_actor_id])
 }
 
+/// Derive the Realm-local mode locator from the complete Agent AccountId.
+pub fn derive_agent_interaction_current_key(agent_account_id: &AccountId) -> Result<String> {
+    derive(AGENT_INTERACTION_DOMAIN, &[agent_account_id])
+}
+
 /// Derive the opaque current-row locator for one `(agent_id, key_id)` pair.
 pub fn derive_agent_key_current_key(agent_id: &DidCoreId, key_id: &AgentKeyId) -> Result<String> {
     derive(AGENT_KEY_DOMAIN, &(agent_id, key_id))
@@ -144,6 +150,24 @@ mod tests {
             )
             .unwrap(),
             "PfgyVkXhI1H9x4sv9t1SYQ-_HMqFNm0iiOtE_s_cODU"
+        );
+    }
+
+    #[test]
+    fn agent_mode_key_binds_both_account_components_and_the_family() {
+        let a = actor("ak:did_core:webvh:z6mkfixtureagent");
+        let account = a.as_account_id().unwrap();
+        let other = AccountId::new(
+            account.principal_id.clone(),
+            DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+        );
+        assert_ne!(
+            derive_agent_interaction_current_key(account).unwrap(),
+            derive_agent_interaction_current_key(&other).unwrap()
+        );
+        assert_ne!(
+            derive_agent_interaction_current_key(account).unwrap(),
+            derive_agent_status_current_key(&a).unwrap()
         );
     }
 

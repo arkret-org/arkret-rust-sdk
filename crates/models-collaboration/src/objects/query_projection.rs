@@ -442,7 +442,7 @@ mod projection_row_tests {
         assert_rejects_unknown_member::<ProjectionSpaceRow>(space_row_value());
         assert_rejects_each_omitted_required_member::<ProjectionSpaceRow>(
             space_row_value(),
-            &["space_id", "realm_id", "kind", "title", "state"],
+            &["space_id", "realm_id", "kind", "state"],
         );
     }
 

@@ -117,6 +117,7 @@ pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::account_operations::*;
 pub use arkret_models_collaboration::account_status::*;
 pub use arkret_models_collaboration::actor_profile_resolution::*;
+pub use arkret_models_collaboration::agent_interaction::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::agent_scope::{
     AGENT_RUNTIME_KEY_BINDING_KIND, AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT,
@@ -225,7 +226,9 @@ pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::strand_watch_operations::*;
 pub use arkret_models_collaboration::sync_frames::current_results::*;
 pub use arkret_models_collaboration::sync_frames::websocket::*;
-pub use arkret_models_collaboration::{contact_operations, direct_conversation};
+pub use arkret_models_collaboration::{
+    contact_operations, direct_conversation, exact_current_results,
+};
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::authority_set_policy::*;
 pub use arkret_models_crypto::encrypted_attachment::*;

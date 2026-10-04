@@ -1,5 +1,6 @@
 //! Typed read-only projections over the payload-agnostic wire [`Event`].
 
+use arkret_models_collaboration::agent_interaction::AgentInteractionSetPayload;
 use arkret_models_collaboration::contact_operations::ContactScopeUpdatePayload;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentActionApprovePayload, AgentActionRejectPayload, AgentActionRequestPayload,
@@ -242,6 +243,7 @@ event_payload_accessors! {
     event_spec::StrandTracksUpdate => (as_strand_tracks_update, StrandPatchPayload),
     event_spec::StrandMove => (as_strand_move, StrandMovePayload),
     event_spec::StrandReorder => (as_strand_reorder, StrandReorderPayload),
+    event_spec::AgentInteractionSet => (as_agent_interaction_set, AgentInteractionSetPayload),
     event_spec::StrandWatchSet => (as_strand_watch_set, StrandWatchSetPayload),
     event_spec::SpaceCreate => (as_space_create, SpaceCreatePayload),
     event_spec::SpaceUpdate => (as_space_update, SpacePatchPayload, SpacePatchPayload::validate),

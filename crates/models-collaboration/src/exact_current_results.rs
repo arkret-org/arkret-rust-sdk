@@ -13,6 +13,9 @@ use arkret_wire::{
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::agent_interaction::{
+    AgentInteractionExactCurrentResult, AgentInteractionExactCurrentSelector,
+};
 use crate::events_payloads::moderation::{
     ModerationDecisionLiftPayload, ModerationDecisionPayload,
 };
@@ -201,13 +204,14 @@ pub struct ModerationStateExactCurrentSelector {
 pub enum ExactCurrentResultSelector {
     Relation(RelationExactCurrentSelector),
     ModerationState(ModerationStateExactCurrentSelector),
+    AgentInteraction(AgentInteractionExactCurrentSelector),
 }
 
 impl ExactCurrentResultSelector {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Relation(selector) => selector.primary_conflict_domain.validate(),
-            Self::ModerationState(_) => Ok(()),
+            Self::ModerationState(_) | Self::AgentInteraction(_) => Ok(()),
         }
     }
 }
@@ -280,6 +284,7 @@ pub struct ModerationStateExactCurrentResult {
 pub enum ExactCurrentResultEntry {
     Relation(RelationExactCurrentResult),
     ModerationState(ModerationStateExactCurrentResult),
+    AgentInteraction(AgentInteractionExactCurrentResult),
 }
 
 impl ExactCurrentResultEntry {
@@ -287,6 +292,7 @@ impl ExactCurrentResultEntry {
         match self {
             Self::Relation(entry) => &entry.revision,
             Self::ModerationState(entry) => &entry.revision,
+            Self::AgentInteraction(entry) => &entry.revision,
         }
     }
 
@@ -294,10 +300,18 @@ impl ExactCurrentResultEntry {
         match self {
             Self::Relation(entry) => &entry.source_stream_ref,
             Self::ModerationState(entry) => &entry.source_stream_ref,
+            Self::AgentInteraction(entry) => &entry.source_stream_ref,
         }
     }
 
     fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+        if let (
+            Self::AgentInteraction(entry),
+            ExactCurrentResultSelector::AgentInteraction(selector),
+        ) = (self, requested)
+        {
+            return &entry.selector == selector;
+        }
         matches!(
             (self, requested),
             (Self::Relation(entry), ExactCurrentResultSelector::Relation(selector))
@@ -313,6 +327,18 @@ impl ExactCurrentResultEntry {
 
     fn validate_value(&self, realm_id: &RealmId) -> Result<()> {
         match self {
+            Self::AgentInteraction(entry) => {
+                if entry.source_stream_ref
+                    != (CommitStreamRef::Realm {
+                        realm_id: realm_id.clone(),
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "Agent interaction current must use the Realm stream".into(),
+                    ));
+                }
+                Ok(())
+            }
             Self::Relation(entry) => {
                 entry.selector.primary_conflict_domain.validate()?;
                 if &entry.value.realm_id != realm_id {
@@ -362,8 +388,15 @@ impl ExactCurrentResultEntry {
     }
 }
 
-/// Same-cut outcome. The `NeverWritten` branch is structurally Relation-only;
-/// moderation can therefore never be mistaken for a null-CAS create opening.
+/// Closed absence selector; moderation has no never-written create opening.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NeverWrittenExactCurrentSelector {
+    Relation(RelationExactCurrentSelector),
+    AgentInteraction(AgentInteractionExactCurrentSelector),
+}
+
+/// Same-cut outcome, including explicit never-written Agent defaults.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ExactCurrentResultsReadOutcome {
@@ -377,7 +410,7 @@ pub enum ExactCurrentResultsReadOutcome {
         realm_id: RealmId,
         governance_generation: u64,
         effective_stream_head: CommitStreamHead,
-        selector: RelationExactCurrentSelector,
+        selector: NeverWrittenExactCurrentSelector,
     },
 }
 
@@ -417,10 +450,23 @@ impl ExactCurrentResultsReadOutcome {
         }
         match self {
             Self::NeverWritten { selector, .. } => {
+                if matches!(
+                    selector,
+                    NeverWrittenExactCurrentSelector::AgentInteraction(_)
+                ) && head.stream_ref
+                    != (CommitStreamRef::Realm {
+                        realm_id: realm_id.clone(),
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "Agent interaction absence must use the Realm stream".into(),
+                    ));
+                }
                 if !matches!(
-                    &request.selector,
-                    ExactCurrentResultSelector::Relation(requested) if requested == selector
-                ) {
+                    (&request.selector, selector),
+                    (ExactCurrentResultSelector::Relation(requested), NeverWrittenExactCurrentSelector::Relation(actual)) if requested == actual
+                ) && !matches!((&request.selector, selector), (ExactCurrentResultSelector::AgentInteraction(requested), NeverWrittenExactCurrentSelector::AgentInteraction(actual)) if requested == actual)
+                {
                     return Err(WireError::Protocol(
                         "exact-current never_written selector differs from request".to_owned(),
                     ));

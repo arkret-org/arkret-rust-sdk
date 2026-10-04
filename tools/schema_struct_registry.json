@@ -230,7 +230,7 @@
       "schema": "event-payload.schema.json#/$defs/relation_create_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/relation.rs::RelationDefinition",
+      "rust_type": "crates/wire/src/relation.rs::RelationDefinition",
       "schema": "relation.schema.json#/$defs/relation_definition"
     },
     {
@@ -1158,6 +1158,42 @@
     {
       "rust_type": "crates/models-collaboration/src/authority_commit.rs::MlsGenesisMaterial",
       "schema": "authority-commit-operations.schema.json#/$defs/mls_genesis_material"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionSetPayload",
+      "schema": "event-payload.schema.json#/$defs/agent_interaction_set_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentSelector",
+      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result/properties/selector"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentResult",
+      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarExchangeControlAssertion",
+      "schema": "typed-current-result.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/reaction.rs::ReactionAssertionEntry",
+      "schema": "typed-current-result.schema.json#/$defs/reaction_assertion_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/reaction.rs::MessageReactionsCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/message_reactions_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletDidMethodVersionEvidence",
+      "schema": "applet-registration-epoch-transcript.schema.json#/$defs/did_method_version"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletRegistrationEpochEvidence",
+      "schema": "applet-registration-epoch-evidence.schema.json"
     }
   ],
   "exemptions": [

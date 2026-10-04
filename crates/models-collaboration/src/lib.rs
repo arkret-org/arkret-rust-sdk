@@ -13,6 +13,7 @@ pub mod account_operations;
 pub mod account_status;
 pub mod account_subscribe_projections;
 pub mod actor_profile_resolution;
+pub mod agent_interaction;
 pub mod agent_operations;
 pub mod agent_scope;
 pub mod agent_sidecar;

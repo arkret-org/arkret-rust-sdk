@@ -11,13 +11,6 @@ pub enum AgentMentionComposerScope {
     Sidecar,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AgentMentionSendChoice {
-    #[default]
-    PrivateDefault,
-    Shared,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentMentionRoute {
     Shared,
@@ -26,28 +19,39 @@ pub enum AgentMentionRoute {
     BlockedMixedPrivateTargets,
 }
 
-pub fn agent_mention_route(
+/// Verified Realm mode determines the route; a display choice grants no publication.
+pub fn agent_mention_route_with_modes(
     scope: AgentMentionComposerScope,
-    choice: AgentMentionSendChoice,
-    has_owned_agent: bool,
-    has_outside_private_target: bool,
-    has_audience_mention: bool,
+    modes: &[Option<crate::agent_interaction::AgentInteractionMode>],
+    outside: bool,
+    audience: bool,
 ) -> AgentMentionRoute {
     use AgentMentionComposerScope as Scope;
     use AgentMentionRoute as Route;
-    match scope {
-        Scope::Direct => Route::Direct,
-        Scope::Circle => Route::Shared,
-        Scope::Realm if choice == AgentMentionSendChoice::Shared || !has_owned_agent => {
-            Route::Shared
-        }
-        Scope::Realm | Scope::Sidecar => {
-            if has_outside_private_target || has_audience_mention {
-                Route::BlockedMixedPrivateTargets
-            } else {
-                Route::Sidecar
-            }
-        }
+
+    use crate::agent_interaction::AgentInteractionMode as Mode;
+    if scope == Scope::Direct {
+        return Route::Direct;
+    }
+    if scope == Scope::Sidecar {
+        return if outside || audience {
+            Route::BlockedMixedPrivateTargets
+        } else {
+            Route::Sidecar
+        };
+    }
+    if modes.iter().any(Option::is_none) {
+        return Route::BlockedMixedPrivateTargets;
+    }
+    let private = modes.contains(&Some(Mode::Private));
+    let public = modes.contains(&Some(Mode::Public));
+    if !private {
+        return Route::Shared;
+    }
+    if scope == Scope::Circle || public || outside || audience {
+        Route::BlockedMixedPrivateTargets
+    } else {
+        Route::Sidecar
     }
 }
 
@@ -170,6 +174,41 @@ mod tests {
     }
 
     #[test]
+    fn realm_modes_circle_and_private_scopes_keep_their_boundaries() {
+        use AgentMentionComposerScope::{Circle, Direct, Realm, Sidecar};
+        use AgentMentionRoute::{
+            BlockedMixedPrivateTargets as Blocked, Direct as DirectRoute, Shared,
+            Sidecar as PrivateRoute,
+        };
+
+        use crate::agent_interaction::AgentInteractionMode::{Private, Public};
+        for (scope, modes, outside, audience, expected) in [
+            (Realm, vec![Some(Public)], false, false, Shared),
+            (Realm, vec![Some(Private)], false, false, PrivateRoute),
+            (
+                Realm,
+                vec![Some(Public), Some(Private)],
+                false,
+                false,
+                Blocked,
+            ),
+            (Realm, vec![Some(Private)], true, false, Blocked),
+            (Realm, vec![Some(Private)], false, true, Blocked),
+            (Realm, vec![None], false, false, Blocked),
+            (Circle, vec![Some(Private)], false, false, Blocked),
+            (Circle, vec![Some(Public)], false, false, Shared),
+            (Sidecar, vec![Some(Public)], false, false, PrivateRoute),
+            (Sidecar, vec![None], false, false, PrivateRoute),
+            (Direct, vec![None], false, false, DirectRoute),
+        ] {
+            assert_eq!(
+                agent_mention_route_with_modes(scope, &modes, outside, audience),
+                expected
+            );
+        }
+    }
+
+    #[test]
     fn edits_never_rebind_or_revive_same_named_tokens() {
         let mut binding = MentionDraftBinding::new(
             account("ak:did_core:web:one.example"),
@@ -201,39 +240,5 @@ mod tests {
         assert_eq!(labels.local, "Private colleague note/summary");
         assert_eq!(labels.shared, "alice:example.com/summary");
         assert!(!labels.shared.contains("Private colleague note"));
-    }
-
-    #[test]
-    fn mixed_private_targets_require_an_explicit_shared_choice() {
-        assert_eq!(
-            agent_mention_route(
-                AgentMentionComposerScope::Realm,
-                AgentMentionSendChoice::PrivateDefault,
-                true,
-                true,
-                false
-            ),
-            AgentMentionRoute::BlockedMixedPrivateTargets
-        );
-        assert_eq!(
-            agent_mention_route(
-                AgentMentionComposerScope::Realm,
-                AgentMentionSendChoice::Shared,
-                true,
-                true,
-                true
-            ),
-            AgentMentionRoute::Shared
-        );
-        assert_eq!(
-            agent_mention_route(
-                AgentMentionComposerScope::Sidecar,
-                AgentMentionSendChoice::Shared,
-                true,
-                true,
-                false
-            ),
-            AgentMentionRoute::BlockedMixedPrivateTargets
-        );
     }
 }
