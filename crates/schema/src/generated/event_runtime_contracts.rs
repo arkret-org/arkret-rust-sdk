@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-04.4;
-//! sha256=befcf1dbbfd71afb955a33c26a465f1a187ef9a0f43ca31e5d2770e29a2ff3b3
-//! Entries: active_events=133
+//! Input: registry/contract-registry.json; version=2026-10-04.5;
+//! sha256=21201d2fb25200009bb8ee9abe0ac8a4cc495a935c21d0ff70d4a46a96b69140
+//! Entries: active_events=134
 
 use arkret_wire::event_kind_str;
 
@@ -41,6 +41,11 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::AGENT_DRAFT_PROPOSE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::AGENT_INTERACTION_SET,
         id_source: None,
         derived_id_kinds: &[],
     },

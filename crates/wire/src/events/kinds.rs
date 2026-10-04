@@ -87,6 +87,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest
+        | EventKind::AgentInteractionSet
         | EventKind::AgentProvision
         | EventKind::SelfAgentDeactivate
         | EventKind::AgentDraftPropose
