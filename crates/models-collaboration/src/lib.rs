@@ -31,6 +31,7 @@ pub mod exact_current_results;
 pub mod governance;
 pub mod governance_payloads;
 mod internal_prelude;
+pub mod mention_composer;
 pub mod message_authoring;
 pub mod mimi_operations;
 pub mod mls_creator_bootstrap;

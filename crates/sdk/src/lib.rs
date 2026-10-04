@@ -183,6 +183,7 @@ pub use arkret_models_collaboration::governance::realm_join_intake::{
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_payloads::*;
+pub use arkret_models_collaboration::mention_composer::*;
 pub use arkret_models_collaboration::message_authoring::{
     MessageAuthoringContent, MessageAuthoringIntent, MessageEncryptionContext,
     MessagePrepareOutcome, MessagePrepareRequestBody, MessageSubmitRequestBody,
@@ -286,7 +287,7 @@ pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
 pub use arkret_models_identity::authenticated_signer_resolution_evidence::*;
 pub use arkret_models_identity::claim_presentation::{
-    AgentSelectorClaimValue, validate_agent_slug,
+    AgentSelectorClaimValue, agent_selector_matches_known_account, validate_agent_slug,
 };
 pub use arkret_models_identity::device_push_route::*;
 pub use arkret_models_identity::device_verification::*;

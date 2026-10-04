@@ -29,6 +29,16 @@ pub fn validate_agent_slug(value: &str) -> Result<()> {
     arkret_wire::validate_canonical_agent_slug(value)
 }
 
+/// Compare a known target with the already authenticated, currently visible
+/// selector values for one label. This does not fetch claims, choose a target
+/// or authorize disclosure; the caller must perform those independent gates.
+pub fn agent_selector_matches_known_account(
+    known: &AccountId,
+    visible: &[AgentSelectorClaimValue],
+) -> bool {
+    matches!(visible, [value] if value.subject_account_id == *known)
+}
+
 #[cfg(test)]
 mod agent_selector_tests {
     use serde_json::json;
