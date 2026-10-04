@@ -17,11 +17,67 @@ fn protocol(error: impl std::fmt::Display) -> Error {
     Error::Protocol(error.to_string())
 }
 
-fn method_fetch_policy() -> OutboundPolicy {
-    if cfg!(debug_assertions) {
-        OutboundPolicy::local_development()
+/// Explicit development scope; never inferred from build mode or a remote DID.
+#[derive(Clone, Debug)]
+pub(crate) struct LoopbackMethodScope {
+    namespace: String,
+    port: u16,
+}
+
+impl LoopbackMethodScope {
+    pub(crate) fn new(namespace: &str, port: u16) -> Result<Self> {
+        if !matches!(namespace, "localhost" | "local.host") || port == 0 {
+            return Err(protocol(
+                "invalid loopback service discovery namespace or port",
+            ));
+        }
+        Ok(Self {
+            namespace: namespace.to_owned(),
+            port,
+        })
+    }
+
+    fn permits(&self, url: &Url) -> Result<bool> {
+        let host = url.host_str().unwrap_or_default();
+        let matches_namespace = host == self.namespace
+            || host
+                .strip_suffix(&self.namespace)
+                .is_some_and(|prefix| prefix.ends_with('.'));
+        if matches_namespace && url.port_or_known_default() != Some(self.port) {
+            return Err(protocol(
+                "service DID fetch is outside the configured loopback port",
+            ));
+        }
+        Ok(matches_namespace)
+    }
+}
+
+fn method_fetch_policy(url: &Url, scope: Option<&LoopbackMethodScope>) -> Result<OutboundPolicy> {
+    if scope
+        .map(|scope| scope.permits(url))
+        .transpose()?
+        .unwrap_or(false)
+    {
+        Ok(OutboundPolicy::local_development())
     } else {
-        OutboundPolicy::public_https()
+        Ok(OutboundPolicy::public_https())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn method_egress_guard(
+    url: &Url,
+    scope: Option<&LoopbackMethodScope>,
+) -> Result<arkret_egress_reqwest::EgressGuard> {
+    let guard = arkret_egress_reqwest::EgressGuard::new(method_fetch_policy(url, scope)?);
+    if scope
+        .map(|scope| scope.permits(url))
+        .transpose()?
+        .unwrap_or(false)
+    {
+        Ok(guard.loopback_only_with_trusted_hosts([url.host_str().unwrap_or_default()]))
+    } else {
+        Ok(guard)
     }
 }
 
@@ -38,7 +94,7 @@ impl Client {
         service_kind: ServiceKind,
     ) -> Result<AuthenticatedServiceResolution> {
         resolve_method_with_fetch(did, service_kind, |url| async move {
-            fetch_method_bytes(&url).await
+            fetch_method_bytes(&url, self.loopback_method_scope.as_ref()).await
         })
         .await
     }
@@ -178,7 +234,10 @@ fn method_status_error(status: reqwest::StatusCode) -> Error {
     }
 }
 
-async fn fetch_method_bytes(url: &str) -> Result<Option<(String, Vec<u8>)>> {
+async fn fetch_method_bytes(
+    url: &str,
+    scope: Option<&LoopbackMethodScope>,
+) -> Result<Option<(String, Vec<u8>)>> {
     let parsed = Url::parse(url)?;
     if parsed.scheme() != "https"
         || !parsed.username().is_empty()
@@ -187,12 +246,11 @@ async fn fetch_method_bytes(url: &str) -> Result<Option<(String, Vec<u8>)>> {
     {
         return Err(protocol("service DID fetch requires credential-free HTTPS"));
     }
-    method_fetch_policy()
-        .validate_url(&parsed)
-        .map_err(protocol)?;
+    let policy = method_fetch_policy(&parsed, scope)?;
+    policy.validate_url(&parsed).map_err(protocol)?;
     #[cfg(not(target_arch = "wasm32"))]
     let http = {
-        let guard = arkret_egress_reqwest::EgressGuard::new(method_fetch_policy());
+        let guard = method_egress_guard(&parsed, scope)?;
         let target = tokio::time::timeout(
             Duration::from_secs(2),
             guard.lock_url_async(&parsed, "service DID material"),
@@ -385,8 +443,110 @@ mod tests {
             "https://user:secret@identity.example/did.json",
             "https://169.254.169.254/did.json",
             "https://10.0.0.1/did.json",
+            "https://soland-server2.localhost/did.json",
         ] {
-            assert!(fetch_method_bytes(url).await.is_err());
+            assert!(fetch_method_bytes(url, None).await.is_err());
+            let scope = LoopbackMethodScope::new("local.host", 443).unwrap();
+            assert!(fetch_method_bytes(url, Some(&scope)).await.is_err());
+        }
+    }
+
+    #[test]
+    fn local_method_discovery_requires_explicit_scope_and_retains_it_after_relocation() {
+        let source = Url::parse("https://soland-server1.localhost:24630/").unwrap();
+        let target = Url::parse("https://soland-server2.localhost:24630/did.json").unwrap();
+        let default = crate::ClientBuilder::new(source.clone())
+            .allow_insecure_localhost()
+            .build()
+            .unwrap();
+        assert!(
+            method_fetch_policy(&target, default.loopback_method_scope.as_ref())
+                .unwrap()
+                .validate_url(&target)
+                .is_err()
+        );
+        let configured = crate::ClientBuilder::new(source)
+            .loopback_service_discovery("localhost", 24630)
+            .unwrap()
+            .build()
+            .unwrap();
+        let relocated = configured
+            .with_base_url(Url::parse("https://remote.example/").unwrap())
+            .unwrap();
+        assert!(
+            method_fetch_policy(&target, relocated.loopback_method_scope.as_ref())
+                .unwrap()
+                .validate_url(&target)
+                .is_ok()
+        );
+        assert!(
+            method_fetch_policy(
+                &Url::parse("https://soland-server2.localhost:24631/did.json").unwrap(),
+                relocated.loopback_method_scope.as_ref(),
+            )
+            .is_err()
+        );
+        assert!(
+            method_fetch_policy(
+                &Url::parse("https://soland-server2.localhost.evil.example:24630/did.json")
+                    .unwrap(),
+                relocated.loopback_method_scope.as_ref(),
+            )
+            .unwrap()
+            .validate_ip("127.0.0.1".parse().unwrap())
+            .is_err()
+        );
+        assert!(LoopbackMethodScope::new("example.com", 443).is_err());
+        assert!(LoopbackMethodScope::new("localhost", 0).is_err());
+    }
+
+    #[test]
+    fn scoped_method_dns_requires_only_loopback_and_pins_the_verified_answers() {
+        for namespace in ["localhost", "local.host"] {
+            let scope = LoopbackMethodScope::new(namespace, 24630).unwrap();
+            let url = Url::parse(&format!(
+                "https://soland-server2.{namespace}:24630/did.json"
+            ))
+            .unwrap();
+            let guard = method_egress_guard(&url, Some(&scope)).unwrap();
+            let locked = guard
+                .lock_url_with(&url, "test", |_, _| {
+                    Ok(vec![
+                        "127.0.0.1:24630".parse().unwrap(),
+                        "[::1]:24630".parse().unwrap(),
+                    ])
+                })
+                .unwrap();
+            assert_eq!(locked.url(), &url);
+            assert_eq!(locked.addresses().len(), 2);
+            assert_eq!(locked.dns_override().unwrap().0, url.host_str().unwrap());
+            for addresses in [
+                vec!["10.0.0.1:24630"],
+                vec!["169.254.169.254:24630"],
+                vec!["8.8.8.8:24630"],
+                vec!["127.0.0.1:24630", "8.8.8.8:24630"],
+                vec![],
+            ] {
+                assert!(
+                    guard
+                        .lock_url_with(&url, "test", |_, _| {
+                            Ok(addresses
+                                .iter()
+                                .map(|address| address.parse().unwrap())
+                                .collect())
+                        })
+                        .is_err()
+                );
+            }
+            let public = Url::parse("https://identity.example:24630/did.json").unwrap();
+            assert!(
+                method_egress_guard(&public, Some(&scope))
+                    .unwrap()
+                    .lock_url_with(&public, "test", |_, _| Ok(vec![
+                        "127.0.0.1:24630".parse().unwrap()
+                    ]))
+                    .is_err()
+            );
         }
     }
 

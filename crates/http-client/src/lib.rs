@@ -393,6 +393,7 @@ pub struct Client {
     pub(crate) auth: Option<Auth>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
     pub(crate) allow_insecure_localhost: bool,
+    pub(crate) loopback_method_scope: Option<service_method_resolution::LoopbackMethodScope>,
     pub(crate) retry: RetryConfig,
     pub(crate) user_agent: Option<String>,
     /// Per-request total timeout applied by [`Client::request`] when the
