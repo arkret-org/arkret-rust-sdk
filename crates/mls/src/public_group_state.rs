@@ -81,6 +81,66 @@ pub fn verify_add_proposal_leaf(proposal_wire: &[u8]) -> Result<MlsVerifiedAddPr
     })
 }
 
+/// Extract exact inline Add bodies from an authority-accepted public Commit.
+/// This authenticates the embedded KeyPackages, not the enclosing Commit;
+/// the caller must first verify its original governance receipt and binding.
+/// A member Station can use this without acquiring pre-join private state.
+pub fn verify_adds_from_accepted_public_commit(
+    bytes: &[u8],
+    expected_group_id: &str,
+    expected_previous_epoch: u64,
+) -> Result<Vec<MlsVerifiedAddProposalLeaf>> {
+    let message = MlsMessageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+    if message.tls_serialize_detached().map_err(mls_error)? != bytes {
+        return Err(Error::Protocol("MLS Commit wire is not canonical".into()));
+    }
+    let MlsMessageBodyIn::PublicMessage(message) = message.extract() else {
+        return Err(Error::Protocol("accepted Commit is not public".into()));
+    };
+    if !matches!(message.sender(), Sender::Member(_))
+        || message.content_type() != openmls::prelude::ContentType::Commit
+        || base64url_encode(message.group_id().as_slice()) != expected_group_id
+        || message.epoch().as_u64() != expected_previous_epoch
+    {
+        return Err(Error::Protocol(
+            "accepted Commit framing differs from its binding".into(),
+        ));
+    }
+    // OpenMLS validates and round-trips the whole message above. Its inbound
+    // Commit body has no public accessor, so walk only the RFC 9420 framing
+    // prefix and deserialize each exact Proposal with OpenMLS itself.
+    let mut input = bytes;
+    u16::tls_deserialize(&mut input).map_err(mls_error)?;
+    u16::tls_deserialize(&mut input).map_err(mls_error)?;
+    tls_codec::VLBytes::tls_deserialize(&mut input).map_err(mls_error)?;
+    u64::tls_deserialize(&mut input).map_err(mls_error)?;
+    Sender::tls_deserialize(&mut input).map_err(mls_error)?;
+    tls_codec::VLBytes::tls_deserialize(&mut input).map_err(mls_error)?;
+    u8::tls_deserialize(&mut input).map_err(mls_error)?;
+    let proposals = tls_codec::VLBytes::tls_deserialize(&mut input).map_err(mls_error)?;
+    let mut input = proposals.as_slice();
+    let mut added = Vec::new();
+    while !input.is_empty() {
+        if u8::tls_deserialize(&mut input).map_err(mls_error)? != 1 {
+            return Err(Error::UnsupportedFeature(
+                "v1 Commit requires inline Proposals".into(),
+            ));
+        }
+        let before = input;
+        let proposal = ProposalIn::tls_deserialize(&mut input).map_err(mls_error)?;
+        let wire = &before[..before.len() - input.len()];
+        if proposal.tls_serialize_detached().map_err(mls_error)? != wire {
+            return Err(Error::Protocol(
+                "accepted Proposal wire is not canonical".into(),
+            ));
+        }
+        if matches!(proposal, ProposalIn::Add(_)) {
+            added.push(verify_add_proposal_leaf(wire)?);
+        }
+    }
+    Ok(added)
+}
+
 /// Validate an MLSMessage carrying GroupInfo together with the exact external
 /// ratchet tree, then return occupied leaves with their real tree indices.
 ///

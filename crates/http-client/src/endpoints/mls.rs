@@ -5,8 +5,8 @@ use arkret_models_collaboration::mls_group_state_material::{
     MlsMemberGroupStateMaterialReadRequestBody,
 };
 use arkret_models_collaboration::mls_roster_authority::{
-    MlsAttestAddOutcome, MlsAttestAddRequestBody, MlsRosterAuthorityReadOutcome,
-    MlsRosterAuthorityReadRequestBody,
+    MlsAttestAddOutcome, MlsAttestAddRequestBody, MlsMemberRosterAuthorityReadRequestBody,
+    MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody,
 };
 use arkret_wire::{
     PATH_PEER_MLS_ATTEST_ADD, PATH_PEER_MLS_GROUP_STATE_MATERIAL, PATH_PEER_MLS_ROSTER_AUTHORITY,
@@ -65,8 +65,9 @@ impl Client {
     /// Fetch one signed page through the caller's Account Station.
     pub async fn self_mls_roster_authority(
         &self,
-        request: &MlsRosterAuthorityReadRequestBody,
-    ) -> Result<MlsRosterAuthorityReadOutcome> {
+        request: &MlsMemberRosterAuthorityReadRequestBody,
+    ) -> Result<arkret_models_collaboration::mls_roster_authority::MlsSelfRosterAuthorityReadOutcome>
+    {
         request.validate()?;
         self.post(PATH_SELF_MLS_ROSTER_AUTHORITY, request).await
     }

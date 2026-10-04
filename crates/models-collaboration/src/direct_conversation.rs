@@ -1,6 +1,6 @@
 //! Direct-conversation lookup over current authority projections.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
     Event, EventId, EventKind, Hash, RealmId, Result, StrandId, WireError, canonical,
@@ -14,6 +14,210 @@ use crate::objects::direct_conversation::{
     DirectConversationAuthorizationBasis, DirectConversationFoundingAuthorityEvidence,
     DirectConversationRealmRole,
 };
+use crate::objects::space::Space;
+use crate::objects::strand::Strand;
+
+/// The closed structure extension of the stable participant authority.
+pub fn direct_conversation_structure_action(kind: &EventKind) -> bool {
+    matches!(
+        kind,
+        EventKind::StrandCreate
+            | EventKind::StrandUpdate
+            | EventKind::StrandArchive
+            | EventKind::StrandRestore
+            | EventKind::SpaceCreate
+            | EventKind::SpaceUpdate
+            | EventKind::SpaceArchive
+            | EventKind::SpaceRestore
+            | EventKind::SpaceTombstone
+    )
+}
+
+/// Validate structure at an independently verified authority cut. This pure
+/// helper supplies no membership, device, MLS or delegation authorization.
+pub fn direct_conversation_structure_admits(
+    event: &Event,
+    main_strand_id: &StrandId,
+    strands: &BTreeMap<StrandId, Strand>,
+    spaces: &BTreeMap<arkret_wire::SpaceId, Space>,
+) -> bool {
+    use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
+    use arkret_wire::patch::PatchOpKind;
+    use arkret_wire::{ObjectState, SpaceId, SpaceState};
+
+    use crate::events_payloads::{SpaceCreatePayload, SpacePatchPayload, StrandPatchPayload};
+    use crate::objects::strand::StrandTopic;
+
+    let chat = |strand: &Strand| direct_conversation_chat_in_realm(strand, &event.realm_id);
+    let Some(main) = strands.get(main_strand_id) else {
+        return false;
+    };
+    if main.id.as_ref() != Some(main_strand_id)
+        || !chat(main)
+        || main.state != Some(ObjectState::Active)
+    {
+        return false;
+    }
+    let topic = |space: &Space| {
+        space.realm_id == event.realm_id
+            && space.scope_circle_id.is_none()
+            && space.kind == "list"
+            && space.parent_space_id.is_none()
+    };
+    let active_topic = |id: &SpaceId| {
+        spaces
+            .get(id)
+            .is_some_and(|space| topic(space) && space.state == Some(SpaceState::Active))
+    };
+    let payload = serde_json::to_value(&event.payload).unwrap_or(serde_json::Value::Null);
+    let target_chat = |field: &str| {
+        payload
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .and_then(|id| StrandId::new(id).ok())
+            .and_then(|id| strands.get(&id))
+    };
+    let target_topic = || {
+        payload
+            .get("space_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|id| SpaceId::new(id).ok())
+            .and_then(|id| spaces.get(&id))
+            .is_some_and(&topic)
+    };
+    let metadata_op = |op: &arkret_wire::patch::PatchOp| {
+        op.op() == PatchOpKind::Set
+            && op.value().is_some_and(|value| {
+                serde_json::from_value::<EncryptedEnvelope>(value.clone()).is_ok()
+            })
+    };
+    match event.kind {
+        EventKind::StrandCreate => serde_json::from_value::<StrandCreatePayload>(payload.clone())
+            .is_ok_and(|body| {
+                let strand = body.object;
+                chat(&strand)
+                    && strand.id.is_none()
+                    && strand.schema_refs.is_none()
+                    && strand.agent_participation.is_none()
+                    && strand.topic.is_none()
+                    && strand.metadata.is_none()
+                    && strand.encrypted_metadata.is_some()
+                    && strand.content.is_none()
+                    && strand.encrypted_content.is_none()
+                    && strand.tracks.len() == 1
+                    && strand.stage.is_none()
+                    && strand
+                        .state
+                        .is_none_or(|state| state == ObjectState::Active)
+            }),
+        EventKind::StrandUpdate => {
+            let Some(current) = target_chat("target_ref") else {
+                return false;
+            };
+            chat(current)
+                && current.state == Some(ObjectState::Active)
+                && serde_json::from_value::<StrandPatchPayload>(payload.clone()).is_ok_and(|body| {
+                    !body.patch.is_empty()
+                        && body.patch.iter().all(|(path, op)| match path.as_str() {
+                            "encrypted_metadata" => metadata_op(op),
+                            "topic" if body.expected_state_digest.is_some() => match op {
+                                arkret_wire::patch::PatchOp::Explicit {
+                                    op: PatchOpKind::Set,
+                                    value: Some(value),
+                                } => serde_json::from_value::<StrandTopic>(value.clone())
+                                    .is_ok_and(|placement| active_topic(&placement.space_id)),
+                                arkret_wire::patch::PatchOp::Explicit {
+                                    op: PatchOpKind::Unset,
+                                    value: None,
+                                } => current.topic.is_some(),
+                                _ => false,
+                            },
+                            _ => false,
+                        })
+                })
+        }
+        EventKind::StrandArchive | EventKind::StrandRestore => {
+            target_chat("target_ref").is_some_and(&chat)
+                && payload
+                    .get("target_ref")
+                    .and_then(serde_json::Value::as_str)
+                    != Some(main_strand_id.as_str())
+        }
+        EventKind::SpaceCreate => serde_json::from_value::<SpaceCreatePayload>(payload.clone())
+            .is_ok_and(|body| {
+                let space = body.object;
+                space.id.is_none()
+                    && topic(&space)
+                    && space.validate().is_ok()
+                    && space.encrypted_metadata.is_some()
+                    && space.fields.is_empty()
+                    && space.schema_refs.is_empty()
+                    && space.child_scope_policy.is_none()
+            }),
+        EventKind::SpaceUpdate => {
+            target_topic()
+                && serde_json::from_value::<SpacePatchPayload>(payload.clone()).is_ok_and(|body| {
+                    body.child_scope_policy.is_none()
+                        && body.patch.as_ref().is_some_and(|patch| {
+                            !patch.is_empty()
+                                && patch.iter().all(|(path, op)| match path.as_str() {
+                                    "encrypted_metadata" => metadata_op(op),
+                                    "rank" => {
+                                        op.op() == PatchOpKind::Set
+                                            && op
+                                                .value()
+                                                .and_then(serde_json::Value::as_str)
+                                                .is_some_and(|rank| {
+                                                    !rank.is_empty()
+                                                        && rank.len() <= 128
+                                                        && rank
+                                                            .bytes()
+                                                            .all(|b| b.is_ascii_alphanumeric())
+                                                })
+                                    }
+                                    _ => false,
+                                })
+                        })
+                })
+        }
+        EventKind::SpaceArchive | EventKind::SpaceRestore | EventKind::SpaceTombstone => {
+            target_topic()
+        }
+        _ => false,
+    }
+}
+
+fn direct_conversation_chat_in_realm(strand: &Strand, realm: &RealmId) -> bool {
+    &strand.realm_id == realm
+        && strand.scope_circle_id.is_none()
+        && crate::objects::profiles::resolve_primary_track(&strand.tracks, None)
+            .ok()
+            .flatten()
+            .is_some_and(|(name, _)| name == "discussion")
+}
+
+/// Personal watch is separate from the closed nine structure actions.
+/// Membership, binding, MLS and delegation are checked by the authority caller.
+pub fn direct_conversation_watch_admits(
+    event: &Event,
+    main_strand_id: &StrandId,
+    strands: &BTreeMap<StrandId, Strand>,
+) -> bool {
+    let Ok(payload) = serde_json::from_value::<crate::events_payloads::strand::StrandWatchSetPayload>(
+        serde_json::json!(&event.payload),
+    ) else {
+        return false;
+    };
+    event.kind == EventKind::StrandWatchSet
+        && payload.watcher_actor_id == event.actor_id
+        && [main_strand_id, &payload.strand_id].iter().all(|id| {
+            strands.get(*id).is_some_and(|strand| {
+                strand.id.as_ref() == Some(*id)
+                    && direct_conversation_chat_in_realm(strand, &event.realm_id)
+                    && strand.state == Some(arkret_wire::ObjectState::Active)
+            })
+        })
+}
 
 /// Coordinates derived from the exact four caller-authored founding Events.
 /// The caller must supply accepted Events; this pure derivation does not assert

@@ -31,6 +31,27 @@ pub struct StrandPositionCurrent {
     pub rank: String,
 }
 
+/// The single Realm-wide Topic classification of a Direct Conversation Chat.
+/// This field belongs to Strand current and never creates a Board position.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandTopic {
+    pub space_id: SpaceId,
+    #[serde(deserialize_with = "deserialize_topic_rank")]
+    pub rank: String,
+}
+
+fn deserialize_topic_rank<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let rank = String::deserialize(deserializer)?;
+    if rank.is_empty() || rank.len() > 128 || !rank.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return Err(serde::de::Error::custom("invalid Topic rank"));
+    }
+    Ok(rank)
+}
+
 const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
     "id",
     "schema",
@@ -48,6 +69,7 @@ const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
     "content",
     "encrypted_content",
     "encrypted_payload",
+    "topic",
 ];
 
 /// Extensible user-readable Strand metadata.
@@ -200,6 +222,13 @@ pub struct Strand {
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
+    /// Optional flat Topic classification; whole set/unset requires a digest CAS.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub topic: Option<StrandTopic>,
     /// Strand base body, rendered as Description. This field is independent
     /// of every track and uses the canonical wire name `content` directly.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -262,6 +291,7 @@ impl Strand {
             agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
+            topic: None,
             content: None,
             encrypted_content: None,
             tracks,

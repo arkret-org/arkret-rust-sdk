@@ -165,7 +165,10 @@ pub struct ProjectionSpaceRow {
     /// Space kind such as `board`, `list`, `folder`, or a profile-registered
     /// kind.
     pub kind: String,
-    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_metadata: Option<arkret_models_crypto::EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -231,6 +234,9 @@ pub struct ProjectionStrandRow {
     /// the service profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Canonical flat Direct Conversation classification, independent of Board placement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topic: Option<crate::objects::strand::StrandTopic>,
     /// Derived board Space id from `strand_position`; not canonical Strand
     /// object state.
     #[serde(default, skip_serializing_if = "Option::is_none")]

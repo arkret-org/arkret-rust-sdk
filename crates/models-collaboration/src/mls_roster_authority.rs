@@ -187,6 +187,59 @@ pub enum MlsAttestAddStatus {
     Duplicate,
 }
 
+/// Member selectors contain only the exact accepted target already held by
+/// the caller. Genesis is derived at the own Station's authorized read cut.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsMemberRosterAuthorityReadRequestBody {
+    pub realm_id: RealmId,
+    pub effective_scope: ScopeRef,
+    pub mls_group_id: MlsGroupId,
+    pub target_commit_event_ref: EventId,
+    pub target_epoch: u64,
+    pub caller_actor_id: ActorId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl MlsMemberRosterAuthorityReadRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
+            || !matches!(
+                &self.effective_scope,
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
+            )
+            || self
+                .cursor
+                .as_ref()
+                .is_some_and(|cursor| cursor.is_empty() || cursor.len() > 1024)
+        {
+            return Err(WireError::Protocol(
+                "MLS member roster selectors are inconsistent".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Native own-Station provenance or its authenticated signed manifest is
+    /// required before this exact peer selector can be used.
+    pub fn with_accepted_genesis(
+        &self,
+        genesis_event_ref: EventId,
+    ) -> MlsRosterAuthorityReadRequestBody {
+        MlsRosterAuthorityReadRequestBody {
+            realm_id: self.realm_id.clone(),
+            effective_scope: self.effective_scope.clone(),
+            mls_group_id: self.mls_group_id.clone(),
+            genesis_event_ref,
+            target_commit_event_ref: self.target_commit_event_ref.clone(),
+            target_epoch: self.target_epoch,
+            caller_actor_id: self.caller_actor_id.clone(),
+            cursor: self.cursor.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsRosterAuthorityReadRequestBody {
@@ -304,6 +357,14 @@ impl MlsRosterAuthorityManifest {
         signing_bytes(self, b"ak.mls_roster_authority_manifest.v1\n")
     }
 
+    pub fn validate_for_member_request(
+        &self,
+        request: &MlsMemberRosterAuthorityReadRequestBody,
+    ) -> Result<()> {
+        request.validate()?;
+        self.validate_for_request(&request.with_accepted_genesis(self.genesis_event_ref.clone()))
+    }
+
     pub fn validate_for_request(&self, request: &MlsRosterAuthorityReadRequestBody) -> Result<()> {
         request.validate()?;
         crate::mls_group_state_material::material_digest_from_ref(&self.group_info_ref)?;
@@ -339,4 +400,28 @@ pub struct MlsRosterAuthorityReadOutcome {
     pub records: Vec<MlsRosterRecord>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsRosterSigningKey {
+    pub verification_method: arkret_wire::DidUrl,
+    pub public_key_b64u: Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsRosterAddSigningKeys {
+    pub record_digest: Hash,
+    pub claim_receipt_signing_key: MlsRosterSigningKey,
+    pub attestation_signing_key: MlsRosterSigningKey,
+}
+
+/// Exact non-portable key result from the authenticated own Account Station.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsSelfRosterAuthorityReadOutcome {
+    pub roster: MlsRosterAuthorityReadOutcome,
+    pub manifest_signing_key: MlsRosterSigningKey,
+    pub add_signing_keys: Vec<MlsRosterAddSigningKeys>,
 }

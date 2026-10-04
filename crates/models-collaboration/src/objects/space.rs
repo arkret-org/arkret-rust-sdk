@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
     ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
@@ -90,7 +91,8 @@ pub struct Space {
     pub rank: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schema_refs: Vec<String>,
-    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -99,6 +101,8 @@ pub struct Space {
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<SpaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,11 +159,12 @@ impl Space {
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
-            title: title.into(),
+            title: Some(title.into()),
             summary: None,
             labels: Vec::new(),
             fields: BTreeMap::new(),
             avatar_blob_ref: None,
+            encrypted_metadata: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
             created_by,
@@ -193,11 +198,12 @@ impl Space {
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
-            title: title.into(),
+            title: Some(title.into()),
             summary: None,
             labels: Vec::new(),
             fields: BTreeMap::new(),
             avatar_blob_ref: None,
+            encrypted_metadata: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
             created_by,
@@ -213,9 +219,31 @@ impl Space {
                 "space kind must not be empty".to_owned(),
             ));
         }
-        if self.title.trim().is_empty() {
+        if self.encrypted_metadata.is_none()
+            && self
+                .title
+                .as_ref()
+                .is_none_or(|title| title.trim().is_empty())
+        {
             return Err(WireError::Protocol(
                 "space title must not be empty".to_owned(),
+            ));
+        }
+        if self.encrypted_metadata.is_some()
+            && (self.title.is_some()
+                || self.summary.is_some()
+                || !self.labels.is_empty()
+                || self.avatar_blob_ref.is_some()
+                || self.fields.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "wip_limit" | "wip_limit_enforcement" | "view_id"
+                    )
+                }))
+        {
+            return Err(WireError::Protocol(
+                "encrypted Space metadata cannot contain a plaintext user metadata mirror"
+                    .to_owned(),
             ));
         }
         if self.labels.len() > 64
@@ -252,6 +280,57 @@ impl Space {
         {
             return Err(WireError::Protocol(
                 "space wip_limit_enforcement requires a registered value and wip_limit".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Decrypted Space user metadata, distinct from public structural policy.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpaceMetadata {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+}
+
+impl SpaceMetadata {
+    pub fn title(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            summary: None,
+            labels: Vec::new(),
+            fields: BTreeMap::new(),
+            avatar_blob_ref: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.title.trim().is_empty()
+            || self.title.chars().count() > 256
+            || self
+                .summary
+                .as_ref()
+                .is_some_and(|value| value.chars().count() > 2048)
+            || self.labels.len() > 64
+            || self.labels.iter().any(|label| label.chars().count() > 128)
+            || self.labels.iter().collect::<BTreeSet<_>>().len() != self.labels.len()
+            || self.fields.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "rank" | "wip_limit" | "wip_limit_enforcement" | "view_id"
+                )
+            })
+        {
+            return Err(WireError::Protocol(
+                "Space user metadata violates its closed plaintext contract".to_owned(),
             ));
         }
         Ok(())

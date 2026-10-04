@@ -246,7 +246,7 @@ pub use arkret_models_crypto::mls_envelopes::MlsCommitEnvelope;
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::{
     LocalMlsKeyPackageInventory, LocalMlsKeyPackageInventoryEntry, MlsEndpointIdentity,
-    MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
+    MlsGroupStateRecord, MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
     RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
     decode_mls_basic_credential_identity, mls_basic_credential_identity,
 };
@@ -445,11 +445,14 @@ pub use managed_actor_authoring::{
 };
 #[cfg(feature = "mls")]
 pub use mls_roster_authority::{
-    install_verified_mls_roster_bindings, mls_roster_genesis_material_request,
+    install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
+    mls_roster_genesis_material_request,
 };
 pub use mls_roster_authority::{
+    mls_self_roster_authority_page_encoded_size, project_mls_self_roster_authority_page,
     verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
-    verify_mls_roster_authority_manifest_signature, verify_mls_roster_authority_pages,
+    verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
+    verify_mls_roster_authority_pages, verify_mls_self_roster_authority_pages,
 };
 pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};

@@ -75,16 +75,75 @@ pub struct StrandPatchPayload {
 }
 
 impl StrandPatchPayload {
+    /// Classify, reorder, or unclassify a Chat using the exact observed current digest.
+    pub fn for_topic(
+        strand_id: StrandId,
+        topic: Option<StrandTopic>,
+        expected_state_digest: Hash,
+    ) -> Result<Self> {
+        let op = match topic {
+            Some(topic) => arkret_wire::patch::PatchOp::set(
+                serde_json::to_value(topic).map_err(|e| WireError::Protocol(e.to_string()))?,
+            ),
+            None => arkret_wire::patch::PatchOp::unset(),
+        };
+        let mut patch = Patch::new();
+        patch.insert_op("topic", op)?;
+        let payload = Self {
+            target_ref: strand_id,
+            patch,
+            expected_state_digest: Some(expected_state_digest),
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.patch.validate()?;
+        for (path, op) in self
+            .patch
+            .iter()
+            .filter(|(path, _)| path.as_str() == "topic" || path.starts_with("topic."))
+        {
+            if path != "topic" || self.expected_state_digest.is_none() {
+                return Err(WireError::Protocol(
+                    "Topic update requires whole-field CAS".into(),
+                ));
+            }
+            match op {
+                arkret_wire::patch::PatchOp::Explicit {
+                    op: arkret_wire::patch::PatchOpKind::Set,
+                    value: Some(value),
+                } => {
+                    serde_json::from_value::<StrandTopic>(value.clone())
+                        .map_err(|e| WireError::Protocol(e.to_string()))?;
+                }
+                arkret_wire::patch::PatchOp::Explicit {
+                    op: arkret_wire::patch::PatchOpKind::Unset,
+                    value: None,
+                } => {}
+                _ => {
+                    return Err(WireError::Protocol(
+                        "Topic update requires explicit set or unset".into(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
-        patch.validate()?;
-        Ok(Self {
+        let payload = Self {
             target_ref: strand_id,
             patch,
             expected_state_digest: None,
-        })
+        };
+        payload.validate()?;
+        Ok(payload)
     }
 
     pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("strand patch payload serialize: {err}")))
     }

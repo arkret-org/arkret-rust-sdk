@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-03.1;
-//! sha256=5548c5876a5c8425532a130cfb760d0eefeb5d4a3d404a7197c1b88cdd17ce56 Entries: registered=211
+//! Input: registry/contract-registry.json; version=2026-10-04.3;
+//! sha256=f0381d6143ada69e0ad531b5065a15b6e492176c96e95bba8000a9eef560e152 Entries: registered=211
 
 use serde::{Deserialize, Serialize};
 
@@ -6099,10 +6099,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_request",
+            "schemas/mls-roster-authority.schema.json#/$defs/member_roster_read_request",
         ),
         response_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_outcome",
+            "schemas/mls-roster-authority.schema.json#/$defs/self_roster_read_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

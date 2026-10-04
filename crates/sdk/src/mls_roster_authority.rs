@@ -1,6 +1,7 @@
 use arkret_models_collaboration::mls_roster_authority::{
-    MlsAddAuthorityAttestation, MlsAttestAddRequestBody, MlsRosterAuthorityManifest,
-    MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody, MlsRosterRecord,
+    MlsAddAuthorityAttestation, MlsAttestAddRequestBody, MlsRosterAddSigningKeys,
+    MlsRosterAuthorityManifest, MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody,
+    MlsRosterRecord, MlsRosterSigningKey, MlsSelfRosterAuthorityReadOutcome,
 };
 use arkret_models_crypto::peer_keypackage_claim_receipt_signing_bytes;
 use arkret_models_identity::{AuthenticatedServiceResolution, DidDocument};
@@ -137,6 +138,34 @@ pub fn verify_mls_roster_authority_pages(
         expected_authority_head_event_ref,
         governance_resolution,
     )?;
+    verify_roster_page_set(pages, |record| {
+        if let MlsRosterRecord::Add {
+            attestation,
+            attestor_resolution,
+            ..
+        } = record
+        {
+            verify_station_signature(
+                &attestation.attestor_station_id,
+                attestation.claim_receipt.claimed_at,
+                &attestation.claim_receipt.signature,
+                &peer_keypackage_claim_receipt_signing_bytes(&attestation.claim_receipt)
+                    .map_err(|error| WireError::Protocol(error.to_string()))?,
+                attestor_resolution,
+            )?;
+            verify_mls_add_authority_attestation_signature(attestation, attestor_resolution)?;
+        }
+        Ok(())
+    })
+}
+
+fn verify_roster_page_set(
+    pages: &[MlsRosterAuthorityReadOutcome],
+    verify_add: impl Fn(&MlsRosterRecord) -> Result<(), WireError>,
+) -> Result<(), WireError> {
+    let first = pages
+        .first()
+        .ok_or_else(|| WireError::Protocol("MLS roster has no pages".into()))?;
     if pages.len() as u64 != first.manifest.page_count {
         return Err(WireError::Protocol(
             "MLS roster page count mismatch".to_owned(),
@@ -193,7 +222,6 @@ pub fn verify_mls_roster_authority_pages(
                 consumed_proposal_ordinal,
                 sender_actor_id,
                 attestation,
-                attestor_resolution,
                 ..
             } if index > 0 => {
                 if commit_event_ref != &attestation.commit_event_ref
@@ -224,15 +252,7 @@ pub fn verify_mls_roster_authority_pages(
                         "MLS roster Add claim receipt names another Station".to_owned(),
                     ));
                 }
-                verify_station_signature(
-                    &attestation.attestor_station_id,
-                    attestation.claim_receipt.claimed_at,
-                    &attestation.claim_receipt.signature,
-                    &peer_keypackage_claim_receipt_signing_bytes(&attestation.claim_receipt)
-                        .map_err(|error| WireError::Protocol(error.to_string()))?,
-                    attestor_resolution,
-                )?;
-                verify_mls_add_authority_attestation_signature(attestation, attestor_resolution)?;
+                verify_add(record)?;
                 previous_add = Some((
                     attestation.commit_stream_position,
                     attestation.epoch,
@@ -249,6 +269,293 @@ pub fn verify_mls_roster_authority_pages(
         }
     }
     Ok(())
+}
+
+fn roster_error(error: impl std::fmt::Display) -> WireError {
+    WireError::Protocol(error.to_string())
+}
+
+fn station_signing_key(
+    station: &DidCoreId,
+    at: chrono::DateTime<chrono::Utc>,
+    signature: &arkret_models_crypto::KeyOperationSignature,
+    bytes: &[u8],
+    resolution: &AuthenticatedServiceResolution,
+) -> Result<MlsRosterSigningKey, WireError> {
+    verify_station_signature(station, at, signature, bytes, resolution)?;
+    let document = arkret_identity::authenticated_service_document_at(resolution, station, at)
+        .map_err(roster_error)?;
+    let method = DidUrl::new(signature.kid.as_str()).map_err(roster_error)?;
+    let public_key = arkret_identity::public_key_material_from_document(&document, &method)
+        .map_err(roster_error)?
+        .ed25519_bytes()
+        .map_err(roster_error)?;
+    Ok(MlsRosterSigningKey {
+        verification_method: method,
+        public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
+            public_key,
+        ))
+        .map_err(roster_error)?,
+    })
+}
+
+/// Server-side projection after full historical Station verification. The
+/// original signed page and every frozen closure remain unchanged.
+pub fn project_mls_self_roster_authority_page(
+    page: MlsRosterAuthorityReadOutcome,
+    request: &MlsRosterAuthorityReadRequestBody,
+    governance: &DidCoreId,
+    expected_head: &EventId,
+    resolution: &AuthenticatedServiceResolution,
+) -> Result<MlsSelfRosterAuthorityReadOutcome, WireError> {
+    verify_mls_roster_authority_manifest_signature(
+        &page.manifest,
+        request,
+        governance,
+        expected_head,
+        resolution,
+    )?;
+    if page.records.is_empty()
+        || page.records.len() > 8
+        || page.page_index >= page.manifest.page_count
+        || page.next_cursor.is_some() != (page.page_index + 1 < page.manifest.page_count)
+    {
+        return Err(roster_error("MLS roster page shape is invalid"));
+    }
+    let manifest_signing_key = station_signing_key(
+        governance,
+        page.manifest.issued_at,
+        &page.manifest.signature,
+        &page.manifest.signing_bytes()?,
+        resolution,
+    )?;
+    let mut add_signing_keys = Vec::new();
+    for record in &page.records {
+        record.validate_shape()?;
+        if let MlsRosterRecord::Add {
+            attestation,
+            attestor_resolution,
+            ..
+        } = record
+        {
+            let station = &attestation.attestor_station_id;
+            let receipt = &attestation.claim_receipt;
+            if receipt.destination_id != *station {
+                return Err(roster_error("MLS claim belongs to another Station"));
+            }
+            add_signing_keys.push(MlsRosterAddSigningKeys {
+                record_digest: arkret_wire::Hash::new(
+                    arkret_canonical::canonical_sha256(record).map_err(roster_error)?,
+                )
+                .map_err(roster_error)?,
+                claim_receipt_signing_key: station_signing_key(
+                    station,
+                    receipt.claimed_at,
+                    &receipt.signature,
+                    &peer_keypackage_claim_receipt_signing_bytes(receipt).map_err(roster_error)?,
+                    attestor_resolution,
+                )?,
+                attestation_signing_key: station_signing_key(
+                    station,
+                    attestation.attested_at,
+                    &attestation.signature,
+                    &attestation.signing_bytes()?,
+                    attestor_resolution,
+                )?,
+            });
+        }
+    }
+    let result = MlsSelfRosterAuthorityReadOutcome {
+        roster: page,
+        manifest_signing_key,
+        add_signing_keys,
+    };
+    if arkret_canonical::canonical_json_bytes(&result)
+        .map_err(roster_error)?
+        .len()
+        > 2_097_152
+    {
+        return Err(roster_error(
+            "self MLS roster exceeds canonical response budget",
+        ));
+    }
+    Ok(result)
+}
+
+fn verify_self_station_signature(
+    station: &DidCoreId,
+    signature: &arkret_models_crypto::KeyOperationSignature,
+    bytes: &[u8],
+    key: &MlsRosterSigningKey,
+) -> Result<(), WireError> {
+    let (did, fragment) = key
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .ok_or_else(|| roster_error("MLS signing method lacks fragment"))?;
+    if fragment.is_empty()
+        || key.verification_method.as_str() != signature.kid.as_str()
+        || arkret_wire::project_did_to_core_id(&arkret_wire::Did::new(did).map_err(roster_error)?)
+            .map_err(roster_error)?
+            != *station
+    {
+        return Err(roster_error(
+            "self MLS signing key differs from original signer",
+        ));
+    }
+    let public =
+        arkret_canonical::base64url_decode(key.public_key_b64u.as_str()).map_err(roster_error)?;
+    if public.len() != 32
+        || arkret_canonical::base64url_encode(&public) != key.public_key_b64u.as_str()
+    {
+        return Err(roster_error("self MLS key is not canonical Ed25519"));
+    }
+    let public: [u8; 32] = public
+        .try_into()
+        .map_err(|_| roster_error("invalid self MLS key length"))?;
+    arkret_signatures::keypackages::verify_keypackage_signing_input(
+        &public,
+        key.verification_method.as_str(),
+        bytes,
+        signature,
+    )
+    .map_err(roster_error)
+}
+
+/// Ordinary-client verification consumes only the exact authenticated own-
+/// Station keys. It independently verifies original signatures and the full
+/// ordered transcript, without running any method-native history verifier.
+/// Consume selectors returned by the caller's durably authenticated own
+/// Station. This is not a portable proof or a native history verifier.
+pub fn verify_mls_member_roster_authority_pages(
+    pages: &[MlsSelfRosterAuthorityReadOutcome],
+    request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
+) -> Result<MlsRosterAuthorityReadRequestBody, WireError> {
+    let manifest = &pages
+        .first()
+        .ok_or_else(|| roster_error("self MLS roster has no pages"))?
+        .roster
+        .manifest;
+    manifest.validate_for_member_request(request)?;
+    let peer = request.with_accepted_genesis(manifest.genesis_event_ref.clone());
+    verify_mls_self_roster_authority_pages(
+        pages,
+        &peer,
+        &manifest.governance_station_id,
+        &manifest.authority_head_commit_event_ref,
+    )?;
+    Ok(peer)
+}
+
+pub fn verify_mls_self_roster_authority_pages(
+    pages: &[MlsSelfRosterAuthorityReadOutcome],
+    request: &MlsRosterAuthorityReadRequestBody,
+    governance: &DidCoreId,
+    expected_head: &EventId,
+) -> Result<(), WireError> {
+    let first = pages
+        .first()
+        .ok_or_else(|| roster_error("self MLS roster has no pages"))?;
+    first.roster.manifest.validate_for_request(request)?;
+    if first.roster.manifest.governance_station_id != *governance
+        || first.roster.manifest.authority_head_commit_event_ref != *expected_head
+    {
+        return Err(roster_error(
+            "self MLS manifest differs from accepted governance/head",
+        ));
+    }
+    for page in pages {
+        if arkret_canonical::canonical_json_bytes(page)
+            .map_err(roster_error)?
+            .len()
+            > 2_097_152
+        {
+            return Err(roster_error(
+                "self MLS roster exceeds canonical response budget",
+            ));
+        }
+        verify_self_station_signature(
+            governance,
+            &page.roster.manifest.signature,
+            &page.roster.manifest.signing_bytes()?,
+            &page.manifest_signing_key,
+        )?;
+        let mut keys = page.add_signing_keys.iter();
+        for record in &page.roster.records {
+            if let MlsRosterRecord::Add { attestation, .. } = record {
+                let key = keys
+                    .next()
+                    .ok_or_else(|| roster_error("self MLS Add key is missing"))?;
+                if arkret_canonical::canonical_sha256(record).map_err(roster_error)?
+                    != key.record_digest.as_str()
+                {
+                    return Err(roster_error("self MLS Add key binds another record"));
+                }
+                let receipt = &attestation.claim_receipt;
+                verify_self_station_signature(
+                    &attestation.attestor_station_id,
+                    &receipt.signature,
+                    &peer_keypackage_claim_receipt_signing_bytes(receipt).map_err(roster_error)?,
+                    &key.claim_receipt_signing_key,
+                )?;
+                verify_self_station_signature(
+                    &attestation.attestor_station_id,
+                    &attestation.signature,
+                    &attestation.signing_bytes()?,
+                    &key.attestation_signing_key,
+                )?;
+            }
+        }
+        if keys.next().is_some() {
+            return Err(roster_error("self MLS roster has surplus Add keys"));
+        }
+    }
+    let roster = pages
+        .iter()
+        .map(|page| page.roster.clone())
+        .collect::<Vec<_>>();
+    verify_roster_page_set(&roster, |_| Ok(()))
+}
+
+/// Exact self-wrapper budget for deterministic governance page partitioning.
+/// Public Ed25519 keys all have the same 43-character canonical encoding.
+pub fn mls_self_roster_authority_page_encoded_size(
+    page: &MlsRosterAuthorityReadOutcome,
+) -> Result<usize, WireError> {
+    let key = |signature: &arkret_models_crypto::KeyOperationSignature| -> Result<MlsRosterSigningKey, WireError> {
+        Ok(MlsRosterSigningKey {
+            verification_method: DidUrl::new(signature.kid.as_str()).map_err(roster_error)?,
+            public_key_b64u: arkret_wire::Base64UrlString::new("A".repeat(43)).map_err(roster_error)?,
+        })
+    };
+    let add_signing_keys = page
+        .records
+        .iter()
+        .filter_map(|record| {
+            if let MlsRosterRecord::Add { attestation, .. } = record {
+                Some((record, attestation))
+            } else {
+                None
+            }
+        })
+        .map(|(record, attestation)| {
+            Ok(MlsRosterAddSigningKeys {
+                record_digest: arkret_wire::Hash::new(
+                    arkret_canonical::canonical_sha256(record).map_err(roster_error)?,
+                )
+                .map_err(roster_error)?,
+                claim_receipt_signing_key: key(&attestation.claim_receipt.signature)?,
+                attestation_signing_key: key(&attestation.signature)?,
+            })
+        })
+        .collect::<Result<Vec<_>, WireError>>()?;
+    arkret_canonical::canonical_json_bytes(&MlsSelfRosterAuthorityReadOutcome {
+        roster: page.clone(),
+        manifest_signing_key: key(&page.manifest.signature)?,
+        add_signing_keys,
+    })
+    .map(|bytes| bytes.len())
+    .map_err(roster_error)
 }
 
 #[cfg(test)]
@@ -643,6 +950,305 @@ mod tests {
         (request, pages, resolution)
     }
 
+    #[test]
+    fn self_roster_preserves_original_records_and_rejects_key_or_transcript_substitution() {
+        let (request, pages, resolution) = signed_two_page_roster();
+        let governance = &pages[0].manifest.governance_station_id;
+        let head = &pages[0].manifest.authority_head_commit_event_ref;
+        let projected = pages
+            .iter()
+            .cloned()
+            .map(|page| {
+                let expected_size = mls_self_roster_authority_page_encoded_size(&page).unwrap();
+                let result = project_mls_self_roster_authority_page(
+                    page,
+                    &request,
+                    governance,
+                    head,
+                    &resolution,
+                )
+                .unwrap();
+                assert_eq!(
+                    arkret_canonical::canonical_json_bytes(&result)
+                        .unwrap()
+                        .len(),
+                    expected_size
+                );
+                result
+            })
+            .collect::<Vec<_>>();
+        verify_mls_self_roster_authority_pages(&projected, &request, governance, head).unwrap();
+        let member = arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody {
+            realm_id: request.realm_id.clone(), effective_scope: request.effective_scope.clone(),
+            mls_group_id: request.mls_group_id.clone(), target_commit_event_ref: request.target_commit_event_ref.clone(),
+            target_epoch: request.target_epoch, caller_actor_id: request.caller_actor_id.clone(), cursor: None,
+        };
+        assert_eq!(
+            verify_mls_member_roster_authority_pages(&projected, &member).unwrap(),
+            request
+        );
+        let mut unexpected_genesis = serde_json::to_value(&member).unwrap();
+        unexpected_genesis["genesis_event_ref"] =
+            serde_json::to_value(&request.genesis_event_ref).unwrap();
+        assert!(serde_json::from_value::<arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody>(unexpected_genesis).is_err());
+        for field in [
+            "realm_id",
+            "effective_scope",
+            "mls_group_id",
+            "target_commit_event_ref",
+            "target_epoch",
+            "caller_actor_id",
+        ] {
+            let mut changed = member.clone();
+            match field {
+                "realm_id" => changed.realm_id = arkret_wire::RealmId::from_event_id(&event()),
+                "effective_scope" => {
+                    changed.effective_scope = arkret_wire::ScopeRef::Circle {
+                        realm_id: member.realm_id.clone(),
+                        circle_id: arkret_wire::CircleId::from_event_id(&event()),
+                    }
+                }
+                "mls_group_id" => {
+                    changed.mls_group_id =
+                        arkret_wire::MlsGroupId::new(arkret_canonical::base64url_encode([19; 32]))
+                            .unwrap()
+                }
+                "target_commit_event_ref" => {
+                    changed.target_commit_event_ref =
+                        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [19; 32])
+                }
+                "target_epoch" => changed.target_epoch += 1,
+                _ => {
+                    changed.caller_actor_id = arkret_wire::ActorId::service(
+                        arkret_wire::DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+                    )
+                }
+            }
+            assert!(
+                verify_mls_member_roster_authority_pages(&projected, &changed).is_err(),
+                "{field}"
+            );
+        }
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(
+                &projected
+                    .iter()
+                    .map(|page| &page.roster)
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            arkret_canonical::canonical_json_bytes(&pages).unwrap()
+        );
+        let mut changed = projected.clone();
+        changed[1].add_signing_keys.clear();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = projected.clone();
+        changed[0].add_signing_keys = changed[1].add_signing_keys.clone();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = projected.clone();
+        changed[1].add_signing_keys[0]
+            .attestation_signing_key
+            .public_key_b64u =
+            Base64UrlString::new(arkret_canonical::base64url_encode([9; 32])).unwrap();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = projected.clone();
+        changed[1].add_signing_keys[0].record_digest =
+            Hash::new(format!("sha256:{}", "9".repeat(64))).unwrap();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = projected.clone();
+        changed[0].manifest_signing_key.verification_method =
+            DidUrl::new("did:web:other.example#key").unwrap();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = projected.clone();
+        changed[1].roster.records.reverse();
+        changed.reverse();
+        assert!(
+            verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
+        );
+        let mut changed = pages[1].clone();
+        if let MlsRosterRecord::Add {
+            attestor_resolution,
+            ..
+        } = &mut changed.records[0]
+        {
+            attestor_resolution.service_kind = "agent".into();
+        }
+        assert!(
+            project_mls_self_roster_authority_page(
+                changed,
+                &request,
+                governance,
+                head,
+                &resolution
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn self_roster_station_uses_native_webvh_history_at_each_original_signature_time() {
+        use arkret_models_identity::service_identity::{
+            CanonicalServiceUrl, ServiceRegistrationKey,
+        };
+        use arkret_signatures::webvh::{
+            ServiceRegistrationInceptionInput, ServiceRotationInput,
+            prepare_service_registration_inception_with_did_key_seed, prepare_service_rotation,
+        };
+        use rand_core::SeedableRng as _;
+        let (request, mut pages, _) = signed_two_page_roster();
+        let at = pages[0].manifest.issued_at;
+        let claim_at = at - chrono::Duration::minutes(1);
+        let old_seed = [41; 32];
+        let new_seed = [42; 32];
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed([43; 32]);
+        let registration = ServiceRegistrationKey::new(
+            arkret_wire::ServiceKind::Station,
+            CanonicalServiceUrl::new("https://roster.example/").unwrap(),
+        )
+        .unwrap();
+        let endpoint = "https://identity.example/".parse().unwrap();
+        let inception = prepare_service_registration_inception_with_did_key_seed(
+            &mut rng,
+            &ServiceRegistrationInceptionInput {
+                provider_endpoint: &endpoint,
+                registration_key: &registration,
+                also_known_as: &[],
+                version_time: claim_at - chrono::Duration::seconds(1),
+                did_key_fragment: Some("notary-key"),
+            },
+            &old_seed,
+        )
+        .unwrap();
+        let did = Did::new(&inception.did).unwrap();
+        let station = project_did_to_core_id(&did).unwrap();
+        let method = format!("{}#notary-key", did.as_str());
+        let mut state = inception.log_entry["state"].clone();
+        state["verificationMethod"][0]["publicKeyMultibase"] =
+            serde_json::json!(arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                ed25519_dalek::SigningKey::from_bytes(&new_seed)
+                    .verifying_key()
+                    .as_bytes()
+            ));
+        let rotation = prepare_service_rotation(&ServiceRotationInput {
+            did: did.as_str(),
+            previous_entries: std::slice::from_ref(&inception.log_entry),
+            state: &state,
+            current_update_seed: &inception.next_update_key_seed,
+            next_update_public_key_multibase:
+                &arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                    ed25519_dalek::SigningKey::from_bytes(&[44; 32])
+                        .verifying_key()
+                        .as_bytes(),
+                ),
+            version_time: claim_at + chrono::Duration::seconds(1),
+        })
+        .unwrap();
+        let resolution = arkret_identity::build_authenticated_webvh_service_resolution(
+            station.clone(),
+            "station".into(),
+            serde_json::from_value(state).unwrap(),
+            vec![inception.log_entry.clone(), rotation.log_entry],
+            vec![],
+            at,
+        )
+        .unwrap();
+        if let MlsRosterRecord::Add {
+            attestation,
+            attestor_resolution,
+            ..
+        } = &mut pages[1].records[0]
+        {
+            *attestor_resolution = resolution.clone();
+            attestation.attestor_station_id = station.clone();
+            attestation.actor_id = ActorId::service(station.clone());
+            attestation.claim_receipt.destination_id = station.clone();
+            attestation.claim_receipt.claimed_at = claim_at;
+            attestation.claim_receipt.signature =
+                arkret_signatures::keypackages::sign_keypackage_signing_input(
+                    &old_seed,
+                    &method,
+                    &peer_keypackage_claim_receipt_signing_bytes(&attestation.claim_receipt)
+                        .unwrap(),
+                )
+                .unwrap();
+            attestation.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+                &new_seed,
+                &method,
+                &attestation.signing_bytes().unwrap(),
+            )
+            .unwrap();
+        }
+        let digest = Hash::new(
+            arkret_canonical::canonical_sha256(
+                &pages
+                    .iter()
+                    .flat_map(|page| &page.records)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        for page in &mut pages {
+            page.manifest.governance_station_id = station.clone();
+            page.manifest.records_digest = digest.clone();
+            page.manifest.signature =
+                arkret_signatures::keypackages::sign_keypackage_signing_input(
+                    &new_seed,
+                    &method,
+                    &page.manifest.signing_bytes().unwrap(),
+                )
+                .unwrap();
+        }
+        let head = &pages[0].manifest.authority_head_commit_event_ref;
+        let projected = pages
+            .iter()
+            .cloned()
+            .map(|page| {
+                project_mls_self_roster_authority_page(page, &request, &station, head, &resolution)
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        assert_ne!(
+            projected[1].add_signing_keys[0]
+                .claim_receipt_signing_key
+                .public_key_b64u,
+            projected[1].add_signing_keys[0]
+                .attestation_signing_key
+                .public_key_b64u
+        );
+        verify_mls_self_roster_authority_pages(&projected, &request, &station, head).unwrap();
+        let mut wrong = projected.clone();
+        wrong[1].add_signing_keys[0].claim_receipt_signing_key =
+            wrong[1].add_signing_keys[0].attestation_signing_key.clone();
+        assert!(verify_mls_self_roster_authority_pages(&wrong, &request, &station, head).is_err());
+        let mut broken = pages[1].clone();
+        if let MlsRosterRecord::Add {
+            attestor_resolution,
+            ..
+        } = &mut broken.records[0]
+        {
+            if let ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } =
+                &mut attestor_resolution.method_history_evidence
+            {
+                log_entries.remove(0);
+            }
+        }
+        assert!(
+            project_mls_self_roster_authority_page(broken, &request, &station, head, &resolution)
+                .is_err()
+        );
+    }
+
     fn resign_roster_pages(pages: &mut [MlsRosterAuthorityReadOutcome]) {
         let records = pages
             .iter()
@@ -960,7 +1566,8 @@ mod tests {
 
 #[cfg(feature = "mls")]
 pub use roster_bindings::{
-    install_verified_mls_roster_bindings, mls_roster_genesis_material_request,
+    install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
+    mls_roster_genesis_material_request,
 };
 
 #[cfg(feature = "mls")]
@@ -1016,6 +1623,30 @@ mod roster_bindings {
             governance_resolution,
         )
         .map_err(|error| format!("verify signed MLS roster: {error}"))?;
+        install_roster_bindings_after_verified_signatures(group, pages, request, material)
+    }
+
+    pub fn install_verified_mls_self_roster_bindings(
+        group: &mut crate::mls::ArkretMlsGroup,
+        pages: &[MlsSelfRosterAuthorityReadOutcome],
+        request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
+        material: &MlsGroupStateMaterialOutcome,
+    ) -> Result<(), String> {
+        let peer = verify_mls_member_roster_authority_pages(pages, request)
+            .map_err(|error| format!("verify own-Station MLS roster: {error}"))?;
+        let roster = pages
+            .iter()
+            .map(|page| page.roster.clone())
+            .collect::<Vec<_>>();
+        install_roster_bindings_after_verified_signatures(group, &roster, &peer, material)
+    }
+
+    fn install_roster_bindings_after_verified_signatures(
+        group: &mut crate::mls::ArkretMlsGroup,
+        pages: &[MlsRosterAuthorityReadOutcome],
+        request: &MlsRosterAuthorityReadRequestBody,
+        material: &MlsGroupStateMaterialOutcome,
+    ) -> Result<(), String> {
         if group.scope() != &request.effective_scope
             || group.group_id() != request.mls_group_id
             || group.epoch() != request.target_epoch

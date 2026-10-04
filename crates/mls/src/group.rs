@@ -3042,6 +3042,39 @@ mod tests {
         let parsed_add =
             crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
         assert_eq!(parsed_add.actor_id, member.actor_id);
+        let accepted_adds = crate::verify_adds_from_accepted_public_commit(
+            &decode(&added.commit.commit).unwrap(),
+            group.group_id().as_str(),
+            previous_epoch,
+        )
+        .unwrap();
+        assert_eq!(accepted_adds, vec![parsed_add.clone()]);
+        let mut trailing = decode(&added.commit.commit).unwrap();
+        trailing.push(0);
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &trailing,
+                group.group_id().as_str(),
+                previous_epoch
+            )
+            .is_err()
+        );
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &decode(&added.commit.commit).unwrap(),
+                &arkret_canonical::base64url_encode([0; 32]),
+                previous_epoch
+            )
+            .is_err()
+        );
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &decode(&added.commit.commit).unwrap(),
+                group.group_id().as_str(),
+                epoch,
+            )
+            .is_err()
+        );
         assert_eq!(parsed_add.leaf_signature_key, added_leaves[0].signature_key);
         assert!(crate::verify_add_proposal_leaf(&consumed_proposals[1].proposal_wire).is_err());
         for malformed in [
