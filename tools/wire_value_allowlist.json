@@ -2851,17 +2851,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/events/event_log/sdk_projection.rs::event_visibility_metadata:69130200edc3b984",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_wire::event_spec::EventSpec associated Payload",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:soland/crates/http/src/routing/events/operations/policy.rs::ordinary_circle_create_cannot_claim_reserved_sidecar_shape:d612eed6146e8c8b",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3066,28 +3055,6 @@
     },
     {
       "finding": "json_authoring:soland/crates/http/src/routing/interop/moderation.rs::moderation_effective_scope_value:f6aacfc02994ca2c",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:soland/crates/http/src/routing/interop/moderation.rs::moderation_target_effective_scope_value:1716089060f70e21",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:soland/crates/http/src/routing/interop/moderation.rs::moderation_target_effective_scope_value:f6aacfc02994ca2c",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3642,17 +3609,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/events/event_log/submit/value.rs::membership_compensation_signature_bytes:4028b123feb233f4",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning signature",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/events/projection/event_json.rs::projection_event_json:1215c743d7a4050e",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3958,42 +3914,6 @@
       "action": "Rejects forbidden legacy fields in incoming patch paths and nested whole-object replacement values. It must inspect the original raw patch before narrowing can discard prohibited members; object_kind chooses the registry rejection rule.",
       "test": "cargo test -p soland-domain --lib patch_helpers",
       "reason": "Rejects forbidden legacy fields in incoming patch paths and nested whole-object replacement values. It must inspect the original raw patch before narrowing can discard prohibited members; object_kind chooses the registry rejection rule.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "paired_api:soland/crates/http/src/routing/events/event_log/admission.rs::frozen_realm_check",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "arkret_wire::realm_write_gate_exempt",
-      "owner_repository": "soland",
-      "action": "HTTP adapter for the shared read-only Realm write-gate predicate. The original Event envelope, schema and authority validation remain responsible for acceptance.",
-      "test": "cargo test -p soland-http lifecycle_escape_preserves_terminal_and_authority_boundaries",
-      "reason": "HTTP adapter for the shared read-only Realm write-gate predicate. The original Event envelope, schema and authority validation remain responsible for acceptance.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "paired_api:soland/crates/http/src/routing/events/event_log/validation/payload_shape.rs::reject_carried_event_derived_object_id",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "adjudication": "manual",
-      "authority": "arkret-spec derived object id rule for create Events (reason code object_id_not_event_derived)",
-      "owner_repository": "soland",
-      "action": "Retain this exact pre-schema ingress rejection; it must run before the authoritative payload decode and must never consume the payload as business data.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "it scans the untrusted submitted envelope before the registered payload schema validator so object_id_not_event_derived is surfaced with its exact reason code; no authoritative typed payload exists at this point and the function only rejects, it never reads payload as business data."
-    },
-    {
-      "finding": "paired_api:soland/crates/http/src/routing/events/event_log/validation/payload_shape.rs::validate_pre_schema_wire_shape",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec pre-schema Event admission invariants",
-      "owner_repository": "soland",
-      "action": "Retain as the exact pre-schema rejection boundary; it may reject forbidden raw shape but must not consume payload business data.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This wrapper runs before the registered payload decoder so forbidden Sidecar material and carried Event-derived ids receive their exact rejection semantics. Typed payload decoding follows after this boundary.",
       "adjudication": "manual"
     },
     {

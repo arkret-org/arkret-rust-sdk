@@ -2249,7 +2249,7 @@ mod contact_list_projection_tests {
             "device_id": "ak:device:01964137-0000-7000-8000-000000000001"
         });
         let mut null = value.clone();
-        null["peer_endpoint"] = serde_json::Value::Null;
+        null["peer_endpoint"] = Value::Null;
         assert!(serde_json::from_value::<ContactListRow>(null).is_err());
         let parsed: ContactListRow = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), value);

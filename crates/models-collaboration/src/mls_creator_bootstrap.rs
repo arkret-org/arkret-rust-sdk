@@ -3907,7 +3907,7 @@ mod tests {
         );
         assert_eq!(reopened.epoch_zero(), Some(&unit));
         let mut bad = artifacts;
-        bad.private_state_binding = arkret_wire::Hash::new(arkret_canonical::canonical::digest(
+        bad.private_state_binding = Hash::new(arkret_canonical::canonical::digest(
             arkret_canonical::DigestSuite::Sha256,
             b"different",
         ))

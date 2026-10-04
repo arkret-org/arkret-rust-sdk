@@ -33,7 +33,7 @@ pub struct ReadReceiptPolicyPayload {
 
 impl ReadReceiptPolicyPayload {
     /// Preserve absent fields while enforcing the nonempty registered value.
-    pub fn validate(&self) -> arkret_wire::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.disclosure.is_none()
             && self.visibility.is_none()
             && self.scope_overrides_allowed.is_none()

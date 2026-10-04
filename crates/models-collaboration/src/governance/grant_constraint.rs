@@ -789,7 +789,7 @@ mod tests {
             serde_json::json!(0),
             serde_json::json!(-1),
             serde_json::json!(1.5),
-            serde_json::Value::Null,
+            Value::Null,
         ] {
             assert!(serde_json::from_value::<GrantApprovalThreshold>(value).is_err());
         }

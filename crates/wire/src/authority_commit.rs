@@ -2622,7 +2622,7 @@ mod tests {
     }
 
     fn approval_shape_fixture() -> ApprovalSignature {
-        let id = crate::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
+        let id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
         serde_json::from_value(json!({
             "input": {
                 "approval_context":{"context_kind":"realm_governance"},
@@ -2630,8 +2630,8 @@ mod tests {
                 "request_canonical_digest":format!("sha256:{}", "11".repeat(32)),
                 "operation":"ak.self.events.command.submit.v1",
                 "action":"ak.strand.move",
-                "realm_id":crate::RealmId::from_event_id(&id),
-                "initiating_actor_id":crate::ActorId::account(crate::AccountId::new(
+                "realm_id":RealmId::from_event_id(&id),
+                "initiating_actor_id":ActorId::account(AccountId::new(
                     DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                     DidCoreId::new("ak:did_core:web:station.example").unwrap()
                 )),
@@ -2675,7 +2675,7 @@ mod tests {
         }
         let mut approval = approval_shape_fixture();
         approval.input.approval_context = ApprovalContext::ListWip {
-            list_space_id: SpaceId::from_event_id(&crate::EventId::from_digest(
+            list_space_id: SpaceId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [32; 32],
             )),

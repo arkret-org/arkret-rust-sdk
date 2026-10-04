@@ -1618,12 +1618,11 @@ fn the_attester_leaf_is_pinned_to_the_commit_the_context_froze() {
 
 #[test]
 fn managed_actor_reuse_anchors_are_closed_bare_event_ids() {
-    let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-        arkret_wire::DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
-        arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    let actor = ActorId::account(arkret_wire::AccountId::new(
+        DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
     ));
-    let id = arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x31; 32])
-        .to_string();
+    let id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x31; 32]).to_string();
     let value = serde_json::json!({"actor_id":actor,"initial_package_bot_actor_id":actor,
         "managed_actor_provision_ref":id,"pcr_genesis_ref":id,"accountability_grant_ref":id,"profile_event_ref":id});
     let model: arkret_models_integration::ReuseExistingManagedActor =
