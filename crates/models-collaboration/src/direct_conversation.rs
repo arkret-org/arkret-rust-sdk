@@ -61,7 +61,7 @@ pub fn direct_conversation_structure_admits(
     let topic = |space: &Space| {
         space.realm_id == event.realm_id
             && space.scope_circle_id.is_none()
-            && space.kind == "list"
+            && space.kind == "topic"
             && space.parent_space_id.is_none()
     };
     let active_topic = |id: &SpaceId| {

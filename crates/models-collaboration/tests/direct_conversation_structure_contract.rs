@@ -42,7 +42,7 @@ fn all_structure_wire_vectors_match_sdk_validation() {
 }
 
 #[test]
-fn participant_topic_gate_rejects_boards_nested_topics_and_missing_cas() {
+fn participant_topic_gate_rejects_lists_boards_nested_topics_and_missing_cas() {
     use std::collections::BTreeMap;
 
     use arkret_models_collaboration::direct_conversation::direct_conversation_structure_admits;
@@ -60,7 +60,7 @@ fn participant_topic_gate_rejects_boards_nested_topics_and_missing_cas() {
     let main = StrandId::new(format!("ak:strand:{token}")).unwrap();
     let topic_id = SpaceId::new(format!("ak:space:{token}")).unwrap();
     let mut chat = Strand::discussion(main.clone(), realm.clone(), "Main", actor.clone());
-    let mut topic = Space::new(topic_id.clone(), realm.clone(), "list", "Topic", actor);
+    let mut topic = Space::new(topic_id.clone(), realm.clone(), "topic", "Topic", actor);
     topic.state = Some(SpaceState::Active);
     let mut strands = BTreeMap::from([(main.clone(), chat.clone())]);
     let mut spaces = BTreeMap::from([(topic_id.clone(), topic.clone())]);
@@ -84,12 +84,14 @@ fn participant_topic_gate_rejects_boards_nested_topics_and_missing_cas() {
     assert!(direct_conversation_structure_admits(
         &event, &main, &strands, &spaces
     ));
-    topic.kind = "board".into();
-    spaces.insert(topic_id.clone(), topic.clone());
-    assert!(!direct_conversation_structure_admits(
-        &event, &main, &strands, &spaces
-    ));
-    topic.kind = "list".into();
+    for kind in ["list", "board"] {
+        topic.kind = kind.into();
+        spaces.insert(topic_id.clone(), topic.clone());
+        assert!(!direct_conversation_structure_admits(
+            &event, &main, &strands, &spaces
+        ));
+    }
+    topic.kind = "topic".into();
     topic.parent_space_id = Some(topic_id.clone());
     spaces.insert(topic_id.clone(), topic.clone());
     assert!(!direct_conversation_structure_admits(
