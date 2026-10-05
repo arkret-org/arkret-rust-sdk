@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-28.1;
-//! sha256=cc7ef465c7e428e9621e489a45c5e79eefc69bbaf3def07db84b07c0bb86427c
+//! Input: registry/account-data-key-registry.json; version=2026-10-05.2;
+//! sha256=9ec4e924206e6035e8176ecaecca984b70adfbf9b6af8d1131d5c85e4ee08fa7
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -104,9 +104,10 @@ impl AccountDataKey {
     /// Controller-private per-context Sidecar hosted-view state. controller_account_key is
     /// derive_account_data_key(RFC8785_JCS(controller_account_id)) from models/account-data.md
     /// section 2; the structured AccountId is never inserted directly into the colon-delimited key.
-    /// Synchronizes display_mode (context_merged or sidecar_only), pin/collapse state, and HLC
-    /// without changing either Strand, Track, access, read, watch, notification, or search state.
-    /// Key pattern:
+    /// Synchronizes only pin/local-collapse state and HLC, without changing either Strand, Track,
+    /// access, read, watch, notification, or search state. The source Strand always merges
+    /// authorized private Sidecar requests and user-facing replies for the controller, without
+    /// publish or a display-mode field. Key pattern:
     /// `ak.agent.sidecar_view_state.v1:<controller_account_key>:<target_realm_id>:
     /// <target_strand_id>`.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.agent.sidecar_view_state.v1";

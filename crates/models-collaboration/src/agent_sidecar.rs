@@ -98,14 +98,6 @@ pub struct SidecarStrandContextRef {
     pub strand_id: StrandId,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentSidecarDisplayMode {
-    ContextMerged,
-    SidecarOnly,
-}
-
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar
 /// context. It changes only private presentation and never mutates a Strand,
 /// Track, access, read state, notification, search index, or event ownership.
@@ -119,7 +111,6 @@ pub struct AgentSidecarViewState {
     pub controller_account_id: AccountId,
     pub sidecar_id: SidecarId,
     pub context_ref: SidecarStrandContextRef,
-    pub display_mode: AgentSidecarDisplayMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pinned: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -963,7 +954,6 @@ mod tests {
             "controller_account_id": account_id(),
             "sidecar_id": sidecar_id(),
             "context_ref": {"realm_id": realm_id(), "strand_id": strand_id()},
-            "display_mode": "context_merged",
             "updated_hlc": HLC,
             "origin_device_id": "ak:device:0198ff00-0000-7000-8000-00000000000a"
         });
@@ -979,8 +969,14 @@ mod tests {
             .insert("sidecar_control_frontier".to_owned(), json!([]));
         assert!(serde_json::from_value::<AgentSidecarViewState>(unknown).is_err());
 
+        for mode in ["context_merged", "sidecar_only"] {
+            let mut obsolete = value.clone();
+            obsolete["display_mode"] = json!(mode);
+            assert!(serde_json::from_value::<AgentSidecarViewState>(obsolete).is_err());
+        }
+
         let mut missing = value;
-        missing.as_object_mut().unwrap().remove("display_mode");
+        missing.as_object_mut().unwrap().remove("updated_hlc");
         assert!(serde_json::from_value::<AgentSidecarViewState>(missing).is_err());
     }
 

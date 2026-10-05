@@ -3,7 +3,7 @@
 //! Input: registry/contract-registry.json; version=2026-10-05.1;
 //! sha256=82b76d91b221f37a02384c5f342a712520294219b7e5dda2679cb257a8fcb185 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=4b6bac9ea1bb893d13f3c05335c94a71e050b0bf586cc7c8d5ef43c9bd45f228
+//! sha256=96d980c27061164b8fd7faed50e2179ba35f9c578ca0b68cb14fde0df2660063
 //! Entries: preimage_commitments=41
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
