@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-05.6;
-//! sha256=82b76d91b221f37a02384c5f342a712520294219b7e5dda2679cb257a8fcb185 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-06.2;
+//! sha256=1ace9f959ec0aca5f63c1b907bd4bf7bd711346135147841028084bec4f2499f Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
-//! sha256=9ec4e924206e6035e8176ecaecca984b70adfbf9b6af8d1131d5c85e4ee08fa7 Entries: id_kinds=48,
+//! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
 //! special_forms=15, actions=146, approval_carriers=1, schemas=225, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};

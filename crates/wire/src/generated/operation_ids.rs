@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-05.4;
-//! sha256=82b76d91b221f37a02384c5f342a712520294219b7e5dda2679cb257a8fcb185 Entries: registered=211
+//! Input: registry/contract-registry.json; version=2026-10-06.1;
+//! sha256=1ace9f959ec0aca5f63c1b907bd4bf7bd711346135147841028084bec4f2499f Entries: registered=211
 
 use serde::{Deserialize, Serialize};
 
@@ -3261,7 +3261,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
