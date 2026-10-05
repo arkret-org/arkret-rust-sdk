@@ -400,6 +400,75 @@ impl VerifiedRealmAuthority {
     }
 }
 
+/// Accepted-at authority history only. It provides no online current or route verdict.
+pub struct VerifiedAcceptedRealmAuthority(VerifiedRealmAuthority);
+
+impl VerifiedAcceptedRealmAuthority {
+    pub fn verify_commit(
+        &self,
+        commit: &RealmCommit,
+        keys: &dyn RealmAuthorityKeyDirectory,
+    ) -> ChainResult<()> {
+        commit
+            .validate_content_address()
+            .map_err(|e| E::ChainBroken(e.to_string()))?;
+        self.0.verify_commit(commit, keys)
+    }
+    pub fn authority_service_at(&self, generation: u64) -> Option<&DidCoreId> {
+        self.0.authority_service_at(generation)
+    }
+}
+
+pub fn verify_accepted_agent_authority_bundle(
+    bundle: &arkret_models_identity::AgentAcceptedAuthorityBundle,
+    keys: &dyn RealmAuthorityKeyDirectory,
+) -> ChainResult<VerifiedAcceptedRealmAuthority> {
+    let generations = walk_history_parts(
+        &bundle.realm_id,
+        &bundle.genesis_event,
+        &bundle.genesis_commit,
+        &bundle.authority_transitions,
+    )?;
+    bundle
+        .genesis_commit
+        .validate_content_address()
+        .map_err(|e| E::ChainBroken(e.to_string()))?;
+    if bundle.genesis_commit.stream_position != 0
+        || bundle.genesis_commit.previous_commit_ref.is_some()
+    {
+        return Err(E::ChainBroken(
+            "accepted genesis is not position zero".into(),
+        ));
+    }
+    for transition in &bundle.authority_transitions {
+        transition
+            .handoff
+            .validate_shape()
+            .map_err(|e| E::ChainBroken(e.to_string()))?;
+        transition
+            .change_commit
+            .validate_content_address()
+            .map_err(|e| E::ChainBroken(e.to_string()))?;
+    }
+    verify_history_signatures(
+        &bundle.genesis_event,
+        &bundle.genesis_commit,
+        &bundle.authority_transitions,
+        keys,
+    )?;
+    let (generation, last) = generations
+        .last_key_value()
+        .ok_or_else(|| E::ChainBroken("empty authority history".into()))?;
+    let verified = VerifiedRealmAuthority {
+        realm_id: bundle.realm_id.clone(),
+        current_generation: *generation,
+        current_service_id: last.service_id.clone(),
+        generations,
+        chain_and_cut_identity: Vec::new(),
+    };
+    Ok(VerifiedAcceptedRealmAuthority(verified))
+}
+
 /// Converge authority results obtained through one or more untrusted
 /// locators.
 ///
@@ -499,54 +568,102 @@ fn verify_freshness(
 fn walk_chain_shape(
     bundle: &RealmAuthorityBundle,
 ) -> ChainResult<BTreeMap<u64, GenerationAuthority>> {
-    if bundle.genesis_commit.signature.context != DetachedSignatureContext::RealmCommit {
+    let generations = walk_history_parts(
+        &bundle.realm_id,
+        &bundle.genesis_event,
+        &bundle.genesis_commit,
+        &bundle.authority_transitions,
+    )?;
+    let (expected_generation, last) = generations
+        .last_key_value()
+        .ok_or_else(|| E::ChainBroken("empty authority history".into()))?;
+    let expected_generation = *expected_generation;
+    let expected_service = &last.service_id;
+    let last_handoff = last.installing_handoff.clone();
+    if expected_generation != bundle.current_generation {
+        return Err(E::ChainBroken(format!(
+            "the handoff chain reaches generation {expected_generation} but the bundle claims \
+             generation {}",
+            bundle.current_generation
+        )));
+    }
+    if expected_service != &bundle.current_service_id {
+        return Err(E::ChainBroken(format!(
+            "the handoff chain ends at {expected_service} but the bundle claims {}",
+            bundle.current_service_id
+        )));
+    }
+    if bundle.current_assertion.last_handoff_ref != last_handoff {
+        return Err(E::ChainBroken(
+            "current assertion does not name the last handoff of its own chain".to_owned(),
+        ));
+    }
+    if bundle.current_assertion.signature.context
+        != DetachedSignatureContext::RealmAuthorityCurrentAssertion
+    {
+        return Err(E::SignatureInvalid(
+            "current assertion signature is not in the current-assertion domain".to_owned(),
+        ));
+    }
+    if signature_service_id(&bundle.current_assertion.signature)? != bundle.current_service_id {
+        return Err(E::StationMismatch(
+            "current assertion is not signed by current_service_id".to_owned(),
+        ));
+    }
+    Ok(generations)
+}
+
+fn walk_history_parts(
+    realm_id: &RealmId,
+    genesis_event: &Event,
+    genesis_commit: &RealmCommit,
+    transitions: &[arkret_wire::RealmAuthorityTransition],
+) -> ChainResult<BTreeMap<u64, GenerationAuthority>> {
+    if genesis_commit.signature.context != DetachedSignatureContext::RealmCommit {
         return Err(E::SignatureInvalid(
             "genesis commit signature is not in the realm-commit domain".to_owned(),
         ));
     }
-    if bundle.genesis_commit.governance_generation != 0 {
+    if genesis_commit.governance_generation != 0 {
         return Err(E::GenerationMismatch(
             "the genesis commit must carry authority generation 0".to_owned(),
         ));
     }
-    if bundle.genesis_event.realm_id != bundle.realm_id
-        || bundle.genesis_commit.realm_id != bundle.realm_id
-    {
+    if genesis_event.realm_id != *realm_id || genesis_commit.realm_id != *realm_id {
         return Err(E::ChainBroken(
             "genesis Event and commit must belong to the bundle's Realm".to_owned(),
         ));
     }
-    if bundle.genesis_commit.event_ref != bundle.genesis_event.event_id {
+    if genesis_commit.event_ref != genesis_event.event_id {
         return Err(E::ChainBroken(
             "genesis commit does not address the carried genesis Event".to_owned(),
         ));
     }
-    if bundle.genesis_commit.authority_ref
-        != RealmCommitAuthorityRef::GenesisOrChangeEvent(bundle.genesis_event.event_id.clone())
+    if genesis_commit.authority_ref
+        != RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone())
     {
         return Err(E::ChainBroken(
             "genesis commit authority_ref does not name the genesis Event".to_owned(),
         ));
     }
 
-    let genesis_service = signature_service_id(&bundle.genesis_commit.signature)?;
+    let genesis_service = signature_service_id(&genesis_commit.signature)?;
     let mut generations = BTreeMap::new();
     generations.insert(
         0,
         GenerationAuthority {
             service_id: genesis_service.clone(),
-            installing_event: bundle.genesis_event.event_id.clone(),
+            installing_event: genesis_event.event_id.clone(),
             installing_handoff: None,
         },
     );
 
     let mut expected_generation = 0_u64;
     let mut expected_service = genesis_service;
-    let mut last_handoff: Option<RealmAuthorityHandoffId> = None;
 
-    for transition in &bundle.authority_transitions {
+    for transition in transitions {
         let handoff = &transition.handoff;
-        if handoff.realm_id != bundle.realm_id {
+        if handoff.realm_id != *realm_id {
             return Err(E::ChainBroken(
                 "authority handoff belongs to another Realm".to_owned(),
             ));
@@ -641,39 +758,8 @@ fn walk_chain_shape(
         );
         expected_generation = handoff.to_generation;
         expected_service = handoff.to_service_id.clone();
-        last_handoff = Some(handoff.handoff_id.clone());
     }
 
-    if expected_generation != bundle.current_generation {
-        return Err(E::ChainBroken(format!(
-            "the handoff chain reaches generation {expected_generation} but the bundle claims \
-             generation {}",
-            bundle.current_generation
-        )));
-    }
-    if expected_service != bundle.current_service_id {
-        return Err(E::ChainBroken(format!(
-            "the handoff chain ends at {expected_service} but the bundle claims {}",
-            bundle.current_service_id
-        )));
-    }
-    if bundle.current_assertion.last_handoff_ref != last_handoff {
-        return Err(E::ChainBroken(
-            "current assertion does not name the last handoff of its own chain".to_owned(),
-        ));
-    }
-    if bundle.current_assertion.signature.context
-        != DetachedSignatureContext::RealmAuthorityCurrentAssertion
-    {
-        return Err(E::SignatureInvalid(
-            "current assertion signature is not in the current-assertion domain".to_owned(),
-        ));
-    }
-    if signature_service_id(&bundle.current_assertion.signature)? != bundle.current_service_id {
-        return Err(E::StationMismatch(
-            "current assertion is not signed by current_service_id".to_owned(),
-        ));
-    }
     Ok(generations)
 }
 
@@ -729,35 +815,12 @@ fn verify_chain_signatures(
     keys: &dyn RealmAuthorityKeyDirectory,
     resolution: &AuthenticatedServiceResolution,
 ) -> ChainResult<()> {
-    verify_event_content_binding(&bundle.genesis_event)?;
-    verify_commit_signature(&bundle.genesis_commit, keys)?;
-
-    for transition in &bundle.authority_transitions {
-        verify_event_content_binding(&transition.change_event)?;
-        verify_commit_signature(&transition.change_commit, keys)?;
-        // Both signatures seal the same unsigned handoff body; only the domain
-        // separates them.
-        let unsigned = canonical::unsigned_value(
-            &transition.handoff,
-            &[
-                "old_authority_signature",
-                "new_authority_acceptance_signature",
-            ],
-        )
-        .map_err(|error| E::ChainBroken(error.to_string()))?;
-        verify_detached(
-            &transition.handoff.old_authority_signature,
-            &unsigned,
-            DetachedSignatureContext::RealmAuthorityHandoffOld,
-            keys,
-        )?;
-        verify_detached(
-            &transition.handoff.new_authority_acceptance_signature,
-            &unsigned,
-            DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
-            keys,
-        )?;
-    }
+    verify_history_signatures(
+        &bundle.genesis_event,
+        &bundle.genesis_commit,
+        &bundle.authority_transitions,
+        keys,
+    )?;
 
     // The current assertion's key comes from the route document itself, not
     // from the caller's directory: the route record is precisely the
@@ -784,6 +847,45 @@ fn verify_chain_signatures(
         },
     )
     .map_err(|error| E::SignatureInvalid(error.to_string()))
+}
+
+fn verify_history_signatures(
+    genesis_event: &Event,
+    genesis_commit: &RealmCommit,
+    transitions: &[arkret_wire::RealmAuthorityTransition],
+    keys: &dyn RealmAuthorityKeyDirectory,
+) -> ChainResult<()> {
+    verify_event_content_binding(genesis_event)?;
+    verify_commit_signature(genesis_commit, keys)?;
+
+    for transition in transitions {
+        verify_event_content_binding(&transition.change_event)?;
+        verify_commit_signature(&transition.change_commit, keys)?;
+        // Both signatures seal the same unsigned handoff body; only the domain
+        // separates them.
+        let unsigned = canonical::unsigned_value(
+            &transition.handoff,
+            &[
+                "old_authority_signature",
+                "new_authority_acceptance_signature",
+            ],
+        )
+        .map_err(|error| E::ChainBroken(error.to_string()))?;
+        verify_detached(
+            &transition.handoff.old_authority_signature,
+            &unsigned,
+            DetachedSignatureContext::RealmAuthorityHandoffOld,
+            keys,
+        )?;
+        verify_detached(
+            &transition.handoff.new_authority_acceptance_signature,
+            &unsigned,
+            DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+            keys,
+        )?;
+    }
+
+    Ok(())
 }
 
 fn verify_commit_signature(

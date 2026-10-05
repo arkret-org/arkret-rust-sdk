@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/account-data-key-registry.json; version=2026-09-28.1;
-//! sha256=50238d9722dc0e93086bf3aee93280657a47d5f42ebad4336fd56830fd3e1ddb
+//! sha256=cc7ef465c7e428e9621e489a45c5e79eefc69bbaf3def07db84b07c0bb86427c
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};

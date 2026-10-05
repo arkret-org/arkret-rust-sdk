@@ -271,3 +271,176 @@ pub struct AgentParticipationOutcome {
     #[serde(rename = "participation_entries")]
     pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
+
+/// An observation from one exact authenticated Agent session. This local
+/// value is never a participation-current verdict or a wire carrier.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentParticipationObservation {
+    pub agent_account: arkret_wire::AccountId,
+    pub controller_account: arkret_wire::AccountId,
+    pub grant_id: arkret_wire::SessionGrantId,
+    pub agent_key_authorization_ref: arkret_wire::EventId,
+    pub verification_method: arkret_wire::DidUrl,
+    pub session_id: String,
+    pub observed_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub entries: Vec<AgentParticipationEntry>,
+}
+
+impl AgentParticipationObservation {
+    /// The caller authenticates the exact session claims before using this
+    /// helper. Claim parsing alone does not authenticate an issuer.
+    pub fn from_authenticated_claims(
+        claims: &arkret_models_identity::SignedSessionGrantClaims,
+    ) -> Result<Self, String> {
+        let arkret_models_identity::SessionGrantHolderBinding::AgentRuntime {
+            agent_id,
+            agent_key_authorization_ref,
+            verification_method,
+        } = &claims.holder_binding
+        else {
+            return Err("participation overlay requires an Agent runtime session".into());
+        };
+        if agent_id != &claims.account_id.principal_id
+            || claims.account_id.station_id != claims.audience_id
+        {
+            return Err("Agent participation observation has another Account/Station".into());
+        }
+        let details = claims
+            .scope_details
+            .as_ref()
+            .ok_or("Agent session has no scope details")?;
+        let controller: arkret_wire::DidCoreId = serde_json::from_value(
+            details
+                .get("controller_principal_id")
+                .ok_or("Agent session has no controller binding")?
+                .clone(),
+        )
+        .map_err(|e| e.to_string())?;
+        let entries: Vec<AgentParticipationEntry> = serde_json::from_value(
+            details
+                .get("participation")
+                .ok_or("Agent session has no participation observation")?
+                .clone(),
+        )
+        .map_err(|e| e.to_string())?;
+        let mut scopes = std::collections::BTreeSet::new();
+        for entry in &entries {
+            entry.validate()?;
+            if !scopes.insert(entry.scope.scope_key()) {
+                return Err("duplicate participation target scope".into());
+            }
+        }
+        Ok(Self {
+            agent_account: claims.account_id.clone(),
+            controller_account: arkret_wire::AccountId::new(
+                controller,
+                claims.account_id.station_id.clone(),
+            ),
+            grant_id: claims.grant_id.clone(),
+            agent_key_authorization_ref: agent_key_authorization_ref.clone(),
+            verification_method: verification_method.clone(),
+            session_id: claims.session_id.clone(),
+            observed_at: claims.not_before,
+            expires_at: claims.expires_at,
+            entries,
+        })
+    }
+
+    /// Use the most specific observed selection only to suppress local work.
+    /// This does not assert that the owner-current or governance cut is current.
+    pub fn observed_selection_for_scopes(
+        &self,
+        scopes: &[ParticipationScope],
+    ) -> Option<ParticipationBits> {
+        scopes.iter().rev().find_map(|scope| {
+            self.entries
+                .iter()
+                .find(|entry| &entry.scope == scope)
+                .map(|entry| entry.selection)
+        })
+    }
+
+    pub fn validate_successor(&self, next: &Self) -> Result<(), String> {
+        if self.agent_account != next.agent_account
+            || self.controller_account != next.controller_account
+            || self.agent_key_authorization_ref != next.agent_key_authorization_ref
+            || self.verification_method != next.verification_method
+            || next.observed_at < self.observed_at
+        {
+            return Err("participation observation changed owner or moved backwards".into());
+        }
+        for entry in &next.entries {
+            if let Some(old) = self.entries.iter().find(|old| old.scope == entry.scope)
+                && (entry.version < old.version
+                    || (entry.version == old.version && entry.selection != old.selection))
+            {
+                return Err("participation selection version regressed or conflicts".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    fn observation() -> AgentParticipationObservation {
+        let realm = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [7; 32],
+        ));
+        let scope = ParticipationScope::Realm { realm_id: realm };
+        AgentParticipationObservation {
+            agent_account: arkret_wire::AccountId::new(
+                "ak:did_core:web:agent.example".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            ),
+            controller_account: arkret_wire::AccountId::new(
+                "ak:did_core:web:controller.example".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            ),
+            grant_id: arkret_wire::SessionGrantId::from_issuance_digest([8; 32]),
+            agent_key_authorization_ref: arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [9; 32],
+            ),
+            verification_method: arkret_wire::DidUrl::new("did:web:agent.example#runtime").unwrap(),
+            session_id: "session".into(),
+            observed_at: "2026-10-05T00:00:00.000Z".parse().unwrap(),
+            expires_at: "2026-10-05T00:05:00.000Z".parse().unwrap(),
+            entries: vec![AgentParticipationEntry {
+                scope,
+                selection: ParticipationBits::ALL,
+                version: 2,
+                next_replace_input: ParticipationNextReplaceInput {
+                    expected_version: 2,
+                },
+            }],
+        }
+    }
+    #[test]
+    fn refresh_observation_rejects_rollback_conflict_and_changed_owner() {
+        let old = observation();
+        let mut next = old.clone();
+        next.entries[0].version = 1;
+        next.entries[0].next_replace_input.expected_version = 1;
+        assert!(old.validate_successor(&next).is_err());
+        let mut next = old.clone();
+        next.entries[0].selection = ParticipationBits::NONE;
+        assert!(old.validate_successor(&next).is_err());
+        next.entries[0].version = 3;
+        next.entries[0].next_replace_input.expected_version = 3;
+        old.validate_successor(&next).unwrap();
+        assert_eq!(
+            next.observed_selection_for_scopes(&[next.entries[0].scope.clone()]),
+            Some(ParticipationBits::NONE)
+        );
+        next.controller_account.station_id = "ak:did_core:web:another.example".parse().unwrap();
+        assert!(old.validate_successor(&next).is_err());
+        let mut next = old.clone();
+        next.agent_key_authorization_ref =
+            arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [10; 32]);
+        assert!(old.validate_successor(&next).is_err());
+    }
+}

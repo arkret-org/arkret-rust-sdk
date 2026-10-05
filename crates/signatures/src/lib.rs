@@ -42,9 +42,12 @@ pub use eddsa_jcs_2022::{
 pub mod account_status;
 #[cfg(feature = "collaboration")]
 pub mod agent;
-// Account Authority controller-gate signing. Gated by `collaboration` because
-// the gate model is owned by arkret-models-identity.
-#[cfg(feature = "collaboration")]
+// The gate model depends only on identity data, including offline verifiers.
+#[cfg(any(
+    feature = "collaboration",
+    feature = "service-identity",
+    feature = "webvh"
+))]
 pub mod agent_evidence;
 #[cfg(feature = "collaboration")]
 pub mod contact_receipt;

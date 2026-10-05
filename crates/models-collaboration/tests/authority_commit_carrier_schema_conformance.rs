@@ -598,10 +598,7 @@ fn human_device_producer_requires_producer_device_evidence() {
 fn non_device_producer_forbids_producer_device_evidence() {
     let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
     let account_key = approved_event_submission();
-    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&account_key, None))
-        .unwrap()
-        .validate()
-        .unwrap();
+    assert!(presence_violation(forward(&account_key, None)));
     assert!(presence_violation(forward(&account_key, Some(&evidence))));
 
     // The actual signer is `executed_by`: a Service executor signing under an
@@ -658,7 +655,12 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
     );
 
     let account_key = submission_for(approved_event_submission());
-    PeerAuthorityForwardMlsRequest::new(account_key.clone(), None).unwrap();
+    assert_eq!(
+        PeerAuthorityForwardMlsRequest::new(account_key.clone(), None)
+            .unwrap_err()
+            .error_code(),
+        Some(ErrorCode::SchemaViolation)
+    );
     assert_eq!(
         PeerAuthorityForwardMlsRequest::new(account_key, Some(evidence))
             .unwrap_err()

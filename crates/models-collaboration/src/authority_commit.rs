@@ -5,7 +5,7 @@
 //! `arkret-wire`; this module adds the registered aggregate and replication
 //! branches without inventing a generic federation envelope.
 
-use arkret_models_identity::AccountDeviceSignerEvidence;
+use arkret_models_identity::{AccountDeviceSignerEvidence, AgentProducerEvidence};
 use arkret_schema::{
     RealmBootstrapPresence, RealmBootstrapProfile, realm_bootstrap_profile_descriptor,
 };
@@ -489,6 +489,24 @@ pub fn validate_producer_device_evidence_presence(
     }
 }
 
+/// Account producers with a non-device method require the independently
+/// verified Agent sibling; an unknown account method is never a service fallback.
+pub fn validate_producer_agent_evidence_presence(
+    event: &Event,
+    evidence: Option<&AgentProducerEvidence>,
+) -> Result<()> {
+    let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
+    let required = producer.as_account_id().is_some() && event.human_device_producer()?.is_none();
+    if required != evidence.is_some() {
+        return Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "producer_agent_evidence is required exactly for an Agent runtime producer"
+                .into(),
+        });
+    }
+    Ok(())
+}
+
 /// Largest decoded size of one Genesis Blob: the bytes whose unpadded
 /// base64url fills `MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS`. Two such Blobs
 /// together are exactly the `ak.peer.mls.read.group_state_material.v1`
@@ -556,9 +574,26 @@ pub struct PeerAuthorityForwardEventRequest {
     pub mls_genesis_material: Option<MlsGenesisMaterial>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardEventRequest {
+    pub fn new_agent(
+        event_submission: EventAdmissionSubmission,
+        mls_genesis_material: Option<MlsGenesisMaterial>,
+        producer_agent_evidence: AgentProducerEvidence,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            event_submission,
+            mls_genesis_material,
+            producer_device_evidence: None,
+            producer_agent_evidence: Some(producer_agent_evidence),
+        };
+        request.validate()?;
+        Ok(request)
+    }
     /// Build a validated forward. `mls_genesis_material` carries the two
     /// referenced Blobs of an `ak.mls.genesis` and is `None` for every other
     /// kind; `producer_device_evidence` is the freshly signed evidence for a
@@ -573,6 +608,7 @@ impl PeerAuthorityForwardEventRequest {
             event_submission,
             mls_genesis_material,
             producer_device_evidence,
+            producer_agent_evidence: None,
         };
         request.validate()?;
         Ok(request)
@@ -599,6 +635,10 @@ impl PeerAuthorityForwardEventRequest {
                 });
             }
         }
+        validate_producer_agent_evidence_presence(
+            &self.event_submission.event,
+            self.producer_agent_evidence.as_ref(),
+        )?;
         self.human_device_producer().map(drop)
     }
 
@@ -621,9 +661,24 @@ pub struct PeerAuthorityForwardMlsRequest {
     pub mls_submission: MlsCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardMlsRequest {
+    pub fn new_agent(
+        mls_submission: MlsCommitSubmission,
+        producer_agent_evidence: AgentProducerEvidence,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            mls_submission,
+            producer_device_evidence: None,
+            producer_agent_evidence: Some(producer_agent_evidence),
+        };
+        request.validate()?;
+        Ok(request)
+    }
     /// Build a validated MLS forward. The Commit Event's producer decides
     /// whether `producer_device_evidence` is required or forbidden.
     pub fn new(
@@ -634,6 +689,7 @@ impl PeerAuthorityForwardMlsRequest {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             producer_device_evidence,
+            producer_agent_evidence: None,
         };
         request.validate()?;
         Ok(request)
@@ -641,6 +697,10 @@ impl PeerAuthorityForwardMlsRequest {
 
     pub fn validate(&self) -> Result<()> {
         self.mls_submission.validate()?;
+        validate_producer_agent_evidence_presence(
+            &self.mls_submission.commit_event,
+            self.producer_agent_evidence.as_ref(),
+        )?;
         self.human_device_producer().map(drop)
     }
 

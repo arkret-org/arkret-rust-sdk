@@ -7,6 +7,7 @@
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
 pub mod account_device_signer_evidence;
+pub mod agent_authority_evidence;
 pub mod authority_history;
 mod error;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
