@@ -234,6 +234,11 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     )
     .unwrap();
     genesis.executed_by = Some(ActorId::account(controller.clone()));
+    genesis.authorization_ref = Some(
+        DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller")
+            .unwrap()
+            .into(),
+    );
     let method = format!("{PRINCIPAL_DID}#{DEVICE}");
     let genesis = sign(genesis, &method, DEVICE_SEED);
     let raw = SigningKey::from_bytes(&[88; 32]).verifying_key().to_bytes();
@@ -257,6 +262,11 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     )
     .unwrap();
     key.executed_by = Some(ActorId::account(controller.clone()));
+    key.authorization_ref = Some(
+        DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller")
+            .unwrap()
+            .into(),
+    );
     let key = sign(key, &method, DEVICE_SEED);
     let first = commit(&genesis, &genesis, None, &station);
     let last = commit(&key, &genesis, Some(&first), &station);

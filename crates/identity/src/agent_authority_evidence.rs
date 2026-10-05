@@ -523,6 +523,10 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
         serde_json::from_value(serde_json::to_value(&state.pcr_genesis_event.payload)?)?;
     genesis.object.validate()?;
     if genesis.object.purpose != RealmPurpose::AgentControl
+        || genesis.object.security_class != arkret_wire::SecurityClass::HighAssurance
+        || genesis.object.initial_history_access != arkret_wire::HistoryAccess::SinceJoin
+        || genesis.object.founding_device_descriptor.is_some()
+        || genesis.object.governance_station_id != account.station_id
         || genesis
             .object
             .initial_resolution
@@ -555,6 +559,7 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
                 "Agent PCR control producer is not the exact executing controller",
             ));
         }
+        validate_controller_delegation(original, account)?;
     }
     let arkret_wire::TypedCurrentResult::Value { value, .. } = &state.key_state_witness.result;
     let entries = value
@@ -610,6 +615,7 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
     }
     let status = &state.agent_lifecycle_witness.accepted_status_event;
     if status.kind != arkret_wire::EventKind::RealmCreate {
+        validate_controller_delegation(status, account)?;
         let value = serde_json::to_value(&status.payload)?;
         let (transition, previous, changed) = match status.kind {
             arkret_wire::EventKind::SelfAgentPause => {
@@ -655,6 +661,32 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
                 "lifecycle provenance differs from controller transition",
             ));
         }
+    }
+    Ok(())
+}
+
+fn validate_controller_delegation(event: &Event, agent: &AccountId) -> Result<()> {
+    let delegation = event.authorization_ref.as_deref().ok_or_else(|| {
+        rejected(
+            ErrorCode::SchemaViolation,
+            "Agent PCR control Event omits its controller delegation",
+        )
+    })?;
+    let did = delegation
+        .strip_suffix("#managed-controller")
+        .ok_or_else(|| {
+            rejected(
+                ErrorCode::SchemaViolation,
+                "Agent PCR control Event names another delegation role",
+            )
+        })?;
+    if arkret_wire::project_did_to_core_id(&Did::new(did)?)? != agent.principal_id
+        || event.applet_id.is_some()
+    {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "Agent PCR control delegation belongs to another Agent",
+        ));
     }
     Ok(())
 }
