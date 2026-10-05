@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_crypto::recovery_policy::RecoveryPolicy;
 use arkret_wire::{
-    AccountId, ActorId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
-    RealmId, Result, SchemaId, WireError, XExtensionMap,
+    AccountId, ActorId, CurrentRevision, GrantId, Hash, InviteId, InviteState, PolicyEffect,
+    PolicyId, PolicyKind, RealmId, Result, SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -501,14 +501,20 @@ impl<'de> Deserialize<'de> for PolicySetValue {
 /// `policy_id` is the stable subject of the Policy typed current result, so
 /// repeated `ak.policy.set` Events under the same `policy_id` converge on one
 /// document rather than accumulating versions. There is no cell head, basis or
-/// version member on the wire: concurrency is resolved by the typed current
-/// result's `expected_revision` precondition.
+/// version member on the wire. Only Agent governance policies carry a required
+/// nullable `expected_revision` precondition; other policy families omit it.
 // Field declaration order is byte-for-byte the properties order of
 // event-payload.schema.json#/$defs/policy_set_state_payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolicySetStatePayload {
     pub policy_id: PolicyId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub expected_revision: Option<Option<CurrentRevision>>,
     pub value: PolicySetValue,
 }
 
@@ -520,6 +526,15 @@ impl PolicySetStatePayload {
         if self.policy_id != *self.value.policy_id() {
             return Err(WireError::Protocol(
                 "policy set payload policy_id must equal the carried document policy id".to_owned(),
+            ));
+        }
+        let agent_policy = matches!(
+            &self.value,
+            PolicySetValue::Governance(policy) if policy.policy_kind == PolicyKind::Agent
+        );
+        if self.expected_revision.is_some() != agent_policy {
+            return Err(WireError::Protocol(
+                "expected_revision is required only for Agent governance policies".into(),
             ));
         }
         self.value.validate()
@@ -592,6 +607,38 @@ mod policy_set_state_tests {
         assert_eq!(payload.value.schema(), SchemaId::POLICY_V1);
         payload.validate().unwrap();
         assert_eq!(serde_json::to_value(&payload).unwrap(), governance_value());
+    }
+
+    #[test]
+    fn agent_policy_cas_preserves_null_and_exact_revision() {
+        let mut value = governance_value();
+        value["value"]["policy_kind"] = json!("agent");
+        value["value"]["realm_id"] = json!("ak:realm:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4");
+        value["value"]["rules"] = json!([{
+            "rule_id": "deny_join", "kind": "agent", "effect": "deny",
+            "agent_target": {"kind": "all"}, "agent_operations": ["join"]
+        }]);
+        let missing: PolicySetStatePayload = serde_json::from_value(value.clone()).unwrap();
+        assert!(missing.validate().is_err());
+        for revision in [
+            Value::Null,
+            json!({"commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4", "stream_position": 7}),
+        ] {
+            value["expected_revision"] = revision;
+            let payload: PolicySetStatePayload = serde_json::from_value(value.clone()).unwrap();
+            payload.validate().unwrap();
+            assert!(payload.expected_revision.is_some());
+            assert_eq!(serde_json::to_value(payload).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn non_agent_policy_families_reject_cas() {
+        for mut value in [governance_value(), recovery_value()] {
+            value["expected_revision"] = Value::Null;
+            let payload: PolicySetStatePayload = serde_json::from_value(value).unwrap();
+            assert!(payload.validate().is_err());
+        }
     }
 
     #[test]
