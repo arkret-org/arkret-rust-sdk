@@ -3,7 +3,7 @@
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-26;
 //! sha256=e7e3d1e742ea74acadf57fab9554b6a39d6a0a082de7f847c6098f3610a341f6 Input: registry/
 //! contract-registry.json; version=2026-10-05.3;
-//! sha256=092bb6c9a4f2f88bc3385b1a63185d64378772773b2f4b7dbc978ee813cd041b
+//! sha256=7bad8bbde81818efc4f2ba2006073b4007d646f357c6e570b3bf25437940da1d
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,

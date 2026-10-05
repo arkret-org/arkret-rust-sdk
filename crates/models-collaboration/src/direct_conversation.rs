@@ -521,6 +521,21 @@ pub enum DirectConversationResolveOutcome {
 }
 
 impl DirectConversationResolveOutcome {
+    /// Section 7.2 provisional history send ends when the peer's Welcome is
+    /// durable. Exact-pair founding completion permits only a binding
+    /// endorsement, even though the resolver still reports `provisional`.
+    #[must_use]
+    pub fn provisional_history_send_allowed(&self) -> bool {
+        matches!(
+            self,
+            Self::Provisional {
+                group_state_ref: Some(_),
+                peer_mls_admission,
+                ..
+            } if *peer_mls_admission != DirectConversationPeerMlsAdmission::Durable
+        )
+    }
+
     #[must_use]
     pub fn coordinates(&self) -> Option<&DirectConversationCoordinates> {
         match self {
@@ -589,5 +604,32 @@ mod resolve_material_tests {
         value["authorization_basis"] = json!({"kind":"agent_controller", "event_refs":[]});
         let outcome: DirectConversationResolveOutcome = serde_json::from_value(value).unwrap();
         assert!(outcome.validate_shape().is_err());
+    }
+
+    #[test]
+    fn provisional_application_authority_exits_before_the_first_binding() {
+        let mut value = json!({"state":"provisional", "coordinates":{
+            "pair_key":format!("sha256:{}", "ab".repeat(32)),
+            "realm_id":"ak:realm:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn",
+            "main_strand_id":"ak:strand:AcoR1oH31En1_7UqsmGtCAr0ByQ_638Axv43HIC06sGg"
+        }, "authorization_basis":{"kind":"agent_controller", "event_refs":[
+            "ak:event:AWgGCEbMHnelRQfzqg1C_onV9Ej_FdpdAZyM_JoFgAd3",
+            "ak:event:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn"
+        ]}, "peer_mls_admission":"missing"});
+        let parse =
+            |value| serde_json::from_value::<DirectConversationResolveOutcome>(value).unwrap();
+        assert!(!parse(value.clone()).provisional_history_send_allowed());
+        value["group_state_ref"] = json!("ak:event:AWgGCEbMHnelRQfzqg1C_onV9Ej_FdpdAZyM_JoFgAd3");
+        for admission in ["missing", "pending", "repair_required"] {
+            value["peer_mls_admission"] = json!(admission);
+            let outcome = parse(value.clone());
+            outcome.validate_shape().unwrap();
+            assert!(outcome.provisional_history_send_allowed());
+        }
+        value["peer_mls_admission"] = json!("durable");
+        value["initial_exact_pair_group_state_ref"] = value["group_state_ref"].clone();
+        let outcome = parse(value);
+        outcome.validate_shape().unwrap();
+        assert!(!outcome.provisional_history_send_allowed());
     }
 }
