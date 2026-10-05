@@ -157,7 +157,7 @@ fn list_and_row_are_closed_and_list_metadata_is_required() {
 }
 
 #[test]
-fn realm_root_is_the_only_root_wire_token_and_is_closed() {
+fn realm_root_wire_token_is_closed_and_rejects_legacy_basis() {
     let canonical = json!({
         "kind": "realm_root",
         "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",

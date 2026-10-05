@@ -1,4 +1,4 @@
-//! Closed exact-current Relation and moderation read carriers.
+//! Closed exact-current Relation, moderation, Agent mode and issuer grant reads.
 //!
 //! The operation-specific selectors reuse the shared wire conflict-domain
 //! identity, remain field-for-field equivalent to the closed selectors, and
@@ -8,7 +8,8 @@ use std::fmt;
 use std::sync::OnceLock;
 
 use arkret_wire::{
-    CommitStreamHead, CommitStreamRef, CurrentRevision, EventId, RealmId, Result, WireError,
+    CommitStreamHead, CommitStreamRef, CurrentRevision, EventId, GrantId, RealmId, Result,
+    WireError,
 };
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -205,13 +206,38 @@ pub enum ExactCurrentResultSelector {
     Relation(RelationExactCurrentSelector),
     ModerationState(ModerationStateExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
+    CapabilityGrant(CapabilityGrantExactCurrentSelector),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityGrantExactCurrentSelectorKind {
+    CapabilityGrant,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityGrantExactCurrentSelector {
+    pub kind: CapabilityGrantExactCurrentSelectorKind,
+    pub grant_id: GrantId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityGrantExactCurrentResult {
+    pub selector: CapabilityGrantExactCurrentSelector,
+    pub source_stream_ref: CommitStreamRef,
+    pub revision: CurrentRevision,
+    pub value: crate::governance::grant_constraint::CapabilityGrant,
 }
 
 impl ExactCurrentResultSelector {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Relation(selector) => selector.primary_conflict_domain.validate(),
-            Self::ModerationState(_) | Self::AgentInteraction(_) => Ok(()),
+            Self::ModerationState(_) | Self::AgentInteraction(_) | Self::CapabilityGrant(_) => {
+                Ok(())
+            }
         }
     }
 }
@@ -285,6 +311,7 @@ pub enum ExactCurrentResultEntry {
     Relation(RelationExactCurrentResult),
     ModerationState(ModerationStateExactCurrentResult),
     AgentInteraction(AgentInteractionExactCurrentResult),
+    CapabilityGrant(CapabilityGrantExactCurrentResult),
 }
 
 impl ExactCurrentResultEntry {
@@ -293,6 +320,7 @@ impl ExactCurrentResultEntry {
             Self::Relation(entry) => &entry.revision,
             Self::ModerationState(entry) => &entry.revision,
             Self::AgentInteraction(entry) => &entry.revision,
+            Self::CapabilityGrant(entry) => &entry.revision,
         }
     }
 
@@ -301,10 +329,18 @@ impl ExactCurrentResultEntry {
             Self::Relation(entry) => &entry.source_stream_ref,
             Self::ModerationState(entry) => &entry.source_stream_ref,
             Self::AgentInteraction(entry) => &entry.source_stream_ref,
+            Self::CapabilityGrant(entry) => &entry.source_stream_ref,
         }
     }
 
     fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+        if let (
+            Self::CapabilityGrant(entry),
+            ExactCurrentResultSelector::CapabilityGrant(selector),
+        ) = (self, requested)
+        {
+            return &entry.selector == selector;
+        }
         if let (
             Self::AgentInteraction(entry),
             ExactCurrentResultSelector::AgentInteraction(selector),
@@ -327,6 +363,21 @@ impl ExactCurrentResultEntry {
 
     fn validate_value(&self, realm_id: &RealmId) -> Result<()> {
         match self {
+            Self::CapabilityGrant(entry) => {
+                if entry.value.id != entry.selector.grant_id
+                    || entry.value.realm_id.as_ref() != Some(realm_id)
+                    || entry.value.owned_agent_issuer().is_none()
+                    || entry.source_stream_ref
+                        != (CommitStreamRef::Realm {
+                            realm_id: realm_id.clone(),
+                        })
+                {
+                    return Err(WireError::Protocol(
+                        "exact-current grant identity or Realm stream mismatch".into(),
+                    ));
+                }
+                Ok(())
+            }
             Self::AgentInteraction(entry) => {
                 if entry.source_stream_ref
                     != (CommitStreamRef::Realm {

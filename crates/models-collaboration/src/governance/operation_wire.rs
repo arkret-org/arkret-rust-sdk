@@ -67,6 +67,13 @@ impl Policy {
         }
         for rule in &self.rules {
             rule.validate()?;
+            if rule.kind == PolicyRuleKind::Agent
+                && (self.realm_id.is_none() || self.policy_kind != PolicyKind::Agent)
+            {
+                return Err(WireError::Protocol(
+                    "Agent rules require an Agent Realm policy".into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -77,6 +84,7 @@ impl Policy {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyRuleKind {
+    Agent,
     Action,
     Resource,
     Server,
@@ -96,6 +104,18 @@ pub struct PolicyRule {
     pub rule_id: String,
     pub kind: PolicyRuleKind,
     pub effect: PolicyEffect,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub agent_target: Option<AgentPolicyTarget>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub agent_operations: Option<Vec<AgentPolicyOperation>>,
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub priority: i64,
     #[serde(
@@ -140,6 +160,24 @@ pub struct PolicyRule {
         deserialize_with = "deserialize_present"
     )]
     pub params: Option<BTreeMap<String, Value>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentPolicyTarget {
+    All {},
+    Controller { controller_account_id: AccountId },
+    Agent { agent_account_id: AccountId },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPolicyOperation {
+    Join,
+    Authorize,
+    Execute,
+    Read,
+    Deliver,
 }
 
 fn is_zero_i64(value: &i64) -> bool {
@@ -315,6 +353,18 @@ impl PolicyRule {
         )?;
         require(
             match self.kind {
+                PolicyRuleKind::Agent => {
+                    self.agent_target.is_some()
+                        && self
+                            .agent_operations
+                            .as_ref()
+                            .is_some_and(|operations| unique_nonempty(operations))
+                        && self.servers.is_none()
+                        && self.conditions.is_none()
+                        && self.params.is_none()
+                        && self.schema_ref.is_none()
+                        && self.profile_ref.is_none()
+                }
                 PolicyRuleKind::Action => self.actions.is_some(),
                 PolicyRuleKind::Resource => self.resources.is_some(),
                 PolicyRuleKind::Server => self.servers.is_some(),
@@ -325,6 +375,11 @@ impl PolicyRule {
                 _ => true,
             },
             "kind requirements",
+        )?;
+        require(
+            self.kind == PolicyRuleKind::Agent
+                || (self.agent_target.is_none() && self.agent_operations.is_none()),
+            "Agent fields on non-Agent rule",
         )
     }
 }

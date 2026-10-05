@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, EventId, Hash, RealmId};
+use arkret_wire::{AccountId, ActorId, AppletId, CircleId, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +50,12 @@ use crate::authz::ConstraintDuration;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     /// A grant the issuer holds. The issuer MUST be its subject, and it MUST
     /// be active at evaluation time.
     Grant { grant_id: String },
@@ -67,7 +73,7 @@ impl IssuerAuthorityRef {
     pub fn grant_id(&self) -> Option<&str> {
         match self {
             Self::Grant { grant_id } => Some(grant_id.as_str()),
-            Self::RealmRoot { .. } => None,
+            Self::RealmRoot { .. } | Self::OwnedAgent { .. } => None,
         }
     }
 
@@ -79,7 +85,7 @@ impl IssuerAuthorityRef {
                 authority_generation,
                 ..
             } => Some(*authority_generation),
-            Self::Grant { .. } => None,
+            Self::Grant { .. } | Self::OwnedAgent { .. } => None,
         }
     }
 }
@@ -445,6 +451,16 @@ where
         if grant.revoked || is_grant_expired(grant, now) {
             return false;
         }
+        // A grant-only snapshot cannot prove current controller membership,
+        // ownership or management policy. Never treat this execution root as
+        // an unconditional Realm root or a delegable parent.
+        if grant
+            .issuer_authority_refs
+            .iter()
+            .any(|reference| matches!(reference, IssuerAuthorityRef::OwnedAgent { .. }))
+        {
+            return false;
+        }
         for parent in grant
             .issuer_authority_refs
             .iter()
@@ -468,6 +484,41 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
+
+    #[test]
+    fn owned_agent_source_requires_current_facts_and_is_not_a_parent() {
+        let mut grant = root_grant("owned", &["ak.message.create"], "ak:realm:1");
+        let realm_id = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [17; 32],
+        ));
+        let join = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [17; 32]);
+        grant.issuer_authority_refs = vec![IssuerAuthorityRef::OwnedAgent {
+            realm_id,
+            controller_account_id: grant.issuer_id.as_account_id().unwrap().clone(),
+            controller_join_event_id: join.clone(),
+            agent_join_event_id: join,
+        }];
+        assert!(!authority_chain_intact(
+            &[grant.clone()],
+            "owned",
+            Utc::now()
+        ));
+        let child = child_grant(
+            "child",
+            "owned",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
+            &["ak.message.create"],
+            "ak:realm:1",
+            None,
+        );
+        assert!(!authority_chain_intact(
+            &[grant, child],
+            "child",
+            Utc::now()
+        ));
+    }
 
     fn account_actor(principal_id: &str) -> ActorId {
         ActorId::account(arkret_wire::AccountId::new(

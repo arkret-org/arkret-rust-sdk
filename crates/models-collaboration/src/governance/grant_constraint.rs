@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, EventId, Facet,
-    GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector,
-    XExtensionMap,
+    AccountId, ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, EventId,
+    Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
+    WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -685,6 +685,14 @@ impl GrantConstraint {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
+    /// Controller-bounded execution source. It requires current ownership and
+    /// exact join generations and must never be used as a regrant parent.
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     /// A grant the issuer holds. The issuer MUST be its subject and the ref
     /// MUST be active when the child is evaluated.
     Grant { grant_id: GrantId },
@@ -697,11 +705,17 @@ pub enum IssuerAuthorityRef {
     },
 }
 
-/// Identity of one committed Realm authority decision reached by a grant.
+/// Identity of one committed authority source reached by a grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthorityRootRef {
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     RealmRoot {
         realm_id: RealmId,
         authority_event_ref: EventId,
@@ -740,10 +754,10 @@ pub struct CapabilityGrant {
     // `skip_serializing_if`: doing so lets a strongly typed grant silently
     // deserialize or serialize without its authority root/parent edge.
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    /// Absolute distance from a committed Realm authority root. This is
-    /// reducer-derived and always present on a materialized current result.
+    /// Absolute distance from a committed authority source. An owned Agent
+    /// execution source has depth one and grants no Realm root control.
     pub authority_depth: u64,
-    /// Canonically sorted, deduplicated Realm authority roots reached through
+    /// Canonically sorted, deduplicated authority sources reached through
     /// `issuer_authority_refs`. This is reducer-derived and never authored in
     /// the create body.
     pub authority_root_refs: Vec<AuthorityRootRef>,
@@ -768,6 +782,26 @@ pub struct CapabilityGrant {
         with = "optional_canonical_timestamp"
     )]
     pub revoked_at: Option<DateTime<Utc>>,
+}
+
+impl CapabilityGrant {
+    /// Original signer of this dedicated source, independent of current
+    /// membership, lifecycle effectiveness or the controller's action rights.
+    pub fn owned_agent_issuer(&self) -> Option<&AccountId> {
+        let [
+            IssuerAuthorityRef::OwnedAgent {
+                realm_id,
+                controller_account_id,
+                ..
+            },
+        ] = self.issuer_authority_refs.as_slice()
+        else {
+            return None;
+        };
+        (self.realm_id.as_ref() == Some(realm_id)
+            && self.issuer_id.as_account_id() == Some(controller_account_id))
+        .then_some(controller_account_id)
+    }
 }
 
 #[cfg(test)]
