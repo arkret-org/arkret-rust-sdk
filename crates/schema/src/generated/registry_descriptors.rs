@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-05.1;
-//! sha256=a75ec988a74f7eef1aa1993672bf51eec6dfae0b28580d99789de3e7ab4719bc Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-05.3;
+//! sha256=7bad8bbde81818efc4f2ba2006073b4007d646f357c6e570b3bf25437940da1d Input: registry/
 //! account-data-key-registry.json; version=2026-09-28.1;
 //! sha256=50238d9722dc0e93086bf3aee93280657a47d5f42ebad4336fd56830fd3e1ddb Entries: id_kinds=48,
-//! special_forms=15, actions=146, approval_carriers=1, schemas=224, account_data_patterns=24
+//! special_forms=15, actions=146, approval_carriers=1, schemas=225, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3006,6 +3006,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_PAIRING_BOOTSTRAP_V1,
         file: "schemas/agent-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_PRODUCER_EVIDENCE_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_PROVISION_V1,

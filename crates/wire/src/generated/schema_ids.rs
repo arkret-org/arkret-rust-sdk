@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-05.1;
-//! sha256=a75ec988a74f7eef1aa1993672bf51eec6dfae0b28580d99789de3e7ab4719bc Entries: schema_ids=224,
-//! active=224
+//! Input: registry/contract-registry.json; version=2026-10-05.3;
+//! sha256=7bad8bbde81818efc4f2ba2006073b4007d646f357c6e570b3bf25437940da1d Entries: schema_ids=225,
+//! active=225
 
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +32,7 @@ pub enum SchemaId {
     AgentMembershipCascadeV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
+    AgentProducerEvidenceV1,
     AgentProvisionV1,
     AgentRequestedScopeDisclosureV1,
     AgentSidecarV1,
@@ -260,6 +261,7 @@ impl SchemaId {
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProducerEvidenceV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
         Self::AgentSidecarV1,
@@ -488,6 +490,7 @@ impl SchemaId {
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProducerEvidenceV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
         Self::AgentSidecarV1,
@@ -762,6 +765,10 @@ impl SchemaId {
     /// fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the top-level
     /// oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
     pub const AGENT_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.agent_pairing_bootstrap.v1";
+    /// authority_forward Agent sibling: six-member ASRE, complete portable authority state,
+    /// independent controller account gate and method-native authority history. No participation
+    /// selection.
+    pub const AGENT_PRODUCER_EVIDENCE_V1: &'static str = "ak.schema.agent_producer_evidence.v1";
     /// Single controller-authored Agent Agent provisioning payload with atomic accountability and
     /// selector projections.
     pub const AGENT_PROVISION_V1: &'static str = "ak.schema.agent_provision.v1";
@@ -1375,6 +1382,7 @@ impl SchemaId {
             Self::AgentMembershipCascadeV1 => Self::AGENT_MEMBERSHIP_CASCADE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
+            Self::AgentProducerEvidenceV1 => Self::AGENT_PRODUCER_EVIDENCE_V1,
             Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
             Self::AgentRequestedScopeDisclosureV1 => Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
             Self::AgentSidecarV1 => Self::AGENT_SIDECAR_V1,
@@ -1630,6 +1638,7 @@ impl SchemaId {
             Self::AgentMembershipCascadeV1 => "schemas/agent-membership-cascade.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
+            Self::AgentProducerEvidenceV1 => "schemas/agent-authority-evidence.schema.json",
             Self::AgentProvisionV1 => "schemas/agent-provision.schema.json",
             Self::AgentRequestedScopeDisclosureV1 => {
                 "schemas/agent-requested-scope-disclosure.schema.json"
@@ -1903,6 +1912,7 @@ impl SchemaId {
             Self::AGENT_MEMBERSHIP_CASCADE_V1 => Some(Self::AgentMembershipCascadeV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
+            Self::AGENT_PRODUCER_EVIDENCE_V1 => Some(Self::AgentProducerEvidenceV1),
             Self::AGENT_PROVISION_V1 => Some(Self::AgentProvisionV1),
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 => {
                 Some(Self::AgentRequestedScopeDisclosureV1)
