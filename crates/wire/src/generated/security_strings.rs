@@ -1,21 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json; version=2026-10-03.1;
-//! sha256=c5c474cae1a397000427439c8929f08dfcade401f5e56f3d6f96bff8a0419f5e Input: registry/
+//! sha256=21ad48975d7a63dd6efd4cc9a11f11dfd4bc337af82824a03ae5258beea340a0 Input: registry/
 //! exporter-label-registry.json; version=2026-09-19.1;
-//! sha256=30b6f19c7a78d8f53f222ceb33867fc2216db73c3f9113d03ab89235ddffe68d Input: registry/
+//! sha256=26c20de0bfb5bd6421dc5a16956c09037a968add54882f544dfdaba605708231 Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
-//! sha256=5beb1a9c98f49df7b091ef2b8798be8f22aa0206452de2e112d833dc4f6e152f Input: registry/
+//! sha256=f0174b12541db37abd6fd194e844de18e5969add8ef775a89269113021e01d6d Input: registry/
 //! signature-alg-registry.json; version=2026-09-20.1;
-//! sha256=ef58f25cd4bdcc0101dd841d4271b0454f22bef3bb8b3636cb383d10c0b15009 Input: registry/
+//! sha256=5832b199b359ce2357f7c5fafb02f82189a8b7e84b5c0bf579b54045e8334ca2 Input: registry/
 //! hpke-suite-registry.json; version=2026-09-23.1;
-//! sha256=a1740d80a9fe630e2d3f32a75f3cd4a270fed17dfb573d119c71365f22e1aafd Input: registry/
+//! sha256=c1b0095a8cbdb4ff877317b2f6306f310dedc14da8c24d8191c35a67f7411ea3 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-09-19.1;
-//! sha256=537db5f0e28f156755dfe617a235812eb236e938e9e7d7739e22ab675a63a0ae Input: registry/
+//! sha256=5f5e926280aa3521667098a15d5e6bdb4428a73462841783184dd7e99b6aaea4 Input: registry/
 //! mls-extension-registry.json; version=2026-09-24.1;
-//! sha256=f30aa623670389336a25fae1c5e0dc3b0ba1fd3b80468dba57fb984c685996b8 Input: registry/
+//! sha256=055801655da4a0585111a6dd1cfd12fab1446e8978398353dfd2014d517b3e25 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
 //! Entries: proof_contexts=38, exporter_labels=7, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=38, aead_profiles=2
 
