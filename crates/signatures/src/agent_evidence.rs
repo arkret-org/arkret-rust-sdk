@@ -72,6 +72,11 @@ pub fn verify_controller_account_gate_attestation(
             "controller gate is outside its validity window".to_owned(),
         ));
     }
+    if attestation.basis_digest != attestation.expected_basis_digest()? {
+        return Err(Error::Protocol(
+            "controller gate basis digest does not match its public projection".to_owned(),
+        ));
+    }
     Ed25519DetachedJwsVerifier::new()
         .verify_detached_jws(
             attestation.proof.jws.as_str(),
@@ -119,7 +124,7 @@ mod tests {
     }
 
     fn unsigned() -> ControllerAccountGateAttestation {
-        ControllerAccountGateAttestation {
+        let mut gate = ControllerAccountGateAttestation {
             schema: NonEmptyString::new(ControllerAccountGateAttestation::SCHEMA_ID.to_owned())
                 .unwrap(),
             principal_id: principal(),
@@ -139,7 +144,9 @@ mod tests {
                 kind: NonEmptyString::new(proof_kind::DETACHED_JWS.to_owned()).unwrap(),
                 jws: NonEmptyString::new("unsigned".to_owned()).unwrap(),
             },
-        }
+        };
+        gate.basis_digest = gate.expected_basis_digest().unwrap();
+        gate
     }
 
     fn key(seed: u8) -> SigningKey {
@@ -289,6 +296,143 @@ mod tests {
                 inside_window(),
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn a_true_resigned_gate_with_wrong_public_basis_digest_is_refused() {
+        let signing_key = key(79);
+        for digest_value in [
+            digest(0x33),
+            Hash::new(arkret_canonical::canonical_sha256(&unsigned().basis).unwrap()).unwrap(),
+            Hash::new(
+                arkret_canonical::canonical_sha256(&serde_json::json!({
+                    "principal_id": principal(), "accepted_id": "ak:did_core:web:other.example",
+                    "status":"active", "basis":unsigned().basis,
+                }))
+                .unwrap(),
+            )
+            .unwrap(),
+        ] {
+            let mut gate = unsigned();
+            gate.basis_digest = digest_value;
+            sign_controller_account_gate_attestation(&mut gate, &signing_key).unwrap();
+            // Prove the rejection is not merely invalid Ed25519 bytes.
+            Ed25519DetachedJwsVerifier::new()
+                .verify_detached_jws(
+                    gate.proof.jws.as_str(),
+                    &gate.signing_bytes().unwrap(),
+                    &public(&signing_key),
+                )
+                .unwrap();
+            let error = verify_controller_account_gate_attestation(
+                &gate,
+                &principal(),
+                &authority(),
+                &public(&signing_key),
+                inside_window(),
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("basis digest"), "{error}");
+        }
+    }
+
+    #[test]
+    fn actual_issuer_record_transcript_covers_initial_default_and_six_strict_statuses() {
+        // A public conformance transcript, not a production hidden-Record fetch.
+        // This test requires the paired AA r4 Spec candidate to be published/synced.
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/account-status-issuer-ledger-fixture.json",
+        )
+        .unwrap();
+        let contract = &fixture["controller_gate_basis_contract"];
+        let raw_key =
+            arkret_canonical::base64url_decode(contract["public_key_b64u"].as_str().unwrap())
+                .unwrap();
+        let public_key = PublicKeyMaterial::Ed25519Raw { bytes: raw_key };
+        let cases = contract["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 7);
+        let mut strict_statuses = std::collections::BTreeSet::new();
+        for case in cases {
+            let gate: ControllerAccountGateAttestation =
+                serde_json::from_value(case["gate"].clone()).unwrap();
+            let record = &case["private_current_record"];
+            let mut original_core = record.clone();
+            original_core
+                .as_object_mut()
+                .unwrap()
+                .remove("account_status_record_id");
+            original_core.as_object_mut().unwrap().remove("proof");
+            let original_digest = arkret_canonical::canonical_sha256(&original_core).unwrap();
+            assert_eq!(record["proof"]["payload_digest"], original_digest);
+            let original_id = arkret_wire::AccountStatusRecordId::from_record_digest(
+                arkret_canonical::sha256_bytes(
+                    arkret_canonical::canonical_json_bytes(&original_core).unwrap(),
+                ),
+            );
+            assert_eq!(
+                serde_json::to_value(original_id).unwrap(),
+                record["account_status_record_id"]
+            );
+            let record_proof_bytes = arkret_canonical::canonical_json_bytes(&serde_json::json!({
+                "context":"ak.account_status_record_proof.v1",
+                "payload_digest":record["proof"]["payload_digest"],
+                "verification_method":record["proof"]["verification_method"],
+                "created_at":record["proof"]["created_at"],
+            }))
+            .unwrap();
+            Ed25519DetachedJwsVerifier::new()
+                .verify_detached_jws(
+                    record["proof"]["jws"].as_str().unwrap(),
+                    &record_proof_bytes,
+                    &public_key,
+                )
+                .unwrap();
+
+            let expected_principal: DidCoreId = serde_json::from_value(
+                case["expected_private_binding"]["account_id"]["principal_id"].clone(),
+            )
+            .unwrap();
+            let expected_authority: DidCoreId = serde_json::from_value(
+                case["expected_private_binding"]["account_authority_id"].clone(),
+            )
+            .unwrap();
+            verify_controller_account_gate_attestation(
+                &gate,
+                &expected_principal,
+                &expected_authority,
+                &public_key,
+                gate.issued_at,
+            )
+            .unwrap();
+            match &gate.basis {
+                ControllerAccountGateBasis::AccountBindingDefault { .. } => {
+                    assert_eq!(record["status_seq"], 1);
+                    assert_eq!(record["status"], "active");
+                    assert!(record.get("previous_account_status_record_id").is_none());
+                }
+                ControllerAccountGateBasis::AccountStatusRecord {
+                    account_status_record_id,
+                    status_record_digest,
+                } => {
+                    assert_eq!(
+                        serde_json::to_value(account_status_record_id).unwrap(),
+                        record["account_status_record_id"]
+                    );
+                    assert_eq!(
+                        status_record_digest.as_str(),
+                        arkret_canonical::canonical_sha256(record).unwrap()
+                    );
+                    assert!(record["status_seq"].as_u64().unwrap() > 1);
+                    assert!(record.get("previous_account_status_record_id").is_some());
+                    strict_statuses.insert(record["status"].as_str().unwrap().to_owned());
+                }
+            }
+        }
+        assert_eq!(strict_statuses.len(), 6);
+        assert!(
+            strict_statuses.contains("active"),
+            "Resume Active must remain a strict issuer record"
         );
     }
 

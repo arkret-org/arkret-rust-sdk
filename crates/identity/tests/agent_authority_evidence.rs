@@ -387,6 +387,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     )
     .unwrap();
     let mut gate:ControllerAccountGateAttestation=serde_json::from_value(json!({"schema":ControllerAccountGateAttestation::SCHEMA_ID,"principal_id":controller.principal_id,"eligibility":"active","status":"active","basis":{"kind":"account_binding_default","binding_version":1,"binding_receipt_digest":digest},"basis_digest":digest,"authority_id":station.service_id,"verification_method":station.method,"issued_at":arkret_canonical::format_timestamp_canonical(at),"expires_at":arkret_canonical::format_timestamp_canonical(expires),"proof":{"kind":"detached_jws","jws":"placeholder"}})).unwrap();
+    gate.basis_digest = gate.expected_basis_digest().unwrap();
     arkret_signatures::agent_evidence::sign_controller_account_gate_attestation(
         &mut gate,
         &station.signing_key,

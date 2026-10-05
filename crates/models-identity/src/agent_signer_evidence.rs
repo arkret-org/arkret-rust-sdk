@@ -16,8 +16,8 @@
 //! [`crate::agent_signer_state`].
 
 use arkret_wire::{
-    Base64UrlString, DidCoreId, DidUrl, ErrorCode, Event, EventId, EventKind, Hash, NonEmptyString,
-    RequestId, Result, SchemaId, WireError,
+    AccountStatusRecordId, Base64UrlString, DidCoreId, DidUrl, ErrorCode, Event, EventId,
+    EventKind, Hash, NonEmptyString, RequestId, Result, SchemaId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -41,19 +41,22 @@ pub struct AgentDetachedJws {
 /// Which authority-owned projection `basis_digest` commits to.
 ///
 /// `account_binding_default` means the authority's private binding carries no
-/// stricter accepted status head yet. `account_status_event` binds a real
-/// status Event and its checkpoint digest.
+/// stricter accepted status head yet, or its exact initial Active binding head.
+/// `account_status_record` commits to the immutable complete signed ledger
+/// Record; it grants no consumer access to that private Record or PCR.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ControllerAccountGateBasis {
     AccountBindingDefault {
         binding_version: u64,
+        #[serde(deserialize_with = "deserialize_sha256_gate_digest")]
         binding_receipt_digest: Hash,
     },
-    AccountStatusEvent {
-        status_event_id: EventId,
-        status_checkpoint_digest: Hash,
+    AccountStatusRecord {
+        account_status_record_id: AccountStatusRecordId,
+        #[serde(deserialize_with = "deserialize_sha256_gate_digest")]
+        status_record_digest: Hash,
     },
 }
 
@@ -115,6 +118,7 @@ pub struct ControllerAccountGateAttestation {
     pub eligibility: ControllerAccountEligibility,
     pub status: ControllerAccountStatus,
     pub basis: ControllerAccountGateBasis,
+    #[serde(deserialize_with = "deserialize_sha256_gate_digest")]
     pub basis_digest: Hash,
     pub authority_id: DidCoreId,
     pub verification_method: DidUrl,
@@ -159,6 +163,32 @@ impl ControllerAccountGateAttestation {
                 "controller gate eligibility is active exactly when status is active",
             ));
         }
+        if matches!(
+            self.basis,
+            ControllerAccountGateBasis::AccountBindingDefault { .. }
+        ) && self.status != ControllerAccountStatus::Active
+        {
+            return Err(gate_error(
+                ErrorCode::SchemaViolation,
+                "binding default requires Active status",
+            ));
+        }
+        let source_digest = match &self.basis {
+            ControllerAccountGateBasis::AccountBindingDefault {
+                binding_receipt_digest,
+                ..
+            } => binding_receipt_digest,
+            ControllerAccountGateBasis::AccountStatusRecord {
+                status_record_digest,
+                ..
+            } => status_record_digest,
+        };
+        if !is_sha256_gate_digest(source_digest) || !is_sha256_gate_digest(&self.basis_digest) {
+            return Err(gate_error(
+                ErrorCode::SchemaViolation,
+                "controller gate digests require canonical SHA-256",
+            ));
+        }
         if self.issued_at >= self.expires_at {
             return Err(gate_error(
                 ErrorCode::SchemaViolation,
@@ -174,6 +204,19 @@ impl ControllerAccountGateAttestation {
             ));
         }
         Ok(())
+    }
+
+    /// Recompute the unique public projection; `accepted_id` is a derived
+    /// preimage key, not another wire member or hidden ledger authority.
+    pub fn expected_basis_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical_sha256(
+            &serde_json::json!({
+                "principal_id": self.principal_id,
+                "accepted_id": self.authority_id,
+                "status": self.status,
+                "basis": self.basis,
+            }),
+        )?)?)
     }
 
     /// `true` while `now` lies inside the half-open validity window.
@@ -323,6 +366,27 @@ pub struct ControllerAccountGateIssuanceResult {
     pub controller_account_gate_attestation: ControllerAccountGateAttestation,
 }
 
+fn is_sha256_gate_digest(value: &Hash) -> bool {
+    value.as_str().strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn deserialize_sha256_gate_digest<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Hash, D::Error> {
+    let digest = Hash::deserialize(deserializer)?;
+    if !is_sha256_gate_digest(&digest) {
+        return Err(serde::de::Error::custom(
+            "controller gate digest requires canonical SHA-256",
+        ));
+    }
+    Ok(digest)
+}
+
 fn gate_error(code: ErrorCode, message: &str) -> WireError {
     WireError::ProtocolCode {
         code,
@@ -376,12 +440,12 @@ mod tests {
     }
 
     #[test]
-    fn controller_gate_status_event_basis_round_trips() {
+    fn controller_gate_status_record_basis_round_trips() {
         let mut json = attestation_json();
         json["basis"] = serde_json::json!({
-            "kind": "account_status_event",
-            "status_event_id": "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "status_checkpoint_digest": DIGEST
+            "kind": "account_status_record",
+            "account_status_record_id": AccountStatusRecordId::from_record_digest([1; 32]),
+            "status_record_digest": DIGEST
         });
         let gate: ControllerAccountGateAttestation = serde_json::from_value(json.clone()).unwrap();
         gate.validate().unwrap();
@@ -454,6 +518,10 @@ mod tests {
             let mut gate = attestation();
             gate.status = status;
             gate.eligibility = status.eligibility();
+            gate.basis = ControllerAccountGateBasis::AccountStatusRecord {
+                account_status_record_id: AccountStatusRecordId::from_record_digest([1; 32]),
+                status_record_digest: Hash::new(DIGEST).unwrap(),
+            };
             gate.validate().unwrap();
 
             let mut mismatched = attestation();
@@ -502,6 +570,54 @@ mod tests {
         restated.status = ControllerAccountStatus::Locked;
         restated.eligibility = ControllerAccountEligibility::Inactive;
         assert_ne!(restated.signing_bytes().unwrap(), bytes);
+    }
+
+    #[test]
+    fn status_record_basis_is_sha256_non_null_closed_and_legacy_event_is_rejected() {
+        let mut json = attestation_json();
+        json["basis"] = serde_json::json!({
+            "kind":"account_status_record",
+            "account_status_record_id":AccountStatusRecordId::from_record_digest([7;32]),
+            "status_record_digest":DIGEST
+        });
+        let gate: ControllerAccountGateAttestation = serde_json::from_value(json.clone()).unwrap();
+        gate.validate().unwrap();
+        for field in ["account_status_record_id", "status_record_digest"] {
+            let mut bad = json.clone();
+            bad["basis"][field] = Value::Null;
+            assert!(serde_json::from_value::<ControllerAccountGateAttestation>(bad).is_err());
+        }
+        let mut extra = json.clone();
+        extra["basis"]["status_seq"] = serde_json::json!(3);
+        assert!(serde_json::from_value::<ControllerAccountGateAttestation>(extra).is_err());
+        for field in ["status_record_digest", "basis_digest"] {
+            let mut bad = json.clone();
+            if field == "basis_digest" {
+                bad[field] = serde_json::json!(format!("blake3:{}", "1".repeat(64)));
+            } else {
+                bad["basis"][field] = serde_json::json!(format!("blake3:{}", "1".repeat(64)));
+            }
+            assert!(serde_json::from_value::<ControllerAccountGateAttestation>(bad).is_err());
+        }
+        json["basis"] = serde_json::json!({"kind":"account_status_event","status_event_id":"ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status_checkpoint_digest":DIGEST});
+        assert!(serde_json::from_value::<ControllerAccountGateAttestation>(json).is_err());
+    }
+
+    #[test]
+    fn inactive_status_cannot_use_initial_binding_default() {
+        let mut gate = attestation();
+        gate.status = ControllerAccountStatus::Suspended;
+        gate.eligibility = ControllerAccountEligibility::Inactive;
+        assert!(gate.validate().is_err());
+        // A restored Active head is a strict Record supplied by its issuer;
+        // public consumers never infer sequence/current state from a digest.
+        gate.status = ControllerAccountStatus::Active;
+        gate.eligibility = ControllerAccountEligibility::Active;
+        gate.basis = ControllerAccountGateBasis::AccountStatusRecord {
+            account_status_record_id: AccountStatusRecordId::from_record_digest([7; 32]),
+            status_record_digest: Hash::new(DIGEST).unwrap(),
+        };
+        gate.validate().unwrap();
     }
 
     #[test]
