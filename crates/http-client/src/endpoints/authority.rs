@@ -1,12 +1,12 @@
 //! Authority-commit submission, replication, discovery, and handoff methods.
 
 use arkret_models_collaboration::authority_commit::{
-    PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest, SelfAuthoritySubmitOutcome,
-    SelfAuthoritySubmitRequest,
+    AuthorityHandoffRequest, PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest,
+    PeerStreamScanOutcome, SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
 use arkret_wire::{
-    AuthorityBundleRequest, AuthorityHandoffRequest, RealmAuthorityBundle, RealmAuthorityHandoff,
-    StreamScanOutcome, StreamScanRequest,
+    AuthorityBundleRequest, RealmAuthorityBundle, RealmAuthorityHandoff, StreamScanOutcome,
+    StreamScanRequest,
 };
 use reqwest::Method;
 
@@ -53,6 +53,21 @@ impl Client {
         Ok(outcome)
     }
 
+    /// Receive original peer rows and frozen facts. Caller independently authenticates every
+    /// original.
+    pub async fn scan_peer_commit_stream(
+        &self,
+        request: &StreamScanRequest,
+        options: &ClientRequestOptions,
+    ) -> Result<PeerStreamScanOutcome> {
+        request.validate()?;
+        let outcome: PeerStreamScanOutcome = self
+            .post_with_options("/_arkret/peer/streams/scan", request, options)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// Resolve the nonce-bound genesis-to-current authority chain.
     pub async fn realm_authority_bundle(
         &self,
@@ -75,7 +90,7 @@ impl Client {
         request: &AuthorityHandoffRequest,
         options: &ClientRequestOptions,
     ) -> Result<RealmAuthorityHandoff> {
-        request.validate_shape()?;
+        request.validate_new_handoff()?;
         let outcome: RealmAuthorityHandoff = self
             .post_with_options("/_arkret/peer/realm-authority/handoff", request, options)
             .await?;

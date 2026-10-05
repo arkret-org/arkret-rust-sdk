@@ -127,6 +127,12 @@ pub use arkret_models_collaboration::agent_scope::{
 };
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
+pub use arkret_models_collaboration::authority_commit::{
+    HumanHistoricalSignerFact, HumanHistoricalSignerFactEntry, PeerStreamScanOutcome,
+    authority_forward_body_digest, historical_signer_facts_digest,
+    validate_historical_signer_fact_inventory, validate_new_human_admission_fact,
+    validate_new_human_admission_fact_for_purpose,
+};
 pub use arkret_models_collaboration::call_signal::{
     CallAckSignalData, CallAnswerSignalData, CallCandidateSignalData, CallEndSignalData,
     CallErrorSignalData, CallFocusSignalData, CallInviteSignalData, CallMediaSelection,
@@ -279,6 +285,9 @@ pub use arkret_models_discovery::station_connection::*;
 pub use arkret_models_discovery::verified_profiles::*;
 pub use arkret_models_discovery::websocket_binding::*;
 pub use arkret_models_identity::account::*;
+pub use arkret_models_identity::account_device_signer_evidence::{
+    AccountDeviceSignerEvidence, ForwardAccountDeviceSignerEvidence,
+};
 pub use arkret_models_identity::actor_profile::*;
 pub use arkret_models_identity::actor_profile_operations::*;
 pub use arkret_models_identity::admin_grant::{

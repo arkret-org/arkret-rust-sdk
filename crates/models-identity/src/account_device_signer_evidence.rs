@@ -1,6 +1,5 @@
 //! Closed account-device signer evidence used by keys/query, historical Event
-//! producer verification and, as `producer_device_evidence`, by every
-//! cross-Station `authority_forward` of a human-device producer.
+//! producer verification. Authority forwarding uses a separately closed sibling.
 //!
 //! This is a sibling of the six-member `AuthenticatedSignerResolutionEvidence`,
 //! never a fourth branch of that type. The origin retains this complete root;
@@ -84,6 +83,69 @@ impl AccountDeviceSignerEvidence {
 
     pub fn matches_ref(&self, reported: &SignerEvidenceRef) -> arkret_wire::Result<bool> {
         Ok(&self.signer_evidence_ref()? == reported)
+    }
+}
+
+/// Closed authority-forward sibling; never accepted as a directory row.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ForwardAccountDeviceSignerEvidence {
+    pub device_projection_attestation: arkret_models_crypto::ForwardDeviceProjectionAttestation,
+    pub service_resolution: AuthenticatedServiceResolution,
+}
+
+impl ForwardAccountDeviceSignerEvidence {
+    /// Check only byte-local bindings. The caller separately verifies the
+    /// method-native Service history, assertion relationship and signature.
+    pub fn validate_binding(
+        &self,
+        account_id: &AccountId,
+        device_id: &DeviceId,
+    ) -> arkret_wire::Result<()> {
+        let attested = &self.device_projection_attestation.attestation;
+        attested.validate_event_authorization()?;
+        if &attested.account_id != account_id || &attested.device_id != device_id {
+            return Err(WireError::Protocol(
+                "account-device signer evidence addresses another account or device".into(),
+            ));
+        }
+        if self.service_resolution.service_id != account_id.station_id {
+            return Err(WireError::Protocol(
+                "account-device signer evidence has another origin Station".into(),
+            ));
+        }
+        let method_did = self
+            .device_projection_attestation
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .and_then(|(did, fragment)| (!fragment.is_empty()).then_some(did))
+            .ok_or_else(|| WireError::Protocol("attestation proof method has no fragment".into()))
+            .and_then(|did| Ok(arkret_wire::Did::new(did.to_owned())?))?;
+        if method_did != self.service_resolution.normalized_did_document.id
+            || arkret_wire::project_did_to_core_id(&method_did)? != account_id.station_id
+        {
+            return Err(WireError::Protocol(
+                "account-device signer evidence proof method has another controller".into(),
+            ));
+        }
+        if self.device_projection_attestation.proof.created_at != attested.attested_at
+            || attested.attested_at >= attested.expires_at
+            || attested.attested_at < attested.authorization_window.not_before
+            || attested
+                .authorization_window
+                .expires_at
+                .is_some_and(|expiry| {
+                    attested.attested_at >= expiry || attested.expires_at > expiry
+                })
+        {
+            return Err(WireError::Protocol(
+                "account-device signer evidence has an invalid attestation window".into(),
+            ));
+        }
+        Ok(())
     }
 }
 

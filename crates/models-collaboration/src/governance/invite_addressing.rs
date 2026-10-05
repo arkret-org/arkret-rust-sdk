@@ -417,6 +417,12 @@ pub struct InviteDeliveryRequestBody {
     pub schema: String,
     pub invite_event: Event,
     pub invite_commit: RealmCommit,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_non_null_optional"
+    )]
+    pub producer_signer_fact: Option<crate::authority_commit::HumanHistoricalSignerFact>,
     pub authority_locator_hints: Vec<RealmJoinCandidate>,
     pub invite_address: InviteAddress,
     pub introduction_evidence: IntroductionEvidence,
@@ -453,20 +459,43 @@ impl InviteDeliveryRequestBody {
     pub fn new(
         invite_event: Event,
         invite_commit: RealmCommit,
+        producer_signer_fact: Option<crate::authority_commit::HumanHistoricalSignerFact>,
         authority_locator_hints: Vec<RealmJoinCandidate>,
         invite_address: InviteAddress,
         introduction_evidence: IntroductionEvidence,
         idempotency_key: impl Into<String>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let request = Self {
             schema: SchemaId::INVITE_DELIVERY_REQUEST_V1.to_owned(),
             invite_event,
             invite_commit,
+            producer_signer_fact,
             authority_locator_hints,
             invite_address,
             introduction_evidence,
             idempotency_key: idempotency_key.into(),
+        };
+        request.validate_for_submission()?;
+        Ok(request)
+    }
+
+    /// Validate a new ordinary notification, separately from exact legacy original decoding.
+    /// This does not verify the Event signature or authenticate governance authority.
+    pub fn validate_for_submission(&self) -> Result<()> {
+        self.validate_minimal()?;
+        if self.invite_event.kind != arkret_wire::EventKind::InviteCreate {
+            return Err(WireError::Protocol(
+                "invite delivery requires the original Invite create Event".into(),
+            ));
         }
+        let suite = arkret_canonical::canonical::digest_suite(
+            self.invite_event.event_id.digest_suite_code().as_str(),
+        )?;
+        crate::authority_commit::validate_new_human_admission_fact(
+            &self.invite_event,
+            self.producer_signer_fact.as_ref(),
+            suite,
+        )
     }
 
     /// Wire-local checks that need no key material: the schema discriminator,
@@ -486,6 +515,27 @@ impl InviteDeliveryRequestBody {
             ));
         }
         self.invite_commit.validate_shape()?;
+        match (
+            &self.invite_commit.producer_signer_fact_digest,
+            &self.producer_signer_fact,
+        ) {
+            (Some(_), Some(fact)) => {
+                let full = arkret_wire::CommittedEventFullView {
+                    event: self.invite_event.clone(),
+                    commit: self.invite_commit.clone(),
+                };
+                let suite = arkret_canonical::canonical::digest_suite(
+                    self.invite_event.event_id.digest_suite_code().as_str(),
+                )?;
+                fact.validate_commit_binding(&full, suite)?;
+            }
+            (None, None) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "invite signer fact and original Commit digest must be present together".into(),
+                ));
+            }
+        }
         if self.invite_commit.event_ref != self.invite_event.event_id {
             return Err(WireError::Protocol(
                 "invite_delivery_request.invite_commit.event_ref MUST equal invite_event.event_id"

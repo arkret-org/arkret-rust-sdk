@@ -136,6 +136,117 @@ pub fn verify_device_projection_attestation(
         })
 }
 
+pub fn sign_forward_device_projection_attestation(
+    core: arkret_models_crypto::ForwardDeviceProjectionAttestationCore,
+    verification_method: DidUrl,
+    signing_key: &SigningKey,
+) -> arkret_wire::Result<arkret_models_crypto::ForwardDeviceProjectionAttestation> {
+    core.validate_event_authorization()?;
+    if core.attested_at >= core.expires_at {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation is not a positive validity window".to_owned(),
+        ));
+    }
+    if core.attested_at < core.authorization_window.not_before
+        || core
+            .authorization_window
+            .expires_at
+            .is_some_and(|expiry| core.attested_at >= expiry || core.expires_at > expiry)
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection cache window exceeds the original authorization window".to_owned(),
+        ));
+    }
+    // The schema pins `device_status` to `active`: this surface attests usable
+    // devices only, and a revoked one is omitted rather than reported. Refusing
+    // to sign anything else keeps the Rust type from being the one place that
+    // could mint a row the wire contract forbids.
+    if core.device_status != DeviceStatus::Active {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation may only attest an active device".to_owned(),
+        ));
+    }
+    let created_at = core.attested_at;
+    let mut attestation = arkret_models_crypto::ForwardDeviceProjectionAttestation {
+        proof: ProtocolSignature {
+            verification_method,
+            created_at,
+            jws: "eyJhbGciOiJFZDI1NTE5In0..AA".to_owned(),
+        },
+        attestation: core,
+    };
+    let bytes = attestation.proof_signing_bytes()?;
+    attestation.proof.jws = sign_ed25519_detached_jws(signing_key, &bytes)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    Ok(attestation)
+}
+
+/// Verify one device projection attestation against the origin Station's key.
+///
+/// The caller supplies the already-resolved key: this surface never resolves a
+/// DID per row, which is what makes the §8.3 hot path free of online lookups.
+/// What is enforced here is the part a caller must not be able to skip — the
+/// proof controller projects **exactly** onto `station_id`, the proof
+/// timestamp equals the attested instant, the attestation has not expired, and
+/// the signature covers the registered transcript.
+pub fn verify_forward_device_projection_attestation(
+    attestation: &arkret_models_crypto::ForwardDeviceProjectionAttestation,
+    station_key: &VerifyingKey,
+    now: DateTime<Utc>,
+) -> arkret_wire::Result<()> {
+    let core = &attestation.attestation;
+    core.validate_event_authorization()?;
+    let controller = proof_controller(&attestation.proof.verification_method)?;
+    if controller != core.account_id.station_id {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation proof controller is not the origin Station".to_owned(),
+        ));
+    }
+    if attestation.proof.created_at != core.attested_at {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation proof timestamp mismatch".to_owned(),
+        ));
+    }
+    if core.attested_at >= core.expires_at {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation is not a positive validity window".to_owned(),
+        ));
+    }
+    if core.attested_at < core.authorization_window.not_before
+        || core
+            .authorization_window
+            .expires_at
+            .is_some_and(|expiry| core.attested_at >= expiry || core.expires_at > expiry)
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection cache window exceeds the original authorization window".to_owned(),
+        ));
+    }
+    if now >= core.expires_at {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation is expired".to_owned(),
+        ));
+    }
+    if core.device_status != DeviceStatus::Active {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation may only attest an active device".to_owned(),
+        ));
+    }
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(
+            &attestation.proof.jws,
+            &attestation.proof_signing_bytes()?,
+            &PublicKeyMaterial::Ed25519Raw {
+                bytes: station_key.to_bytes().to_vec(),
+            },
+        )
+        .map_err(|_| {
+            arkret_wire::WireError::Protocol(
+                "invalid device projection attestation proof".to_owned(),
+            )
+        })
+}
+
 /// Device evidence verified while its current-query cache window was valid.
 /// This authenticates a historical authorization fact, not permission to publish.
 /// Callers must still evaluate all applicable verified authorization closures.
@@ -434,5 +545,28 @@ mod tests {
         );
         // Replaying later uses the immutable response's signing instant, not wall time.
         verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
+    }
+    #[test]
+    fn directory_proof_rejects_true_core_only_signature() {
+        let key = SigningKey::from_bytes(&[31; 32]);
+        let core = core();
+        let mut signed =
+            sign_device_projection_attestation(core.clone(), verification_method(), &key).unwrap();
+        verify_device_projection_attestation(&signed, &key.verifying_key(), core.attested_at)
+            .unwrap();
+        let mut transcript: serde_json::Value =
+            serde_json::from_slice(&signed.proof_signing_bytes().unwrap()).unwrap();
+        transcript["payload_digest"] = serde_json::json!(
+            arkret_wire::Hash::new(arkret_canonical::canonical_sha256(&core).unwrap()).unwrap()
+        );
+        signed.proof.jws = sign_ed25519_detached_jws(
+            &key,
+            &arkret_canonical::canonical_json_bytes(&transcript).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            verify_device_projection_attestation(&signed, &key.verifying_key(), core.attested_at)
+                .is_err()
+        );
     }
 }

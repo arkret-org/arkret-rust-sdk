@@ -5,15 +5,18 @@
 //! `arkret-wire`; this module adds the registered aggregate and replication
 //! branches without inventing a generic federation envelope.
 
-use arkret_models_identity::{AccountDeviceSignerEvidence, AgentProducerEvidence};
+use arkret_models_identity::{
+    AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
+};
 use arkret_schema::{
     RealmBootstrapPresence, RealmBootstrapProfile, realm_bootstrap_profile_descriptor,
 };
 use arkret_wire::{
-    ActorId, CommitStreamRef, DidCoreId, DidUrl, ErrorCode, Event, EventAdmissionSubmission,
-    EventId, EventKind, HumanDeviceProducer, MembershipCompensationAction,
-    MembershipCompensationDelegationRef, MlsCommitSubmission, MlsWelcomeDelivery, RealmCommit,
-    RealmCommitId, RealmId, Result, UuidV7, WireError,
+    ActorId, CommitStreamHead, CommitStreamRef, DetachedSignatureContext, DidCoreId, DidUrl,
+    ErrorCode, Event, EventAdmissionSubmission, EventId, EventKind, Hash, HumanDeviceProducer,
+    MembershipCompensationAction, MembershipCompensationDelegationRef, MlsCommitSubmission,
+    MlsWelcomeDelivery, RealmAuthorityBundle, RealmAuthorityHandoff, RealmCommit, RealmCommitId,
+    RealmId, RealmStateSnapshot, Result, UuidV7, WireError, detached_signature_service_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,6 +59,161 @@ pub struct OperationSignature {
     pub jws: String,
 }
 
+/// Immutable authorization source, with no target Commit coordinate.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanHistoricalSignerFact {
+    pub event_id: EventId,
+    #[serde(deserialize_with = "deserialize_signing_account_actor")]
+    pub actor: ActorId,
+    pub device_id: arkret_wire::DeviceId,
+    pub verification_method: DidUrl,
+    pub key: ResolvedSignerKey,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+}
+
+fn deserialize_signing_account_actor<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<ActorId, D::Error> {
+    let actor = ActorId::deserialize(deserializer)?;
+    if actor.as_account_id().is_none() {
+        return Err(serde::de::Error::custom(
+            "Human signer fact requires a complete Account actor",
+        ));
+    }
+    Ok(actor)
+}
+
+impl HumanHistoricalSignerFact {
+    pub fn digest(&self) -> Result<Hash> {
+        self.key.validate()?;
+        if self.actor.as_account_id().is_none() {
+            return Err(WireError::Protocol(
+                "Human signer fact requires an Account actor".into(),
+            ));
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
+
+    /// Byte-local source binding. This does not establish admission or Event Ed verification.
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.key.validate()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        let producer = event.human_device_producer()?.ok_or_else(|| {
+            WireError::Protocol("Human signer fact is forbidden for non-device producers".into())
+        })?;
+        let proof = event
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Human Event lacks producer proof".into()))?;
+        if self.event_id != event.event_id
+            || self.actor != *event.actual_signer()
+            || self.actor.as_account_id() != Some(&producer.account_id)
+            || self.device_id != producer.device_id
+            || self.verification_method != proof.verification_method
+        {
+            return Err(WireError::Protocol(
+                "Human signer fact does not bind the exact Event producer".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_commit_binding(
+        &self,
+        full: &arkret_wire::CommittedEventFullView,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        full.validate_shape()?;
+        full.commit.verify_commit_id_matches_content()?;
+        self.validate_event_binding(&full.event, suite)?;
+        if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?) {
+            return Err(WireError::Protocol(
+                "original governance Commit does not bind this exact Human signer fact".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanHistoricalSignerFactEntry {
+    pub target: arkret_wire::CommittedEventRef,
+    pub producer_signer_fact: HumanHistoricalSignerFact,
+}
+
+impl HumanHistoricalSignerFactEntry {
+    pub fn validate_target(&self, full: &arkret_wire::CommittedEventFullView) -> Result<()> {
+        if self.target.event_id != full.commit.event_ref
+            || self.target.commit_id != full.commit.commit_id
+            || self.target.stream_ref != full.commit.stream_ref
+            || self.target.stream_position != full.commit.stream_position
+        {
+            return Err(WireError::Protocol(
+                "Human signer inventory names another exact Commit".into(),
+            ));
+        }
+        let suite = arkret_canonical::canonical::digest_suite(
+            full.event.event_id.digest_suite_code().as_str(),
+        )?;
+        self.producer_signer_fact
+            .validate_commit_binding(full, suite)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerStreamScanOutcome {
+    pub committed_events: Vec<arkret_wire::CommittedEventView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readable_floor: Option<arkret_wire::ReadableFloor>,
+    pub truncated: bool,
+    pub producer_signer_facts: Vec<HumanHistoricalSignerFactEntry>,
+}
+
+impl PeerStreamScanOutcome {
+    pub fn validate_for_request(&self, request: &arkret_wire::StreamScanRequest) -> Result<()> {
+        arkret_wire::StreamScanOutcome {
+            committed_events: self.committed_events.clone(),
+            readable_floor: self.readable_floor.clone(),
+            truncated: self.truncated,
+        }
+        .validate_for_request(request)?;
+        if self.producer_signer_facts.len() > 1000 {
+            return Err(WireError::Protocol(
+                "peer scan signer fact limit exceeded".into(),
+            ));
+        }
+        let mut facts = self.producer_signer_facts.iter();
+        for row in &self.committed_events {
+            if let arkret_wire::CommittedEventView::Full(full) = row {
+                if full.commit.producer_signer_fact_digest.is_some() {
+                    facts
+                        .next()
+                        .ok_or_else(|| {
+                            WireError::Protocol(
+                                "peer Full row lacks original Human signer fact".into(),
+                            )
+                        })?
+                        .validate_target(full)?;
+                }
+            }
+        }
+        if facts.next().is_some() {
+            return Err(WireError::Protocol(
+                "peer scan contains extra or unordered Human signer facts".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommittedEventSubmission {
@@ -70,6 +228,12 @@ pub struct CommittedEventSubmission {
     /// Station hosts, in submission order; absent for every other kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub welcomes: Option<Vec<MlsWelcomeDelivery>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub producer_signer_fact: Option<HumanHistoricalSignerFact>,
 }
 
 impl CommittedEventSubmission {
@@ -80,12 +244,14 @@ impl CommittedEventSubmission {
     pub fn from_source_submission(
         source: &EventAdmissionSubmission,
         source_commit: RealmCommit,
+        producer_signer_fact: Option<HumanHistoricalSignerFact>,
         genesis_event_ref: Option<EventId>,
         welcomes: Option<Vec<MlsWelcomeDelivery>>,
     ) -> Self {
         Self {
             event_submission: EventAdmissionSubmission::new(source.event.clone()),
             source_commit,
+            producer_signer_fact,
             genesis_event_ref,
             welcomes,
         }
@@ -100,6 +266,28 @@ impl CommittedEventSubmission {
             });
         }
         self.source_commit.validate_shape()?;
+        match (
+            &self.source_commit.producer_signer_fact_digest,
+            &self.producer_signer_fact,
+        ) {
+            (Some(_), Some(fact)) => {
+                let full = arkret_wire::CommittedEventFullView {
+                    event: self.event_submission.event.clone(),
+                    commit: self.source_commit.clone(),
+                };
+                let suite = arkret_canonical::canonical::digest_suite(
+                    full.event.event_id.digest_suite_code().as_str(),
+                )?;
+                fact.validate_commit_binding(&full, suite)?;
+            }
+            (None, None) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "replication signer fact and original Commit digest must be present together"
+                        .into(),
+                ));
+            }
+        }
         let event = &self.event_submission.event;
         if (event.kind == EventKind::MlsCommit) != self.genesis_event_ref.is_some() {
             return Err(WireError::ProtocolCode {
@@ -471,7 +659,7 @@ impl PeerRegisteredAtomicUnit {
 /// producer that the carried evidence has to be verified against.
 pub fn validate_producer_device_evidence_presence(
     event: &Event,
-    producer_device_evidence: Option<&AccountDeviceSignerEvidence>,
+    producer_device_evidence: Option<&ForwardAccountDeviceSignerEvidence>,
 ) -> Result<Option<HumanDeviceProducer>> {
     let producer = event.human_device_producer()?;
     match (&producer, producer_device_evidence) {
@@ -573,7 +761,7 @@ pub struct PeerAuthorityForwardEventRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_genesis_material: Option<MlsGenesisMaterial>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
@@ -601,7 +789,7 @@ impl PeerAuthorityForwardEventRequest {
     pub fn new(
         event_submission: EventAdmissionSubmission,
         mls_genesis_material: Option<MlsGenesisMaterial>,
-        producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+        producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
@@ -660,7 +848,7 @@ pub struct PeerAuthorityForwardMlsRequest {
     pub branch: AuthorityForwardBranch,
     pub mls_submission: MlsCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+    pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
@@ -683,7 +871,7 @@ impl PeerAuthorityForwardMlsRequest {
     /// whether `producer_device_evidence` is required or forbidden.
     pub fn new(
         mls_submission: MlsCommitSubmission,
-        producer_device_evidence: Option<AccountDeviceSignerEvidence>,
+        producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
@@ -1194,5 +1382,293 @@ pub fn validate_reason_code(value: &str) -> Result<()> {
         Err(WireError::Protocol(
             "reason_code must match ^[a-z][a-z0-9_]{0,63}$".to_owned(),
         ))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityHandoffRequest {
+    pub handoff: RealmAuthorityHandoff,
+    /// Private complete manifest. It is transferred only old-authority to
+    /// new-authority and is never embedded in the public bundle.
+    pub final_stream_heads: Vec<CommitStreamHead>,
+    pub snapshot: RealmStateSnapshot,
+    pub authority_bundle: RealmAuthorityBundle,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub historical_signer_facts: Option<Vec<HumanHistoricalSignerFactEntry>>,
+}
+
+impl AuthorityHandoffRequest {
+    pub fn validate_shape(&self) -> Result<()> {
+        self.handoff.validate_shape()?;
+        let unsigned_snapshot = arkret_canonical::canonical::unsigned_value(
+            &self.snapshot,
+            &["snapshot_id", "signature"],
+        )?;
+        if self.snapshot.snapshot_id
+            != arkret_wire::RealmSnapshotId::from_digest(arkret_canonical::sha256_bytes(
+                &arkret_canonical::canonical_json_bytes(&unsigned_snapshot)?,
+            ))
+        {
+            return Err(WireError::Protocol(
+                "handoff snapshot content address mismatch".into(),
+            ));
+        }
+        match (
+            &self.handoff.historical_signer_facts_digest,
+            &self.historical_signer_facts,
+        ) {
+            (Some(digest), Some(entries))
+                if digest == &historical_signer_facts_digest(entries)? => {}
+            (None, None) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "handoff inventory and original signed digest mismatch".into(),
+                ));
+            }
+        }
+        if self
+            .historical_signer_facts
+            .as_ref()
+            .is_some_and(|entries| {
+                entries
+                    .iter()
+                    .any(|entry| entry.target.stream_ref.realm_id() != &self.handoff.realm_id)
+            })
+        {
+            return Err(WireError::Protocol(
+                "handoff signer inventory belongs to another Realm".into(),
+            ));
+        }
+        self.authority_bundle.validate_shape()?;
+        if self.final_stream_heads.is_empty()
+            || !self
+                .final_stream_heads
+                .windows(2)
+                .all(|pair| pair[0].stream_ref < pair[1].stream_ref)
+            || self
+                .final_stream_heads
+                .iter()
+                .any(|head| head.stream_ref.realm_id() != &self.handoff.realm_id)
+        {
+            return Err(WireError::Protocol(
+                "authority handoff final stream heads must be non-empty, sorted, unique, and same-Realm"
+                    .to_owned(),
+            ));
+        }
+        let heads_digest = Hash::new(arkret_canonical::canonical_sha256(
+            &self.final_stream_heads,
+        )?)?;
+        let realm_stream_ref = CommitStreamRef::Realm {
+            realm_id: self.handoff.realm_id.clone(),
+        };
+        let final_realm_head = self
+            .final_stream_heads
+            .iter()
+            .find(|head| head.stream_ref == realm_stream_ref)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "authority handoff manifest must include the Realm stream head".to_owned(),
+                )
+            })?;
+        if heads_digest != self.handoff.final_stream_heads_digest
+            || final_realm_head.commit_id != self.handoff.change_commit_id
+            || self.snapshot.snapshot_id != self.handoff.snapshot_ref
+            || self.snapshot.realm_id != self.handoff.realm_id
+            || self.snapshot.governance_generation != self.handoff.from_generation
+            || self.snapshot.visible_stream_heads != self.final_stream_heads
+            || self.snapshot.signature.context != DetachedSignatureContext::RealmSnapshot
+            || detached_signature_service_id(&self.snapshot.signature)?
+                != self.handoff.from_service_id
+            || self.authority_bundle.realm_id != self.handoff.realm_id
+            || self.authority_bundle.current_generation != self.handoff.to_generation
+            || self.authority_bundle.current_service_id != self.handoff.to_service_id
+            || self.authority_bundle.realm_stream_head != *final_realm_head
+            || self
+                .authority_bundle
+                .authority_transitions
+                .last()
+                .map(|transition| &transition.handoff)
+                != Some(&self.handoff)
+            || self.authority_bundle.current_assertion.last_handoff_ref
+                != Some(self.handoff.handoff_id.clone())
+        {
+            return Err(WireError::Protocol(
+                "authority handoff manifest, snapshot, and current bundle binding mismatch"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Fixed-SHA256 inventory digest. Callers must independently prove the exact imported target set.
+pub fn historical_signer_facts_digest(entries: &[HumanHistoricalSignerFactEntry]) -> Result<Hash> {
+    let sort_key = |entry: &HumanHistoricalSignerFactEntry| -> Result<_> {
+        Ok((
+            arkret_canonical::canonical_json_bytes(&entry.target.stream_ref)?,
+            entry.target.stream_position,
+            entry.target.event_id.as_str().as_bytes().to_vec(),
+            entry.target.commit_id.as_str().as_bytes().to_vec(),
+        ))
+    };
+    let mut previous = None;
+    for entry in entries {
+        entry.producer_signer_fact.digest()?;
+        if entry.target.event_id != entry.producer_signer_fact.event_id {
+            return Err(WireError::Protocol(
+                "handoff signer inventory Event binding mismatch".into(),
+            ));
+        }
+        let next = sort_key(entry)?;
+        if previous.as_ref().is_some_and(|previous| previous >= &next) {
+            return Err(WireError::Protocol(
+                "handoff signer inventory must use canonical unique target order".into(),
+            ));
+        }
+        previous = Some(next);
+    }
+    Ok(Hash::new(arkret_canonical::canonical_sha256(&entries)?)?)
+}
+
+impl AuthorityHandoffRequest {
+    /// Compare the inventory against all imported digest-bearing Full originals, not a member
+    /// floor.
+    pub fn validate_imported_signer_facts(
+        &self,
+        imported: &[arkret_wire::CommittedEventFullView],
+    ) -> Result<()> {
+        self.validate_shape()?;
+        for full in imported {
+            full.validate_shape()?;
+            let head = self
+                .final_stream_heads
+                .iter()
+                .find(|head| head.stream_ref == full.commit.stream_ref)
+                .ok_or_else(|| {
+                    WireError::Protocol(
+                        "imported original is outside the frozen handoff streams".into(),
+                    )
+                })?;
+            if full.commit.realm_id != self.handoff.realm_id
+                || full.commit.governance_generation > self.handoff.from_generation
+                || full.commit.stream_position > head.stream_position
+                || (full.commit.stream_position == head.stream_position
+                    && full.commit.commit_id != head.commit_id)
+            {
+                return Err(WireError::Protocol(
+                    "imported original is outside the exact frozen handoff cut".into(),
+                ));
+            }
+        }
+        validate_historical_signer_fact_inventory(
+            self.historical_signer_facts.as_deref().unwrap_or(&[]),
+            imported,
+        )
+    }
+}
+
+/// The canonical peer body excludes only the evidence that signs this digest.
+pub fn authority_forward_body_digest<T: Serialize>(body: &T) -> Result<Hash> {
+    let mut unsigned = serde_json::to_value(body)?;
+    unsigned
+        .as_object_mut()
+        .ok_or_else(|| WireError::Protocol("authority forward body must be an object".into()))?
+        .remove("producer_device_evidence");
+    Ok(Hash::new(arkret_canonical::canonical_sha256(&unsigned)?)?)
+}
+
+/// New admission is distinct from decoding an exact legacy accepted original.
+pub fn validate_new_human_admission_fact(
+    event: &Event,
+    fact: Option<&HumanHistoricalSignerFact>,
+    suite: arkret_canonical::DigestSuite,
+) -> Result<()> {
+    match (event.human_device_producer()?, fact) {
+        (Some(_), Some(fact)) => fact.validate_event_binding(event, suite),
+        (None, None) => Ok(()),
+        _ => Err(WireError::Protocol(
+            "new ordinary admission requires a fact exactly for the actual Human device producer"
+                .into(),
+        )),
+    }
+}
+
+impl AuthorityHandoffRequest {
+    pub fn validate_new_handoff(&self) -> Result<()> {
+        if self.handoff.historical_signer_facts_digest.is_none()
+            || self.historical_signer_facts.is_none()
+        {
+            return Err(WireError::Protocol("new authority handoff requires the complete signer inventory, including an empty inventory".into()));
+        }
+        self.validate_shape()
+    }
+}
+
+/// Complete equality against all imported digest-bearing Full originals.
+pub fn validate_historical_signer_fact_inventory(
+    entries: &[HumanHistoricalSignerFactEntry],
+    imported: &[arkret_wire::CommittedEventFullView],
+) -> Result<()> {
+    historical_signer_facts_digest(entries)?;
+    let mut expected = imported
+        .iter()
+        .filter(|full| full.commit.producer_signer_fact_digest.is_some())
+        .collect::<Vec<_>>();
+    let mut keyed = expected
+        .drain(..)
+        .map(|full| {
+            Ok((
+                (
+                    arkret_canonical::canonical_json_bytes(&full.commit.stream_ref)?,
+                    full.commit.stream_position,
+                    full.event.event_id.to_string(),
+                    full.commit.commit_id.to_string(),
+                ),
+                full,
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    keyed.sort_by(|left, right| left.0.cmp(&right.0));
+    expected = keyed.into_iter().map(|(_, full)| full).collect();
+    if expected.len() != entries.len() {
+        return Err(WireError::Protocol(
+            "handoff signer inventory is not the complete imported Full target set".into(),
+        ));
+    }
+    for (entry, full) in entries.iter().zip(expected) {
+        entry.validate_target(full)?;
+    }
+    Ok(())
+}
+
+/// Native control Realms retain their own admission proof family even when a controller device
+/// signs.
+pub fn validate_new_human_admission_fact_for_purpose(
+    event: &Event,
+    purpose: crate::events_payloads::RealmPurpose,
+    fact: Option<&HumanHistoricalSignerFact>,
+    suite: arkret_canonical::DigestSuite,
+) -> Result<()> {
+    match purpose {
+        crate::events_payloads::RealmPurpose::Collaboration
+        | crate::events_payloads::RealmPurpose::DirectConversation => {
+            validate_new_human_admission_fact(event, fact, suite)
+        }
+        crate::events_payloads::RealmPurpose::PrincipalControl
+        | crate::events_payloads::RealmPurpose::AgentControl
+        | crate::events_payloads::RealmPurpose::AppletManagedControl => {
+            if fact.is_some() {
+                return Err(WireError::Protocol(
+                    "native control Realm admission must not use ordinary Human signer facts"
+                        .into(),
+                ));
+            }
+            Ok(())
+        }
     }
 }

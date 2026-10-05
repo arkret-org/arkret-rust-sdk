@@ -161,6 +161,7 @@ fn commit(
             governance_generation: generation,
             authority_ref,
             committed_at: issued_at(),
+            producer_signer_fact_digest: None,
             signature: placeholder_signature(DetachedSignatureContext::RealmCommit),
         },
         did,
@@ -284,8 +285,8 @@ fn chain() -> Chain {
             from_service_id: core_id(STATION_A),
             to_service_id: core_id(STATION_B),
             final_stream_heads_digest: hash('a'),
+            historical_signer_facts_digest: None,
             snapshot_ref: RealmSnapshotId::from_digest([0x44; 32]),
-            snapshot_digest: hash('b'),
             change_event_ref: change_event.event_id.clone(),
             change_commit_id: change_commit.commit_id.clone(),
             old_authority_signature: placeholder_signature(
@@ -423,7 +424,7 @@ fn mutually_exclusive_verified_chains_fail_closed() {
     let first_chain = chain();
     let mut conflicting_chain = chain();
     let transition = &mut conflicting_chain.bundle.authority_transitions[0];
-    transition.handoff.snapshot_digest = hash('c');
+    transition.handoff.historical_signer_facts_digest = Some(hash('c'));
     transition.handoff = seal_handoff(
         transition.handoff.clone(),
         DetachedSignatureContext::RealmAuthorityHandoffOld,
@@ -851,4 +852,612 @@ fn same_method_rotation_current_key_cannot_replace_historical_key() {
         verify_realm_authority_bundle(&bundle, &freshness(), &current_only),
         Err(RealmAuthorityChainError::SignatureInvalid(_))
     ));
+}
+
+#[test]
+fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature() {
+    use arkret_models_collaboration::authority_commit::{
+        HumanHistoricalSignerFact, HumanHistoricalSignerFactEntry, historical_signer_facts_digest,
+        validate_new_human_admission_fact,
+    };
+    use arkret_models_identity::ResolvedSignerKey;
+    use arkret_signatures::{Ed25519DetachedJwsSigner, SignEventOptions, sign_event};
+    let seal_fact = |mut commit: RealmCommit| {
+        let unsigned = canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
+        commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+            &canonical::canonical_json_bytes(&unsigned).unwrap(),
+        ));
+        seal_commit(commit, STATION_B, &signing_key(0xB2))
+    };
+    let chain = chain();
+    let authority = verify(&chain).unwrap();
+    let principal = Did::new("did:web:human.example").unwrap();
+    let device =
+        arkret_wire::DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap();
+    let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+        arkret_wire::project_did_to_core_id(&principal).unwrap(),
+        core_id(STATION_A),
+    ));
+    let raw = arkret_wire::test_support::raw_event_for_actor_at(
+        "ak.invite.create",
+        ScopeRef::Realm {
+            realm_id: realm_id(),
+        },
+        actor.clone(),
+        json!({
+            "invitee_account_id": arkret_wire::AccountId::new(arkret_wire::project_did_to_core_id(&principal).unwrap(), core_id(STATION_B)),
+            "introduction_evidence_digest": arkret_canonical::canonical_sha256(&json!({"kind":"explicit_address"})).unwrap(),
+            "expires_at": expires_at(),
+        }),
+        now(),
+    )
+    .unwrap();
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        raw,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    let device_seed = [77; 32];
+    let vm = DidUrl::new(format!("{principal}#{device}")).unwrap();
+    sign_event(
+        &mut authored,
+        &Ed25519DetachedJwsSigner::from_seed(device_seed, vm.to_string()),
+        SignEventOptions::new().with_created_at(now()),
+    )
+    .unwrap();
+    let event = authored.into_event();
+    let fact = HumanHistoricalSignerFact {
+        event_id: event.event_id.clone(),
+        actor,
+        device_id: device,
+        verification_method: vm,
+        key: ResolvedSignerKey {
+            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                SigningKey::from_bytes(&device_seed)
+                    .verifying_key()
+                    .as_bytes(),
+            ))
+            .unwrap(),
+            authorization_ref: arkret_wire::CommittedEventRef {
+                event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [71; 32]),
+                commit_id: RealmCommitId::from_digest([72; 32]),
+                stream_ref: CommitStreamRef::Realm {
+                    realm_id: RealmId::from_event_id(&EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [73; 32],
+                    )),
+                },
+                stream_position: 2,
+            },
+            revision: arkret_wire::CurrentRevision {
+                commit_id: RealmCommitId::from_digest([74; 32]),
+                stream_position: 3,
+            },
+            governance_generation: 4,
+        },
+        accepted_at: issued_at(),
+    };
+    validate_new_human_admission_fact(&event, Some(&fact), arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    assert!(
+        validate_new_human_admission_fact(&event, None, arkret_canonical::DigestSuite::Sha256)
+            .is_err()
+    );
+    use arkret_models_collaboration::authority_commit::validate_new_human_admission_fact_for_purpose;
+    use arkret_models_collaboration::events_payloads::RealmPurpose;
+    for purpose in [
+        RealmPurpose::PrincipalControl,
+        RealmPurpose::AgentControl,
+        RealmPurpose::AppletManagedControl,
+    ] {
+        validate_new_human_admission_fact_for_purpose(
+            &event,
+            purpose,
+            None,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert!(
+            validate_new_human_admission_fact_for_purpose(
+                &event,
+                purpose,
+                Some(&fact),
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .is_err()
+        );
+    }
+    for purpose in [
+        RealmPurpose::Collaboration,
+        RealmPurpose::DirectConversation,
+    ] {
+        validate_new_human_admission_fact_for_purpose(
+            &event,
+            purpose,
+            Some(&fact),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert!(
+            validate_new_human_admission_fact_for_purpose(
+                &event,
+                purpose,
+                None,
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .is_err()
+        );
+    }
+    let mut accepted = chain.item.clone();
+    accepted.event = event;
+    accepted.commit.event_ref = accepted.event.event_id.clone();
+    accepted.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
+    accepted.commit = seal_fact(accepted.commit);
+    let verified = crate::account_device_signer_evidence::verify_historical_human_committed_event(
+        &accepted,
+        &fact,
+        &authority,
+        &chain.keys,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert_eq!(verified.fact(), &fact);
+    let mut alternate = fact.clone();
+    alternate.key.revision.stream_position += 1;
+    assert!(
+        crate::account_device_signer_evidence::verify_historical_human_committed_event(
+            &accepted,
+            &alternate,
+            &authority,
+            &chain.keys,
+            arkret_canonical::DigestSuite::Sha256
+        )
+        .is_err()
+    );
+    let mut altered = accepted.clone();
+    altered.commit.producer_signer_fact_digest = Some(alternate.digest().unwrap());
+    let unsigned = canonical::unsigned_value(&altered.commit, &["signature"]).unwrap();
+    altered.commit.signature = sign_detached_object(
+        &unsigned,
+        DetachedSignatureContext::RealmCommit,
+        method(STATION_B),
+        issued_at(),
+        &signing_key(0xB2),
+    )
+    .unwrap();
+    assert!(altered.commit.verify_commit_id_matches_content().is_err());
+    let mut wrong = fact.clone();
+    wrong.key.public_key_b64u = Base64UrlString::new(arkret_canonical::base64url_encode(
+        signing_key(22).verifying_key().as_bytes(),
+    ))
+    .unwrap();
+    let mut wrong_accepted = accepted.clone();
+    wrong_accepted.commit.producer_signer_fact_digest = Some(wrong.digest().unwrap());
+    wrong_accepted.commit = seal_fact(wrong_accepted.commit);
+    assert!(
+        crate::account_device_signer_evidence::verify_historical_human_committed_event(
+            &wrong_accepted,
+            &wrong,
+            &authority,
+            &chain.keys,
+            arkret_canonical::DigestSuite::Sha256
+        )
+        .is_err()
+    );
+    let entry = HumanHistoricalSignerFactEntry {
+        target: arkret_wire::CommittedEventRef {
+            event_id: accepted.event.event_id.clone(),
+            commit_id: accepted.commit.commit_id.clone(),
+            stream_ref: accepted.commit.stream_ref.clone(),
+            stream_position: accepted.commit.stream_position,
+        },
+        producer_signer_fact: fact.clone(),
+    };
+    entry.validate_target(&accepted).unwrap();
+    assert!(historical_signer_facts_digest(&[entry.clone(), entry.clone()]).is_err());
+    assert_ne!(
+        historical_signer_facts_digest(&[]).unwrap(),
+        historical_signer_facts_digest(&[entry]).unwrap()
+    );
+    let inventory_entry = HumanHistoricalSignerFactEntry {
+        target: arkret_wire::CommittedEventRef {
+            event_id: accepted.event.event_id.clone(),
+            commit_id: accepted.commit.commit_id.clone(),
+            stream_ref: accepted.commit.stream_ref.clone(),
+            stream_position: accepted.commit.stream_position,
+        },
+        producer_signer_fact: fact.clone(),
+    };
+    use arkret_models_collaboration::authority_commit::validate_historical_signer_fact_inventory;
+    validate_historical_signer_fact_inventory(&[inventory_entry.clone()], &[accepted.clone()])
+        .unwrap();
+    assert!(validate_historical_signer_fact_inventory(&[], &[accepted.clone()]).is_err());
+    assert!(validate_historical_signer_fact_inventory(&[inventory_entry.clone()], &[]).is_err());
+    assert!(
+        validate_historical_signer_fact_inventory(
+            &[inventory_entry.clone(), inventory_entry],
+            &[accepted.clone()]
+        )
+        .is_err()
+    );
+    let mut unsupported_digest = accepted.commit.clone();
+    unsupported_digest.producer_signer_fact_digest =
+        Some(Hash::new(format!("blake3:{}", "00".repeat(32))).unwrap());
+    assert!(unsupported_digest.validate_shape().is_err());
+    let scan_request = arkret_wire::StreamScanRequest {
+        realm_id: accepted.commit.realm_id.clone(),
+        stream_ref: accepted.commit.stream_ref.clone(),
+        direction: arkret_wire::StreamScanDirection::Before(Some(
+            accepted.commit.stream_position + 1,
+        )),
+        limit: 1,
+    };
+    let page = arkret_models_collaboration::authority_commit::PeerStreamScanOutcome {
+        committed_events: vec![CommittedEventView::Full(accepted.clone())],
+        readable_floor: Some(arkret_wire::ReadableFloor {
+            oldest_position: accepted.commit.stream_position,
+            floor_commit_id: accepted.commit.commit_id.clone(),
+            floor_reason: arkret_wire::ReadableFloorReason::MembershipJoin,
+        }),
+        truncated: false,
+        producer_signer_facts: vec![HumanHistoricalSignerFactEntry {
+            target: arkret_wire::CommittedEventRef {
+                event_id: accepted.event.event_id.clone(),
+                commit_id: accepted.commit.commit_id.clone(),
+                stream_ref: accepted.commit.stream_ref.clone(),
+                stream_position: accepted.commit.stream_position,
+            },
+            producer_signer_fact: fact.clone(),
+        }],
+    };
+    page.validate_for_request(&scan_request).unwrap();
+    let mut missing = page.clone();
+    missing.producer_signer_facts.clear();
+    assert!(missing.validate_for_request(&scan_request).is_err());
+    let mut duplicate = page.clone();
+    duplicate
+        .producer_signer_facts
+        .push(duplicate.producer_signer_facts[0].clone());
+    assert!(duplicate.validate_for_request(&scan_request).is_err());
+    let mut withheld = page.clone();
+    withheld.committed_events = vec![CommittedEventView::Withheld(
+        arkret_wire::CommittedEventWithheldView {
+            commit: accepted.commit.clone(),
+            event_disclosure: arkret_wire::EventDisclosure {
+                status: arkret_wire::EventDisclosureStatus::Withheld,
+            },
+        },
+    )];
+    assert!(withheld.validate_for_request(&scan_request).is_err());
+    withheld.producer_signer_facts.clear();
+    withheld.validate_for_request(&scan_request).unwrap();
+    let mut wrong_source = page.clone();
+    wrong_source.producer_signer_facts[0].producer_signer_fact = alternate;
+    assert!(wrong_source.validate_for_request(&scan_request).is_err());
+    use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryRequestBody;
+    let delivery = InviteDeliveryRequestBody::new(
+        accepted.event.clone(), accepted.commit.clone(), Some(fact.clone()),
+        vec![serde_json::from_value(json!({"service_kind":"station", "service_id":core_id(STATION_B), "source":"invite"})).unwrap()],
+        serde_json::from_value(json!({
+            "account_id": {"principal_id": arkret_wire::project_did_to_core_id(&principal).unwrap(), "station_id":core_id(STATION_B)},
+            "service_resolution":{"resolution_url":"https://station-b.example/.well-known/did.json"},
+        })).unwrap(),
+        serde_json::from_value(json!({"kind":"explicit_address"})).unwrap(),
+        "original-invite-delivery",
+    ).unwrap();
+    let verified_invite =
+        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+            &delivery,
+            &authority,
+            &chain.keys,
+        )
+        .unwrap();
+    assert_eq!(verified_invite.fact(), &fact);
+    let reopened: InviteDeliveryRequestBody =
+        serde_json::from_value(serde_json::to_value(&delivery).unwrap()).unwrap();
+    reopened.validate_for_submission().unwrap();
+    crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        &reopened,
+        &authority,
+        &chain.keys,
+    )
+    .unwrap();
+    let mut missing_source = delivery.clone();
+    missing_source.producer_signer_fact = None;
+    assert!(missing_source.validate_minimal().is_err());
+    let mut sibling_target = delivery.clone();
+    sibling_target.invite_commit.event_ref =
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [99; 32]);
+    sibling_target.invite_commit = seal_fact(sibling_target.invite_commit);
+    assert!(
+        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+            &sibling_target,
+            &authority,
+            &chain.keys
+        )
+        .is_err()
+    );
+    let mut wrong_source = delivery.clone();
+    wrong_source
+        .producer_signer_fact
+        .as_mut()
+        .unwrap()
+        .key
+        .revision
+        .stream_position += 1;
+    assert!(
+        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+            &wrong_source,
+            &authority,
+            &chain.keys
+        )
+        .is_err()
+    );
+    let mut wrong_invite_key = delivery.clone();
+    wrong_invite_key.producer_signer_fact = Some(wrong.clone());
+    wrong_invite_key.invite_commit.producer_signer_fact_digest = Some(wrong.digest().unwrap());
+    wrong_invite_key.invite_commit = seal_fact(wrong_invite_key.invite_commit);
+    wrong_invite_key.validate_minimal().unwrap();
+    assert!(
+        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+            &wrong_invite_key,
+            &authority,
+            &chain.keys
+        )
+        .is_err()
+    );
+    let mut wrong_governance = delivery.clone();
+    wrong_governance.invite_commit =
+        seal_commit(wrong_governance.invite_commit, STATION_B, &signing_key(22));
+    wrong_governance.validate_minimal().unwrap();
+    assert!(
+        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+            &wrong_governance,
+            &authority,
+            &chain.keys
+        )
+        .is_err()
+    );
+    let mut exact_legacy = delivery.clone();
+    exact_legacy.producer_signer_fact = None;
+    exact_legacy.invite_commit.producer_signer_fact_digest = None;
+    exact_legacy.invite_commit = seal_fact(exact_legacy.invite_commit);
+    exact_legacy.validate_minimal().unwrap();
+    assert!(exact_legacy.validate_for_submission().is_err());
+
+    let mut legacy = accepted.clone();
+    legacy.commit.producer_signer_fact_digest = None;
+    legacy.commit = seal_fact(legacy.commit);
+    authority
+        .verify_committed_item(&legacy, &chain.keys)
+        .unwrap();
+    let wire = serde_json::to_value(&legacy.commit).unwrap();
+    assert!(wire.get("producer_signer_fact_digest").is_none());
+    let reopened: RealmCommit = serde_json::from_value(wire).unwrap();
+    reopened.verify_commit_id_matches_content().unwrap();
+}
+
+#[test]
+fn handoff_inventory_digest_is_bound_by_both_real_station_signatures() {
+    use arkret_models_collaboration::authority_commit::historical_signer_facts_digest;
+    let mut chain = chain();
+    let transition = &mut chain.bundle.authority_transitions[0];
+    transition.handoff.historical_signer_facts_digest =
+        Some(historical_signer_facts_digest(&[]).unwrap());
+    transition.handoff = seal_handoff(
+        transition.handoff.clone(),
+        DetachedSignatureContext::RealmAuthorityHandoffOld,
+        DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+        &signing_key(0xA1),
+        &signing_key(0xB2),
+    );
+    verify(&chain).unwrap();
+    let original = chain.bundle.authority_transitions[0].handoff.clone();
+    chain.bundle.authority_transitions[0]
+        .handoff
+        .historical_signer_facts_digest = Some(hash('d'));
+    assert!(verify(&chain).is_err());
+    let unsigned = canonical::unsigned_value(
+        &chain.bundle.authority_transitions[0].handoff,
+        &[
+            "old_authority_signature",
+            "new_authority_acceptance_signature",
+        ],
+    )
+    .unwrap();
+    chain.bundle.authority_transitions[0]
+        .handoff
+        .old_authority_signature = sign_detached_object(
+        &unsigned,
+        DetachedSignatureContext::RealmAuthorityHandoffOld,
+        method(STATION_A),
+        issued_at(),
+        &signing_key(0xA1),
+    )
+    .unwrap();
+    assert!(verify(&chain).is_err());
+    chain.bundle.authority_transitions[0].handoff = original;
+    verify(&chain).unwrap();
+}
+
+#[test]
+fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original() {
+    use arkret_models_collaboration::authority_commit::{
+        AuthorityHandoffRequest, historical_signer_facts_digest,
+    };
+    use arkret_wire::{HistoryAccess, RealmStateSnapshot, RetentionAndHistoryFloor};
+    let mut chain = chain();
+    let finalize_event = |raw: Event| {
+        let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+            raw,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        arkret_signatures::sign_event(
+            &mut authored,
+            &arkret_signatures::Ed25519DetachedJwsSigner::from_seed(
+                [5; 32],
+                "did:web:founder.example#ak:device:0196419b-0000-7000-8000-000000000001",
+            ),
+            arkret_signatures::SignEventOptions::new().with_created_at(issued_at()),
+        )
+        .unwrap();
+        authored.into_event()
+    };
+    // Build a canonical Genesis first: its content address is the Realm identity on every reopen.
+    let mut genesis = chain.bundle.genesis_event.clone();
+    genesis.scope_ref = ScopeRef::RealmGenesis;
+    genesis.producer_proof = None;
+    let genesis = finalize_event(genesis);
+    let cut_realm = RealmId::from_event_id(&genesis.event_id);
+    let cut_stream = CommitStreamRef::Realm {
+        realm_id: cut_realm.clone(),
+    };
+    let seal_original = |mut value: RealmCommit, station: &str, key: &SigningKey| {
+        let unsigned = canonical::unsigned_value(&value, &["commit_id", "signature"]).unwrap();
+        value.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+            &canonical::canonical_json_bytes(&unsigned).unwrap(),
+        ));
+        seal_commit(value, station, key)
+    };
+    chain.bundle.realm_id = cut_realm.clone();
+    chain.bundle.genesis_event = genesis.clone();
+    chain.bundle.genesis_commit.realm_id = cut_realm.clone();
+    chain.bundle.genesis_commit.stream_ref = cut_stream.clone();
+    chain.bundle.genesis_commit.event_ref = genesis.event_id.clone();
+    chain.bundle.genesis_commit.authority_ref =
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis.event_id.clone());
+    chain.bundle.genesis_commit =
+        seal_original(chain.bundle.genesis_commit, STATION_A, &signing_key(0xA1));
+    let transition = &mut chain.bundle.authority_transitions[0];
+    transition.change_event.realm_id = cut_realm.clone();
+    transition.change_event.scope_ref = ScopeRef::Realm {
+        realm_id: cut_realm.clone(),
+    };
+    transition.change_event.producer_proof = None;
+    transition.change_event = finalize_event(transition.change_event.clone());
+    transition.change_commit.realm_id = cut_realm.clone();
+    transition.change_commit.stream_ref = cut_stream.clone();
+    transition.change_commit.event_ref = transition.change_event.event_id.clone();
+    transition.change_commit.previous_commit_ref =
+        Some(chain.bundle.genesis_commit.commit_id.clone());
+    transition.change_commit.authority_ref =
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis.event_id.clone());
+    transition.change_commit = seal_original(
+        transition.change_commit.clone(),
+        STATION_A,
+        &signing_key(0xA1),
+    );
+    transition.handoff.realm_id = cut_realm.clone();
+    transition.handoff.change_event_ref = transition.change_event.event_id.clone();
+    transition.handoff.change_commit_id = transition.change_commit.commit_id.clone();
+    chain.bundle.current_assertion.realm_id = cut_realm.clone();
+    // The imported post-cut item is independently valid, but remains outside this frozen cut.
+    chain.item.event.realm_id = cut_realm.clone();
+    chain.item.event.scope_ref = ScopeRef::Realm {
+        realm_id: cut_realm.clone(),
+    };
+    chain.item.event.producer_proof = None;
+    chain.item.event = finalize_event(chain.item.event);
+    chain.item.commit.realm_id = cut_realm.clone();
+    chain.item.commit.stream_ref = cut_stream.clone();
+    chain.item.commit.event_ref = chain.item.event.event_id.clone();
+    chain.item.commit.previous_commit_ref = Some(transition.change_commit.commit_id.clone());
+    chain.item.commit = seal_original(chain.item.commit, STATION_B, &signing_key(0xB2));
+    let transition = &chain.bundle.authority_transitions[0];
+    let heads = vec![CommitStreamHead {
+        stream_ref: cut_stream.clone(),
+        stream_position: transition.change_commit.stream_position,
+        commit_id: transition.change_commit.commit_id.clone(),
+    }];
+    let mut snapshot = RealmStateSnapshot {
+        snapshot_id: RealmSnapshotId::from_digest([0; 32]),
+        realm_id: cut_realm.clone(),
+        governance_generation: 0,
+        visible_stream_heads: heads.clone(),
+        current_state_entries: vec![],
+        retention_and_history_floor: RetentionAndHistoryFloor {
+            history_access: HistoryAccess::AllHistoryForCurrentMembers,
+            stream_floors: vec![arkret_wire::StreamHistoryFloor {
+                stream_ref: cut_stream.clone(),
+                oldest_position: 0,
+            }],
+        },
+        created_at: issued_at(),
+        signature: placeholder_signature(DetachedSignatureContext::RealmSnapshot),
+    };
+    let unsigned = canonical::unsigned_value(&snapshot, &["snapshot_id", "signature"]).unwrap();
+    snapshot.snapshot_id = RealmSnapshotId::from_digest(arkret_canonical::sha256_bytes(
+        &canonical::canonical_json_bytes(&unsigned).unwrap(),
+    ));
+    snapshot.signature = sign_detached_object(
+        &canonical::unsigned_value(&snapshot, &["signature"]).unwrap(),
+        DetachedSignatureContext::RealmSnapshot,
+        method(STATION_A),
+        issued_at(),
+        &signing_key(0xA1),
+    )
+    .unwrap();
+    let mut handoff = transition.handoff.clone();
+    handoff.snapshot_ref = snapshot.snapshot_id.clone();
+    handoff.final_stream_heads_digest =
+        Hash::new(arkret_canonical::canonical_sha256(&heads).unwrap()).unwrap();
+    handoff.historical_signer_facts_digest = Some(historical_signer_facts_digest(&[]).unwrap());
+    handoff = seal_handoff(
+        handoff,
+        DetachedSignatureContext::RealmAuthorityHandoffOld,
+        DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+        &signing_key(0xA1),
+        &signing_key(0xB2),
+    );
+    chain.bundle.authority_transitions[0].handoff = handoff.clone();
+    chain.bundle.realm_stream_head = heads[0].clone();
+    chain.bundle.current_assertion.realm_stream_head = heads[0].clone();
+    chain.bundle.current_assertion.signature = sign_detached_object(
+        &canonical::unsigned_value(&chain.bundle.current_assertion, &["signature"]).unwrap(),
+        DetachedSignatureContext::RealmAuthorityCurrentAssertion,
+        method(STATION_B),
+        issued_at(),
+        &signing_key(0xB2),
+    )
+    .unwrap();
+    verify(&chain).unwrap();
+    let request = AuthorityHandoffRequest {
+        handoff,
+        final_stream_heads: heads,
+        snapshot,
+        authority_bundle: chain.bundle.clone(),
+        historical_signer_facts: Some(vec![]),
+    };
+    request.validate_new_handoff().unwrap();
+    request.validate_imported_signer_facts(&[]).unwrap();
+    chain.item.validate_shape().unwrap();
+    chain.item.commit.validate_content_address().unwrap();
+    assert!(
+        request
+            .validate_imported_signer_facts(&[chain.item.clone()])
+            .is_err()
+    );
+    let reopened: AuthorityHandoffRequest =
+        serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
+    reopened.validate_new_handoff().unwrap();
+    let mut missing = request.clone();
+    missing.historical_signer_facts = None;
+    assert!(missing.validate_new_handoff().is_err());
+    let mut legacy = request.clone();
+    legacy.historical_signer_facts = None;
+    legacy.handoff.historical_signer_facts_digest = None;
+    legacy.handoff = seal_handoff(
+        legacy.handoff,
+        DetachedSignatureContext::RealmAuthorityHandoffOld,
+        DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+        &signing_key(0xA1),
+        &signing_key(0xB2),
+    );
+    legacy.authority_bundle.authority_transitions[0].handoff = legacy.handoff.clone();
+    legacy.validate_shape().unwrap();
+    assert!(legacy.validate_new_handoff().is_err());
+    let mut altered = request;
+    altered.snapshot.retention_and_history_floor.history_access = HistoryAccess::SinceJoin;
+    assert!(altered.validate_new_handoff().is_err());
 }

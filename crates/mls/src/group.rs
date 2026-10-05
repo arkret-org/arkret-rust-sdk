@@ -1836,6 +1836,62 @@ impl ArkretMlsGroup {
         )
     }
 
+    /// Bind a persisted accepted base Event to this group's actual installed
+    /// GroupContext. The caller must independently verify this full Event's
+    /// authority signature and its continuous stream before calling.
+    pub fn verify_installed_historical_base(
+        &self,
+        predecessor: &CommittedEventFullView,
+        installed_base: &EventId,
+    ) -> Result<()> {
+        predecessor.validate_shape()?;
+        if &predecessor.event.event_id != installed_base
+            || &predecessor.event.scope_ref != self.scope()
+            || self.scope().realm_id_opt() != Some(&predecessor.event.realm_id)
+        {
+            return Err(Error::Protocol(
+                "historical MLS base differs from installed scope/reference".to_owned(),
+            ));
+        }
+        let value =
+            serde_json::Value::Object(predecessor.event.payload.clone().into_iter().collect());
+        let binding = match predecessor.event.kind {
+            EventKind::MlsGenesis => {
+                let payload: arkret_models_collaboration::events_payloads::MlsGenesisPayload =
+                    serde_json::from_value(value)?;
+                payload.validate()?;
+                payload.governance_binding
+            }
+            EventKind::MlsCommit => {
+                let payload: MlsCommitPayload = serde_json::from_value(value)?;
+                payload.validate()?;
+                payload.governance_binding().clone()
+            }
+            _ => {
+                return Err(Error::Protocol(
+                    "historical MLS base is not Genesis or Commit".to_owned(),
+                ));
+            }
+        };
+        if binding.mls_group_id()? != self.group_id() || binding.next_epoch() != self.epoch() {
+            return Err(Error::Protocol(
+                "historical MLS base differs from actual installed group/epoch".to_owned(),
+            ));
+        }
+        let extension = self
+            .group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol("installed MLS governance binding is missing".to_owned())
+            })?;
+        let actual = MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        crate::verify_historical_governance_binding(&actual, &binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        Ok(())
+    }
+
     /// Finish this device's durably staged Commit after recovering its exact
     /// accepted Event. The installed checkpoint supplies the accepted base
     /// Event; the authenticated pending GroupContext supplies the immutable

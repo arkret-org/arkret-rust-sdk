@@ -232,7 +232,80 @@ pub const DEVICE_PROJECTION_ATTESTATION_CONTEXT: &str =
 impl DeviceProjectionAttestation {
     pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
         let core = &self.attestation;
-        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(core)?)?;
+        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(
+            &serde_json::json!({"attestation": core}),
+        )?)?;
+        arkret_canonical::canonical_json_bytes(&serde_json::json!({
+            "context": DEVICE_PROJECTION_ATTESTATION_CONTEXT,
+            "payload_digest": payload_digest,
+            "account_id": core.account_id,
+            "device_id": core.device_id,
+            "device_signing_key_did": core.device_signing_key_did,
+            "hpke_key": core.hpke_key,
+            "device_authorize_event_id": core.device_authorize_event_id,
+            "authorized_generation_ref": core.authorized_generation_ref,
+            "device_status": core.device_status,
+            "attested_at": arkret_canonical::format_timestamp_canonical(core.attested_at),
+            "expires_at": arkret_canonical::format_timestamp_canonical(core.expires_at),
+            "verification_method": self.proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
+        }))
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HumanEventAuthorization {
+    pub event_id: EventId,
+    pub verification_method: arkret_wire::DidUrl,
+    pub destination_service_id: arkret_wire::DidCoreId,
+    pub forward_body_digest: Hash,
+    pub authorization_ref: arkret_wire::CommittedEventRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revision: arkret_wire::CurrentRevision,
+    pub governance_generation: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardDeviceProjectionAttestationCore {
+    /// Complete account identity. The proof controller MUST be its Station.
+    pub account_id: AccountId,
+    pub device_id: DeviceId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub device_signing_key_did: DidKey,
+    pub hpke_key: NonEmptyString,
+    pub device_authorize_event_id: EventId,
+    pub authorized_generation_ref: u64,
+    /// Constant `active`: this surface attests usable devices only.
+    pub device_status: DeviceStatus,
+    pub authorization_window: DeviceAuthorizationWindow,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub event_authorization: HumanEventAuthorization,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardDeviceProjectionAttestation {
+    pub attestation: ForwardDeviceProjectionAttestationCore,
+    pub proof: ProtocolSignature,
+}
+
+impl ForwardDeviceProjectionAttestation {
+    pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        let core = &self.attestation;
+        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(
+            &serde_json::json!({"attestation": core}),
+        )?)?;
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
             "context": DEVICE_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
@@ -1370,5 +1443,24 @@ mod peer_keys_query_tests {
             failures: Vec::new(),
         };
         assert!(outcome.validate_for_request(&request).is_err());
+    }
+}
+
+impl ForwardDeviceProjectionAttestationCore {
+    pub fn validate_event_authorization(&self) -> arkret_wire::Result<()> {
+        let source = &self.event_authorization;
+        if !source.forward_body_digest.as_str().starts_with("sha256:")
+            || source.authorization_ref.event_id != self.device_authorize_event_id
+            || !matches!(
+                &source.authorization_ref.stream_ref,
+                arkret_wire::CommitStreamRef::Realm { .. }
+            )
+            || source.authorization_ref.stream_position > source.revision.stream_position
+            || (source.authorization_ref.commit_id == source.revision.commit_id
+                && source.authorization_ref.stream_position != source.revision.stream_position)
+        {
+            return Err(arkret_wire::WireError::Protocol("forward device attestation does not bind an exact covering original authorization source".into()));
+        }
+        Ok(())
     }
 }

@@ -9,11 +9,11 @@ use arkret_models_collaboration::authority_commit::{
     PeerAuthoritySubmitRequest, SelfAuthoritySubmitRequest,
 };
 use arkret_models_crypto::{
-    DeviceAuthorizationWindow, DeviceProjectionAttestation, DeviceProjectionAttestationCore,
-    DeviceStatus,
+    DeviceAuthorizationWindow, DeviceStatus, ForwardDeviceProjectionAttestation,
+    ForwardDeviceProjectionAttestationCore,
 };
 use arkret_models_identity::{
-    AccountDeviceSignerEvidence, AuthenticatedServiceResolution, DidDocument,
+    AuthenticatedServiceResolution, DidDocument, ForwardAccountDeviceSignerEvidence,
     ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
     ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
     normalized_did_document_digest,
@@ -212,7 +212,8 @@ fn committed_replication_keeps_event_and_commit_but_omits_private_approval() {
     let source = approved_event_submission();
     let submission: EventAdmissionSubmission = serde_json::from_value(source.clone()).unwrap();
     let commit = serde_json::from_value(source_commit_for(&source)).unwrap();
-    let replica = CommittedEventSubmission::from_source_submission(&submission, commit, None, None);
+    let replica =
+        CommittedEventSubmission::from_source_submission(&submission, commit, None, None, None);
     assert_eq!(
         serde_json::to_value(&replica.event_submission).unwrap(),
         json!({"event": source["event"]})
@@ -445,7 +446,7 @@ fn committed_replication_outcomes_are_same_order_rows_without_echo() {
 
 const DEVICE_FRAGMENT: &str = "ak:device:0196419b-0000-7000-8000-000000000001";
 
-fn producer_device_evidence() -> AccountDeviceSignerEvidence {
+fn producer_device_evidence() -> ForwardAccountDeviceSignerEvidence {
     let did = Did::new("did:web:station.example").unwrap();
     let document: DidDocument = serde_json::from_value(json!({
         "id": did,
@@ -464,9 +465,9 @@ fn producer_device_evidence() -> AccountDeviceSignerEvidence {
         digest.as_str().trim_start_matches("sha256:")
     );
     let at = Utc.with_ymd_and_hms(2026, 9, 24, 0, 0, 0).unwrap();
-    AccountDeviceSignerEvidence {
-        device_projection_attestation: DeviceProjectionAttestation {
-            attestation: DeviceProjectionAttestationCore {
+    ForwardAccountDeviceSignerEvidence {
+        device_projection_attestation: ForwardDeviceProjectionAttestation {
+            attestation: ForwardDeviceProjectionAttestationCore {
                 account_id: AccountId::new(
                     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
                     arkret_wire::project_did_to_core_id(&did).unwrap(),
@@ -481,6 +482,39 @@ fn producer_device_evidence() -> AccountDeviceSignerEvidence {
                     "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
                 )
                 .unwrap(),
+                event_authorization: arkret_models_crypto::HumanEventAuthorization {
+                    event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [41; 32]),
+                    verification_method: DidUrl::new(format!(
+                        "did:webvh:z6mkfixture:alice.example#{DEVICE_FRAGMENT}"
+                    ))
+                    .unwrap(),
+                    destination_service_id: DidCoreId::new("ak:did_core:web:governor.example")
+                        .unwrap(),
+                    forward_body_digest: arkret_wire::Hash::new(
+                        arkret_canonical::canonical_sha256(&json!({"fixture":true})).unwrap(),
+                    )
+                    .unwrap(),
+                    authorization_ref: arkret_wire::CommittedEventRef {
+                        event_id: EventId::new(
+                            "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
+                        )
+                        .unwrap(),
+                        commit_id: arkret_wire::RealmCommitId::from_digest([42; 32]),
+                        stream_ref: arkret_wire::CommitStreamRef::Realm {
+                            realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+                                arkret_canonical::DigestSuite::Sha256,
+                                [43; 32],
+                            )),
+                        },
+                        stream_position: 2,
+                    },
+                    revision: arkret_wire::CurrentRevision {
+                        commit_id: arkret_wire::RealmCommitId::from_digest([44; 32]),
+                        stream_position: 3,
+                    },
+                    governance_generation: 0,
+                    accepted_at: at,
+                },
                 authorized_generation_ref: 1,
                 device_status: DeviceStatus::Active,
                 authorization_window: DeviceAuthorizationWindow {

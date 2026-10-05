@@ -286,6 +286,7 @@ mod tests {
                 [9; 32],
             )),
             committed_at: Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 1).unwrap(),
+            producer_signer_fact_digest: None,
             signature: DetachedObjectSignature {
                 context: DetachedSignatureContext::RealmCommit,
                 signature_algorithm: DetachedSignatureAlgorithm::Ed25519,

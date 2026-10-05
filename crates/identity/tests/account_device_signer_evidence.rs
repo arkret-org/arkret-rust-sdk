@@ -6,10 +6,11 @@ use arkret_identity::account_device_signer_evidence::{
 use arkret_identity::build_authenticated_webvh_service_resolution;
 use arkret_models_crypto::{
     DeviceAuthorizationWindow, DeviceProjectionAttestation, DeviceProjectionAttestationCore,
-    DeviceStatus,
+    DeviceStatus, ForwardDeviceProjectionAttestation, ForwardDeviceProjectionAttestationCore,
+    HumanEventAuthorization,
 };
-use arkret_models_identity::AccountDeviceSignerEvidence;
 use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
+use arkret_models_identity::{AccountDeviceSignerEvidence, ForwardAccountDeviceSignerEvidence};
 use arkret_signatures::device_projection::sign_device_projection_attestation;
 use arkret_signatures::webvh::{
     ServiceRegistrationInceptionInput, prepare_service_registration_inception,
@@ -121,12 +122,58 @@ fn core(station: &Station) -> DeviceProjectionAttestationCore {
 
 /// Sign any attestation core with the Station key, bypassing the producer-side
 /// guards so a verifier can be fed what a compromised or buggy origin emits.
+fn destination() -> DidCoreId {
+    DidCoreId::new("ak:did_core:web:governor.example").unwrap()
+}
+fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
+    use arkret_models_collaboration::authority_commit::{
+        AuthorityForwardBranch, PeerAuthorityForwardEventRequest, authority_forward_body_digest,
+    };
+    // Evidence is inserted after signing; the sole body preimage excludes exactly that field.
+    authority_forward_body_digest(&PeerAuthorityForwardEventRequest {
+        branch: AuthorityForwardBranch::AuthorityForward,
+        event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
+        mls_genesis_material: None,
+        producer_device_evidence: None,
+        producer_agent_evidence: None,
+    })
+    .unwrap()
+}
+
+fn forward_core(station: &Station) -> ForwardDeviceProjectionAttestationCore {
+    let directory = core(station);
+    let mut value = serde_json::to_value(&directory).unwrap();
+    let authorization_ref = arkret_wire::CommittedEventRef {
+        event_id: directory.device_authorize_event_id.clone(),
+        commit_id: arkret_wire::RealmCommitId::from_digest([91; 32]),
+        stream_ref: arkret_wire::CommitStreamRef::Realm {
+            realm_id: RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [92; 32])),
+        },
+        stream_position: 3,
+    };
+    value["event_authorization"] = serde_json::to_value(HumanEventAuthorization {
+        event_id: human_event(station).event_id,
+        verification_method: DidUrl::new(format!("{PRINCIPAL_DID}#{DEVICE}")).unwrap(),
+        destination_service_id: destination(),
+        forward_body_digest: body_digest_for_event(&human_event(station)),
+        revision: arkret_wire::CurrentRevision {
+            commit_id: authorization_ref.commit_id.clone(),
+            stream_position: 3,
+        },
+        authorization_ref,
+        governance_generation: 0,
+        accepted_at: station.registered_at,
+    })
+    .unwrap();
+    serde_json::from_value(value).unwrap()
+}
+
 fn sign_raw(
-    core: DeviceProjectionAttestationCore,
+    core: ForwardDeviceProjectionAttestationCore,
     method: &DidUrl,
     key: &SigningKey,
-) -> DeviceProjectionAttestation {
-    let mut attestation = DeviceProjectionAttestation {
+) -> ForwardDeviceProjectionAttestation {
+    let mut attestation = ForwardDeviceProjectionAttestation {
         proof: ProtocolSignature {
             verification_method: method.clone(),
             created_at: core.attested_at,
@@ -141,11 +188,11 @@ fn sign_raw(
 
 fn evidence_with(
     station: &Station,
-    edit: impl FnOnce(&mut DeviceProjectionAttestationCore),
-) -> AccountDeviceSignerEvidence {
-    let mut core = core(station);
+    edit: impl FnOnce(&mut ForwardDeviceProjectionAttestationCore),
+) -> ForwardAccountDeviceSignerEvidence {
+    let mut core = forward_core(station);
     edit(&mut core);
-    AccountDeviceSignerEvidence {
+    ForwardAccountDeviceSignerEvidence {
         device_projection_attestation: sign_raw(core, &station.method, &station.signing_key),
         service_resolution: station.service_resolution.clone(),
     }
@@ -209,14 +256,22 @@ fn now(station: &Station) -> DateTime<Utc> {
 }
 
 fn rejection(
-    evidence: &AccountDeviceSignerEvidence,
+    evidence: &ForwardAccountDeviceSignerEvidence,
     event: &Event,
     source: &DidCoreId,
     now: DateTime<Utc>,
 ) -> Option<ErrorCode> {
-    verify_forwarded_human_producer(evidence, event, source, DigestSuite::Sha256, now)
-        .unwrap_err()
-        .error_code()
+    verify_forwarded_human_producer(
+        evidence,
+        event,
+        source,
+        &destination(),
+        &body_digest_for_event(&event),
+        DigestSuite::Sha256,
+        now,
+    )
+    .unwrap_err()
+    .error_code()
 }
 
 #[test]
@@ -284,6 +339,8 @@ fn fresh_forwarded_evidence_admits_the_human_device_producer() {
         &evidence,
         &event,
         &station.service_id,
+        &destination(),
+        &body_digest_for_event(&event),
         DigestSuite::Sha256,
         now(&station),
     )
@@ -309,7 +366,8 @@ fn source_station_and_attestation_signature_bind_the_origin() {
     // Step 2: attestation signed by a key the Station never published.
     let rogue = SigningKey::from_bytes(&[9; 32]);
     let mut forged = evidence.clone();
-    forged.device_projection_attestation = sign_raw(core(&station), &station.method, &rogue);
+    forged.device_projection_attestation =
+        sign_raw(forward_core(&station), &station.method, &rogue);
     assert_eq!(
         rejection(&forged, &event, &station.service_id, now),
         Some(ErrorCode::SignatureInvalid)
@@ -318,8 +376,11 @@ fn source_station_and_attestation_signature_bind_the_origin() {
     // Step 2: attestation signed by another Station's registered key.
     let foreign = crate::station(75, "foreign.example");
     let mut foreign_signed = evidence.clone();
-    foreign_signed.device_projection_attestation =
-        sign_raw(core(&station), &foreign.method, &foreign.signing_key);
+    foreign_signed.device_projection_attestation = sign_raw(
+        forward_core(&station),
+        &foreign.method,
+        &foreign.signing_key,
+    );
     assert_eq!(
         rejection(&foreign_signed, &event, &station.service_id, now),
         Some(ErrorCode::SignatureInvalid)
@@ -375,8 +436,17 @@ fn stale_or_out_of_window_evidence_is_unauthorized() {
         station.registered_at - Duration::seconds(1),
         DEVICE_SEED,
     );
+    let early_evidence = evidence_with(&station, |core| {
+        core.event_authorization.event_id = early_event.event_id.clone();
+        core.event_authorization.forward_body_digest = body_digest_for_event(&early_event);
+    });
     assert_eq!(
-        rejection(&evidence, &early_event, &station.service_id, now(&station)),
+        rejection(
+            &early_evidence,
+            &early_event,
+            &station.service_id,
+            now(&station)
+        ),
         Some(ErrorCode::DeviceUnauthorized)
     );
 
@@ -404,6 +474,8 @@ fn stale_or_out_of_window_evidence_is_unauthorized() {
         &overlong,
         &event,
         &station.service_id,
+        &destination(),
+        &body_digest_for_event(&event),
         DigestSuite::Sha256,
         station.registered_at + Duration::seconds(45),
     )
@@ -501,4 +573,147 @@ fn non_device_producer_has_no_forwarded_evidence_to_verify() {
         rejection(&evidence, &agent_key, &station.service_id, now(&station)),
         Some(ErrorCode::SchemaViolation)
     );
+}
+
+#[test]
+fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body() {
+    use arkret_identity::account_device_signer_evidence::{
+        verify_forwarded_human_signer_fact, verify_historical_human_event_signature,
+    };
+    let station = station(74, "station.example");
+    let event = human_event(&station);
+    let evidence = evidence_with(&station, |_| {});
+    let verify = |evidence: &ForwardAccountDeviceSignerEvidence,
+                  destination: &DidCoreId,
+                  digest: &arkret_wire::Hash| {
+        verify_forwarded_human_signer_fact(
+            evidence,
+            &event,
+            &station.service_id,
+            destination,
+            digest,
+            DigestSuite::Sha256,
+            now(&station),
+        )
+    };
+    let fact = verify(&evidence, &destination(), &body_digest_for_event(&event))
+        .unwrap()
+        .into_fact();
+    assert_ne!(fact.event_id, fact.key.authorization_ref.event_id);
+    assert_eq!(fact.accepted_at, station.registered_at);
+    assert_ne!(fact.accepted_at, event.created_at);
+    assert_ne!(
+        fact.accepted_at,
+        evidence
+            .device_projection_attestation
+            .attestation
+            .attested_at
+    );
+    verify_historical_human_event_signature(&event, &fact, DigestSuite::Sha256).unwrap();
+    assert!(
+        verify(
+            &evidence,
+            &station.service_id,
+            &body_digest_for_event(&event)
+        )
+        .is_err()
+    );
+    let other_digest = arkret_wire::Hash::new(
+        arkret_canonical::canonical_sha256(&json!({"different":true})).unwrap(),
+    )
+    .unwrap();
+    assert!(verify(&evidence, &destination(), &other_digest).is_err());
+    let mut wrong_key = fact.clone();
+    wrong_key.key.public_key_b64u =
+        arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
+            SigningKey::from_bytes(&[8; 32]).verifying_key().as_bytes(),
+        ))
+        .unwrap();
+    assert!(
+        verify_historical_human_event_signature(&event, &wrong_key, DigestSuite::Sha256).is_err()
+    );
+    let mut substituted = evidence.clone();
+    substituted
+        .device_projection_attestation
+        .attestation
+        .event_authorization
+        .revision
+        .stream_position += 1;
+    assert!(verify(&substituted, &destination(), &body_digest_for_event(&event)).is_err());
+    let alternate = evidence_with(&station, |core| {
+        core.event_authorization.revision.stream_position += 1;
+        core.event_authorization.revision.commit_id =
+            arkret_wire::RealmCommitId::from_digest([93; 32]);
+    });
+    let alternate_fact = verify(&alternate, &destination(), &body_digest_for_event(&event))
+        .unwrap()
+        .into_fact();
+    assert_eq!(fact.key.public_key_b64u, alternate_fact.key.public_key_b64u);
+    assert_ne!(fact.digest().unwrap(), alternate_fact.digest().unwrap());
+    let mut core_only = evidence.clone();
+    let mut transcript: serde_json::Value = serde_json::from_slice(
+        &core_only
+            .device_projection_attestation
+            .proof_signing_bytes()
+            .unwrap(),
+    )
+    .unwrap();
+    transcript["payload_digest"] = json!(
+        arkret_wire::Hash::new(
+            arkret_canonical::canonical_sha256(
+                &core_only.device_projection_attestation.attestation
+            )
+            .unwrap()
+        )
+        .unwrap()
+    );
+    core_only.device_projection_attestation.proof.jws = sign_ed25519_detached_jws(
+        &station.signing_key,
+        &arkret_canonical::canonical_json_bytes(&transcript).unwrap(),
+    )
+    .unwrap();
+    assert!(verify(&core_only, &destination(), &body_digest_for_event(&event)).is_err());
+    let mut directory = serde_json::to_value(core(&station)).unwrap();
+    directory["event_authorization"] = serde_json::to_value(
+        &evidence
+            .device_projection_attestation
+            .attestation
+            .event_authorization,
+    )
+    .unwrap();
+    assert!(serde_json::from_value::<DeviceProjectionAttestationCore>(directory).is_err());
+
+    // The signed body digest covers the actual typed peer wrapper, excluding only its evidence.
+    use arkret_models_collaboration::authority_commit::{
+        AuthorityForwardBranch, PeerAuthorityForwardEventRequest, authority_forward_body_digest,
+    };
+    let mut body = PeerAuthorityForwardEventRequest {
+        branch: AuthorityForwardBranch::AuthorityForward,
+        event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
+        mls_genesis_material: None,
+        producer_device_evidence: Some(evidence.clone()),
+        producer_agent_evidence: None,
+    };
+    let actual_body_digest = authority_forward_body_digest(&body).unwrap();
+    let actual_evidence = evidence_with(&station, |core| {
+        core.event_authorization.forward_body_digest = actual_body_digest.clone();
+    });
+    body.producer_device_evidence = Some(actual_evidence.clone());
+    assert_eq!(
+        authority_forward_body_digest(&body).unwrap(),
+        actual_body_digest
+    );
+    body.validate().unwrap();
+    verify(&actual_evidence, &destination(), &actual_body_digest).unwrap();
+    let reopened: PeerAuthorityForwardEventRequest =
+        serde_json::from_value(serde_json::to_value(&body).unwrap()).unwrap();
+    assert_eq!(
+        authority_forward_body_digest(&reopened).unwrap(),
+        actual_body_digest
+    );
+    let mut replaced = serde_json::to_value(&body).unwrap();
+    replaced["event_submission"]["event"]["payload"]["different"] = json!(true);
+    let replaced_digest = authority_forward_body_digest(&replaced).unwrap();
+    assert_ne!(replaced_digest, actual_body_digest);
+    assert!(verify(&actual_evidence, &destination(), &replaced_digest).is_err());
 }

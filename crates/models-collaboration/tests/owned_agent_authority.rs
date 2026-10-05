@@ -1,7 +1,7 @@
 //! Owned Agent carriers are checked against the normative canonical cases.
 use arkret_models_collaboration::events_payloads::CapabilityGrantPayload;
 use arkret_models_collaboration::exact_current_results::ExactCurrentResultsReadRequestBody;
-use arkret_models_collaboration::governance::operation_wire::PolicyRule;
+use arkret_models_collaboration::governance::operation_wire::{PolicyRule, PolicySetStatePayload};
 use serde_json::Value;
 
 fn owned_grant_value() -> Value {
@@ -92,13 +92,17 @@ fn owned_agent_canonical_carriers_match_spec() {
     let cases = fixture["owned_agent_authority_contract"]["schema_cases"]
         .as_array()
         .unwrap();
-    assert_eq!(cases.len(), 13);
+    assert_eq!(cases.len(), 19);
     for case in cases {
         let input = case["canonical_json"].as_str().unwrap();
         let accepted = match case["fragment"].as_str().unwrap() {
             "#/$defs/capability_grant_payload" => {
                 serde_json::from_str::<CapabilityGrantPayload>(input)
                     .is_ok_and(|payload| payload.grant.validate_owned_agent_shape().is_ok())
+            }
+            "#/$defs/policy_set_state_payload" => {
+                serde_json::from_str::<PolicySetStatePayload>(input)
+                    .is_ok_and(|payload| payload.validate().is_ok())
             }
             "#/$defs/policy_rule" => {
                 serde_json::from_str::<PolicyRule>(input).is_ok_and(|rule| rule.validate().is_ok())

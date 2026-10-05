@@ -35,6 +35,7 @@ mod client_internals;
 mod endpoints;
 mod error;
 mod key_backup_client;
+pub mod own_station_results;
 mod request;
 mod service_method_resolution;
 pub mod station_connection;

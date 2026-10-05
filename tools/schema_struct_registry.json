@@ -1194,6 +1194,54 @@
     {
       "rust_type": "crates/models-integration/src/applet/registration.rs::AppletRegistrationEpochEvidence",
       "schema": "applet-registration-epoch-evidence.schema.json"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmAuthorityRootValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_authority_root_value"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmCommit",
+      "schema": "realm-commit.schema.json"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmAuthorityHandoff",
+      "schema": "realm-authority-handoff.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::AuthorityHandoffRequest",
+      "schema": "authority-commit-operations.schema.json#/$defs/handoff_request"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::HumanHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::HumanHistoricalSignerFactEntry",
+      "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::PeerStreamScanOutcome",
+      "schema": "authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::CommittedEventSubmission",
+      "schema": "authority-commit-operations.schema.json#/$defs/committed_event_submission"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::HumanEventAuthorization",
+      "schema": "keys-operations.schema.json#/$defs/human_event_authorization"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::ForwardDeviceProjectionAttestationCore",
+      "schema": "keys-operations.schema.json#/$defs/forward_device_projection_attestation_core"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::ForwardDeviceProjectionAttestation",
+      "schema": "keys-operations.schema.json#/$defs/forward_device_projection_attestation"
+    },
+    {
+      "rust_type": "crates/models-identity/src/account_device_signer_evidence.rs::ForwardAccountDeviceSignerEvidence",
+      "schema": "account-device-signer-evidence.schema.json#/$defs/forward_account_device_signer_evidence"
     }
   ],
   "exemptions": [

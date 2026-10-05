@@ -183,6 +183,13 @@ pub struct RealmCommit {
     pub authority_ref: RealmCommitAuthorityRef,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub committed_at: DateTime<Utc>,
+    /// Immutable original Human signer source, fixed before content addressing.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_original_digest"
+    )]
+    pub producer_signer_fact_digest: Option<Hash>,
     pub signature: DetachedObjectSignature,
 }
 
@@ -229,7 +236,21 @@ impl RealmCommit {
         Ok(())
     }
 
+    /// Compatibility name for the one canonical content-address verifier.
+    pub fn verify_commit_id_matches_content(&self) -> Result<()> {
+        self.validate_content_address()
+    }
+
     pub fn validate_shape(&self) -> Result<()> {
+        if self
+            .producer_signer_fact_digest
+            .as_ref()
+            .is_some_and(|digest| !digest.as_str().starts_with("sha256:"))
+        {
+            return Err(WireError::Protocol(
+                "Human signer fact digest requires fixed SHA256".into(),
+            ));
+        }
         if &self.realm_id != self.stream_ref.realm_id() {
             return Err(WireError::Protocol(
                 "RealmCommit realm_id must equal stream_ref.realm_id".to_owned(),
@@ -295,7 +316,12 @@ pub struct RealmAuthorityHandoff {
     pub to_service_id: DidCoreId,
     pub final_stream_heads_digest: Hash,
     pub snapshot_ref: RealmSnapshotId,
-    pub snapshot_digest: Hash,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_original_digest"
+    )]
+    pub historical_signer_facts_digest: Option<Hash>,
     pub change_event_ref: EventId,
     pub change_commit_id: RealmCommitId,
     pub old_authority_signature: DetachedObjectSignature,
@@ -304,6 +330,15 @@ pub struct RealmAuthorityHandoff {
 
 impl RealmAuthorityHandoff {
     pub fn validate_shape(&self) -> Result<()> {
+        if self
+            .historical_signer_facts_digest
+            .as_ref()
+            .is_some_and(|digest| !digest.as_str().starts_with("sha256:"))
+        {
+            return Err(WireError::Protocol(
+                "handoff signer inventory digest requires fixed SHA256".into(),
+            ));
+        }
         if self.to_generation != self.from_generation.saturating_add(1) {
             return Err(WireError::Protocol(
                 "authority handoff generations must be consecutive".to_owned(),
@@ -330,7 +365,9 @@ impl RealmAuthorityHandoff {
     }
 }
 
-fn detached_signature_service_id(signature: &DetachedObjectSignature) -> Result<DidCoreId> {
+/// Extract the signature method controller's Service ID; this does not verify its authority or
+/// signature.
+pub fn detached_signature_service_id(signature: &DetachedObjectSignature) -> Result<DidCoreId> {
     let controller = signature
         .verification_method
         .as_str()
@@ -2573,83 +2610,6 @@ impl AuthorityBundleRequest {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthorityHandoffRequest {
-    pub handoff: RealmAuthorityHandoff,
-    /// Private complete manifest. It is transferred only old-authority to
-    /// new-authority and is never embedded in the public bundle.
-    pub final_stream_heads: Vec<CommitStreamHead>,
-    pub snapshot: RealmStateSnapshot,
-    pub authority_bundle: RealmAuthorityBundle,
-}
-
-impl AuthorityHandoffRequest {
-    pub fn validate_shape(&self) -> Result<()> {
-        self.handoff.validate_shape()?;
-        self.authority_bundle.validate_shape()?;
-        if self.final_stream_heads.is_empty()
-            || !self
-                .final_stream_heads
-                .windows(2)
-                .all(|pair| pair[0].stream_ref < pair[1].stream_ref)
-            || self
-                .final_stream_heads
-                .iter()
-                .any(|head| head.stream_ref.realm_id() != &self.handoff.realm_id)
-        {
-            return Err(WireError::Protocol(
-                "authority handoff final stream heads must be non-empty, sorted, unique, and same-Realm"
-                    .to_owned(),
-            ));
-        }
-        let heads_digest = Hash::new(crate::canonical::canonical_sha256(
-            &self.final_stream_heads,
-        )?)?;
-        let realm_stream_ref = CommitStreamRef::Realm {
-            realm_id: self.handoff.realm_id.clone(),
-        };
-        let final_realm_head = self
-            .final_stream_heads
-            .iter()
-            .find(|head| head.stream_ref == realm_stream_ref)
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "authority handoff manifest must include the Realm stream head".to_owned(),
-                )
-            })?;
-        if heads_digest != self.handoff.final_stream_heads_digest
-            || final_realm_head.commit_id != self.handoff.change_commit_id
-            || self.snapshot.snapshot_id != self.handoff.snapshot_ref
-            || self.snapshot.realm_id != self.handoff.realm_id
-            || self.snapshot.governance_generation != self.handoff.from_generation
-            || self.snapshot.visible_stream_heads != self.final_stream_heads
-            || self.snapshot.signature.context != DetachedSignatureContext::RealmSnapshot
-            || self.snapshot.signature.signed_digest != self.handoff.snapshot_digest
-            || detached_signature_service_id(&self.snapshot.signature)?
-                != self.handoff.from_service_id
-            || self.authority_bundle.realm_id != self.handoff.realm_id
-            || self.authority_bundle.current_generation != self.handoff.to_generation
-            || self.authority_bundle.current_service_id != self.handoff.to_service_id
-            || self.authority_bundle.realm_stream_head != *final_realm_head
-            || self
-                .authority_bundle
-                .authority_transitions
-                .last()
-                .map(|transition| &transition.handoff)
-                != Some(&self.handoff)
-            || self.authority_bundle.current_assertion.last_handoff_ref
-                != Some(self.handoff.handoff_id.clone())
-        {
-            return Err(WireError::Protocol(
-                "authority handoff manifest, snapshot, and current bundle binding mismatch"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
@@ -3865,6 +3825,7 @@ mod tests {
                     [0x33; 32],
                 )),
                 committed_at: Utc.timestamp_opt(1_800_000_001, 0).unwrap(),
+                producer_signer_fact_digest: None,
                 signature: signature(DetachedSignatureContext::RealmCommit),
             },
             event,
@@ -4237,4 +4198,11 @@ mod tests {
                 .is_err()
         );
     }
+}
+
+// Absent legacy fields are distinct from an explicit wire-null digest.
+fn deserialize_optional_original_digest<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Hash>, D::Error> {
+    Hash::deserialize(deserializer).map(Some)
 }
