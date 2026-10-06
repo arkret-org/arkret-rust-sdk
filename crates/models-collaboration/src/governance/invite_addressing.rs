@@ -520,14 +520,10 @@ impl InviteDeliveryRequestBody {
             &self.producer_signer_fact,
         ) {
             (Some(_), Some(fact)) => {
-                let full = arkret_wire::CommittedEventFullView {
-                    event: self.invite_event.clone(),
-                    commit: self.invite_commit.clone(),
-                };
-                let suite = arkret_canonical::canonical::digest_suite(
-                    self.invite_event.event_id.digest_suite_code().as_str(),
-                )?;
-                fact.validate_commit_binding(&full, suite)?;
+                // Only closed shape belongs to this stage. Exact fact/Commit
+                // digest and producer proof binding are signature checks at
+                // the receiver, with signature_invalid on failure.
+                fact.key.validate()?;
             }
             (None, None) => {}
             _ => {

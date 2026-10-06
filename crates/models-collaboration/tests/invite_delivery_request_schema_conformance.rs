@@ -405,6 +405,28 @@ fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
     ));
     body.producer_signer_fact = Some(fact);
     body.validate_minimal().unwrap();
+    let mut mismatched = body.clone();
+    mismatched
+        .producer_signer_fact
+        .as_mut()
+        .unwrap()
+        .accepted_at += chrono::Duration::seconds(1);
+    mismatched.validate_minimal().unwrap();
+    assert!(
+        mismatched
+            .producer_signer_fact
+            .as_ref()
+            .unwrap()
+            .validate_commit_binding(
+                &arkret_wire::CommittedEventFullView {
+                    event: mismatched.invite_event.clone(),
+                    commit: mismatched.invite_commit.clone(),
+                },
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .is_err(),
+        "closed shape cannot replace exact cryptographic admission binding"
+    );
     let value = serde_json::to_value(&body).unwrap();
     assert!(schema_accepts(&value));
     let serialized: OrderedKeys =
