@@ -1024,6 +1024,25 @@ impl ArkretMlsGroup {
         self.group.pending_commit().is_some()
     }
 
+    /// Abandon the exact own candidate after its frozen submission has received
+    /// a definitive authority rejection. The caller must establish that terminal
+    /// outcome; a timeout, retryable failure or missing response is insufficient.
+    /// This preserves the installed epoch and live application ratchets.
+    /// An unrelated historical rejection leaves the current candidate untouched.
+    pub fn discard_rejected_own_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<bool> {
+        if !self.has_pending_commit()
+            || self.own_pending_commit_digest.as_ref() != Some(&envelope.commit_digest)
+        {
+            return Ok(false);
+        }
+        self.verify_exact_own_pending_commit(envelope)?;
+        self.group
+            .clear_pending_commit(self.identity.provider.storage())
+            .map_err(mls_error)?;
+        self.own_pending_commit_digest = None;
+        Ok(true)
+    }
+
     /// Restore one already frozen own transition on its identical private
     /// base, retaining the live base's application ratchets and Signal nonce.
     /// This does not install or authorize a Commit. The caller must still
@@ -2611,6 +2630,54 @@ mod tests {
         assert_eq!(
             governed.export_state_record().unwrap().serialized_state,
             governed_snapshot_before
+        );
+    }
+
+    #[test]
+    fn definitively_rejected_own_commit_releases_only_the_exact_candidate() {
+        let scope = realm_scope();
+        let binding = transition_binding(&scope, event(1), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let record = group.export_state_record().unwrap();
+        let mut wrong = commit.clone();
+        wrong.commit_digest = Hash::new(canonical::sha256_digest(b"another commit")).unwrap();
+        assert!(!group.discard_rejected_own_commit(&wrong).unwrap());
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            record.serialized_state
+        );
+        let mut tampered = commit.clone();
+        tampered.commit = commit.commit.clone() + "invalid";
+        assert!(group.discard_rejected_own_commit(&tampered).is_err());
+        assert!(group.has_pending_commit());
+        assert!(group.discard_rejected_own_commit(&commit).unwrap());
+        assert_eq!(group.epoch(), 0);
+        assert!(!group.has_pending_commit());
+        let before: OpenMlsStateSnapshot =
+            serde_json::from_slice(&record.serialized_state).unwrap();
+        let after: OpenMlsStateSnapshot =
+            serde_json::from_slice(&group.export_state_record().unwrap().serialized_state).unwrap();
+        assert_eq!(before.signal_nonce_counter, after.signal_nonce_counter);
+        assert_eq!(before.context, after.context);
+        for (key, value) in &before.storage_entries {
+            if !decode(key).unwrap().starts_with(b"GroupState") {
+                assert_eq!(after.storage_entries.get(key), Some(value));
+            }
+        }
+        let mut restored =
+            ArkretMlsGroup::restore_from_state_record(&group.export_state_record().unwrap())
+                .unwrap();
+        assert!(!restored.has_pending_commit());
+        assert!(!restored.discard_rejected_own_commit(&commit).unwrap());
+        assert!(
+            restored
+                .self_update_commit_with_governance_binding(&binding)
+                .is_ok()
         );
     }
 
