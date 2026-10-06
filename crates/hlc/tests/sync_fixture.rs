@@ -201,6 +201,7 @@ fn a_durable_checkpoint_never_outruns_the_installed_projection() {
     let fixture = fixture();
     let mut ordering_cases = 0;
     let mut merge_cases = 0;
+    let mut undurable_cases = Vec::new();
 
     for case in cases(&fixture, "checkpoint_ordering") {
         let steps = case["steps"].as_array().expect("steps");
@@ -211,6 +212,27 @@ fn a_durable_checkpoint_never_outruns_the_installed_projection() {
         };
         let install = position_of("install_typed_current_result");
         let advance = position_of("advance_durable_cursor");
+
+        if let Some(install) = install {
+            let durable = steps[install]["durable"]
+                .as_bool()
+                .expect("projection installation states whether its cut is durable");
+            if !durable {
+                undurable_cases.push(name(case));
+                assert_eq!(
+                    expected(case),
+                    "rejected",
+                    "{}: an undurable projection cannot establish a new checkpoint",
+                    name(case)
+                );
+                assert!(
+                    advance.is_none(),
+                    "{}: a failed projection installation must preserve the old checkpoint",
+                    name(case)
+                );
+                continue;
+            }
+        }
 
         if let (Some(install), Some(advance)) = (install, advance) {
             ordering_cases += 1;
@@ -254,6 +276,15 @@ fn a_durable_checkpoint_never_outruns_the_installed_projection() {
         ordering_cases >= 2 && merge_cases >= 1,
         "both the ordering rule and the merge rule must stay covered"
     );
+    for case in [
+        "sidecar_missing_tail_does_not_install_newer_current_or_checkpoint",
+        "sidecar_projection_transaction_failure_preserves_prior_cut",
+    ] {
+        assert!(
+            undurable_cases.contains(&case),
+            "the undurable checkpoint case {case} must stay covered"
+        );
+    }
 }
 
 /// The three cursor-integrity outcomes discard the stored cursor and redo that
