@@ -141,14 +141,164 @@ impl HumanHistoricalSignerFact {
     }
 }
 
+/// Minimal Service installation and signing key frozen at acceptance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HumanHistoricalSignerFactEntry {
-    pub target: arkret_wire::CommittedEventRef,
-    pub producer_signer_fact: HumanHistoricalSignerFact,
+pub struct ServiceHistoricalSignerFact {
+    pub event_id: EventId,
+    pub actor: ActorId,
+    pub verification_method: DidUrl,
+    pub key: arkret_models_identity::ServiceHistoricalSigningKey,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
 }
 
-impl HumanHistoricalSignerFactEntry {
+impl ServiceHistoricalSignerFact {
+    pub fn digest(&self) -> Result<Hash> {
+        self.key.validate()?;
+        if !matches!(&self.actor, ActorId::Service { .. }) {
+            return Err(WireError::Protocol(
+                "Service fact requires a Service actor".into(),
+            ));
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.digest()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        if self.event_id != event.event_id
+            || &self.actor != event.actual_signer()
+            || event.applet_id.as_ref() != Some(&self.key.applet_id)
+            || event
+                .authorization_ref
+                .as_ref()
+                .map(|reference| reference.as_str())
+                != Some(
+                    arkret_wire::GrantId::from_event_id(&self.key.authorization_ref.event_id)
+                        .as_str(),
+                )
+            || event.scope_ref != self.key.effective_scope
+            || event
+                .producer_proof
+                .as_ref()
+                .map(|p| &p.verification_method)
+                != Some(&self.verification_method)
+        {
+            return Err(WireError::Protocol(
+                "Service fact does not bind the exact Event producer and installation".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn validate_commit_binding(
+        &self,
+        full: &arkret_wire::CommittedEventFullView,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        full.validate_shape()?;
+        full.commit.verify_commit_id_matches_content()?;
+        self.validate_event_binding(&full.event, suite)?;
+        if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?)
+            || self.accepted_at != full.commit.committed_at
+        {
+            return Err(WireError::Protocol(
+                "original governance Commit does not bind this Service fact".into(),
+            ));
+        }
+        for reference in [&self.key.registration_ref, &self.key.authorization_ref] {
+            if reference.stream_ref.realm_id() != &full.commit.realm_id {
+                return Err(WireError::Protocol(
+                    "Service installation source belongs to another Realm".into(),
+                ));
+            }
+            if reference.stream_ref == full.commit.stream_ref
+                && reference.stream_position >= full.commit.stream_position
+            {
+                return Err(WireError::Protocol(
+                    "Service installation source is not prior to its Event".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum HistoricalProducerSignerFact {
+    Human(HumanHistoricalSignerFact),
+    Service(ServiceHistoricalSignerFact),
+}
+impl From<HumanHistoricalSignerFact> for HistoricalProducerSignerFact {
+    fn from(fact: HumanHistoricalSignerFact) -> Self {
+        Self::Human(fact)
+    }
+}
+impl From<ServiceHistoricalSignerFact> for HistoricalProducerSignerFact {
+    fn from(fact: ServiceHistoricalSignerFact) -> Self {
+        Self::Service(fact)
+    }
+}
+impl HistoricalProducerSignerFact {
+    pub fn event_id(&self) -> &EventId {
+        match self {
+            Self::Human(f) => &f.event_id,
+            Self::Service(f) => &f.event_id,
+        }
+    }
+    pub fn as_human(&self) -> Option<&HumanHistoricalSignerFact> {
+        if let Self::Human(f) = self {
+            Some(f)
+        } else {
+            None
+        }
+    }
+    pub fn as_human_mut(&mut self) -> Option<&mut HumanHistoricalSignerFact> {
+        match self {
+            Self::Human(fact) => Some(fact),
+            Self::Service(_) => None,
+        }
+    }
+    pub fn digest(&self) -> Result<Hash> {
+        match self {
+            Self::Human(f) => f.digest(),
+            Self::Service(f) => f.digest(),
+        }
+    }
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        match self {
+            Self::Human(f) => f.validate_event_binding(event, suite),
+            Self::Service(f) => f.validate_event_binding(event, suite),
+        }
+    }
+    pub fn validate_commit_binding(
+        &self,
+        full: &arkret_wire::CommittedEventFullView,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        match self {
+            Self::Human(f) => f.validate_commit_binding(full, suite),
+            Self::Service(f) => f.validate_commit_binding(full, suite),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoricalProducerSignerFactEntry {
+    pub target: arkret_wire::CommittedEventRef,
+    pub producer_signer_fact: HistoricalProducerSignerFact,
+}
+
+impl HistoricalProducerSignerFactEntry {
     pub fn validate_target(&self, full: &arkret_wire::CommittedEventFullView) -> Result<()> {
         if self.target.event_id != full.commit.event_ref
             || self.target.commit_id != full.commit.commit_id
@@ -174,7 +324,7 @@ pub struct PeerStreamScanOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub readable_floor: Option<arkret_wire::ReadableFloor>,
     pub truncated: bool,
-    pub producer_signer_facts: Vec<HumanHistoricalSignerFactEntry>,
+    pub producer_signer_facts: Vec<HistoricalProducerSignerFactEntry>,
 }
 
 impl PeerStreamScanOutcome {
@@ -233,7 +383,7 @@ pub struct CommittedEventSubmission {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub producer_signer_fact: Option<HumanHistoricalSignerFact>,
+    pub producer_signer_fact: Option<HistoricalProducerSignerFact>,
 }
 
 impl CommittedEventSubmission {
@@ -244,7 +394,7 @@ impl CommittedEventSubmission {
     pub fn from_source_submission(
         source: &EventAdmissionSubmission,
         source_commit: RealmCommit,
-        producer_signer_fact: Option<HumanHistoricalSignerFact>,
+        producer_signer_fact: Option<HistoricalProducerSignerFact>,
         genesis_event_ref: Option<EventId>,
         welcomes: Option<Vec<MlsWelcomeDelivery>>,
     ) -> Self {
@@ -1399,7 +1549,7 @@ pub struct AuthorityHandoffRequest {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub historical_signer_facts: Option<Vec<HumanHistoricalSignerFactEntry>>,
+    pub historical_signer_facts: Option<Vec<HistoricalProducerSignerFactEntry>>,
 }
 
 impl AuthorityHandoffRequest {
@@ -1507,8 +1657,10 @@ impl AuthorityHandoffRequest {
 }
 
 /// Fixed-SHA256 inventory digest. Callers must independently prove the exact imported target set.
-pub fn historical_signer_facts_digest(entries: &[HumanHistoricalSignerFactEntry]) -> Result<Hash> {
-    let sort_key = |entry: &HumanHistoricalSignerFactEntry| -> Result<_> {
+pub fn historical_signer_facts_digest(
+    entries: &[HistoricalProducerSignerFactEntry],
+) -> Result<Hash> {
+    let sort_key = |entry: &HistoricalProducerSignerFactEntry| -> Result<_> {
         Ok((
             arkret_canonical::canonical_json_bytes(&entry.target.stream_ref)?,
             entry.target.stream_position,
@@ -1519,7 +1671,7 @@ pub fn historical_signer_facts_digest(entries: &[HumanHistoricalSignerFactEntry]
     let mut previous = None;
     for entry in entries {
         entry.producer_signer_fact.digest()?;
-        if entry.target.event_id != entry.producer_signer_fact.event_id {
+        if &entry.target.event_id != entry.producer_signer_fact.event_id() {
             return Err(WireError::Protocol(
                 "handoff signer inventory Event binding mismatch".into(),
             ));
@@ -1588,11 +1740,25 @@ pub fn validate_new_human_admission_fact(
     fact: Option<&HumanHistoricalSignerFact>,
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
+    let source = fact.cloned().map(HistoricalProducerSignerFact::Human);
+    validate_new_producer_admission_fact(event, source.as_ref(), suite)
+}
+
+pub fn validate_new_producer_admission_fact(
+    event: &Event,
+    fact: Option<&HistoricalProducerSignerFact>,
+    suite: arkret_canonical::DigestSuite,
+) -> Result<()> {
     match (event.human_device_producer()?, fact) {
-        (Some(_), Some(fact)) => fact.validate_event_binding(event, suite),
-        (None, None) => Ok(()),
+        (Some(_), Some(HistoricalProducerSignerFact::Human(fact))) => {
+            fact.validate_event_binding(event, suite)
+        }
+        (None, Some(HistoricalProducerSignerFact::Service(fact))) => {
+            fact.validate_event_binding(event, suite)
+        }
+        (None, None) if event.applet_id.is_none() || !matches!(event.actual_signer(), arkret_wire::ActorId::Service { .. }) => Ok(()),
         _ => Err(WireError::Protocol(
-            "new ordinary admission requires a fact exactly for the actual Human device producer"
+            "new ordinary admission requires the immutable fact of its actual Human or Applet Service producer"
                 .into(),
         )),
     }
@@ -1611,7 +1777,7 @@ impl AuthorityHandoffRequest {
 
 /// Complete equality against all imported digest-bearing Full originals.
 pub fn validate_historical_signer_fact_inventory(
-    entries: &[HumanHistoricalSignerFactEntry],
+    entries: &[HistoricalProducerSignerFactEntry],
     imported: &[arkret_wire::CommittedEventFullView],
 ) -> Result<()> {
     historical_signer_facts_digest(entries)?;
@@ -1651,13 +1817,13 @@ pub fn validate_historical_signer_fact_inventory(
 pub fn validate_new_human_admission_fact_for_purpose(
     event: &Event,
     purpose: crate::events_payloads::RealmPurpose,
-    fact: Option<&HumanHistoricalSignerFact>,
+    fact: Option<&HistoricalProducerSignerFact>,
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
     match purpose {
         crate::events_payloads::RealmPurpose::Collaboration
         | crate::events_payloads::RealmPurpose::DirectConversation => {
-            validate_new_human_admission_fact(event, fact, suite)
+            validate_new_producer_admission_fact(event, fact, suite)
         }
         crate::events_payloads::RealmPurpose::PrincipalControl
         | crate::events_payloads::RealmPurpose::AgentControl

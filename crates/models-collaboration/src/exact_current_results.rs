@@ -207,6 +207,29 @@ pub enum ExactCurrentResultSelector {
     ModerationState(ModerationStateExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
     CapabilityGrant(CapabilityGrantExactCurrentSelector),
+    CalendarScheduleSource(CalendarScheduleSourceExactSelector),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CalendarScheduleSourceExactSelectorKind {
+    CalendarScheduleSource,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalendarScheduleSourceExactSelector {
+    pub kind: CalendarScheduleSourceExactSelectorKind,
+    pub strand_id: arkret_wire::StrandId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalendarScheduleSourceExactResult {
+    pub selector: CalendarScheduleSourceExactSelector,
+    pub source_stream_ref: CommitStreamRef,
+    pub revision: CurrentRevision,
+    pub value: arkret_wire::CalendarScheduleSourceValue,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -235,9 +258,10 @@ impl ExactCurrentResultSelector {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Relation(selector) => selector.primary_conflict_domain.validate(),
-            Self::ModerationState(_) | Self::AgentInteraction(_) | Self::CapabilityGrant(_) => {
-                Ok(())
-            }
+            Self::ModerationState(_)
+            | Self::AgentInteraction(_)
+            | Self::CapabilityGrant(_)
+            | Self::CalendarScheduleSource(_) => Ok(()),
         }
     }
 }
@@ -312,6 +336,7 @@ pub enum ExactCurrentResultEntry {
     ModerationState(ModerationStateExactCurrentResult),
     AgentInteraction(AgentInteractionExactCurrentResult),
     CapabilityGrant(CapabilityGrantExactCurrentResult),
+    CalendarScheduleSource(CalendarScheduleSourceExactResult),
 }
 
 impl ExactCurrentResultEntry {
@@ -321,6 +346,7 @@ impl ExactCurrentResultEntry {
             Self::ModerationState(entry) => &entry.revision,
             Self::AgentInteraction(entry) => &entry.revision,
             Self::CapabilityGrant(entry) => &entry.revision,
+            Self::CalendarScheduleSource(entry) => &entry.revision,
         }
     }
 
@@ -330,10 +356,18 @@ impl ExactCurrentResultEntry {
             Self::ModerationState(entry) => &entry.source_stream_ref,
             Self::AgentInteraction(entry) => &entry.source_stream_ref,
             Self::CapabilityGrant(entry) => &entry.source_stream_ref,
+            Self::CalendarScheduleSource(entry) => &entry.source_stream_ref,
         }
     }
 
     fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+        if let (
+            Self::CalendarScheduleSource(entry),
+            ExactCurrentResultSelector::CalendarScheduleSource(selector),
+        ) = (self, requested)
+        {
+            return &entry.selector == selector;
+        }
         if let (
             Self::CapabilityGrant(entry),
             ExactCurrentResultSelector::CapabilityGrant(selector),
@@ -363,6 +397,11 @@ impl ExactCurrentResultEntry {
 
     fn validate_value(&self, realm_id: &RealmId) -> Result<()> {
         match self {
+            Self::CalendarScheduleSource(entry) => entry.value.validate_for_current(
+                realm_id,
+                &entry.source_stream_ref,
+                &entry.revision,
+            ),
             Self::CapabilityGrant(entry) => {
                 if entry.value.id != entry.selector.grant_id
                     || entry.value.realm_id.as_ref() != Some(realm_id)
@@ -551,5 +590,192 @@ impl ExactCurrentResultsReadOutcome {
             }
         }
         Ok(())
+    }
+}
+
+/// Validate minimal Calendar sources against the same authenticated current cut.
+pub fn validate_calendar_current_pairs(
+    realm: &RealmId,
+    entries: &[arkret_wire::TypedCurrentResult],
+) -> Result<()> {
+    use arkret_wire::{CurrentSelector as S, TypedCurrentResult as R};
+    let reject = |message: &str| WireError::Protocol(message.into());
+    for entry in entries {
+        let R::Value {
+            selector,
+            source_stream_ref,
+            revision,
+            value,
+        } = entry;
+        match selector {
+            S::CalendarScheduleSource { strand_id } => {
+                if entries.iter().filter(|entry| matches!(entry, R::Value { selector: S::CalendarScheduleSource { strand_id: id }, .. } if id == strand_id)).count() != 1 {
+                    return Err(reject("Calendar source selector is duplicated"));
+                }
+                let mut paired = entries.iter().filter_map(|entry| {
+                    let R::Value { selector, source_stream_ref, revision, value } = entry;
+                    matches!(selector, S::Strand { strand_id: id } if id == strand_id).then_some((source_stream_ref, revision, value))
+                });
+                let (stream, basis, strand_value) = paired.next().ok_or_else(|| reject("Calendar source lacks its paired Strand"))?;
+                if paired.next().is_some() || stream != source_stream_ref || basis != revision {
+                    return Err(reject("Calendar source and Strand do not share one exact cut"));
+                }
+                let source: arkret_wire::CalendarScheduleSourceValue = serde_json::from_value(value.clone())?;
+                source.validate_for_current(realm, stream, basis)?;
+                let strand: crate::objects::strand::Strand = serde_json::from_value(strand_value.clone())?;
+                let scope = match &strand.scope_circle_id {
+                    Some(circle_id) => arkret_wire::ScopeRef::Circle { realm_id: strand.realm_id.clone(), circle_id: circle_id.clone() },
+                    None => arkret_wire::ScopeRef::Realm { realm_id: strand.realm_id.clone() },
+                };
+                if source.effective_scope != scope { return Err(reject("Calendar source scope differs from its Strand")); }
+                match (&strand.encrypted_metadata, &source.metadata_context) {
+                    (Some(envelope), Some(context)) if envelope.payload_digest()? == context.payload_digest => {},
+                    (None, None) => {},
+                    _ => return Err(reject("Calendar metadata context differs from current ciphertext")),
+                }
+            }
+            S::Strand { strand_id } if value.get("encrypted_metadata").is_some_and(|v| !v.is_null()) || value.pointer("/metadata/fields/calendar").is_some() => {
+                if !entries.iter().any(|entry| matches!(entry, R::Value { selector: S::CalendarScheduleSource { strand_id: id }, .. } if id == strand_id)) {
+                    return Err(reject("Calendar Strand lacks a current source sibling"));
+                }
+            }
+            _ => {},
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod calendar_current_pair_tests {
+    use arkret_wire::{
+        ActorId, CalendarScheduleSourceValue, CommittedEventRef, CurrentSelector, EventId,
+        ScopeRef, StrandId, TypedCurrentResult,
+    };
+    use serde_json::json;
+
+    use super::*;
+    fn event(byte: u8) -> EventId {
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32])
+    }
+    fn rows() -> (RealmId, Vec<TypedCurrentResult>) {
+        let realm = RealmId::from_event_id(&event(1));
+        let id = StrandId::from_event_id(&event(2));
+        let stream = CommitStreamRef::Realm {
+            realm_id: realm.clone(),
+        };
+        let revision = CurrentRevision {
+            commit_id: arkret_wire::RealmCommitId::from_digest([5; 32]),
+            stream_position: 5,
+        };
+        let mut strand = crate::objects::strand::Strand::discussion(
+            id.clone(),
+            realm.clone(),
+            "calendar",
+            ActorId::service(
+                arkret_wire::DidCoreId::new("ak:did_core:web:calendar.example").unwrap(),
+            ),
+        );
+        strand.metadata.as_mut().unwrap().fields.insert("calendar".into(), json!({"start":"2026-10-07","end":"2026-10-08","timezone":"UTC","tzdb_version":"2025b","all_day":true,"status":"confirmed"}));
+        let source = CalendarScheduleSourceValue {
+            effective_scope: ScopeRef::Realm {
+                realm_id: realm.clone(),
+            },
+            source: Some(CommittedEventRef {
+                event_id: event(3),
+                commit_id: arkret_wire::RealmCommitId::from_digest([3; 32]),
+                stream_ref: stream.clone(),
+                stream_position: 3,
+            }),
+            strand_revision: revision.clone(),
+            metadata_context: None,
+        };
+        (
+            realm,
+            vec![
+                TypedCurrentResult::Value {
+                    selector: CurrentSelector::Strand {
+                        strand_id: id.clone(),
+                    },
+                    source_stream_ref: stream.clone(),
+                    revision: revision.clone(),
+                    value: serde_json::to_value(strand).unwrap(),
+                },
+                TypedCurrentResult::Value {
+                    selector: CurrentSelector::CalendarScheduleSource { strand_id: id },
+                    source_stream_ref: stream,
+                    revision,
+                    value: serde_json::to_value(source).unwrap(),
+                },
+            ],
+        )
+    }
+    #[test]
+    fn calendar_source_reconstructs_below_floor_and_rejects_missing_or_mismatched_pair() {
+        let (realm, rows) = rows();
+        validate_calendar_current_pairs(&realm, &rows).unwrap();
+        assert!(validate_calendar_current_pairs(&realm, &rows[..1]).is_err());
+        assert!(validate_calendar_current_pairs(&realm, &rows[1..]).is_err());
+        let mut bad = rows.clone();
+        let TypedCurrentResult::Value { revision, .. } = &mut bad[1];
+        revision.stream_position += 1;
+        assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
+        let mut bad = rows.clone();
+        let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+        value["source"]["stream_position"] = json!(6);
+        assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
+        let mut bad = rows.clone();
+        let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+        value["effective_scope"]["realm_id"] = json!(RealmId::from_event_id(&event(9)));
+        assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
+    }
+    #[test]
+    fn encrypted_calendar_context_binds_ciphertext_kind_and_unique_pair() {
+        let (realm, mut rows) = rows();
+        let envelope =
+            arkret_models_crypto::EncryptedEnvelope {
+                version: "1.0".into(),
+                content_type: "application/vnd.arkret.strand-metadata+json".into(),
+                encryption_context:
+                    arkret_models_crypto::EncryptedEnvelopeEncryptionContext::standard(1, event(4)),
+                ciphertext: "AQID".into(),
+            };
+        let TypedCurrentResult::Value { value, .. } = &mut rows[0];
+        value.as_object_mut().unwrap().remove("metadata");
+        value["encrypted_metadata"] = serde_json::to_value(&envelope).unwrap();
+        let TypedCurrentResult::Value { value, .. } = &mut rows[1];
+        value["metadata_context"] = json!({"source":value["source"],"event_kind":"ak.strand.update","signer_id":ActorId::service(arkret_wire::DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),"payload_digest":envelope.payload_digest().unwrap()});
+        validate_calendar_current_pairs(&realm, &rows).unwrap();
+        for (field, replacement) in [
+            (
+                "payload_digest",
+                json!(arkret_wire::Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()),
+            ),
+            ("event_kind", json!("ak.message.create")),
+            (
+                "signer_id",
+                json!({"kind":"service","service_id":"invalid"}),
+            ),
+        ] {
+            let mut bad = rows.clone();
+            let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+            value["metadata_context"][field] = replacement;
+            assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
+        }
+        let mut duplicate = rows.clone();
+        duplicate.push(rows[1].clone());
+        assert!(validate_calendar_current_pairs(&realm, &duplicate).is_err());
+    }
+    #[test]
+    fn calendar_nullable_source_and_context_are_required_closed_members() {
+        let (_, rows) = rows();
+        let TypedCurrentResult::Value { value, .. } = &rows[1];
+        for member in ["source", "metadata_context"] {
+            let mut bad = value.clone();
+            bad.as_object_mut().unwrap().remove(member);
+            assert!(serde_json::from_value::<CalendarScheduleSourceValue>(bad).is_err());
+        }
+        let mut empty = value.clone();
+        empty["source"] = json!(null);
+        serde_json::from_value::<CalendarScheduleSourceValue>(empty).unwrap();
     }
 }

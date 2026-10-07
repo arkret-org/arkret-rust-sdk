@@ -857,8 +857,8 @@ fn same_method_rotation_current_key_cannot_replace_historical_key() {
 #[test]
 fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature() {
     use arkret_models_collaboration::authority_commit::{
-        HumanHistoricalSignerFact, HumanHistoricalSignerFactEntry, historical_signer_facts_digest,
-        validate_new_human_admission_fact,
+        HistoricalProducerSignerFactEntry, HumanHistoricalSignerFact,
+        historical_signer_facts_digest, validate_new_human_admission_fact,
     };
     use arkret_models_identity::ResolvedSignerKey;
     use arkret_signatures::{Ed25519DetachedJwsSigner, SignEventOptions, sign_event};
@@ -961,7 +961,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
             validate_new_human_admission_fact_for_purpose(
                 &event,
                 purpose,
-                Some(&fact),
+                Some(&fact.clone().into()),
                 arkret_canonical::DigestSuite::Sha256
             )
             .is_err()
@@ -974,7 +974,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         validate_new_human_admission_fact_for_purpose(
             &event,
             purpose,
-            Some(&fact),
+            Some(&fact.clone().into()),
             arkret_canonical::DigestSuite::Sha256,
         )
         .unwrap();
@@ -1044,14 +1044,14 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         )
         .is_err()
     );
-    let entry = HumanHistoricalSignerFactEntry {
+    let entry = HistoricalProducerSignerFactEntry {
         target: arkret_wire::CommittedEventRef {
             event_id: accepted.event.event_id.clone(),
             commit_id: accepted.commit.commit_id.clone(),
             stream_ref: accepted.commit.stream_ref.clone(),
             stream_position: accepted.commit.stream_position,
         },
-        producer_signer_fact: fact.clone(),
+        producer_signer_fact: fact.clone().into(),
     };
     entry.validate_target(&accepted).unwrap();
     assert!(historical_signer_facts_digest(&[entry.clone(), entry.clone()]).is_err());
@@ -1059,14 +1059,14 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         historical_signer_facts_digest(&[]).unwrap(),
         historical_signer_facts_digest(&[entry]).unwrap()
     );
-    let inventory_entry = HumanHistoricalSignerFactEntry {
+    let inventory_entry = HistoricalProducerSignerFactEntry {
         target: arkret_wire::CommittedEventRef {
             event_id: accepted.event.event_id.clone(),
             commit_id: accepted.commit.commit_id.clone(),
             stream_ref: accepted.commit.stream_ref.clone(),
             stream_position: accepted.commit.stream_position,
         },
-        producer_signer_fact: fact.clone(),
+        producer_signer_fact: fact.clone().into(),
     };
     use arkret_models_collaboration::authority_commit::validate_historical_signer_fact_inventory;
     validate_historical_signer_fact_inventory(&[inventory_entry.clone()], &[accepted.clone()])
@@ -1100,14 +1100,14 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
             floor_reason: arkret_wire::ReadableFloorReason::MembershipJoin,
         }),
         truncated: false,
-        producer_signer_facts: vec![HumanHistoricalSignerFactEntry {
+        producer_signer_facts: vec![HistoricalProducerSignerFactEntry {
             target: arkret_wire::CommittedEventRef {
                 event_id: accepted.event.event_id.clone(),
                 commit_id: accepted.commit.commit_id.clone(),
                 stream_ref: accepted.commit.stream_ref.clone(),
                 stream_position: accepted.commit.stream_position,
             },
-            producer_signer_fact: fact.clone(),
+            producer_signer_fact: fact.clone().into(),
         }],
     };
     page.validate_for_request(&scan_request).unwrap();
@@ -1132,7 +1132,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     withheld.producer_signer_facts.clear();
     withheld.validate_for_request(&scan_request).unwrap();
     let mut wrong_source = page.clone();
-    wrong_source.producer_signer_facts[0].producer_signer_fact = alternate;
+    wrong_source.producer_signer_facts[0].producer_signer_fact = alternate.into();
     assert!(wrong_source.validate_for_request(&scan_request).is_err());
     use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryRequestBody;
     let delivery = InviteDeliveryRequestBody::new(
@@ -1460,4 +1460,133 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     let mut altered = request;
     altered.snapshot.retention_and_history_floor.history_access = HistoryAccess::SinceJoin;
     assert!(altered.validate_new_handoff().is_err());
+}
+
+#[test]
+fn service_original_fact_verifies_real_proof_and_rejects_replacement_installation() {
+    use arkret_models_collaboration::authority_commit::{
+        HistoricalProducerSignerFact, ServiceHistoricalSignerFact,
+    };
+    use arkret_models_identity::ServiceHistoricalSigningKey;
+    use arkret_signatures::{Ed25519DetachedJwsSigner, SignEventOptions, sign_event};
+    let chain = chain();
+    let authority = verify(&chain).unwrap();
+    let suite = arkret_canonical::DigestSuite::Sha256;
+    let actor = arkret_wire::ActorId::service(core_id("did:web:applet.example"));
+    let scope = ScopeRef::Realm {
+        realm_id: realm_id(),
+    };
+    let applet =
+        arkret_wire::AppletId::new("ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d").unwrap();
+    let mut raw = arkret_wire::test_support::raw_event_for_actor_at(
+        "ak.message.create",
+        scope.clone(),
+        actor.clone(),
+        json!({"content":{"kind":"ak.content.text","text":"service original"}}),
+        now(),
+    )
+    .unwrap();
+    raw.applet_id = Some(applet.clone());
+    raw.authorization_ref =
+        Some(arkret_wire::GrantId::from_event_id(&EventId::from_digest(suite, [32; 32])).into());
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(raw, suite).unwrap();
+    let seed = [78; 32];
+    let vm = DidUrl::new("did:web:applet.example#producer").unwrap();
+    sign_event(
+        &mut authored,
+        &Ed25519DetachedJwsSigner::from_seed(seed, vm.to_string()),
+        SignEventOptions::new().with_created_at(now()),
+    )
+    .unwrap();
+    let event = authored.into_event();
+    let coordinate = |byte| arkret_wire::CommittedEventRef {
+        event_id: EventId::from_digest(suite, [byte; 32]),
+        commit_id: RealmCommitId::from_digest([byte; 32]),
+        stream_ref: CommitStreamRef::Realm {
+            realm_id: realm_id(),
+        },
+        stream_position: 0,
+    };
+    let fact = ServiceHistoricalSignerFact {
+        event_id: event.event_id.clone(),
+        actor,
+        verification_method: vm,
+        key: ServiceHistoricalSigningKey {
+            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                SigningKey::from_bytes(&seed).verifying_key().as_bytes(),
+            ))
+            .unwrap(),
+            applet_id: applet,
+            registration_epoch: arkret_wire::Hash::new(format!("sha256:{}", "12".repeat(32)))
+                .unwrap(),
+            registration_ref: coordinate(31),
+            authorization_ref: coordinate(32),
+            effective_scope: scope,
+        },
+        accepted_at: chain.item.commit.committed_at,
+    };
+    let mut full = chain.item.clone();
+    full.event = event;
+    full.commit.event_ref = full.event.event_id.clone();
+    full.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
+    let unsigned = canonical::unsigned_value(&full.commit, &["commit_id", "signature"]).unwrap();
+    full.commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+        canonical::canonical_json_bytes(&unsigned).unwrap(),
+    ));
+    full.commit = seal_commit(full.commit, STATION_B, &signing_key(0xB2));
+    let source: HistoricalProducerSignerFact = fact.clone().into();
+    assert!(
+        arkret_models_collaboration::authority_commit::validate_new_producer_admission_fact(
+            &full.event,
+            None,
+            suite
+        )
+        .is_err()
+    );
+    crate::account_device_signer_evidence::verify_historical_producer_committed_event(
+        &full,
+        &source,
+        &authority,
+        &chain.keys,
+        suite,
+    )
+    .unwrap();
+    let mut replaced = fact.clone();
+    replaced.key.public_key_b64u = Base64UrlString::new(arkret_canonical::base64url_encode(
+        SigningKey::from_bytes(&[79; 32]).verifying_key().as_bytes(),
+    ))
+    .unwrap();
+    assert!(
+        crate::account_device_signer_evidence::verify_historical_producer_event_signature(
+            &full.event,
+            &replaced.into(),
+            suite
+        )
+        .is_err()
+    );
+    let mut replaced = fact.clone();
+    replaced.key.registration_epoch =
+        arkret_wire::Hash::new(format!("sha256:{}", "13".repeat(32))).unwrap();
+    assert!(
+        crate::account_device_signer_evidence::verify_historical_producer_committed_event(
+            &full,
+            &replaced.into(),
+            &authority,
+            &chain.keys,
+            suite
+        )
+        .is_err()
+    );
+    let mut replaced = fact;
+    replaced.key.authorization_ref = coordinate(33);
+    assert!(
+        crate::account_device_signer_evidence::verify_historical_producer_committed_event(
+            &full,
+            &replaced.into(),
+            &authority,
+            &chain.keys,
+            suite
+        )
+        .is_err()
+    );
 }

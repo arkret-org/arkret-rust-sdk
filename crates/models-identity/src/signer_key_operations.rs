@@ -74,6 +74,11 @@ pub enum HistoricalSignerKeyQuerySender {
         verification_method: DidUrl,
         committed_event_ref: CommittedEventRef,
     },
+    Service {
+        actor: ActorId,
+        verification_method: DidUrl,
+        committed_event_ref: CommittedEventRef,
+    },
 }
 
 impl SignerKeyQuerySelector {
@@ -112,13 +117,21 @@ impl SignerKeyQuerySelector {
     }
 
     pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
-        let ActorId::Account { account_id } = self.actor() else {
+        let service = matches!(
+            self,
+            Self::HistoricalEvent {
+                sender: HistoricalSignerKeyQuerySender::Service { .. }
+            }
+        );
+        if service != matches!(self.actor(), ActorId::Service { .. })
+            || (!service && self.actor().as_account_id().is_none())
+        {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
-                "device and Agent signer selectors require a complete account ActorId",
+                "signer selector actor differs from its sender kind",
             ));
-        };
-        account_id.validate()?;
+        }
+        self.actor().validate()?;
         if self
             .committed_event_ref()
             .is_some_and(|reference| reference.stream_ref.realm_id() != realm_id)
@@ -163,13 +176,19 @@ impl CurrentSignerKeyQuerySender {
 impl HistoricalSignerKeyQuerySender {
     fn actor(&self) -> &ActorId {
         match self {
-            Self::AccountDevice { actor, .. } | Self::Agent { actor, .. } => actor,
+            Self::AccountDevice { actor, .. }
+            | Self::Agent { actor, .. }
+            | Self::Service { actor, .. } => actor,
         }
     }
 
     fn verification_method(&self) -> &DidUrl {
         match self {
             Self::AccountDevice {
+                verification_method,
+                ..
+            }
+            | Self::Service {
                 verification_method,
                 ..
             }
@@ -183,13 +202,17 @@ impl HistoricalSignerKeyQuerySender {
     fn device_id(&self) -> Option<&DeviceId> {
         match self {
             Self::AccountDevice { device_id, .. } => Some(device_id),
-            Self::Agent { .. } => None,
+            Self::Agent { .. } | Self::Service { .. } => None,
         }
     }
 
     fn committed_event_ref(&self) -> &CommittedEventRef {
         match self {
             Self::AccountDevice {
+                committed_event_ref,
+                ..
+            }
+            | Self::Service {
                 committed_event_ref,
                 ..
             }
@@ -280,6 +303,17 @@ impl ResolvedSignerKey {
     ) -> Result<()> {
         selector.validate(realm_id)?;
         self.validate()?;
+        if matches!(
+            selector,
+            SignerKeyQuerySelector::HistoricalEvent {
+                sender: HistoricalSignerKeyQuerySender::Service { .. }
+            }
+        ) {
+            return Err(self_signer_error(
+                ErrorCode::SchemaViolation,
+                "account and Agent key cannot answer a Service selector",
+            ));
+        }
         // `realm_id` scopes the queried producer Event. An Agent's key
         // authorization lives in its own PCR, and a device authorization can
         // likewise live outside the target collaboration Realm. The result's
@@ -344,11 +378,68 @@ impl CurrentDeviceSigningKey {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ServiceHistoricalSigningKey {
+    pub public_key_b64u: Base64UrlString,
+    pub applet_id: arkret_wire::AppletId,
+    pub registration_epoch: arkret_wire::Hash,
+    pub registration_ref: CommittedEventRef,
+    pub authorization_ref: CommittedEventRef,
+    pub effective_scope: arkret_wire::ScopeRef,
+}
+impl ServiceHistoricalSigningKey {
+    pub fn validate(&self) -> Result<()> {
+        validate_ed25519_public_key(self.public_key_b64u.as_str())?;
+        let realm = self.effective_scope.realm_id_opt().ok_or_else(|| {
+            self_signer_error(
+                ErrorCode::SchemaViolation,
+                "Service key lacks a collaboration scope",
+            )
+        })?;
+        if !matches!(
+            self.effective_scope,
+            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+        ) || self.registration_ref.stream_ref.realm_id() != realm
+            || self.authorization_ref.stream_ref.realm_id() != realm
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "Service installation references differ from its scope",
+            ));
+        }
+        Ok(())
+    }
+    pub fn validate_for_selector(
+        &self,
+        selector: &SignerKeyQuerySelector,
+        realm: &RealmId,
+    ) -> Result<()> {
+        selector.validate(realm)?;
+        self.validate()?;
+        if !matches!(
+            selector,
+            SignerKeyQuerySelector::HistoricalEvent {
+                sender: HistoricalSignerKeyQuerySender::Service { .. }
+            }
+        ) || self.effective_scope.realm_id_opt() != Some(realm)
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "Service key requires an exact Service historical selector",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum QueryKeyWire {
     Device(CurrentDeviceSigningKey),
     Committed(ResolvedSignerKey),
+    Service(ServiceHistoricalSigningKey),
 }
 
 #[derive(Serialize)]
@@ -356,6 +447,7 @@ enum QueryKeyWire {
 enum QueryKeyWireRef<'a> {
     Device(&'a CurrentDeviceSigningKey),
     Committed(&'a ResolvedSignerKey),
+    Service(&'a ServiceHistoricalSigningKey),
 }
 
 /// One answer to one exact selector.
@@ -381,6 +473,11 @@ pub enum SignerKeyQueryResult {
         key: ResolvedSignerKey,
         accepted_at: DateTime<Utc>,
     },
+    HistoricalServiceResolved {
+        selector: SignerKeyQuerySelector,
+        key: ServiceHistoricalSigningKey,
+        accepted_at: DateTime<Utc>,
+    },
     /// The Station holds no answer it may give for this exact selector.
     ///
     /// It is one indistinguishable bucket on purpose: "no such signer", "not
@@ -395,6 +492,7 @@ impl SignerKeyQueryResult {
             Self::CurrentDeviceResolved { selector, .. }
             | Self::CurrentResolved { selector, .. }
             | Self::HistoricalResolved { selector, .. }
+            | Self::HistoricalServiceResolved { selector, .. }
             | Self::Unavailable { selector } => selector,
         }
     }
@@ -402,14 +500,25 @@ impl SignerKeyQueryResult {
     pub fn key(&self) -> Option<&ResolvedSignerKey> {
         match self {
             Self::CurrentResolved { key, .. } | Self::HistoricalResolved { key, .. } => Some(key),
-            Self::CurrentDeviceResolved { .. } | Self::Unavailable { .. } => None,
+            Self::CurrentDeviceResolved { .. }
+            | Self::HistoricalServiceResolved { .. }
+            | Self::Unavailable { .. } => None,
+        }
+    }
+
+    pub fn service_key(&self) -> Option<&ServiceHistoricalSigningKey> {
+        if let Self::HistoricalServiceResolved { key, .. } = self {
+            Some(key)
+        } else {
+            None
         }
     }
 
     /// Effective time of a historical authorization fact.
     pub fn accepted_at(&self) -> Option<DateTime<Utc>> {
         match self {
-            Self::HistoricalResolved { accepted_at, .. } => Some(*accepted_at),
+            Self::HistoricalResolved { accepted_at, .. }
+            | Self::HistoricalServiceResolved { accepted_at, .. } => Some(*accepted_at),
             Self::CurrentDeviceResolved { .. }
             | Self::CurrentResolved { .. }
             | Self::Unavailable { .. } => None,
@@ -449,12 +558,22 @@ impl SignerKeyQueryResult {
                 key.validate_for_selector(selector, realm_id)
             }
             Self::HistoricalResolved { selector, key, .. } => {
-                if !selector.is_historical() {
+                if !selector.is_historical()
+                    || matches!(
+                        selector,
+                        SignerKeyQuerySelector::HistoricalEvent {
+                            sender: HistoricalSignerKeyQuerySender::Service { .. }
+                        }
+                    )
+                {
                     return Err(self_signer_error(
                         ErrorCode::SchemaViolation,
                         "historical signer-key result requires a historical_event selector",
                     ));
                 }
+                key.validate_for_selector(selector, realm_id)
+            }
+            Self::HistoricalServiceResolved { selector, key, .. } => {
                 key.validate_for_selector(selector, realm_id)
             }
             Self::Unavailable { .. } => Ok(()),
@@ -571,7 +690,14 @@ impl Serialize for SignerKeyQueryResult {
                 key,
                 accepted_at,
             } => {
-                if !selector.is_historical() {
+                if !selector.is_historical()
+                    || matches!(
+                        selector,
+                        SignerKeyQuerySelector::HistoricalEvent {
+                            sender: HistoricalSignerKeyQuerySender::Service { .. }
+                        }
+                    )
+                {
                     return Err(serde::ser::Error::custom(
                         "historical signer-key result requires a historical_event selector",
                     ));
@@ -580,6 +706,28 @@ impl Serialize for SignerKeyQueryResult {
                     selector,
                     status: SignerKeyQueryStatus::Resolved,
                     key: Some(QueryKeyWireRef::Committed(key)),
+                    accepted_at: Some(*accepted_at),
+                }
+            }
+            Self::HistoricalServiceResolved {
+                selector,
+                key,
+                accepted_at,
+            } => {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::HistoricalEvent {
+                        sender: HistoricalSignerKeyQuerySender::Service { .. }
+                    }
+                ) {
+                    return Err(serde::ser::Error::custom(
+                        "Service key requires historical Service selector",
+                    ));
+                }
+                SignerKeyQueryResultWireRef {
+                    selector,
+                    status: SignerKeyQueryStatus::Resolved,
+                    key: Some(QueryKeyWireRef::Service(key)),
                     accepted_at: Some(*accepted_at),
                 }
             }
@@ -637,11 +785,37 @@ impl<'de> Deserialize<'de> for SignerKeyQueryResult {
                 SignerKeyQueryStatus::Resolved,
                 WireField::Present(QueryKeyWire::Committed(key)),
                 WireField::Present(CanonicalAcceptedAt(accepted_at)),
-            ) if wire.selector.is_historical() => Ok(Self::HistoricalResolved {
-                selector: wire.selector,
-                key,
-                accepted_at,
-            }),
+            ) if wire.selector.is_historical()
+                && !matches!(
+                    wire.selector,
+                    SignerKeyQuerySelector::HistoricalEvent {
+                        sender: HistoricalSignerKeyQuerySender::Service { .. }
+                    }
+                ) =>
+            {
+                Ok(Self::HistoricalResolved {
+                    selector: wire.selector,
+                    key,
+                    accepted_at,
+                })
+            }
+            (
+                SignerKeyQueryStatus::Resolved,
+                WireField::Present(QueryKeyWire::Service(key)),
+                WireField::Present(CanonicalAcceptedAt(accepted_at)),
+            ) if matches!(
+                wire.selector,
+                SignerKeyQuerySelector::HistoricalEvent {
+                    sender: HistoricalSignerKeyQuerySender::Service { .. }
+                }
+            ) =>
+            {
+                Ok(Self::HistoricalServiceResolved {
+                    selector: wire.selector,
+                    key,
+                    accepted_at,
+                })
+            }
             (SignerKeyQueryStatus::Unavailable, WireField::Missing, WireField::Missing) => {
                 Ok(Self::Unavailable {
                     selector: wire.selector,
@@ -798,6 +972,58 @@ mod tests {
 
     fn accepted_at() -> DateTime<Utc> {
         "2026-09-20T00:00:00.000Z".parse().unwrap()
+    }
+
+    #[test]
+    fn historical_service_query_requires_its_closed_key_and_canonical_time() {
+        let selector = SignerKeyQuerySelector::HistoricalEvent {
+            sender: HistoricalSignerKeyQuerySender::Service {
+                actor: ActorId::service(DidCoreId::new("ak:did_core:web:applet.example").unwrap()),
+                verification_method: DidUrl::new("did:web:applet.example#producer").unwrap(),
+                committed_event_ref: committed_ref(5, 5),
+            },
+        };
+        let key = ServiceHistoricalSigningKey {
+            public_key_b64u: public_key(),
+            applet_id: arkret_wire::AppletId::new("ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d")
+                .unwrap(),
+            registration_epoch: arkret_wire::Hash::new(format!("sha256:{}", "12".repeat(32)))
+                .unwrap(),
+            registration_ref: committed_ref(1, 1),
+            authorization_ref: committed_ref(2, 2),
+            effective_scope: arkret_wire::ScopeRef::Realm {
+                realm_id: realm_id(),
+            },
+        };
+        let result = SignerKeyQueryResult::HistoricalServiceResolved {
+            selector: selector.clone(),
+            key: key.clone(),
+            accepted_at: accepted_at(),
+        };
+        result.validate(&realm_id()).unwrap();
+        let value = serde_json::to_value(&result).unwrap();
+        assert_eq!(
+            serde_json::from_value::<SignerKeyQueryResult>(value.clone()).unwrap(),
+            result
+        );
+        for member in ["key", "accepted_at"] {
+            let mut missing = value.clone();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(serde_json::from_value::<SignerKeyQueryResult>(missing).is_err());
+            let mut null = value.clone();
+            null[member] = json!(null);
+            assert!(serde_json::from_value::<SignerKeyQueryResult>(null).is_err());
+        }
+        let mut wrong = value.clone();
+        wrong["selector"]["sender_kind"] = json!("agent");
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(wrong).is_err());
+        let mut current = serde_json::to_value(selector).unwrap();
+        current["verification_mode"] = json!("current_admission");
+        current
+            .as_object_mut()
+            .unwrap()
+            .remove("committed_event_ref");
+        assert!(serde_json::from_value::<SignerKeyQuerySelector>(current).is_err());
     }
 
     #[test]

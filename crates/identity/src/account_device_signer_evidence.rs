@@ -408,12 +408,18 @@ pub fn verify_handoff_human_signer_inventory(
             full.event.event_id.digest_suite_code().as_str(),
         )
         .map_err(|error| signature_invalid(error.to_string()))?;
+        let Some(human) = entry.producer_signer_fact.as_human() else {
+            verify_historical_producer_committed_event(
+                full,
+                &entry.producer_signer_fact,
+                authority,
+                keys,
+                suite,
+            )?;
+            continue;
+        };
         verified.push(verify_historical_human_committed_event(
-            full,
-            &entry.producer_signer_fact,
-            authority,
-            keys,
-            suite,
+            full, human, authority, keys, suite,
         )?);
     }
     Ok(verified)
@@ -448,4 +454,48 @@ pub fn verify_invite_delivery_human_signer(
         keys,
         suite,
     )
+}
+
+/// Verify a Commit-bound historical Human or Service original without consulting current keys.
+pub fn verify_historical_producer_event_signature(
+    event: &Event,
+    fact: &arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact,
+    suite: DigestSuite,
+) -> Result<()> {
+    use arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact as F;
+    match fact {
+        F::Human(fact) => verify_historical_human_event_signature(event, fact, suite),
+        F::Service(fact) => {
+            fact.validate_event_binding(event, suite)?;
+            let raw = arkret_canonical::base64url_decode(fact.key.public_key_b64u.as_str())
+                .map_err(|e| signature_invalid(e.to_string()))?;
+            let bytes = EventProofBuilder::new()
+                .envelope_bytes(event)
+                .map_err(|e| signature_invalid(e.to_string()))?;
+            arkret_signatures::verify_ed25519_detached_jws_proof_with_digest_suite(
+                event
+                    .producer_proof
+                    .as_ref()
+                    .ok_or_else(|| signature_invalid("Service proof absent"))?,
+                &bytes,
+                &event.actor_id,
+                &PublicKeyMaterial::Ed25519Raw { bytes: raw },
+                suite,
+            )
+            .map_err(|e| signature_invalid(e.to_string()))
+        }
+    }
+}
+pub fn verify_historical_producer_committed_event(
+    full: &arkret_wire::CommittedEventFullView,
+    fact: &arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact,
+    authority: &crate::realm_authority_chain::VerifiedRealmAuthority,
+    keys: &dyn crate::realm_authority_chain::RealmAuthorityKeyDirectory,
+    suite: DigestSuite,
+) -> Result<()> {
+    fact.validate_commit_binding(full, suite)?;
+    authority
+        .verify_committed_item(full, keys)
+        .map_err(|e| signature_invalid(e.to_string()))?;
+    verify_historical_producer_event_signature(&full.event, fact, suite)
 }

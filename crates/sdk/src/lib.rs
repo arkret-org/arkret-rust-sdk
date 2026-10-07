@@ -128,7 +128,7 @@ pub use arkret_models_collaboration::agent_scope::{
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
 pub use arkret_models_collaboration::authority_commit::{
-    HumanHistoricalSignerFact, HumanHistoricalSignerFactEntry, PeerStreamScanOutcome,
+    HistoricalProducerSignerFactEntry, HumanHistoricalSignerFact, PeerStreamScanOutcome,
     authority_forward_body_digest, historical_signer_facts_digest,
     validate_historical_signer_fact_inventory, validate_new_human_admission_fact,
     validate_new_human_admission_fact_for_purpose,

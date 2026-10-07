@@ -200,6 +200,89 @@ pub struct RealmAuthorityRootValue {
     pub controller_actor_id: ActorId,
     pub controller_epoch: u64,
     pub authority_generation: u64,
+    pub authority_event_ref: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalendarMetadataContext {
+    pub source: CommittedEventRef,
+    pub event_kind: crate::EventKind,
+    pub signer_id: ActorId,
+    pub payload_digest: Hash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalendarScheduleSourceValue {
+    pub effective_scope: ScopeRef,
+    #[serde(deserialize_with = "deserialize_required_calendar_nullable")]
+    pub source: Option<CommittedEventRef>,
+    pub strand_revision: CurrentRevision,
+    #[serde(deserialize_with = "deserialize_required_calendar_nullable")]
+    pub metadata_context: Option<CalendarMetadataContext>,
+}
+
+fn deserialize_required_calendar_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+impl CalendarScheduleSourceValue {
+    pub fn validate_for_current(
+        &self,
+        realm: &RealmId,
+        stream: &CommitStreamRef,
+        revision: &CurrentRevision,
+    ) -> Result<()> {
+        if self.strand_revision != *revision
+            || self.effective_scope.realm_id_opt() != Some(realm)
+            || CommitStreamRef::from_scope(&self.effective_scope, None)? != *stream
+        {
+            return Err(WireError::Protocol(
+                "Calendar source differs from its paired Strand cut".into(),
+            ));
+        }
+        for source in self
+            .source
+            .iter()
+            .chain(self.metadata_context.iter().map(|context| &context.source))
+        {
+            if source.stream_ref != *stream
+                || source.stream_position > revision.stream_position
+                || (source.stream_position == revision.stream_position
+                    && source.commit_id != revision.commit_id)
+            {
+                return Err(WireError::Protocol(
+                    "Calendar source is outside its current stream cut".into(),
+                ));
+            }
+        }
+        if revision.stream_position > 9_007_199_254_740_991 {
+            return Err(WireError::Protocol(
+                "Calendar revision exceeds the v1 integer range".into(),
+            ));
+        }
+        if let Some(context) = &self.metadata_context {
+            context.signer_id.validate()?;
+        }
+        if let Some(context) = &self.metadata_context
+            && (!matches!(
+                context.event_kind,
+                crate::EventKind::StrandCreate | crate::EventKind::StrandUpdate
+            ) || self.source.as_ref() != Some(&context.source))
+        {
+            return Err(WireError::Protocol(
+                "Calendar metadata context does not name the eligible encryption source".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl RealmAuthorityRootValue {
@@ -1235,6 +1318,9 @@ pub enum CurrentSelector {
         strand_id: StrandId,
     },
     /// One Calendar event occurrence and responder's complete RSVP entry.
+    CalendarScheduleSource {
+        strand_id: StrandId,
+    },
     Rsvp {
         event_ref: StrandId,
         occurrence: Option<String>,
@@ -1420,6 +1506,9 @@ enum FlatCurrentSelector {
         event_ref: StrandId,
         occurrence: Option<String>,
         responder_actor_id: ActorId,
+    },
+    CalendarScheduleSource {
+        strand_id: StrandId,
     },
     StrandWatch {
         strand_id: StrandId,
@@ -1722,6 +1811,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::MimiRoomBinding { mimi_room_uri }
                     }
                     FlatCurrentSelector::Strand { strand_id } => Self::Strand { strand_id },
+                    FlatCurrentSelector::CalendarScheduleSource { strand_id } => {
+                        Self::CalendarScheduleSource { strand_id }
+                    }
                     FlatCurrentSelector::Rsvp {
                         event_ref,
                         occurrence,
