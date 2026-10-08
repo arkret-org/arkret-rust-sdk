@@ -3,7 +3,7 @@
 //! Input: registry/operations-error-mapping.json; version=2026-10-03.1;
 //! sha256=12879f0481effcbc03c51a790e57e336ad68d701f6af5d75b54d1e6392e24602 Input: registry/
 //! contract-registry.json; version=2026-10-07.2;
-//! sha256=6ce6da0ca3729726f35f1c191f43982bab6b099d92609b7210008aca8a60478c Input: registry/
+//! sha256=e8aa1a38ab2c69a2b8d91c2c68d03c31dccac6625973142d3e4b9f22df90a030 Input: registry/
 //! error-code-registry.json; version=2026-10-03.1;
 //! sha256=3da26d6a49a8183dbc1b001f809357ab2f585bed6514e675e538658802251f99 Entries: operations=211
 
