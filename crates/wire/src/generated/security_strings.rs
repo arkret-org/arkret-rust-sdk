@@ -3,7 +3,7 @@
 //! Input: registry/proof-context-registry.json; version=2026-10-06.1;
 //! sha256=fca5cd3009486b1748ada6c8a5c5ff19bc294e227f524af497c8aab538f2e580 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
-//! sha256=6a319728b002ba82e6ba91bced9550399b4f2dfa4d981c1f6d05f08e236575e3 Input: registry/
+//! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
 //! sha256=5beb1a9c98f49df7b091ef2b8798be8f22aa0206452de2e112d833dc4f6e152f Input: registry/
 //! signature-alg-registry.json; version=2026-09-20.1;
