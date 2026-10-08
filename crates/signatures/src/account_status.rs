@@ -95,7 +95,6 @@ mod tests {
             reason_code: None,
             reason: None,
             issued_at: "2026-08-16T00:00:00.000Z".parse().unwrap(),
-            effective_at: "2026-08-16T00:00:00.000Z".parse().unwrap(),
             expires_at: None,
         }
     }
@@ -180,5 +179,52 @@ mod tests {
         );
 
         assert!(serde_json::from_value::<AccountStatusRecord>(encoded).is_err());
+    }
+
+    #[test]
+    fn retired_effective_at_is_rejected_even_when_equal_or_backdated() {
+        let key = SigningKey::from_bytes(&[31; 32]);
+        let record = sign_account_status_record(unsigned(), authority_method(), &key).unwrap();
+        for timestamp in [
+            "2026-08-15T00:00:00.000Z",
+            "2026-08-16T00:00:00.000Z",
+            "2026-08-17T00:00:00.000Z",
+        ] {
+            let mut encoded = serde_json::to_value(&record).unwrap();
+            encoded["effective_at"] = serde_json::json!(timestamp);
+            assert!(serde_json::from_value::<AccountStatusRecord>(encoded).is_err());
+            let mut core = serde_json::to_value(unsigned()).unwrap();
+            core["effective_at"] = serde_json::json!(timestamp);
+            assert!(serde_json::from_value::<UnsignedAccountStatusRecord>(core).is_err());
+        }
+    }
+
+    #[test]
+    fn issued_at_binds_identity_and_signature_without_an_activation_clock() {
+        let key = SigningKey::from_bytes(&[31; 32]);
+        let public_key = PublicKeyMaterial::Ed25519Raw {
+            bytes: key.verifying_key().to_bytes().to_vec(),
+        };
+        for timestamp in ["2020-01-01T00:00:00.000Z", "2099-01-01T00:00:00.000Z"] {
+            let mut core = unsigned();
+            core.issued_at = timestamp.parse().unwrap();
+            let record =
+                sign_account_status_record(core.clone(), authority_method(), &key).unwrap();
+            verify_account_status_record(&record, &public_key).unwrap();
+            assert_eq!(record.proof.created_at, core.issued_at);
+            assert_eq!(record.account_status_record_id, core.record_id().unwrap());
+            assert!(
+                !serde_json::to_value(&record)
+                    .unwrap()
+                    .as_object()
+                    .unwrap()
+                    .contains_key("effective_at")
+            );
+            let replay = sign_account_status_record(core, authority_method(), &key).unwrap();
+            assert_eq!(record, replay);
+            let mut changed = record;
+            changed.issued_at += chrono::Duration::seconds(1);
+            assert!(verify_account_status_record(&changed, &public_key).is_err());
+        }
     }
 }

@@ -34,8 +34,6 @@ pub struct UnsignedAccountStatusRecord {
     pub reason: Option<AuditReasonText>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -160,7 +158,6 @@ impl UnsignedAccountStatusRecord {
             reason_code: self.reason_code,
             reason: self.reason,
             issued_at: self.issued_at,
-            effective_at: self.effective_at,
             expires_at: self.expires_at,
             proof,
         };
@@ -189,8 +186,6 @@ pub struct AccountStatusRecord {
     pub reason: Option<AuditReasonText>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -214,7 +209,6 @@ impl AccountStatusRecord {
             reason_code: self.reason_code.clone(),
             reason: self.reason.clone(),
             issued_at: self.issued_at,
-            effective_at: self.effective_at,
             expires_at: self.expires_at,
         }
     }
