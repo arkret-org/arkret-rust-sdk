@@ -1,10 +1,11 @@
 //! Blob object and upload-receipt wire shapes.
 
 pub use arkret_models_crypto::encrypted_attachment::{
-    EncryptedAttachment, EncryptedAttachmentGroupStateRef, EncryptedAttachmentKeyAlgorithm,
-    EncryptedAttachmentKeyRef, EncryptedAttachmentMarker, StreamEncryptedAttachment,
-    StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
-    WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
+    AttachmentContentKeyContext, AttachmentContentKeySalt, EncryptedAttachment,
+    EncryptedAttachmentGroupStateRef, EncryptedAttachmentKeyAlgorithm, EncryptedAttachmentKeyRef,
+    EncryptedAttachmentMarker, StreamEncryptedAttachment, StreamEncryptionAlgorithm,
+    StreamEncryptionScheme, WholeFileEncryptedAttachment, WholeFileEncryptionAlgorithm,
+    WholeFileEncryptionScheme,
 };
 use arkret_wire::{ActorId, BlobId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};

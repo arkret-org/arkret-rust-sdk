@@ -22,8 +22,8 @@ aead = ["dep:hkdf", "dep:subtle"]
 # stack only when enabled.
 account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf"]
 # Encrypted attachment codec (`blob_aead` module): `ak.blob.stream_aead.v1`
-# chunked streaming AEAD + `ak.blob.whole_file_aead.v1` whole-file AEAD, both
-# XChaCha20-Poly1305. Pulls in the AEAD stack only when enabled.
+# XChaCha20-Poly1305 streaming AEAD. Other schemes fail closed.
+# Pulls in the AEAD stack only when enabled.
 blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collaboration"]
 # SFrame media frame-key / recording-key derivation (`sframe` module): the
 # `MlsExporterSource` trait + fixed-label context builders over canonical JSON.

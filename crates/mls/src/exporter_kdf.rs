@@ -18,12 +18,13 @@
 //!
 //! The prior-epoch history / content exporter scheme (`ak.epoch-content-root-v1`
 //! and `ak.content-v1`) is gone from the registry and is deliberately absent
-//! here: this module derives no history secret, exposes no prior-epoch key, and
-//! offers no recovery-hierarchy root. The registered labels it serves are the
-//! reaction routing pair and the three RTC artifact keys.
+//! here: this module offers no epoch content root or recovery-hierarchy root.
+//! Attachment callers restore an independently authorized exact checkpoint;
+//! the registered per-object exporter never grants history access.
 
 use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::CallRecordingId;
+use arkret_models_crypto::AttachmentContentKeyContext;
 use arkret_wire::{
     CallId, DidCoreId, EventId, ExporterLabelDescriptor, ExporterLabelId, RealmId, ReasonCode,
     ScopeRef, exporter_label_descriptor,
@@ -42,6 +43,27 @@ pub const RTC_ARTIFACT_KEY_LEN: usize = 32;
 
 /// Output width of the one-hour reaction routing HMAC key.
 pub const REACTION_ROUTING_KEY_LEN: usize = 32;
+
+/// Derive an attachment key from an authorized exact epoch checkpoint.
+/// The caller resolves immutable genesis and winning state before constructing Context.
+pub fn derive_attachment_content_key(
+    group: &ArkretMlsGroup,
+    context: &AttachmentContentKeyContext,
+) -> Result<Zeroizing<[u8; 32]>> {
+    context.validate()?;
+    if group.scope() != &context.effective_scope || group.epoch() != context.epoch {
+        return Err(Error::Protocol(
+            "attachment_group_state_unresolved: scope/epoch mismatch".into(),
+        ));
+    }
+    let bytes = canonical_json_bytes(context)?;
+    let key = export_registered_secret(group, ExporterLabelId::BlobContentKeyV1, &bytes, 32)?;
+    let key: [u8; 32] = key
+        .as_slice()
+        .try_into()
+        .map_err(|_| Error::Crypto("attachment exporter output length mismatch".into()))?;
+    Ok(Zeroizing::new(key))
+}
 
 const PRIMITIVE_MLS_EXPORTER: &str = "MLS-Exporter";
 const PRIMITIVE_EXPAND_WITH_LABEL: &str = "ExpandWithLabel";
@@ -277,6 +299,72 @@ mod tests {
     use arkret_canonical::DigestSuite;
 
     use super::*;
+
+    #[test]
+    fn attachment_content_key_matches_the_frozen_spec_kats() {
+        use arkret_crypto::mls_exporter::{MlsExporterHash, mls_exporter_from_secret_with_hash};
+        let artifacts = std::env::var_os("ARKRET_SPEC_ARTIFACTS_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../../arkret-spec/spec/v1/artifacts")
+            });
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("fixtures/blob-content-key-fixture.json")).unwrap(),
+        )
+        .unwrap();
+        let label = ExporterLabelId::BlobContentKeyV1;
+        for kat in fixture["kats"].as_array().unwrap() {
+            let context: AttachmentContentKeyContext =
+                serde_json::from_value(kat["context"].clone()).unwrap();
+            context.validate().unwrap();
+            let bytes = canonical_json_bytes(&context).unwrap();
+            assert_eq!(bytes, kat["context_utf8"].as_str().unwrap().as_bytes());
+            ensure_registered(label, PRIMITIVE_MLS_EXPORTER, &bytes).unwrap();
+            let hash = match kat["hash"].as_str().unwrap() {
+                "sha256" => MlsExporterHash::Sha256,
+                "sha384" => MlsExporterHash::Sha384,
+                _ => panic!("unregistered KAT hash"),
+            };
+            let secret = hex::decode(kat["exporter_secret_hex"].as_str().unwrap()).unwrap();
+            let expected = hex::decode(kat["content_key_hex"].as_str().unwrap()).unwrap();
+            assert_eq!(
+                mls_exporter_from_secret_with_hash(&secret, label.as_str(), &bytes, 32, hash)
+                    .unwrap(),
+                expected
+            );
+            for (field, replacement) in kat["separation_inputs"].as_object().unwrap() {
+                let mut altered = kat["context"].clone();
+                altered[field] = replacement.clone();
+                let bytes = canonical_json_bytes(&altered).unwrap();
+                assert_ne!(
+                    mls_exporter_from_secret_with_hash(&secret, label.as_str(), &bytes, 32, hash)
+                        .unwrap(),
+                    expected
+                );
+            }
+        }
+        for case in fixture["salt_cases"].as_array().unwrap() {
+            assert_eq!(
+                serde_json::from_value::<arkret_models_crypto::AttachmentContentKeySalt>(
+                    case["value"].clone()
+                )
+                .is_ok(),
+                case["valid"].as_bool().unwrap()
+            );
+        }
+        for case in fixture["descriptor_cases"].as_array().unwrap() {
+            assert_eq!(
+                serde_json::from_value::<arkret_models_crypto::EncryptedAttachment>(
+                    case["descriptor"].clone()
+                )
+                .is_ok(),
+                case["valid"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+        }
+    }
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [3; 32]))

@@ -8,7 +8,7 @@
 //! second wire format, and only one of them can be the one peers reproduce.
 
 use hkdf::Hkdf;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha384};
 
 use crate::{Error, Result};
 
@@ -18,6 +18,13 @@ pub const MLS_LABEL_PREFIX: &str = "MLS 1.0 ";
 pub const MLS_EXPORTED_LABEL: &str = "exported";
 /// `KDF.Nh` for the SHA-256 KDF used by every registered v1 ciphersuite.
 pub const MLS_HASH_LEN: usize = 32;
+
+/// Primitive selection for independent KATs; this does not activate a suite.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MlsExporterHash {
+    Sha256,
+    Sha384,
+}
 
 fn encode_mls_varint(value: usize, output: &mut Vec<u8>) -> Result<()> {
     let value = u32::try_from(value)
@@ -86,4 +93,40 @@ pub fn mls_exporter_from_secret(
     let derived = mls_expand_with_label(exporter_secret, label, &[], MLS_HASH_LEN)?;
     let context_hash = Sha256::digest(context);
     mls_expand_with_label(&derived, MLS_EXPORTED_LABEL, &context_hash, length)
+}
+
+/// RFC 9420 exporter with an explicit cipher-suite Hash/KDF.
+/// Live groups use their negotiated runtime exporter, never this KAT adapter.
+pub fn mls_exporter_from_secret_with_hash(
+    exporter_secret: &[u8],
+    label: &str,
+    context: &[u8],
+    length: usize,
+    hash: MlsExporterHash,
+) -> Result<Vec<u8>> {
+    let nh = match hash {
+        MlsExporterHash::Sha256 => 32,
+        MlsExporterHash::Sha384 => 48,
+    };
+    if exporter_secret.len() != nh || label.is_empty() || length == 0 {
+        return Err(Error::Crypto(
+            "invalid MLS exporter primitive inputs".into(),
+        ));
+    }
+    if hash == MlsExporterHash::Sha256 {
+        return mls_exporter_from_secret(exporter_secret, label, context, length);
+    }
+    let root_info = mls_kdf_label(nh, label, &[])?;
+    let mut root = vec![0; nh];
+    Hkdf::<Sha384>::from_prk(exporter_secret)
+        .map_err(|_| Error::Crypto("invalid SHA-384 exporter secret".into()))?
+        .expand(&root_info, &mut root)
+        .map_err(|_| Error::Crypto("MLS DeriveSecret failed".into()))?;
+    let info = mls_kdf_label(length, MLS_EXPORTED_LABEL, &Sha384::digest(context))?;
+    let mut output = vec![0; length];
+    Hkdf::<Sha384>::from_prk(&root)
+        .map_err(|_| Error::Crypto("invalid SHA-384 derived secret".into()))?
+        .expand(&info, &mut output)
+        .map_err(|_| Error::Crypto("MLS exporter expansion failed".into()))?;
+    Ok(output)
 }

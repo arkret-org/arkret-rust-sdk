@@ -14,6 +14,67 @@ use arkret_wire::{
 
 const REALM: &str = "ak:realm:ASZ1iAvlGxgLC_-P6WHoR9vfijpaxbI5hoSwBx8zWTcT";
 
+#[test]
+fn attachment_exporter_restores_the_same_key_and_rejects_scope_epoch_drift() {
+    use arkret_mls::exporter_kdf::derive_attachment_content_key;
+    use arkret_models_crypto::{AttachmentContentKeyContext, AttachmentContentKeySalt};
+    let mut group = identity(&actor("attachment-author"), 9)
+        .create_group_with_governance_binding(
+            &scope(),
+            &MlsGovernanceBindingPayload::new(scope(), None, 0, 0, 0).unwrap(),
+        )
+        .unwrap();
+    group
+        .install_local_creator_binding(
+            actor("attachment-author"),
+            Some(EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x74; 32],
+            )),
+        )
+        .unwrap();
+    let context = AttachmentContentKeyContext {
+        effective_scope: scope(),
+        genesis_event_ref: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x72; 32]),
+        epoch: group.epoch(),
+        scheme: "ak.blob.stream_aead.v1".into(),
+        encryption_algorithm: "mls_exporter_aead_xchacha20poly1305_stream".into(),
+        content_key_salt: AttachmentContentKeySalt::from_bytes([1; 32]),
+    };
+    let checkpoint = group.export_state_record().unwrap();
+    let original = derive_attachment_content_key(&group, &context).unwrap();
+    let restored = ArkretMlsGroup::restore_from_state_record(&checkpoint).unwrap();
+    assert_eq!(
+        original.as_slice(),
+        derive_attachment_content_key(&restored, &context)
+            .unwrap()
+            .as_slice()
+    );
+    let mut changed = context.clone();
+    changed.content_key_salt = AttachmentContentKeySalt::from_bytes([2; 32]);
+    assert_ne!(
+        original.as_slice(),
+        derive_attachment_content_key(&restored, &changed)
+            .unwrap()
+            .as_slice()
+    );
+    changed = context.clone();
+    changed.epoch += 1;
+    assert!(derive_attachment_content_key(&restored, &changed).is_err());
+    changed = context.clone();
+    changed.effective_scope = ScopeRef::Realm {
+        realm_id: RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x73; 32],
+        )),
+    };
+    assert!(derive_attachment_content_key(&restored, &changed).is_err());
+    assert_eq!(
+        restored.export_state_record().unwrap().serialized_state,
+        checkpoint.serialized_state
+    );
+}
+
 fn actor(label: &str) -> ActorId {
     ActorId::account(AccountId::new(
         DidCoreId::new(format!("ak:did_core:web:{label}.example")).unwrap(),

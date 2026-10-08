@@ -3,12 +3,86 @@
 //! Blob operation DTOs stay in the `arkret` umbrella; this module owns the
 //! encryption/key-reference half of the blob artifact.
 
-use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash};
+use arkret_wire::{Base64UrlString, BlobRef, EventId, Hash, ScopeRef};
 use serde::{Deserialize, Serialize};
 
 pub const MIN_SEGMENT_SIZE: u32 = 1024;
 pub const MAX_SEGMENT_SIZE: u32 = 8_388_608;
 pub const MAX_SEGMENT_COUNT: u32 = 1_048_576;
+
+/// Public per-object randomness, never a secret or a storage key.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct AttachmentContentKeySalt(String);
+
+impl AttachmentContentKeySalt {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(arkret_canonical::base64url_encode(bytes))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for AttachmentContentKeySalt {
+    type Error = arkret_wire::WireError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let bytes = arkret_canonical::base64url_decode(&value)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+        if bytes.len() != 32 || arkret_canonical::base64url_encode(&bytes) != value {
+            return Err(arkret_wire::WireError::Protocol(
+                "content_key_salt must encode exactly 32 canonical base64url octets".into(),
+            ));
+        }
+        Ok(Self(value))
+    }
+}
+
+impl From<AttachmentContentKeySalt> for String {
+    fn from(value: AttachmentContentKeySalt) -> Self {
+        value.0
+    }
+}
+
+/// The exact resolved MLS-Exporter Context from media-and-blob section 3.0.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AttachmentContentKeyContext {
+    pub effective_scope: ScopeRef,
+    pub genesis_event_ref: EventId,
+    pub epoch: u64,
+    pub scheme: String,
+    pub encryption_algorithm: String,
+    pub content_key_salt: AttachmentContentKeySalt,
+}
+
+impl AttachmentContentKeyContext {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.effective_scope.canonical_mls_group_id()?;
+        let valid = match self.scheme.as_str() {
+            "ak.blob.whole_file_aead.v1" => matches!(
+                self.encryption_algorithm.as_str(),
+                "mls_exporter_aead_xchacha20poly1305" | "mls_exporter_aead_aes_256_gcm"
+            ),
+            "ak.blob.stream_aead.v1" => matches!(
+                self.encryption_algorithm.as_str(),
+                "mls_exporter_aead_xchacha20poly1305_stream"
+                    | "mls_exporter_aead_aes_256_gcm_stream"
+            ),
+            _ => false,
+        };
+        if !valid {
+            return Err(arkret_wire::WireError::Protocol(
+                "unsupported_attachment_scheme".into(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// The shared stream geometry for attachment and file-transfer descriptors.
 /// Compute without addition overflow, before allocating or deriving any key.
@@ -85,6 +159,12 @@ pub enum WholeFileEncryptionScheme {
     V1,
 }
 
+impl Default for WholeFileEncryptionScheme {
+    fn default() -> Self {
+        Self::V1
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -101,9 +181,11 @@ pub struct WholeFileEncryptedAttachment {
     pub blob_ref: BlobRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = bool)))]
     pub encrypted: EncryptedAttachmentMarker,
+    #[serde(default)]
     pub scheme: WholeFileEncryptionScheme,
     pub encryption_algorithm: WholeFileEncryptionAlgorithm,
     pub key_ref: EncryptedAttachmentKeyRef,
+    pub content_key_salt: AttachmentContentKeySalt,
     pub size_bytes: u64,
     pub media_type: String,
     pub nonce: Base64UrlString,
@@ -135,6 +217,7 @@ pub struct StreamEncryptedAttachment {
     pub scheme: StreamEncryptionScheme,
     pub encryption_algorithm: StreamEncryptionAlgorithm,
     pub key_ref: EncryptedAttachmentKeyRef,
+    pub content_key_salt: AttachmentContentKeySalt,
     pub size_bytes: u64,
     pub media_type: String,
     pub nonce_prefix: Base64UrlString,
@@ -147,6 +230,58 @@ pub struct StreamEncryptedAttachment {
 pub enum EncryptedAttachment {
     WholeFile(WholeFileEncryptedAttachment),
     Stream(StreamEncryptedAttachment),
+}
+
+impl EncryptedAttachment {
+    pub fn key_ref(&self) -> &EncryptedAttachmentKeyRef {
+        match self {
+            Self::WholeFile(value) => &value.key_ref,
+            Self::Stream(value) => &value.key_ref,
+        }
+    }
+
+    /// Coordinates must come from the same verified winning group state.
+    pub fn content_key_context(
+        &self,
+        effective_scope: ScopeRef,
+        genesis_event_ref: EventId,
+        epoch: u64,
+    ) -> AttachmentContentKeyContext {
+        let (scheme, algorithm, salt) = match self {
+            Self::WholeFile(value) => (
+                "ak.blob.whole_file_aead.v1",
+                match value.encryption_algorithm {
+                    WholeFileEncryptionAlgorithm::MlsExporterAeadXchacha20poly1305 => {
+                        "mls_exporter_aead_xchacha20poly1305"
+                    }
+                    WholeFileEncryptionAlgorithm::MlsExporterAeadAes256Gcm => {
+                        "mls_exporter_aead_aes_256_gcm"
+                    }
+                },
+                &value.content_key_salt,
+            ),
+            Self::Stream(value) => (
+                "ak.blob.stream_aead.v1",
+                match value.encryption_algorithm {
+                    StreamEncryptionAlgorithm::MlsExporterAeadXchacha20poly1305Stream => {
+                        "mls_exporter_aead_xchacha20poly1305_stream"
+                    }
+                    StreamEncryptionAlgorithm::MlsExporterAeadAes256GcmStream => {
+                        "mls_exporter_aead_aes_256_gcm_stream"
+                    }
+                },
+                &value.content_key_salt,
+            ),
+        };
+        AttachmentContentKeyContext {
+            effective_scope,
+            genesis_event_ref,
+            epoch,
+            scheme: scheme.into(),
+            encryption_algorithm: algorithm.into(),
+            content_key_salt: salt.clone(),
+        }
+    }
 }
 
 #[cfg(test)]

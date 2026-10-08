@@ -12,8 +12,8 @@
 //! # Algorithm closure
 //!
 //! Only **XChaCha20-Poly1305** is implemented here
-//! (`mls_exporter_aead_xchacha20poly1305_stream` for the streaming scheme,
-//! `mls_exporter_aead_xchacha20poly1305` for whole-file). The two AES-GCM
+//! (`mls_exporter_aead_xchacha20poly1305_stream` for the streaming scheme).
+//! Whole-file descriptors and the two AES-GCM
 //! `alg` values defined by the schema, and any unknown `alg` / `scheme`, MUST
 //! fail closed with `unsupported_attachment_scheme` — they are never decrypted
 //! with the XChaCha path.
@@ -22,7 +22,9 @@
 //!
 //! The 32-byte `content_key` is derived by the caller from the MLS exporter
 //! (the SDK does not depend on an MLS runtime). Each attachment object MUST use
-//! a fresh content key (§3.3.4); callers are responsible for that contract.
+//! a fresh content key from the exact section 3.0 Context; the typed salt is
+//! carried unchanged in the descriptor and every segment AAD. The MLS behavior
+//! layer derives keys through `exporter_kdf::derive_attachment_content_key`.
 //!
 //! # `key_ref`
 //!
@@ -34,9 +36,12 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
-use arkret_canonical::canonical::{canonical_json_bytes, sha256_hex};
+use arkret_canonical::canonical::{
+    DigestSuite, canonical_json_bytes, digest, digest_hex, digest_suite,
+};
 use arkret_models_crypto::{
-    EncryptedAttachment, EncryptedAttachmentGroupStateRef, EncryptedAttachmentKeyRef,
+    AttachmentContentKeySalt, EncryptedAttachment, EncryptedAttachmentGroupStateRef,
+    EncryptedAttachmentKeyRef,
 };
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -70,6 +75,13 @@ const TAG_LEN: usize = 16;
 const FLAG_NORMAL: u8 = 0x00;
 const FLAG_LAST: u8 = 0x01;
 
+/// Generate once and freeze with the object intent before exporter derivation.
+pub fn fresh_content_key_salt() -> Result<AttachmentContentKeySalt> {
+    let mut bytes = [0; 32];
+    getrandom::fill(&mut bytes).map_err(|error| Error::Crypto(error.to_string()))?;
+    Ok(AttachmentContentKeySalt::from_bytes(bytes))
+}
+
 /// Encrypted attachment envelope, matching
 /// `blob.schema.json#/$defs/encrypted_attachment`.
 ///
@@ -93,6 +105,7 @@ struct AttachmentEnvelopeFields {
     /// MLS group-binding key reference (`{algorithm, group_state_ref}`),
     /// defined by `blob.schema.json#/$defs/encrypted_attachment`.
     pub key_ref: EncryptedAttachmentKeyRef,
+    pub content_key_salt: AttachmentContentKeySalt,
     /// Plaintext size in bytes.
     pub size_bytes: u64,
     /// Declared media type.
@@ -131,6 +144,9 @@ fn envelope_fields(envelope: &EncryptedAttachment) -> Result<AttachmentEnvelopeF
 pub struct StreamEncryptParams {
     /// MLS group-binding key reference bound into the AAD.
     pub key_ref: EncryptedAttachmentKeyRef,
+    pub content_key_salt: AttachmentContentKeySalt,
+    /// Digest suite of the owning Realm, independent of the MLS KDF.
+    pub digest_suite: DigestSuite,
     /// Declared media type.
     pub media_type: String,
     /// Segment size in bytes; bounded by [`MIN_SEGMENT_SIZE`] / [`MAX_SEGMENT_SIZE`].
@@ -200,6 +216,7 @@ fn segment_nonce(
 /// Canonical per-segment AAD (§3.3.3). Keys are sorted by `canonical_json_bytes`.
 struct StreamSegmentAadContext<'a> {
     key_ref: &'a EncryptedAttachmentKeyRef,
+    content_key_salt: &'a AttachmentContentKeySalt,
     epoch: u64,
     nonce_prefix_b64: &'a str,
     segment_count: u32,
@@ -215,6 +232,7 @@ fn stream_segment_aad(
     let map: BTreeMap<&str, Value> = BTreeMap::from([
         ("scheme", json!(SCHEME_STREAM)),
         ("key_ref", json!(context.key_ref)),
+        ("content_key_salt", json!(context.content_key_salt)),
         ("epoch", json!(context.epoch)),
         ("nonce_prefix", json!(context.nonce_prefix_b64)),
         ("segment_index", json!(segment_index)),
@@ -285,6 +303,7 @@ pub fn encrypt_stream(
 
     let aad_context = StreamSegmentAadContext {
         key_ref: &params.key_ref,
+        content_key_salt: &params.content_key_salt,
         epoch,
         nonce_prefix_b64: &nonce_prefix_b64,
         segment_count,
@@ -310,11 +329,16 @@ pub fn encrypt_stream(
     }
 
     let envelope = AttachmentEnvelopeFields {
-        blob_ref: format!("ak:blob:sha256:{}", sha256_hex(&ciphertext)),
+        blob_ref: format!(
+            "ak:blob:{}:{}",
+            params.digest_suite.as_str(),
+            digest_hex(params.digest_suite, &ciphertext)
+        ),
         encrypted: true,
         scheme: SCHEME_STREAM.to_owned(),
         encryption_algorithm: ALG_STREAM_XCHACHA.to_owned(),
         key_ref: params.key_ref.clone(),
+        content_key_salt: params.content_key_salt.clone(),
         size_bytes,
         media_type: params.media_type.clone(),
         nonce: None,
@@ -335,6 +359,7 @@ struct StreamContext {
     nonce_prefix: [u8; NONCE_PREFIX_LEN],
     nonce_prefix_b64: String,
     key_ref: EncryptedAttachmentKeyRef,
+    content_key_salt: AttachmentContentKeySalt,
     epoch: u64,
     media_type: String,
     size_bytes: u64,
@@ -386,6 +411,7 @@ impl StreamContext {
             nonce_prefix,
             nonce_prefix_b64: nonce_prefix_b64.to_owned(),
             key_ref: env.key_ref.clone(),
+            content_key_salt: env.content_key_salt.clone(),
             epoch,
             media_type: env.media_type.clone(),
             size_bytes: env.size_bytes,
@@ -508,6 +534,7 @@ impl StreamDecryptor {
         let nonce = segment_nonce(&self.ctx.nonce_prefix, segment_index, last);
         let aad_context = StreamSegmentAadContext {
             key_ref: &self.ctx.key_ref,
+            content_key_salt: &self.ctx.content_key_salt,
             epoch: self.ctx.epoch,
             nonce_prefix_b64: &self.ctx.nonce_prefix_b64,
             segment_count: self.ctx.segment_count,
@@ -562,7 +589,13 @@ impl StreamDecryptor {
             ));
         }
         // §3.3.6 (7): recompute the concatenated ciphertext digest.
-        let actual = format!("sha256:{}", sha256_hex(&self.digest_input));
+        let suite = self
+            .ctx
+            .expected_digest
+            .split_once(':')
+            .ok_or_else(|| protocol("schema_violation", "missing digest suite"))?
+            .0;
+        let actual = digest(digest_suite(suite)?, &self.digest_input);
         if actual != self.ctx.expected_digest {
             return Err(protocol(
                 "digest_mismatch",
@@ -670,6 +703,8 @@ mod tests {
     fn params(segment_bytes: u32) -> StreamEncryptParams {
         StreamEncryptParams {
             key_ref: test_key_ref(),
+            content_key_salt: AttachmentContentKeySalt::from_bytes([7; 32]),
+            digest_suite: DigestSuite::Sha256,
             media_type: "video/mp4".to_owned(),
             segment_bytes,
         }
@@ -677,6 +712,40 @@ mod tests {
 
     fn winning_epoch(_group_state_ref: &EncryptedAttachmentGroupStateRef) -> Option<u64> {
         Some(42)
+    }
+
+    #[test]
+    fn authenticated_salt_tampering_releases_no_plaintext() {
+        let params = params(1024);
+        let (ciphertext, envelope) =
+            encrypt_stream(b"authenticated object", &key(), &params, &winning_epoch).unwrap();
+        let mut changed = envelope_fields(&envelope).unwrap();
+        changed.content_key_salt = AttachmentContentKeySalt::from_bytes([8; 32]);
+        let changed = typed_envelope(changed).unwrap();
+        assert_eq!(
+            reason(&decrypt_stream(&ciphertext, &changed, &key(), &winning_epoch).unwrap_err()),
+            "segment_aead_failed"
+        );
+    }
+
+    #[test]
+    fn stream_ciphertext_digest_uses_the_declared_suite() {
+        for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
+            let mut params = params(1024);
+            params.digest_suite = suite;
+            let (ciphertext, envelope) =
+                encrypt_stream(b"digest suite", &key(), &params, &winning_epoch).unwrap();
+            assert!(
+                envelope_fields(&envelope)
+                    .unwrap()
+                    .blob_ref
+                    .starts_with(&format!("ak:blob:{}:", suite.as_str()))
+            );
+            assert_eq!(
+                decrypt_stream(&ciphertext, &envelope, &key(), &winning_epoch).unwrap(),
+                b"digest suite"
+            );
+        }
     }
 
     fn reason(err: &Error) -> String {
@@ -748,8 +817,7 @@ mod tests {
         for key_ref in [test_key_ref(), proof_hash_key_ref()] {
             let params = StreamEncryptParams {
                 key_ref,
-                media_type: "application/octet-stream".to_owned(),
-                segment_bytes: MIN_SEGMENT_SIZE,
+                ..params(MIN_SEGMENT_SIZE)
             };
             let (ciphertext, envelope) =
                 encrypt_stream(&plaintext, &key, &params, &winning_epoch).unwrap();
@@ -969,6 +1037,7 @@ mod tests {
             "scheme": "ak.blob.stream_aead.v1",
             "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
             "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB" },
+            "content_key_salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_bytes": 262144,
             "size_bytes": 3211264,
