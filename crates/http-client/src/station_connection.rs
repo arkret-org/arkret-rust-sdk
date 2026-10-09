@@ -21,17 +21,60 @@ pub async fn fetch_station_description(
     Ok(description)
 }
 
+/// Credential-free discovery with independently configured deployment roots.
+/// This keeps hostname verification and all bootstrap transport limits.
+#[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
+pub async fn fetch_station_description_with_roots(
+    base: &Url,
+    allow_insecure_loopback: bool,
+    roots: &[reqwest::Certificate],
+) -> Result<ServiceDescribe> {
+    validate_connection_url(base, allow_insecure_loopback)?;
+    let mut endpoint = base.join("_arkret/describe")?;
+    endpoint
+        .query_pairs_mut()
+        .append_pair("service_kind", "station");
+    let client = native_client(roots)?;
+    let bytes = fetch_with_client(&client, &endpoint).await?;
+    let description: ServiceDescribe = serde_json::from_slice(&bytes)?;
+    StationConnectionBinding::from_description(base, &description, allow_insecure_loopback)?;
+    Ok(description)
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch(endpoint: &Url) -> Result<Vec<u8>> {
+    let client = crate::tls_roots::apply_explicit_tls_roots(native_builder())?
+        .build()
+        .map_err(crate::client_internals::transport_error)?;
+    fetch_with_client(&client, endpoint).await
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn native_builder() -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(crate::SERVICE_RESOLUTION_FETCH_TIMEOUT)
+        .gzip(false)
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
+fn native_client(roots: &[reqwest::Certificate]) -> Result<reqwest::Client> {
+    let builder = native_builder();
+    let builder = if roots.is_empty() {
+        crate::tls_roots::apply_explicit_tls_roots(builder)?
+    } else {
+        builder
+            .tls_backend_rustls()
+            .tls_certs_only(roots.iter().cloned())
+    };
+    builder
+        .build()
+        .map_err(crate::client_internals::transport_error)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn fetch_with_client(client: &reqwest::Client, endpoint: &Url) -> Result<Vec<u8>> {
     use crate::{SERVICE_DESCRIBE_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT};
-    let client = crate::tls_roots::apply_explicit_tls_roots(
-        reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(SERVICE_RESOLUTION_FETCH_TIMEOUT)
-            .gzip(false),
-    )?
-    .build()
-    .map_err(crate::client_internals::transport_error)?;
     tokio::time::timeout(SERVICE_RESOLUTION_FETCH_TIMEOUT, async {
         let response = client
             .get(endpoint.clone())

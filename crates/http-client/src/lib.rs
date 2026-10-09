@@ -392,6 +392,7 @@ pub struct Client {
     pub(crate) base_url: Url,
     pub(crate) http: reqwest::Client,
     pub(crate) auth: Option<Auth>,
+    pub(crate) own_station_context: Option<Arc<own_station_results::OwnStationContext>>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
     pub(crate) service_signature_identity: Option<(arkret_wire::DidCoreId, arkret_wire::DidCoreId)>,
     pub(crate) managed_device_signature_identity: Option<(
