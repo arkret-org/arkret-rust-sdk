@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 482,
+    "total": 487,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -72,7 +72,7 @@
     "by_category": {
       "closed_dispatch": 5,
       "json_authoring": 60,
-      "json_path_mutation": 68,
+      "json_path_mutation": 73,
       "paired_api": 14,
       "public_value_field": 335
     },
@@ -81,26 +81,26 @@
       "independent": 11,
       "internal_or_fixture": 12,
       "open_json": 71,
-      "polymorphic_boundary": 381
+      "polymorphic_boundary": 386
     },
     "by_lifecycle": {
       "pending_migration": 7,
-      "retained_boundary": 475
+      "retained_boundary": 480
     },
     "by_decision": {
       "closed": 7,
       "independent": 11,
       "open": 71,
-      "raw": 393
+      "raw": 398
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 179,
+      "arkret-rust-sdk": 181,
       "bridges": 4,
       "chime": 3,
       "coauth": 44,
       "floria": 12,
-      "garth": 2,
-      "inkson": 41,
+      "garth": 3,
+      "inkson": 43,
       "sodmin": 1,
       "soland": 195,
       "teabay": 1
@@ -110,7 +110,7 @@
       "open_json": 2,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 402
+      "unknown": 407
     }
   },
   "entries": [
@@ -315,7 +315,7 @@
       "evidence": "match kind { arkret_sdk::EventKind::SpaceCreate | arkret_sdk::EventKind::StrandCreate => { let object = payload .get(\"object\") .and_then(serde_json::Value::as_object) .ok_or_else(|| anyhow::anyhow!(\"invalid metadata create object\"))?; if let Some(encrypted) = object.get(\"encry..."
     },
     {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/circle_current_results.rs::admit_in_connection:76f8fe3a6a21b7af",
+      "finding": "closed_dispatch:soland/crates/storage-postgres/src/circle_current_results.rs::admit_in_connection:300ec16d4edfb582",
       "category": "closed_dispatch",
       "rust_field": null,
       "crate": null,
@@ -336,7 +336,7 @@
       "authority": "arkret-spec closed union selected by &event.kind",
       "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing. Exact fingerprint updated after comparison with SDK baseline 8e32caf3; this unchanged pre-existing dispatcher remains pending migration, without a raw-boundary exemption.",
       "evidence": "match &event.kind { EventKind::CircleCreate => { if event.scope_ref != (ScopeRef::Realm { realm_id: event.realm_id.clone(), }) || commit.stream_ref != (CommitStreamRef::Realm { realm_id: event.realm_id.clone(), }) { return Err(schema(\"Circle create must be on the Realm stream\"..."
     },
     {
@@ -390,7 +390,7 @@
       "evidence": "match basis.kind.as_str() { \"ak.strand.create\" => arkret_wire::StrandId::from_event_id(basis_id) == *target, \"ak.strand.update\" => { basis.envelope[\"payload\"][\"target_ref\"].as_str() == Some(target.as_str()) } _ => false, }"
     },
     {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/signal_scope_authority.rs::apply:91e995501a58dfc1",
+      "finding": "closed_dispatch:soland/crates/storage-postgres/src/signal_scope_authority.rs::apply:69e3932a93b824a5",
       "category": "closed_dispatch",
       "rust_field": null,
       "crate": null,
@@ -411,7 +411,7 @@
       "authority": "arkret-spec closed union selected by event.kind",
       "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing. Exact fingerprint updated after comparison with SDK baseline 8e32caf3; this unchanged pre-existing dispatcher remains pending migration, without a raw-boundary exemption.",
       "evidence": "match event.kind { EventKind::RealmCreate => { self.root = Some(RealmAuthorityRootCurrent { realm_id: event.realm_id.clone(), controller_actor_id: event.actor_id.clone(), controller_epoch: 0, authority_generation: 0, authority_event_ref: event.event_id.clone(), }); self.direct..."
     },
     {
@@ -7215,6 +7215,31 @@
       "evidence": "binding.insert(\"realm_id\".to_owned(), serde_json::to_value(&self.realm_id)?);"
     },
     {
+      "finding": "json_path_mutation:crates/models-collaboration/src/mls_creator_bootstrap.rs::validate_creator_own_snapshot:fa751b582c4c97b1",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "path": "crates/models-collaboration/src/mls_creator_bootstrap.rs",
+      "owner": "validate_creator_own_snapshot",
+      "owner_repository": "arkret-rust-sdk",
+      "symbol": "validate_creator_own_snapshot",
+      "field": "signature",
+      "discriminator": null,
+      "data_field": "signature",
+      "rust_type": null,
+      "spec_pointer": "realm-state-snapshot.schema.json",
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-state-snapshot.schema.json",
+      "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact operation serializes the authoritative typed RealmStateSnapshot and removes only snapshot_id and signature to rederive its content ID. The typed snapshot undergoes the consumer's explicit stream/head/current checks before projection; the remaining canonical bytes are hashed and compared to its typed snapshot_id. This is the immutable content-address preimage, not authoring a discriminator/raw-data pair; signature verification remains a separate required boundary. See zh/conformance/realm-state-snapshot-schema.md section 4.",
+      "evidence": "object.remove(\"signature\");"
+    },
+    {
       "finding": "json_path_mutation:crates/models-collaboration/src/mls_roster_authority.rs::signing_bytes:4028b123feb233f4",
       "category": "json_path_mutation",
       "rust_field": null,
@@ -7413,6 +7438,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
       "evidence": "wire.remove(\"kind\");"
+    },
+    {
+      "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::validate_content_address:fa751b582c4c97b1",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "crates/wire/src/authority_commit.rs",
+      "path": "crates/wire/src/authority_commit.rs",
+      "owner": "validate_content_address",
+      "owner_repository": "arkret-rust-sdk",
+      "symbol": "validate_content_address",
+      "field": "signature",
+      "discriminator": null,
+      "data_field": "signature",
+      "rust_type": null,
+      "spec_pointer": "realm-commit.schema.json",
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-commit.schema.json",
+      "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact operation validates a typed RealmCommit, serializes it, and removes only commit_id and signature to rederive the original immutable content ID. Every other actual member remains committed; the hash must equal the typed commit_id. It does not change a durable Commit or establish signer authority. The content ID and signature projections are separately specified in zh/sync/authority-commit-log.md section 3 and the normative producer fact commitment section.",
+      "evidence": "object.remove(\"signature\");"
     },
     {
       "finding": "json_path_mutation:crates/wire/src/event_envelope.rs::event_digest_preimage:9ef3f7535d446e9e",
@@ -7715,6 +7765,31 @@
       "evidence": "normalized.insert("
     },
     {
+      "finding": "json_path_mutation:garth/src/own_station_results.rs::validate_snapshot:fa751b582c4c97b1",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "garth/src/own_station_results.rs",
+      "path": "garth/src/own_station_results.rs",
+      "owner": "validate_snapshot",
+      "owner_repository": "garth",
+      "symbol": "validate_snapshot",
+      "field": "signature",
+      "discriminator": null,
+      "data_field": "signature",
+      "rust_type": null,
+      "spec_pointer": "realm-state-snapshot.schema.json",
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-state-snapshot.schema.json",
+      "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact operation serializes the authoritative typed RealmStateSnapshot and removes only snapshot_id and signature to rederive its content ID. The typed snapshot undergoes the consumer's explicit stream/head/current checks before projection; the remaining canonical bytes are hashed and compared to its typed snapshot_id. This is the immutable content-address preimage, not authoring a discriminator/raw-data pair; signature verification remains a separate required boundary. See zh/conformance/realm-state-snapshot-schema.md section 4.",
+      "evidence": "object.remove(\"signature\");"
+    },
+    {
       "finding": "json_path_mutation:garth/src/replica.rs::install_verified_snapshot_heads:fa751b582c4c97b1",
       "category": "json_path_mutation",
       "rust_field": null,
@@ -7738,6 +7813,56 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
       "evidence": "object.remove(\"signature\");"
+    },
+    {
+      "finding": "json_path_mutation:inkson/src/event_submit/metadata.rs::replace_payload:c50d5e01428b2d4f",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "inkson/src/event_submit/metadata.rs",
+      "path": "inkson/src/event_submit/metadata.rs",
+      "owner": "replace_payload",
+      "owner_repository": "inkson",
+      "symbol": "replace_payload",
+      "field": "payload",
+      "discriminator": null,
+      "data_field": "payload",
+      "rust_type": null,
+      "spec_pointer": "event-payload.schema.json",
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "event-payload.schema.json",
+      "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This generic K: EventSpec metadata conversion requires intent.kind == K::KIND and K::validate_payload before replacing only the still unauthored typed payload. The result is decoded back into the closed SDK EventIntent carrier. Event.kind therefore cannot independently select an arbitrary JSON body at this boundary. The root schema is a definitions bundle; K selects its registered exact payload validator, never the generic root.",
+      "evidence": "value[\"payload\"] = serde_json::to_value(payload)?;"
+    },
+    {
+      "finding": "json_path_mutation:inkson/src/event_submit/metadata.rs::validate_strand_metadata_patch:4e30e48b0c90bc0a",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "inkson/src/event_submit/metadata.rs",
+      "path": "inkson/src/event_submit/metadata.rs",
+      "owner": "validate_strand_metadata_patch",
+      "owner_repository": "inkson",
+      "symbol": "validate_strand_metadata_patch",
+      "field": "metadata",
+      "discriminator": null,
+      "data_field": "metadata",
+      "rust_type": null,
+      "spec_pointer": "strand.schema.json#/$defs/strand_metadata",
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "strand.schema.json#/$defs/strand_metadata",
+      "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact decrypted metadata validation view starts from typed Strand, removes encrypted_metadata, installs the opened plaintext, applies the validated SDK Patch, then immediately deserializes to typed Strand and validates profile activation and Calendar metadata. The temporary Value is never submitted or signed; it validates the post-patch plaintext branch before encryption, as required by strand.schema.json metadata/encrypted_metadata and profile activation rules.",
+      "evidence": "opened[\"metadata\"] = plaintext;"
     },
     {
       "finding": "json_path_mutation:inkson/src/outbound_store/creator_quarantine.rs::decode_for_recovery:1b97957abb11d222",

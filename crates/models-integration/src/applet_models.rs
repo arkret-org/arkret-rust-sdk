@@ -354,11 +354,72 @@ impl AppletManagedActorAuthoringContext {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum AppletManagedActorCommittedRequest {
     Bot(Box<AppletBotProvisionRequestBody>),
     Ghost(Box<GhostActorProvisionRequestBody>),
+}
+
+impl<'de> Deserialize<'de> for AppletManagedActorCommittedRequest {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        // Both creation branches have identical outer fields. Deserialize the
+        // closed typed carrier once, then use its signed purpose to select the
+        // branch; untagged trial order would silently turn a fresh Ghost into Bot.
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Carrier {
+            authoring_request: AppletManagedActorAuthoringRequest,
+            #[serde(default)]
+            managed_actor_bundle: Option<AppletManagedActorAuthoringBundle>,
+            #[serde(default)]
+            approval_signatures: Vec<arkret_wire::ApprovalSignature>,
+            #[serde(default)]
+            existing_managed_actor: Option<crate::ExistingManagedActor>,
+        }
+        let carrier = Carrier::deserialize(deserializer)?;
+        carrier
+            .authoring_request
+            .basis
+            .validate()
+            .map_err(serde::de::Error::custom)?;
+        if carrier.authoring_request.purpose != carrier.authoring_request.basis.purpose() {
+            return Err(serde::de::Error::custom(
+                "managed request purpose differs from its signed basis",
+            ));
+        }
+        match carrier.authoring_request.purpose {
+            AppletManagedActorPurpose::ProvisionBot => {
+                if carrier.existing_managed_actor.is_some() {
+                    return Err(serde::de::Error::custom(
+                        "Bot creation cannot carry Ghost reuse",
+                    ));
+                }
+                Ok(Self::Bot(Box::new(AppletBotProvisionRequestBody {
+                    authoring_request: carrier.authoring_request,
+                    managed_actor_bundle: carrier.managed_actor_bundle.ok_or_else(|| {
+                        serde::de::Error::custom("Bot creation requires its managed Actor bundle")
+                    })?,
+                    approval_signatures: carrier.approval_signatures,
+                })))
+            }
+            AppletManagedActorPurpose::ProvisionGhost => {
+                let body = GhostActorProvisionRequestBody {
+                    authoring_request: carrier.authoring_request,
+                    managed_actor_bundle: carrier.managed_actor_bundle,
+                    approval_signatures: carrier.approval_signatures,
+                    existing_managed_actor: carrier.existing_managed_actor,
+                };
+                body.validate().map_err(serde::de::Error::custom)?;
+                Ok(Self::Ghost(Box::new(body)))
+            }
+            AppletManagedActorPurpose::InstallService => Err(serde::de::Error::custom(
+                "Service installation has no managed completion request",
+            )),
+        }
+    }
 }
 
 /// Request that atomically fences an Applet installation and submits the
@@ -1374,6 +1435,7 @@ pub struct AppletBotProvisionRequestBody {
     pub authoring_request: AppletManagedActorAuthoringRequest,
     pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
 }
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

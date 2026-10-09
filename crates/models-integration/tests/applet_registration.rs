@@ -1485,3 +1485,106 @@ fn managed_actor_reuse_anchors_are_closed_bare_event_ids() {
         serde_json::from_value::<arkret_models_integration::ExistingManagedActor>(extra).is_err()
     );
 }
+
+#[test]
+fn committed_managed_request_roundtrip_uses_signed_purpose_not_untagged_order() {
+    let (bot, bundle) = sample_bot_request_body();
+    let bot_wire = serde_json::to_value(AppletManagedActorCommittedRequest::Bot(Box::new(
+        bot.clone(),
+    )))
+    .unwrap();
+    assert!(matches!(
+        serde_json::from_value::<AppletManagedActorCommittedRequest>(bot_wire.clone()).unwrap(),
+        AppletManagedActorCommittedRequest::Bot(_)
+    ));
+    let basis = bot.authoring_request.basis.bot().unwrap();
+    let ghost_basis = arkret_models_integration::AppletGhostAuthoringRequestBasis {
+        schema: arkret_models_integration::AppletGhostAuthoringRequestBasis::SCHEMA.into(),
+        purpose: AppletManagedActorPurpose::ProvisionGhost,
+        target_station_id: basis.target_station_id.clone(),
+        applet_id: basis.applet_id.clone(),
+        service_id: basis.service_id.clone(),
+        effective_scope: basis.effective_scope.clone(),
+        external_ref: arkret_models_integration::GhostExternalTuple {
+            protocol: "bridge".into(),
+            instance_id: "tenant".into(),
+            external_id: "person".into(),
+        },
+        display_name: None,
+        registration_event_ref: basis.registration_event_ref.clone(),
+        authorization_ref: basis.authorization_ref.clone(),
+        registration_epoch_evidence: basis.registration_epoch_evidence.clone(),
+        package_digest: basis.package_digest.clone(),
+        existing_managed_actor: None,
+    };
+    let signer = StubSigner {
+        did: did("station"),
+        verification_method: DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
+    };
+    let request = AppletManagedActorAuthoringRequest::sign_ghost(
+        ghost_basis,
+        governance_station_id(),
+        bot.authoring_request.issued_at,
+        bot.authoring_request.expires_at,
+        &signer,
+    )
+    .unwrap();
+    let ghost = arkret_models_integration::GhostActorProvisionRequestBody {
+        authoring_request: request,
+        managed_actor_bundle: Some(bundle),
+        approval_signatures: vec![],
+        existing_managed_actor: None,
+    };
+    let ghost_wire =
+        serde_json::to_value(AppletManagedActorCommittedRequest::Ghost(Box::new(ghost))).unwrap();
+    assert!(ghost_wire.get("existing_managed_actor").is_none());
+    assert!(matches!(
+        serde_json::from_value::<AppletManagedActorCommittedRequest>(ghost_wire.clone()).unwrap(),
+        AppletManagedActorCommittedRequest::Ghost(_)
+    ));
+    let mut mismatch = bot_wire.clone();
+    mismatch["authoring_request"]["purpose"] = serde_json::json!("provision_ghost");
+    assert!(serde_json::from_value::<AppletManagedActorCommittedRequest>(mismatch).is_err());
+    let mut missing_bundle = bot_wire;
+    missing_bundle
+        .as_object_mut()
+        .unwrap()
+        .remove("managed_actor_bundle");
+    assert!(serde_json::from_value::<AppletManagedActorCommittedRequest>(missing_bundle).is_err());
+    let existing = arkret_models_integration::ExistingManagedActor {
+        ghost_actor_id: ActorId::account(arkret_wire::AccountId::new(
+            actor("ghost"),
+            actor("station"),
+        )),
+        managed_actor_provision_ref: EventId::from_digest(
+            canonical::DigestSuite::Sha256,
+            [0x41; 32],
+        ),
+        principal_control_realm_id: realm(),
+        profile_event_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
+        accountability_grant_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x43; 32]),
+    };
+    let mut reuse = ghost_wire.clone();
+    reuse
+        .as_object_mut()
+        .unwrap()
+        .remove("managed_actor_bundle");
+    reuse["existing_managed_actor"] = serde_json::to_value(&existing).unwrap();
+    reuse["authoring_request"]["basis"]["existing_managed_actor"] =
+        serde_json::to_value(&existing).unwrap();
+    assert!(matches!(
+        serde_json::from_value::<AppletManagedActorCommittedRequest>(reuse).unwrap(),
+        AppletManagedActorCommittedRequest::Ghost(_)
+    ));
+    let mut mixed = ghost_wire.clone();
+    mixed["existing_managed_actor"] = serde_json::to_value(existing).unwrap();
+    assert!(serde_json::from_value::<AppletManagedActorCommittedRequest>(mixed).is_err());
+    let mut neither_ghost_branch = ghost_wire;
+    neither_ghost_branch
+        .as_object_mut()
+        .unwrap()
+        .remove("managed_actor_bundle");
+    assert!(
+        serde_json::from_value::<AppletManagedActorCommittedRequest>(neither_ghost_branch).is_err()
+    );
+}

@@ -45,6 +45,7 @@ pub struct GhostActorProvisionRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub managed_actor_bundle: Option<AppletManagedActorAuthoringBundle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub existing_managed_actor: Option<ExistingManagedActor>,
