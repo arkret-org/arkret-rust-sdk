@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -101,6 +102,55 @@ class CompatibilityGateTests(unittest.TestCase):
             }
             with self.assertRaisesRegex(gate.CompatibilityError, "compatibility-dto"):
                 gate.check_source_guards(document, workspace)
+
+    def test_runner_records_failure_continues_independent_and_blocks_dependents(self) -> None:
+        checks = []
+        for check_id, category, code, dependencies in [
+            ("failure", "static", 7, []),
+            ("independent", "static", 0, []),
+            ("dependent", "static", 0, ["failure"]),
+            ("filtered", "compile", 0, []),
+            ("skipped", "static", 0, []),
+        ]:
+            checks.append({"id": check_id, "repository": "arkret-rust-sdk",
+                           "surface": {"kind": "type", "name": "probe"},
+                           "category": category, "working_directory": ".",
+                           "command": [sys.executable, "-c", f"raise SystemExit({code})"],
+                           "depends_on": dependencies})
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "results.json"
+            with self.assertRaisesRegex(gate.CompatibilityError, '"exit_code": 7'):
+                gate.run_checks({"checks": checks}, Path(temporary), {"static"}, {"skipped"}, report)
+            results = json.loads(report.read_text(encoding="utf-8"))["checks"]
+        self.assertEqual([row["status"] for row in results],
+                         ["failed", "passed", "blocked", "not_run", "not_run"])
+        self.assertEqual(results[2]["dependencies"], ["failure"])
+        self.assertNotIn("exit_code", results[2])
+
+    def test_all_skipped_is_not_reported_as_success(self) -> None:
+        with self.assertRaisesRegex(gate.CompatibilityError, "not completed"):
+            gate.run_checks(self.manifest, self.workspace_root, {"static"},
+                            {check["id"] for check in self.manifest["checks"]})
+
+    def test_dependencies_must_reference_earlier_checks(self) -> None:
+        for dependency in ["unknown", self.manifest["checks"][0]["id"],
+                           self.manifest["checks"][-1]["id"]]:
+            mutated = copy.deepcopy(self.manifest)
+            mutated["checks"][0]["depends_on"] = [dependency]
+            with self.assertRaisesRegex(gate.CompatibilityError, "depends_on must name earlier checks"):
+                gate.validate_manifest(mutated)
+
+    def test_unlaunchable_check_writes_failed_report(self) -> None:
+        check = copy.deepcopy(self.manifest["checks"][0])
+        check["command"] = ["missing-arkret-regression-executable"]
+        check["working_directory"] = "."
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "report.json"
+            with self.assertRaisesRegex(gate.CompatibilityError, '"exit_code": 127'):
+                gate.run_checks({"checks": [check]}, Path(temporary), {check["category"]}, set(), report)
+            row = json.loads(report.read_text(encoding="utf-8"))["checks"][0]
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["exit_code"], 127)
 
     def test_github_outputs_are_exact_pins(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

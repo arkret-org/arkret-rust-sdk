@@ -126,7 +126,7 @@ fn historical_request_and_station_response_match_the_published_schema() {
 
 #[test]
 fn human_current_privacy_fixture_matches_sdk_and_schema() {
-    use arkret_models_identity::signer_key_operations::SignerKeyQueryResult;
+    use arkret_models_identity::signer_key_operations::SignerKeyQueryOutcome;
     let fixture: Value = serde_json::from_str(
         &fs::read_to_string(
             artifacts_dir().join("fixtures/current-signer-contact-endpoint-fixture.json"),
@@ -140,7 +140,7 @@ fn human_current_privacy_fixture_matches_sdk_and_schema() {
             continue;
         }
         let instance = case["instance"].clone();
-        let parsed = serde_json::from_value::<SignerKeyQueryResult>(instance.clone());
+        let parsed = serde_json::from_value::<SignerKeyQueryOutcome>(instance.clone());
         if case["expect_valid"] == true {
             validate_fragment(
                 &format!("#{}", schema.split_once('#').unwrap().1),

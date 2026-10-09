@@ -628,12 +628,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/agent_interaction.rs",
       "line": 68,
       "kind": "struct",
-      "value_kind": "AgentInteractionExactCurrentResult",
+      "value_kind": "AgentInteractionExactCurrentRow",
       "spec_pointer": "typed-current-result.schema.json#/$defs/agent_interaction_result",
       "schema_openness": "closed",
       "classification": "B",
@@ -4177,12 +4177,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::MimiRoomBindingCurrentResult",
+      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::MimiRoomBindingCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/mimi.rs",
       "line": 97,
       "kind": "struct",
-      "value_kind": "MimiRoomBindingCurrentResult",
+      "value_kind": "MimiRoomBindingCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -5386,12 +5386,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::CalendarScheduleSourceExactResult",
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::CalendarScheduleSourceExactRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/exact_current_results.rs",
       "line": 228,
       "kind": "struct",
-      "value_kind": "CalendarScheduleSourceExactResult",
+      "value_kind": "CalendarScheduleSourceExactRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -5412,12 +5412,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::CapabilityGrantExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::CapabilityGrantExactCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/exact_current_results.rs",
       "line": 250,
       "kind": "struct",
-      "value_kind": "CapabilityGrantExactCurrentResult",
+      "value_kind": "CapabilityGrantExactCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -5438,12 +5438,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::PolicyExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::PolicyExactCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/exact_current_results.rs",
       "line": 283,
       "kind": "struct",
-      "value_kind": "PolicyExactCurrentResult",
+      "value_kind": "PolicyExactCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -5464,12 +5464,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::RelationExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::RelationExactCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/exact_current_results.rs",
       "line": 306,
       "kind": "struct",
-      "value_kind": "RelationExactCurrentResult",
+      "value_kind": "RelationExactCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -5503,12 +5503,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::ModerationStateExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::ModerationStateExactCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/exact_current_results.rs",
       "line": 345,
       "kind": "struct",
-      "value_kind": "ModerationStateExactCurrentResult",
+      "value_kind": "ModerationStateExactCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -9754,12 +9754,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/principal_operations.rs::PcrGenesisAdmissionResult",
+      "rust_type": "crates/models-collaboration/src/principal_operations.rs::PcrGenesisAdmissionOutcome",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/principal_operations.rs",
       "line": 159,
       "kind": "struct",
-      "value_kind": "PcrGenesisAdmissionResult",
+      "value_kind": "PcrGenesisAdmissionOutcome",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -9962,12 +9962,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantValidationResult",
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantValidationOutcome",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/session_grants.rs",
       "line": 706,
       "kind": "struct",
-      "value_kind": "SessionGrantValidationResult",
+      "value_kind": "SessionGrantValidationOutcome",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -9988,12 +9988,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::AuthSessionTerminationResult",
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::AuthSessionTerminationOutcome",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/session_grants.rs",
       "line": 767,
       "kind": "struct",
-      "value_kind": "AuthSessionTerminationResult",
+      "value_kind": "AuthSessionTerminationOutcome",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -10235,12 +10235,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/strand_watch_operations.rs::StrandWatchCurrentResult",
+      "rust_type": "crates/models-collaboration/src/strand_watch_operations.rs::StrandWatchCurrentRow",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/strand_watch_operations.rs",
       "line": 34,
       "kind": "struct",
-      "value_kind": "StrandWatchCurrentResult",
+      "value_kind": "StrandWatchCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -10729,12 +10729,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/current_results.rs::AccountCurrentResult",
+      "rust_type": "crates/models-collaboration/src/sync_frames/current_results.rs::AccountCurrentView",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/current_results.rs",
-      "line": 50,
+      "line": 53,
       "kind": "struct",
-      "value_kind": "AccountCurrentResult",
+      "value_kind": "AccountCurrentView",
       "spec_pointer": "account-current-result.schema.json",
       "schema_openness": "closed",
       "classification": "B",
@@ -14148,12 +14148,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-identity/src/agent_signer_evidence.rs::ControllerAccountGateIssuanceResult",
+      "rust_type": "crates/models-identity/src/agent_signer_evidence.rs::ControllerAccountGateIssuanceOutcome",
       "crate": "models-identity",
       "file": "crates/models-identity/src/agent_signer_evidence.rs",
       "line": 363,
       "kind": "struct",
-      "value_kind": "ControllerAccountGateIssuanceResult",
+      "value_kind": "ControllerAccountGateIssuanceOutcome",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -17580,12 +17580,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/device_revocation.rs::DeviceRevocationAdmissionResult",
+      "rust_type": "crates/wire/src/device_revocation.rs::DeviceRevocationAdmissionOutcome",
       "crate": "wire",
       "file": "crates/wire/src/device_revocation.rs",
       "line": 598,
       "kind": "struct",
-      "value_kind": "DeviceRevocationAdmissionResult",
+      "value_kind": "DeviceRevocationAdmissionOutcome",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",

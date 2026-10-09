@@ -20,8 +20,6 @@ EXCEPTIONS = {
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
     ("models-collaboration/src/governance/realm_join_intake.rs", "RealmJoinCandidate"):
         "Domain subject: a candidate service for joining a Realm.",
-    ("models-discovery/src/realm_join_preview.rs", "RealmJoinCandidate"):
-        "Domain subject: a candidate service for joining a Realm.",
     ("models-collaboration/src/call_signal.rs", "IceCandidate"):
         "External ICE candidate term.",
     ("models-collaboration/src/events_payloads/call.rs", "CallStatePayloadRecordingResult"):
@@ -30,6 +28,8 @@ EXCEPTIONS = {
         "Domain artifact: a produced call transcript, not an endpoint result wrapper.",
     ("models-collaboration/src/events_payloads/poll.rs", "PollResponseBody"):
         "Domain response to a poll inside a content block, not an HTTP response.",
+    ("models-collaboration/src/poll.rs", "VerifiedPollResponse"):
+        "Domain poll answer bound to a verified authority cut, selections and accepted Event; non-serialized reducer input, not an operation response wrapper.",
     ("models-collaboration/src/sync_frames/account_subscribe.rs", "AccountSubscribeSnapshotResult"):
         "Non-wire SDK orchestration result; no serialization or schema component.",
     ("models-collaboration/src/governance/moderation_queue.rs", "ModerationQueueItem"):

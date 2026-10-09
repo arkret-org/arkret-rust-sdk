@@ -2,6 +2,9 @@
 """Focused tests for the cross-repository dependency matrix and its exemption gate."""
 
 import tempfile
+import contextlib
+import io
+import json
 from pathlib import Path
 
 import dep_matrix
@@ -139,6 +142,33 @@ def test_auxiliary_lockfiles_do_not_manufacture_a_shipping_split() -> None:
     assert not [item for item in divergences(crates) if item["core_split"]]
 
 
+def test_nested_workspace_direct_declarations_are_not_shipping_disagreements() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        repo = workspace / "arkret-rust-sdk"
+        (repo / "fuzz" / "member").mkdir(parents=True)
+        (repo / "Cargo.toml").write_text(
+            '[workspace]\n[workspace.dependencies]\ngadget = "1"\n', encoding="utf-8")
+        (repo / "Cargo.lock").write_text(
+            '[[package]]\nname = "gadget"\nversion = "1.0.0"\nsource = "registry+x"\n', encoding="utf-8")
+        (repo / "fuzz" / "Cargo.toml").write_text(
+            '[workspace]\n[workspace.dependencies]\ngadget = "2"\n', encoding="utf-8")
+        (repo / "fuzz" / "member" / "Cargo.toml").write_text(
+            '[package]\nname = "fuzzer"\nversion = "0.1.0"\n[dependencies]\ngadget = { workspace = true }\n',
+            encoding="utf-8")
+        (repo / "fuzz" / "Cargo.lock").write_text(
+            '[[package]]\nname = "gadget"\nversion = "2.0.0"\nsource = "registry+x"\n', encoding="utf-8")
+        analysed = dep_matrix.analyse_repo("arkret-rust-sdk", repo, workspace)
+        declarations = analysed["direct"]
+        assert [entry["workspace_scope"] for entry in declarations] == [".", "fuzz", "fuzz"]
+        assert declarations[-1]["req"] == "2"
+        found = divergences(build_matrix([analysed]))
+        assert not found[0]["core_split"]
+        assert not found[0]["declared_split"]
+        assert not found[0]["actionable"]
+        assert not evaluate_exemptions({"divergences": found}, {"exemptions": []}, "2026-10-09")["uncovered"]
+
+
 def test_exemption_must_cover_every_observed_major() -> None:
     payload = {
         "divergences": [
@@ -206,6 +236,66 @@ def test_partial_checkout_cannot_pass_the_gate_vacuously() -> None:
         # A name outside the analysed repository set is a caller error, not a
         # finding, and must not be reported as a passing gate either.
         assert dep_matrix.main(argv + ["--require-repository", "not-a-repository"]) == 2
+
+
+def test_declared_split_without_lockfile_is_not_hidden() -> None:
+    repos = [_repo(name, [_decl(name, "widget", req)], [])
+             for name, req in [("coauth", "1"), ("soland", "2")]]
+    found = divergences(build_matrix(repos))
+    assert found[0]["declared_split"]
+    assert not found[0]["core_split"]
+    payload = {"divergences": found}
+    verdict = evaluate_exemptions(payload, {"exemptions": []}, "2026-10-09")
+    assert [item["crate"] for item in verdict["uncovered"]] == ["widget"]
+    narrow = {"exemptions": [{"crate": "widget", "majors": ["1"]}]}
+    assert evaluate_exemptions(payload, narrow, "2026-10-09")["uncovered"][0]["unexpected_majors"] == ["2"]
+
+
+def test_bad_member_manifest_fails_instead_of_narrowing_report() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        repo = workspace / "soland"
+        (repo / "member").mkdir(parents=True)
+        (repo / "Cargo.toml").write_text('[workspace]\nmembers = ["member"]\n', encoding="utf-8")
+        (repo / "member" / "Cargo.toml").write_text("[package\n", encoding="utf-8")
+        assert dep_matrix.main(["--workspace-root", str(workspace), "--format", "text",
+                                "--require-repository", "soland"]) == 2
+
+
+def test_nonmatching_exemptions_explain_all_filtering_cases() -> None:
+    payload = {"divergences": [
+        {"crate": "external", "core_split": False, "actionable": True},
+        {"crate": "upstream", "core_split": True, "actionable": False},
+    ]}
+    ledger = {"exemptions": [{"crate": name} for name in ["gone", "external", "upstream"]]}
+    reasons = evaluate_exemptions(payload, ledger, "2026-10-09")["stale_exemption_reasons"]
+    assert reasons == {
+        "gone": "no divergence in analysed input",
+        "external": "divergence only outside core shipping dependencies",
+        "upstream": "core divergence is not actionable",
+    }
+
+
+def test_text_and_json_reports_use_the_same_verdict() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        for name, version in [("coauth", "1"), ("soland", "2")]:
+            repo = workspace / name
+            repo.mkdir()
+            (repo / "Cargo.toml").write_text(
+                f'[package]\nname = "{name}"\nversion = "0.1.0"\n[dependencies]\nwidget = "{version}"\n',
+                encoding="utf-8")
+        ledger = workspace / "exemptions.json"
+        ledger.write_text('{"exemptions": []}', encoding="utf-8")
+        output = workspace / "report"
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            code = dep_matrix.main(["--workspace-root", str(workspace), "--out-dir", str(output),
+                                    "--format", "all", "--fail-on-divergence", "--exemptions", str(ledger)])
+        assert code == 1
+        payload = json.loads((output / "dep-matrix.json").read_text(encoding="utf-8"))
+        assert [item["crate"] for item in payload["exemption_verdict"]["uncovered"]] == ["widget"]
+        assert "uncovered: widget" in stdout.getvalue()
+        assert (output / "dep-matrix.txt").read_text(encoding="utf-8") == dep_matrix.render_text(payload, False) + "\n"
 
 
 def main() -> None:

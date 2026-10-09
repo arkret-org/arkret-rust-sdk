@@ -8,8 +8,7 @@ use std::path::PathBuf;
 
 use arkret_models_collaboration::events_payloads::circle::CircleMemberStatePayload;
 use arkret_models_collaboration::sync_frames::current_results::{
-    CircleMemberStateCurrent, CurrentRevision, MemberStateCurrent, MembershipState,
-    TypedCurrentResult,
+    CircleMemberStateCurrent, CurrentRevision, MemberStateCurrent, MembershipState, TypedCurrentRow,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
@@ -108,9 +107,9 @@ fn sdk_decode(schema_ref: &str, value: &Value) -> Result<Value, String> {
                 .map_err(|error| error.to_string())
         }
         "circle_member_state_result" => {
-            let result: TypedCurrentResult =
+            let result: TypedCurrentRow =
                 serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-            let TypedCurrentResult::Value {
+            let TypedCurrentRow::Value {
                 source_stream_ref,
                 value: current,
                 ..
@@ -123,9 +122,9 @@ fn sdk_decode(schema_ref: &str, value: &Value) -> Result<Value, String> {
             Ok(serde_json::to_value(result).unwrap())
         }
         "member_state_result" => {
-            let result: TypedCurrentResult =
+            let result: TypedCurrentRow =
                 serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-            let TypedCurrentResult::Value { value: current, .. } = &result;
+            let TypedCurrentRow::Value { value: current, .. } = &result;
             serde_json::from_value::<MemberStateCurrent>(current.clone())
                 .map_err(|error| error.to_string())?;
             Ok(serde_json::to_value(result).unwrap())

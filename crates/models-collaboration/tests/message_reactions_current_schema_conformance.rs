@@ -6,7 +6,7 @@ use std::fs;
 use arkret_canonical::DigestSuite;
 use arkret_models_collaboration::events_payloads::reaction::MessageReactionsCurrentValue;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{CurrentSelector, EventId, TypedCurrentResult};
+use arkret_wire::{CurrentSelector, EventId, TypedCurrentRow};
 use serde_json::{Value, json};
 
 const REALM: &str = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
@@ -37,17 +37,17 @@ fn schema_accepts(value: &Value) -> bool {
 }
 
 fn sdk_accepts(value: &Value) -> bool {
-    serde_json::from_value::<TypedCurrentResult>(value.clone())
+    serde_json::from_value::<TypedCurrentRow>(value.clone())
         .ok()
         .and_then(|row| match row {
-            TypedCurrentResult::Value {
+            TypedCurrentRow::Value {
                 selector: CurrentSelector::MessageReactions { target_ref },
                 value,
                 ..
             } => serde_json::from_value::<MessageReactionsCurrentValue>(value)
                 .ok()
                 .filter(|set| set.validate_for_target(&target_ref).is_ok()),
-            TypedCurrentResult::Value { .. } => None,
+            TypedCurrentRow::Value { .. } => None,
         })
         .is_some()
 }
@@ -91,8 +91,8 @@ fn row() -> Value {
 fn message_reactions_row_round_trips_through_strong_types() {
     let value = row();
     assert!(row_accepted_by_both(&value));
-    let typed: TypedCurrentResult = serde_json::from_value(value.clone()).unwrap();
-    let TypedCurrentResult::Value {
+    let typed: TypedCurrentRow = serde_json::from_value(value.clone()).unwrap();
+    let TypedCurrentRow::Value {
         selector,
         value: set,
         ..

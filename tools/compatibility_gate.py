@@ -162,6 +162,16 @@ def validate_manifest(document: dict[str, Any]) -> None:
         ):
             raise CompatibilityError(f"check {check_id} command must be a non-empty argv array")
 
+    positions = {check["id"]: index for index, check in enumerate(checks)}
+    for check in checks:
+        dependencies = check.get("depends_on", [])
+        if not isinstance(dependencies, list) or not all(
+            isinstance(dependency, str) and dependency in positions
+            and positions[dependency] < positions[check["id"]]
+            for dependency in dependencies
+        ):
+            raise CompatibilityError(f"check {check['id']} depends_on must name earlier checks")
+
     compile_repositories = {"arkret-rust-sdk", "soland", "coauth", "garth", "inkson", "cotest"}
     missing_compile_checks = compile_repositories - covered_repositories
     if missing_compile_checks:
@@ -412,9 +422,30 @@ def run_checks(
     workspace_root: Path,
     categories: set[str],
     skipped: set[str],
-) -> None:
+    report_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    statuses: dict[str, str] = {}
+    failures: list[dict[str, Any]] = []
     for check in document["checks"]:
-        if check["category"] not in categories or check["id"] in skipped:
+        result = {
+            "check_id": check["id"], "repository": check["repository"],
+            "surface": check["surface"], "command": check["command"],
+        }
+        results.append(result)
+        blocked = [dependency for dependency in check.get("depends_on", [])
+                   if statuses.get(dependency) != "passed"]
+        if check["id"] in skipped:
+            result.update(status="not_run", reason="explicitly skipped")
+        elif check["category"] not in categories:
+            result.update(status="not_run", reason="category not selected")
+        elif blocked:
+            result.update(status="blocked", reason="prerequisites did not pass", dependencies=blocked)
+        else:
+            result["status"] = "running"
+        statuses[check["id"]] = result["status"]
+        if result["status"] != "running":
+            print(f"==> {check['id']}: {result['status']} ({result['reason']})", flush=True)
             continue
         working_directory = workspace_root / check["working_directory"]
         print(f"==> {check['id']}: {' '.join(check['command'])}", flush=True)
@@ -434,7 +465,25 @@ def run_checks(
                 "exit_code": completed_code,
                 "detail": detail,
             }
-            raise CompatibilityError("first_incompatibility=" + json.dumps(failure, sort_keys=True))
+            failures.append(failure)
+            result.update(status="failed", exit_code=completed_code, reason=detail)
+        else:
+            result.update(status="passed", exit_code=0)
+        statuses[check["id"]] = result["status"]
+        print(f"==> {check['id']}: {result['status']} (exit {completed_code})", flush=True)
+    if report_path is not None:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps({"checks": results}, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
+    counts = {status: sum(row["status"] == status for row in results)
+              for status in ("passed", "failed", "not_run", "blocked")}
+    print("compatibility check results: " + json.dumps(counts, sort_keys=True), flush=True)
+    if failures:
+        raise CompatibilityError("first_incompatibility=" + json.dumps(failures[0], sort_keys=True))
+    if counts["blocked"] or not counts["passed"]:
+        raise CompatibilityError("selected compatibility checks were not completed")
+    return results
 
 
 def negative_mutation(document: dict[str, Any], workspace_root: Path) -> str:
@@ -515,6 +564,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
     )
     run_parser.add_argument("--skip", action="append", default=[])
+    run_parser.add_argument("--report", type=Path, help="write every check status, including failures and skips")
 
     negative_parser = subparsers.add_parser(
         "negative-mutation", help="prove a deleted SDK field is rejected"
@@ -561,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
             unknown_skips = set(arguments.skip) - known_checks
             if unknown_skips:
                 raise CompatibilityError("unknown skipped checks: " + ", ".join(sorted(unknown_skips)))
-            run_checks(document, arguments.workspace_root, categories, set(arguments.skip))
+            run_checks(document, arguments.workspace_root, categories, set(arguments.skip), arguments.report)
             print("selected compatibility checks passed")
         elif arguments.command == "negative-mutation":
             failure = negative_mutation(document, arguments.workspace_root)

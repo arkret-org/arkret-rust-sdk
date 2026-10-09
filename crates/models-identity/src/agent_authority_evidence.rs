@@ -4,7 +4,7 @@ use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
 use arkret_wire::{
     AccountId, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString,
     RealmAuthorityTransition, RealmCommit, RealmCommitId, RealmId, Result, SignerEvidenceRef,
-    TypedCurrentResult, WireError,
+    TypedCurrentRow, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -53,7 +53,7 @@ pub struct AgentKeyAuthorization {
 pub struct AgentKeyStateWitness {
     pub commit_id: RealmCommitId,
     pub commit: RealmCommit,
-    pub result: TypedCurrentResult,
+    pub result: TypedCurrentRow,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ pub enum AgentLifecycleProvenance {
 pub struct AgentLifecycleWitness {
     pub commit_id: RealmCommitId,
     pub commit: RealmCommit,
-    pub result: TypedCurrentResult,
+    pub result: TypedCurrentRow,
     pub accepted_status_event: Event,
     pub provenance: AgentLifecycleProvenance,
 }
@@ -372,7 +372,7 @@ impl AgentAuthorityState {
                 "Agent authorization differs from its accepted controller Event",
             ));
         }
-        let TypedCurrentResult::Value {
+        let TypedCurrentRow::Value {
             selector,
             source_stream_ref,
             revision,
@@ -411,7 +411,7 @@ impl AgentAuthorityState {
                 "Agent key result omits the accepted canonical authorization dot",
             ));
         }
-        let TypedCurrentResult::Value {
+        let TypedCurrentRow::Value {
             selector,
             source_stream_ref,
             revision,

@@ -5,7 +5,7 @@
 
 pub use arkret_wire::{
     CircleMemberStateCurrent, CurrentRevision, CurrentSelector, MemberStateCurrent,
-    MembershipState, MlsGroupCurrent, TypedCurrentResult,
+    MembershipState, MlsGroupCurrent, TypedCurrentRow,
 };
 use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,7 @@ impl AccountCurrentCoverage {
 }
 
 /// The Account Station's view of one Realm's authority-committed current state.
+/// Spec: `account-current-result.schema.json`.
 ///
 /// `governance_generation` names which governance generation materialized these
 /// entries, and `stream_heads` is the per-stream position each entry was
@@ -46,18 +47,18 @@ impl AccountCurrentCoverage {
 /// Convergence is by stable domain selector plus `expected_revision` CAS, so a
 /// caller writes back against the `revision` of the exact entry it read — never
 /// against a whole-Realm token.
+/// Field declaration order is byte-for-byte the `properties` order of
+/// `account-current-result.schema.json#/$defs/current`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `account-current-result.schema.json#/$defs/current`.
-pub struct AccountCurrentResult {
+pub struct AccountCurrentView {
     pub realm_id: RealmId,
     pub governance_generation: u64,
     pub stream_heads: Vec<CommitStreamHead>,
-    pub entries: Vec<TypedCurrentResult>,
+    pub entries: Vec<TypedCurrentRow>,
 }
 
-impl AccountCurrentResult {
+impl AccountCurrentView {
     /// One head per stream, and one entry per selector: a repeated selector
     /// would be two current values for one single-valued coordinate.
     pub fn validate(&self) -> Result<()> {
@@ -75,16 +76,16 @@ impl AccountCurrentResult {
     }
 
     /// The current entry for one domain selector, if this result carries it.
-    pub fn entry(&self, selector: &CurrentSelector) -> Option<&TypedCurrentResult> {
+    pub fn entry(&self, selector: &CurrentSelector) -> Option<&TypedCurrentRow> {
         self.entries
             .iter()
             .find(|entry| selector_of(entry) == selector)
     }
 }
 
-const fn selector_of(entry: &TypedCurrentResult) -> &CurrentSelector {
+const fn selector_of(entry: &TypedCurrentRow) -> &CurrentSelector {
     match entry {
-        TypedCurrentResult::Value { selector, .. } => selector,
+        TypedCurrentRow::Value { selector, .. } => selector,
     }
 }
 

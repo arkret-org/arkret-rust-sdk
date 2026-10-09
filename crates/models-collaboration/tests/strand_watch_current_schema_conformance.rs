@@ -182,7 +182,7 @@ fn generic_typed_watch_result_matches_registered_schema_and_full_actor_selector(
             "#/$defs/strand_watch_result",
             &wire
         ));
-        let parsed: arkret_wire::TypedCurrentResult = serde_json::from_value(wire.clone()).unwrap();
+        let parsed: arkret_wire::TypedCurrentRow = serde_json::from_value(wire.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), wire);
     }
     let parsed: arkret_wire::CurrentSelector = serde_json::from_value(selector()).unwrap();

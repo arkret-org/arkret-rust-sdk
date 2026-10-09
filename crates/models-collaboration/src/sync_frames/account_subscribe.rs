@@ -24,7 +24,7 @@ use crate::sync_frames::account_sync::{
     AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, RealmStreamWindow,
     StateAtWindowStart,
 };
-use crate::sync_frames::current_results::{AccountCurrentCoverage, AccountCurrentResult};
+use crate::sync_frames::current_results::{AccountCurrentCoverage, AccountCurrentView};
 use crate::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
     RealmListPage,
@@ -446,7 +446,7 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_at_window_start: Option<StateAtWindowStart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current: Option<AccountCurrentResult>,
+    pub current: Option<AccountCurrentView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

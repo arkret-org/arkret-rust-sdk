@@ -369,7 +369,7 @@ pub struct SecurityRotationRevokeProposal {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SecurityRotationRevokeCommandResult {
+pub enum SecurityRotationRevokeCommandDecision {
     Accepted,
     Rejected,
 }
@@ -381,7 +381,7 @@ pub enum SecurityRotationRevokeCommandResult {
 pub struct SecurityRotationRevokeCommandOutcome {
     pub proposal_event_id: EventId,
     pub covering_commit_id: RealmCommitId,
-    pub result: SecurityRotationRevokeCommandResult,
+    pub result: SecurityRotationRevokeCommandDecision,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub decided_at: DateTime<Utc>,
 }
@@ -510,12 +510,12 @@ impl SecurityTransaction {
                             );
                         }
                         match outcome.result {
-                            SecurityRotationRevokeCommandResult::Accepted
+                            SecurityRotationRevokeCommandDecision::Accepted
                                 if self.accepted_steps.is_empty() =>
                             {
                                 return protocol("accepted revoke requires an accepted step");
                             }
-                            SecurityRotationRevokeCommandResult::Rejected
+                            SecurityRotationRevokeCommandDecision::Rejected
                                 if !self.accepted_steps.is_empty()
                                     || !matches!(
                                         self.terminal_outcome,

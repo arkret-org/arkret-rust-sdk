@@ -596,11 +596,11 @@ impl DeviceRevocationAdmissionRecord {
 /// In-process result of one device-revocation admission decision.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceRevocationAdmissionResult {
+pub struct DeviceRevocationAdmissionOutcome {
     pub admission_record: DeviceRevocationAdmissionRecord,
 }
 
-impl DeviceRevocationAdmissionResult {
+impl DeviceRevocationAdmissionOutcome {
     pub fn validate_for_request(&self, request: &DeviceRevocationAdmissionInput) -> Result<()> {
         self.admission_record.validate_for_request(request)
     }
@@ -914,7 +914,7 @@ mod tests {
     #[test]
     fn gate_outcome_matches_its_schema_shape() {
         assert_schema_shape(
-            &DeviceRevocationAdmissionResult {
+            &DeviceRevocationAdmissionOutcome {
                 admission_record: receipt(),
             },
             &["admission_record"],
@@ -1139,7 +1139,7 @@ mod tests {
     #[test]
     fn blocked_or_stale_receipts_admit_nothing() {
         let request = request();
-        let outcome = DeviceRevocationAdmissionResult {
+        let outcome = DeviceRevocationAdmissionOutcome {
             admission_record: receipt(),
         };
         assert_eq!(
@@ -1166,7 +1166,7 @@ mod tests {
             if decision == DeviceRevocationAdmissionDecision::Revoked {
                 blocked.accepted_commit_id = Some(accepted_commit_id());
             }
-            let outcome = DeviceRevocationAdmissionResult {
+            let outcome = DeviceRevocationAdmissionOutcome {
                 admission_record: blocked,
             };
             let admission = outcome.session_grant_admission(&request, at(2)).unwrap();
@@ -1181,7 +1181,7 @@ mod tests {
         fresh.decision = DeviceRevocationAdmissionDecision::AuthorityMismatch;
         fresh.target_device_authorize_event_id = None;
         fresh.target_device_generation_ref = None;
-        let outcome = DeviceRevocationAdmissionResult {
+        let outcome = DeviceRevocationAdmissionOutcome {
             admission_record: fresh,
         };
         assert_eq!(

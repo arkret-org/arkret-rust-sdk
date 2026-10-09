@@ -170,10 +170,7 @@ def iter_manifests(repo_root: Path):
     stack = [repo_root]
     while stack:
         current = stack.pop()
-        try:
-            entries = list(current.iterdir())
-        except OSError:
-            continue
+        entries = list(current.iterdir())
         for entry in entries:
             if entry.is_dir():
                 if entry.name in SKIP_DIRS:
@@ -188,10 +185,7 @@ def iter_locks(repo_root: Path):
     stack = [repo_root]
     while stack:
         current = stack.pop()
-        try:
-            entries = list(current.iterdir())
-        except OSError:
-            continue
+        entries = list(current.iterdir())
         for entry in entries:
             if entry.is_dir():
                 if entry.name in SKIP_DIRS:
@@ -318,17 +312,33 @@ def analyse_repo(repo_name: str, repo_root: Path, workspace_root: Path) -> dict:
 
     direct: list[dict] = []
     members: list[str] = []
+    manifests = {}
     for manifest_path in sorted(iter_manifests(repo_root)):
         try:
             manifest = load_toml(manifest_path)
         except tomllib.TOMLDecodeError as error:
-            print(f"warn: cannot parse {manifest_path}: {error}", file=sys.stderr)
-            continue
+            raise ValueError(f"cannot parse {manifest_path}: {error}") from error
+        manifests[manifest_path] = manifest
+    for manifest_path, manifest in manifests.items():
+        # Nested Cargo workspaces resolve independently. Their declarations
+        # remain visible, but cannot manufacture a shipping-version split.
+        scope_root = manifest_path.parent
+        while scope_root != repo_root:
+            candidate = manifests.get(scope_root / "Cargo.toml", {})
+            if "workspace" in candidate or (scope_root / "Cargo.lock").exists():
+                break
+            scope_root = scope_root.parent
+        scope = scope_root.relative_to(repo_root).as_posix()
+        scoped_workspace_deps = (
+            workspace_deps if scope == "." else
+            workspace_dependency_table(manifests.get(scope_root / "Cargo.toml", {}))
+        )
         rel = manifest_path.relative_to(workspace_root).as_posix()
         member = package_name(manifest, manifest_path)
         members.append(member)
         for record in collect_manifest_deps(manifest):
-            resolved = merge_workspace_inheritance(record, workspace_deps)
+            resolved = merge_workspace_inheritance(record, scoped_workspace_deps)
+            resolved["workspace_scope"] = scope
             resolved["repo"] = repo_name
             resolved["manifest"] = rel
             resolved["member"] = member
@@ -425,6 +435,7 @@ def build_matrix(repos: list[dict]) -> dict:
                 {
                     "member": record["member"],
                     "manifest": record["manifest"],
+                    "workspace_scope": record.get("workspace_scope", "."),
                     "table": record["kind"],
                     "req": record["req"],
                     "features": record["features"],
@@ -471,8 +482,6 @@ def divergences(crates: dict) -> list[dict]:
     for name, crate in crates.items():
         if crate["local"]:
             continue
-        if not (crate["cross_repo_split"] or crate["intra_lock_split_repos"]):
-            continue
         core_majors = sorted(
             {
                 major
@@ -482,17 +491,21 @@ def divergences(crates: dict) -> list[dict]:
             },
             key=major_sort_key,
         )
-        core_declared = [repo for repo in crate["direct_in"] if repo in CORE_REPOS]
+        core_declared = [repo for repo in crate["direct_in"] if repo in CORE_REPOS
+                         and any(entry.get("workspace_scope", ".") == "."
+                                 for entry in crate["repos"][repo].get("direct", []))]
         declared_core_majors = sorted(
             {
                 requirement_major(entry["req"])
                 for repo in core_declared
                 for entry in crate["repos"][repo].get("direct") or []
-                if entry["req"]
+                if entry["req"] and entry.get("workspace_scope", ".") == "."
             },
             key=major_sort_key,
         )
         declared_split = len(declared_core_majors) > 1
+        if not (crate["cross_repo_split"] or crate["intra_lock_split_repos"] or declared_split):
+            continue
         out.append(
             {
                 "crate": name,
@@ -590,8 +603,9 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
     """Match every actionable divergence against the exemption ledger.
 
     An exemption covers a divergence only when it names the same crate and its
-    `majors` list is a superset of the majors actually observed inside the core
-    repositories. Narrowing the observed set (an upstream release finally
+    `majors` list is a superset of the majors resolved or directly declared
+    inside the core repositories. A missing or outdated lockfile must not hide
+    a disagreement between declarations. Narrowing the observed set (an upstream release finally
     landing) therefore keeps passing, while a *new* major appearing re-opens
     the finding instead of hiding behind a stale entry.
     """
@@ -603,7 +617,7 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
     seen: set[str] = set()
 
     for item in payload["divergences"]:
-        if not (item["core_split"] and item["actionable"]):
+        if not ((item["core_split"] or item.get("declared_split")) and item["actionable"]):
             continue
         entry = index.get(item["crate"])
         if entry is None:
@@ -611,7 +625,7 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
             continue
         seen.add(item["crate"])
         allowed = set(entry.get("majors", []))
-        observed = set(item["core_majors"])
+        observed = set(item["core_majors"]) | set(item.get("declared_core_majors", []))
         if not observed <= allowed:
             uncovered.append(
                 dict(item, unexpected_majors=sorted(observed - allowed, key=major_sort_key))
@@ -625,11 +639,23 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
     for crate in sorted(set(index) - seen):
         stale.append(crate)
 
+    divergences_by_crate = {item["crate"]: item for item in payload["divergences"]}
+    stale_reasons = {}
+    for crate in stale:
+        item = divergences_by_crate.get(crate)
+        if item is None:
+            stale_reasons[crate] = "no divergence in analysed input"
+        elif not (item["core_split"] or item.get("declared_split")):
+            stale_reasons[crate] = "divergence only outside core shipping dependencies"
+        else:
+            stale_reasons[crate] = "core divergence is not actionable"
+
     return {
         "uncovered": uncovered,
         "covered": [item["crate"] for item in covered],
         "review_due": expired,
         "stale_exemptions": stale,
+        "stale_exemption_reasons": stale_reasons,
     }
 
 
@@ -663,6 +689,7 @@ def write_csv(path: Path, crates: dict) -> None:
                 "cross_repo_split",
                 "intra_lock_split",
                 "local_path_crate",
+                "workspace_scope",
             ]
         )
         for name in sorted(crates):
@@ -690,6 +717,7 @@ def write_csv(path: Path, crates: dict) -> None:
                             crate["cross_repo_split"],
                             slot.get("intra_lock_split", False),
                             crate["local"],
+                            "",
                         ]
                     )
                     continue
@@ -711,6 +739,7 @@ def write_csv(path: Path, crates: dict) -> None:
                             crate["cross_repo_split"],
                             slot.get("intra_lock_split", False),
                             crate["local"],
+                            entry["workspace_scope"],
                         ]
                     )
 
@@ -750,7 +779,8 @@ def render_text(payload: dict, focus_only: bool) -> str:
             if item["intra_lock_split_repos"]:
                 scope.append("intra-lock:" + ",".join(item["intra_lock_split_repos"]))
             if not item["core_split"]:
-                scope.append("savfox-only")
+                scope.append("no-core-lock-split")
+            scope.append("actionable" if item["actionable"] else "informational")
             lines.append(
                 f"- {item['crate']}  majors={','.join(item['majors'])}"
                 f"  core={','.join(item['core_majors'])}  [{' '.join(scope)}]"
@@ -763,10 +793,17 @@ def render_text(payload: dict, focus_only: bool) -> str:
     emit(focus, "Focus crates")
     if not focus_only:
         emit(other, "Other crates")
+    verdict = payload.get("exemption_verdict")
+    if verdict is not None:
+        lines.append("## Exemption verdict")
+        lines.append(f"  covered: {', '.join(verdict['covered']) or '(none)'}")
+        lines.append(f"  uncovered: {', '.join(item['crate'] for item in verdict['uncovered']) or '(none)'}")
+        for crate, reason in verdict["stale_exemption_reasons"].items():
+            lines.append(f"  non-matching {crate}: {reason}")
     return "\n".join(lines)
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--workspace-root",
@@ -804,7 +841,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fail-on-divergence",
         action="store_true",
-        help="exit 1 when an actionable core-repo major split has no exemption entry",
+        help="exit 1 when an actionable core-repo resolved or declared major split has no exemption entry",
     )
     parser.add_argument(
         "--require-repository",
@@ -911,6 +948,10 @@ def main(argv: list[str] | None = None) -> int:
         },
     }
 
+    exemption_path = Path(args.exemptions).resolve() if args.exemptions else DEFAULT_EXEMPTIONS
+    today = args.today or date.today().isoformat()
+    verdict = evaluate_exemptions(payload, load_exemptions(exemption_path), today)
+    payload["exemption_verdict"] = verdict
     text = render_text(payload, args.focus_only)
     print(text)
 
@@ -929,13 +970,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if missing:
         print(f"warn: repositories not found: {', '.join(missing)}", file=sys.stderr)
-
-    exemption_path = Path(args.exemptions).resolve() if args.exemptions else DEFAULT_EXEMPTIONS
-    today = args.today or date.today().isoformat()
-    verdict = evaluate_exemptions(payload, load_exemptions(exemption_path), today)
-    payload["exemption_verdict"] = verdict
-    if args.format in ("all", "json"):
-        write_json(out_dir / "dep-matrix.json", payload)
 
     if verdict["uncovered"]:
         print("", file=sys.stderr)
@@ -959,6 +993,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.fail_on_divergence and verdict["uncovered"]:
         return 1
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except (OSError, ValueError) as error:
+        print(f"error: dependency matrix input could not be read: {error}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

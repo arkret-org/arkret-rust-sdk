@@ -95,13 +95,13 @@ impl MimiRoomBindingPayload {
 /// Typed current result for the URI-keyed MIMI room binding projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MimiRoomBindingCurrentResult {
+pub struct MimiRoomBindingCurrentRow {
     pub selector: CurrentSelector,
     pub revision: CurrentRevision,
     pub value: MimiRoomBindingPayload,
 }
 
-impl MimiRoomBindingCurrentResult {
+impl MimiRoomBindingCurrentRow {
     pub fn validate(&self) -> Result<()> {
         self.value.validate_shape()?;
         match &self.selector {

@@ -8,7 +8,7 @@ use arkret_models_collaboration::governance::moderation_queue::{
     ModerationQueueItem, ModerationQueueStatus, ModerationQueueVisibility,
 };
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{CurrentSelector, EventId, TypedCurrentResult};
+use arkret_wire::{CurrentSelector, EventId, TypedCurrentRow};
 use serde_json::{Value, json};
 
 const REALM: &str = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
@@ -60,10 +60,10 @@ fn row_accepted_by_both(value: &Value) -> bool {
         Some("#/$defs/moderation_report_result"),
         value,
     );
-    let sdk = serde_json::from_value::<TypedCurrentResult>(value.clone())
+    let sdk = serde_json::from_value::<TypedCurrentRow>(value.clone())
         .ok()
         .and_then(|row| match row {
-            TypedCurrentResult::Value {
+            TypedCurrentRow::Value {
                 selector: CurrentSelector::ModerationReport { .. },
                 value,
                 ..
@@ -79,8 +79,8 @@ fn row_accepted_by_both(value: &Value) -> bool {
 fn moderation_report_current_row_round_trips_through_strong_types() {
     let value = row();
     assert!(row_accepted_by_both(&value));
-    let typed: TypedCurrentResult = serde_json::from_value(value.clone()).unwrap();
-    let TypedCurrentResult::Value { selector, .. } = &typed;
+    let typed: TypedCurrentRow = serde_json::from_value(value.clone()).unwrap();
+    let TypedCurrentRow::Value { selector, .. } = &typed;
     assert_eq!(
         selector,
         &CurrentSelector::ModerationReport {

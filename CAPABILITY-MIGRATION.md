@@ -350,8 +350,8 @@ it is deliberately deferred until arkret-spec stops moving.
 All seven predate this work (verified against `36f73eb0`) and every one of them
 is the name the spec itself gives the DTO, so renaming them in the SDK would
 introduce exactly the kind of local divergence this migration is removing:
-`TypedCurrentResult` and `StreamRow` (`crates/wire/src/authority_commit.rs`),
-`SignerKeyQueryResult` (`crates/models-identity/src/signer_key_operations.rs`),
+`TypedCurrentRow` and `StreamRow` (`crates/wire/src/authority_commit.rs`),
+`SignerKeyQueryOutcome` (`crates/models-identity/src/signer_key_operations.rs`),
 `DeviceMessageDeliveredResult` and `DeviceMessageUnknownResult`
 (`crates/models-collaboration/src/device_messages.rs`, both spec `$defs` names),
 `RealmJoinCandidate` (`crates/models-collaboration/src/governance/realm_join_intake.rs`)

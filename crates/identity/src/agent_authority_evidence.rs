@@ -279,8 +279,7 @@ fn verify_closure(
     let signer = &carrier.authenticated_signer_evidence;
     signer.validate()?;
     let binding = &state.authorization;
-    let arkret_wire::TypedCurrentResult::Value { value, .. } =
-        &state.agent_lifecycle_witness.result;
+    let arkret_wire::TypedCurrentRow::Value { value, .. } = &state.agent_lifecycle_witness.result;
     if signer.signer_kind != AuthenticatedSignerKind::Agent
         || signer.subject_id != account.principal_id
         || signer.verification_method != binding.verification_method
@@ -561,7 +560,7 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
         }
         validate_controller_delegation(original, account)?;
     }
-    let arkret_wire::TypedCurrentResult::Value { value, .. } = &state.key_state_witness.result;
+    let arkret_wire::TypedCurrentRow::Value { value, .. } = &state.key_state_witness.result;
     let entries = value
         .get("authorizations")
         .and_then(serde_json::Value::as_array)

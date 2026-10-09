@@ -32,7 +32,7 @@ pub enum StrandWatchSelectorKind {
 /// A written watch cell has a revision even when it was cleared to `null`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StrandWatchCurrentResult {
+pub struct StrandWatchCurrentRow {
     pub selector: StrandWatchCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
@@ -73,7 +73,7 @@ pub enum StrandWatchCurrentOutcome {
         realm_id: RealmId,
         governance_generation: u64,
         stream_head: CommitStreamHead,
-        result: StrandWatchCurrentResult,
+        result: StrandWatchCurrentRow,
     },
 }
 

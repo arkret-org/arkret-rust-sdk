@@ -31,7 +31,7 @@ use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     EpochRotationPayload,
 };
 use arkret_models_collaboration::sync_frames::current_results::{
-    AccountCurrentCoverage, AccountCurrentResult,
+    AccountCurrentCoverage, AccountCurrentView,
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
@@ -858,7 +858,7 @@ fn window_start_metadata_rejects_a_retired_collaboration_role() {
 
 #[test]
 fn account_current_result_matches_its_schema_shape_and_order() {
-    let current: AccountCurrentResult = round_trip(
+    let current: AccountCurrentView = round_trip(
         ACCOUNT_CURRENT,
         "#/$defs/current",
         json!({
@@ -885,7 +885,7 @@ fn account_current_result_refuses_two_values_for_one_selector() {
         "revision": {"commit_id": COMMIT_A, "stream_position": 12},
         "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
     });
-    let current: AccountCurrentResult = serde_json::from_value(json!({
+    let current: AccountCurrentView = serde_json::from_value(json!({
         "realm_id": REALM_A,
         "governance_generation": 2,
         "stream_heads": [],

@@ -67,7 +67,7 @@ impl AgentInteractionExactCurrentSelector {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentInteractionExactCurrentResult {
+pub struct AgentInteractionExactCurrentRow {
     pub selector: AgentInteractionExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,

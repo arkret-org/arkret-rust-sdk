@@ -23,6 +23,13 @@ class TypeNameTests(unittest.TestCase):
         self.assertEqual(gate.violations("models-collaboration/src/call_signal.rs", source), [])
         self.assertEqual(gate.violations("wire/src/new.rs", source), ["IceCandidate"])
 
+    def test_verified_poll_answer_exception_is_exact(self):
+        source = "pub struct VerifiedPollResponse {} pub struct OtherResponse {}"
+        self.assertEqual(gate.violations("models-collaboration/src/poll.rs", source),
+                         ["OtherResponse"])
+        self.assertEqual(gate.violations("wire/src/new.rs", source),
+                         ["VerifiedPollResponse", "OtherResponse"])
+
     def test_comments_strings_and_error_aliases_are_not_dtos(self):
         self.assertEqual(gate.violations("wire/src/new.rs", '''
             // pub struct FakeResult {}

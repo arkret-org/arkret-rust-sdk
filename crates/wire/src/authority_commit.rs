@@ -660,7 +660,7 @@ pub struct RealmStateSnapshot {
     pub realm_id: RealmId,
     pub governance_generation: u64,
     pub visible_stream_heads: Vec<CommitStreamHead>,
-    pub current_state_entries: Vec<TypedCurrentResult>,
+    pub current_state_entries: Vec<TypedCurrentRow>,
     pub retention_and_history_floor: RetentionAndHistoryFloor,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -2137,7 +2137,7 @@ pub struct MlsGroupCurrent {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TypedCurrentResult {
+pub enum TypedCurrentRow {
     Value {
         selector: CurrentSelector,
         source_stream_ref: CommitStreamRef,
@@ -2146,7 +2146,7 @@ pub enum TypedCurrentResult {
     },
 }
 
-impl TypedCurrentResult {
+impl TypedCurrentRow {
     /// Circle join basis from one already verified parent Realm current row.
     /// The complete ActorId and exact Realm stream must match; only join qualifies.
     pub fn parent_membership_revision(
@@ -3501,7 +3501,7 @@ mod tests {
             commit_id: RealmCommitId::from_digest([42; 32]),
             stream_position: 7,
         };
-        let row = TypedCurrentResult::Value {
+        let row = TypedCurrentRow::Value {
             selector: CurrentSelector::MemberState {
                 actor_id: member.clone(),
             },
@@ -3529,7 +3529,7 @@ mod tests {
         );
         for state in ["leave", "ban", "knock"] {
             let mut excluded = row.clone();
-            let TypedCurrentResult::Value { value, .. } = &mut excluded;
+            let TypedCurrentRow::Value { value, .. } = &mut excluded;
             *value = json!({"membership":state});
             assert!(
                 excluded
@@ -3538,7 +3538,7 @@ mod tests {
             );
         }
         let mut foreign_stream = row;
-        let TypedCurrentResult::Value {
+        let TypedCurrentRow::Value {
             source_stream_ref, ..
         } = &mut foreign_stream;
         *source_stream_ref = CommitStreamRef::Circle {
@@ -3763,9 +3763,9 @@ mod tests {
             .find(|case| case["name"] == "authorized_relation_present_snapshot_carrier")
             .unwrap()["value"]["entry"]
             .clone();
-        let row: TypedCurrentResult = serde_json::from_value(entry.clone()).unwrap();
+        let row: TypedCurrentRow = serde_json::from_value(entry.clone()).unwrap();
         assert_eq!(serde_json::to_value(&row).unwrap(), entry);
-        let TypedCurrentResult::Value {
+        let TypedCurrentRow::Value {
             selector:
                 CurrentSelector::Relation {
                     primary_conflict_domain,

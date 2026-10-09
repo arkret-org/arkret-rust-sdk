@@ -16,7 +16,7 @@ use arkret::{
     AgentAuthorizedSigningKey, AgentDetachedJws, AgentSigningPublicKey,
     CONTROLLER_ACCOUNT_GATE_MAX_VALIDITY_SECONDS, ControllerAccountEligibility,
     ControllerAccountGateAttestation, ControllerAccountGateBasis,
-    ControllerAccountGateIssuanceInput, ControllerAccountGateIssuanceResult,
+    ControllerAccountGateIssuanceInput, ControllerAccountGateIssuanceOutcome,
     ControllerAccountStatus, sign_controller_account_gate_attestation,
     verify_controller_account_gate_attestation,
 };
@@ -38,7 +38,7 @@ fn gate_argument_types_are_reachable_through_the_umbrella() {
     nameable::<ControllerAccountEligibility>();
     nameable::<ControllerAccountStatus>();
     nameable::<ControllerAccountGateIssuanceInput>();
-    nameable::<ControllerAccountGateIssuanceResult>();
+    nameable::<ControllerAccountGateIssuanceOutcome>();
 
     assert_eq!(CONTROLLER_ACCOUNT_GATE_MAX_VALIDITY_SECONDS, 300);
 }

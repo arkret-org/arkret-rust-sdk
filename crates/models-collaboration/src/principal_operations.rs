@@ -157,7 +157,7 @@ impl PcrGenesisAdmissionInput {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrGenesisAdmissionResult {
+pub struct PcrGenesisAdmissionOutcome {
     pub principal_id: DidCoreId,
     pub pcr_realm_id: RealmId,
     pub accepted_device_id: DeviceId,
@@ -165,7 +165,7 @@ pub struct PcrGenesisAdmissionResult {
     pub commits: [RealmCommit; 2],
 }
 
-impl PcrGenesisAdmissionResult {
+impl PcrGenesisAdmissionOutcome {
     pub fn validate_against(&self, request: &PcrGenesisAdmissionInput) -> Result<()> {
         request.validate()?;
         let create_payload: RealmCreatePayload =
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn pcr_genesis_admission_result_requires_the_resolution_projection() {
         assert!(
-            serde_json::from_value::<PcrGenesisAdmissionResult>(json!({
+            serde_json::from_value::<PcrGenesisAdmissionOutcome>(json!({
                 "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
                 "pcr_realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
                 "accepted_device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",

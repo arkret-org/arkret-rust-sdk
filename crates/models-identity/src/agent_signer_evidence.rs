@@ -361,7 +361,7 @@ pub struct ControllerAccountGateIssuanceInput {
 /// Domain result of deployment-private controller-gate issuance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ControllerAccountGateIssuanceResult {
+pub struct ControllerAccountGateIssuanceOutcome {
     pub request_id: RequestId,
     pub controller_account_gate_attestation: ControllerAccountGateAttestation,
 }
@@ -640,7 +640,7 @@ mod tests {
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "controller_account_gate_attestation": attestation_json()
         });
-        let outcome: ControllerAccountGateIssuanceResult =
+        let outcome: ControllerAccountGateIssuanceOutcome =
             serde_json::from_value(outcome_json.clone()).unwrap();
         assert_eq!(serde_json::to_value(&outcome).unwrap(), outcome_json);
     }

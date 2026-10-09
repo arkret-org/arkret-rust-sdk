@@ -1,7 +1,7 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, DeviceId, DeviceRevocationAdmissionInput, DeviceRevocationAdmissionResult,
+    AccountId, DeviceId, DeviceRevocationAdmissionInput, DeviceRevocationAdmissionOutcome,
     DidCoreId, DidUrl, EventId, Result, SessionGrantAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -81,7 +81,7 @@ impl SessionGrantDeviceBinding {
     /// exact input and is still fresh at `now`. Every other decision, and a
     /// stale or mismatched record, yields no binding.
     pub fn from_revocation_admission(
-        outcome: &DeviceRevocationAdmissionResult,
+        outcome: &DeviceRevocationAdmissionOutcome,
         request: &DeviceRevocationAdmissionInput,
         now: DateTime<Utc>,
     ) -> Result<Self> {

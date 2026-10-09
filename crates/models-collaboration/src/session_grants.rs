@@ -704,7 +704,7 @@ pub struct SessionGrantValidationByJwt {
 /// Validation never consumes the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantValidationResult {
+pub struct SessionGrantValidationOutcome {
     /// Whether the grant is currently valid for the requested audience.
     pub active: bool,
     pub status: SessionGrantAdminIntrospectionStatus,
@@ -718,7 +718,7 @@ pub struct SessionGrantValidationResult {
     pub grant: Option<SessionGrantValidationMetadata>,
 }
 
-impl SessionGrantValidationResult {
+impl SessionGrantValidationOutcome {
     /// An `active` outcome MUST carry the grant projection.
     pub fn validate(&self) -> Result<()> {
         match (self.active, &self.grant) {
@@ -765,7 +765,7 @@ pub struct AuthSessionTerminationInput {
 /// Deployment-private Auth-session termination result.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthSessionTerminationResult {
+pub struct AuthSessionTerminationOutcome {
     /// Whether the grant rotation chain is now unable to refresh, including
     /// the already-terminated idempotent case.
     pub grant_chain_terminated: bool,
@@ -911,7 +911,7 @@ mod session_grant_private_adapter_tests {
             "one_time_use_consumed": false,
             "grant": human_grant_value()
         });
-        let parsed = serde_json::from_value::<SessionGrantValidationResult>(active.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationOutcome>(active.clone())
             .expect("active outcome parses");
         parsed.validate().expect("active outcome carries a grant");
         assert_eq!(
@@ -927,13 +927,13 @@ mod session_grant_private_adapter_tests {
             "proof_required": false,
             "one_time_use_consumed": false
         });
-        let parsed = serde_json::from_value::<SessionGrantValidationResult>(inactive.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationOutcome>(inactive.clone())
             .expect("inactive outcome parses");
         parsed.validate().expect("inactive outcome needs no grant");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), inactive);
 
         assert!(
-            serde_json::from_value::<SessionGrantValidationResult>(with_unknown_member(
+            serde_json::from_value::<SessionGrantValidationOutcome>(with_unknown_member(
                 active.clone()
             ))
             .is_err(),
@@ -943,7 +943,7 @@ mod session_grant_private_adapter_tests {
         let mut grant_open = active.clone();
         grant_open["grant"] = with_unknown_member(human_grant_value());
         assert!(
-            serde_json::from_value::<SessionGrantValidationResult>(grant_open).is_err(),
+            serde_json::from_value::<SessionGrantValidationOutcome>(grant_open).is_err(),
             "the nested grant projection is closed too"
         );
 
@@ -954,7 +954,7 @@ mod session_grant_private_adapter_tests {
             "one_time_use_consumed",
         ] {
             assert!(
-                serde_json::from_value::<SessionGrantValidationResult>(without_member(
+                serde_json::from_value::<SessionGrantValidationOutcome>(without_member(
                     active.clone(),
                     member
                 ))
@@ -966,7 +966,7 @@ mod session_grant_private_adapter_tests {
         let mut active_without_grant = without_member(active, "grant");
         active_without_grant["status"] = json!("active");
         let parsed =
-            serde_json::from_value::<SessionGrantValidationResult>(active_without_grant).unwrap();
+            serde_json::from_value::<SessionGrantValidationOutcome>(active_without_grant).unwrap();
         assert!(
             parsed.validate().is_err(),
             "an active outcome must carry grant metadata"
@@ -1075,18 +1075,18 @@ mod session_grant_private_adapter_tests {
             "grant_chain_terminated": true,
             "auth_session_logged_out": true
         });
-        let parsed = serde_json::from_value::<AuthSessionTerminationResult>(outcome.clone())
+        let parsed = serde_json::from_value::<AuthSessionTerminationOutcome>(outcome.clone())
             .expect("outcome parses");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), outcome);
         assert!(
-            serde_json::from_value::<AuthSessionTerminationResult>(with_unknown_member(
+            serde_json::from_value::<AuthSessionTerminationOutcome>(with_unknown_member(
                 outcome.clone()
             ))
             .is_err()
         );
         for member in ["grant_chain_terminated", "auth_session_logged_out"] {
             assert!(
-                serde_json::from_value::<AuthSessionTerminationResult>(without_member(
+                serde_json::from_value::<AuthSessionTerminationOutcome>(without_member(
                     outcome.clone(),
                     member
                 ))

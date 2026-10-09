@@ -9,7 +9,7 @@ use crate::authority_commit::SelfAuthoritySubmitRequest;
 use crate::events_payloads::MlsGenesisBindingProposalCarrier;
 use crate::internal_prelude::{Result, WireError};
 use crate::sync_frames::account_subscribe::RealmDetailBaseline;
-use crate::sync_frames::current_results::AccountCurrentResult;
+use crate::sync_frames::current_results::AccountCurrentView;
 
 crate::string_marker!(MlsCreatorBootstrapOperation, MlsGenesis, "mls_genesis");
 
@@ -193,11 +193,11 @@ impl MlsCreatorBootstrapIntent {
 #[serde(deny_unknown_fields)]
 pub struct MlsCreatorBootstrapCurrentCut {
     baseline: RealmDetailBaseline,
-    current: AccountCurrentResult,
+    current: AccountCurrentView,
 }
 
 impl MlsCreatorBootstrapCurrentCut {
-    pub fn new(baseline: RealmDetailBaseline, current: AccountCurrentResult) -> Self {
+    pub fn new(baseline: RealmDetailBaseline, current: AccountCurrentView) -> Self {
         Self { baseline, current }
     }
 
@@ -261,7 +261,7 @@ impl MlsCreatorBootstrapCurrentCut {
         &self.baseline
     }
 
-    pub fn current(&self) -> &AccountCurrentResult {
+    pub fn current(&self) -> &AccountCurrentView {
         &self.current
     }
 }
@@ -343,7 +343,7 @@ fn validate_creator_own_snapshot(snapshot: &arkret_wire::RealmStateSnapshot) -> 
     let mut subjects = std::collections::BTreeSet::new();
     let mut commits = std::collections::BTreeMap::new();
     for row in &snapshot.current_state_entries {
-        let arkret_wire::TypedCurrentResult::Value {
+        let arkret_wire::TypedCurrentRow::Value {
             selector,
             source_stream_ref,
             revision,
@@ -437,7 +437,7 @@ impl MlsCreatorBootstrapAuthority {
                     .current_state_entries
                     .iter()
                     .filter_map(|row| match row {
-                        arkret_wire::TypedCurrentResult::Value {
+                        arkret_wire::TypedCurrentRow::Value {
                             source_stream_ref: stream_ref,
                             selector: arkret_wire::CurrentSelector::RealmGenesis,
                             value,
@@ -2689,7 +2689,7 @@ pub fn validate_creator_genesis_absence_snapshot(
     accepted: &MlsCreatorBootstrapAcceptedCreate,
     snapshot: &arkret_wire::RealmStateSnapshot,
 ) -> Result<()> {
-    use arkret_wire::{CommitStreamRef, CurrentSelector, TypedCurrentResult};
+    use arkret_wire::{CommitStreamRef, CurrentSelector, TypedCurrentRow};
     let stream = CommitStreamRef::from_scope(intent.effective_scope(), None)?;
     accepted.validate_binding(intent)?;
     let root = &accepted.authority_root;
@@ -2730,7 +2730,7 @@ pub fn validate_creator_genesis_absence_snapshot(
         || !snapshot.visible_stream_heads.contains(root.realm_head()?)
         || snapshot.current_state_entries.iter().any(|entry| {
             let selector = match entry {
-                TypedCurrentResult::Value { selector, .. } => selector,
+                TypedCurrentRow::Value { selector, .. } => selector,
             };
             selector
                 == &CurrentSelector::MlsGroup {
@@ -3145,7 +3145,7 @@ mod tests {
                 },
                 complete: true,
             },
-            AccountCurrentResult {
+            AccountCurrentView {
                 realm_id,
                 governance_generation: 3,
                 stream_heads: heads,
@@ -3219,7 +3219,7 @@ mod tests {
     #[test]
     fn an_exact_scope_mls_current_entry_is_a_winner_even_if_its_value_is_empty() {
         let (scope, head, mut cut) = current_cut(true);
-        let entry = arkret_wire::TypedCurrentResult::Value {
+        let entry = arkret_wire::TypedCurrentRow::Value {
             selector: arkret_wire::CurrentSelector::MlsGroup {
                 scope_ref: scope.clone(),
             },
@@ -3578,7 +3578,7 @@ mod tests {
         .unwrap();
         snapshot
             .current_state_entries
-            .push(arkret_wire::TypedCurrentResult::Value {
+            .push(arkret_wire::TypedCurrentRow::Value {
                 selector: arkret_wire::CurrentSelector::RealmGenesis,
                 source_stream_ref: arkret_wire::CommitStreamRef::Realm {
                     realm_id: snapshot.realm_id.clone(),

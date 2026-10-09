@@ -870,6 +870,10 @@
       "schema": "account-current-result.schema.json#/$defs/coverage"
     },
     {
+      "rust_type": "crates/models-collaboration/src/sync_frames/current_results.rs::AccountCurrentView",
+      "schema": "account-current-result.schema.json#/$defs/current"
+    },
+    {
       "rust_type": "crates/models-identity/src/authenticated_signer_resolution_evidence.rs::AuthenticatedSignerResolutionEvidence",
       "schema": "authenticated-signer-resolution-evidence.schema.json#/$defs/base"
     },
@@ -1172,7 +1176,7 @@
       "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result/properties/selector"
     },
     {
-      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentResult",
+      "rust_type": "crates/models-collaboration/src/agent_interaction.rs::AgentInteractionExactCurrentRow",
       "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result"
     },
     {
@@ -1216,8 +1220,8 @@
       "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact"
     },
     {
-      "rust_type": "crates/models-collaboration/src/authority_commit.rs::HumanHistoricalSignerFactEntry",
-      "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact_entry"
+      "rust_type": "crates/models-collaboration/src/authority_commit.rs::HistoricalProducerSignerFactEntry",
+      "schema": "authority-commit-operations.schema.json#/$defs/historical_producer_signer_fact_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/authority_commit.rs::PeerStreamScanOutcome",

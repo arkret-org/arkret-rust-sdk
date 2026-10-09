@@ -15,7 +15,7 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::agent_interaction::{
-    AgentInteractionExactCurrentResult, AgentInteractionExactCurrentSelector,
+    AgentInteractionExactCurrentRow, AgentInteractionExactCurrentSelector,
 };
 use crate::events_payloads::moderation::{
     ModerationDecisionLiftPayload, ModerationDecisionPayload,
@@ -226,7 +226,7 @@ pub struct CalendarScheduleSourceExactSelector {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalendarScheduleSourceExactResult {
+pub struct CalendarScheduleSourceExactRow {
     pub selector: CalendarScheduleSourceExactSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -248,7 +248,7 @@ pub struct CapabilityGrantExactCurrentSelector {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CapabilityGrantExactCurrentResult {
+pub struct CapabilityGrantExactCurrentRow {
     pub selector: CapabilityGrantExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -281,7 +281,7 @@ pub struct PolicyExactCurrentSelector {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PolicyExactCurrentResult {
+pub struct PolicyExactCurrentRow {
     pub selector: PolicyExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -304,7 +304,7 @@ impl ExactCurrentResultsReadRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RelationExactCurrentResult {
+pub struct RelationExactCurrentRow {
     pub selector: RelationExactCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
@@ -343,7 +343,7 @@ pub struct ModerationStateCurrentValue {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ModerationStateExactCurrentResult {
+pub struct ModerationStateExactCurrentRow {
     pub selector: ModerationStateExactCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
@@ -354,12 +354,12 @@ pub struct ModerationStateExactCurrentResult {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ExactCurrentResultEntry {
-    Relation(RelationExactCurrentResult),
-    ModerationState(ModerationStateExactCurrentResult),
-    AgentInteraction(AgentInteractionExactCurrentResult),
-    CapabilityGrant(CapabilityGrantExactCurrentResult),
-    Policy(PolicyExactCurrentResult),
-    CalendarScheduleSource(CalendarScheduleSourceExactResult),
+    Relation(RelationExactCurrentRow),
+    ModerationState(ModerationStateExactCurrentRow),
+    AgentInteraction(AgentInteractionExactCurrentRow),
+    CapabilityGrant(CapabilityGrantExactCurrentRow),
+    Policy(PolicyExactCurrentRow),
+    CalendarScheduleSource(CalendarScheduleSourceExactRow),
 }
 
 impl ExactCurrentResultEntry {
@@ -665,9 +665,9 @@ impl ExactCurrentResultsReadOutcome {
 /// Validate minimal Calendar sources against the same authenticated current cut.
 pub fn validate_calendar_current_pairs(
     realm: &RealmId,
-    entries: &[arkret_wire::TypedCurrentResult],
+    entries: &[arkret_wire::TypedCurrentRow],
 ) -> Result<()> {
-    use arkret_wire::{CurrentSelector as S, TypedCurrentResult as R};
+    use arkret_wire::{CurrentSelector as S, TypedCurrentRow as R};
     let reject = |message: &str| WireError::Protocol(message.into());
     for entry in entries {
         let R::Value {
@@ -718,7 +718,7 @@ pub fn validate_calendar_current_pairs(
 mod calendar_current_pair_tests {
     use arkret_wire::{
         ActorId, CalendarScheduleSourceValue, CommittedEventRef, CurrentSelector, EventId,
-        ScopeRef, StrandId, TypedCurrentResult,
+        ScopeRef, StrandId, TypedCurrentRow,
     };
     use serde_json::json;
 
@@ -726,7 +726,7 @@ mod calendar_current_pair_tests {
     fn event(byte: u8) -> EventId {
         EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32])
     }
-    fn rows() -> (RealmId, Vec<TypedCurrentResult>) {
+    fn rows() -> (RealmId, Vec<TypedCurrentRow>) {
         let realm = RealmId::from_event_id(&event(1));
         let id = StrandId::from_event_id(&event(2));
         let stream = CommitStreamRef::Realm {
@@ -761,7 +761,7 @@ mod calendar_current_pair_tests {
         (
             realm,
             vec![
-                TypedCurrentResult::Value {
+                TypedCurrentRow::Value {
                     selector: CurrentSelector::Strand {
                         strand_id: id.clone(),
                     },
@@ -769,7 +769,7 @@ mod calendar_current_pair_tests {
                     revision: revision.clone(),
                     value: serde_json::to_value(strand).unwrap(),
                 },
-                TypedCurrentResult::Value {
+                TypedCurrentRow::Value {
                     selector: CurrentSelector::CalendarScheduleSource { strand_id: id },
                     source_stream_ref: stream,
                     revision,
@@ -785,15 +785,15 @@ mod calendar_current_pair_tests {
         assert!(validate_calendar_current_pairs(&realm, &rows[..1]).is_err());
         assert!(validate_calendar_current_pairs(&realm, &rows[1..]).is_err());
         let mut bad = rows.clone();
-        let TypedCurrentResult::Value { revision, .. } = &mut bad[1];
+        let TypedCurrentRow::Value { revision, .. } = &mut bad[1];
         revision.stream_position += 1;
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         let mut bad = rows.clone();
-        let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+        let TypedCurrentRow::Value { value, .. } = &mut bad[1];
         value["source"]["stream_position"] = json!(6);
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         let mut bad = rows.clone();
-        let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+        let TypedCurrentRow::Value { value, .. } = &mut bad[1];
         value["effective_scope"]["realm_id"] = json!(RealmId::from_event_id(&event(9)));
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
     }
@@ -808,10 +808,10 @@ mod calendar_current_pair_tests {
                     arkret_models_crypto::EncryptedEnvelopeEncryptionContext::standard(1, event(4)),
                 ciphertext: "AQID".into(),
             };
-        let TypedCurrentResult::Value { value, .. } = &mut rows[0];
+        let TypedCurrentRow::Value { value, .. } = &mut rows[0];
         value.as_object_mut().unwrap().remove("metadata");
         value["encrypted_metadata"] = serde_json::to_value(&envelope).unwrap();
-        let TypedCurrentResult::Value { value, .. } = &mut rows[1];
+        let TypedCurrentRow::Value { value, .. } = &mut rows[1];
         value["metadata_context"] = json!({"source":value["source"],"event_kind":"ak.strand.update","signer_id":ActorId::service(arkret_wire::DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),"payload_digest":envelope.payload_digest().unwrap()});
         validate_calendar_current_pairs(&realm, &rows).unwrap();
         for (field, replacement) in [
@@ -826,7 +826,7 @@ mod calendar_current_pair_tests {
             ),
         ] {
             let mut bad = rows.clone();
-            let TypedCurrentResult::Value { value, .. } = &mut bad[1];
+            let TypedCurrentRow::Value { value, .. } = &mut bad[1];
             value["metadata_context"][field] = replacement;
             assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         }
@@ -837,7 +837,7 @@ mod calendar_current_pair_tests {
     #[test]
     fn calendar_nullable_source_and_context_are_required_closed_members() {
         let (_, rows) = rows();
-        let TypedCurrentResult::Value { value, .. } = &rows[1];
+        let TypedCurrentRow::Value { value, .. } = &rows[1];
         for member in ["source", "metadata_context"] {
             let mut bad = value.clone();
             bad.as_object_mut().unwrap().remove(member);

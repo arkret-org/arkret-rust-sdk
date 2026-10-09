@@ -459,7 +459,7 @@ enum QueryKeyWireRef<'a> {
 /// a nullable or reusable current-result field.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SignerKeyQueryResult {
+pub enum SignerKeyQueryOutcome {
     CurrentDeviceResolved {
         selector: SignerKeyQuerySelector,
         key: CurrentDeviceSigningKey,
@@ -486,7 +486,7 @@ pub enum SignerKeyQueryResult {
     Unavailable { selector: SignerKeyQuerySelector },
 }
 
-impl SignerKeyQueryResult {
+impl SignerKeyQueryOutcome {
     pub fn selector(&self) -> &SignerKeyQuerySelector {
         match self {
             Self::CurrentDeviceResolved { selector, .. }
@@ -643,7 +643,7 @@ struct SignerKeyQueryResultWireRef<'a> {
     accepted_at: Option<DateTime<Utc>>,
 }
 
-impl Serialize for SignerKeyQueryResult {
+impl Serialize for SignerKeyQueryOutcome {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -742,7 +742,7 @@ impl Serialize for SignerKeyQueryResult {
     }
 }
 
-impl<'de> Deserialize<'de> for SignerKeyQueryResult {
+impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -838,7 +838,7 @@ pub struct SignerKeysQueryOutcome {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     pub recipient_account_id: AccountId,
-    pub results: Vec<SignerKeyQueryResult>,
+    pub results: Vec<SignerKeyQueryOutcome>,
 }
 
 impl SignerKeysQueryOutcome {
@@ -995,7 +995,7 @@ mod tests {
                 realm_id: realm_id(),
             },
         };
-        let result = SignerKeyQueryResult::HistoricalServiceResolved {
+        let result = SignerKeyQueryOutcome::HistoricalServiceResolved {
             selector: selector.clone(),
             key: key.clone(),
             accepted_at: accepted_at(),
@@ -1003,20 +1003,20 @@ mod tests {
         result.validate(&realm_id()).unwrap();
         let value = serde_json::to_value(&result).unwrap();
         assert_eq!(
-            serde_json::from_value::<SignerKeyQueryResult>(value.clone()).unwrap(),
+            serde_json::from_value::<SignerKeyQueryOutcome>(value.clone()).unwrap(),
             result
         );
         for member in ["key", "accepted_at"] {
             let mut missing = value.clone();
             missing.as_object_mut().unwrap().remove(member);
-            assert!(serde_json::from_value::<SignerKeyQueryResult>(missing).is_err());
+            assert!(serde_json::from_value::<SignerKeyQueryOutcome>(missing).is_err());
             let mut null = value.clone();
             null[member] = json!(null);
-            assert!(serde_json::from_value::<SignerKeyQueryResult>(null).is_err());
+            assert!(serde_json::from_value::<SignerKeyQueryOutcome>(null).is_err());
         }
         let mut wrong = value.clone();
         wrong["selector"]["sender_kind"] = json!("agent");
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(wrong).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(wrong).is_err());
         let mut current = serde_json::to_value(selector).unwrap();
         current["verification_mode"] = json!("current_admission");
         current
@@ -1080,14 +1080,14 @@ mod tests {
     #[test]
     fn a_resolved_result_without_a_key_is_not_representable() {
         let value = json!({ "status": "resolved", "selector": device_selector() });
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(value).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(value).is_err());
 
         let value = json!({
             "status": "unavailable",
             "selector": device_selector(),
             "key": resolved_key(committed_ref(4, 0x11), 9),
         });
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(value).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(value).is_err());
     }
 
     #[test]
@@ -1100,16 +1100,16 @@ mod tests {
             "key": key,
             "accepted_at": "2026-09-20T00:00:00.000Z",
         });
-        let result: SignerKeyQueryResult = serde_json::from_value(value.clone()).unwrap();
+        let result: SignerKeyQueryOutcome = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(result).unwrap(), value);
 
         let mut missing = value.clone();
         missing.as_object_mut().unwrap().remove("accepted_at");
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(missing).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(missing).is_err());
 
         let mut noncanonical = value;
         noncanonical["accepted_at"] = json!("2026-09-20T00:00:00Z");
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(noncanonical).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(noncanonical).is_err());
 
         let explicit_null = json!({
             "selector": historical_agent_selector(committed_ref(12, 0x11)),
@@ -1117,7 +1117,7 @@ mod tests {
             "key": resolved_key(committed_ref(7, 0x22), 15),
             "accepted_at": null,
         });
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(explicit_null).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(explicit_null).is_err());
 
         let current_with_timestamp = json!({
             "selector": device_selector(),
@@ -1125,14 +1125,16 @@ mod tests {
             "key": resolved_key(committed_ref(7, 0x22), 15),
             "accepted_at": "2026-09-20T00:00:00.000Z",
         });
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(current_with_timestamp).is_err());
+        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(current_with_timestamp).is_err());
 
         let unavailable_with_null_key = json!({
             "selector": device_selector(),
             "status": "unavailable",
             "key": null,
         });
-        assert!(serde_json::from_value::<SignerKeyQueryResult>(unavailable_with_null_key).is_err());
+        assert!(
+            serde_json::from_value::<SignerKeyQueryOutcome>(unavailable_with_null_key).is_err()
+        );
     }
 
     #[test]
@@ -1149,7 +1151,7 @@ mod tests {
     fn historical_target_and_authorization_are_independent_complete_coordinates() {
         let target = committed_ref(12, 0x11);
         let authorization = committed_ref(7, 0x22);
-        let result = SignerKeyQueryResult::HistoricalResolved {
+        let result = SignerKeyQueryOutcome::HistoricalResolved {
             selector: historical_agent_selector(target),
             key: resolved_key(authorization, 15),
             accepted_at: accepted_at(),
@@ -1167,7 +1169,7 @@ mod tests {
         foreign_target.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm.clone(),
         };
-        let target_error = SignerKeyQueryResult::HistoricalResolved {
+        let target_error = SignerKeyQueryOutcome::HistoricalResolved {
             selector: historical_agent_selector(foreign_target),
             key: resolved_key(committed_ref(7, 0x22), 15),
             accepted_at: accepted_at(),
@@ -1180,7 +1182,7 @@ mod tests {
         foreign_authorization.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm,
         };
-        SignerKeyQueryResult::HistoricalResolved {
+        SignerKeyQueryOutcome::HistoricalResolved {
             selector: historical_agent_selector(committed_ref(12, 0x11)),
             key: resolved_key(foreign_authorization, 15),
             accepted_at: accepted_at(),
@@ -1252,14 +1254,14 @@ mod tests {
             request_id: request.request_id.clone(),
             realm_id: realm_id(),
             recipient_account_id: account_id(),
-            results: vec![SignerKeyQueryResult::Unavailable {
+            results: vec![SignerKeyQueryOutcome::Unavailable {
                 selector: device_selector(),
             }],
         };
         outcome.validate_for_request(&request).unwrap();
 
         let unasked = SignerKeysQueryOutcome {
-            results: vec![SignerKeyQueryResult::Unavailable {
+            results: vec![SignerKeyQueryOutcome::Unavailable {
                 selector: historical_agent_selector(committed_ref(4, 0x11)),
             }],
             ..outcome

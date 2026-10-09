@@ -152,7 +152,7 @@ use arkret_models_identity::agent_signer_evidence::*;
 use arkret_models_identity::{AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence};
 use arkret_wire::{
     CurrentRevision, CurrentSelector, DetachedSignatureContext, RealmCommit, RealmCommitId,
-    TypedCurrentResult,
+    TypedCurrentRow,
 };
 
 fn sign(event: Event, method: &str, seed: [u8; 32]) -> Event {
@@ -286,7 +286,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         expires_at: None,
     };
     let current = |commit: &RealmCommit, selector: CurrentSelector, value: serde_json::Value| {
-        TypedCurrentResult::Value {
+        TypedCurrentRow::Value {
             selector,
             source_stream_ref: commit.stream_ref.clone(),
             revision: CurrentRevision {
