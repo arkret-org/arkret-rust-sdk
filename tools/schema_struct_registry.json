@@ -2,6 +2,10 @@
   "version": 1,
   "mappings": [
     {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentLifecycleOutcome",
+      "schema": "agent-operations.schema.json#/$defs/agent_lifecycle_state"
+    },
+    {
       "rust_type": "crates/identity/src/binding.rs::LimitedTrust",
       "schema": "did-binding-contracts.schema.json#/$defs/limited_trust"
     },

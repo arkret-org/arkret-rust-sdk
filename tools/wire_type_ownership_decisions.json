@@ -14,9 +14,17 @@
     },
     {
       "repository": "garth",
-      "path": "src/history_runtime.rs",
-      "pattern": "source_actor_id\\s*:\\s*arkret_wire::DidCoreId",
-      "owner": "arkret_wire::ActorId"
+      "path_glob": "src/**/*.rs",
+      "pattern": "source_actor_id\\s*:\\s*(?:(?:arkret_wire|arkret_sdk)::)?DidCoreId\\b",
+      "owner": "arkret_wire::ActorId",
+      "rationale": "The retired history_runtime.rs became authority commit-stream consumers in replica.rs and own_station_results.rs. Every Garth source must preserve the complete ActorId rather than a principal-only source selector."
+    },
+    {
+      "repository": "garth",
+      "path_glob": "src/**/*.rs",
+      "pattern": "(?:struct|enum)\\s+(?:CommittedEventView|StreamScanOutcome|StreamScanRequest)\\b",
+      "owner": "arkret_wire::{CommittedEventView, StreamScanOutcome, StreamScanRequest}",
+      "rationale": "Current replicas and own-Station scan pages embed SDK-owned commit-stream carriers. Moving or adding a source must not recreate these wire DTOs locally."
     },
     {
       "repository": "soland",

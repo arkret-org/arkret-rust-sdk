@@ -258,12 +258,13 @@ pub struct AgentDeactivateRequestBody {
     pub lifecycle_event: EventAdmissionSubmission,
 }
 
+/// Closed lifecycle operation response:
+/// `agent-operations.schema.json#/$defs/agent_lifecycle_state`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentLifecycleOutcome {
     pub status: AgentLifecycleState,
-    pub lifecycle_ref: CommittedEventRef,
 }
 
 /// Read projection of one Agent.

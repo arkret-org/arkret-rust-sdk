@@ -3,12 +3,12 @@
     "total": 1416,
     "by_classification": {
       "A": 4,
-      "B": 783,
-      "needs_review": 629
+      "B": 784,
+      "needs_review": 628
     },
     "by_openness": {
-      "closed": 787,
-      "unresolved": 628,
+      "closed": 788,
+      "unresolved": 627,
       "unspecified": 1
     },
     "by_crate": {
@@ -800,12 +800,12 @@
       "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentLifecycleOutcome",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 263,
+      "line": 265,
       "kind": "struct",
       "value_kind": "AgentLifecycleOutcome",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
+      "spec_pointer": "agent-operations.schema.json#/$defs/agent_lifecycle_state",
+      "schema_openness": "closed",
+      "classification": "B",
       "cfg_gated": false,
       "flatten_extra": false
     },
