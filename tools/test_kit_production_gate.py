@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -75,6 +76,27 @@ def is_optional(declaration: Any) -> bool:
     return isinstance(declaration, dict) and declaration.get("optional") is True
 
 
+def default_activates_dependency(document: dict[str, Any], dependency: str) -> bool:
+    """Follow local Cargo feature edges, including explicit optional activation."""
+    features = document.get("features", {})
+    pending = ["default"]
+    visited: set[str] = set()
+    while pending:
+        feature = pending.pop()
+        if feature in visited:
+            continue
+        visited.add(feature)
+        for edge in features.get(feature, []):
+            if edge in (dependency, f"dep:{dependency}"):
+                return True
+            if edge.startswith(f"{dependency}/"):
+                return True
+            # `dependency?/feature` never activates an optional dependency.
+            if edge in features:
+                pending.append(edge)
+    return False
+
+
 def load_decisions(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -93,9 +115,37 @@ def load_decisions(path: Path) -> dict[str, str]:
     return decisions
 
 
+def signing_surface_errors(workspace_root: Path) -> list[str]:
+    """Fixture derivation belongs to test-kit, never the signatures crate."""
+    errors: list[str] = []
+    for manifest in manifests(workspace_root):
+        try:
+            document = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+            # The declaration audit below reports malformed manifests.
+            continue
+        if document.get("package", {}).get("name") != "arkret-signatures":
+            continue
+        source_root = manifest.parent / "src"
+        sources = sorted(source_root.rglob("*.rs"))
+        if not sources:
+            errors.append(f"{manifest}: signatures source scan is empty")
+        for source in sources:
+            text = source.read_text(encoding="utf-8")
+            for match in re.finditer(
+                r"\bdevelopment_(?:signing_key(?:_seed)?|verifying_key)\b", text
+            ):
+                line = text.count("\n", 0, match.start()) + 1
+                errors.append(
+                    f"{source.relative_to(workspace_root).as_posix()}:{line}: "
+                    f"{match.group()} belongs to arkret-test-kit, not signatures"
+                )
+    return errors
+
+
 def audit(workspace_root: Path, decisions_path: Path) -> list[str]:
     decisions = load_decisions(decisions_path)
-    errors: list[str] = []
+    errors = signing_surface_errors(workspace_root)
     claimed: set[str] = set()
     for manifest in manifests(workspace_root):
         try:
@@ -111,6 +161,11 @@ def audit(workspace_root: Path, decisions_path: Path) -> list[str]:
             if any(marker in section for marker in DEV_SECTIONS):
                 continue
             if is_optional(declaration):
+                if default_activates_dependency(document, CRATE):
+                    errors.append(
+                        f"{relative} activates optional {CRATE} through default features; "
+                        "test-support must remain opt-in"
+                    )
                 continue
             rationale = decisions.get(relative)
             if rationale is None:

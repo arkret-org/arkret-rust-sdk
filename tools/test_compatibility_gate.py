@@ -223,9 +223,43 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             self.assertEqual(checks[name]["category"], "compile")
             self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
         workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
-        self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", workflow)), set(expected) | {"sdk.compile"})
+        self.assertEqual(set(re.findall(r"--check (sdk\.compile[.\w-]*)", workflow)), set(expected) | {"sdk.compile"})
         self.assertNotIn("- run: cargo check --no-default-features", workflow)
         self.assertNotIn("- run: cargo check -p arkret --target", workflow)
+
+    def test_sdk_structure_time_event_checks_are_shared_with_standalone_ci(self) -> None:
+        expected = {
+            "sdk.layering-regression": ["tools/test_check_layering.py"],
+            "sdk.layering": ["tools/check-layering.py"],
+            "sdk.test-layout-regression": ["-m", "unittest", "tools.tests.test_test_layout_gate"],
+            "sdk.test-layout": ["tools/test_layout_gate.py"],
+            "sdk.time-representations": ["tools/lint-time-representations.py"],
+            "sdk.optional-timestamp-defaults-regression": ["tools/test_lint_optional_timestamp_defaults.py"],
+            "sdk.optional-timestamp-defaults": ["tools/lint-optional-timestamp-defaults.py"],
+            "sdk.event-preimage-authoring-regression": ["tools/test_lint_event_preimage_authoring.py"],
+            "sdk.event-preimage-authoring": ["tools/lint-event-preimage-authoring.py"],
+            "sdk.event-derived-id-minting-regression": ["tools/test_lint_event_derived_id_minting.py"],
+            "sdk.event-derived-id-minting": ["tools/lint-event-derived-id-minting.py"],
+        }
+        checks = {check["id"]: check for check in self.manifest["checks"]}
+        for name, arguments in expected.items():
+            with self.subTest(check=name):
+                self.assertEqual(checks[name]["command"], ["python", *arguments])
+                self.assertEqual(checks[name]["repository"], "arkret-rust-sdk")
+                self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
+                self.assertEqual(checks[name]["category"], "static")
+                script = arguments[-1].replace(".", "/") + ".py" if arguments[0] == "-m" else arguments[0]
+                self.assertTrue((self.sdk_root / script).is_file())
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        block = workflow.split("- name: Run manifest SDK structure, time and Event checks\n", 1)[1]
+        block = block.split("- name: Guard weak wire types", 1)[0]
+        self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", block)), set(expected))
+        self.assertIn('--report "${{ runner.temp }}/sdk-structure-time-event.json"', block)
+        self.assertIn("if: always()", block)
+        self.assertIn("path: ${{ runner.temp }}/sdk-structure-time-event.json", block)
+        for arguments in expected.values():
+            self.assertNotIn("python " + " ".join(arguments), workflow)
+        self.assertNotIn("lint-cell-family-literals.py", workflow)
 
     def test_github_outputs_are_exact_pins(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

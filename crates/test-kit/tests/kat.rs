@@ -8,7 +8,9 @@
 
 use arkret_signatures::proof::{PublicKeyMaterial, verify_ed25519_detached_jws_proof};
 use arkret_test_kit::hlc::{pinned_hlc, wall_hlc};
-use arkret_test_kit::keys::{development_signing_key_seed, seeded_signer};
+use arkret_test_kit::keys::{
+    development_signing_key_seed, development_verifying_key, seeded_signer,
+};
 use arkret_test_kit::negative::wire_negative_from_sdk;
 use arkret_test_kit::proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 use arkret_test_kit::signed_event::SignedEventFixtureBuilder;
@@ -252,5 +254,18 @@ fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
             .expect("producer proof")
             .created_at,
         created_at
+    );
+}
+
+#[test]
+fn development_keys_are_deterministic_and_method_bound() {
+    let alice = "did:web:alice.example#cotest";
+    assert_eq!(
+        development_signing_key_seed(alice),
+        development_signing_key_seed(alice)
+    );
+    assert_ne!(
+        development_verifying_key(alice),
+        development_verifying_key("did:web:bob.example#cotest")
     );
 }

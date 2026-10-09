@@ -178,6 +178,162 @@
       ]
     },
     {
+      "id": "sdk.layering-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "precise carrier ownership and retained layering rejection rules"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_check_layering.py"
+      ]
+    },
+    {
+      "id": "sdk.layering",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "crate layering and lightweight dependency leaves"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/check-layering.py"
+      ]
+    },
+    {
+      "id": "sdk.test-layout-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "test layout gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tools.tests.test_test_layout_gate"
+      ]
+    },
+    {
+      "id": "sdk.test-layout",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "in-source test layout and hotspot growth"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_layout_gate.py"
+      ]
+    },
+    {
+      "id": "sdk.time-representations",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "canonical UTC-millisecond wire profile"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-time-representations.py"
+      ]
+    },
+    {
+      "id": "sdk.optional-timestamp-defaults-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "optional timestamp default gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_optional_timestamp_defaults.py"
+      ]
+    },
+    {
+      "id": "sdk.optional-timestamp-defaults",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "optional canonical timestamp defaults"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-optional-timestamp-defaults.py"
+      ]
+    },
+    {
+      "id": "sdk.event-preimage-authoring-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "Event preimage authoring gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_event_preimage_authoring.py"
+      ]
+    },
+    {
+      "id": "sdk.event-preimage-authoring",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK Event digest preimage ownership"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-event-preimage-authoring.py"
+      ]
+    },
+    {
+      "id": "sdk.event-derived-id-minting-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "Event-derived identifier audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_event_derived_id_minting.py"
+      ]
+    },
+    {
+      "id": "sdk.event-derived-id-minting",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK Event-derived identifier minting"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-event-derived-id-minting.py"
+      ]
+    },
+    {
       "id": "sdk.generated-contracts",
       "repository": "arkret-rust-sdk",
       "category": "static",

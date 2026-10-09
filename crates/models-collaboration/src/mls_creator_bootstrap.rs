@@ -1603,6 +1603,7 @@ pub struct MlsCreatorBootstrapQuarantine {
     outbound_queue_item_id: Option<EventId>,
     accepted_winner: Option<Box<MlsCreatorBootstrapKnownGenesis>>,
     reason_code: String,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     detected_at: chrono::DateTime<chrono::Utc>,
     recovery_record: Box<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4205,6 +4206,25 @@ mod tests {
         .unwrap();
         quarantined.validate().unwrap();
         let diagnostic = quarantined.quarantine_diagnostic().unwrap();
+        let diagnostic_json = serde_json::to_value(diagnostic).unwrap();
+        assert_eq!(
+            diagnostic_json["detected_at"],
+            arkret_canonical::format_timestamp_canonical(
+                create.authority_root().unwrap().bundle_issued_at
+            )
+        );
+        for timestamp in [
+            "2026-09-01T00:00:00Z",
+            "2026-09-01T00:00:00.000+00:00",
+            "2026-09-01T00:00:00.000000Z",
+        ] {
+            let mut noncanonical = diagnostic_json.clone();
+            noncanonical["detected_at"] = serde_json::json!(timestamp);
+            assert!(
+                serde_json::from_value::<MlsCreatorBootstrapQuarantine>(noncanonical).is_err(),
+                "{timestamp}"
+            );
+        }
         assert_eq!(
             diagnostic.last_state(),
             arkret_wire::MlsCreatorBootstrapState::GenesisQueued

@@ -23,31 +23,25 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly fmt --all -- --check
-      - name: Guard crate layering (frozen phase-0 exit review rules)
-        run: python tools/check-layering.py
-      - name: Guard in-source test layout and hotspot growth
-        run: |
-          python -m unittest tools.tests.test_test_layout_gate
-          python tools/test_layout_gate.py
-      - name: Guard protocol time representations
-        run: python tools/lint-time-representations.py
-      - name: Guard optional canonical timestamp defaults
-        run: |
-          python tools/test_lint_optional_timestamp_defaults.py
-          python tools/lint-optional-timestamp-defaults.py
-      - name: Guard registered cell-family constants
-        run: python tools/lint-cell-family-literals.py
-      - name: Guard hand-rolled Event digest preimages
-        run: |
-          python tools/test_lint_event_preimage_authoring.py
-          python tools/lint-event-preimage-authoring.py
-      # The audit runs against this repo here; the cross-repo inventory lives in
-      # tools/event_derived_id_minting_allowlist.json and each downstream repo
-      # runs `--root .` against the same file from its sibling checkout.
-      - name: Audit event-derived id minting
-        run: |
-          python tools/test_lint_event_derived_id_minting.py
-          python tools/lint-event-derived-id-minting.py
+      # Event audits scan the SDK here. Downstream scans retain their own --root
+      # scope and the shared event-derived identifier inventory.
+      - name: Run manifest SDK structure, time and Event checks
+        run: >-
+          python tools/compatibility_gate.py run --workspace-root .. --category static
+          --check sdk.layering-regression --check sdk.layering
+          --check sdk.test-layout-regression --check sdk.test-layout
+          --check sdk.time-representations
+          --check sdk.optional-timestamp-defaults-regression --check sdk.optional-timestamp-defaults
+          --check sdk.event-preimage-authoring-regression --check sdk.event-preimage-authoring
+          --check sdk.event-derived-id-minting-regression --check sdk.event-derived-id-minting
+          --report "${{ runner.temp }}/sdk-structure-time-event.json"
+      - name: Preserve SDK structure, time and Event results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-structure-time-event-results
+          path: ${{ runner.temp }}/sdk-structure-time-event.json
+          if-no-files-found: ignore
       - name: Guard weak wire types and closed-schema boundaries
         run: |
           python tools/test_identity_type_audit.py

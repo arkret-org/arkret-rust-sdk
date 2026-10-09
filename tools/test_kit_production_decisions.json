@@ -8,6 +8,10 @@
     {
       "manifest": "soland/crates/test-support/Cargo.toml",
       "rationale": "soland-test-support is an unpublished integration-test fixture crate, consumed only by soland-server dev-dependencies. Its shared signing fixtures are not reachable from production builds."
+    },
+    {
+      "manifest": "cotest/crates/test-support/Cargo.toml",
+      "rationale": "cotest-test-support is the unpublished SDK-only provisioning and wire-fixture harness used by Cotest test runs. Its deterministic signing material is not consumed by a production service; the package graph gate keeps implementation crates out of this tooling edge."
     }
   ]
 }

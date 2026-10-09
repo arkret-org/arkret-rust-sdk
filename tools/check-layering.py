@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Enforce the frozen crate-layering rules for the Arkret SDK workspace.
 
-Rules source: arkret-work/tasks/impl-active/2026-07-19-arkret-rust-sdk-crate-architecture-review.md
-(phase-0 exit review, frozen 2026-07-19).
+Rules source: arkret-work/refactor/tasks/2026-09-06-0913-local-gates-and-dependency-evidence.md.
+The phase-0 data/runtime separation remains frozen. Precise carrier ownership
+amendments below do not permit arbitrary cross-domain or runtime dependencies.
 
 Checks:
   1. Every direct arkret->arkret normal/optional edge must be declared in
@@ -74,7 +75,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # edge introduces neither a cycle nor transport/runtime machinery.
     "arkret-models-collaboration": _WIRE
     | {"arkret-models-identity", "arkret-models-crypto", "arkret-schema"},
-    "arkret-models-integration": _WIRE | {"arkret-models-identity"},
+    # ae2bd748f5973b57df8c09d888651080b716be4e removed the duplicate
+    # AppletCommittedEvent DTO: integration reexports its sole collaboration
+    # owner, including retained device evidence and exact authority cuts.
+    "arkret-models-integration": _WIRE
+    | {"arkret-models-identity", "arkret-models-collaboration"},
     "arkret-models-discovery": _WIRE | {"arkret-models-identity"},
     "arkret-models": _WIRE
     | {
@@ -175,6 +180,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-identity": _WIRE
     | {
         "arkret-models-identity",
+        # a9bb7df46fefb7f0103faca311ca23e8b17c24b7 introduced portable
+        # authority verification. This behavior layer consumes the canonical
+        # historical signer, handoff and invite-delivery data carriers.
+        "arkret-models-collaboration",
         "arkret-signatures",
         "arkret-egress-policy",
         "arkret-keystore",
