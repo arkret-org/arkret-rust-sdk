@@ -439,6 +439,7 @@ impl ClientBuilder {
             base_url: self.base_url,
             http,
             auth: self.auth,
+            own_station_context: None,
             http_message_signer: self.http_message_signer,
             service_signature_identity: None,
             managed_device_signature_identity: None,

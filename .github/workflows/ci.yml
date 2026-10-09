@@ -42,16 +42,20 @@ jobs:
           name: sdk-structure-time-event-results
           path: ${{ runner.temp }}/sdk-structure-time-event.json
           if-no-files-found: ignore
-      - name: Guard weak wire types and closed-schema boundaries
-        run: |
-          python tools/test_identity_type_audit.py
-          python tools/identity_type_audit.py
-          python tools/tests/test_wire_value_audit.py
-          python tools/wire_value_audit.py --check
-          # Package-style imports (`from tools.deny_unknown_audit import ...`),
-          # so it must be run as a module from the repo root, not as a script.
-          python -m tools.test_deny_unknown_audit
-          python tools/deny_unknown_audit.py --check
+      - name: Run manifest SDK type boundary checks
+        run: >-
+          python tools/compatibility_gate.py run --workspace-root .. --category static
+          --check sdk.identity-type-regression --check sdk.identity-types
+          --check sdk.wire-value-regression --check sdk.wire-values
+          --check sdk.deny-unknown-regression --check sdk.deny-unknown
+          --report "${{ runner.temp }}/sdk-type-boundaries.json"
+      - name: Preserve SDK type boundary results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-type-boundary-results
+          path: ${{ runner.temp }}/sdk-type-boundaries.json
+          if-no-files-found: ignore
       - name: Guard default arkret dependency surface
         shell: bash
         run: |
@@ -153,34 +157,6 @@ jobs:
           name: sdk-wasm-compile-results
           path: ${{ runner.temp }}/sdk-wasm-compile.json
           if-no-files-found: ignore
-
-  generated-contracts:
-    name: generated contract drift gate
-    runs-on: ubuntu-latest
-    # Hard gate: every committed typed descriptor MUST match the live spec.
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: arkret-rust-sdk
-      - uses: actions/checkout@v4
-        with:
-          repository: arkret-org/arkret-spec
-          path: arkret-spec
-          # Public spec repo; if private, set a PAT under
-          # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.98"
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: arkret-rust-sdk
-      - name: Run generated contract drift gate
-        working-directory: arkret-rust-sdk
-        shell: pwsh
-        run: ./tools/sync-spec.ps1 -ArtifactsDir ${{ github.workspace }}/arkret-spec/spec/v1/artifacts -Check
 
   docs:
     name: Documentation
@@ -300,23 +276,25 @@ jobs:
       - name: Verify Rust spec generator
         working-directory: arkret-rust-sdk
         run: cargo test --manifest-path tools/spec-codegen/Cargo.toml
-      - name: Guard SDK wire struct fields against live Spec schemas
+      - name: Run manifest SDK schema and artifact checks
         working-directory: arkret-rust-sdk
-        run: |
-          python -m tools.test_schema_struct_gate
-          python tools/schema_struct_gate.py --spec-root ${{ github.workspace }}/arkret-spec/spec/v1/artifacts/schemas
+        run: >-
+          python tools/compatibility_gate.py run --workspace-root .. --category static
+          --check sdk.generated-contracts-regression --check sdk.generated-contracts
+          --check sdk.utf8-byte-order --check sdk.operation-coverage-regression --check sdk.operation-coverage
+          --report "${{ runner.temp }}/sdk-schema-artifacts.json"
+      - name: Preserve SDK schema and artifact results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-schema-artifact-results
+          path: ${{ runner.temp }}/sdk-schema-artifacts.json
+          if-no-files-found: ignore
+      # This checker runs the Rust generator and remains a dedicated build step.
       - name: Verify all spec-derived SDK surfaces
         working-directory: arkret-rust-sdk
         shell: pwsh
-        run: |
-          $artifacts = "${{ github.workspace }}/arkret-spec/spec/v1/artifacts"
-          ./tools/test-utf8-byte-order.ps1
-          ./tools/sync-spec.ps1 -ArtifactsDir $artifacts -Check
-      - name: Verify claimable-profile operation coverage matrix
-        working-directory: arkret-rust-sdk
-        run: >-
-          python tools/generate-operation-coverage-matrix.py --check
-          --artifacts ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
+        run: ./tools/sync-spec.ps1 -ArtifactsDir ${{ github.workspace }}/arkret-spec/spec/v1/artifacts -Check
       # Cross-checks generated SDK coverage against the live registries in both
       # directions through the explicit conformance crate.
       - name: Run spec_drift_report

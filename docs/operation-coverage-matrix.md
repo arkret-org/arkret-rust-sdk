@@ -4,9 +4,9 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 59 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 461
-- Complete rows: 0
-- Partial rows: 3
+- Effective profile/operation requirements: 476
+- Complete rows: 5
+- Partial rows: 13
 - Gap rows: 458
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
@@ -111,9 +111,24 @@
 | `ak.profile.agent_sidecar.v1` | `server` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_signer_evidence.v1` | `interop` | `ak.self.signer_keys.read.resolve.v1` | `POST /_arkret/self/signer-keys/query` | — | — | — | gap |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.actor.read.resolve.v1` | `GET /_arkret/edge/applet/actors/{actor_id}` | `crates/server/src/applet.rs::AppletHandler::resolve_actor` | — | — | partial |
+| `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
+| `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
+| `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.read.protocol_metadata.v1` | `GET /_arkret/edge/applet/protocols/{protocol}` | `crates/server/src/applet.rs::AppletHandler::resolve_protocol` | — | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.realm.read.resolve.v1` | `GET /_arkret/edge/applet/realms/{realm_id_or_alias}` | `crates/server/src/applet.rs::AppletHandler::resolve_realm` | — | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.self.applet.ghost.command.provision.v1` | `POST /_arkret/self/applets/{applet_id}/ghosts/provision` | — | — | — | gap |
+| `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
+| `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
+| `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
+| `ak.profile.applet_e2ee_join.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
+| `ak.profile.applet_e2ee_join.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
+| `ak.profile.applet_e2ee_join.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
+| `ak.profile.applet_service.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
+| `ak.profile.applet_service.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
+| `ak.profile.applet_service.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
+| `ak.profile.applet_widget.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
+| `ak.profile.applet_widget.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
+| `ak.profile.applet_widget.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
 | `ak.profile.blob_node.v1` | `gateway` | `ak.self.blob.resource.get.v1` | `GET /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.blob_node.v1` | `gateway` | `ak.self.blob.resource.head.v1` | `HEAD /_arkret/self/blob/get` | — | — | — | gap |
 | `ak.profile.blob_node.v1` | `gateway` | `ak.self.blob.upload.create.v1` | `POST /_arkret/self/blob/upload` | — | — | — | gap |

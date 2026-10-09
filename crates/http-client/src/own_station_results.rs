@@ -170,7 +170,52 @@ pub struct OwnStationResultClient {
     source: Arc<dyn OwnStationSessionSource>,
 }
 
+#[derive(Clone)]
+pub(crate) struct OwnStationContext {
+    session: OwnStationSessionSnapshot,
+    source: Arc<dyn OwnStationSessionSource>,
+}
+
+impl std::fmt::Debug for OwnStationContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OwnStationContext")
+            .field("session", &self.session)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Client {
+    /// Recover the host capability carried by this exact transport. An invalid
+    /// carried capability is an error, never permission to use another host.
+    pub fn own_station_result_client(&self) -> Result<Option<OwnStationResultClient>> {
+        let Some(context) = &self.own_station_context else {
+            return Ok(None);
+        };
+        let result = OwnStationResultClient::new(
+            self.clone(),
+            context.session.binding.clone(),
+            context.source.clone(),
+        )?;
+        if result.session != context.session {
+            return Err(protocol("carried own Station session changed"));
+        }
+        Ok(Some(result))
+    }
+}
+
 impl OwnStationResultClient {
+    /// Preserve this captured host/session fence through ordinary transport
+    /// adapters. Cloning must not re-capture a replacement or ABA session.
+    pub fn http_client(&self) -> Result<Client> {
+        self.check_session()?;
+        let mut client = self.client.clone();
+        client.own_station_context = Some(Arc::new(OwnStationContext {
+            session: self.session.clone(),
+            source: self.source.clone(),
+        }));
+        Ok(client)
+    }
+
     pub fn new(
         client: Client,
         accepted_binding: StationConnectionBinding,
@@ -392,6 +437,39 @@ mod tests {
         )
         .unwrap()
         .with_provider_identity(Default::default())
+    }
+
+    #[test]
+    fn carried_transport_preserves_session_and_rejects_aba_origin_and_credential_changes() {
+        let source = Arc::new(Source(Mutex::new(session("http://localhost:1234/".into()))));
+        let captured = source.snapshot().unwrap();
+        let raw = crate::ClientBuilder::new(url::Url::parse(&captured.binding.base_url).unwrap())
+            .allow_insecure_localhost()
+            .auth(Auth::Bearer("session-token".into()))
+            .build()
+            .unwrap();
+        assert!(raw.own_station_result_client().unwrap().is_none());
+        let own =
+            OwnStationResultClient::new(raw, captured.binding.clone(), source.clone()).unwrap();
+        let carried = own.http_client().unwrap();
+        assert_eq!(
+            carried
+                .own_station_result_client()
+                .unwrap()
+                .unwrap()
+                .session()
+                .unwrap(),
+            &captured
+        );
+        let mut wrong = carried.clone();
+        wrong.auth = Some(Auth::Bearer("other-token".into()));
+        assert!(wrong.own_station_result_client().is_err());
+        wrong = carried.clone();
+        wrong.base_url = url::Url::parse("http://localhost:1235/").unwrap();
+        assert!(wrong.own_station_result_client().is_err());
+        source.0.lock().unwrap().epoch += 1;
+        assert!(carried.own_station_result_client().is_err());
+        assert!(own.http_client().is_err());
     }
 
     #[tokio::test]
