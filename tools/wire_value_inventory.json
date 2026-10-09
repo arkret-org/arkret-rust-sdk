@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 482,
+    "total": 479,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -71,8 +71,8 @@
     },
     "by_category": {
       "closed_dispatch": 1,
-      "json_authoring": 60,
-      "json_path_mutation": 73,
+      "json_authoring": 58,
+      "json_path_mutation": 72,
       "paired_api": 13,
       "public_value_field": 335
     },
@@ -80,15 +80,15 @@
       "independent": 11,
       "internal_or_fixture": 13,
       "open_json": 71,
-      "polymorphic_boundary": 387
+      "polymorphic_boundary": 384
     },
     "by_lifecycle": {
-      "retained_boundary": 482
+      "retained_boundary": 479
     },
     "by_decision": {
       "independent": 11,
       "open": 71,
-      "raw": 400
+      "raw": 397
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 182,
@@ -99,7 +99,7 @@
       "garth": 3,
       "inkson": 42,
       "sodmin": 1,
-      "soland": 190,
+      "soland": 187,
       "teabay": 1
     },
     "by_schema_shape": {
@@ -107,7 +107,7 @@
       "open_json": 2,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 402
+      "unknown": 399
     }
   },
   "entries": [
@@ -6662,56 +6662,6 @@
       "evidence": "json!({ \"realm_id\": realm_id, \"call_id\": call_id, \"actor_id\": actor_id, \"device_id\": device_id, \"ice_bucket\": bucket, \"nonce\": URL_SAFE_NO_PAD.encode(nonce), })"
     },
     {
-      "finding": "json_authoring:soland/crates/http/src/routing/spaces/directory/demo.rs::demo_actors:29e6c79d5f50d505",
-      "category": "json_authoring",
-      "rust_field": null,
-      "crate": null,
-      "file": "soland/crates/http/src/routing/spaces/directory/demo.rs",
-      "path": "soland/crates/http/src/routing/spaces/directory/demo.rs",
-      "owner": "demo_actors",
-      "owner_repository": "soland",
-      "symbol": "demo_actors",
-      "field": "actor_id,state",
-      "discriminator": "state",
-      "data_field": "actor_id,state",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by state",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "json!({ \"actor_id\": account.principal_id, \"handle\": account.handle(), \"display_name\": display_name, \"state\": account_state.clone(), \"account_state\": account_state, \"bio\": bio, \"organization_id\": state.service_id(), \"avatar_blob_ref\": avatar_blob_ref, })"
-    },
-    {
-      "finding": "json_authoring:soland/crates/http/src/routing/spaces/directory/demo.rs::demo_actors:ec9d11f1c0f784c8",
-      "category": "json_authoring",
-      "rust_field": null,
-      "crate": null,
-      "file": "soland/crates/http/src/routing/spaces/directory/demo.rs",
-      "path": "soland/crates/http/src/routing/spaces/directory/demo.rs",
-      "owner": "demo_actors",
-      "owner_repository": "soland",
-      "symbol": "demo_actors",
-      "field": "actor_id,state",
-      "discriminator": "state",
-      "data_field": "actor_id,state",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by state",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "json!({ \"actor_id\": actor_id, \"handle\": handle_for_did(actor_id), \"display_name\": display_name, \"state\": account_state.clone(), \"account_state\": account_state, \"organization_id\": state.service_id(), \"avatar_blob_ref\": null, })"
-    },
-    {
       "finding": "json_authoring:soland/crates/http/src/routing/system/describe.rs::auth_bridge_describe:84aeb7a6f9a46112",
       "category": "json_authoring",
       "rust_field": null,
@@ -8285,31 +8235,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
       "evidence": "ctx.insert(\"device_id\".to_owned(), Value::String(device_id));"
-    },
-    {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/identity/auth/login.rs::session_device_inventory_record:1a7452749cb297d6",
-      "category": "json_path_mutation",
-      "rust_field": null,
-      "crate": null,
-      "file": "soland/crates/http/src/routing/identity/auth/login.rs",
-      "path": "soland/crates/http/src/routing/identity/auth/login.rs",
-      "owner": "session_device_inventory_record",
-      "owner_repository": "soland",
-      "symbol": "session_device_inventory_record",
-      "field": "device_id",
-      "discriminator": null,
-      "data_field": "device_id",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning device_id",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
-      "evidence": "object.insert("
     },
     {
       "finding": "json_path_mutation:soland/crates/http/src/routing/identity/contact_federation.rs::validate_contact_lineage_carrier:addb37bb3db9e798",

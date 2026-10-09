@@ -334,6 +334,157 @@
       ]
     },
     {
+      "id": "sdk.identity-type-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "identity type audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_identity_type_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.identity-types",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK identity wrappers and formal schema fields"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/identity_type_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.wire-value-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "wire Value boundary audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/tests/test_wire_value_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.wire-values",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "typed wire boundaries and retained raw evidence"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/wire_value_audit.py",
+        "--check"
+      ]
+    },
+    {
+      "id": "sdk.deny-unknown-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "closed schema boundary audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "tools.test_deny_unknown_audit"
+      ]
+    },
+    {
+      "id": "sdk.deny-unknown",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "closed schema boundary inventory"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/deny_unknown_audit.py",
+        "--check"
+      ]
+    },
+    {
+      "id": "sdk.generated-contracts-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "schema struct gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "tools.test_schema_struct_gate"
+      ]
+    },
+    {
+      "id": "sdk.utf8-byte-order",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "canonical generated UTF-8 byte order"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "tools/test-utf8-byte-order.ps1"
+      ]
+    },
+    {
+      "id": "sdk.operation-coverage-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "operation coverage evidence symbol validation"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tools.tests.test_operation_coverage_matrix"
+      ]
+    },
+    {
+      "id": "sdk.operation-coverage",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "claimable profile operation coverage evidence"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/generate-operation-coverage-matrix.py",
+        "--check",
+        "--artifacts",
+        "../arkret-spec/spec/v1/artifacts"
+      ]
+    },
+    {
       "id": "sdk.generated-contracts",
       "repository": "arkret-rust-sdk",
       "category": "static",

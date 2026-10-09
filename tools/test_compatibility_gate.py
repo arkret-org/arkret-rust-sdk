@@ -252,7 +252,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                 self.assertTrue((self.sdk_root / script).is_file())
         workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
         block = workflow.split("- name: Run manifest SDK structure, time and Event checks\n", 1)[1]
-        block = block.split("- name: Guard weak wire types", 1)[0]
+        block = block.split("- name: Run manifest SDK type boundary checks", 1)[0]
         self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", block)), set(expected))
         self.assertIn('--report "${{ runner.temp }}/sdk-structure-time-event.json"', block)
         self.assertIn("if: always()", block)
@@ -260,6 +260,45 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
         for arguments in expected.values():
             self.assertNotIn("python " + " ".join(arguments), workflow)
         self.assertNotIn("lint-cell-family-literals.py", workflow)
+
+    def test_sdk_type_and_artifact_checks_share_commands_and_reports_with_ci(self) -> None:
+        expected = {
+            "sdk.identity-type-regression": ["python", "tools/test_identity_type_audit.py"],
+            "sdk.identity-types": ["python", "tools/identity_type_audit.py"],
+            "sdk.wire-value-regression": ["python", "tools/tests/test_wire_value_audit.py"],
+            "sdk.wire-values": ["python", "tools/wire_value_audit.py", "--check"],
+            "sdk.deny-unknown-regression": ["python", "-m", "tools.test_deny_unknown_audit"],
+            "sdk.deny-unknown": ["python", "tools/deny_unknown_audit.py", "--check"],
+            "sdk.generated-contracts-regression": ["python", "-m", "tools.test_schema_struct_gate"],
+            "sdk.utf8-byte-order": ["pwsh", "-NoProfile", "-File", "tools/test-utf8-byte-order.ps1"],
+            "sdk.operation-coverage-regression": ["python", "-m", "unittest", "tools.tests.test_operation_coverage_matrix"],
+            "sdk.operation-coverage": ["python", "tools/generate-operation-coverage-matrix.py", "--check",
+                                       "--artifacts", "../arkret-spec/spec/v1/artifacts"],
+        }
+        checks = {check["id"]: check for check in self.manifest["checks"]}
+        for name, command in expected.items():
+            with self.subTest(check=name):
+                self.assertEqual(checks[name]["command"], command)
+                self.assertEqual(checks[name]["category"], "static")
+                self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        for start, end, names, report in [
+            ("Run manifest SDK type boundary checks", "Guard default arkret dependency surface",
+             set(list(expected)[:6]), "sdk-type-boundaries.json"),
+            ("Run manifest SDK schema and artifact checks", "Verify all spec-derived SDK surfaces",
+             set(list(expected)[6:]) | {"sdk.generated-contracts"}, "sdk-schema-artifacts.json"),
+        ]:
+            block = workflow.split(f"- name: {start}\n", 1)[1].split(f"- name: {end}\n", 1)[0]
+            self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", block)), names)
+            self.assertIn(f'--report "${{{{ runner.temp }}}}/{report}"', block)
+            self.assertIn(f"path: ${{{{ runner.temp }}}}/{report}", block)
+            self.assertIn("if: always()", block)
+        for command in expected.values():
+            self.assertNotIn(" ".join(command), workflow)
+        self.assertEqual(workflow.count("run: ./tools/sync-spec.ps1 -ArtifactsDir"), 1)
+        self.assertIn("run: cargo test --manifest-path tools/spec-codegen/Cargo.toml", workflow)
+        self.assertIn("run: cargo run -p arkret-schema-conformance --example spec_drift_report", workflow)
+        self.assertIn("ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts", workflow)
 
     def test_github_outputs_are_exact_pins(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
