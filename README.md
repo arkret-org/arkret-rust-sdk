@@ -99,6 +99,16 @@ current installation/ownership verification, shared quota accounting and MLS
 recipient admission remain the implementing Station's durable transaction
 responsibilities; the pure SDK helpers do not establish them by themselves.
 
+`AppletAuthorityMaterialOutcome` preserves present current results with their
+Realm, governance generation and exact covering heads. Its structural validator
+binds grant streams to the requested scope and requires one head per stream.
+The shared `AppletCommittedEvent` retains the regular
+`AccountDeviceSignerEvidence` exactly for an Account Device producer; it rejects
+missing, surplus and forward-only evidence. The integration crate re-exports
+this collaboration type. Consumers authenticate the original Event, Commit and
+retained native Station history at the original accepted coordinates; codec
+validation alone does not establish that authority.
+
 ## Protocol review closures
 
 Spec review closure `arkret-spec` range `2a4d39b..a77b995` (8 commits)

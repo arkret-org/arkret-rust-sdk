@@ -363,6 +363,31 @@ pub enum ExactCurrentResultEntry {
 }
 
 impl ExactCurrentResultEntry {
+    /// Structural cut binding shared by exact reads and Applet material supply.
+    /// This does not grant either read authority or authenticate the head.
+    pub(crate) fn validate_covering_head(
+        &self,
+        realm_id: &RealmId,
+        head: &CommitStreamHead,
+    ) -> Result<()> {
+        if head.stream_ref.realm_id() != realm_id || self.source_stream_ref() != &head.stream_ref {
+            return Err(WireError::Protocol(
+                "exact-current source stream differs from the effective stream head or Realm"
+                    .into(),
+            ));
+        }
+        let revision = self.revision();
+        if revision.stream_position > head.stream_position
+            || (revision.stream_position == head.stream_position
+                && revision.commit_id != head.commit_id)
+        {
+            return Err(WireError::Protocol(
+                "exact-current revision is not bounded by the effective stream head".into(),
+            ));
+        }
+        Ok(())
+    }
+
     fn revision(&self) -> &CurrentRevision {
         match self {
             Self::Relation(entry) => &entry.revision,
@@ -629,22 +654,7 @@ impl ExactCurrentResultsReadOutcome {
                 }
                 // The revision position is only comparable on its own covering
                 // stream; never bound a row by another stream's same position.
-                if entry.source_stream_ref() != &head.stream_ref {
-                    return Err(WireError::Protocol(
-                        "exact-current source stream differs from the effective stream head"
-                            .to_owned(),
-                    ));
-                }
-                let revision = entry.revision();
-                if revision.stream_position > head.stream_position
-                    || (revision.stream_position == head.stream_position
-                        && revision.commit_id != head.commit_id)
-                {
-                    return Err(WireError::Protocol(
-                        "exact-current revision is not bounded by the effective stream head"
-                            .to_owned(),
-                    ));
-                }
+                entry.validate_covering_head(realm_id, head)?;
                 entry.validate_value(realm_id)?;
             }
         }

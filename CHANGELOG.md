@@ -19,8 +19,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   constraints, and management Policy CAS/exact-current supply.
 - Added strict managed Device metadata and generated RFC9421 operation
   allowlists; typed HTTP clients can use independent Service or Device
-  signatures without inheriting account sessions. Retired client-pull operation
-  IDs and Applet disclosure/result detached-signature domains.
+  signatures without inheriting account sessions. Retired Applet self-actor
+  client-pull operation IDs and Applet disclosure/result detached-signature domains.
+- Preserved exact current-result cuts in Applet authority material and unified
+  the Applet committed Event carrier with its required regular Account Device
+  evidence. Browser Device nonces use the `getrandom` Web Crypto backend.
 
 - Removed the device-level SAS verification surface. `arkret-crypto`'s
   `key_verification` module and its `key-verification` feature, the

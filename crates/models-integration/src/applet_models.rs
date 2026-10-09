@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+pub use arkret_models_collaboration::applet_installation_authority::AppletCommittedEvent;
 use arkret_models_identity::authenticated_signer_resolution_evidence::{
     AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
 };
@@ -157,25 +158,6 @@ pub struct AppletEventTransactionRequestBody {
     pub committed_events: Vec<AppletCommittedEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub signals: Vec<SignalEnvelope>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletCommittedEvent {
-    pub commit: RealmCommit,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub event: Event,
-}
-
-impl AppletCommittedEvent {
-    pub fn validate_shape(&self) -> Result<()> {
-        arkret_wire::CommittedEventFullView {
-            commit: self.commit.clone(),
-            event: self.event.clone(),
-        }
-        .validate_shape()
-    }
 }
 
 impl AppletEventTransactionRequestBody {

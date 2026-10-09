@@ -48,6 +48,7 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 arkret-schema-conformance = { workspace = true }
+arkret-signatures = { workspace = true, features = ["keypackages", "signer"] }
 arkret-wire = { workspace = true, features = ["test-support"] }
 ed25519-dalek = { workspace = true }
 proptest = { workspace = true, default-features = false, features = ["std"] }
