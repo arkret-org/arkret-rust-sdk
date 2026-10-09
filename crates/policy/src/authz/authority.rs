@@ -904,12 +904,53 @@ mod tests {
 /// Parent quota accounting, current-cut installation verification and resource
 /// hierarchy resolution remain caller-owned. `resource_is_narrower` must use the
 /// same selector coverage verifier as ordinary capability issuance.
+/// The caller must authenticate the accepted full Account provision and its
+/// Applet/Service/hosting-Station/role provenance; a supplied role is not proof.
+/// Only the exact Applet executor binding changes from the Service parent to
+/// the Account child. All other retained runtime constraints remain at least
+/// as strict; canonical constraint fields omitted by this runtime projection
+/// must additionally be checked at the typed Event boundary.
 pub fn validate_managed_service_child(
     parent: &Grant,
     child: &Grant,
     role: arkret_models_collaboration::governance::grant_constraint::ManagedActorRole,
     resource_is_narrower: impl FnOnce(&str, &str) -> bool,
 ) -> bool {
+    let binding = |grant: &Grant| {
+        let mut bindings = grant.constraints.iter().filter(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+                    ..
+                }
+            )
+        });
+        let first = bindings.next()?;
+        if bindings.next().is_some() {
+            return None;
+        }
+        Some(first.clone())
+    };
+    let (Some(mut rebound), Some(child_binding)) = (binding(parent), binding(child)) else {
+        return false;
+    };
+    let GrantConstraint::AuthorityControl {
+        applet_id: Some(_),
+        executed_by: Some(executor),
+        registration_epoch: Some(_),
+        ..
+    } = &mut rebound
+    else {
+        return false;
+    };
+    if executor != &parent.subject_id {
+        return false;
+    }
+    *executor = child.subject_id.clone();
+    if rebound != child_binding {
+        return false;
+    }
     let ordinary: Vec<_> = parent
         .constraints
         .iter()
@@ -938,12 +979,72 @@ pub fn validate_managed_service_child(
         && max_authority_depth(child) == Some(0)
         && !authority_regrant_allowed(child)
         && !ordinary.is_empty()
-        && ordinary.iter().all(|(regrant, depth, roles)| {
-            roles.contains(&role) && (!regrant || depth.is_none_or(|v| v > 0))
-        })
-        && child.actions.iter().all(|v| parent.actions.contains(v))
+        && child.constraints.iter().any(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: None,
+                    max_authority_depth: Some(0),
+                    authority_regrant_allowed: false,
+                    ..
+                }
+            )
+        }) && child.constraints.iter().all(|constraint| {
+        !matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                constraint_subkind: None,
+                ..
+            }
+        ) || matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                max_authority_depth: Some(0),
+                authority_regrant_allowed: false,
+                allowed_managed_actor_roles,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
+                ..
+            } if ordinary.iter().all(|(_, _, roles)| allowed_managed_actor_roles.is_subset(roles))
+        )
+    }) && ordinary.iter().all(|(regrant, depth, roles)| {
+        roles.contains(&role) && (!regrant || depth.is_none_or(|v| v > 0))
+    }) && child.actions.iter().all(|v| parent.actions.contains(v))
         && child.realm_id == parent.realm_id
         && resource_is_narrower(&child.resource, &parent.resource)
+        && parent
+            .constraints
+            .iter()
+            .all(|constraint| match constraint {
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: None,
+                    ..
+                }
+                | GrantConstraint::AuthorityControl {
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+                    ..
+                } => true,
+                GrantConstraint::Temporal {
+                    expires_at,
+                    constraint_subkind,
+                    message_edit_window,
+                    message_redact_window,
+                    redact_after_window_allowed,
+                } => child.constraints.iter().any(|candidate| {
+                    matches!(candidate, GrantConstraint::Temporal {
+                    expires_at: child_expiry, constraint_subkind: child_subkind,
+                    message_edit_window: child_edit, message_redact_window: child_redact,
+                    redact_after_window_allowed: child_after,
+                } if child_subkind == constraint_subkind
+                    && child_edit == message_edit_window
+                    && child_redact == message_redact_window
+                    && child_after == redact_after_window_allowed
+                    && expires_at.is_none_or(|parent_expiry|
+                        child_expiry.is_some_and(|expiry| expiry <= parent_expiry)))
+                }),
+                _ => child.constraints.contains(constraint),
+            })
         && match (
             grant_effective_expiry(parent),
             grant_effective_expiry(child),
@@ -971,6 +1072,19 @@ mod managed_service_child_tests {
             registration_epoch: None,
         }
     }
+    fn binding(executor: &ActorId) -> GrantConstraint {
+        GrantConstraint::AuthorityControl {
+            max_authority_depth: None,
+            authority_regrant_allowed: false,
+            allowed_managed_actor_roles: BTreeSet::new(),
+            constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+            applet_id: Some(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            ),
+            executed_by: Some(executor.clone()),
+            registration_epoch: Some(Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap()),
+        }
+    }
     fn pair() -> (Grant, Grant) {
         let service = ActorId::service(DidCoreId::new("ak:did_core:web:service.example").unwrap());
         let parent = Grant {
@@ -980,7 +1094,10 @@ mod managed_service_child_tests {
             subject_id: service.clone(),
             resource: "realm".into(),
             actions: vec!["ak.message.create".into()],
-            constraints: vec![control(false, 0, &[ManagedActorRole::Bot])],
+            constraints: vec![
+                control(false, 0, &[ManagedActorRole::Bot]),
+                binding(&service),
+            ],
             revoked: false,
             created_at: Utc::now(),
             issuer_authority_refs: vec![],
@@ -997,7 +1114,7 @@ mod managed_service_child_tests {
         child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
             grant_id: "parent".into(),
         }];
-        child.constraints = vec![control(false, 0, &[])];
+        child.constraints = vec![control(false, 0, &[]), binding(&child.subject_id)];
         (parent, child)
     }
     fn covers(child: &str, parent: &str) -> bool {
@@ -1035,33 +1152,199 @@ mod managed_service_child_tests {
             ManagedActorRole::Bot,
             covers
         ));
-        parent.constraints = vec![control(true, 0, &[ManagedActorRole::Bot])];
+        parent.constraints = vec![
+            control(true, 0, &[ManagedActorRole::Bot]),
+            binding(&parent.subject_id),
+        ];
         assert!(!validate_managed_service_child(
             &parent,
             &child,
             ManagedActorRole::Bot,
             covers
         ));
-        parent.constraints = vec![control(true, 1, &[ManagedActorRole::Bot])];
+        parent.constraints = vec![
+            control(true, 1, &[ManagedActorRole::Bot]),
+            binding(&parent.subject_id),
+        ];
         assert!(validate_managed_service_child(
             &parent,
             &child,
             ManagedActorRole::Bot,
             covers
         ));
-        child.constraints = vec![control(false, 1, &[])];
+        child.constraints = vec![control(false, 1, &[]), binding(&child.subject_id)];
         assert!(!validate_managed_service_child(
             &parent,
             &child,
             ManagedActorRole::Bot,
             covers
         ));
-        child.constraints = vec![control(true, 0, &[])];
+        child.constraints = vec![control(true, 0, &[]), binding(&child.subject_id)];
         assert!(!validate_managed_service_child(
             &parent,
             &child,
             ManagedActorRole::Bot,
             covers
         ));
+    }
+    #[test]
+    fn executor_rebinding_requires_unique_complete_matching_applet_bindings() {
+        let (parent, child) = pair();
+        let rejects = |parent: &Grant, child: &Grant| {
+            assert!(!validate_managed_service_child(
+                parent,
+                child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        };
+        let mut changed = parent.clone();
+        changed.constraints.pop();
+        rejects(&changed, &child);
+        let mut changed = child.clone();
+        changed.constraints.pop();
+        rejects(&parent, &changed);
+        for is_parent in [false, true] {
+            let mut changed = if is_parent {
+                parent.clone()
+            } else {
+                child.clone()
+            };
+            changed.constraints.push(changed.constraints[1].clone());
+            if is_parent {
+                rejects(&changed, &child);
+            } else {
+                rejects(&parent, &changed);
+            }
+        }
+        for mutation in 0..7 {
+            let mut changed = child.clone();
+            let GrantConstraint::AuthorityControl {
+                applet_id,
+                executed_by,
+                registration_epoch,
+                ..
+            } = &mut changed.constraints[1]
+            else {
+                unreachable!()
+            };
+            match mutation {
+                0 => *executed_by = Some(parent.subject_id.clone()),
+                1 => {
+                    *applet_id = Some(
+                        AppletId::new("ak:applet:01904100-0000-7000-8000-cccccccccccc").unwrap(),
+                    )
+                }
+                2 => {
+                    *registration_epoch =
+                        Some(Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap())
+                }
+                3 => *applet_id = None,
+                4 => *executed_by = None,
+                5 => *registration_epoch = None,
+                _ => {
+                    *executed_by = Some(ActorId::account(AccountId::new(
+                        child.subject_id.signing_principal_id().clone(),
+                        DidCoreId::new("ak:did_core:web:another-station.example").unwrap(),
+                    )))
+                }
+            }
+            rejects(&parent, &changed);
+        }
+        let mut changed = parent.clone();
+        if let GrantConstraint::AuthorityControl { executed_by, .. } = &mut changed.constraints[1] {
+            *executed_by = Some(child.subject_id.clone());
+        }
+        rejects(&changed, &child);
+    }
+    #[test]
+    fn rebinding_cannot_escape_terminal_account_or_drop_other_constraints() {
+        let (parent, child) = pair();
+        for mutation in 0..4 {
+            let mut changed = child.clone();
+            match mutation {
+                0 => changed.subject_id = parent.subject_id.clone(),
+                1 => changed.issuer_id = child.subject_id.clone(),
+                2 => changed.constraints.push(control(false, 1, &[])),
+                _ => changed.issuer_authority_refs.clear(),
+            }
+            assert!(!validate_managed_service_child(
+                &parent,
+                &changed,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
+        for hard in [
+            GrantConstraint::Decision {
+                decision: GrantDecisionVerdict::Deny,
+            },
+            GrantConstraint::Decision {
+                decision: GrantDecisionVerdict::RequireReview,
+            },
+            GrantConstraint::RateLimiting {
+                max_operations: 5,
+                period: "PT1H".into(),
+            },
+            GrantConstraint::Temporal {
+                expires_at: Some(Utc::now()),
+                constraint_subkind: Some("edit_window".into()),
+                message_edit_window: None,
+                message_redact_window: None,
+                redact_after_window_allowed: false,
+            },
+        ] {
+            let mut parent = parent.clone();
+            parent.constraints.push(hard.clone());
+            assert!(!validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+            let mut child = child.clone();
+            child.constraints.push(hard);
+            assert!(validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
+    }
+    #[test]
+    fn only_expiry_may_narrow_while_other_temporal_fields_are_preserved() {
+        let (mut parent, mut child) = pair();
+        let expiry = Utc::now() + chrono::Duration::hours(1);
+        let temporal = |expires_at, redact_after_window_allowed| GrantConstraint::Temporal {
+            expires_at,
+            constraint_subkind: Some("window".into()),
+            message_edit_window: None,
+            message_redact_window: None,
+            redact_after_window_allowed,
+        };
+        parent.constraints.push(temporal(Some(expiry), false));
+        child
+            .constraints
+            .push(temporal(Some(expiry - chrono::Duration::minutes(1)), false));
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        for candidate in [
+            temporal(None, false),
+            temporal(Some(expiry + chrono::Duration::seconds(1)), false),
+            temporal(Some(expiry), true),
+        ] {
+            *child.constraints.last_mut().unwrap() = candidate;
+            assert!(!validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
     }
 }
