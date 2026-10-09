@@ -73,12 +73,13 @@ pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
     AppletBridgeErrorBuilder, EVENT_PAYLOAD_BINDINGS, EventAuthoringContext,
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, EventIntent, EventPayloadBinding, EventPayloadExt, EventSpec,
-    ExtensionPayloadValidator, GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec,
-    MessageEventPayload, MlsEnvelopeOperationExt, ProjectedEventOperation, ProjectionContext,
-    RsvpAuthoring, RsvpResponseBranch, StrandCreateObject, TypedEventDraft,
-    ValidatedExtensionPayload, accountability_grant_intent, event_draft_kind_conformance_vectors,
-    local_operation_spec, rank_between, rank_exhausted, validate_event_payload,
+    EventDraftKindValidation, EventIntent, EventMetadataSendGate, EventMetadataSendGateExt,
+    EventPayloadBinding, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
+    GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec, MessageEventPayload,
+    MlsEnvelopeOperationExt, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
+    RsvpResponseBranch, StrandCreateObject, TypedEventDraft, ValidatedExtensionPayload,
+    accountability_grant_intent, event_draft_kind_conformance_vectors, local_operation_spec,
+    rank_between, rank_exhausted, validate_event_payload,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, generate_cursor_handle,

@@ -78,60 +78,15 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "closed_dispatch:inkson/src/mls/send_gate.rs::of_event:34d4056b110486c3",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "inkson",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/circle_current_results.rs::admit_in_connection:300ec16d4edfb582",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by &event.kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing. Exact fingerprint updated after comparison with SDK baseline 8e32caf3; this unchanged pre-existing dispatcher remains pending migration, without a raw-boundary exemption.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/mls_group_current_results.rs::require_mls_send_gate_in_connection:c3c0baea6f7bc598",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by event.kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/rsvp_current_results.rs::basis_names_target:d392e70f505735e6",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by basis.kind.as_str()",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
-      "finding": "closed_dispatch:soland/crates/storage-postgres/src/signal_scope_authority.rs::apply:69e3932a93b824a5",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by event.kind",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing. Exact fingerprint updated after comparison with SDK baseline 8e32caf3; this unchanged pre-existing dispatcher remains pending migration, without a raw-boundary exemption.",
+      "finding": "closed_dispatch:crates/event-draft/src/metadata_send_gate.rs::project:df8092fea8c03438",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_event_draft::EventMetadataSendGateExt; SDK EventSpec typed payload bindings",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain exact raw key-presence evidence at the authoritative SDK decoding boundary before serde defaults erase empty/null plaintext metadata. Every selected payload is decoded through its EventSpec and encrypted envelopes are validated; this read-only projection is never serialized or submitted.",
+      "test": "cargo test -p arkret-event-draft --locked --lib metadata_send_gate::tests",
+      "reason": "The static create(&[\"metadata\"], ...) key-name slice is not payload indexing. Raw object.contains_key is necessary to preserve original wire key presence, while the returned envelope list is strongly typed and bound to the full Event or EventIntent. Consumers reject mixed plaintext/ciphertext and retain their current epoch checks.",
       "adjudication": "manual"
     },
     {
@@ -285,15 +240,16 @@
       "adjudication": "manual"
     },
     {
-      "finding": "coauth/crates/backend/src/services/did_resolver.rs::DidResolution.method_evidence",
-      "classification": "polymorphic_boundary",
+      "finding": "coauth/crates/backend/src/services/admin_invite_review.rs::AdminInviteReviewRecord.payload",
+      "classification": "independent",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
+      "decision": "independent",
+      "authority": "Original administrator invitation review document",
       "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+      "reason": "The stored document is preserved for review; review status does not determine its shape.",
+      "adjudication": "manual"
     },
     {
       "finding": "coauth/crates/backend/src/services/admin_invite_review.rs::EnqueueAdminInviteReview.payload",
@@ -307,16 +263,15 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/backend/src/services/admin_invite_review.rs::AdminInviteReviewRecord.payload",
-      "classification": "independent",
+      "finding": "coauth/crates/backend/src/services/did_resolver.rs::DidResolution.method_evidence",
+      "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Original administrator invitation review document",
+      "decision": "raw",
+      "authority": "Value",
       "owner_repository": "coauth",
-      "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The stored document is preserved for review; review status does not determine its shape.",
-      "adjudication": "manual"
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "coauth/crates/data/src/account.rs::AccountIdentityBinding.metadata",
@@ -2687,14 +2642,15 @@
     },
     {
       "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:5fc6f9254f46ba31",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by kind",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "holder-local optimistic projection; authoritative strand_update is authored through SDK EventIntent",
       "owner_repository": "inkson",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
+      "action": "Retain the unsigned local UI row. enqueue_local_projection_command -> project_pending_local_commands -> append_raw_operation stores operation_id/write_state/synthesis_revision_body/encrypted_payload_local for optimistic display; build_card_detail_update_operation separately authors the typed EventIntent submitted by submit_sdk_event.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
+      "reason": "This exact json authoring site creates a holder-local optimistic row, not a submitted Event or protocol payload. state/to_device_raw.rs preserves its local fields without adding them to a producer-signed Event. The independent wire submission uses the SDK typed strand_update path.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:inkson/src/views/kanban/model/board_projection.rs::install_current_card_sources:9faf072e55106c0c",
@@ -4129,17 +4085,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "backup_kind is compared as one scalar identity field alongside typed IDs and digest; it never selects value shape.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "paired_api:soland/crates/http/src/state/authority_mimi_unit.rs::author_mimi_event",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret_wire::event_spec::EventSpec associated Payload",
-      "owner_repository": "soland",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "sodmin/src/utils/net/error.rs::AdminErrorEnvelope.extra",

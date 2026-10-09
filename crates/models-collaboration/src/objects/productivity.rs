@@ -1709,8 +1709,8 @@ impl ContactRemark {
 /// evidence that the namespace holds: `ak.*` is reserved for the specification
 /// and a client extension MUST use a reverse-domain `<vendor>.*` prefix. An
 /// unrecognised `ak.*` tag is preserved rather than dropped, so this accepts
-/// any well-formed reserved tag. Ruling
-/// `tasks/spec-done/2026-09-05-1730-contact-remark-value-object-is-prose-only.md`.
+/// any well-formed reserved tag. Contract:
+/// `arkret-spec/spec/v1/zh/discovery/client-preferences.md` (Contact Remark).
 fn validate_contact_remark_tag(tag: &str) -> Result<()> {
     let invalid =
         |reason: &str| WireError::Protocol(format!("contact remark tag {tag:?} {reason}"));

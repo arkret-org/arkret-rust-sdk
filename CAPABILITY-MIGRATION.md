@@ -301,8 +301,8 @@ type locally.
   governance checkpoint, and `normative-clause-registry.json:534` says the
   epoch-0 leaf index they feed has no second source. soland left the route
   unmounted rather than ship it (soland `531326a57`). Which carrier is
-  authoritative is an open spec question, filed as arkret-work
-  `tasks/spec-open/2026-09-19-0130-mls-governance-binding-has-two-carriers.md`.
+  authoritative was an open spec question at the time of this record, filed in
+  [the contemporaneous arkret-work report](https://github.com/arkret-org/arkret-work/blob/3247527771a2469eaa01323b649c3c0986ad635f/tasks/spec-open/2026-09-19-0130-mls-governance-binding-has-two-carriers.md).
 - `docs/move-anchor-runtime.md` documented the removed Move / anchor / cell
   runtime end to end with no surviving implementation, and was deleted on
   2026-09-16.

@@ -17,6 +17,7 @@ mod calendar;
 mod event_intent;
 mod event_payload;
 mod ghost_profile;
+mod metadata_send_gate;
 mod operation;
 mod payloads;
 mod rank;
@@ -39,6 +40,7 @@ pub use event_payload::{
     validate_event_payload,
 };
 pub use ghost_profile::GhostActorProfileRequest;
+pub use metadata_send_gate::{EventMetadataSendGate, EventMetadataSendGateExt};
 pub use operation::{
     LocalOperationDraft, LocalOperationSpec, MlsEnvelopeOperationExt, ProjectedEventOperation,
     ProjectionContext, local_operation_spec,
