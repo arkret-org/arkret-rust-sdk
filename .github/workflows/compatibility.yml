@@ -137,11 +137,18 @@ jobs:
 
       - name: Verify exact checkouts and static contract probes
         run: |
-          python arkret-rust-sdk/tools/test_compatibility_gate.py
+          python arkret-rust-sdk/tools/test_compatibility_gate.py --workspace-only
           python arkret-rust-sdk/tools/test_compatibility_train.py
           python arkret-rust-sdk/tools/compatibility_gate.py check             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .             --verify-workspace-heads
           python arkret-rust-sdk/tools/compatibility_gate.py negative-mutation             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .
-          python arkret-rust-sdk/tools/compatibility_gate.py run             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .             --category static
+
+      - name: Run ordered static checks
+        run: >-
+          python arkret-rust-sdk/tools/compatibility_gate.py run
+          --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
+          --workspace-root .
+          --category static
+          --report "${{ runner.temp }}/compatibility-check-reports/static.json"
 
       - name: Run ordered compile matrix
         run: >-
@@ -149,6 +156,7 @@ jobs:
           --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
           --workspace-root .
           --category compile
+          --report "${{ runner.temp }}/compatibility-check-reports/compile.json"
 
       - name: Install Cotest contract dependencies
         working-directory: cotest/e2e
@@ -167,6 +175,16 @@ jobs:
           --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
           --workspace-root .
           --category contract
+          --report "${{ runner.temp }}/compatibility-check-reports/contract.json"
+
+      - name: Preserve per-check compatibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-check-results-${{ github.run_id }}
+          path: ${{ runner.temp }}/compatibility-check-reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Preserve joint failure evidence
         if: always()

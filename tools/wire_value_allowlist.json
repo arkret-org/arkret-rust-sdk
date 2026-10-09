@@ -238,15 +238,15 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/backend/src/handlers/admin/v1/invite_quarantine.rs::InviteQuarantineEntry.payload",
+      "finding": "coauth/crates/backend/src/handlers/admin/v1/admin_invite_review.rs::AdminInviteReviewEntry.payload",
       "classification": "independent",
       "lifecycle": "retained_boundary",
       "decision": "independent",
-      "authority": "Original quarantined invite document",
+      "authority": "Original administrator invitation review document",
       "owner_repository": "coauth",
       "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Quarantine status records review lifecycle only and never selects or dispatches the original invite document.",
+      "reason": "Review status records review lifecycle only and never selects or dispatches the original invite document.",
       "adjudication": "manual"
     },
     {
@@ -296,7 +296,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/backend/src/services/invite_quarantine.rs::EnqueueInviteQuarantine.payload",
+      "finding": "coauth/crates/backend/src/services/admin_invite_review.rs::EnqueueAdminInviteReview.payload",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -307,15 +307,15 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/backend/src/services/invite_quarantine.rs::InviteQuarantineRecord.payload",
+      "finding": "coauth/crates/backend/src/services/admin_invite_review.rs::AdminInviteReviewRecord.payload",
       "classification": "independent",
       "lifecycle": "retained_boundary",
       "decision": "independent",
-      "authority": "Original quarantined invite document",
+      "authority": "Original administrator invitation review document",
       "owner_repository": "coauth",
       "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The stored document is preserved for review; quarantine status does not determine its shape.",
+      "reason": "The stored document is preserved for review; review status does not determine its shape.",
       "adjudication": "manual"
     },
     {

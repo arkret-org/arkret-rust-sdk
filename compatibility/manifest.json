@@ -135,6 +135,49 @@
   ],
   "checks": [
     {
+      "id": "sdk.protocol-type-names",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "protocol wrapper names and exact domain exceptions"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-type-names.py"
+      ]
+    },
+    {
+      "id": "sdk.protocol-type-names-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "protocol wrapper name gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_type_names.py"
+      ]
+    },
+    {
+      "id": "sdk.compatibility-runner-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "compatibility manifest validation and check execution"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_compatibility_gate.py",
+        "--tools-only"
+      ]
+    },
+    {
       "id": "sdk.generated-contracts",
       "repository": "arkret-rust-sdk",
       "category": "static",

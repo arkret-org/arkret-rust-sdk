@@ -18,7 +18,7 @@ gate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gate)
 
 
-class CompatibilityGateTests(unittest.TestCase):
+class ManifestFixture:
     @classmethod
     def setUpClass(cls) -> None:
         cls.sdk_root = Path(__file__).resolve().parents[1]
@@ -26,8 +26,9 @@ class CompatibilityGateTests(unittest.TestCase):
         cls.manifest_path = cls.sdk_root / "compatibility" / "manifest.json"
         cls.manifest = json.loads(cls.manifest_path.read_text(encoding="utf-8"))
 
-    def test_manifest_and_workspace_probes_are_valid(self) -> None:
-        gate.check_workspace(self.manifest, self.workspace_root)
+
+class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
+    """Tool behavior: no real consumer source or checkout state is required."""
 
     def test_repository_commits_must_be_exact(self) -> None:
         mutated = copy.deepcopy(self.manifest)
@@ -56,17 +57,6 @@ class CompatibilityGateTests(unittest.TestCase):
             [{"repository": "garth", "commit": candidate}],
         )
 
-    def test_workspace_snapshot_records_exact_heads(self) -> None:
-        snapshot = gate.snapshot_workspace_heads(
-            self.manifest, self.workspace_root, allow_dirty=True
-        )
-        gate.validate_manifest(snapshot)
-        self.assertRegex(snapshot["repositories"]["arkret-rust-sdk"]["commit"], r"^[0-9a-f]{40}$")
-
-    def test_deleted_sdk_field_is_rejected_with_exact_type_and_field(self) -> None:
-        failure = gate.negative_mutation(self.manifest, self.workspace_root)
-        self.assertEqual(failure, "type arkret_wire::Event missing field event_id")
-
     def test_first_command_failure_reports_surface(self) -> None:
         document = copy.deepcopy(self.manifest)
         document["checks"] = [
@@ -75,12 +65,13 @@ class CompatibilityGateTests(unittest.TestCase):
                 "repository": "arkret-rust-sdk",
                 "category": "static",
                 "surface": {"kind": "type", "name": "arkret_wire::Event"},
-                "working_directory": "arkret-rust-sdk",
-                "command": ["python", "-c", "raise SystemExit(7)"],
+                "working_directory": ".",
+                "command": [sys.executable, "-c", "raise SystemExit(7)"],
             }
         ]
-        with self.assertRaisesRegex(gate.CompatibilityError, '"kind": "type"'):
-            gate.run_checks(document, self.workspace_root, {"static"}, set())
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(gate.CompatibilityError, '"kind": "type"'):
+                gate.run_checks(document, Path(temporary), {"static"}, set())
 
     def test_source_guard_rejects_local_compatibility_dto(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -160,5 +151,31 @@ class CompatibilityGateTests(unittest.TestCase):
         self.assertEqual(lines["arkret_rust_sdk"], self.manifest["repositories"]["arkret-rust-sdk"]["commit"])
 
 
+class CompatibilityWorkspaceTests(ManifestFixture, unittest.TestCase):
+    """Integration checks against the actual sibling checkout collection."""
+
+    def test_manifest_and_workspace_probes_are_valid(self) -> None:
+        gate.check_workspace(self.manifest, self.workspace_root)
+
+    def test_workspace_snapshot_records_exact_heads(self) -> None:
+        snapshot = gate.snapshot_workspace_heads(
+            self.manifest, self.workspace_root, allow_dirty=True
+        )
+        gate.validate_manifest(snapshot)
+        self.assertRegex(snapshot["repositories"]["arkret-rust-sdk"]["commit"], r"^[0-9a-f]{40}$")
+
+    def test_deleted_sdk_field_is_rejected_with_exact_type_and_field(self) -> None:
+        failure = gate.negative_mutation(self.manifest, self.workspace_root)
+        self.assertEqual(failure, "type arkret_wire::Event missing field event_id")
+
+
 if __name__ == "__main__":
-    unittest.main()
+    selected = None
+    if "--tools-only" in sys.argv and "--workspace-only" in sys.argv:
+        raise SystemExit("choose only one of --tools-only or --workspace-only")
+    for flag, suite in [("--tools-only", "CompatibilityGateTests"),
+                        ("--workspace-only", "CompatibilityWorkspaceTests")]:
+        if flag in sys.argv:
+            sys.argv.remove(flag)
+            selected = suite
+    unittest.main(defaultTest=selected)
