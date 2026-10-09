@@ -33,7 +33,7 @@ these gates pass:
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.
 - Basic interoperability smoke is recorded under `docs/` for `soland`,
-  `starid`, `floria`, `chime`, and federation endpoints.
+  `floria`, `chime`, and federation endpoints.
 - The `cargo audit` ignore is a tracked upstream-dependency exception:
   `libcrux-chacha20poly1305` is present only through hpke-rs's optional
   libcrux backend while the SDK enables the RustCrypto HPKE backend.
