@@ -18,7 +18,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "92bc3bb35a3a9848a93ed292b8366da514543934",
+      "commit": "077104f3487eb5b5391fcc2e840dbec02160a92a",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -28,7 +28,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "d3131dfddb6d9a2d4312146739c3651ed189d9e4",
+      "commit": "68f6aa5e84954b3ba3dac0cd72d0a2563bc6d742",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -38,7 +38,7 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "72ab0eb7989da84908fbfa16d5fc1a2d5b6b287c",
+      "commit": "9692234bcd213b51721825fc7ec77c2723e7f9ef",
       "checkout_path": "floria",
       "roles": [
         "soland-build-dependency"
@@ -46,7 +46,7 @@
     },
     "soland": {
       "repository": "arkret-org/soland",
-      "commit": "526104138d59007acf3e56457b87720bd9ec6cdd",
+      "commit": "f727ee26ca5be47cb78f952c6b9979ac31eefb23",
       "checkout_path": "soland",
       "roles": [
         "protocol-producer",
@@ -55,7 +55,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "1f3038a5b1b0e48775878bfc792aeee2fefa7ca3",
+      "commit": "38f60a408a1458e25dfd12a00ed5cc8ecbaf0812",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -64,7 +64,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "5419b7f0b4368410a7b776bc8389f0abffe09fed",
+      "commit": "995e5078f327ebc4409d634441b24f3503a56d4a",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -72,7 +72,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "7bc9678bd053b5877a53713e4bef002075db4ae2",
+      "commit": "7d2e4053cdb9df12f5579c9b6ccdab205772d300",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -80,7 +80,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "3ede0be4085297d1880c1cb1435054ee4e93fd3d",
+      "commit": "f1f9959d89d39001b948f0bec448d055a426fc9f",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -88,7 +88,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "ed8f9869c078547b007040f4020ee3381fbff9a6",
+      "commit": "0075d492b6ba91bac742c3f4d0f0bc0801e53682",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
