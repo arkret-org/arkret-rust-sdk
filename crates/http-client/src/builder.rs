@@ -429,11 +429,11 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => self
-                .transport
-                .apply(reqwest::Client::builder())
-                .build()
-                .map_err(transport_error)?,
+            None => crate::tls_roots::apply_explicit_tls_roots(
+                self.transport.apply(reqwest::Client::builder()),
+            )?
+            .build()
+            .map_err(transport_error)?,
         };
         Ok(Client {
             base_url: self.base_url,
