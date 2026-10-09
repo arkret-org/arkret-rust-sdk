@@ -423,3 +423,213 @@ fn an_authored_unit_passes_the_receiver_side_binding_check() {
     );
     assert!(applet_managed_actor_unit_submissions(&bundle, &foreign).is_err());
 }
+
+// These tests cover native PCR Commit identity/signature and structural context
+// binding. Method history fixtures do not establish a live admission or DID trust.
+fn signed_pcr_commit(
+    event: &arkret_wire::Event,
+    previous: Option<&arkret_wire::RealmCommit>,
+    ordinary_fact: Option<Hash>,
+) -> arkret_wire::RealmCommit {
+    use arkret_signatures::detached_object::{
+        sign_detached_object, verify_detached_object_signature,
+    };
+    let key = SigningKey::from_bytes(&[0x11; 32]);
+    let method = DidUrl::new(format!("{STATION_DID}#key-1")).unwrap();
+    let mut commit = arkret_wire::RealmCommit {
+        commit_id: arkret_wire::RealmCommitId::from_digest([0; 32]),
+        realm_id: event.realm_id.clone(),
+        stream_ref: arkret_wire::CommitStreamRef::Realm {
+            realm_id: event.realm_id.clone(),
+        },
+        stream_position: previous.map_or(0, |p| p.stream_position + 1),
+        previous_commit_ref: previous.map(|p| p.commit_id.clone()),
+        event_ref: event.event_id.clone(),
+        governance_generation: 0,
+        authority_ref: previous.map_or_else(
+            || arkret_wire::RealmCommitAuthorityRef::GenesisOrChangeEvent(event.event_id.clone()),
+            |p| p.authority_ref.clone(),
+        ),
+        committed_at: event.created_at,
+        producer_signer_fact_digest: ordinary_fact,
+        signature: sign_detached_object(
+            &json!({}),
+            arkret_wire::DetachedSignatureContext::RealmCommit,
+            method.clone(),
+            event.created_at,
+            &key,
+        )
+        .unwrap(),
+    };
+    let preimage = arkret_canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
+    commit.commit_id = arkret_wire::RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+        &arkret_canonical::canonical_json_bytes(&preimage).unwrap(),
+    ));
+    let unsigned = arkret_canonical::unsigned_value(&commit, &["signature"]).unwrap();
+    commit.signature = sign_detached_object(
+        &unsigned,
+        arkret_wire::DetachedSignatureContext::RealmCommit,
+        method,
+        event.created_at,
+        &key,
+    )
+    .unwrap();
+    commit.validate_content_address().unwrap();
+    verify_detached_object_signature(
+        &commit.signature,
+        &unsigned,
+        arkret_wire::DetachedSignatureContext::RealmCommit,
+        &arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+            bytes: key.verifying_key().to_bytes().to_vec(),
+        },
+    )
+    .unwrap();
+    commit
+}
+
+fn context_for_pcr(
+    request: AppletManagedActorAuthoringRequest,
+    bundle: AppletManagedActorAuthoringBundle,
+    pcr: arkret_wire::RealmCommit,
+) -> arkret_models_integration::AppletManagedActorAuthoringContext {
+    use arkret_models_identity::authenticated_signer_resolution_evidence::{
+        build_principal_signer_evidence, build_service_signer_evidence,
+    };
+    let jwk = |seed: u8| -> arkret_wire::NonEmptyJsonObject {
+        serde_json::from_value(json!({"kty":"OKP", "crv":"Ed25519", "x":arkret_canonical::base64url_encode(SigningKey::from_bytes(&[seed;32]).verifying_key().to_bytes())})).unwrap()
+    };
+    let portal_head = arkret_wire::RealmCommitId::from_digest([0x81; 32]);
+    let service = build_service_signer_evidence(
+        core_id(SERVICE_DID),
+        DidUrl::new(format!("{SERVICE_DID}#key-1")).unwrap(),
+        jwk(0x22),
+        portal_head.clone(),
+        issued_at(),
+    )
+    .unwrap();
+    let principal = build_principal_signer_evidence(
+        core_id(GHOST_DID),
+        DidUrl::new(format!("{GHOST_DID}#key-1")).unwrap(),
+        jwk(0x33),
+        pcr.commit_id.clone(),
+        pcr.committed_at,
+    )
+    .unwrap();
+    let attester = build_service_signer_evidence(
+        core_id(STATION_DID),
+        pcr.signature.verification_method.clone(),
+        jwk(0x11),
+        pcr.commit_id.clone(),
+        pcr.committed_at,
+    )
+    .unwrap();
+    arkret_models_integration::AppletManagedActorAuthoringContext {
+        committed_request: arkret_models_integration::AppletManagedActorCommittedRequest::Ghost(
+            Box::new(arkret_models_integration::GhostActorProvisionRequestBody {
+                authoring_request: request,
+                managed_actor_bundle: Some(bundle),
+                approval_signatures: vec![],
+                existing_managed_actor: None,
+            }),
+        ),
+        realm_stream_head: arkret_wire::CommitStreamHead {
+            stream_ref: arkret_wire::CommitStreamRef::Realm {
+                realm_id: realm_id(),
+            },
+            stream_position: 12,
+            commit_id: portal_head,
+        },
+        principal_control_commit: pcr,
+        applet_service_signer_evidence: arkret_models_integration::AppletServiceSignerEvidence {
+            signer_resolution_evidence_ref: service.signer_evidence_ref().unwrap(),
+            authenticated_signer_evidence: service,
+        },
+        managed_actor_signer_evidence:
+            arkret_models_integration::ManagedActorPrincipalSignerEvidence {
+                signer_resolution_evidence_ref: principal.signer_evidence_ref().unwrap(),
+                authenticated_signer_evidence: principal,
+                attester_signer_evidence: attester,
+            },
+        resolution_update: None,
+    }
+}
+
+#[test]
+fn native_pcr_completion_requires_original_content_id_and_excludes_ordinary_fact() {
+    let (request, bundle) = authored_unit();
+    let valid = signed_pcr_commit(&bundle.pcr_genesis_event, None, None);
+    context_for_pcr(request.clone(), bundle.clone(), valid.clone())
+        .validate()
+        .unwrap();
+    let mut changed = valid.clone();
+    changed.commit_id = arkret_wire::RealmCommitId::from_digest([0x82; 32]);
+    assert!(
+        context_for_pcr(request.clone(), bundle.clone(), changed)
+            .validate()
+            .is_err()
+    );
+    // A correctly re-ID'd and signed Commit must still fail the native gate.
+    let forbidden = signed_pcr_commit(&bundle.pcr_genesis_event, None, Some(hash(0x99)));
+    assert!(
+        context_for_pcr(request, bundle, forbidden)
+            .validate()
+            .is_err()
+    );
+}
+
+#[test]
+fn native_pcr_resolution_lineage_requires_original_content_ids_and_no_ordinary_facts() {
+    use arkret_event_draft::TypedEventDraft;
+    use arkret_wire::{AccountId, ActorId, event_spec};
+    let (_, bundle) = authored_unit();
+    let genesis = signed_pcr_commit(&bundle.pcr_genesis_event, None, None);
+    let next = ResolutionCommitment {
+        did: did(GHOST_DID),
+        method_history_head: "head-2".into(),
+        version_id: "2-ghost".into(),
+    };
+    let intent = TypedEventDraft::<event_spec::IdentityResolutionUpdate>::new(
+        ScopeRef::Realm {
+            realm_id: genesis.realm_id.clone(),
+        },
+        ActorId::account(AccountId::new(core_id(GHOST_DID), core_id(STATION_DID))),
+        arkret_models_identity::PrincipalResolutionUpdatePayload { next },
+    )
+    .unwrap()
+    .into_intent(issued_at() + chrono::Duration::seconds(1))
+    .unwrap();
+    let mut authored = intent
+        .author_with_digest_suite(DigestSuite::Sha256)
+        .unwrap();
+    arkret_signatures::sign_event(
+        &mut authored,
+        &signer(0x33, GHOST_DID),
+        arkret_signatures::SignEventOptions::new()
+            .with_created_at(issued_at() + chrono::Duration::seconds(1)),
+    )
+    .unwrap();
+    let resolution_event = authored.into_event();
+    let successor = signed_pcr_commit(&resolution_event, Some(&genesis), None);
+    let evidence = arkret_models_integration::ManagedActorResolutionUpdateEvidence {
+        resolution_event: resolution_event.clone(),
+        commits: vec![genesis.clone(), successor.clone()],
+        method_history_evidence: method_history_evidence(),
+        attester_resolution: arkret_models_identity::AuthenticatedServiceResolution {
+            service_id: core_id(STATION_DID),
+            service_kind: "station".into(),
+            method_history_evidence: method_history_evidence(),
+            normalized_did_document: DidDocument::new(
+                did(STATION_DID),
+                "key-1",
+                "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
+            ),
+        },
+    };
+    evidence.validate_shape().unwrap();
+    let mut wrong_id = evidence.clone();
+    wrong_id.commits[1].commit_id = arkret_wire::RealmCommitId::from_digest([0x82; 32]);
+    assert!(wrong_id.validate_shape().is_err());
+    let mut ordinary = evidence;
+    ordinary.commits[1] = signed_pcr_commit(&resolution_event, Some(&genesis), Some(hash(0x99)));
+    assert!(ordinary.validate_shape().is_err());
+}

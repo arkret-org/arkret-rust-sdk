@@ -36,7 +36,12 @@ impl ManagedActorResolutionUpdateEvidence {
         }
         let mut previous: Option<&RealmCommit> = None;
         for commit in &self.commits {
-            commit.validate_shape()?;
+            commit.validate_content_address()?;
+            if commit.producer_signer_fact_digest.is_some() {
+                return Err(WireError::Protocol(
+                    "managed PCR lineage must not carry ordinary producer signer facts".into(),
+                ));
+            }
             if commit.realm_id != event.realm_id
                 || !matches!(&commit.stream_ref,arkret_wire::CommitStreamRef::Realm{realm_id} if realm_id==&event.realm_id)
             {

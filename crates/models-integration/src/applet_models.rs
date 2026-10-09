@@ -327,7 +327,16 @@ impl AppletManagedActorAuthoringContext {
     pub fn validate(&self) -> Result<()> {
         self.applet_service_signer_evidence.validate()?;
         self.managed_actor_signer_evidence.validate()?;
-        self.principal_control_commit.validate_shape()?;
+        self.principal_control_commit.validate_content_address()?;
+        if self
+            .principal_control_commit
+            .producer_signer_fact_digest
+            .is_some()
+        {
+            return Err(WireError::Protocol(
+                "managed PCR Commit must not carry an ordinary producer signer fact".into(),
+            ));
+        }
         let principal = &self
             .managed_actor_signer_evidence
             .authenticated_signer_evidence;

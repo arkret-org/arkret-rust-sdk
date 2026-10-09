@@ -1257,8 +1257,9 @@ fn managed_actor_root(commit: &RealmCommitId) -> ManagedActorPrincipalSignerEvid
     }
 }
 
-fn structural_pcr_commit(commit_id: RealmCommitId, event: &Event) -> arkret_wire::RealmCommit {
-    serde_json::from_value(json!({
+fn structural_pcr_commit(event: &Event) -> arkret_wire::RealmCommit {
+    let commit_id = authority_commit(0);
+    let mut commit: arkret_wire::RealmCommit = serde_json::from_value(json!({
         "commit_id":commit_id, "realm_id":event.realm_id,
         "stream_ref":{"kind":"realm","realm_id":event.realm_id},
         "stream_position":0,"previous_commit_ref":null,"event_ref":event.event_id,
@@ -1270,17 +1271,19 @@ fn structural_pcr_commit(commit_id: RealmCommitId, event: &Event) -> arkret_wire
         "created_at":DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
         "sig":canonical::base64url_encode(&[0u8;64])}
     }))
-    .unwrap()
+    .unwrap();
+    let preimage = canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
+    commit.commit_id = RealmCommitId::from_digest(canonical::sha256_bytes(
+        &canonical::canonical_json_bytes(&preimage).unwrap(),
+    ));
+    commit
 }
 
 fn sample_authoring_context() -> AppletManagedActorAuthoringContext {
     let commit = authority_commit(0x2c);
-    let pcr_id = authority_commit(0x2d);
     let (request, _) = sample_bot_request_body();
-    let pcr = structural_pcr_commit(
-        pcr_id.clone(),
-        &request.managed_actor_bundle.pcr_genesis_event,
-    );
+    let pcr = structural_pcr_commit(&request.managed_actor_bundle.pcr_genesis_event);
+    let pcr_id = pcr.commit_id.clone();
     AppletManagedActorAuthoringContext {
         committed_request: AppletManagedActorCommittedRequest::Bot(Box::new(request)),
         realm_stream_head: CommitStreamHead {
