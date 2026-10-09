@@ -440,6 +440,8 @@ impl ClientBuilder {
             http,
             auth: self.auth,
             http_message_signer: self.http_message_signer,
+            service_signature_identity: None,
+            managed_device_signature_identity: None,
             allow_insecure_localhost: self.allow_insecure_localhost,
             loopback_method_scope: self.loopback_method_scope,
             retry: self.retry,

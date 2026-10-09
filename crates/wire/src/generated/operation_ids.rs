@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498 Entries: registered=211
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c Entries: registered=215
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 #[repr(usize)]
 pub enum ServiceOperationId {
     EdgeAppletActorReadResolveV1,
-    EdgeAppletClientCommandExchangeV1,
     EdgeAppletCommandTransactionV1,
     EdgeAppletManagedActorCommandAuthorV1,
     EdgeAppletReadDescribeV1,
@@ -124,11 +123,13 @@ pub enum ServiceOperationId {
     SelfAgentSidecarCommandEnsureV1,
     SelfAgentSidecarReadListV1,
     SelfAgentSidecarResourceGetV1,
+    SelfAppletAuthorityReadMaterialV1,
+    SelfAppletBotCommandPreviewV1,
+    SelfAppletBotCommandProvisionV1,
     SelfAppletCommandInstallV1,
     SelfAppletCommandRevokeV1,
     SelfAppletGhostCommandPreviewV1,
     SelfAppletGhostCommandProvisionV1,
-    SelfAppletInstallCommandCancelV1,
     SelfAppletInstallCommandPreviewV1,
     SelfAppletRevokeCommandPreviewV1,
     SelfAuthzGrantsReadEffectiveV1,
@@ -189,6 +190,9 @@ pub enum ServiceOperationId {
     SelfKeysKeypackagesUploadCreateV1,
     SelfKeysReadLookupV1,
     SelfKeysUploadCreateV1,
+    SelfManagementReviewCommandDecideV1,
+    SelfManagementReviewCommandRequestV1,
+    SelfManagementReviewReadStatusV1,
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
     SelfMessagesCommandPrepareV1,
@@ -223,7 +227,6 @@ pub enum ServiceOperationId {
 
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
-    ServiceOperationId::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1,
     ServiceOperationId::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1,
     ServiceOperationId::EDGE_APPLET_READ_DESCRIBE_V1,
@@ -338,11 +341,13 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1,
     ServiceOperationId::SELF_AGENT_SIDECAR_READ_LIST_V1,
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_APPLET_AUTHORITY_READ_MATERIAL_V1,
+    ServiceOperationId::SELF_APPLET_BOT_COMMAND_PREVIEW_V1,
+    ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_INSTALL_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
-    ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -403,6 +408,9 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE_V1,
+    ServiceOperationId::SELF_MANAGEMENT_REVIEW_COMMAND_DECIDE_V1,
+    ServiceOperationId::SELF_MANAGEMENT_REVIEW_COMMAND_REQUEST_V1,
+    ServiceOperationId::SELF_MANAGEMENT_REVIEW_READ_STATUS_V1,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
     ServiceOperationId::SELF_MESSAGES_COMMAND_PREPARE_V1,
@@ -479,7 +487,6 @@ pub struct ServiceOperationDescriptor {
 impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
         Self::EdgeAppletActorReadResolveV1,
-        Self::EdgeAppletClientCommandExchangeV1,
         Self::EdgeAppletCommandTransactionV1,
         Self::EdgeAppletManagedActorCommandAuthorV1,
         Self::EdgeAppletReadDescribeV1,
@@ -594,11 +601,13 @@ impl ServiceOperationId {
         Self::SelfAgentSidecarCommandEnsureV1,
         Self::SelfAgentSidecarReadListV1,
         Self::SelfAgentSidecarResourceGetV1,
+        Self::SelfAppletAuthorityReadMaterialV1,
+        Self::SelfAppletBotCommandPreviewV1,
+        Self::SelfAppletBotCommandProvisionV1,
         Self::SelfAppletCommandInstallV1,
         Self::SelfAppletCommandRevokeV1,
         Self::SelfAppletGhostCommandPreviewV1,
         Self::SelfAppletGhostCommandProvisionV1,
-        Self::SelfAppletInstallCommandCancelV1,
         Self::SelfAppletInstallCommandPreviewV1,
         Self::SelfAppletRevokeCommandPreviewV1,
         Self::SelfAuthzGrantsReadEffectiveV1,
@@ -659,6 +668,9 @@ impl ServiceOperationId {
         Self::SelfKeysKeypackagesUploadCreateV1,
         Self::SelfKeysReadLookupV1,
         Self::SelfKeysUploadCreateV1,
+        Self::SelfManagementReviewCommandDecideV1,
+        Self::SelfManagementReviewCommandRequestV1,
+        Self::SelfManagementReviewReadStatusV1,
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
         Self::SelfMessagesCommandPrepareV1,
@@ -693,8 +705,6 @@ impl ServiceOperationId {
 
     pub const EDGE_APPLET_ACTOR_READ_RESOLVE_V1: &'static str =
         "ak.edge.applet.actor.read.resolve.v1";
-    pub const EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1: &'static str =
-        "ak.edge.applet.client.command.exchange.v1";
     pub const EDGE_APPLET_COMMAND_TRANSACTION_V1: &'static str =
         "ak.edge.applet.command.transaction.v1";
     pub const EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1: &'static str =
@@ -896,14 +906,18 @@ impl ServiceOperationId {
     pub const SELF_AGENT_SIDECAR_READ_LIST_V1: &'static str = "ak.self.agent.sidecar.read.list.v1";
     pub const SELF_AGENT_SIDECAR_RESOURCE_GET_V1: &'static str =
         "ak.self.agent.sidecar.resource.get.v1";
+    pub const SELF_APPLET_AUTHORITY_READ_MATERIAL_V1: &'static str =
+        "ak.self.applet.authority.read.material.v1";
+    pub const SELF_APPLET_BOT_COMMAND_PREVIEW_V1: &'static str =
+        "ak.self.applet.bot.command.preview.v1";
+    pub const SELF_APPLET_BOT_COMMAND_PROVISION_V1: &'static str =
+        "ak.self.applet.bot.command.provision.v1";
     pub const SELF_APPLET_COMMAND_INSTALL_V1: &'static str = "ak.self.applet.command.install.v1";
     pub const SELF_APPLET_COMMAND_REVOKE_V1: &'static str = "ak.self.applet.command.revoke.v1";
     pub const SELF_APPLET_GHOST_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.ghost.command.preview.v1";
     pub const SELF_APPLET_GHOST_COMMAND_PROVISION_V1: &'static str =
         "ak.self.applet.ghost.command.provision.v1";
-    pub const SELF_APPLET_INSTALL_COMMAND_CANCEL_V1: &'static str =
-        "ak.self.applet.install.command.cancel.v1";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.install.command.preview.v1";
     pub const SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1: &'static str =
@@ -1001,6 +1015,12 @@ impl ServiceOperationId {
         "ak.self.keys.keypackages.upload.create.v1";
     pub const SELF_KEYS_READ_LOOKUP_V1: &'static str = "ak.self.keys.read.lookup.v1";
     pub const SELF_KEYS_UPLOAD_CREATE_V1: &'static str = "ak.self.keys.upload.create.v1";
+    pub const SELF_MANAGEMENT_REVIEW_COMMAND_DECIDE_V1: &'static str =
+        "ak.self.management_review.command.decide.v1";
+    pub const SELF_MANAGEMENT_REVIEW_COMMAND_REQUEST_V1: &'static str =
+        "ak.self.management_review.command.request.v1";
+    pub const SELF_MANAGEMENT_REVIEW_READ_STATUS_V1: &'static str =
+        "ak.self.management_review.read.status.v1";
     pub const SELF_MEDIA_READ_ICE_CONFIG_V1: &'static str = "ak.self.media.read.ice_config.v1";
     pub const SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1: &'static str =
         "ak.self.media_service_binding.read.resolve.v1";
@@ -1051,7 +1071,6 @@ impl ServiceOperationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::EdgeAppletActorReadResolveV1 => Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
-            Self::EdgeAppletClientCommandExchangeV1 => Self::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1,
             Self::EdgeAppletCommandTransactionV1 => Self::EDGE_APPLET_COMMAND_TRANSACTION_V1,
             Self::EdgeAppletManagedActorCommandAuthorV1 => {
                 Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1
@@ -1244,11 +1263,13 @@ impl ServiceOperationId {
             Self::SelfAgentSidecarCommandEnsureV1 => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1,
             Self::SelfAgentSidecarReadListV1 => Self::SELF_AGENT_SIDECAR_READ_LIST_V1,
             Self::SelfAgentSidecarResourceGetV1 => Self::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
+            Self::SelfAppletAuthorityReadMaterialV1 => Self::SELF_APPLET_AUTHORITY_READ_MATERIAL_V1,
+            Self::SelfAppletBotCommandPreviewV1 => Self::SELF_APPLET_BOT_COMMAND_PREVIEW_V1,
+            Self::SelfAppletBotCommandProvisionV1 => Self::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
             Self::SelfAppletCommandInstallV1 => Self::SELF_APPLET_COMMAND_INSTALL_V1,
             Self::SelfAppletCommandRevokeV1 => Self::SELF_APPLET_COMMAND_REVOKE_V1,
             Self::SelfAppletGhostCommandPreviewV1 => Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
             Self::SelfAppletGhostCommandProvisionV1 => Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
-            Self::SelfAppletInstallCommandCancelV1 => Self::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1,
             Self::SelfAppletInstallCommandPreviewV1 => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
             Self::SelfAppletRevokeCommandPreviewV1 => Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
             Self::SelfAuthzGrantsReadEffectiveV1 => Self::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -1327,6 +1348,13 @@ impl ServiceOperationId {
             Self::SelfKeysKeypackagesUploadCreateV1 => Self::SELF_KEYS_KEYPACKAGES_UPLOAD_CREATE_V1,
             Self::SelfKeysReadLookupV1 => Self::SELF_KEYS_READ_LOOKUP_V1,
             Self::SelfKeysUploadCreateV1 => Self::SELF_KEYS_UPLOAD_CREATE_V1,
+            Self::SelfManagementReviewCommandDecideV1 => {
+                Self::SELF_MANAGEMENT_REVIEW_COMMAND_DECIDE_V1
+            }
+            Self::SelfManagementReviewCommandRequestV1 => {
+                Self::SELF_MANAGEMENT_REVIEW_COMMAND_REQUEST_V1
+            }
+            Self::SelfManagementReviewReadStatusV1 => Self::SELF_MANAGEMENT_REVIEW_READ_STATUS_V1,
             Self::SelfMediaReadIceConfigV1 => Self::SELF_MEDIA_READ_ICE_CONFIG_V1,
             Self::SelfMediaServiceBindingReadResolveV1 => {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
@@ -1377,9 +1405,6 @@ impl ServiceOperationId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1 => Some(Self::EdgeAppletActorReadResolveV1),
-            Self::EDGE_APPLET_CLIENT_COMMAND_EXCHANGE_V1 => {
-                Some(Self::EdgeAppletClientCommandExchangeV1)
-            }
             Self::EDGE_APPLET_COMMAND_TRANSACTION_V1 => Some(Self::EdgeAppletCommandTransactionV1),
             Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1 => {
                 Some(Self::EdgeAppletManagedActorCommandAuthorV1)
@@ -1614,6 +1639,13 @@ impl ServiceOperationId {
             }
             Self::SELF_AGENT_SIDECAR_READ_LIST_V1 => Some(Self::SelfAgentSidecarReadListV1),
             Self::SELF_AGENT_SIDECAR_RESOURCE_GET_V1 => Some(Self::SelfAgentSidecarResourceGetV1),
+            Self::SELF_APPLET_AUTHORITY_READ_MATERIAL_V1 => {
+                Some(Self::SelfAppletAuthorityReadMaterialV1)
+            }
+            Self::SELF_APPLET_BOT_COMMAND_PREVIEW_V1 => Some(Self::SelfAppletBotCommandPreviewV1),
+            Self::SELF_APPLET_BOT_COMMAND_PROVISION_V1 => {
+                Some(Self::SelfAppletBotCommandProvisionV1)
+            }
             Self::SELF_APPLET_COMMAND_INSTALL_V1 => Some(Self::SelfAppletCommandInstallV1),
             Self::SELF_APPLET_COMMAND_REVOKE_V1 => Some(Self::SelfAppletCommandRevokeV1),
             Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1 => {
@@ -1621,9 +1653,6 @@ impl ServiceOperationId {
             }
             Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1 => {
                 Some(Self::SelfAppletGhostCommandProvisionV1)
-            }
-            Self::SELF_APPLET_INSTALL_COMMAND_CANCEL_V1 => {
-                Some(Self::SelfAppletInstallCommandCancelV1)
             }
             Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1 => {
                 Some(Self::SelfAppletInstallCommandPreviewV1)
@@ -1733,6 +1762,15 @@ impl ServiceOperationId {
             }
             Self::SELF_KEYS_READ_LOOKUP_V1 => Some(Self::SelfKeysReadLookupV1),
             Self::SELF_KEYS_UPLOAD_CREATE_V1 => Some(Self::SelfKeysUploadCreateV1),
+            Self::SELF_MANAGEMENT_REVIEW_COMMAND_DECIDE_V1 => {
+                Some(Self::SelfManagementReviewCommandDecideV1)
+            }
+            Self::SELF_MANAGEMENT_REVIEW_COMMAND_REQUEST_V1 => {
+                Some(Self::SelfManagementReviewCommandRequestV1)
+            }
+            Self::SELF_MANAGEMENT_REVIEW_READ_STATUS_V1 => {
+                Some(Self::SelfManagementReviewReadStatusV1)
+            }
             Self::SELF_MEDIA_READ_ICE_CONFIG_V1 => Some(Self::SelfMediaReadIceConfigV1),
             Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1 => {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
@@ -1896,33 +1934,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::EdgeAppletClientCommandExchangeV1,
-        http_method: "POST",
-        http_path: "/_arkret/edge/applet/client/exchange",
-        grpc: Some("EdgeApplet/ClientExchange"),
-        mq: Some("edge.applet.client.command.exchange"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-client-operations.schema.json#/$defs/exchange_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-client-operations.schema.json#/$defs/exchange_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "Durable local request, bundle, queue and ack ledger only; Events retain dedicated admission.",
-            ),
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletCommandTransactionV1,
@@ -4502,6 +4513,84 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletAuthorityReadMaterialV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/authority/material",
+        grpc: Some("SelfManagement/AppletAuthorityReadMaterial"),
+        mq: Some("self.applet.authority.read.material"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some("schemas/applet-authority-material.schema.json#/$defs/request"),
+        response_schema_ref: Some("schemas/applet-authority-material.schema.json#/$defs/outcome"),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("Read-only authorized exact material."),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletBotCommandPreviewV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/bots/provision/preview",
+        grpc: Some("SelfApplet/BotPreview"),
+        mq: Some("self.applet.bot.command.preview"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-bot-operations.schema.json#/$defs/bot_preview_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-bot-operations.schema.json#/$defs/bot_preview_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "No Event is admitted, but the Station durably records the current subject generation and exact signed request before returning",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletBotCommandProvisionV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/bots/provision",
+        grpc: Some("SelfApplet/BotProvision"),
+        mq: Some("self.applet.bot.command.provision"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&[
+                "ak.applet.managed_actor.provision",
+                "ak.realm.create",
+                "ak.identity.accountability_grant",
+                "ak.profile.create",
+            ])),
+            rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletCommandInstallV1,
         http_method: "POST",
         http_path: "/_arkret/self/applets/install",
@@ -4524,10 +4613,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: Some(DurableEventTarget::Static(&[
                 "ak.applet.registration",
                 "ak.capability.grant",
-                "ak.applet.managed_actor.provision",
-                "ak.realm.create",
-                "ak.identity.accountability_grant",
-                "ak.profile.create",
             ])),
             rationale: None,
             branch_contract_json: None,
@@ -4615,33 +4700,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
                 "ak.profile.create",
             ])),
             rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAppletInstallCommandCancelV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/applets/install/cancel",
-        grpc: Some("SelfApplet/InstallCancel"),
-        mq: Some("self.applet.install.command.cancel"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-client-operations.schema.json#/$defs/cancel_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-client-operations.schema.json#/$defs/cancel_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "Cancel only the authenticated original installing administrator pending request; no Realm Event is admitted.",
-            ),
             branch_contract_json: None,
         }),
     },
@@ -5999,6 +6057,81 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfManagementReviewCommandDecideV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/management-reviews/decisions",
+        grpc: Some("SelfManagement/Management_ReviewCommandDecide"),
+        mq: Some("self.management_review.command.decide"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/decision",
+        ),
+        response_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private durable review state only; no Event, grant or membership is created.",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfManagementReviewCommandRequestV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/management-reviews/requests",
+        grpc: Some("SelfManagement/Management_ReviewCommandRequest"),
+        mq: Some("self.management_review.command.request"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some("schemas/management-review-operations.schema.json#/$defs/request"),
+        response_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private durable review state only; no Event, grant or membership is created.",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfManagementReviewReadStatusV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/management-reviews/status",
+        grpc: Some("SelfManagement/Management_ReviewReadStatus"),
+        mq: Some("self.management_review.read.status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some("schemas/management-review-operations.schema.json#/$defs/lookup"),
+        response_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("Read-only authorized exact material."),
             branch_contract_json: None,
         }),
     },

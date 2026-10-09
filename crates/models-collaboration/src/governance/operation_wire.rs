@@ -24,6 +24,10 @@ pub struct Policy {
     pub policy_kind: PolicyKind,
     pub rules: Vec<PolicyRule>,
     pub default_effect: PolicyEffect,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_review_requirement: Option<ManagementReviewRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_operations: Option<Vec<ManagementOperation>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -65,8 +69,46 @@ impl Policy {
                 "policy rules must contain at least one rule".to_owned(),
             ));
         }
+        if matches!(self.policy_kind, PolicyKind::Agent | PolicyKind::Applet) {
+            if self.realm_id.is_none() {
+                return Err(WireError::Protocol("managed Policy needs Realm".into()));
+            }
+            if self.default_effect == PolicyEffect::RequireReview {
+                self.default_review_requirement
+                    .as_ref()
+                    .ok_or_else(|| {
+                        WireError::Protocol("missing default review requirement".into())
+                    })?
+                    .validate()?;
+                let ops = self
+                    .default_operations
+                    .as_ref()
+                    .ok_or_else(|| WireError::Protocol("missing default operations".into()))?;
+                if ops.is_empty()
+                    || ops.iter().enumerate().any(|(i, v)| ops[..i].contains(v))
+                    || (self.policy_kind == PolicyKind::Agent
+                        && ops.iter().any(|op| {
+                            !matches!(op, ManagementOperation::Join | ManagementOperation::Publish)
+                        }))
+                {
+                    return Err(WireError::Protocol(
+                        "invalid default management operations".into(),
+                    ));
+                }
+            } else if self.default_operations.is_some() || self.default_review_requirement.is_some()
+            {
+                return Err(WireError::Protocol(
+                    "review default fields on non-review default".into(),
+                ));
+            }
+        }
         for rule in &self.rules {
             rule.validate()?;
+            if rule.kind == PolicyRuleKind::Applet && self.policy_kind != PolicyKind::Applet {
+                return Err(WireError::Protocol(
+                    "Applet rule in wrong Policy family".into(),
+                ));
+            }
             if rule.kind == PolicyRuleKind::Agent
                 && (self.realm_id.is_none() || self.policy_kind != PolicyKind::Agent)
             {
@@ -85,6 +127,7 @@ impl Policy {
 #[serde(rename_all = "snake_case")]
 pub enum PolicyRuleKind {
     Agent,
+    Applet,
     Action,
     Resource,
     Server,
@@ -116,6 +159,24 @@ pub struct PolicyRule {
         deserialize_with = "deserialize_present"
     )]
     pub agent_operations: Option<Vec<AgentPolicyOperation>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub applet_target: Option<AppletPolicyTarget>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub applet_operations: Option<Vec<AppletPolicyOperation>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub review_requirement: Option<ManagementReviewRequirement>,
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub priority: i64,
     #[serde(
@@ -178,6 +239,65 @@ pub enum AgentPolicyOperation {
     Execute,
     Read,
     Deliver,
+    Publish,
+    Serve,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManagementReviewRequirement {
+    pub approver_actor_ids: Vec<ActorId>,
+    pub threshold: u64,
+    pub max_age_seconds: u64,
+}
+impl ManagementReviewRequirement {
+    pub fn validate(&self) -> Result<()> {
+        if self.threshold == 0
+            || self.threshold as usize > self.approver_actor_ids.len()
+            || !(1..=86400).contains(&self.max_age_seconds)
+            || self
+                .approver_actor_ids
+                .iter()
+                .enumerate()
+                .any(|(i, v)| self.approver_actor_ids[..i].contains(v))
+        {
+            return Err(WireError::Protocol(
+                "invalid management review requirement".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+pub use arkret_wire::ManagementOperation;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletPolicyOperation {
+    Install,
+    CreateBot,
+    MapGhost,
+    Join,
+    Authorize,
+    Execute,
+    Read,
+    Deliver,
+    Publish,
+    Serve,
+    Invoke,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AppletPolicyTarget {
+    All {},
+    Requester {
+        actor_id: ActorId,
+    },
+    Installation {
+        applet_id: arkret_wire::AppletId,
+        effective_scope: arkret_wire::ScopeRef,
+    },
+    ManagedActor {
+        actor_id: ActorId,
+    },
 }
 
 fn is_zero_i64(value: &i64) -> bool {
@@ -365,6 +485,20 @@ impl PolicyRule {
                         && self.schema_ref.is_none()
                         && self.profile_ref.is_none()
                 }
+                PolicyRuleKind::Applet => {
+                    self.applet_target.is_some()
+                        && self
+                            .applet_operations
+                            .as_ref()
+                            .is_some_and(|v| unique_nonempty(v))
+                        && self.agent_target.is_none()
+                        && self.agent_operations.is_none()
+                        && self.servers.is_none()
+                        && self.conditions.is_none()
+                        && self.params.is_none()
+                        && self.schema_ref.is_none()
+                        && self.profile_ref.is_none()
+                }
                 PolicyRuleKind::Action => self.actions.is_some(),
                 PolicyRuleKind::Resource => self.resources.is_some(),
                 PolicyRuleKind::Server => self.servers.is_some(),
@@ -376,6 +510,57 @@ impl PolicyRule {
             },
             "kind requirements",
         )?;
+        if self.kind != PolicyRuleKind::Applet
+            && (self.applet_target.is_some() || self.applet_operations.is_some())
+        {
+            return Err(WireError::Protocol(
+                "Applet fields on non-Applet rule".into(),
+            ));
+        }
+        if let Some(AppletPolicyTarget::ManagedActor { actor_id }) = &self.applet_target {
+            if !matches!(actor_id, ActorId::Account { .. }) {
+                return Err(WireError::Protocol(
+                    "managed actor selector must be an Account".into(),
+                ));
+            }
+        }
+        let reviewable = match self.kind {
+            PolicyRuleKind::Agent => self.agent_operations.as_ref().is_some_and(|v| {
+                v.iter().all(|op| {
+                    matches!(
+                        op,
+                        AgentPolicyOperation::Join | AgentPolicyOperation::Publish
+                    )
+                })
+            }),
+            PolicyRuleKind::Applet => self.applet_operations.as_ref().is_some_and(|v| {
+                v.iter().all(|op| {
+                    matches!(
+                        op,
+                        AppletPolicyOperation::Join
+                            | AppletPolicyOperation::Publish
+                            | AppletPolicyOperation::CreateBot
+                            | AppletPolicyOperation::MapGhost
+                    )
+                })
+            }),
+            _ => false,
+        };
+        if self.effect == PolicyEffect::RequireReview
+            && matches!(self.kind, PolicyRuleKind::Agent | PolicyRuleKind::Applet)
+        {
+            if !reviewable {
+                return Err(WireError::Protocol("no registered review carrier".into()));
+            }
+            self.review_requirement
+                .as_ref()
+                .ok_or_else(|| WireError::Protocol("missing management review requirement".into()))?
+                .validate()?;
+        } else if self.review_requirement.is_some() {
+            return Err(WireError::Protocol(
+                "review requirement on non-review rule".into(),
+            ));
+        }
         require(
             self.kind == PolicyRuleKind::Agent
                 || (self.agent_target.is_none() && self.agent_operations.is_none()),
@@ -501,7 +686,7 @@ impl<'de> Deserialize<'de> for PolicySetValue {
 /// `policy_id` is the stable subject of the Policy typed current result, so
 /// repeated `ak.policy.set` Events under the same `policy_id` converge on one
 /// document rather than accumulating versions. There is no cell head, basis or
-/// version member on the wire. Only Agent governance policies carry a required
+/// version member on the wire. Agent and Applet governance policies carry a required
 /// nullable `expected_revision` precondition; other policy families omit it.
 // Field declaration order is byte-for-byte the properties order of
 // event-payload.schema.json#/$defs/policy_set_state_payload.
@@ -530,11 +715,12 @@ impl PolicySetStatePayload {
         }
         let agent_policy = matches!(
             &self.value,
-            PolicySetValue::Governance(policy) if policy.policy_kind == PolicyKind::Agent
+            PolicySetValue::Governance(policy) if matches!(policy.policy_kind,PolicyKind::Agent|PolicyKind::Applet)
         );
         if self.expected_revision.is_some() != agent_policy {
             return Err(WireError::Protocol(
-                "expected_revision is required only for Agent governance policies".into(),
+                "expected_revision is required only for Agent and Applet governance policies"
+                    .into(),
             ));
         }
         self.value.validate()

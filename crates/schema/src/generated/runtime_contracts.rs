@@ -2,12 +2,12 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-26;
 //! sha256=e7e3d1e742ea74acadf57fab9554b6a39d6a0a082de7f847c6098f3610a341f6 Input: registry/
-//! contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498
+//! contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
-//! operation_surface_groups=34
+//! operation_surface_groups=35
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -608,7 +608,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
             ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
             ServiceOperationId::EdgeAppletThirdPartyLocationsReadListV1,
-            ServiceOperationId::EdgeAppletClientCommandExchangeV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -620,7 +619,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfAppletCommandInstallV1,
             ServiceOperationId::SelfAppletRevokeCommandPreviewV1,
             ServiceOperationId::SelfAppletCommandRevokeV1,
-            ServiceOperationId::SelfAppletInstallCommandCancelV1,
+            ServiceOperationId::SelfAppletAuthorityReadMaterialV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -630,6 +629,8 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         operations: &[
             ServiceOperationId::SelfAppletGhostCommandPreviewV1,
             ServiceOperationId::SelfAppletGhostCommandProvisionV1,
+            ServiceOperationId::SelfAppletBotCommandPreviewV1,
+            ServiceOperationId::SelfAppletBotCommandProvisionV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -748,14 +749,24 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
         ],
     },
+    OperationSurfaceGroupDescriptor {
+        surface: "management_review",
+        surface_class: "extension",
+        profile: None,
+        operations: &[
+            ServiceOperationId::SelfManagementReviewCommandRequestV1,
+            ServiceOperationId::SelfManagementReviewCommandDecideV1,
+            ServiceOperationId::SelfManagementReviewReadStatusV1,
+        ],
+    },
 ];
 
 pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-07.2";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-09.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-09.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-09.1";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-09.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-09.3";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-09.3";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-09.3";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

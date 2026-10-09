@@ -1,4 +1,6 @@
-use arkret_wire::{ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result};
+use arkret_wire::{
+    ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result, ScopeRef,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest};
@@ -20,7 +22,7 @@ pub struct GhostExternalTuple {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct GhostPreviewRequestBody {
-    pub realm_id: RealmId,
+    pub effective_scope: ScopeRef,
     pub external_ref: GhostExternalTuple,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -31,6 +33,8 @@ pub struct GhostPreviewRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct GhostPreviewOutcome {
     pub authoring_request: AppletManagedActorAuthoringRequest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_managed_actor: Option<ExistingManagedActor>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -38,10 +42,25 @@ pub struct GhostPreviewOutcome {
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProvisionRequestBody {
     pub authoring_request: AppletManagedActorAuthoringRequest,
-    pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_actor_bundle: Option<AppletManagedActorAuthoringBundle>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_managed_actor: Option<ExistingManagedActor>,
 }
 
 impl GhostActorProvisionRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.managed_actor_bundle.is_some() == self.existing_managed_actor.is_some()
+            || self.authoring_request.purpose != crate::AppletManagedActorPurpose::ProvisionGhost
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Ghost provision needs exactly one creation or reuse branch".into(),
+            ));
+        }
+        Ok(())
+    }
     pub fn authoring_basis(&self) -> Option<&crate::AppletGhostAuthoringRequestBasis> {
         self.authoring_request.basis.ghost()
     }
@@ -52,6 +71,12 @@ impl GhostActorProvisionRequestBody {
         serde_json::from_value(serde_json::to_value(
             &self
                 .managed_actor_bundle
+                .as_ref()
+                .ok_or_else(|| {
+                    arkret_wire::WireError::Protocol(
+                        "Ghost reuse has no new provision Event".into(),
+                    )
+                })?
                 .managed_actor_provision_event
                 .payload,
         )?)
@@ -77,6 +102,17 @@ pub struct GhostActorProvisionOutcome {
     pub authorization_ref: arkret_wire::GrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExistingManagedActor {
+    pub ghost_actor_id: ActorId,
+    pub managed_actor_provision_ref: EventId,
+    pub principal_control_realm_id: RealmId,
+    pub profile_event_ref: EventId,
+    pub accountability_grant_ref: EventId,
 }
 
 /// Applet delegation fields required when an applet or delegated agent signs
@@ -133,7 +169,7 @@ mod tests {
     #[test]
     fn ghost_preview_request_is_closed() {
         let value = serde_json::json!({
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "effective_scope": { "kind":"realm", "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19" },
             "external_ref": {
                 "protocol": "slack",
                 "instance_id": "tenant-1",

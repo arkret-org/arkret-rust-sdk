@@ -133,6 +133,7 @@ pub struct HttpSignatureScenarioDescriptor {\n\
     pub extends: Option<HttpSignatureScenario>,\n\
     pub additional_covered_components: &'static [&'static str],\n\
     pub conditional_covered_components: &'static [HttpSignatureConditionalComponentDescriptor],\n\
+    pub operations: &'static [&'static str],\n\
     pub required_headers: &'static [&'static str],\n\
     pub freshness_profile_id: &'static str,\n\
 }\n\n",
@@ -210,11 +211,12 @@ pub struct HttpSignatureScenarioDescriptor {\n\
         );
         writeln!(
             output,
-            "    HttpSignatureScenarioDescriptor {{ scenario: HttpSignatureScenario::{variant_name}, scenario_id: {}, extends: {parent}, additional_covered_components: {}, conditional_covered_components: {const_name}_CONDITIONAL_COMPONENTS, required_headers: {}, freshness_profile_id: {} }},",
+            "    HttpSignatureScenarioDescriptor {{ scenario: HttpSignatureScenario::{variant_name}, scenario_id: {}, extends: {parent}, additional_covered_components: {}, conditional_covered_components: {const_name}_CONDITIONAL_COMPONENTS, required_headers: {}, freshness_profile_id: {}, operations: {} }},",
             rust_string(&scenario.scenario_id),
             string_slice(&scenario.additional_covered_components),
             string_slice(&scenario.required_headers),
             rust_string(&scenario.freshness_profile_id),
+            string_slice(&scenario.operations),
         )
         .expect("write to String");
     }
@@ -537,7 +539,12 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             .iter()
             .find(|carrier| carrier.carrier_id == row.carrier_id)
             .expect("override carrier existence checked above");
-        if action.event_mapping_kind != "non_event_surface"
+        let aggregate_carrier = action.event_mapping_kind == "operation_verb"
+            && !action.target_event_kinds.is_empty()
+            && inputs.operations.operations.iter().find(|operation| operation.operation_id == carrier.operation_id)
+                .and_then(|operation| operation.durable_effect.as_ref())
+                .is_some_and(|effect| effect.kind == "event_log" && action.target_event_kinds.iter().all(|kind| effect.event_kinds.contains(kind)));
+        if !(action.event_mapping_kind == "non_event_surface" || aggregate_carrier)
             || row.eligibility_kind != "registered_operation_carrier"
             || carrier.carrier_class != "non_event_operation"
         {

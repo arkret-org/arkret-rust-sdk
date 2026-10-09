@@ -102,6 +102,7 @@ pub fn evaluate_agent_management(
             AgentPolicyOperation::Execute
                 | AgentPolicyOperation::Read
                 | AgentPolicyOperation::Deliver
+                | AgentPolicyOperation::Serve
         ) && context.content_action.is_none())
     {
         return Err(AgentManagementError::InvalidOperationContext);
@@ -202,7 +203,34 @@ pub fn evaluate_agent_management(
         }
         result = stricter(
             result,
-            matched.map_or(policy.default_effect.clone(), |(_, effect)| effect),
+            matched.map_or_else(
+                || {
+                    if policy.default_effect == PolicyEffect::RequireReview {
+                        let op = match context.operation {
+                            AgentPolicyOperation::Join => {
+                                Some(arkret_wire::ManagementOperation::Join)
+                            }
+                            AgentPolicyOperation::Publish => {
+                                Some(arkret_wire::ManagementOperation::Publish)
+                            }
+                            _ => None,
+                        };
+                        if op.is_some_and(|op| {
+                            policy
+                                .default_operations
+                                .as_ref()
+                                .is_some_and(|ops| ops.contains(&op))
+                        }) {
+                            PolicyEffect::RequireReview
+                        } else {
+                            PolicyEffect::Deny
+                        }
+                    } else {
+                        policy.default_effect.clone()
+                    }
+                },
+                |(_, effect)| effect,
+            ),
         );
     }
     Ok(result)

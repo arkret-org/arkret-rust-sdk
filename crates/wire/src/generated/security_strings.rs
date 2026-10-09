@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-06.1;
-//! sha256=fca5cd3009486b1748ada6c8a5c5ff19bc294e227f524af497c8aab538f2e580 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-09.1;
+//! sha256=ee6ea003f10e50704f02b7c5f6cb261dffefe357883e716c7c2b3911d61a8c96 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=38, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -322,11 +322,8 @@ impl ProofContextId {
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
-    AppletClientQueueProofV1,
-    AppletDisclosureSignatureV1,
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
-    AppletResultSignatureV1,
     ApprovalSignatureV1,
     ContactGlareUnconsumedSlotV1,
     ContactNoOutgoingSlotV1,
@@ -364,11 +361,8 @@ impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
-        Self::AppletClientQueueProofV1,
-        Self::AppletDisclosureSignatureV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
-        Self::AppletResultSignatureV1,
         Self::ApprovalSignatureV1,
         Self::ContactGlareUnconsumedSlotV1,
         Self::ContactNoOutgoingSlotV1,
@@ -405,13 +399,10 @@ impl DomainSeparationId {
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.agent_authority_state_evidence.v1";
-    pub const APPLET_CLIENT_QUEUE_PROOF_V1: &'static str = "ak.applet_client_queue_proof.v1";
-    pub const APPLET_DISCLOSURE_SIGNATURE_V1: &'static str = "ak.applet_disclosure_signature.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
         "ak.applet_managed_actor_authoring_request_proof.v1";
     pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
         "ak.applet_managed_actor_bundle_proof.v1";
-    pub const APPLET_RESULT_SIGNATURE_V1: &'static str = "ak.applet_result_signature.v1";
     pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.approval.signature.v1";
     pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
         "ak.contact.glare_unconsumed_slot.v1";
@@ -466,13 +457,10 @@ impl DomainSeparationId {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
-            Self::AppletClientQueueProofV1 => Self::APPLET_CLIENT_QUEUE_PROOF_V1,
-            Self::AppletDisclosureSignatureV1 => Self::APPLET_DISCLOSURE_SIGNATURE_V1,
             Self::AppletManagedActorAuthoringRequestProofV1 => {
                 Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
             }
             Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
-            Self::AppletResultSignatureV1 => Self::APPLET_RESULT_SIGNATURE_V1,
             Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
             Self::ContactGlareUnconsumedSlotV1 => Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1,
             Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
@@ -527,15 +515,12 @@ impl DomainSeparationId {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
-            Self::APPLET_CLIENT_QUEUE_PROOF_V1 => Some(Self::AppletClientQueueProofV1),
-            Self::APPLET_DISCLOSURE_SIGNATURE_V1 => Some(Self::AppletDisclosureSignatureV1),
             Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
                 Some(Self::AppletManagedActorAuthoringRequestProofV1)
             }
             Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
                 Some(Self::AppletManagedActorBundleProofV1)
             }
-            Self::APPLET_RESULT_SIGNATURE_V1 => Some(Self::AppletResultSignatureV1),
             Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
             Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1 => Some(Self::ContactGlareUnconsumedSlotV1),
             Self::CONTACT_NO_OUTGOING_SLOT_V1 => Some(Self::ContactNoOutgoingSlotV1),

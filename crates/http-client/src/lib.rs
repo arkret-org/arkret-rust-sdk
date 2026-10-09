@@ -393,6 +393,11 @@ pub struct Client {
     pub(crate) http: reqwest::Client,
     pub(crate) auth: Option<Auth>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
+    pub(crate) service_signature_identity: Option<(arkret_wire::DidCoreId, arkret_wire::DidCoreId)>,
+    pub(crate) managed_device_signature_identity: Option<(
+        arkret_models_integration::AppletManagedDeviceMetadata,
+        arkret_wire::DidCoreId,
+    )>,
     pub(crate) allow_insecure_localhost: bool,
     pub(crate) loopback_method_scope: Option<service_method_resolution::LoopbackMethodScope>,
     pub(crate) retry: RetryConfig,

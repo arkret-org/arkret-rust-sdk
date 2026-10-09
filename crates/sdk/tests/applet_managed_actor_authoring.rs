@@ -140,7 +140,10 @@ fn ghost_authoring_request() -> AppletManagedActorAuthoringRequest {
         target_station_id: core_id(STATION_DID),
         applet_id: applet_id(),
         service_id: core_id(SERVICE_DID),
-        realm_id: realm_id(),
+        effective_scope: ScopeRef::Realm {
+            realm_id: realm_id(),
+        },
+        existing_managed_actor: None,
         external_ref: external_ref(),
         display_name: Some("Alice on Slack".to_owned()),
         registration_event_ref: registration_ref(),

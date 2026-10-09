@@ -498,31 +498,31 @@ fn branch(
     input: &AppletManagedActorBundleAuthoringInput,
 ) -> Result<Branch> {
     match request.purpose {
-        AppletManagedActorPurpose::InstallBot => {
+        AppletManagedActorPurpose::ProvisionBot => {
             let basis = request
                 .basis
-                .install()
-                .ok_or_else(|| protocol("install-Bot request has the wrong basis branch"))?;
-            let realm_id = basis
-                .effective_scope
-                .realm_id_opt()
-                .ok_or_else(|| protocol("install-Bot request has no exact Realm scope"))?
-                .clone();
-            let grant_event = basis
-                .capability_grant_events
-                .first()
-                .ok_or_else(|| protocol("install-Bot request has no authority grant"))?;
+                .bot()
+                .ok_or_else(|| protocol("Bot request has wrong basis"))?;
+            if basis.registration_event_ref != input.registration_ref {
+                return Err(protocol("Bot registration reference mismatch"));
+            }
             Ok(Branch {
-                realm_scope: ScopeRef::Realm { realm_id },
+                realm_scope: basis.effective_scope.clone(),
                 service_id: basis.service_id.clone(),
                 station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),
-                registration_ref: input.registration_ref.clone(),
-                authorization_ref: GrantId::from_event_id(&grant_event.event_id),
+                registration_ref: basis.registration_event_ref.clone(),
+                authorization_ref: basis.authorization_ref.clone(),
                 role: AppletManagedActorRole::Bot,
                 external_ref: None,
-                display_name: input.bot_display_name.clone(),
+                display_name: basis
+                    .display_name
+                    .clone()
+                    .unwrap_or_else(|| input.bot_display_name.clone()),
             })
+        }
+        AppletManagedActorPurpose::InstallService => {
+            Err(protocol("installation cannot author a managed Account"))
         }
         AppletManagedActorPurpose::ProvisionGhost => {
             let basis = request
@@ -535,9 +535,7 @@ fn branch(
                 ));
             }
             Ok(Branch {
-                realm_scope: ScopeRef::Realm {
-                    realm_id: basis.realm_id.clone(),
-                },
+                realm_scope: basis.effective_scope.clone(),
                 service_id: basis.service_id.clone(),
                 station_id: basis.target_station_id.clone(),
                 applet_id: basis.applet_id.clone(),

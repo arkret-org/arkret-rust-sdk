@@ -4,6 +4,7 @@ use arkret_wire::*;
 
 pub mod agent_management;
 pub mod applet_admission;
+pub mod applet_management;
 pub mod authz;
 pub mod history_access;
 pub mod mls_group_state;

@@ -238,3 +238,122 @@ mod tests {
         ));
     }
 }
+
+/// Immutable private review ledger coordinates resolved independently of the signature.
+pub struct ManagementApprovalBinding<'a> {
+    pub request_id: &'a str,
+    pub management_operation: arkret_wire::ManagementOperation,
+    pub effective_scope: &'a arkret_wire::ScopeRef,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub requester_actor_id: &'a arkret_wire::ActorId,
+    pub target_actor_id: Option<&'a arkret_wire::ActorId>,
+}
+
+/// Check management-only binding before the existing exact producer Event verifier.
+/// Approver qualification, policy revisions and atomic consumption remain Station-owned.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_management_event_approval_signature(
+    signature: &ApprovalSignature,
+    event: &Event,
+    operation: &str,
+    action: CapabilityActionId,
+    verification_time: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    binding: &ManagementApprovalBinding<'_>,
+) -> Result<(), ApprovalEventVerificationError> {
+    validate_management_binding(signature, verification_time, binding)?;
+    verify_event_approval_signature(
+        signature,
+        event,
+        operation,
+        action,
+        verification_time,
+        approver_public_key,
+    )
+}
+
+fn validate_management_binding(
+    signature: &ApprovalSignature,
+    at: DateTime<Utc>,
+    binding: &ManagementApprovalBinding<'_>,
+) -> Result<(), ApprovalEventVerificationError> {
+    if !matches!(&signature.input.approval_context,arkret_wire::ApprovalContext::Management{management_operation,effective_scope,request_id} if management_operation==&binding.management_operation && effective_scope==binding.effective_scope && request_id==binding.request_id)
+        || signature.input.approved_at < binding.created_at
+        || signature.input.approved_at >= binding.expires_at
+        || at >= binding.expires_at
+        || binding.created_at >= binding.expires_at
+    {
+        return Err(ApprovalEventVerificationError::Binding);
+    }
+    let approver = arkret_wire::project_did_to_core_id(&signature.input.approver_did)
+        .map_err(|_| ApprovalEventVerificationError::Binding)?;
+    if [
+        &signature.input.initiating_actor_id,
+        binding.requester_actor_id,
+    ]
+    .into_iter()
+    .chain(binding.target_actor_id)
+    .any(|v| v.signing_principal_id() == &approver)
+    {
+        return Err(ApprovalEventVerificationError::Binding);
+    }
+    Ok(())
+}
+
+/// Digest of an original registered creation body with only its outer evidence omitted.
+pub fn management_creation_request_digest<T: serde::Serialize>(
+    request: &T,
+) -> arkret_wire::Result<arkret_wire::Hash> {
+    let mut value = serde_json::to_value(request)?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| WireError::Protocol("management creation request must be an object".into()))?
+        .remove("approval_signatures");
+    arkret_wire::Hash::new(arkret_canonical::canonical::canonical_sha256(&value)?)
+        .map_err(Into::into)
+}
+
+/// Verify operation-target management approval over the immutable body digest.
+/// This neither accepts the body nor consumes a private review ledger record.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_management_operation_approval_signature(
+    signature: &ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: CapabilityActionId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    binding: &ManagementApprovalBinding<'_>,
+) -> Result<(), ApprovalEventVerificationError> {
+    validate_management_binding(signature, at, binding)?;
+    signature
+        .input
+        .validate_approved_at(at)
+        .map_err(|e| ApprovalEventVerificationError::Time(e.to_string()))?;
+    if !matches!(signature.input.approval_target, ApprovalTarget::Operation)
+        || &signature.input.request_canonical_digest != expected_digest
+        || signature.input.operation != operation
+        || signature.input.action != action
+        || &signature.input.initiating_actor_id != initiating_actor
+        || binding.effective_scope.realm_id_opt() != Some(&signature.input.realm_id)
+        || signature
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(did, _)| did)
+            != Some(signature.input.approver_did.as_str())
+    {
+        return Err(ApprovalEventVerificationError::Binding);
+    }
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(
+            &signature.proof.jws,
+            &approval_signature_signing_bytes(signature)
+                .map_err(|e| ApprovalEventVerificationError::Canonical(e.to_string()))?,
+            approver_public_key,
+        )
+        .map_err(|_| ApprovalEventVerificationError::Signature)
+}

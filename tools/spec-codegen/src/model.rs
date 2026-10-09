@@ -278,6 +278,8 @@ pub struct HttpSignatureFreshnessProfile {
 #[derive(Debug, Deserialize)]
 pub struct HttpSignatureScenario {
     pub scenario_id: String,
+    #[serde(default)]
+    pub operations: Vec<String>,
     pub extends: Option<String>,
     #[serde(default)]
     pub additional_covered_components: Vec<String>,
@@ -356,8 +358,17 @@ pub struct OperationRegistry {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct OperationDurableEffect {
+    pub kind: String,
+    #[serde(default)]
+    pub event_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationRegistration {
     pub operation_id: String,
+    #[serde(default)]
+    pub durable_effect: Option<OperationDurableEffect>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

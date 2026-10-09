@@ -239,6 +239,9 @@ pub enum GrantConstraint {
         max_authority_depth: Option<u32>,
         #[serde(default, skip_serializing_if = "is_false")]
         authority_regrant_allowed: bool,
+        #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+        allowed_managed_actor_roles:
+            BTreeSet<arkret_models_collaboration::governance::grant_constraint::ManagedActorRole>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<GrantConstraintSubkind>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -318,8 +321,10 @@ pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
 ///
 /// `None` means the grant did not opt into a finite authority-depth seal.
 /// When present, child grants must carry a `AuthorityControl` constraint no
-/// greater than `parent_depth - 1`; a parent depth of zero cannot issue a child
-/// grant. Applet-authority bindings do not contribute a depth ceiling.
+/// greater than `parent_depth - 1` when regrant is explicitly enabled; a zero
+/// ceiling then prohibits children. The managed-role terminal-child exception
+/// for an ordinary control with regrant disabled takes precedence and permits
+/// an explicitly sealed depth-zero child. Applet bindings never supply a ceiling.
 pub fn max_authority_depth(grant: &Grant) -> Option<u32> {
     max_authority_depth_from_constraints(&grant.constraints)
 }
@@ -820,6 +825,7 @@ mod tests {
         let registration_epoch = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let constraint = GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            allowed_managed_actor_roles: BTreeSet::new(),
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(
@@ -857,6 +863,7 @@ mod tests {
         ));
         grant.constraints.push(GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            allowed_managed_actor_roles: BTreeSet::new(),
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(AppletId::new(applet_id).unwrap()),
@@ -890,5 +897,171 @@ mod tests {
                 Err(AppletAuthorityBindingError::ExecutedByMismatch)
             );
         }
+    }
+}
+
+/// A Service may issue only terminal children to verified managed Account subjects.
+/// Parent quota accounting, current-cut installation verification and resource
+/// hierarchy resolution remain caller-owned. `resource_is_narrower` must use the
+/// same selector coverage verifier as ordinary capability issuance.
+pub fn validate_managed_service_child(
+    parent: &Grant,
+    child: &Grant,
+    role: arkret_models_collaboration::governance::grant_constraint::ManagedActorRole,
+    resource_is_narrower: impl FnOnce(&str, &str) -> bool,
+) -> bool {
+    let ordinary: Vec<_> = parent
+        .constraints
+        .iter()
+        .filter_map(|v| match v {
+            GrantConstraint::AuthorityControl {
+                constraint_subkind: None,
+                authority_regrant_allowed,
+                max_authority_depth,
+                allowed_managed_actor_roles,
+                ..
+            } => Some((
+                *authority_regrant_allowed,
+                *max_authority_depth,
+                allowed_managed_actor_roles,
+            )),
+            _ => None,
+        })
+        .collect();
+    matches!(parent.subject_id, ActorId::Service { .. })
+        && child.issuer_id == parent.subject_id
+        && matches!(child.subject_id, ActorId::Account { .. })
+        && child
+            .issuer_authority_refs
+            .iter()
+            .any(|v| v.grant_id() == Some(parent.grant_id.as_str()))
+        && max_authority_depth(child) == Some(0)
+        && !authority_regrant_allowed(child)
+        && !ordinary.is_empty()
+        && ordinary.iter().all(|(regrant, depth, roles)| {
+            roles.contains(&role) && (!regrant || depth.is_none_or(|v| v > 0))
+        })
+        && child.actions.iter().all(|v| parent.actions.contains(v))
+        && child.realm_id == parent.realm_id
+        && resource_is_narrower(&child.resource, &parent.resource)
+        && match (
+            grant_effective_expiry(parent),
+            grant_effective_expiry(child),
+        ) {
+            (Some(p), Some(c)) => c <= p,
+            (Some(_), None) => false,
+            _ => true,
+        }
+}
+
+#[cfg(test)]
+mod managed_service_child_tests {
+    use arkret_models_collaboration::governance::grant_constraint::ManagedActorRole;
+    use arkret_wire::DidCoreId;
+
+    use super::*;
+    fn control(regrant: bool, depth: u32, roles: &[ManagedActorRole]) -> GrantConstraint {
+        GrantConstraint::AuthorityControl {
+            max_authority_depth: Some(depth),
+            authority_regrant_allowed: regrant,
+            allowed_managed_actor_roles: roles.iter().copied().collect(),
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        }
+    }
+    fn pair() -> (Grant, Grant) {
+        let service = ActorId::service(DidCoreId::new("ak:did_core:web:service.example").unwrap());
+        let parent = Grant {
+            grant_id: "parent".into(),
+            realm_id: "realm".into(),
+            issuer_id: service.clone(),
+            subject_id: service.clone(),
+            resource: "realm".into(),
+            actions: vec!["ak.message.create".into()],
+            constraints: vec![control(false, 0, &[ManagedActorRole::Bot])],
+            revoked: false,
+            created_at: Utc::now(),
+            issuer_authority_refs: vec![],
+            authority_depth: 1,
+            authority_root_refs: vec![],
+        };
+        let mut child = parent.clone();
+        child.grant_id = "child".into();
+        child.subject_id = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        child.resource = "space".into();
+        child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+            grant_id: "parent".into(),
+        }];
+        child.constraints = vec![control(false, 0, &[])];
+        (parent, child)
+    }
+    fn covers(child: &str, parent: &str) -> bool {
+        child == "space" && parent == "realm"
+    }
+    #[test]
+    fn disabled_regrant_parent_can_issue_explicit_terminal_child_with_narrower_resource() {
+        let (parent, child) = pair();
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Ghost,
+            covers
+        ));
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            |_, _| false
+        ));
+    }
+    #[test]
+    fn ordinary_controls_roles_and_depth_are_required() {
+        let (mut parent, mut child) = pair();
+        parent.constraints.clear();
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        parent.constraints = vec![control(true, 0, &[ManagedActorRole::Bot])];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        parent.constraints = vec![control(true, 1, &[ManagedActorRole::Bot])];
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        child.constraints = vec![control(false, 1, &[])];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        child.constraints = vec![control(true, 0, &[])];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
     }
 }

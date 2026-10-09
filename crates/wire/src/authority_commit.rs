@@ -102,10 +102,6 @@ pub enum DetachedSignatureContext {
     RealmSnapshot,
     #[serde(rename = "ak.mls_welcome_delivery_signature.v1")]
     MlsWelcomeDelivery,
-    #[serde(rename = "ak.applet_disclosure_signature.v1")]
-    AppletDisclosure,
-    #[serde(rename = "ak.applet_result_signature.v1")]
-    AppletResult,
 }
 
 impl DetachedSignatureContext {
@@ -124,21 +120,17 @@ impl DetachedSignatureContext {
             }
             Self::RealmSnapshot => "ak.realm_snapshot_signature.v1",
             Self::MlsWelcomeDelivery => "ak.mls_welcome_delivery_signature.v1",
-            Self::AppletDisclosure => "ak.applet_disclosure_signature.v1",
-            Self::AppletResult => "ak.applet_result_signature.v1",
         }
     }
 
     /// Every context the closed enum admits, in declaration order.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 6] = [
         Self::RealmCommit,
         Self::RealmAuthorityHandoffOld,
         Self::RealmAuthorityHandoffNewAcceptance,
         Self::RealmAuthorityCurrentAssertion,
         Self::RealmSnapshot,
         Self::MlsWelcomeDelivery,
-        Self::AppletDisclosure,
-        Self::AppletResult,
     ];
 }
 
@@ -881,6 +873,11 @@ pub enum ApprovalContext {
         grant_id: GrantId,
     },
     RealmGovernance {},
+    Management {
+        management_operation: crate::ManagementOperation,
+        effective_scope: ScopeRef,
+        request_id: String,
+    },
     /// A separate one-vote requirement of the exact target List's WIP policy.
     /// The revision is the List metadata current result at the authority cut.
     ListWip {

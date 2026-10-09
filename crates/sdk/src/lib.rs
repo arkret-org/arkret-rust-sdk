@@ -324,6 +324,7 @@ pub use arkret_models_integration::applet_install_plan::*;
 pub use arkret_models_integration::applet_models::*;
 pub use arkret_models_integration::artifacts_applet::*;
 pub use arkret_models_integration::integration::*;
+pub use arkret_models_integration::management_review::*;
 pub use arkret_models_integration::models_push::*;
 pub use arkret_models_integration::push::*;
 pub use arkret_models_integration::push_vocab::*;
@@ -524,6 +525,7 @@ pub use arkret_identifiers::hlc::{
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
 // umbrella independently of the heavier `mls` group-machine feature.
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
+pub use arkret_models_identity::actor_profile::{AppletInteractionIntent, AppletInteractionMode};
 #[cfg(feature = "server")]
 pub use arkret_server::AppletHandler;
 #[cfg(feature = "server")]

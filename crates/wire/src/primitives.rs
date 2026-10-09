@@ -1794,3 +1794,12 @@ mod tests {
         assert!(Discoverability::from_str("private").is_err());
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagementOperation {
+    Join,
+    Publish,
+    CreateBot,
+    MapGhost,
+}

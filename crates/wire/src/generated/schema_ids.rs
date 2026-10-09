@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498 Entries: schema_ids=225,
-//! active=225
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c Entries: schema_ids=226,
+//! active=226
 
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,10 @@ pub enum SchemaId {
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
     AppletV1,
-    AppletClientOperationsV1,
+    AppletAuthorityMaterialV1,
+    AppletBotAuthoringRequestBasisV1,
+    AppletBotOperationsV1,
+    AppletDeviceAuthenticationV1,
     AppletEdgeOperationsV1,
     AppletGhostAuthoringRequestBasisV1,
     AppletGhostOperationsV1,
@@ -76,9 +79,6 @@ pub enum SchemaId {
     ContactOperationsV1,
     ContactRemarkV1,
     ContactScopeUpdateV1,
-    ContentBlockAppletInvocationV1,
-    ContentBlockAppletRelayV1,
-    ContentBlockAppletResultV1,
     ContentBlockPollV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
@@ -128,6 +128,7 @@ pub enum SchemaId {
     KeyTransparencyV1,
     KeypackageOperationsV1,
     KeysOperationsV1,
+    ManagementReviewOperationsV1,
     MediaMetadataV1,
     MediaOperationsV1,
     MediaServiceBindingOutcomeV1,
@@ -270,7 +271,10 @@ impl SchemaId {
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
         Self::AppletV1,
-        Self::AppletClientOperationsV1,
+        Self::AppletAuthorityMaterialV1,
+        Self::AppletBotAuthoringRequestBasisV1,
+        Self::AppletBotOperationsV1,
+        Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -305,9 +309,6 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
-        Self::ContentBlockAppletInvocationV1,
-        Self::ContentBlockAppletRelayV1,
-        Self::ContentBlockAppletResultV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
@@ -357,6 +358,7 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
+        Self::ManagementReviewOperationsV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
         Self::MediaServiceBindingOutcomeV1,
@@ -499,7 +501,10 @@ impl SchemaId {
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
         Self::AppletV1,
-        Self::AppletClientOperationsV1,
+        Self::AppletAuthorityMaterialV1,
+        Self::AppletBotAuthoringRequestBasisV1,
+        Self::AppletBotOperationsV1,
+        Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -534,9 +539,6 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
-        Self::ContentBlockAppletInvocationV1,
-        Self::ContentBlockAppletRelayV1,
-        Self::ContentBlockAppletResultV1,
         Self::ContentBlockPollV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
@@ -586,6 +588,7 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
+        Self::ManagementReviewOperationsV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
         Self::MediaServiceBindingOutcomeV1,
@@ -800,8 +803,16 @@ impl SchemaId {
     /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
     /// ak.applet.* use typed payload definitions in event-payload.schema.json.
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
-    /// applet client operations
-    pub const APPLET_CLIENT_OPERATIONS_V1: &'static str = "ak.schema.applet_client_operations.v1";
+    /// Exact Service-authenticated parent grant and current material; no group content.
+    pub const APPLET_AUTHORITY_MATERIAL_V1: &'static str = "ak.schema.applet_authority_material.v1";
+    /// Exact installed Service Bot creation intent and scope.
+    pub const APPLET_BOT_AUTHORING_REQUEST_BASIS_V1: &'static str =
+        "ak.schema.applet_bot_authoring_request_basis.v1";
+    /// Closed post-install Bot creation preview and commit DTOs.
+    pub const APPLET_BOT_OPERATIONS_V1: &'static str = "ak.schema.applet_bot_operations.v1";
+    /// Closed signed managed Device request metadata.
+    pub const APPLET_DEVICE_AUTHENTICATION_V1: &'static str =
+        "ak.schema.applet_device_authentication.v1";
     /// Closed request/response DTO bundle for Applet edge and bridge operations.
     pub const APPLET_EDGE_OPERATIONS_V1: &'static str = "ak.schema.applet_edge_operations.v1";
     /// Station-derived Ghost basis binding the exact target server, active installation
@@ -814,8 +825,8 @@ impl SchemaId {
     /// Closed Station preview, Applet authoring request, and managed-actor creation bundle DTOs for
     /// the durable co-sign handshake.
     pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
-    /// Canonical unsigned basis frozen by the Station preview and covered by the install authoring
-    /// request signature.
+    /// Administrator-authored service installation intent, including exact registration and parent
+    /// grants; no managed Account.
     pub const APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_install_authoring_request_basis.v1";
     /// Closed request/response DTO bundle for ak.self.applet.install.command.preview.v1 and
@@ -829,8 +840,7 @@ impl SchemaId {
     /// service after validating an authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    /// Station-signed, expiry-bounded install_applet or provision_ghost managed-actor authoring
-    /// request.
+    /// Station-signed, expiry-bounded provision_bot or provision_ghost authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
     /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
@@ -915,15 +925,6 @@ impl SchemaId {
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// contact round, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
-    /// content block applet invocation
-    pub const CONTENT_BLOCK_APPLET_INVOCATION_V1: &'static str =
-        "ak.schema.content_block_applet_invocation.v1";
-    /// content block applet relay
-    pub const CONTENT_BLOCK_APPLET_RELAY_V1: &'static str =
-        "ak.schema.content_block_applet_relay.v1";
-    /// content block applet result
-    pub const CONTENT_BLOCK_APPLET_RESULT_V1: &'static str =
-        "ak.schema.content_block_applet_result.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
     /// Account Authority controller-account eligibility gate signed under
@@ -1063,6 +1064,10 @@ impl SchemaId {
     /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key
     /// backup put/list/delete responses.
     pub const KEYS_OPERATIONS_V1: &'static str = "ak.schema.keys_operations.v1";
+    /// Private durable management review requests, decisions and outcome; pending carries no
+    /// authority.
+    pub const MANAGEMENT_REVIEW_OPERATIONS_V1: &'static str =
+        "ak.schema.management_review_operations.v1";
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
@@ -1393,7 +1398,10 @@ impl SchemaId {
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::AppletV1 => Self::APPLET_V1,
-            Self::AppletClientOperationsV1 => Self::APPLET_CLIENT_OPERATIONS_V1,
+            Self::AppletAuthorityMaterialV1 => Self::APPLET_AUTHORITY_MATERIAL_V1,
+            Self::AppletBotAuthoringRequestBasisV1 => Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
+            Self::AppletBotOperationsV1 => Self::APPLET_BOT_OPERATIONS_V1,
+            Self::AppletDeviceAuthenticationV1 => Self::APPLET_DEVICE_AUTHENTICATION_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1
@@ -1440,9 +1448,6 @@ impl SchemaId {
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
-            Self::ContentBlockAppletInvocationV1 => Self::CONTENT_BLOCK_APPLET_INVOCATION_V1,
-            Self::ContentBlockAppletRelayV1 => Self::CONTENT_BLOCK_APPLET_RELAY_V1,
-            Self::ContentBlockAppletResultV1 => Self::CONTENT_BLOCK_APPLET_RESULT_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
@@ -1498,6 +1503,7 @@ impl SchemaId {
             Self::KeyTransparencyV1 => Self::KEY_TRANSPARENCY_V1,
             Self::KeypackageOperationsV1 => Self::KEYPACKAGE_OPERATIONS_V1,
             Self::KeysOperationsV1 => Self::KEYS_OPERATIONS_V1,
+            Self::ManagementReviewOperationsV1 => Self::MANAGEMENT_REVIEW_OPERATIONS_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
             Self::MediaServiceBindingOutcomeV1 => Self::MEDIA_SERVICE_BINDING_OUTCOME_V1,
@@ -1655,7 +1661,14 @@ impl SchemaId {
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
-            Self::AppletClientOperationsV1 => "schemas/applet-client-operations.schema.json",
+            Self::AppletAuthorityMaterialV1 => "schemas/applet-authority-material.schema.json",
+            Self::AppletBotAuthoringRequestBasisV1 => {
+                "schemas/applet-install-authoring.schema.json"
+            }
+            Self::AppletBotOperationsV1 => "schemas/applet-bot-operations.schema.json",
+            Self::AppletDeviceAuthenticationV1 => {
+                "schemas/applet-device-authentication.schema.json"
+            }
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 "schemas/applet-install-authoring.schema.json"
@@ -1706,9 +1719,6 @@ impl SchemaId {
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
-            Self::ContentBlockAppletInvocationV1 => "schemas/content-block-applet.schema.json",
-            Self::ContentBlockAppletRelayV1 => "schemas/content-block-applet.schema.json",
-            Self::ContentBlockAppletResultV1 => "schemas/content-block-applet.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControllerAccountGateAttestationV1 => {
                 "schemas/agent-authority-evidence.schema.json"
@@ -1766,6 +1776,9 @@ impl SchemaId {
             Self::KeyTransparencyV1 => "schemas/key-transparency.schema.json",
             Self::KeypackageOperationsV1 => "schemas/keypackage-operations.schema.json",
             Self::KeysOperationsV1 => "schemas/keys-operations.schema.json",
+            Self::ManagementReviewOperationsV1 => {
+                "schemas/management-review-operations.schema.json"
+            }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
             Self::MediaServiceBindingOutcomeV1 => {
@@ -1927,7 +1940,12 @@ impl SchemaId {
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
-            Self::APPLET_CLIENT_OPERATIONS_V1 => Some(Self::AppletClientOperationsV1),
+            Self::APPLET_AUTHORITY_MATERIAL_V1 => Some(Self::AppletAuthorityMaterialV1),
+            Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1 => {
+                Some(Self::AppletBotAuthoringRequestBasisV1)
+            }
+            Self::APPLET_BOT_OPERATIONS_V1 => Some(Self::AppletBotOperationsV1),
+            Self::APPLET_DEVICE_AUTHENTICATION_V1 => Some(Self::AppletDeviceAuthenticationV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1 => {
                 Some(Self::AppletGhostAuthoringRequestBasisV1)
@@ -1978,9 +1996,6 @@ impl SchemaId {
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
-            Self::CONTENT_BLOCK_APPLET_INVOCATION_V1 => Some(Self::ContentBlockAppletInvocationV1),
-            Self::CONTENT_BLOCK_APPLET_RELAY_V1 => Some(Self::ContentBlockAppletRelayV1),
-            Self::CONTENT_BLOCK_APPLET_RESULT_V1 => Some(Self::ContentBlockAppletResultV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
@@ -2036,6 +2051,7 @@ impl SchemaId {
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
             Self::KEYPACKAGE_OPERATIONS_V1 => Some(Self::KeypackageOperationsV1),
             Self::KEYS_OPERATIONS_V1 => Some(Self::KeysOperationsV1),
+            Self::MANAGEMENT_REVIEW_OPERATIONS_V1 => Some(Self::ManagementReviewOperationsV1),
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
             Self::MEDIA_SERVICE_BINDING_OUTCOME_V1 => Some(Self::MediaServiceBindingOutcomeV1),

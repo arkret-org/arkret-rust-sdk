@@ -177,6 +177,33 @@ impl Client {
             builder = builder.header(USER_AGENT, user_agent);
         }
         if include_auth {
+            if let Some((source, destination)) = &self.service_signature_identity {
+                return Ok(builder
+                    .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+                    .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
+            }
+            if let Some((metadata, destination)) = &self.managed_device_signature_identity {
+                let scenario =
+                    arkret_signatures::http_signature::http_signature_scenario_descriptor(
+                        HttpSignatureScenario::AppletManagedDeviceV1,
+                    );
+                if !scenario.operations.contains(&operation.as_str()) {
+                    return Err(Error::Protocol(
+                        "operation is not eligible for managed Device authentication".into(),
+                    ));
+                }
+                let mut metadata = metadata.clone();
+                let mut nonce = [0u8; 16];
+                getrandom::fill(&mut nonce)
+                    .map_err(|e| Error::Protocol(format!("Device nonce entropy: {e}")))?;
+                metadata.nonce = arkret_canonical::base64url_encode(nonce);
+                return Ok(builder
+                    .header(
+                        arkret_models_integration::AppletManagedDeviceMetadata::HEADER,
+                        metadata.to_header_value()?,
+                    )
+                    .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
+            }
             self.apply_auth(builder, &method_for_auth, &url_for_auth)
         } else {
             Ok(builder)
@@ -541,6 +568,23 @@ impl Client {
                     .map_err(|error| Error::Protocol(format!("DPoP proof: {error}")))?,
             );
         }
+        let signature_scenario = signature_scenario.or_else(|| {
+            if request
+                .headers()
+                .contains_key(arkret_models_integration::AppletManagedDeviceMetadata::HEADER)
+                && self.managed_device_signature_identity.is_some()
+            {
+                Some(HttpSignatureScenario::AppletManagedDeviceV1)
+            } else if request
+                .headers()
+                .contains_key(crate::HEADER_SOURCE_SERVICE_ID)
+                && self.service_signature_identity.is_some()
+            {
+                Some(HttpSignatureScenario::ServiceToServiceV1)
+            } else {
+                None
+            }
+        });
         match signature_scenario {
             Some(scenario) => self.sign_http_message_for_registered_scenario(request, scenario),
             None => self.sign_http_message(request),

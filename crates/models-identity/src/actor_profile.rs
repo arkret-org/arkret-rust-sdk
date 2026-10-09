@@ -160,6 +160,19 @@ fn validate_display_members(
         }
         crate::claim_presentation::validate_agent_slug(agent_slug)?;
     }
+    if let Some(value) = profile_fields.get("applet_interaction") {
+        if !matches!(actor_kind, ActorKind::Bot | ActorKind::Integration) {
+            return Err(WireError::Protocol(
+                "applet_interaction requires a managed Bot or Ghost profile".into(),
+            ));
+        }
+        let intent: AppletInteractionIntent = serde_json::from_value(value.clone())?;
+        if intent.effective_scope.realm_id_opt().is_none() {
+            return Err(WireError::Protocol(
+                "Applet interaction intent needs business scope".into(),
+            ));
+        }
+    }
     for member in ["bio", "status_message"] {
         match profile_fields.get(member) {
             None => {}
@@ -314,4 +327,18 @@ mod tests {
         missing_realm.as_object_mut().unwrap().remove("realm_id");
         assert!(serde_json::from_value::<AccountMaterializedProfile>(missing_realm).is_err());
     }
+}
+
+/// Subject-original public/private intent. Management policy is evaluated separately.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletInteractionIntent {
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub mode: AppletInteractionMode,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletInteractionMode {
+    Private,
+    Public,
 }

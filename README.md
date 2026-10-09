@@ -88,6 +88,17 @@ cargo test
 - [Security audit checklist](docs/security-audit.md)
 - [Conformance certification](docs/conformance-certification.md)
 
+## Applet managed governance
+
+The active Applet contract uses HTTPS management discovery and Service-only
+installation. Bot and Ghost creation is a separate four-Event operation;
+installation creates neither an Account nor a Device. Shared DTOs, Policy
+restrictions, management approval binding, and Service/managed-Device HTTP
+signature helpers follow `arkret-work` decision 0160. Approval consumption,
+current installation/ownership verification, shared quota accounting and MLS
+recipient admission remain the implementing Station's durable transaction
+responsibilities; the pure SDK helpers do not establish them by themselves.
+
 ## Protocol review closures
 
 Spec review closure `arkret-spec` range `2a4d39b..a77b995` (8 commits)

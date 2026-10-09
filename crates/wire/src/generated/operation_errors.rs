@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-03.1;
-//! sha256=12879f0481effcbc03c51a790e57e336ad68d701f6af5d75b54d1e6392e24602 Input: registry/
-//! contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498 Input: registry/
-//! error-code-registry.json; version=2026-10-03.1;
-//! sha256=3da26d6a49a8183dbc1b001f809357ab2f585bed6514e675e538658802251f99 Entries: operations=211
+//! Input: registry/operations-error-mapping.json; version=2026-10-09.1;
+//! sha256=70147bef9177230975a4a31ad7397f6cb1a3b1c1ca58c23101e898b6787daa79 Input: registry/
+//! contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c Input: registry/
+//! error-code-registry.json; version=2026-10-09.2;
+//! sha256=028e997fecb43e647ba8a78d9cb5fe63b798cbb37199677b01dc8ed408dc7bcf Entries: operations=215
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -23,12 +23,6 @@ impl ServiceOperationId {
 
 pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
-    &[
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::AuthoringRequestExpired),
-        OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
-        OperationSpecificError::Code(ErrorCode::AppletRevoked),
-    ],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
         OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
@@ -520,6 +514,9 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[],
+    &[],
+    &[],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
@@ -545,12 +542,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::AppletNamespaceMismatch),
         OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::AuthoringRequestExpired),
-        OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
-        OperationSpecificError::Code(ErrorCode::AppletRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
@@ -779,6 +770,9 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceUnknown),
         OperationSpecificError::Code(ErrorCode::KeyReplay),
     ],
+    &[],
+    &[],
+    &[],
     &[
         OperationSpecificError::Code(ErrorCode::IceConfigDenied),
         OperationSpecificError::Code(ErrorCode::TurnCredentialExpired),

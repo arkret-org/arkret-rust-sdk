@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
-//! sha256=9ec4e924206e6035e8176ecaecca984b70adfbf9b6af8d1131d5c85e4ee08fa7 Entries: id_kinds=48,
-//! special_forms=15, actions=146, approval_carriers=1, schemas=225, account_data_patterns=24
+//! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
+//! special_forms=15, actions=150, approval_carriers=3, schemas=226, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -419,6 +419,26 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
 
 pub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[
     ApprovalEvidenceCarrierDescriptor {
+        carrier_id: "applet_bot_provision.approval_signatures",
+        carrier_class: "non_event_operation",
+        operation_id: "ak.self.applet.bot.command.provision.v1",
+        request_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body",
+        carrier_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body/properties/approval_signatures",
+        carrier_field: "approval_signatures",
+        evidence_schema_ref: "schemas/approval-signature.schema.json",
+        allowed_target_kinds: &["operation"],
+    },
+    ApprovalEvidenceCarrierDescriptor {
+        carrier_id: "applet_ghost_provision.approval_signatures",
+        carrier_class: "non_event_operation",
+        operation_id: "ak.self.applet.ghost.command.provision.v1",
+        request_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body",
+        carrier_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body/properties/approval_signatures",
+        carrier_field: "approval_signatures",
+        evidence_schema_ref: "schemas/approval-signature.schema.json",
+        allowed_target_kinds: &["operation"],
+    },
+    ApprovalEvidenceCarrierDescriptor {
         carrier_id: "event_admission_submission.approval_signatures",
         carrier_class: "event_submission",
         operation_id: "ak.self.events.command.submit.v1",
@@ -492,6 +512,21 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::AgentJoin,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::AgentKeyAuthorize,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -518,6 +553,21 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AgentPublish,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::AGENT_INTERACTION_SET],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
@@ -567,6 +617,25 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletBotProvision,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &["applet_id", "executed_by", "registration_epoch"],
+        required_evaluator_checks: &[
+            "active_applet_registration_exact",
+            "bot_managed_actor_provision_unit_atomic",
+        ],
+        target_event_kinds: &[event_kind_str::APPLET_MANAGED_ACTOR_PROVISION],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.applet_service.v1"),
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::RegisteredOperationCarrier,
+        approval_evidence_carrier_id: Some("applet_bot_provision.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::AppletBridgeError,
         category: "service",
         risk_tier: CapabilityRiskTier::Medium,
@@ -596,25 +665,43 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
-        event_mapping_kind: "aggregate_admin",
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::RegisteredOperationCarrier,
+        approval_evidence_carrier_id: Some("applet_ghost_provision.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletJoin,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AppletInvoke,
-        category: "content",
-        risk_tier: CapabilityRiskTier::High,
+        action: CapabilityActionId::AppletPublish,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[],
+        target_event_kinds: &[
+            event_kind_str::PROFILE_CREATE,
+            event_kind_str::PROFILE_UPDATE,
+        ],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.applet_service.v1"),
+        profile: None,
         root_control_only: false,
         subject_only: false,
-        event_mapping_kind: "non_event_surface",
-        approval_requirement_eligibility:
-            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
-        approval_evidence_carrier_id: None,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
@@ -1930,6 +2017,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[
+            event_kind_str::AGENT_INTERACTION_SET,
             event_kind_str::AGENT_KEY_AUTHORIZE,
             event_kind_str::AGENT_KEY_REVOKE,
             event_kind_str::APPLET_REGISTRATION,
@@ -1968,6 +2056,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
             event_kind_str::POLICY_ACTION,
             event_kind_str::POLICY_SET,
+            event_kind_str::PROFILE_CREATE,
+            event_kind_str::PROFILE_UPDATE,
             event_kind_str::REACTION_ADD,
             event_kind_str::REACTION_REMOVE,
             event_kind_str::REALM_ALIAS,
@@ -2015,9 +2105,13 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::VIEW_UPDATE,
         ],
         grant_authority_actions: &[
+            "ak.agent.join",
             "ak.agent.key.authorize",
             "ak.agent.key.revoke",
+            "ak.agent.publish",
             "ak.applet.bridge_error",
+            "ak.applet.join",
+            "ak.applet.publish",
             "ak.approval.vote",
             "ak.audit.accessed",
             "ak.audit.export",
@@ -3044,8 +3138,20 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::APPLET_CLIENT_OPERATIONS_V1,
-        file: "schemas/applet-client-operations.schema.json",
+        schema_id: SchemaId::APPLET_AUTHORITY_MATERIAL_V1,
+        file: "schemas/applet-authority-material.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
+        file: "schemas/applet-install-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_BOT_OPERATIONS_V1,
+        file: "schemas/applet-bot-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_DEVICE_AUTHENTICATION_V1,
+        file: "schemas/applet-device-authentication.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_EDGE_OPERATIONS_V1,
@@ -3182,18 +3288,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,
         file: "schemas/contact-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTENT_BLOCK_APPLET_INVOCATION_V1,
-        file: "schemas/content-block-applet.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTENT_BLOCK_APPLET_RELAY_V1,
-        file: "schemas/content-block-applet.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTENT_BLOCK_APPLET_RESULT_V1,
-        file: "schemas/content-block-applet.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
@@ -3390,6 +3484,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::KEYS_OPERATIONS_V1,
         file: "schemas/keys-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MANAGEMENT_REVIEW_OPERATIONS_V1,
+        file: "schemas/management-review-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MEDIA_METADATA_V1,

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-25.1;
-//! sha256=b14e589565e09be68036a213d65712eae9421cfeb60e899a808b9350326f23a8
-//! Entries: http_signature_scenarios=5, freshness_profile=ak.http_signature.freshness.v1
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c
+//! Entries: http_signature_scenarios=6, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HttpSignatureScenario {
@@ -11,6 +11,7 @@ pub enum HttpSignatureScenario {
     AppletTransactionV1,
     ClientSessionPopV1,
     MimiProviderV1,
+    AppletManagedDeviceV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +27,7 @@ pub struct HttpSignatureScenarioDescriptor {
     pub extends: Option<HttpSignatureScenario>,
     pub additional_covered_components: &'static [&'static str],
     pub conditional_covered_components: &'static [HttpSignatureConditionalComponentDescriptor],
+    pub operations: &'static [&'static str],
     pub required_headers: &'static [&'static str],
     pub freshness_profile_id: &'static str,
 }
@@ -83,6 +85,17 @@ const MIMI_PROVIDER_V1_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalCompone
         component: "mimi-room-uri",
         condition: "the endpoint addresses one MIMI room",
     }];
+const APPLET_MANAGED_DEVICE_V1_CONDITIONAL_COMPONENTS:
+    &[HttpSignatureConditionalComponentDescriptor] = &[
+    HttpSignatureConditionalComponentDescriptor {
+        component: "content-digest",
+        condition: "the request carries a body",
+    },
+    HttpSignatureConditionalComponentDescriptor {
+        component: "idempotency-key",
+        condition: "the operation uses an idempotency key",
+    },
+];
 
 pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
     HttpSignatureScenarioDescriptor {
@@ -99,6 +112,20 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "Destination-Service-ID",
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[
+            "ak.peer.keys.read.lookup.v1",
+            "ak.peer.mls.command.attest_add.v1",
+            "ak.peer.mls.read.roster_authority.v1",
+            "ak.self.applet.authority.read.material.v1",
+            "ak.self.applet.bot.command.preview.v1",
+            "ak.self.applet.bot.command.provision.v1",
+            "ak.self.applet.ghost.command.preview.v1",
+            "ak.self.applet.ghost.command.provision.v1",
+            "ak.self.events.command.submit.v1",
+            "ak.self.management_review.command.decide.v1",
+            "ak.self.management_review.command.request.v1",
+            "ak.self.management_review.read.status.v1",
+        ],
     },
     HttpSignatureScenarioDescriptor {
         scenario: HttpSignatureScenario::SignalRelayV1,
@@ -123,6 +150,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "Destination-Trust-Domain",
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &["ak.peer.signal.command.relay.v1"],
     },
     HttpSignatureScenarioDescriptor {
         scenario: HttpSignatureScenario::AppletTransactionV1,
@@ -145,6 +173,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "Idempotency-Key",
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &["ak.edge.applet.command.transaction.v1"],
     },
     HttpSignatureScenarioDescriptor {
         scenario: HttpSignatureScenario::ClientSessionPopV1,
@@ -160,6 +189,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "DPoP",
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[],
     },
     HttpSignatureScenarioDescriptor {
         scenario: HttpSignatureScenario::MimiProviderV1,
@@ -182,6 +212,45 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "Provider-ID",
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[],
+    },
+    HttpSignatureScenarioDescriptor {
+        scenario: HttpSignatureScenario::AppletManagedDeviceV1,
+        scenario_id: "ak.http_signature.scenario.applet_managed_device.v1",
+        extends: None,
+        additional_covered_components: &["arkret-managed-device", "destination-service-id"],
+        conditional_covered_components: APPLET_MANAGED_DEVICE_V1_CONDITIONAL_COMPONENTS,
+        required_headers: &[
+            "Signature",
+            "Signature-Input",
+            "Arkret-Operation",
+            "Arkret-Managed-Device",
+            "Destination-Service-ID",
+        ],
+        freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[
+            "ak.self.blob.command.presign.v1",
+            "ak.self.blob.resource.get.v1",
+            "ak.self.blob.resource.head.v1",
+            "ak.self.blob.upload.create.v1",
+            "ak.self.device_messages.command.ack.v1",
+            "ak.self.device_messages.read.list.v1",
+            "ak.self.keys.keypackages.command.claim.v1",
+            "ak.self.keys.keypackages.command.consume.v1",
+            "ak.self.keys.keypackages.command.revoke.v1",
+            "ak.self.keys.keypackages.read.claim.v1",
+            "ak.self.keys.keypackages.upload.create.v1",
+            "ak.self.mls.read.group_state_material.v1",
+            "ak.self.mls.read.roster_authority.v1",
+            "ak.self.signer_keys.read.resolve.v1",
+            "ak.self.current_results.read.exact.v1",
+            "ak.self.committed_event.resource.get.v1",
+            "ak.self.committed_event.read.scan.v1",
+            "ak.self.committed_event.stream.subscribe.v1",
+            "ak.self.realm_state_snapshot.read.by_ref.v1",
+            "ak.self.realm_state_snapshot.read.manifest_head.v1",
+            "ak.self.events.command.submit.v1",
+        ],
     },
 ];
 

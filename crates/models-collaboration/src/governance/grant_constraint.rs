@@ -470,6 +470,8 @@ pub struct GrantConstraint {
     pub authority_path_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_regrant_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_managed_actor_roles: Vec<ManagedActorRole>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -608,6 +610,7 @@ impl GrantConstraint {
             max_authority_depth: None,
             authority_path_ids: Vec::new(),
             authority_regrant_allowed: None,
+            allowed_managed_actor_roles: Vec::new(),
             authority_scope: None,
             applet_id: None,
             executed_by: None,
@@ -848,4 +851,11 @@ mod tests {
         retired["proposal_morph_kind"] = Value::String("old_proposal".to_owned());
         assert!(serde_json::from_value::<GrantConstraint>(retired).is_err());
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedActorRole {
+    Bot,
+    Ghost,
 }

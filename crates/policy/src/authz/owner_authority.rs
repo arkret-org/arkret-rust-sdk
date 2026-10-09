@@ -100,7 +100,7 @@ mod tests {
         assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
         assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
         assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
-        assert!(!owner_may_grant("ak.applet.invoke").unwrap());
+        assert!(owner_may_grant("ak.applet.invoke").is_err());
     }
 
     #[test]
@@ -108,7 +108,7 @@ mod tests {
         assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
         assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
         assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
-        for action in ["ak.applet.ghost.provision", "ak.applet.invoke"] {
+        for action in ["ak.applet.ghost.provision", "ak.applet.bot.provision"] {
             assert!(!owner_may_grant(action).unwrap(), "{action}");
         }
         assert!(action_grants_authority_for("ak.realm.owner", "ak.applet.bridge_error").unwrap());

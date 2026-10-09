@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498 Entries: registered=146
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c Entries: registered=150
 
 use serde::{Deserialize, Serialize};
 
@@ -12,14 +12,18 @@ pub enum CapabilityActionId {
     AgentActionReject,
     AgentActionRequest,
     AgentDraftPropose,
+    AgentJoin,
     AgentKeyAuthorize,
     AgentKeyRevoke,
+    AgentPublish,
     AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
+    AppletBotProvision,
     AppletBridgeError,
     AppletGhostProvision,
-    AppletInvoke,
+    AppletJoin,
+    AppletPublish,
     ApprovalVote,
     AuditAccessed,
     AuditExport,
@@ -162,14 +166,18 @@ impl CapabilityActionId {
         Self::AgentActionReject,
         Self::AgentActionRequest,
         Self::AgentDraftPropose,
+        Self::AgentJoin,
         Self::AgentKeyAuthorize,
         Self::AgentKeyRevoke,
+        Self::AgentPublish,
         Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
+        Self::AppletBotProvision,
         Self::AppletBridgeError,
         Self::AppletGhostProvision,
-        Self::AppletInvoke,
+        Self::AppletJoin,
+        Self::AppletPublish,
         Self::ApprovalVote,
         Self::AuditAccessed,
         Self::AuditExport,
@@ -310,14 +318,18 @@ impl CapabilityActionId {
     pub const AGENT_ACTION_REJECT: &'static str = "ak.agent.action_reject";
     pub const AGENT_ACTION_REQUEST: &'static str = "ak.agent.action_request";
     pub const AGENT_DRAFT_PROPOSE: &'static str = "ak.agent.draft.propose";
+    pub const AGENT_JOIN: &'static str = "ak.agent.join";
     pub const AGENT_KEY_AUTHORIZE: &'static str = "ak.agent.key.authorize";
     pub const AGENT_KEY_REVOKE: &'static str = "ak.agent.key.revoke";
+    pub const AGENT_PUBLISH: &'static str = "ak.agent.publish";
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
+    pub const APPLET_BOT_PROVISION: &'static str = "ak.applet.bot.provision";
     pub const APPLET_BRIDGE_ERROR: &'static str = "ak.applet.bridge_error";
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
-    pub const APPLET_INVOKE: &'static str = "ak.applet.invoke";
+    pub const APPLET_JOIN: &'static str = "ak.applet.join";
+    pub const APPLET_PUBLISH: &'static str = "ak.applet.publish";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
     pub const AUDIT_EXPORT: &'static str = "ak.audit.export";
@@ -469,14 +481,18 @@ impl CapabilityActionId {
             Self::AgentActionReject => Self::AGENT_ACTION_REJECT,
             Self::AgentActionRequest => Self::AGENT_ACTION_REQUEST,
             Self::AgentDraftPropose => Self::AGENT_DRAFT_PROPOSE,
+            Self::AgentJoin => Self::AGENT_JOIN,
             Self::AgentKeyAuthorize => Self::AGENT_KEY_AUTHORIZE,
             Self::AgentKeyRevoke => Self::AGENT_KEY_REVOKE,
+            Self::AgentPublish => Self::AGENT_PUBLISH,
             Self::AgentSidecarExchangeControl => Self::AGENT_SIDECAR_EXCHANGE_CONTROL,
             Self::AgentSidecarPublish => Self::AGENT_SIDECAR_PUBLISH,
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
+            Self::AppletBotProvision => Self::APPLET_BOT_PROVISION,
             Self::AppletBridgeError => Self::APPLET_BRIDGE_ERROR,
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
-            Self::AppletInvoke => Self::APPLET_INVOKE,
+            Self::AppletJoin => Self::APPLET_JOIN,
+            Self::AppletPublish => Self::APPLET_PUBLISH,
             Self::ApprovalVote => Self::APPROVAL_VOTE,
             Self::AuditAccessed => Self::AUDIT_ACCESSED,
             Self::AuditExport => Self::AUDIT_EXPORT,
@@ -628,14 +644,18 @@ impl CapabilityActionId {
             Self::AGENT_ACTION_REJECT => Some(Self::AgentActionReject),
             Self::AGENT_ACTION_REQUEST => Some(Self::AgentActionRequest),
             Self::AGENT_DRAFT_PROPOSE => Some(Self::AgentDraftPropose),
+            Self::AGENT_JOIN => Some(Self::AgentJoin),
             Self::AGENT_KEY_AUTHORIZE => Some(Self::AgentKeyAuthorize),
             Self::AGENT_KEY_REVOKE => Some(Self::AgentKeyRevoke),
+            Self::AGENT_PUBLISH => Some(Self::AgentPublish),
             Self::AGENT_SIDECAR_EXCHANGE_CONTROL => Some(Self::AgentSidecarExchangeControl),
             Self::AGENT_SIDECAR_PUBLISH => Some(Self::AgentSidecarPublish),
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
+            Self::APPLET_BOT_PROVISION => Some(Self::AppletBotProvision),
             Self::APPLET_BRIDGE_ERROR => Some(Self::AppletBridgeError),
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
-            Self::APPLET_INVOKE => Some(Self::AppletInvoke),
+            Self::APPLET_JOIN => Some(Self::AppletJoin),
+            Self::APPLET_PUBLISH => Some(Self::AppletPublish),
             Self::APPROVAL_VOTE => Some(Self::ApprovalVote),
             Self::AUDIT_ACCESSED => Some(Self::AuditAccessed),
             Self::AUDIT_EXPORT => Some(Self::AuditExport),

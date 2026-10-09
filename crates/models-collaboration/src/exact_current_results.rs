@@ -207,6 +207,7 @@ pub enum ExactCurrentResultSelector {
     ModerationState(ModerationStateExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
     CapabilityGrant(CapabilityGrantExactCurrentSelector),
+    Policy(PolicyExactCurrentSelector),
     CalendarScheduleSource(CalendarScheduleSourceExactSelector),
 }
 
@@ -260,10 +261,31 @@ impl ExactCurrentResultSelector {
             Self::Relation(selector) => selector.primary_conflict_domain.validate(),
             Self::ModerationState(_)
             | Self::AgentInteraction(_)
+            | Self::Policy(_)
             | Self::CapabilityGrant(_)
             | Self::CalendarScheduleSource(_) => Ok(()),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyExactCurrentSelectorKind {
+    Policy,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyExactCurrentSelector {
+    pub kind: PolicyExactCurrentSelectorKind,
+    pub policy_id: arkret_wire::PolicyId,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyExactCurrentResult {
+    pub selector: PolicyExactCurrentSelector,
+    pub source_stream_ref: CommitStreamRef,
+    pub revision: CurrentRevision,
+    pub value: crate::governance::operation_wire::PolicySetStatePayload,
 }
 
 /// `ak.self.current_results.read.exact.v1` request body.
@@ -336,6 +358,7 @@ pub enum ExactCurrentResultEntry {
     ModerationState(ModerationStateExactCurrentResult),
     AgentInteraction(AgentInteractionExactCurrentResult),
     CapabilityGrant(CapabilityGrantExactCurrentResult),
+    Policy(PolicyExactCurrentResult),
     CalendarScheduleSource(CalendarScheduleSourceExactResult),
 }
 
@@ -346,6 +369,7 @@ impl ExactCurrentResultEntry {
             Self::ModerationState(entry) => &entry.revision,
             Self::AgentInteraction(entry) => &entry.revision,
             Self::CapabilityGrant(entry) => &entry.revision,
+            Self::Policy(entry) => &entry.revision,
             Self::CalendarScheduleSource(entry) => &entry.revision,
         }
     }
@@ -356,11 +380,17 @@ impl ExactCurrentResultEntry {
             Self::ModerationState(entry) => &entry.source_stream_ref,
             Self::AgentInteraction(entry) => &entry.source_stream_ref,
             Self::CapabilityGrant(entry) => &entry.source_stream_ref,
+            Self::Policy(entry) => &entry.source_stream_ref,
             Self::CalendarScheduleSource(entry) => &entry.source_stream_ref,
         }
     }
 
     fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+        if let (Self::Policy(entry), ExactCurrentResultSelector::Policy(selector)) =
+            (self, requested)
+        {
+            return &entry.selector == selector;
+        }
         if let (
             Self::CalendarScheduleSource(entry),
             ExactCurrentResultSelector::CalendarScheduleSource(selector),
@@ -397,6 +427,32 @@ impl ExactCurrentResultEntry {
 
     fn validate_value(&self, realm_id: &RealmId) -> Result<()> {
         match self {
+            Self::Policy(entry) => {
+                entry.value.validate()?;
+                if entry.selector.policy_id != entry.value.policy_id
+                    || entry.source_stream_ref
+                        != (CommitStreamRef::Realm {
+                            realm_id: realm_id.clone(),
+                        })
+                {
+                    return Err(WireError::Protocol(
+                        "exact Policy current binding mismatch".into(),
+                    ));
+                }
+                match &entry.value.value {
+                    crate::governance::operation_wire::PolicySetValue::Governance(policy)
+                        if matches!(
+                            policy.policy_kind,
+                            arkret_wire::PolicyKind::Agent | arkret_wire::PolicyKind::Applet
+                        ) && policy.realm_id.as_ref() == Some(realm_id) =>
+                    {
+                        Ok(())
+                    }
+                    _ => Err(WireError::Protocol(
+                        "exact Policy supply requires managed family".into(),
+                    )),
+                }
+            }
             Self::CalendarScheduleSource(entry) => entry.value.validate_for_current(
                 realm_id,
                 &entry.source_stream_ref,
@@ -482,6 +538,7 @@ impl ExactCurrentResultEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NeverWrittenExactCurrentSelector {
+    Policy(PolicyExactCurrentSelector),
     Relation(RelationExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
 }
@@ -543,6 +600,7 @@ impl ExactCurrentResultsReadOutcome {
                 if matches!(
                     selector,
                     NeverWrittenExactCurrentSelector::AgentInteraction(_)
+                        | NeverWrittenExactCurrentSelector::Policy(_)
                 ) && head.stream_ref
                     != (CommitStreamRef::Realm {
                         realm_id: realm_id.clone(),
@@ -556,6 +614,7 @@ impl ExactCurrentResultsReadOutcome {
                     (&request.selector, selector),
                     (ExactCurrentResultSelector::Relation(requested), NeverWrittenExactCurrentSelector::Relation(actual)) if requested == actual
                 ) && !matches!((&request.selector, selector), (ExactCurrentResultSelector::AgentInteraction(requested), NeverWrittenExactCurrentSelector::AgentInteraction(actual)) if requested == actual)
+                    && !matches!((&request.selector,selector),(ExactCurrentResultSelector::Policy(requested),NeverWrittenExactCurrentSelector::Policy(actual)) if requested==actual)
                 {
                     return Err(WireError::Protocol(
                         "exact-current never_written selector differs from request".to_owned(),

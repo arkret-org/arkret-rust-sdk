@@ -48,3 +48,19 @@ impl AppletInstallationAuthority {
         Ok(())
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletAuthorityMaterialRequestBody {
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub grant_ids: Vec<arkret_wire::GrantId>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletAuthorityMaterialOutcome {
+    pub applet_id: arkret_wire::AppletId,
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub registration: arkret_wire::CommittedEventFullView,
+    pub grant_events: Vec<arkret_wire::CommittedEventFullView>,
+    pub current_results: Vec<crate::exact_current_results::ExactCurrentResultEntry>,
+}

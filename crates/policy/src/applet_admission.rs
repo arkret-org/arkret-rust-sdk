@@ -98,7 +98,6 @@ pub fn validate_applet_installation_coordinates(
                 || producer.route_service_id() != target))
         || (matches!(&event.actor_id, ActorId::Account { .. })
             && event.actor_id.route_service_id() != target)
-        || registration.bot_actor_id.route_service_id() != target
     {
         return Err(fail());
     }

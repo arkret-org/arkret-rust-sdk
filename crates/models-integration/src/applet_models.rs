@@ -357,7 +357,7 @@ impl AppletManagedActorAuthoringContext {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletManagedActorCommittedRequest {
-    Install(Box<AppletInstallRequestBody>),
+    Bot(Box<AppletBotProvisionRequestBody>),
     Ghost(Box<GhostActorProvisionRequestBody>),
 }
 
@@ -439,9 +439,6 @@ pub struct AppletInstallOutcome {
     pub applet_id: AppletId,
     pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
-    pub bot_actor_id: ActorId,
-    pub bot_actor_provision_ref: EventId,
-    pub bot_principal_control_realm_id: RealmId,
     pub capability_grant_refs: Vec<GrantId>,
     pub e2ee_authorization_refs: Vec<EventId>,
     pub widget_policy_ref: Option<EventId>,
@@ -823,7 +820,8 @@ pub struct AppletInstallPreviewRequestBody {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletManagedActorPurpose {
-    InstallBot,
+    InstallService,
+    ProvisionBot,
     ProvisionGhost,
 }
 
@@ -860,7 +858,7 @@ impl AppletInstallAuthoringRequestBasis {
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA
-            || self.purpose != AppletManagedActorPurpose::InstallBot
+            || self.purpose != AppletManagedActorPurpose::InstallService
             || self.capability_grant_events.is_empty()
         {
             return Err(WireError::Protocol(
@@ -945,7 +943,7 @@ pub struct AppletGhostAuthoringRequestBasis {
     pub target_station_id: DidCoreId,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
-    pub realm_id: RealmId,
+    pub effective_scope: ScopeRef,
     pub external_ref: GhostExternalTuple,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -953,6 +951,8 @@ pub struct AppletGhostAuthoringRequestBasis {
     pub authorization_ref: GrantId,
     pub registration_epoch_evidence: AppletRegistrationEpochEvidence,
     pub package_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_managed_actor: Option<crate::ExistingManagedActor>,
 }
 
 impl AppletGhostAuthoringRequestBasis {
@@ -973,50 +973,44 @@ impl AppletGhostAuthoringRequestBasis {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AppletManagedActorAuthoringBasis {
-    InstallBot(Box<AppletInstallAuthoringRequestBasis>),
+    ProvisionBot(Box<AppletBotAuthoringRequestBasis>),
     ProvisionGhost(Box<AppletGhostAuthoringRequestBasis>),
 }
-
 impl AppletManagedActorAuthoringBasis {
     pub fn purpose(&self) -> AppletManagedActorPurpose {
         match self {
-            Self::InstallBot(_) => AppletManagedActorPurpose::InstallBot,
+            Self::ProvisionBot(_) => AppletManagedActorPurpose::ProvisionBot,
             Self::ProvisionGhost(_) => AppletManagedActorPurpose::ProvisionGhost,
         }
     }
-
     pub fn target_station_id(&self) -> &DidCoreId {
         match self {
-            Self::InstallBot(basis) => &basis.target_station_id,
-            Self::ProvisionGhost(basis) => &basis.target_station_id,
+            Self::ProvisionBot(v) => &v.target_station_id,
+            Self::ProvisionGhost(v) => &v.target_station_id,
         }
     }
-
     pub fn service_id(&self) -> &DidCoreId {
         match self {
-            Self::InstallBot(basis) => &basis.service_id,
-            Self::ProvisionGhost(basis) => &basis.service_id,
+            Self::ProvisionBot(v) => &v.service_id,
+            Self::ProvisionGhost(v) => &v.service_id,
         }
     }
-
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::InstallBot(basis) => basis.validate(),
-            Self::ProvisionGhost(basis) => basis.validate(),
+            Self::ProvisionBot(v) => v.validate(),
+            Self::ProvisionGhost(v) => v.validate(),
         }
     }
-
-    pub fn install(&self) -> Option<&AppletInstallAuthoringRequestBasis> {
+    pub fn bot(&self) -> Option<&AppletBotAuthoringRequestBasis> {
         match self {
-            Self::InstallBot(basis) => Some(basis),
-            Self::ProvisionGhost(_) => None,
+            Self::ProvisionBot(v) => Some(v),
+            _ => None,
         }
     }
-
     pub fn ghost(&self) -> Option<&AppletGhostAuthoringRequestBasis> {
         match self {
-            Self::InstallBot(_) => None,
-            Self::ProvisionGhost(basis) => Some(basis),
+            Self::ProvisionGhost(v) => Some(v),
+            _ => None,
         }
     }
 }
@@ -1060,8 +1054,6 @@ pub struct AppletManagedActorAuthoringRequest {
     pub schema: String,
     pub purpose: AppletManagedActorPurpose,
     pub basis: AppletManagedActorAuthoringBasis,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub plan_digest: Option<Hash>,
     /// Current governance Station service identity for the target Realm.
     ///
     /// The Station signs the resulting RealmCommit after revalidating this
@@ -1085,7 +1077,6 @@ impl AppletManagedActorAuthoringRequest {
             "schema": self.schema,
             "purpose": self.purpose,
             "basis": self.basis,
-            "plan_digest": self.plan_digest,
             "governance_station_id": self.governance_station_id,
             "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
             "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
@@ -1115,7 +1106,6 @@ impl AppletManagedActorAuthoringRequest {
         self.basis.validate()?;
         if self.schema != Self::SCHEMA
             || self.purpose != self.basis.purpose()
-            || (self.purpose == AppletManagedActorPurpose::InstallBot) != self.plan_digest.is_some()
             || self.proof.payload_digest != self.payload_digest()?
             || &self.proof.audience_id != self.basis.service_id()
             || verification_method_controller(&self.proof.verification_method)?
@@ -1135,9 +1125,8 @@ impl AppletManagedActorAuthoringRequest {
         Ok(())
     }
 
-    pub fn sign<S: PayloadSigner + ?Sized>(
-        basis: AppletInstallAuthoringRequestBasis,
-        plan_digest: Hash,
+    pub fn sign_bot<S: PayloadSigner + ?Sized>(
+        basis: AppletBotAuthoringRequestBasis,
         governance_station_id: DidCoreId,
         issued_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
@@ -1158,9 +1147,8 @@ impl AppletManagedActorAuthoringRequest {
         let audience = basis.service_id.clone();
         let mut request = Self {
             schema: Self::SCHEMA.to_owned(),
-            purpose: AppletManagedActorPurpose::InstallBot,
-            basis: AppletManagedActorAuthoringBasis::InstallBot(Box::new(basis)),
-            plan_digest: Some(plan_digest),
+            purpose: AppletManagedActorPurpose::ProvisionBot,
+            basis: AppletManagedActorAuthoringBasis::ProvisionBot(Box::new(basis)),
             governance_station_id,
             issued_at,
             expires_at,
@@ -1203,7 +1191,6 @@ impl AppletManagedActorAuthoringRequest {
             schema: Self::SCHEMA.to_owned(),
             purpose: AppletManagedActorPurpose::ProvisionGhost,
             basis: AppletManagedActorAuthoringBasis::ProvisionGhost(Box::new(basis)),
-            plan_digest: None,
             governance_station_id,
             issued_at,
             expires_at,
@@ -1228,7 +1215,6 @@ impl AppletManagedActorAuthoringRequest {
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewOutcome {
     pub plan: crate::AppletInstallPlan,
-    pub authoring_request: AppletManagedActorAuthoringRequest,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1322,68 +1308,135 @@ pub struct AppletManagedActorAuthorOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AppletInstallRequestBody {
-    Create(Box<AppletInstallCreateRequestBody>),
-    Reuse(Box<AppletInstallReuseRequestBody>),
+#[serde(deny_unknown_fields)]
+pub struct AppletInstallRequestBody {
+    pub applet_package: AppletPackage,
+    pub authoring_request_basis: AppletInstallAuthoringRequestBasis,
+    pub plan_digest: Hash,
 }
 
 impl AppletInstallRequestBody {
     pub fn applet_package(&self) -> &AppletPackage {
-        match self {
-            Self::Create(request) => &request.applet_package,
-            Self::Reuse(request) => &request.applet_package,
-        }
-    }
-
-    pub fn authoring_request(&self) -> &AppletManagedActorAuthoringRequest {
-        match self {
-            Self::Create(request) => &request.authoring_request,
-            Self::Reuse(request) => &request.authoring_request,
-        }
-    }
-
-    pub fn managed_actor_bundle(&self) -> Option<&AppletManagedActorAuthoringBundle> {
-        match self {
-            Self::Create(request) => Some(&request.managed_actor_bundle),
-            Self::Reuse(_) => None,
-        }
-    }
-
-    pub fn reuse_existing_managed_actor(&self) -> Option<&ReuseExistingManagedActor> {
-        match self {
-            Self::Create(_) => None,
-            Self::Reuse(request) => Some(&request.reuse_existing_managed_actor),
-        }
+        &self.applet_package
     }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletInstallCreateRequestBody {
-    pub applet_package: AppletPackage,
+pub struct AppletBotAuthoringRequestBasis {
+    pub schema: String,
+    pub purpose: AppletManagedActorPurpose,
+    pub target_station_id: DidCoreId,
+    pub applet_id: AppletId,
+    pub service_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub registration_event_ref: EventId,
+    pub authorization_ref: GrantId,
+    pub registration_epoch_evidence: AppletRegistrationEpochEvidence,
+    pub package_digest: Hash,
+    pub effective_scope: ScopeRef,
+    pub request_id: String,
+}
+impl AppletBotAuthoringRequestBasis {
+    pub const SCHEMA: &'static str = "ak.schema.applet_bot_authoring_request_basis.v1";
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA
+            || self.purpose != AppletManagedActorPurpose::ProvisionBot
+            || self.request_id.is_empty()
+        {
+            return Err(WireError::Protocol("invalid Bot authoring basis".into()));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletBotPreviewRequestBody {
+    pub effective_scope: ScopeRef,
+    pub request_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+}
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletBotPreviewOutcome {
+    pub authoring_request: AppletManagedActorAuthoringRequest,
+}
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletBotProvisionRequestBody {
     pub authoring_request: AppletManagedActorAuthoringRequest,
     pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
 }
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletInstallReuseRequestBody {
-    pub applet_package: AppletPackage,
-    pub authoring_request: AppletManagedActorAuthoringRequest,
-    pub reuse_existing_managed_actor: ReuseExistingManagedActor,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReuseExistingManagedActor {
-    pub actor_id: ActorId,
+pub struct AppletBotProvisionOutcome {
     pub managed_actor_provision_ref: EventId,
-    pub pcr_genesis_ref: EventId,
-    pub accountability_grant_ref: EventId,
+    pub principal_control_realm_id: RealmId,
     pub profile_event_ref: EventId,
-    pub initial_package_bot_actor_id: ActorId,
+    pub accountability_grant_ref: EventId,
+    pub authorization_ref: GrantId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub bot_actor_id: ActorId,
+}
+
+/// Covered RFC9421 metadata for one accepted managed Account Device.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletManagedDeviceMetadata {
+    pub account_id: arkret_wire::AccountId,
+    pub device_id: arkret_wire::DeviceId,
+    pub authorization_event_id: EventId,
+    pub applet_id: AppletId,
+    pub effective_scope: ScopeRef,
+    pub nonce: String,
+}
+impl AppletManagedDeviceMetadata {
+    pub const HEADER: &'static str = "Arkret-Managed-Device";
+    pub fn validate(&self) -> Result<()> {
+        if !(22..=128).contains(&self.nonce.len())
+            || !self
+                .nonce
+                .bytes()
+                .all(|v| v.is_ascii_alphanumeric() || v == b'_' || v == b'-')
+        {
+            return Err(WireError::Protocol("invalid managed Device nonce".into()));
+        }
+        if self.effective_scope.realm_id_opt().is_none() {
+            return Err(WireError::Protocol(
+                "managed Device needs business scope".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn to_header_value(&self) -> Result<String> {
+        self.validate()?;
+        Ok(arkret_canonical::base64url_encode(
+            canonical::canonical_json_bytes(self)?,
+        ))
+    }
+    pub fn from_header_value(value: &str) -> Result<Self> {
+        let bytes = arkret_canonical::base64url_decode(value)?;
+        let metadata: Self = serde_json::from_slice(&bytes)?;
+        metadata.validate()?;
+        if canonical::canonical_json_bytes(&metadata)? != bytes
+            || metadata.to_header_value()? != value
+        {
+            return Err(WireError::Protocol(
+                "managed Device metadata is not canonical".into(),
+            ));
+        }
+        Ok(metadata)
+    }
 }

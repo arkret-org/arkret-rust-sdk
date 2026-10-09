@@ -1,14 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.1;
-//! sha256=4f6f4f47b36d86cda8bab29224c01ae105c85a032f63eba57e26e52361775498
-//! Entries: service_contracts=6
+//! Input: registry/contract-registry.json; version=2026-10-09.3;
+//! sha256=fe2e311ac080d923eae5539706fdd0ea8fea05f7606cb52c36eae079409ea22c
+//! Entries: service_contracts=5
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ServiceContractId {
     ActorPrivateEffectsV1,
-    AppletSelfActorV1,
     ContactAdmissionV1,
     IntegrationManifestV1,
     PushBridgeV1,
@@ -18,7 +17,6 @@ pub enum ServiceContractId {
 impl ServiceContractId {
     pub const ALL: &'static [Self] = &[
         Self::ActorPrivateEffectsV1,
-        Self::AppletSelfActorV1,
         Self::ContactAdmissionV1,
         Self::IntegrationManifestV1,
         Self::PushBridgeV1,
@@ -26,7 +24,6 @@ impl ServiceContractId {
     ];
 
     pub const ACTOR_PRIVATE_EFFECTS_V1: &'static str = "ak.actor_private.effects.v1";
-    pub const APPLET_SELF_ACTOR_V1: &'static str = "ak.applet.self_actor.v1";
     pub const CONTACT_ADMISSION_V1: &'static str = "ak.contact.admission.v1";
     pub const INTEGRATION_MANIFEST_V1: &'static str = "ak.integration.manifest.v1";
     pub const PUSH_BRIDGE_V1: &'static str = "ak.push.bridge.v1";
@@ -36,7 +33,6 @@ impl ServiceContractId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ActorPrivateEffectsV1 => Self::ACTOR_PRIVATE_EFFECTS_V1,
-            Self::AppletSelfActorV1 => Self::APPLET_SELF_ACTOR_V1,
             Self::ContactAdmissionV1 => Self::CONTACT_ADMISSION_V1,
             Self::IntegrationManifestV1 => Self::INTEGRATION_MANIFEST_V1,
             Self::PushBridgeV1 => Self::PUSH_BRIDGE_V1,
@@ -47,7 +43,6 @@ impl ServiceContractId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACTOR_PRIVATE_EFFECTS_V1 => Some(Self::ActorPrivateEffectsV1),
-            Self::APPLET_SELF_ACTOR_V1 => Some(Self::AppletSelfActorV1),
             Self::CONTACT_ADMISSION_V1 => Some(Self::ContactAdmissionV1),
             Self::INTEGRATION_MANIFEST_V1 => Some(Self::IntegrationManifestV1),
             Self::PUSH_BRIDGE_V1 => Some(Self::PushBridgeV1),

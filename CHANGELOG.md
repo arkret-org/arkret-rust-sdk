@@ -9,6 +9,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Adopted the formal Applet managed governance contract: installation accepts
+  a Service only, independent Bot/Ghost provision uses signed four-Event units,
+  and package/registration/epoch carriers contain no default Bot identity.
+  HTTPS management URLs remain mandatory; content is supplied to concrete
+  accepted Devices through native Station operations.
+- Added Applet Policy evaluation, Agent publish/serve operations, management
+  review DTOs and exact approval binding helpers, managed terminal child role
+  constraints, and management Policy CAS/exact-current supply.
+- Added strict managed Device metadata and generated RFC9421 operation
+  allowlists; typed HTTP clients can use independent Service or Device
+  signatures without inheriting account sessions. Retired client-pull operation
+  IDs and Applet disclosure/result detached-signature domains.
+
 - Removed the device-level SAS verification surface. `arkret-crypto`'s
   `key_verification` module and its `key-verification` feature, the
   `KeyVerificationContent` wire type with its purpose / cancellation enums,

@@ -20,6 +20,96 @@ use crate::client_internals::validate_base_url;
 use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
 
 impl Client {
+    pub async fn applet_authority_material(
+        &self,
+        applet_id: &str,
+        request: &arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialRequestBody,
+    ) -> Result<
+        arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome,
+    > {
+        reject_path_segment(applet_id)?;
+        self.post(
+            &format!("/_arkret/self/applets/{applet_id}/authority/material"),
+            request,
+        )
+        .await
+    }
+    /// Configure a Service transport carrier; native Event proofs remain independent.
+    pub fn with_service_http_signer(
+        mut self,
+        source: DidCoreId,
+        destination: DidCoreId,
+        signer: crate::HttpMessageSigner,
+    ) -> Self {
+        self.auth = None;
+        self.http_message_signer = Some(signer);
+        self.service_signature_identity = Some((source, destination));
+        self.managed_device_signature_identity = None;
+        self
+    }
+    /// Configure accepted Device transport. Every request receives a fresh random nonce.
+    pub fn with_managed_device_http_signer(
+        mut self,
+        metadata: arkret_models_integration::AppletManagedDeviceMetadata,
+        destination: DidCoreId,
+        signer: crate::HttpMessageSigner,
+    ) -> Result<Self> {
+        metadata.validate()?;
+        self.auth = None;
+        self.http_message_signer = Some(signer);
+        self.service_signature_identity = None;
+        self.managed_device_signature_identity = Some((metadata, destination));
+        Ok(self)
+    }
+    pub async fn applet_bot_preview(
+        &self,
+        applet_id: &str,
+        request: &arkret_models_integration::AppletBotPreviewRequestBody,
+    ) -> Result<arkret_models_integration::AppletBotPreviewOutcome> {
+        reject_path_segment(applet_id)?;
+        self.post(
+            &format!("/_arkret/self/applets/{applet_id}/bots/provision/preview"),
+            request,
+        )
+        .await
+    }
+    pub async fn applet_bot_provision(
+        &self,
+        applet_id: &str,
+        idempotency_key: &str,
+        request: &arkret_models_integration::AppletBotProvisionRequestBody,
+    ) -> Result<arkret_models_integration::AppletBotProvisionOutcome> {
+        reject_path_segment(applet_id)?;
+        self.post_with_options(
+            &format!("/_arkret/self/applets/{applet_id}/bots/provision"),
+            request,
+            &ClientRequestOptions::new().idempotency_key(idempotency_key),
+        )
+        .await
+    }
+    pub async fn management_review_request(
+        &self,
+        request: &arkret_models_integration::ManagementReviewRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/management-reviews/requests", request)
+            .await
+    }
+    pub async fn management_review_decide(
+        &self,
+        request: &arkret_models_integration::ManagementReviewDecisionRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/management-reviews/decisions", request)
+            .await
+    }
+    pub async fn management_review_status(
+        &self,
+        request: &arkret_models_integration::ManagementReviewLookupRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        self.post("/_arkret/self/management-reviews/status", request)
+            .await
+    }
     pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
         self.get("/_arkret/edge/applet/ping").await
     }
@@ -101,6 +191,7 @@ impl Client {
         idempotency_key: &str,
         request: &GhostActorProvisionRequestBody,
     ) -> Result<GhostActorProvisionOutcome> {
+        request.validate()?;
         let path = ghost_actor_provision_path(applet_id)?;
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options(&path, request, &options).await
