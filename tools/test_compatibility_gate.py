@@ -5,10 +5,12 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).with_name("compatibility_gate.py")
@@ -142,6 +144,88 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             row = json.loads(report.read_text(encoding="utf-8"))["checks"][0]
         self.assertEqual(row["status"], "failed")
         self.assertEqual(row["exit_code"], 127)
+
+    def test_executable_alias_resolves_without_changing_arguments_or_manifest(self) -> None:
+        check = copy.deepcopy(self.manifest["checks"][0])
+        check["working_directory"] = "."
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "argument result.json"
+            arguments = ["spaces and quotes \" preserved", "literal $() & ;"]
+            check["command"] = [
+                "arkret-regression-executable-alias", "-c",
+                "import json, pathlib, sys; pathlib.Path(sys.argv[1]).write_text(json.dumps(sys.argv[2:]))",
+                str(output), *arguments,
+            ]
+            original_command = list(check["command"])
+            with patch.object(gate.shutil, "which", return_value=sys.executable) as resolve:
+                results = gate.run_checks({"checks": [check]}, Path(temporary),
+                                          {check["category"]}, set())
+            resolve.assert_called_once_with(original_command[0])
+            self.assertEqual(json.loads(output.read_text()), arguments)
+        self.assertEqual(results[0]["status"], "passed")
+        self.assertEqual(results[0]["command"], original_command)
+        self.assertEqual(check["command"], original_command)
+
+    def test_exact_selection_runs_named_check_and_reports_unselected(self) -> None:
+        checks = copy.deepcopy(self.manifest["checks"][:2])
+        for check in checks:
+            check["working_directory"] = "."
+        checks[0]["repository"] = "soland"
+        checks[0]["working_directory"] = "missing-consumer"
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "selection.json"
+            with patch.object(gate.subprocess, "run") as execute:
+                execute.return_value.returncode = 0
+                results = gate.run_checks({"checks": checks}, Path(temporary),
+                                          {"static"}, set(), report, {checks[1]["id"]})
+                expected_command = list(checks[1]["command"])
+                expected_command[0] = gate.shutil.which(expected_command[0]) or expected_command[0]
+                execute.assert_called_once_with(expected_command, cwd=Path(temporary), check=False)
+            self.assertEqual(results, json.loads(report.read_text())["checks"])
+        self.assertEqual([row["status"] for row in results], ["not_run", "passed"])
+        self.assertEqual(results[0]["reason"], "check not selected")
+
+    def test_unknown_exact_selection_fails_before_execution(self) -> None:
+        with patch.object(gate.subprocess, "run") as execute:
+            with self.assertRaisesRegex(gate.CompatibilityError, "unknown selected checks: typo"):
+                gate.run_checks(self.manifest, self.workspace_root, {"compile"}, set(), selected={"typo"})
+            execute.assert_not_called()
+
+    def test_selection_does_not_pass_unselected_prerequisite(self) -> None:
+        checks = copy.deepcopy(self.manifest["checks"][:3])
+        checks[1]["depends_on"] = [checks[0]["id"]]
+        with tempfile.TemporaryDirectory() as temporary:
+            report = Path(temporary) / "blocked.json"
+            with patch.object(gate.subprocess, "run") as execute:
+                execute.return_value.returncode = 0
+                with self.assertRaisesRegex(gate.CompatibilityError, "not completed"):
+                    gate.run_checks({"checks": checks}, Path(temporary), {"static"},
+                                    set(), report, {checks[1]["id"], checks[2]["id"]})
+                self.assertEqual(execute.call_count, 1)
+            results = json.loads(report.read_text())["checks"]
+        self.assertEqual([row["status"] for row in results], ["not_run", "blocked", "passed"])
+
+    def test_sdk_compile_matrix_is_shared_with_standalone_ci(self) -> None:
+        gate.validate_manifest(self.manifest)
+        checks = {check["id"]: check for check in self.manifest["checks"]}
+        expected = {
+            "sdk.compile-default": ["-p", "arkret"],
+            "sdk.compile-no-default": ["-p", "arkret", "--no-default-features"],
+            "sdk.compile-client": ["-p", "arkret", "--no-default-features", "--features", "client"],
+            "sdk.compile-server": ["-p", "arkret", "--no-default-features", "--features", "server"],
+            "sdk.compile-mls": ["-p", "arkret", "--no-default-features", "--features", "mls"],
+            "sdk.compile-wasm-client": ["-p", "arkret", "--target", "wasm32-unknown-unknown", "--no-default-features", "--features", "client"],
+            "sdk.compile-wasm-mls": ["-p", "arkret-mls", "--target", "wasm32-unknown-unknown", "--no-default-features"],
+            "sdk.compile-wasm-identifiers": ["-p", "arkret-identifiers", "--target", "wasm32-unknown-unknown", "--no-default-features"],
+        }
+        for name, args in expected.items():
+            self.assertEqual(checks[name]["command"], ["cargo", "check", *args, "--locked"])
+            self.assertEqual(checks[name]["category"], "compile")
+            self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", workflow)), set(expected) | {"sdk.compile"})
+        self.assertNotIn("- run: cargo check --no-default-features", workflow)
+        self.assertNotIn("- run: cargo check -p arkret --target", workflow)
 
     def test_github_outputs_are_exact_pins(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

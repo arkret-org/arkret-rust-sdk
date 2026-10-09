@@ -352,6 +352,163 @@
       ]
     },
     {
+      "id": "sdk.compile-default",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "umbrella default surface without opt-in transports"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-no-default",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "umbrella without default features"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-client",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson client transport opt-in"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "client",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-server",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "server opt-in exposing Soland server surface"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "server",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-mls",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson MLS opt-in without client transport"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "mls",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-client",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson browser client transport"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--features",
+        "client",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-mls",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "browser MLS RNG/backend surface"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret-mls",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-identifiers",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "browser identifiers without runtime features"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret-identifiers",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",
@@ -503,8 +660,6 @@
         "-SolandImage",
         "cotest-soland:compatibility",
         "-StartCoauth",
-        "-SkipNpmInstall",
-        "-SkipBrowserInstall",
         "-RunProfile",
         "joint-smoke",
         "-PlaywrightProject",

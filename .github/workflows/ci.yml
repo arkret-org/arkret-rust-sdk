@@ -58,7 +58,6 @@ jobs:
           # so it must be run as a module from the repo root, not as a script.
           python -m tools.test_deny_unknown_audit
           python tools/deny_unknown_audit.py --check
-      - run: cargo check -p arkret
       - name: Guard default arkret dependency surface
         shell: bash
         run: |
@@ -68,11 +67,20 @@ jobs:
             echo "default arkret feature pulled a heavy runtime dependency"
             exit 1
           fi
-      - run: cargo check --no-default-features
-      - run: cargo check --no-default-features --features client
-      - run: cargo check --no-default-features --features server
-      - run: cargo check --no-default-features --features mls
-      - run: cargo check --all-features
+      - name: Run manifest SDK native compile checks
+        run: >-
+          python tools/compatibility_gate.py run --workspace-root .. --category compile
+          --check sdk.compile-default --check sdk.compile-no-default
+          --check sdk.compile-client --check sdk.compile-server --check sdk.compile-mls
+          --check sdk.compile
+          --report "${{ runner.temp }}/sdk-native-compile.json"
+      - name: Preserve SDK native compile results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-native-compile-results
+          path: ${{ runner.temp }}/sdk-native-compile.json
+          if-no-files-found: ignore
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
       # No `export_openapi` step: this repo has never contained that example,
@@ -82,7 +90,7 @@ jobs:
       # crates/schema/src/embedded_openapi.yaml and drift-gated in the
       # spec-drift job) rather than producing its own; the `openapi` features on
       # arkret-wire / arkret-identifiers only add `ToSchema` derives for service
-      # crates to assemble downstream, and `cargo check --all-features` above
+      # crates to assemble downstream, and the manifest all-features compile check above
       # already compiles them.
 
   compatibility-manifest-authoring:
@@ -138,9 +146,19 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
-      - run: cargo check -p arkret --target wasm32-unknown-unknown --no-default-features --features client
-      - run: cargo check -p arkret-mls --target wasm32-unknown-unknown --no-default-features
-      - run: cargo check -p arkret-identifiers --target wasm32-unknown-unknown --no-default-features
+      - name: Run manifest SDK browser compile checks
+        run: >-
+          python tools/compatibility_gate.py run --workspace-root .. --category compile
+          --check sdk.compile-wasm-client --check sdk.compile-wasm-mls
+          --check sdk.compile-wasm-identifiers
+          --report "${{ runner.temp }}/sdk-wasm-compile.json"
+      - name: Preserve SDK browser compile results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-wasm-compile-results
+          path: ${{ runner.temp }}/sdk-wasm-compile.json
+          if-no-files-found: ignore
 
   generated-contracts:
     name: generated contract drift gate

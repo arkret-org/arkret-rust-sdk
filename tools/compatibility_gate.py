@@ -8,6 +8,7 @@ import copy
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -423,7 +424,12 @@ def run_checks(
     categories: set[str],
     skipped: set[str],
     report_path: Path | None = None,
+    selected: set[str] | None = None,
 ) -> list[dict[str, Any]]:
+    known_checks = {check["id"] for check in document["checks"]}
+    unknown = (selected or set()) - known_checks
+    if unknown:
+        raise CompatibilityError("unknown selected checks: " + ", ".join(sorted(unknown)))
     results: list[dict[str, Any]] = []
     statuses: dict[str, str] = {}
     failures: list[dict[str, Any]] = []
@@ -437,6 +443,8 @@ def run_checks(
                    if statuses.get(dependency) != "passed"]
         if check["id"] in skipped:
             result.update(status="not_run", reason="explicitly skipped")
+        elif selected and check["id"] not in selected:
+            result.update(status="not_run", reason="check not selected")
         elif check["category"] not in categories:
             result.update(status="not_run", reason="category not selected")
         elif blocked:
@@ -450,7 +458,9 @@ def run_checks(
         working_directory = workspace_root / check["working_directory"]
         print(f"==> {check['id']}: {' '.join(check['command'])}", flush=True)
         try:
-            completed = subprocess.run(check["command"], cwd=working_directory, check=False)
+            command = list(check["command"])
+            command[0] = shutil.which(command[0]) or command[0]
+            completed = subprocess.run(command, cwd=working_directory, check=False)
         except OSError as error:
             completed_code = 127
             detail = str(error)
@@ -563,6 +573,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["static", "compile", "contract"],
         default=[],
     )
+    run_parser.add_argument("--check", action="append", default=[],
+                            help="select an exact manifest check id (repeatable; default selects all)")
     run_parser.add_argument("--skip", action="append", default=[])
     run_parser.add_argument("--report", type=Path, help="write every check status, including failures and skips")
 
@@ -611,7 +623,8 @@ def main(argv: list[str] | None = None) -> int:
             unknown_skips = set(arguments.skip) - known_checks
             if unknown_skips:
                 raise CompatibilityError("unknown skipped checks: " + ", ".join(sorted(unknown_skips)))
-            run_checks(document, arguments.workspace_root, categories, set(arguments.skip), arguments.report)
+            run_checks(document, arguments.workspace_root, categories, set(arguments.skip), arguments.report,
+                       set(arguments.check))
             print("selected compatibility checks passed")
         elif arguments.command == "negative-mutation":
             failure = negative_mutation(document, arguments.workspace_root)
