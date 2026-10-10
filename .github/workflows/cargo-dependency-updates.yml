@@ -1,0 +1,116 @@
+name: Cargo dependency candidates
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        description: Repository with a tracked Cargo.lock to update
+        required: true
+        type: string
+    secrets:
+      CI_REPO_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
+      CANDIDATE_REPOSITORY: ${{ inputs.repository }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/arkret-spec
+          path: arkret-spec
+          ref: ${{ inputs.repository == 'arkret-spec' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/arkret-rust-sdk
+          path: arkret-rust-sdk
+          ref: ${{ inputs.repository == 'arkret-rust-sdk' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/floria
+          path: floria
+          ref: ${{ inputs.repository == 'floria' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/soland
+          path: soland
+          ref: ${{ inputs.repository == 'soland' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/coauth
+          path: coauth
+          ref: ${{ inputs.repository == 'coauth' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/garth
+          path: garth
+          ref: ${{ inputs.repository == 'garth' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/chime
+          path: chime
+          ref: ${{ inputs.repository == 'chime' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/inkson
+          path: inkson
+          ref: ${{ inputs.repository == 'inkson' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/cotest
+          path: cotest
+          ref: ${{ inputs.repository == 'cotest' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/sodmin
+          path: sodmin
+          ref: ${{ inputs.repository == 'sodmin' && github.sha || 'main' }}
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.98"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Prepare a candidate in the complete dependency workspace
+        run: >-
+          python arkret-rust-sdk/tools/cargo_dependency_candidates.py
+          --repository "$CANDIDATE_REPOSITORY"
+          --workspace-root .
+          --output dependency-candidate
+      - name: Preserve candidate and exact source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-dependency-candidate-${{ inputs.repository }}-${{ github.run_id }}
+          path: dependency-candidate/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Describe the review boundary
+        run: cat dependency-candidate/README.md >> "$GITHUB_STEP_SUMMARY"
