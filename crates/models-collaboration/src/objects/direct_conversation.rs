@@ -238,8 +238,9 @@ pub enum DirectConversationFoundingAuthority {
     /// an offline founder retains authority and there is no timeout takeover.
     Normal { request_author_actor_id: ActorId },
     /// Concurrent requests from both sides. The caller supplies the signed Event author ActorId
-    /// of requests[0] after validating strict full request_event_ref wire-byte order and evidence.
-    /// This is never the Station receipt issuer, receipt-digest order, or arrival order.
+    /// of `requests[0]` after validating strict full request_event_ref wire-byte order and
+    /// evidence. This is never the Station receipt issuer, receipt-digest order, or arrival
+    /// order.
     Glare {
         first_request_author_actor_id: ActorId,
     },

@@ -5,7 +5,7 @@
 //! AEAD nonce contract cannot grow a second copy; this module is the
 //! `arkret-mls` face over them, and it is the only place a caller should reach
 //! for an exporter-derived secret that is not already wrapped by a dedicated
-//! module (Signal in [`crate::signal`], SFrame media frame keys in
+//! module (Signal in `crate::signal`, SFrame media frame keys in
 //! [`arkret_crypto::sframe`]).
 //!
 //! Every derivation here is gated on the label's entry in the spec exporter

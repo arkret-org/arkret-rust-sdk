@@ -1113,7 +1113,7 @@ impl MessageCreatePayload {
 /// Structural error surfaced by the content-block validators.
 ///
 /// A distinct, allocation-free error type so the validators do not couple to
-/// the crate-wide [`Error`]; callers that need to bridge into a facade map it
+/// the shared [`arkret_wire::WireError`]; callers that need to bridge into a facade map it
 /// explicitly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ContentBlockValidationError {

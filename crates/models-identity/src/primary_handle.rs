@@ -5,7 +5,7 @@
 //! every implementation agrees on the deterministic primary-handle
 //! selection and the canonical claim digest. The DID-Document
 //! `metadata.primary_handle` lookup (`holder_primary_handle_at_as_of`) is
-//! injected via [`DidDocumentSnapshotResolver`] so the algorithm stays a
+//! injected via [`crate::primary_handle::DidDocumentSnapshotResolver`] so the algorithm stays a
 //! pure function of its inputs.
 //!
 //! This module is wasm-safe: it depends only on the identity-domain wire
@@ -65,8 +65,8 @@ pub trait DidDocumentSnapshotResolver {
 /// Test/offline resolver: never returns a holder preference.
 ///
 /// Production callers that support DID Document `metadata.primary_handle`
-/// MUST inject a real [`DidDocumentSnapshotResolver`]. Using this resolver in
-/// production deliberately disables the holder-flagged priority layer and
+/// MUST inject a real [`crate::primary_handle::DidDocumentSnapshotResolver`]. Using this resolver
+/// in production deliberately disables the holder-flagged priority layer and
 /// falls through to audience-match / most-recent selection.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoHolderPreferenceResolver;

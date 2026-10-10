@@ -230,12 +230,25 @@ jobs:
   coverage:
     name: coverage
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arkret-rust-sdk
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: arkret-rust-sdk
+      - name: Checkout Spec fixtures
+        uses: actions/checkout@v4
+        with:
+          repository: arkret-org/arkret-spec
+          path: arkret-spec
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: arkret-rust-sdk
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --locked
       - name: Generate coverage report
@@ -243,7 +256,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: cobertura.xml
+          files: arkret-rust-sdk/cobertura.xml
           fail_ci_if_error: true
 
   package-check:

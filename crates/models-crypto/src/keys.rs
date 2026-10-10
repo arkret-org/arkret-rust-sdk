@@ -143,7 +143,7 @@ impl KeysQueryRequestBody {
 ///
 /// `active` = a `ak.device.authorize` is in effect and the device is not
 /// revoked; `revoked` = a `ak.device.revoke` is in effect. Servers MUST omit
-/// [`QueryDeviceRecord::device_signing_key_did`] for any non-active device.
+/// non-active devices from the rows of [`KeysQueryOutcome::device_keys`].
 /// Shared device lifecycle status. Individual wire surfaces narrow the allowed
 /// variants in their own schema; for example, a keys-query attestation pins
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/device_status`

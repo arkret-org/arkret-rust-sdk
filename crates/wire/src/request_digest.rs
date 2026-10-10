@@ -16,7 +16,7 @@ use serde::Serialize;
 
 use crate::{Hash, Result, canonical};
 
-/// `SHA-256(UTF8(label) || 0x00 || JCS(value))` as a suite-tagged [`Hash`].
+/// `SHA-256(UTF8(label) || 0x00 || JCS(value))` as a suite-tagged [`struct@Hash`].
 pub fn framed_request_digest<T>(label: &str, value: &T) -> Result<Hash>
 where
     T: Serialize + ?Sized,

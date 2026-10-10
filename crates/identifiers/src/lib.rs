@@ -133,7 +133,7 @@ macro_rules! id_type {
     };
 }
 
-/// Like [`id_type!`] but for **pure uuidv7 typed ids** (`ak:<kind>:<uuidv7>`,
+/// Like `id_type!` but for **pure uuidv7 typed ids** (`ak:<kind>:<uuidv7>`,
 /// single prefix, no hash alternative). In addition to the string-newtype API
 /// it exposes the at-rest bare-uuid form:
 ///
@@ -144,7 +144,7 @@ macro_rules! id_type {
 ///   kind prefix.
 ///
 /// Hash-bearing kinds (`BlobRef`, `Hash`), `OperationId`, DIDs,
-/// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
+/// cursors and `trust_domain` MUST stay on plain `id_type!` — they have no
 /// bare-uuid form.
 /// Database mappings are deliberately type-specific: the optional `diesel`
 /// feature currently maps [`DidCoreId`] to PostgreSQL `text`; it does not
@@ -378,7 +378,7 @@ macro_rules! declare_event_token_id_kinds {
 /// closes that gap: it is derived from the same literals the types validate
 /// against, so it cannot disagree with them.
 ///
-/// Hash-bearing, hybrid and special-form kinds stay on plain [`id_type!`] and
+/// Hash-bearing, hybrid and special-form kinds stay on plain `id_type!` and
 /// are deliberately absent from this block — they have no `ak:<kind>:<uuidv7>`
 /// wire form and the spec lists them under `special_forms`.
 macro_rules! declare_uuid_id_kinds {
@@ -413,7 +413,7 @@ macro_rules! declare_uuid_id_kinds {
 /// types are generated from, so neither direction can drift unnoticed.
 ///
 /// Identifiers that are not registry `special_forms` rows stay on plain
-/// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
+/// `id_type!`: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
 /// prefix), [`OperationId`] (producer-allocated, but with no bare-uuid form)
 /// and [`DeviceMessageTransactionId`] (a payload field charset, not an id
 /// kind).
@@ -530,7 +530,7 @@ pub fn is_plan_id(value: &str) -> bool {
 
 /// Validate the `ak:service_registration_receipt:<sha256-hex>` wire form. The
 /// suffix is the lower-case hex SHA-256 over the canonical receipt claims, so
-/// it is exactly 64 hex digits — unlike [`is_hash`], which carries its own
+/// it is exactly 64 hex digits — unlike `is_hash`, which carries its own
 /// `<algo>:` prefix. Spec: id-kind-registry.json
 /// `special_forms[service_registration_receipt]`; pattern matches
 /// service-operation-dtos.schema.json

@@ -95,7 +95,7 @@ impl IssuerAuthorityRef {
 /// Mirrors soland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
 /// `issuer_authority_refs` is a wire field per `ak.schema.capability.v1`; the remaining
 /// fields are runtime projections (`resource` is a stringly-typed selector
-/// rather than the typed [`crate::authz::ResourceSelector`] enum so that this
+/// rather than the typed Soland `ResourceSelector` enum so that this
 /// module can be reused by client pre-checks without forcing the full
 /// selector parser pipeline).
 #[derive(Clone, Debug, Serialize, Deserialize)]

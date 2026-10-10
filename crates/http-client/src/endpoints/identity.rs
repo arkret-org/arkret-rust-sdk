@@ -131,7 +131,7 @@ impl Client {
     /// Unlike `ServiceDescribe`, this response retains the signed route record,
     /// method-native history evidence, and normalized DID document together.
     /// The returned shape is not trusted until
-    /// [`Client::open_service_signer_evidence`] verifies it.
+    /// [`arkret_identity::verify_current_service_resolution`] verifies it.
     pub async fn open_service_resolution(
         &self,
         service_id: &DidCoreId,
