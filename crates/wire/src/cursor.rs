@@ -592,7 +592,7 @@ mod tests {
             format!(
                 "ak:cursor:{}",
                 arkret_canonical::base64url::base64url_encode(
-                    &arkret_canonical::canonical_json_bytes(body).unwrap()
+                    arkret_canonical::canonical_json_bytes(body).unwrap()
                 )
             )
         };

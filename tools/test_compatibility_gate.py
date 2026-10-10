@@ -59,6 +59,30 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             [{"repository": "garth", "commit": candidate}],
         )
 
+    def test_manifest_source_sdk_and_consumer_candidates_are_both_exact(self) -> None:
+        original = copy.deepcopy(self.manifest)
+        sdk_candidate, consumer_candidate = "a" * 40, "b" * 40
+        candidates = gate.parse_candidates([
+            f"garth={consumer_candidate}", f"arkret-rust-sdk={sdk_candidate}",
+        ])
+        resolved = gate.resolve_manifest(self.manifest, candidates)
+        for repository, entry in self.manifest["repositories"].items():
+            self.assertEqual(
+                resolved["repositories"][repository]["commit"],
+                candidates.get(repository, entry["commit"]),
+            )
+        self.assertEqual(resolved["resolved_candidates"], [
+            {"repository": "arkret-rust-sdk", "commit": sdk_candidate},
+            {"repository": "garth", "commit": consumer_candidate},
+        ])
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "github-output.txt"
+            gate.write_github_outputs(resolved, output)
+            lines = dict(line.split("=", 1) for line in output.read_text().splitlines())
+        self.assertEqual(lines["arkret_rust_sdk"], sdk_candidate)
+        self.assertEqual(lines["garth"], consumer_candidate)
+        self.assertEqual(self.manifest, original)
+
     def test_first_command_failure_reports_surface(self) -> None:
         document = copy.deepcopy(self.manifest)
         document["checks"] = [
