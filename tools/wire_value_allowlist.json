@@ -3081,12 +3081,12 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:teabay/crates/server/src/audit.rs::compute_row_digest:a32777448262ea00",
+      "finding": "json_authoring:flagon/crates/server/src/audit.rs::compute_row_digest:a32777448262ea00",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "teabay",
+      "owner_repository": "flagon",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."

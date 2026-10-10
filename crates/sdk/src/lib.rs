@@ -502,7 +502,7 @@ pub use arkret_hlc as hlc;
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so station-style consumers (inkson,
-/// floria, cotest, teabay, soland) all reach the same verifier. Depends
+/// floria, cotest, flagon, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
 pub use arkret_signatures::{dpop, http_signature};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate

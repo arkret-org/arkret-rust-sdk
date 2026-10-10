@@ -4,7 +4,7 @@
 //! These vectors pin the converged bytes that must not drift:
 //!
 //! 1. The detached-JWS protected header is exactly `{"alg":"Ed25519"}` across the ecosystem
-//!    (base64url `eyJhbGciOiJFZDI1NTE5In0`), matching spec §6 and downstream services. teabay
+//!    (base64url `eyJhbGciOiJFZDI1NTE5In0`), matching spec §6 and downstream services. flagon
 //!    `sdk::jws`.
 //! 2. `Ed25519PayloadSigner` and the generic detached-JWS signer produce the same signing input and
 //!    same 64-byte signature for identical canonical bytes, proving the historical JWS forks have

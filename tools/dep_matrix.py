@@ -57,7 +57,7 @@ WORKSPACE_REPOS = [
     "soland",
     "cotest",
     "coauth",
-    "teabay",
+    "flagon",
     "floria",
     "chime",
     "sodmin",

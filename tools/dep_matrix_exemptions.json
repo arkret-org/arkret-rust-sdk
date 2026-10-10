@@ -23,7 +23,7 @@
       "verify": "python arkret-work/tools/dep_matrix.py --why aes-gcm  (cookie must disappear from the 0.10 column)"
     },
     "dioxus-0.7.10-fullstack": {
-      "summary": "dioxus is pinned exactly at =0.7.10 in inkson, coauth, teabay and sodmin. dioxus-fullstack 0.7.10 pulls reqwest 0.12, gloo-net 0.6, gloo-utils 0.2 and base64 0.22; dioxus-web pulls gloo-timers 0.3; dioxus-desktop pulls rand 0.9 and (through tao/wry) windows 0.61.",
+      "summary": "dioxus is pinned exactly at =0.7.10 in inkson, coauth, flagon and sodmin. dioxus-fullstack 0.7.10 pulls reqwest 0.12, gloo-net 0.6, gloo-utils 0.2 and base64 0.22; dioxus-web pulls gloo-timers 0.3; dioxus-desktop pulls rand 0.9 and (through tao/wry) windows 0.61.",
       "owner": "inkson",
       "expires_when": "dioxus publishes a release whose dioxus-fullstack depends on reqwest 0.13 and gloo-net 0.7, and the exact pin is moved to it in all four consumers at once.",
       "verify": "python arkret-work/tools/dep_matrix.py --why reqwest  (dioxus-fullstack must disappear from the 0.12 column)"
@@ -150,8 +150,8 @@
       "majors": ["0.7", "0.8", "0.9", "0.10"],
       "families": ["coauth-jose-pkcs8-generation", "salvo-0.96-cookie-0.18", "dioxus-0.7.10-fullstack", "legacy-phf-rand-0.7"],
       "owner": "coauth",
-      "reason": "soland, floria and teabay declare 0.10.2. coauth declares 0.8.5 because ed25519-dalek 2's `rand_core` feature and its key-generation calls are on the rand_core 0.6 generation. teabay additionally declares a second line under the alias rand_09. 0.9 arrives through proptest, sentry, tungstenite and opentelemetry_sdk; 0.7 only through phf_generator 0.8.",
-      "expires_when": "the coauth half expires with family coauth-jose-pkcs8-generation; teabay's rand_09 alias must be removed when its consumer moves to 0.10; the 0.9 tier expires as proptest / sentry / opentelemetry release on rand 0.10.",
+      "reason": "soland, floria and flagon declare 0.10.2. coauth declares 0.8.5 because ed25519-dalek 2's `rand_core` feature and its key-generation calls are on the rand_core 0.6 generation. flagon additionally declares a second line under the alias rand_09. 0.9 arrives through proptest, sentry, tungstenite and opentelemetry_sdk; 0.7 only through phf_generator 0.8.",
+      "expires_when": "the coauth half expires with family coauth-jose-pkcs8-generation; flagon's rand_09 alias must be removed when its consumer moves to 0.10; the 0.9 tier expires as proptest / sentry / opentelemetry release on rand 0.10.",
       "review_after": "2026-12-01"
     },
     {
@@ -206,7 +206,7 @@
       "majors": ["0.6", "0.7"],
       "families": ["dioxus-0.7.10-fullstack"],
       "owner": "sodmin",
-      "reason": "sodmin and teabay's admin UI declare 0.7.0. 0.6.0 comes only from dioxus-fullstack 0.7.10.",
+      "reason": "sodmin and flagon's admin UI declare 0.7.0. 0.6.0 comes only from dioxus-fullstack 0.7.10.",
       "expires_when": "family dioxus-0.7.10-fullstack expires.",
       "review_after": "2026-12-01"
     },

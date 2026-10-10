@@ -12,7 +12,7 @@
         "inkson",
         "sodmin",
         "soland",
-        "teabay"
+        "flagon"
       ],
       "excluded_path_components": [
         ".git",
@@ -100,7 +100,7 @@
       "inkson": 42,
       "sodmin": 1,
       "soland": 187,
-      "teabay": 1
+      "flagon": 1
     },
     "by_schema_shape": {
       "closed": 8,
@@ -6787,14 +6787,14 @@
       "evidence": "json!({ \"id\": id, \"schema\": \"ak.schema.agent_sidecar.v1\", \"realm_id\": event.realm_id, \"controller_account_id\": controller, \"state\": \"active\", \"created_at\": arkret_canonical::format_timestamp_canonical(event.created_at), \"updated_at\": arkret_canonical::format_timestamp_canonica..."
     },
     {
-      "finding": "json_authoring:teabay/crates/server/src/audit.rs::compute_row_digest:a32777448262ea00",
+      "finding": "json_authoring:flagon/crates/server/src/audit.rs::compute_row_digest:a32777448262ea00",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
-      "file": "teabay/crates/server/src/audit.rs",
-      "path": "teabay/crates/server/src/audit.rs",
+      "file": "flagon/crates/server/src/audit.rs",
+      "path": "flagon/crates/server/src/audit.rs",
       "owner": "compute_row_digest",
-      "owner_repository": "teabay",
+      "owner_repository": "flagon",
       "symbol": "compute_row_digest",
       "field": "actor_id,kind",
       "discriminator": "kind",

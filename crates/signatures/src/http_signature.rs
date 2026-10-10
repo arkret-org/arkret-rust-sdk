@@ -310,7 +310,7 @@ impl SignatureInput {
 }
 
 /// HTTP Message Signature profile policy shared by services such as floria and
-/// teabay.
+/// flagon.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignatureVerificationPolicy {
     required_components: Vec<Component>,
