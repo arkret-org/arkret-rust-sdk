@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, MlsWelcomeDelivery,
-    ProtocolKind,
+    AccountId, ActorPrivateUpdateKind, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId,
+    MlsWelcomeDelivery, ProtocolKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -159,7 +159,8 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
         } else {
             if !matches!(
                 fields.kind.as_str(),
-                "ak.account_data.update" | "ak.read_cursor.update"
+                ActorPrivateUpdateKind::ACCOUNT_DATA_UPDATE
+                    | ActorPrivateUpdateKind::READ_CURSOR_UPDATE
             ) {
                 return Err(D::Error::custom(
                     "Station sender requires an actor-private update kind",

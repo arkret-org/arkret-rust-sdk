@@ -1,6 +1,7 @@
 //! Private durable management review carriers. Pending review grants no authority.
 use arkret_wire::{
     ActorId, AppletId, ApprovalSignature, Event, Hash, ManagementOperation, ScopeRef,
+    event_kind_str,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,11 +47,13 @@ impl ManagementReviewRequestBody {
                 ManagementReviewTarget::GhostCreation { request_body, .. },
             ) => request_body.validate().is_ok(),
             (ManagementOperation::Join, ManagementReviewTarget::Event { event }) => {
-                event.kind.as_str() == "ak.member.state"
+                event.kind.as_str() == event_kind_str::MEMBER_STATE
             }
             (ManagementOperation::Publish, ManagementReviewTarget::Event { event }) => matches!(
                 event.kind.as_str(),
-                "ak.agent.interaction.set" | "ak.profile.create" | "ak.profile.update"
+                event_kind_str::AGENT_INTERACTION_SET
+                    | event_kind_str::PROFILE_CREATE
+                    | event_kind_str::PROFILE_UPDATE
             ),
             _ => false,
         };

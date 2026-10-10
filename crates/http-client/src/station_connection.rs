@@ -79,7 +79,10 @@ async fn fetch_with_client(client: &reqwest::Client, endpoint: &Url) -> Result<V
         let response = client
             .get(endpoint.clone())
             .header(reqwest::header::ACCEPT_ENCODING, "identity")
-            .header(crate::HEADER_OPERATION, "ak.server.read.describe.v1")
+            .header(
+                crate::HEADER_OPERATION,
+                arkret_wire::ServiceOperationId::SERVER_READ_DESCRIBE_V1,
+            )
             .send()
             .await
             .map_err(crate::client_internals::transport_error)?;

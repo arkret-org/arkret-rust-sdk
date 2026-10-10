@@ -9,6 +9,7 @@ use arkret_wire::{
     DomainSeparationId, EventAdmissionSubmission, EventId, EventKind, Hash, MimiRoomUri,
     MlsGroupId, NonEmptyString, ObjectRef, PayloadProof, ProofContextId, RealmId, ReportId, Result,
     ScopeRef, ServiceOperationId, StrandId, UnsignedPayloadProof, WireError, canonical,
+    event_kind_str,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -194,7 +195,7 @@ pub struct MimiRoomUpdateRequestBody {
 
 impl MimiRoomUpdateRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if (self.update.kind.as_str() == "ak.mimi.room_binding")
+        if (self.update.kind.as_str() == event_kind_str::MIMI_ROOM_BINDING)
             != self.room_binding_event.is_some()
         {
             return Err(WireError::Protocol(
