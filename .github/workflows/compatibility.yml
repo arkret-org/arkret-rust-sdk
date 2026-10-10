@@ -154,7 +154,7 @@ jobs:
       - name: Install native desktop dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
 
       - name: Run ordered compile matrix
         run: >-
@@ -164,10 +164,13 @@ jobs:
           --category compile
           --report "${{ runner.temp }}/compatibility-check-reports/compile.json"
 
+      - name: Install Dioxus CLI for the real Inkson web contract
+        run: cargo install dioxus-cli --version 0.7.10 --locked
+
       - name: Install Cotest contract dependencies
         working-directory: cotest/e2e
         run: |
-          npm ci || npm install
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Build exact Soland candidate image
