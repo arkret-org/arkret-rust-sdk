@@ -25,6 +25,36 @@ fn fixture() -> Value {
     spec_json_artifact(FIXTURE_PATH).expect("client sync fixture must load")
 }
 
+#[test]
+fn account_stale_fixture_has_an_exact_typed_continuation_without_installation() {
+    let fixture = fixture();
+    let case = cases(&fixture, "reconnect")
+        .iter()
+        .find(|case| name(case) == "revision_stale_keeps_the_cursor_and_continues_backfill")
+        .expect("independent stale-prefix recovery case");
+    let problem: arkret_wire::Problem =
+        serde_json::from_value(case["response_problem"].clone()).unwrap();
+    let details = problem.account_revision_stale_details().unwrap().unwrap();
+    details
+        .validate_after(case["stored_cursor"].as_str().unwrap())
+        .unwrap();
+    assert!(details.validate_after("ak:cursor:replaced").is_err());
+    for field in [
+        "baseline_redone",
+        "discard_old_cursor",
+        "checkpoint_advanced_on_error",
+        "delivery_acks_invalidated",
+        "mls_private_state_deleted",
+    ] {
+        assert_eq!(case[field], false, "{field}");
+    }
+    assert_eq!(case["fresh_process_readback"], true);
+    assert_eq!(
+        case["expected_client_action"],
+        "follow_the_response_continuation_cursor"
+    );
+}
+
 fn cases<'a>(fixture: &'a Value, key: &str) -> &'a Vec<Value> {
     fixture[key]
         .as_array()

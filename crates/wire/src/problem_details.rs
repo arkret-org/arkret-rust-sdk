@@ -5,6 +5,64 @@ use std::result::Result as StdResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Account stale-prefix continuation, not a newly installable checkpoint.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct AccountRevisionStaleProblem {
+    continuation_cursor: String,
+}
+
+impl AccountRevisionStaleProblem {
+    pub fn new(continuation_cursor: impl Into<String>) -> crate::Result<Self> {
+        let continuation_cursor = continuation_cursor.into();
+        let suffix = continuation_cursor
+            .strip_prefix("ak:cursor:")
+            .ok_or_else(|| {
+                crate::WireError::Protocol("Account continuation is not a cursor token".into())
+            })?;
+        if suffix.is_empty()
+            || suffix.len() > 2028
+            || !suffix
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
+            return Err(crate::WireError::Protocol(
+                "Account continuation has invalid token shape".into(),
+            ));
+        }
+        Ok(Self {
+            continuation_cursor,
+        })
+    }
+
+    pub fn continuation_cursor(&self) -> &str {
+        &self.continuation_cursor
+    }
+
+    pub fn validate_after(&self, after: &str) -> crate::Result<()> {
+        if self.continuation_cursor != after {
+            return Err(crate::WireError::Protocol(
+                "Account continuation differs from request after".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for AccountRevisionStaleProblem {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireDetails {
+            continuation_cursor: String,
+        }
+        let wire = WireDetails::deserialize(deserializer)?;
+        Self::new(wire.continuation_cursor).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Closed issuer-ledger state returned for an exact replay whose recorded
 /// grant has expired. This is not a hint to transparently issue again.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -430,6 +488,41 @@ impl Problem {
         self
     }
 
+    /// Producer helper for the registered Account operation branch only.
+    pub fn account_revision_stale(
+        detail: impl Into<String>,
+        details: AccountRevisionStaleProblem,
+    ) -> Self {
+        Self::from_code(crate::error_codes::ErrorCode::REVISION_STALE, detail).with_extension(
+            "continuation_cursor",
+            Value::String(details.continuation_cursor),
+        )
+    }
+
+    /// Only an Account continuation consumer may interpret this extension.
+    /// Unknown RFC 9457 members remain tolerated; missing or malformed recovery
+    /// material is not a command to reset or to install a new checkpoint.
+    pub fn account_revision_stale_details(
+        &self,
+    ) -> crate::Result<Option<AccountRevisionStaleProblem>> {
+        if self.error_code() != Some(crate::error_codes::ErrorCode::RevisionStale) {
+            return Ok(None);
+        }
+        if self.status != 409 {
+            return Err(crate::WireError::Protocol(
+                "Account revision_stale requires status 409".into(),
+            ));
+        }
+        let cursor = self
+            .extensions
+            .get("continuation_cursor")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                crate::WireError::Protocol("Account revision_stale lacks its continuation".into())
+            })?;
+        AccountRevisionStaleProblem::new(cursor).map(Some)
+    }
+
     /// Set (or clear) the retry hint carried as the `retry_after_ms` extension.
     pub fn with_retry_after_ms(mut self, retry_after_ms: Option<u64>) -> Self {
         match retry_after_ms {
@@ -624,6 +717,47 @@ mod tests {
                 "detail": "session grant is revoked",
                 "instance": "ak:request:test"
             })
+        );
+    }
+
+    #[test]
+    fn account_stale_continuation_is_typed_exact_and_not_a_new_cut() {
+        let after = "ak:cursor:account-backfill";
+        let problem = Problem::account_revision_stale(
+            "recoverable lag",
+            AccountRevisionStaleProblem::new(after).unwrap(),
+        )
+        .with_extension("future_hint", json!(true));
+        let details = problem.account_revision_stale_details().unwrap().unwrap();
+        details.validate_after(after).unwrap();
+        assert!(details.validate_after("ak:cursor:another-cut").is_err());
+        assert_eq!(details.continuation_cursor(), after);
+        let mut wrong_status = problem.clone();
+        wrong_status.status = 400;
+        assert!(wrong_status.account_revision_stale_details().is_err());
+        let wrong_code = Problem::from_code("cas_conflict", "not recovery")
+            .with_extension("continuation_cursor", json!(after));
+        assert!(
+            wrong_code
+                .account_revision_stale_details()
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            Problem::from_code("revision_stale", "missing recovery")
+                .account_revision_stale_details()
+                .is_err()
+        );
+        for token in [
+            "",
+            "ak:cursor:",
+            "ak:cursor:with space",
+            "ak:cursor:with+plus",
+        ] {
+            assert!(AccountRevisionStaleProblem::new(token).is_err());
+        }
+        assert!(
+            AccountRevisionStaleProblem::new(format!("ak:cursor:{}", "a".repeat(2029))).is_err()
         );
     }
 

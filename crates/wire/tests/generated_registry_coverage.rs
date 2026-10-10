@@ -17,6 +17,7 @@ fn account_subscription_declares_registered_cursor_recovery_errors() {
         ErrorCode::CursorExpired,
         ErrorCode::CursorIntegrityInvalid,
         ErrorCode::CursorRevoked,
+        ErrorCode::RevisionStale,
     ] {
         assert!(errors.contains(&OperationSpecificError::Code(code)));
     }

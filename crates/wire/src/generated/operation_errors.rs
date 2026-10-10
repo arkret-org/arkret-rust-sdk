@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-10.1;
-//! sha256=da0a7c85bf2a75dbff7b9c027dd1bd30183e22b363aef588b0b5c9036029a8db Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-10.2;
+//! sha256=4f763185841608de3ac8c45581adb700f4f6d02b4565f2c706d9cc2fb309263c Input: registry/
 //! contract-registry.json; version=2026-10-09.4;
 //! sha256=f274e9cd7038155143cc01feb49bb1692cdec2002c209c75854998182a4a502d Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
@@ -451,6 +451,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),
         OperationSpecificError::Code(ErrorCode::CursorRevoked),
+        OperationSpecificError::Code(ErrorCode::RevisionStale),
         OperationSpecificError::Code(ErrorCode::StreamDropped),
         OperationSpecificError::Code(ErrorCode::StreamResyncRequired),
     ],
