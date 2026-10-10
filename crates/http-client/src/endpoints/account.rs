@@ -719,22 +719,12 @@ mod tests {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    #[derive(Clone, Copy)]
-    enum ReplayTrigger {
-        Timeout,
-        ServiceUnavailable,
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
     async fn start_exact_replay_server(
-        trigger: ReplayTrigger,
         success_body: String,
     ) -> (
         std::net::SocketAddr,
         tokio::task::JoinHandle<(Vec<u8>, Vec<u8>)>,
     ) {
-        use std::time::Duration as StdDuration;
-
         use tokio::io::AsyncWriteExt;
         use tokio::net::TcpListener;
 
@@ -743,26 +733,21 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut first, _) = listener.accept().await.unwrap();
             let first_raw = read_http_request(&mut first).await;
-            match trigger {
-                ReplayTrigger::Timeout => {
-                    tokio::time::sleep(StdDuration::from_millis(80)).await;
-                }
-                ReplayTrigger::ServiceUnavailable => {
-                    let body = serde_json::json!({
-                        "type": "https://arkret.org/problems/checkpoint_unavailable",
-                        "title": "Checkpoint unavailable",
-                        "status": 503,
-                        "detail": "retry",
-                        "instance": "attempt-1"
-                    })
-                    .to_string();
-                    let response = format!(
-                        "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                        body.len(),
-                        body
-                    );
-                    first.write_all(response.as_bytes()).await.unwrap();
-                }
+            {
+                let body = serde_json::json!({
+                    "type": "https://arkret.org/problems/checkpoint_unavailable",
+                    "title": "Checkpoint unavailable",
+                    "status": 503,
+                    "detail": "retry",
+                    "instance": "attempt-1"
+                })
+                .to_string();
+                let response = format!(
+                    "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                first.write_all(response.as_bytes()).await.unwrap();
             }
             drop(first);
 
@@ -777,6 +762,48 @@ mod tests {
             (first_raw, second_raw)
         });
         (addr, server)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn start_timeout_replay_server(
+        success_body: String,
+    ) -> (
+        std::net::SocketAddr,
+        tokio::task::JoinHandle<(Vec<u8>, Vec<u8>)>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        use tokio::io::AsyncWriteExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (received_tx, received_rx) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (mut first, _) = listener.accept().await.unwrap();
+            let first_raw = read_http_request(&mut first).await;
+            received_tx.send(()).unwrap();
+            // Keep the first committed request open until the actual timeout
+            // causes a retry. No server sleep competes with its response budget.
+            let (mut second, _) = listener.accept().await.unwrap();
+            let second_raw = read_http_request(&mut second).await;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                success_body.len(),
+                success_body
+            );
+            second.write_all(response.as_bytes()).await.unwrap();
+            drop(first);
+            (first_raw, second_raw)
+        });
+        (addr, server, received_rx)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn expire_committed_attempt(received: tokio::sync::oneshot::Receiver<()>) {
+        received.await.unwrap();
+        // Freeze only after real TCP/request progress: a paused runtime must
+        // not auto-advance the deadline while the socket is still connecting.
+        tokio::time::pause();
+        tokio::time::advance(std::time::Duration::from_secs(31)).await;
+        tokio::time::resume();
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -823,30 +850,8 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::time::Duration as StdDuration;
 
-        use tokio::io::AsyncWriteExt;
-        use tokio::net::TcpListener;
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move {
-            let (mut first, _) = listener.accept().await.unwrap();
-            let first_raw = read_http_request(&mut first).await;
-            // Keep the committed first request open without a response. The
-            // client timeout deterministically opens the retry; accepting it
-            // directly avoids making the second attempt race an arbitrary
-            // wall-clock sleep under a loaded test runner.
-            let (mut second, _) = listener.accept().await.unwrap();
-            let second_raw = read_http_request(&mut second).await;
-            let body = session_grant_outcome_json();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                body
-            );
-            second.write_all(response.as_bytes()).await.unwrap();
-            drop(first);
-            (first_raw, second_raw)
-        });
+        let (addr, server, received) =
+            start_timeout_replay_server(session_grant_outcome_json()).await;
 
         let proof_calls = Arc::new(AtomicUsize::new(0));
         let proof_calls_for_auth = Arc::clone(&proof_calls);
@@ -858,7 +863,7 @@ mod tests {
                     proof_calls_for_auth.fetch_add(1, Ordering::SeqCst)
                 ))
             })))
-            .timeout(StdDuration::from_millis(40))
+            .timeout(StdDuration::from_secs(30))
             .retry(
                 crate::RetryConfig {
                     base_delay: StdDuration::from_millis(1),
@@ -869,10 +874,13 @@ mod tests {
             .build()
             .unwrap();
 
-        client
-            .auth_issue_session_grant(&session_grant_request())
-            .await
-            .unwrap();
+        let request = tokio::spawn(async move {
+            client
+                .auth_issue_session_grant(&session_grant_request())
+                .await
+        });
+        expire_committed_attempt(received).await;
+        request.await.unwrap().unwrap();
         let (first, second) = server.await.unwrap();
         let (_, first_headers, first_body) = split_request(&first);
         let (_, second_headers, second_body) = split_request(&second);
@@ -904,13 +912,16 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn session_grant_refresh_timeout_reuses_exact_body_without_idempotency_key() {
-        let (addr, server) =
-            start_exact_replay_server(ReplayTrigger::Timeout, session_grant_refresh_outcome_json())
-                .await;
-        exact_replay_client(addr, 40)
-            .auth_refresh_session_grant(&session_grant_refresh_request())
-            .await
-            .unwrap();
+        let (addr, server, received) =
+            start_timeout_replay_server(session_grant_refresh_outcome_json()).await;
+        let client = exact_replay_client(addr, 30_000);
+        let request = tokio::spawn(async move {
+            client
+                .auth_refresh_session_grant(&session_grant_refresh_request())
+                .await
+        });
+        expire_committed_attempt(received).await;
+        request.await.unwrap().unwrap();
         let (first, second) = server.await.unwrap();
         assert_exact_replay_capture(
             &first,
@@ -922,11 +933,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn session_grant_issue_and_refresh_replay_exact_body_after_5xx() {
-        let (addr, server) = start_exact_replay_server(
-            ReplayTrigger::ServiceUnavailable,
-            session_grant_outcome_json(),
-        )
-        .await;
+        let (addr, server) = start_exact_replay_server(session_grant_outcome_json()).await;
         exact_replay_client(addr, 1_000)
             .auth_issue_session_grant(&session_grant_request())
             .await
@@ -934,11 +941,7 @@ mod tests {
         let (first, second) = server.await.unwrap();
         assert_exact_replay_capture(&first, &second, "/_arkret/gate/account/session-grants");
 
-        let (addr, server) = start_exact_replay_server(
-            ReplayTrigger::ServiceUnavailable,
-            session_grant_refresh_outcome_json(),
-        )
-        .await;
+        let (addr, server) = start_exact_replay_server(session_grant_refresh_outcome_json()).await;
         exact_replay_client(addr, 1_000)
             .auth_refresh_session_grant(&session_grant_refresh_request())
             .await

@@ -64,7 +64,7 @@ rand_chacha.workspace = true
 rand_core.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt", "net", "io-util"] }
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util", "test-util"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { workspace = true }

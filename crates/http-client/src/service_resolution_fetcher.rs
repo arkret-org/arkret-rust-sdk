@@ -435,16 +435,41 @@ mod tests {
     async fn describe_fetch_has_one_total_deadline() {
         let fetcher =
             ServiceResolutionFetcher::with_egress_policy(OutboundPolicy::local_development());
-        let base = serve_once(
-            "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_owned(),
-            Duration::from_millis(100),
-        )
-        .await;
-        let started = tokio::time::Instant::now();
-        let _error = fetcher
-            .fetch_describe_with_timeout(&base, ServiceKind::Station, Duration::from_millis(10))
-            .await
-            .unwrap_err();
-        assert!(started.elapsed() < Duration::from_millis(80));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (received_tx, received_rx) = oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 4096];
+            let received = stream.read(&mut request).await.unwrap();
+            assert!(received > 0);
+            // Headers and a partial body prove the transport has progressed;
+            // withholding the final byte requires the same total deadline to
+            // terminate the body read, not merely the connection handshake.
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{")
+                .await
+                .unwrap();
+            received_tx.send(()).unwrap();
+            std::future::pending::<()>().await;
+        });
+        let request = tokio::spawn(async move {
+            fetcher
+                .fetch_describe_with_timeout(
+                    &format!("http://{address}/"),
+                    ServiceKind::Station,
+                    Duration::from_secs(5),
+                )
+                .await
+        });
+        received_rx.await.unwrap();
+        tokio::time::pause();
+        tokio::time::advance(Duration::from_secs(6)).await;
+        let error = request.await.unwrap().unwrap_err().to_string();
+        assert!(
+            error.contains("exceeded 5 seconds") || error.contains("timed out"),
+            "{error}"
+        );
+        server.abort();
     }
 }
