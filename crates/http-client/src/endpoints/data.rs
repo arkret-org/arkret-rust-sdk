@@ -555,12 +555,12 @@ impl Client {
 
     pub async fn receive_device_messages(
         &self,
-        from: Option<&str>,
+        after: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DeviceMessagesGetOutcome> {
         let mut builder = self.request(Method::GET, "/_arkret/self/device_messages")?;
-        if let Some(from) = from {
-            builder = builder.query(&[("from", from)]);
+        if let Some(after) = after {
+            builder = builder.query(&[("after", after)]);
         }
         if let Some(limit) = limit {
             builder = builder.query(&[("limit", limit)]);
