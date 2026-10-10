@@ -4895,14 +4895,14 @@
     },
     {
       "finding": "soland/crates/storage/src/key_backup.rs::KeyBackupUnlockCommand.backup",
-      "classification": "polymorphic_boundary",
+      "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret_models_crypto::KeyBackup",
+      "authority": "arkret_models_crypto::KeyBackup validated raw_payload equality witness",
       "owner_repository": "soland",
-      "action": "Keep the original encrypted persistence envelope for canonical object charge and guarded release; verify against the authoritative SDK KeyBackup contract before release.",
-      "test": "python tools/wire_value_audit.py --check; cargo test -p cotest --test key_backup_protocol",
-      "reason": "The upstream transaction command groups the existing Value method argument without introducing a new wire object. The HTTP unlock path verifies the envelope and proof under the SDK KeyBackup contract before the guarded same-cut storage command consumes it; the response is decoded to the SDK type.",
+      "action": "Preserve the exact stored envelope already decoded and validated as KeyBackup by the unlock verifier; compare the whole payload with the locked current row and frozen object digest before consuming authority.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This non-serializable storage command aggregates the former consume_unlock argument without adding an external schema or an untyped authoring path. The HTTP verifier decodes and validates the SDK KeyBackup, verifies its proof and signing trust root, then passes the same stored JSON to the transaction. The PG transaction rechecks the active pointer, compares the locked current payload and frozen digest/charge, and retains holder/replay/budget guards. A typed serialization round trip could normalize missing/default fields and change this exact compare-and-swap witness.",
       "adjudication": "manual"
     },
     {
