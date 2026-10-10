@@ -230,6 +230,9 @@ jobs:
   coverage:
     name: coverage
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: arkret-rust-sdk
@@ -253,10 +256,17 @@ jobs:
         run: cargo install cargo-tarpaulin --locked
       - name: Generate coverage report
         run: cargo tarpaulin --config tarpaulin.toml --out Xml
+      - name: Preserve coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-coverage-${{ github.sha }}
+          path: arkret-rust-sdk/cobertura.xml
+          if-no-files-found: error
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         with:
           files: arkret-rust-sdk/cobertura.xml
+          use_oidc: true
           fail_ci_if_error: true
 
   package-check:
