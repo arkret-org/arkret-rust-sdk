@@ -3722,17 +3722,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/events/sync/cursor.rs::stored_value_from_sync_cursor_record:9fef0e0fe9604edf",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning device_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/identity/contact_federation.rs::validate_contact_lineage_carrier:addb37bb3db9e798",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4903,6 +4892,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/storage/src/key_backup.rs::KeyBackupUnlockCommand.backup",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::KeyBackup",
+      "owner_repository": "soland",
+      "action": "Keep the original encrypted persistence envelope for canonical object charge and guarded release; verify against the authoritative SDK KeyBackup contract before release.",
+      "test": "python tools/wire_value_audit.py --check; cargo test -p cotest --test key_backup_protocol",
+      "reason": "The upstream transaction command groups the existing Value method argument without introducing a new wire object. The HTTP unlock path verifies the envelope and proof under the SDK KeyBackup contract before the guarded same-cut storage command consumes it; the response is decoded to the SDK type.",
+      "adjudication": "manual"
     },
     {
       "finding": "soland/crates/storage/src/member_identity.rs::HandleClaimEvidenceRecord.envelope",

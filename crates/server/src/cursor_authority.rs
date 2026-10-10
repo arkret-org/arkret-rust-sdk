@@ -124,10 +124,16 @@ impl CursorAuthority {
 
     /// Decode a stream token before looking up its server-private binding.
     pub fn decode_stream(token: &str) -> Result<Cursor, CursorAuthorityError> {
-        let cursor = Cursor::decode(token).map_err(|error| match error {
-            arkret_wire::WireError::Protocol(message) if message == "cursor has expired" => {
-                CursorAuthorityError::Expired
-            }
+        let cursor = Cursor::decode_for_purpose_at(
+            token,
+            chrono::Utc::now().timestamp_millis(),
+            &CursorPurpose::Stream,
+        )
+        .map_err(|error| match error {
+            arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::CursorExpired,
+                ..
+            } => CursorAuthorityError::Expired,
             other => CursorAuthorityError::ParamInvalid(other.to_string()),
         })?;
         if cursor.purpose != CursorPurpose::Stream {
@@ -144,18 +150,50 @@ impl CursorAuthority {
         expected: &CursorBindingContext,
         record: Option<&CursorBindingRecord>,
     ) -> Result<Value, CursorAuthorityError> {
+        Self::validate_binding(
+            cursor,
+            &CursorPurpose::Stream,
+            expected,
+            record,
+            chrono::Utc::now().timestamp_millis(),
+        )?;
         let record = record.ok_or(CursorAuthorityError::IntegrityInvalid)?;
-        let cursor_issued_at_ms = cursor.issued_at.timestamp_millis();
-        if cursor.purpose != CursorPurpose::Stream
-            || record.purpose != CursorPurpose::Stream
+        Ok(record.positions.clone())
+    }
+
+    /// Shared issuance and request binding stage, after wire validation and
+    /// before revocation or reading positions. Operation/target constraints
+    /// belong in the canonical request-scope digest supplied by the issuer.
+    pub fn validate_binding(
+        cursor: &Cursor,
+        purpose: &CursorPurpose,
+        expected: &CursorBindingContext,
+        record: Option<&CursorBindingRecord>,
+        now_ms: i64,
+    ) -> Result<(), CursorAuthorityError> {
+        if &cursor.purpose != purpose {
+            return Err(CursorAuthorityError::ParamInvalid(
+                "cursor purpose does not match request context".to_owned(),
+            ));
+        }
+        cursor.validate_at(now_ms).map_err(|error| {
+            if error.error_code() == Some(arkret_wire::ErrorCode::CursorExpired) {
+                CursorAuthorityError::Expired
+            } else {
+                CursorAuthorityError::ParamInvalid(error.to_string())
+            }
+        })?;
+        let record = record.ok_or(CursorAuthorityError::IntegrityInvalid)?;
+        if &record.purpose != purpose
             || record.handle != cursor.h
-            || record.issued_at_ms != cursor_issued_at_ms
+            || record.issued_at_ms != cursor.issued_at.timestamp_millis()
             || record.expires_at_ms != cursor.expires_at.timestamp_millis()
+            || record.expires_at_ms <= now_ms
             || &record.context != expected
         {
             return Err(CursorAuthorityError::IntegrityInvalid);
         }
-        Ok(record.positions.clone())
+        Ok(())
     }
 }
 
@@ -249,6 +287,35 @@ mod tests {
             authority.resolve_stream(&token, &context).unwrap(),
             json!({"offset": 20})
         );
+    }
+
+    #[test]
+    fn binding_lookup_preserves_expiry_priority_at_the_boundary() {
+        let context = context("did:web:alice.example", "sha256:filter-a");
+        let at = chrono::DateTime::from_timestamp_millis(1_800_000_000_000).unwrap();
+        let cursor = Cursor::new_at(at, 1_000).unwrap();
+        let decoded =
+            Cursor::decode_at(&cursor.encode().unwrap(), at.timestamp_millis() + 999).unwrap();
+        assert_eq!(
+            CursorAuthority::validate_binding(
+                &decoded,
+                &CursorPurpose::Stream,
+                &context,
+                None,
+                at.timestamp_millis() + 1_000,
+            ),
+            Err(CursorAuthorityError::Expired)
+        );
+        assert!(matches!(
+            CursorAuthority::validate_binding(
+                &decoded,
+                &CursorPurpose::Barrier,
+                &context,
+                None,
+                at.timestamp_millis() + 1_000,
+            ),
+            Err(CursorAuthorityError::ParamInvalid(_))
+        ));
     }
 
     #[test]

@@ -257,6 +257,28 @@ impl Client {
         }
         if let Some(wait_for) = &options.wait_for {
             validate_header_value(HEADER_WAIT_FOR, wait_for)?;
+            arkret_wire::Cursor::new(wait_for.clone())
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            let request = builder
+                .try_clone()
+                .ok_or_else(|| Error::Protocol("wait-for requires a replayable request".into()))?
+                .build()
+                .map_err(transport_error)?;
+            let operation = request
+                .headers()
+                .get(HEADER_OPERATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(ServiceOperationId::from_wire);
+            if operation.and_then(|operation| operation.wait_for_carrier("http_json"))
+                != Some(("header", "X-Arkret-Wait-For"))
+            {
+                return Err(Error::Protocol(
+                    "operation does not register an HTTP wait-for header".into(),
+                ));
+            }
+            if request.headers().contains_key(HEADER_WAIT_FOR) {
+                return Err(Error::Protocol("duplicate wait-for header".into()));
+            }
             builder = builder.header(HEADER_WAIT_FOR, wait_for);
         }
         Ok(builder)

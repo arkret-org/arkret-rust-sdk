@@ -508,10 +508,6 @@ fn is_hash(value: &str) -> bool {
             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
-fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
-    move |value| value.starts_with(prefix) && value.len() > prefix.len()
-}
-
 /// Validate the `ak:plan:<base64url>` wire form. The suffix is an opaque,
 /// non-empty, unpadded base64url token. Spec: id-kind-registry.json
 /// `special_forms[plan]`; pattern matches applet-install-plan.schema.json
@@ -1159,7 +1155,8 @@ declare_special_form_id_kinds! {
     // Content-addressed Blob bytes. Distinct from `BlobId`, which is the
     // `ak:blob:<uuidv7>` metadata-resource identity.
     BlobRef, "blob", is_blob_ref;
-    Cursor, "cursor", has_prefix("ak:cursor:");
+    Cursor, "cursor", |value: &str| value.strip_prefix("ak:cursor:").is_some_and(|token|
+        !token.is_empty() && token.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')));
     OrganizationRegistrationChallengeId, "organization_registration_challenge",
         |value: &str| is_hex_identifier(value, "ak:organization_registration_challenge:");
     OrganizationRegistrationReceiptId, "organization_registration_receipt",
@@ -1658,6 +1655,14 @@ mod tests {
         assert!(BlobRef::new("ak:blob:01904100-0000-7000-8000-000000000001").is_err());
         assert_eq!(Cursor::ID_KIND, "cursor");
         assert!(Cursor::new("ak:cursor:b3RoZXI").is_ok());
+        for token in [
+            "ak:cursor:",
+            "ak:cursor:one,two",
+            "ak:cursor:a=",
+            "ak:cursor:a b",
+        ] {
+            assert!(Cursor::new(token).is_err());
+        }
         assert_eq!(PlanId::ID_KIND, "plan");
         assert!(PlanId::new("ak:plan:b3RoZXI").is_ok());
         assert_eq!(

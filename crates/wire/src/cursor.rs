@@ -9,10 +9,8 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::{Result, SchemaId, WireError};
 
-/// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
-/// base64url alphabet representation. Schema `cursor.schema.json` raises
-/// `h.minLength` to 22 so the decoded handle has ≥128 bits of entropy
-/// (`128 / 6 ≈ 21.33` → at least 22 base64url characters).
+/// Minimum lexical length of a stateful cursor handle. Length alone does
+/// not prove entropy; issuers use 128 CSPRNG bits in `generate_cursor_handle`.
 pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 
 /// Generate a fresh ≥22-character base64url cursor handle.
@@ -228,6 +226,23 @@ impl Cursor {
 
     /// Decode and validate a cursor against an explicit receiver clock.
     pub fn decode_at(encoded: &str, now_ms: i64) -> Result<Self> {
+        Self::decode_with_purpose_at(encoded, now_ms, None)
+    }
+
+    /// Context purpose is validated before expiry, using the shared codec.
+    pub fn decode_for_purpose_at(
+        encoded: &str,
+        now_ms: i64,
+        purpose: &CursorPurpose,
+    ) -> Result<Self> {
+        Self::decode_with_purpose_at(encoded, now_ms, Some(purpose))
+    }
+
+    fn decode_with_purpose_at(
+        encoded: &str,
+        now_ms: i64,
+        purpose: Option<&CursorPurpose>,
+    ) -> Result<Self> {
         let encoded = encoded.strip_prefix("ak:cursor:").ok_or_else(|| {
             WireError::Protocol("cursor token must start with ak:cursor:".to_owned())
         })?;
@@ -258,15 +273,41 @@ impl Cursor {
             )));
         }
 
-        let cursor: Cursor = arkret_canonical::canonical::from_canonical_json_slice(&json)
-            .map_err(|error| WireError::Protocol(format!("invalid cursor JSON: {error}")))?;
+        let mut body: serde_json::Value =
+            arkret_canonical::canonical::from_canonical_json_slice(&json)
+                .map_err(|error| WireError::Protocol(format!("invalid cursor JSON: {error}")))?;
+        {
+            let fields = body
+                .as_object_mut()
+                .ok_or_else(|| WireError::Protocol("cursor body must be an object".into()))?;
+            for name in fields.keys().filter(|name| name.starts_with('_')) {
+                if name == "_mac"
+                    || name == "_sig"
+                    || !name
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                {
+                    return Err(WireError::Protocol("invalid cursor auxiliary field".into()));
+                }
+            }
+            // Auxiliary values never supply identity, time or request binding.
+            fields.retain(|name, _| !name.starts_with('_'));
+        }
+        let cursor: Cursor = serde_json::from_value(body)
+            .map_err(|error| WireError::Protocol(format!("invalid cursor core: {error}")))?;
 
+        if purpose.is_some_and(|expected| &cursor.purpose != expected) {
+            return Err(WireError::Protocol(
+                "cursor purpose does not match request context".into(),
+            ));
+        }
         cursor.validate_at(now_ms)?;
 
         Ok(cursor)
     }
 
-    fn validate_at(&self, now_ms: i64) -> Result<()> {
+    /// Revalidate the decoded wire shape and lifetime at a receiver clock.
+    pub fn validate_at(&self, now_ms: i64) -> Result<()> {
         // Check version
         if self.v != "1" {
             return Err(WireError::Protocol(format!(
@@ -277,11 +318,13 @@ impl Cursor {
 
         self.validate_core_wire_shape()?;
 
-        if self.expires_at.timestamp_millis() < now_ms {
-            return Err(WireError::Protocol("cursor has expired".to_owned()));
-        }
-
         self.validate_ttl_bound(now_ms)?;
+        if self.expires_at.timestamp_millis() <= now_ms {
+            return Err(WireError::ProtocolCode {
+                code: crate::ErrorCode::CursorExpired,
+                message: "cursor has expired".to_owned(),
+            });
+        }
 
         Ok(())
     }
@@ -294,7 +337,7 @@ impl Cursor {
     fn validate_ttl_bound(&self, now_ms: i64) -> Result<()> {
         let issued_at_ms = self.issued_at.timestamp_millis();
         let expires_at_ms = self.expires_at.timestamp_millis();
-        if issued_at_ms > expires_at_ms {
+        if issued_at_ms >= expires_at_ms {
             return Err(WireError::Protocol(
                 "cursor `issued_at` is after `expires_at`; param_invalid".to_owned(),
             ));
@@ -321,8 +364,7 @@ impl Cursor {
     }
 
     fn validate_cursor_handle(handle: &str) -> Result<()> {
-        // Round R2/R3 (2026-05-20): schema raises minLength to 22 so the
-        // base64url-decoded handle has ≥128 bits of entropy (128/6 = 21.33).
+        // Enforce the lexical schema; randomness is an issuer responsibility.
         let len = handle.len();
         if !(CURSOR_HANDLE_MIN_LEN..=256).contains(&len)
             || !handle
@@ -351,7 +393,7 @@ impl Cursor {
 
     /// Check if the cursor is expired.
     pub fn is_expired(&self) -> bool {
-        unix_time_millis().map_or(true, |now_ms| self.expires_at.timestamp_millis() < now_ms)
+        unix_time_millis().map_or(true, |now_ms| self.expires_at.timestamp_millis() <= now_ms)
     }
 }
 
@@ -377,6 +419,35 @@ mod tests {
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
         assert!(encoded.starts_with("ak:cursor:"));
+    }
+
+    #[test]
+    fn cursor_validation_order_and_expiry_boundary() {
+        let at = chrono::DateTime::from_timestamp_millis(1_800_000_000_000).unwrap();
+        let cursor = Cursor::new_at(at, 1_000).unwrap();
+        let token = cursor.encode().unwrap();
+        assert!(Cursor::decode_at(&token, at.timestamp_millis() + 999).is_ok());
+        assert!(matches!(
+            Cursor::decode_at(&token, at.timestamp_millis() + 1_000),
+            Err(WireError::ProtocolCode {
+                code: crate::ErrorCode::CursorExpired,
+                ..
+            })
+        ));
+        assert!(matches!(
+            Cursor::decode_for_purpose_at(
+                &token,
+                at.timestamp_millis() + 1_000,
+                &CursorPurpose::Barrier
+            ),
+            Err(WireError::Protocol(_))
+        ));
+        let mut invalid = cursor;
+        invalid.issued_at = invalid.expires_at;
+        assert!(matches!(
+            Cursor::decode_at(&invalid.encode().unwrap(), at.timestamp_millis() + 1_000),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]
@@ -439,9 +510,8 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_short_handle_below_min_len() {
-        // 21 chars is one below CURSOR_HANDLE_MIN_LEN (22): the decoded handle
-        // would carry <128 bits of entropy, so the wire layer must reject it
-        // outright (encoding.md §handle: minLength 22).
+        // 21 chars is below the schema lexical minimum of 22.
+        // Length validation does not certify issuer entropy.
         let encode_with_handle = |handle: &str| {
             let json = arkret_canonical::canonical::canonical_json_bytes(&serde_json::json!({
                 "v": "1",
@@ -500,7 +570,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_additional_properties() {
-        let json = br#"{"v":"1","purpose":"stream","issued_at":"2099-12-30T23:59:59.000Z","expires_at":"2099-12-31T23:59:59.000Z","h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
+        let json = br#"{"v":"1","purpose":"stream","issued_at":"2099-12-30T23:59:59.000Z","expires_at":"2099-12-31T23:59:59.000Z","h":"abcdefghijklmnopqrstuv","compression":"none"}"#;
         let encoded = format!(
             "ak:cursor:{}",
             arkret_canonical::base64url::base64url_encode(json)
@@ -509,6 +579,55 @@ mod tests {
             Cursor::decode(&encoded),
             Err(WireError::Protocol(_))
         ));
+    }
+
+    #[test]
+    fn cursor_auxiliary_namespace_cannot_override_the_core() {
+        let at = chrono::DateTime::from_timestamp_millis(1_800_000_000_000).unwrap();
+        let cursor = Cursor::new_at(at, 1_000).unwrap();
+        let mut body = serde_json::to_value(&cursor).unwrap();
+        body["_kid"] = serde_json::json!("untrusted-private-key-name");
+        body["_expires_at"] = serde_json::json!("2099-12-31T23:59:59.000Z");
+        let encode = |body: &serde_json::Value| {
+            format!(
+                "ak:cursor:{}",
+                arkret_canonical::base64url::base64url_encode(
+                    &arkret_canonical::canonical_json_bytes(body).unwrap()
+                )
+            )
+        };
+        let token = encode(&body);
+        let array = serde_json::json!([
+            "1",
+            "stream",
+            body["issued_at"],
+            body["expires_at"],
+            body["h"]
+        ]);
+        assert!(matches!(
+            Cursor::decode_at(&encode(&array), at.timestamp_millis()),
+            Err(WireError::Protocol(_))
+        ));
+        let decoded = Cursor::decode_at(&token, at.timestamp_millis()).unwrap();
+        assert_eq!(decoded.h, cursor.h);
+        assert_eq!(decoded.expires_at, cursor.expires_at);
+        assert_eq!(
+            Cursor::decode_at(&token, at.timestamp_millis() + 1_000)
+                .unwrap_err()
+                .error_code(),
+            Some(crate::ErrorCode::CursorExpired)
+        );
+        for key in ["_mac", "_sig", "_invalid-name", "issuer", "positions"] {
+            let mut invalid = body.clone();
+            invalid[key] = serde_json::json!("cannot-supply-authority");
+            assert!(
+                matches!(
+                    Cursor::decode_at(&encode(&invalid), at.timestamp_millis()),
+                    Err(WireError::Protocol(_))
+                ),
+                "{key}"
+            );
+        }
     }
 
     #[test]

@@ -74,12 +74,6 @@ pub struct QueryContext {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct QueryConsistency {
-    pub wait_for: String,
-    pub timeout_ms: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ViewQuery {
     pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -105,7 +99,7 @@ pub struct ViewQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub consistency: Option<QueryConsistency>,
+    pub wait_for: Option<Cursor>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

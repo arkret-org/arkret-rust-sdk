@@ -723,7 +723,7 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         )?;
     }
     output.push_str("        _ => None,\n    } }\n\n    pub fn from_grpc(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.grpc == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_mq_topic(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.mq == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {\n        let specificity = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)).map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count()).min()?;\n        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity);\n        let selected = matches.next()?.id;\n        matches.next().is_none().then_some(selected)\n    }\n\n    pub fn matches_http_request(self, method: &str, path: &str) -> bool { let descriptor = self.descriptor(); descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) }\n    pub fn descriptor(self) -> &'static ServiceOperationDescriptor { &SERVICE_OPERATION_DESCRIPTORS[self as usize] }\n}\n\nimpl std::fmt::Display for ServiceOperationId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ServiceOperationId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ServiceOperationId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown service operation id: {raw}\"))) } }\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ServiceOperationId {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).enum_values(Self::ALL.iter().map(|value| value.as_str())).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ServiceOperationId {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[\n");
-    for row in rows {
+    for row in &rows {
         let http = string(row, "http")?;
         let (method, path) = http
             .split_once(' ')
@@ -759,6 +759,23 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         )?;
     }
     output.push_str("];\n\nfn http_path_template_matches(template: &str, path: &str) -> bool {\n    let mut template_segments = template.split('/');\n    let mut path_segments = path.split('/');\n    loop { match (template_segments.next(), path_segments.next()) {\n        (None, None) => return true,\n        (Some(expected), Some(actual)) => { let placeholder = expected.starts_with('{') && expected.ends_with('}') && expected.len() > 2; if (placeholder && actual.is_empty()) || (!placeholder && expected != actual) { return false; } },\n        _ => return false,\n    } }\n}\n");
+    output.push_str("impl ServiceOperationId {\n    pub fn wait_for_carrier(self, binding: &str) -> Option<(&'static str, &'static str)> {\n        match (self, binding) {\n");
+    let waits = artifact.section_array("operation_registry", "wait_for_bindings")?;
+    let mut seen = BTreeSet::new();
+    for wait in waits {
+        let operation = string(wait, "operation_id")?;
+        let binding = string(wait, "binding_kind")?;
+        if !seen.insert((operation, binding)) {
+            bail!("duplicate wait-for operation/binding {operation} {binding}");
+        }
+        if !rows.iter().any(|row| row.get("operation_id").and_then(Value::as_str) == Some(operation)) {
+            bail!("unregistered wait-for operation {operation}");
+        }
+        writeln!(output, "            (Self::{}, {}) => Some(({}, {})),",
+            variant(operation, &["ak."]), rust_string(binding),
+            rust_string(string(wait, "carrier")?), rust_string(string(wait, "field")?))?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/operation_ids.rs".into(),
         contents: output,

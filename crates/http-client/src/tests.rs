@@ -197,7 +197,7 @@ fn request_options_add_standard_headers() {
     let request = client
         .apply_request_options(
             client
-                .request(Method::POST, "/_arkret/self/events")
+                .request(Method::GET, "/_arkret/self/account/subscribe")
                 .unwrap(),
             &options,
         )
@@ -211,7 +211,7 @@ fn request_options_add_standard_headers() {
     assert_eq!(request.headers()[HEADER_WAIT_FOR], "ak:cursor:01");
     assert_eq!(
         request.headers()[HEADER_OPERATION],
-        "ak.self.events.command.submit.v1"
+        "ak.self.account.stream.subscribe.v1"
     );
 }
 
@@ -227,6 +227,26 @@ fn request_options_reject_header_injection() {
         )
         .unwrap_err();
     assert!(matches!(error, Error::Protocol(_)));
+}
+
+#[test]
+fn wait_for_rejects_unregistered_and_duplicate_carriers() {
+    let client = Client::new(Url::parse("https://alice.example/").unwrap()).unwrap();
+    let options = ClientRequestOptions::new().wait_for("ak:cursor:01");
+    for request in [
+        client
+            .request(Method::POST, "/_arkret/self/events")
+            .unwrap(),
+        client
+            .request(Method::GET, "/_arkret/self/account/subscribe")
+            .unwrap()
+            .header(HEADER_WAIT_FOR, "ak:cursor:01"),
+    ] {
+        assert!(matches!(
+            client.apply_request_options(request, &options),
+            Err(Error::Protocol(_))
+        ));
+    }
 }
 
 #[test]

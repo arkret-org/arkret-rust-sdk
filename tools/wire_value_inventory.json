@@ -65,16 +65,16 @@
       "services": 15,
       "signatures": 18,
       "sodmin": 1,
-      "storage": 67,
+      "storage": 68,
       "storage-postgres": 1,
       "wire": 12
     },
     "by_category": {
       "closed_dispatch": 1,
       "json_authoring": 58,
-      "json_path_mutation": 72,
+      "json_path_mutation": 71,
       "paired_api": 13,
-      "public_value_field": 335
+      "public_value_field": 336
     },
     "by_classification": {
       "independent": 11,
@@ -8212,31 +8212,6 @@
       "evidence": "row.insert("
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/events/sync/cursor.rs::stored_value_from_sync_cursor_record:9fef0e0fe9604edf",
-      "category": "json_path_mutation",
-      "rust_field": null,
-      "crate": null,
-      "file": "soland/crates/http/src/routing/events/sync/cursor.rs",
-      "path": "soland/crates/http/src/routing/events/sync/cursor.rs",
-      "owner": "stored_value_from_sync_cursor_record",
-      "owner_repository": "soland",
-      "symbol": "stored_value_from_sync_cursor_record",
-      "field": "device_id",
-      "discriminator": null,
-      "data_field": "device_id",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning device_id",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
-      "evidence": "ctx.insert(\"device_id\".to_owned(), Value::String(device_id));"
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/identity/contact_federation.rs::validate_contact_lineage_carrier:addb37bb3db9e798",
       "category": "json_path_mutation",
       "rust_field": null,
@@ -10860,6 +10835,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public Vec<serde_json::Value> field"
+    },
+    {
+      "finding": "soland/crates/storage/src/key_backup.rs::KeyBackupUnlockCommand.backup",
+      "category": "public_value_field",
+      "rust_field": "soland/crates/storage/src/key_backup.rs::KeyBackupUnlockCommand.backup",
+      "crate": "storage",
+      "file": "soland/crates/storage/src/key_backup.rs",
+      "path": "soland/crates/storage/src/key_backup.rs",
+      "owner": "KeyBackupUnlockCommand",
+      "owner_repository": "soland",
+      "symbol": "KeyBackupUnlockCommand.backup",
+      "field": "backup",
+      "discriminator": null,
+      "data_field": "backup",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::KeyBackup",
+      "action": "Keep the original encrypted persistence envelope for canonical object charge and guarded release; verify against the authoritative SDK KeyBackup contract before release.",
+      "test": "python tools/wire_value_audit.py --check; cargo test -p cotest --test key_backup_protocol",
+      "reason": "The upstream transaction command groups the existing Value method argument without introducing a new wire object. The HTTP unlock path verifies the envelope and proof under the SDK KeyBackup contract before the guarded same-cut storage command consumes it; the response is decoded to the SDK type.",
+      "evidence": "public Value field"
     },
     {
       "finding": "soland/crates/storage/src/member_identity.rs::HandleClaimEvidenceRecord.envelope",

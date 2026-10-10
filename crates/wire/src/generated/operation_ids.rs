@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-09.3;
-//! sha256=f274e9cd7038155143cc01feb49bb1692cdec2002c209c75854998182a4a502d Entries: registered=215
+//! Input: registry/contract-registry.json; version=2026-10-10.6;
+//! sha256=4e2fdb85f9e7f995e59989a001d9acc6fbc163bba3d7eceef0a13a672b93da0c Entries: registered=215
 
 use serde::{Deserialize, Serialize};
 
@@ -6741,6 +6741,21 @@ fn http_path_template_matches(template: &str, path: &str) -> bool {
                 }
             }
             _ => return false,
+        }
+    }
+}
+impl ServiceOperationId {
+    pub fn wait_for_carrier(self, binding: &str) -> Option<(&'static str, &'static str)> {
+        match (self, binding) {
+            (Self::SelfAccountStreamSubscribeV1, "http_json") => {
+                Some(("header", "X-Arkret-Wait-For"))
+            }
+            (Self::SelfAccountStreamSubscribeV1, "websocket") => {
+                Some(("channel_open_parameters", "wait_for"))
+            }
+            (Self::SelfBlobResourceGetV1, "http_json") => Some(("header", "X-Arkret-Wait-For")),
+            (Self::SelfBlobResourceHeadV1, "http_json") => Some(("header", "X-Arkret-Wait-For")),
+            _ => None,
         }
     }
 }

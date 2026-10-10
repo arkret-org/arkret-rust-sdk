@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-10.2;
-//! sha256=4f763185841608de3ac8c45581adb700f4f6d02b4565f2c706d9cc2fb309263c Input: registry/
-//! contract-registry.json; version=2026-10-09.4;
-//! sha256=f274e9cd7038155143cc01feb49bb1692cdec2002c209c75854998182a4a502d Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-11.1;
+//! sha256=e6888224eb63b0c1129d1770f6c8304d2de59ebd3accbee4631ac9d8f1c3e59f Input: registry/
+//! contract-registry.json; version=2026-10-10.1;
+//! sha256=4e2fdb85f9e7f995e59989a001d9acc6fbc163bba3d7eceef0a13a672b93da0c Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
 //! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=215
 
@@ -65,7 +65,11 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Code(ErrorCode::PushTokenUnknown)],
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
-    &[OperationSpecificError::Code(ErrorCode::CursorInvalid)],
+    &[
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+    ],
     &[
         OperationSpecificError::Reason(ReasonCode::ProofInvalid),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -433,7 +437,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::ServiceIdentityProviderUnavailable),
         OperationSpecificError::Code(ErrorCode::DidNotFound),
     ],
-    &[OperationSpecificError::Code(ErrorCode::CursorRevoked)],
+    &[
+        OperationSpecificError::Code(ErrorCode::CursorRevoked),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::AvatarBlobRefInvalid),
         OperationSpecificError::Code(ErrorCode::UnsupportedProfilePatchPath),
@@ -449,11 +458,11 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[
         OperationSpecificError::Code(ErrorCode::CursorExpired),
         OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
-        OperationSpecificError::Code(ErrorCode::CursorInvalid),
         OperationSpecificError::Code(ErrorCode::CursorRevoked),
         OperationSpecificError::Code(ErrorCode::RevisionStale),
         OperationSpecificError::Code(ErrorCode::StreamDropped),
         OperationSpecificError::Code(ErrorCode::StreamResyncRequired),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
     ],
     &[],
     &[
@@ -577,11 +586,19 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::BlobExpired),
         OperationSpecificError::Code(ErrorCode::BlobPresignInvalid),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+        OperationSpecificError::Code(ErrorCode::CursorRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::BlobExpired),
         OperationSpecificError::Code(ErrorCode::BlobPresignInvalid),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+        OperationSpecificError::Code(ErrorCode::CursorRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::BlobQuotaExceeded),
@@ -611,10 +628,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
-        OperationSpecificError::Code(ErrorCode::CursorInvalid),
         OperationSpecificError::Code(ErrorCode::CursorRevoked),
         OperationSpecificError::Code(ErrorCode::StreamDropped),
         OperationSpecificError::Code(ErrorCode::StreamResyncRequired),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
     ],
     &[OperationSpecificError::Reason(
         ReasonCode::SnapshotCapacityExceeded,
@@ -685,7 +704,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
         OperationSpecificError::Code(ErrorCode::DeviceRevoked),
     ],
-    &[],
+    &[
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+        OperationSpecificError::Code(ErrorCode::CursorRevoked),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Code(ErrorCode::DirectConversationUnavailable),
@@ -733,9 +757,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::UntrustedBackupSignature),
     ],
     &[
-        OperationSpecificError::Code(ErrorCode::CursorInvalid),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+        OperationSpecificError::Code(ErrorCode::CursorRevoked),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
@@ -813,7 +840,11 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Code(ErrorCode::DuplicateConflict)],
     &[],
     &[],
-    &[OperationSpecificError::Code(ErrorCode::CursorInvalid)],
+    &[
+        OperationSpecificError::Reason(ReasonCode::InvalidCursor),
+        OperationSpecificError::Code(ErrorCode::CursorExpired),
+        OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+    ],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
