@@ -429,11 +429,12 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => crate::tls_roots::apply_explicit_tls_roots(
-                self.transport.apply(reqwest::Client::builder()),
-            )?
-            .build()
-            .map_err(transport_error)?,
+            None => {
+                let builder = self.transport.apply(reqwest::Client::builder());
+                #[cfg(not(target_arch = "wasm32"))]
+                let builder = crate::tls_roots::apply_explicit_tls_roots(builder)?;
+                builder.build().map_err(transport_error)?
+            }
         };
         Ok(Client {
             base_url: self.base_url,
