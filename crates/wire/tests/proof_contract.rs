@@ -224,7 +224,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     };
 
     let mut signed_event = event;
-    signed_event.producer_proof = Some(proof.into());
+    signed_event.producer_proof = Some(proof);
     assert!(
         signed_event
             .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
@@ -261,7 +261,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     };
 
     let mut signed_event = event;
-    signed_event.producer_proof = Some(bad_proof.into());
+    signed_event.producer_proof = Some(bad_proof);
     assert!(
         signed_event
             .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256,)
@@ -300,7 +300,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         jws,
     };
     let mut signed_event = event;
-    signed_event.producer_proof = Some(proof.into());
+    signed_event.producer_proof = Some(proof);
     let error = signed_event
         .validate_proof_bindings_with_context_and_digest_suite(
             Some("ak:trust_domain:example.net".to_owned()),

@@ -313,7 +313,7 @@ pub fn verify_forwarded_human_signer_fact(
         .as_str()
         .strip_prefix("did:key:")
         .ok_or_else(|| signature_invalid("forward device key is not did:key"))?;
-    let key = arkret_signatures::PublicKeyMaterial::Ed25519Multibase {
+    let key = PublicKeyMaterial::Ed25519Multibase {
         value: encoded.to_owned(),
     };
     let raw = key
@@ -328,7 +328,7 @@ pub fn verify_forwarded_human_signer_fact(
             public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
                 raw,
             ))
-            .map_err(|error| signature_invalid(error.to_string()))?,
+            .map_err(|error| signature_invalid(error.to_owned()))?,
             authorization_ref: source.authorization_ref.clone(),
             revision: source.revision.clone(),
             governance_generation: source.governance_generation,

@@ -5,8 +5,8 @@ use arkret_identity::account_device_signer_evidence::{
 };
 use arkret_identity::build_authenticated_webvh_service_resolution;
 use arkret_models_crypto::{
-    DeviceAuthorizationWindow, DeviceProjectionAttestation, DeviceProjectionAttestationCore,
-    DeviceStatus, ForwardDeviceProjectionAttestation, ForwardDeviceProjectionAttestationCore,
+    DeviceAuthorizationWindow, DeviceProjectionAttestationCore, DeviceStatus,
+    ForwardDeviceProjectionAttestation, ForwardDeviceProjectionAttestationCore,
     HumanEventAuthorization,
 };
 use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
@@ -144,7 +144,7 @@ fn forward_core(station: &Station) -> ForwardDeviceProjectionAttestationCore {
     let directory = core(station);
     let mut value = serde_json::to_value(&directory).unwrap();
     let authorization_ref = arkret_wire::CommittedEventRef {
-        event_id: directory.device_authorize_event_id.clone(),
+        event_id: directory.device_authorize_event_id,
         commit_id: arkret_wire::RealmCommitId::from_digest([91; 32]),
         stream_ref: arkret_wire::CommitStreamRef::Realm {
             realm_id: RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [92; 32])),
@@ -266,7 +266,7 @@ fn rejection(
         event,
         source,
         &destination(),
-        &body_digest_for_event(&event),
+        &body_digest_for_event(event),
         DigestSuite::Sha256,
         now,
     )
@@ -691,7 +691,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
         branch: AuthorityForwardBranch::AuthorityForward,
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
-        producer_device_evidence: Some(evidence.clone()),
+        producer_device_evidence: Some(evidence),
         producer_agent_evidence: None,
     };
     let actual_body_digest = authority_forward_body_digest(&body).unwrap();

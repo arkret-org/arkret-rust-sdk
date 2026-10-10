@@ -41,7 +41,7 @@ fn human_claim_account_station_is_bound() {
         serde_json::from_value(request.clone()).unwrap();
     let canonical = arkret_canonical::canonical_json_bytes(&parsed).unwrap();
 
-    let mut other_station = request.clone();
+    let mut other_station = request;
     other_station["target_account_id"]["station_id"] =
         json!("ak:did_core:webvh:z6mkfixtureotherstation");
     let other_station: PeerKeyPackagesClaimUnsignedRequest =

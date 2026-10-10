@@ -342,16 +342,14 @@ mod tests {
     #[test]
     fn each_named_builder_fixes_its_own_signer_kind() {
         let template = evidence();
-        let cases: [(
-            fn(
-                DidCoreId,
-                DidUrl,
-                NonEmptyJsonObject,
-                RealmCommitId,
-                DateTime<Utc>,
-            ) -> Result<AuthenticatedSignerResolutionEvidence>,
-            AuthenticatedSignerKind,
-        ); 3] = [
+        type EvidenceConstructor = fn(
+            DidCoreId,
+            DidUrl,
+            NonEmptyJsonObject,
+            RealmCommitId,
+            DateTime<Utc>,
+        ) -> Result<AuthenticatedSignerResolutionEvidence>;
+        let cases: [(EvidenceConstructor, AuthenticatedSignerKind); 3] = [
             (build_agent_signer_evidence, AuthenticatedSignerKind::Agent),
             (
                 build_principal_signer_evidence,

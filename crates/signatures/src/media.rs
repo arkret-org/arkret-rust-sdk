@@ -341,7 +341,7 @@ pub fn verify_call_media_token_outcome(
     // signature — or a key the anchors do not publish — is
     // `token_issuer_unauthorised`.
     let signing_input =
-        participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))?;
+        participant_binding_signing_input(&ParticipantBindingContext::from_outcome(outcome))?;
     verify_issuer_signature(
         anchors,
         &binding.issuer_kid,
@@ -411,7 +411,7 @@ mod tests {
             backend_kind: MediaBackendKind::Livekit,
             connect_url: "wss://livekit-fra.example.com".to_owned(),
             backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
-            participant_id: identity.clone(),
+            participant_id: identity,
             participant_binding: CallMediaParticipantBinding {
                 sig: String::new(),
                 issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
@@ -426,7 +426,7 @@ mod tests {
     /// signature covers the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
         let input =
-            participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))
+            participant_binding_signing_input(&ParticipantBindingContext::from_outcome(outcome))
                 .unwrap();
         outcome.participant_binding.sig =
             arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());

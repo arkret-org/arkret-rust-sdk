@@ -120,8 +120,8 @@ fn join_target_requires_strict_service_id_order_and_unique_identity() {
 
     let a = candidate("ak:did_core:web:a.example", "invite");
     let b = candidate("ak:did_core:web:b.example", "directory");
-    target(json!([a.clone(), b.clone()])).validate().unwrap();
-    assert!(target(json!([b, a.clone()])).validate().is_err());
+    target(json!([a, b])).validate().unwrap();
+    assert!(target(json!([b, a])).validate().is_err());
     assert!(
         target(json!([a, candidate("ak:did_core:web:a.example", "cache")]))
             .validate()
@@ -245,14 +245,14 @@ fn producers_sort_hints_bytewise_and_reject_any_repeated_service_id() {
     let sorted = canonicalize_authority_locator_hints(vec![lower.clone(), upper.clone()]).unwrap();
     assert_eq!(
         sorted,
-        vec![upper.clone(), lower.clone()],
+        vec![upper, lower.clone()],
         "UTF-8 byte order puts 'B' first"
     );
 
     assert!(canonicalize_authority_locator_hints(vec![lower.clone(), lower.clone()]).is_err());
     assert!(
         canonicalize_authority_locator_hints(vec![
-            lower.clone(),
+            lower,
             candidate("ak:did_core:web:a.example", "cache"),
         ])
         .is_err()

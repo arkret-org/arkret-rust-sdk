@@ -259,6 +259,12 @@ pub struct RealmArchivePayload {
     pub reason: Option<String>,
 }
 
+impl Default for RealmArchivePayload {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RealmArchivePayload {
     pub fn new() -> Self {
         Self { reason: None }

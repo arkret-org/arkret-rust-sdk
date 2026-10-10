@@ -639,7 +639,7 @@ mod projection_list_tests {
         parsed.validate().expect("terminal empty page");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), morphs);
 
-        let mut unknown = morphs.clone();
+        let mut unknown = morphs;
         unknown
             .as_object_mut()
             .unwrap()

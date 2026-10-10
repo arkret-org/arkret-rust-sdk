@@ -110,6 +110,10 @@ impl MlsGovernanceBindingPayload {
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Each argument names an independent field of the authoritative Sidecar MLS governance binding."
+    )]
     pub fn sidecar(
         realm_id: RealmId,
         sidecar_id: SidecarId,
@@ -731,7 +735,7 @@ mod tests {
             MlsGovernanceBindingPayload::from_deterministic_cbor(&encoded).unwrap(),
             binding
         );
-        let mut trailing = encoded.clone();
+        let mut trailing = encoded;
         trailing.push(0);
         assert!(MlsGovernanceBindingPayload::from_deterministic_cbor(&trailing).is_err());
         let mut missing = serde_json::to_value(&binding).unwrap();
@@ -784,7 +788,7 @@ mod tests {
         realm.participant_authority_digest = binding.participant_authority_digest.clone();
         assert!(realm.validate().is_err());
         realm.participant_authority_digest = None;
-        realm.authority_stream_head = binding.authority_stream_head.clone();
+        realm.authority_stream_head = binding.authority_stream_head;
         assert!(realm.validate().is_err());
     }
 

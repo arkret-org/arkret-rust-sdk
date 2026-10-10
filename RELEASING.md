@@ -65,7 +65,7 @@ cargo check --workspace --all-features
 cargo clippy --all-features --all-targets -- -D warnings
 cargo test --all-features
 python tools/check-publish-order.py
-cargo package --workspace --locked --no-verify
+cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify
 cargo doc --no-deps --all-features --workspace
 cargo deny check --config .deny.toml
 cargo audit --deny warnings --ignore RUSTSEC-2026-0124
@@ -79,6 +79,13 @@ The `cargo audit` ignore is a tracked upstream-dependency exception for a
 package that is present in `Cargo.lock` but has no current upstream upgrade
 path: `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
 the lockfile while Arkret uses the RustCrypto HPKE backend.
+
+Local package checks produce source archives without a release lockfile. The
+private conformance crates are not packaged, and schema/model test dependencies
+form a development-only cycle. Cargo cannot resolve that cycle against crates.io
+before the workspace has been published. This check still validates normalized
+manifests and archive contents; native checks and tests validate the locked
+workspace dependency graph separately.
 
 ## Compatibility notes
 

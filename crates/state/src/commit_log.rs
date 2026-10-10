@@ -400,7 +400,7 @@ mod tests {
         let store = MemoryAuthorityCommitStore::default();
         let realm_stream = CommitStreamRef::Realm { realm_id: realm() };
         let first_event = event(10, ScopeRef::Realm { realm_id: realm() });
-        let first = commit(11, &first_event, realm_stream.clone(), 0, None);
+        let first = commit(11, &first_event, realm_stream, 0, None);
         store.append(&first_event, first.clone()).unwrap();
 
         let circle_id =

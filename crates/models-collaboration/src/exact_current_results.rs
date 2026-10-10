@@ -571,6 +571,10 @@ pub enum NeverWrittenExactCurrentSelector {
 /// Same-cut outcome, including explicit never-written Agent defaults.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum ExactCurrentResultsReadOutcome {
     Present {
         realm_id: RealmId,
@@ -703,11 +707,10 @@ pub fn validate_calendar_current_pairs(
                     _ => return Err(reject("Calendar metadata context differs from current ciphertext")),
                 }
             }
-            S::Strand { strand_id } if value.get("encrypted_metadata").is_some_and(|v| !v.is_null()) || value.pointer("/metadata/fields/calendar").is_some() => {
-                if !entries.iter().any(|entry| matches!(entry, R::Value { selector: S::CalendarScheduleSource { strand_id: id }, .. } if id == strand_id)) {
+            S::Strand { strand_id } if (value.get("encrypted_metadata").is_some_and(|v| !v.is_null()) || value.pointer("/metadata/fields/calendar").is_some())
+                && !entries.iter().any(|entry| matches!(entry, R::Value { selector: S::CalendarScheduleSource { strand_id: id }, .. } if id == strand_id)) => {
                     return Err(reject("Calendar Strand lacks a current source sibling"));
                 }
-            }
             _ => {},
         }
     }
@@ -792,7 +795,7 @@ mod calendar_current_pair_tests {
         let TypedCurrentRow::Value { value, .. } = &mut bad[1];
         value["source"]["stream_position"] = json!(6);
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
-        let mut bad = rows.clone();
+        let mut bad = rows;
         let TypedCurrentRow::Value { value, .. } = &mut bad[1];
         value["effective_scope"]["realm_id"] = json!(RealmId::from_event_id(&event(9)));
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());

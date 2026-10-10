@@ -140,6 +140,10 @@ fn seal_commit(mut commit: RealmCommit, did: &str, key: &SigningKey) -> RealmCom
     commit
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The signed Commit fixture deliberately controls each independent authority and continuity field."
+)]
 fn commit(
     seed: u8,
     stream_position: u64,
@@ -451,7 +455,7 @@ fn a_structurally_perfect_commit_signed_by_the_wrong_station_is_refused() {
     let verified = verify(&chain).unwrap();
     let rogue_key = signing_key(0xC3);
 
-    let mut item = chain.item.clone();
+    let mut item = chain.item;
     item.commit = seal_commit(item.commit.clone(), STATION_A, &rogue_key);
     let keys = RealmAuthorityKeyMap::new()
         .with_key(&method(STATION_A), public(&rogue_key))
@@ -865,7 +869,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     let seal_fact = |mut commit: RealmCommit| {
         let unsigned = canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
         commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-            &canonical::canonical_json_bytes(&unsigned).unwrap(),
+            canonical::canonical_json_bytes(&unsigned).unwrap(),
         ));
         seal_commit(commit, STATION_B, &signing_key(0xB2))
     };
@@ -875,7 +879,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     let device =
         arkret_wire::DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap();
     let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-        arkret_wire::project_did_to_core_id(&principal).unwrap(),
+        project_did_to_core_id(&principal).unwrap(),
         core_id(STATION_A),
     ));
     let raw = arkret_wire::test_support::raw_event_for_actor_at(
@@ -885,7 +889,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         },
         actor.clone(),
         json!({
-            "invitee_account_id": arkret_wire::AccountId::new(arkret_wire::project_did_to_core_id(&principal).unwrap(), core_id(STATION_B)),
+            "invitee_account_id": arkret_wire::AccountId::new(project_did_to_core_id(&principal).unwrap(), core_id(STATION_B)),
             "introduction_evidence_digest": arkret_canonical::canonical_sha256(&json!({"kind":"explicit_address"})).unwrap(),
             "expires_at": expires_at(),
         }),
@@ -1069,10 +1073,16 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         producer_signer_fact: fact.clone().into(),
     };
     use arkret_models_collaboration::authority_commit::validate_historical_signer_fact_inventory;
-    validate_historical_signer_fact_inventory(&[inventory_entry.clone()], &[accepted.clone()])
-        .unwrap();
+    validate_historical_signer_fact_inventory(
+        std::slice::from_ref(&inventory_entry),
+        &[accepted.clone()],
+    )
+    .unwrap();
     assert!(validate_historical_signer_fact_inventory(&[], &[accepted.clone()]).is_err());
-    assert!(validate_historical_signer_fact_inventory(&[inventory_entry.clone()], &[]).is_err());
+    assert!(
+        validate_historical_signer_fact_inventory(std::slice::from_ref(&inventory_entry), &[])
+            .is_err()
+    );
     assert!(
         validate_historical_signer_fact_inventory(
             &[inventory_entry.clone(), inventory_entry],
@@ -1131,7 +1141,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     assert!(withheld.validate_for_request(&scan_request).is_err());
     withheld.producer_signer_facts.clear();
     withheld.validate_for_request(&scan_request).unwrap();
-    let mut wrong_source = page.clone();
+    let mut wrong_source = page;
     wrong_source.producer_signer_facts[0].producer_signer_fact = alternate.into();
     assert!(wrong_source.validate_for_request(&scan_request).is_err());
     use arkret_models_collaboration::governance::invite_addressing::InviteDeliveryRequestBody;
@@ -1139,7 +1149,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         accepted.event.clone(), accepted.commit.clone(), Some(fact.clone()),
         vec![serde_json::from_value(json!({"service_kind":"station", "service_id":core_id(STATION_B), "source":"invite"})).unwrap()],
         serde_json::from_value(json!({
-            "account_id": {"principal_id": arkret_wire::project_did_to_core_id(&principal).unwrap(), "station_id":core_id(STATION_B)},
+            "account_id": {"principal_id": project_did_to_core_id(&principal).unwrap(), "station_id":core_id(STATION_B)},
             "service_resolution":{"resolution_url":"https://station-b.example/.well-known/did.json"},
         })).unwrap(),
         serde_json::from_value(json!({"kind":"explicit_address"})).unwrap(),
@@ -1218,14 +1228,14 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         )
         .is_err()
     );
-    let mut exact_legacy = delivery.clone();
+    let mut exact_legacy = delivery;
     exact_legacy.producer_signer_fact = None;
     exact_legacy.invite_commit.producer_signer_fact_digest = None;
     exact_legacy.invite_commit = seal_fact(exact_legacy.invite_commit);
     exact_legacy.validate_minimal().unwrap();
     assert!(exact_legacy.validate_for_submission().is_err());
 
-    let mut legacy = accepted.clone();
+    let mut legacy = accepted;
     legacy.commit.producer_signer_fact_digest = None;
     legacy.commit = seal_fact(legacy.commit);
     authority
@@ -1316,7 +1326,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     let seal_original = |mut value: RealmCommit, station: &str, key: &SigningKey| {
         let unsigned = canonical::unsigned_value(&value, &["commit_id", "signature"]).unwrap();
         value.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-            &canonical::canonical_json_bytes(&unsigned).unwrap(),
+            canonical::canonical_json_bytes(&unsigned).unwrap(),
         ));
         seal_commit(value, station, key)
     };
@@ -1342,7 +1352,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     transition.change_commit.previous_commit_ref =
         Some(chain.bundle.genesis_commit.commit_id.clone());
     transition.change_commit.authority_ref =
-        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis.event_id.clone());
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis.event_id);
     transition.change_commit = seal_original(
         transition.change_commit.clone(),
         STATION_A,
@@ -1372,14 +1382,14 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     }];
     let mut snapshot = RealmStateSnapshot {
         snapshot_id: RealmSnapshotId::from_digest([0; 32]),
-        realm_id: cut_realm.clone(),
+        realm_id: cut_realm,
         governance_generation: 0,
         visible_stream_heads: heads.clone(),
         current_state_entries: vec![],
         retention_and_history_floor: RetentionAndHistoryFloor {
             history_access: HistoryAccess::AllHistoryForCurrentMembers,
             stream_floors: vec![arkret_wire::StreamHistoryFloor {
-                stream_ref: cut_stream.clone(),
+                stream_ref: cut_stream,
                 oldest_position: 0,
             }],
         },
@@ -1388,7 +1398,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     };
     let unsigned = canonical::unsigned_value(&snapshot, &["snapshot_id", "signature"]).unwrap();
     snapshot.snapshot_id = RealmSnapshotId::from_digest(arkret_canonical::sha256_bytes(
-        &canonical::canonical_json_bytes(&unsigned).unwrap(),
+        canonical::canonical_json_bytes(&unsigned).unwrap(),
     ));
     snapshot.signature = sign_detached_object(
         &canonical::unsigned_value(&snapshot, &["signature"]).unwrap(),
@@ -1517,8 +1527,7 @@ fn service_original_fact_verifies_real_proof_and_rejects_replacement_installatio
             ))
             .unwrap(),
             applet_id: applet,
-            registration_epoch: arkret_wire::Hash::new(format!("sha256:{}", "12".repeat(32)))
-                .unwrap(),
+            registration_epoch: Hash::new(format!("sha256:{}", "12".repeat(32))).unwrap(),
             registration_ref: coordinate(31),
             authorization_ref: coordinate(32),
             effective_scope: scope,
@@ -1565,8 +1574,7 @@ fn service_original_fact_verifies_real_proof_and_rejects_replacement_installatio
         .is_err()
     );
     let mut replaced = fact.clone();
-    replaced.key.registration_epoch =
-        arkret_wire::Hash::new(format!("sha256:{}", "13".repeat(32))).unwrap();
+    replaced.key.registration_epoch = Hash::new(format!("sha256:{}", "13".repeat(32))).unwrap();
     assert!(
         crate::account_device_signer_evidence::verify_historical_producer_committed_event(
             &full,

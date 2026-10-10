@@ -50,16 +50,15 @@ pub struct AgentSignerCurrentState {
 impl AgentSignerCurrentState {
     pub fn validate(&self) -> Result<()> {
         self.signing_key.validate()?;
-        if let Some(status_ref) = &self.status_ref {
-            if status_ref.stream_position > self.revision.stream_position
+        if let Some(status_ref) = &self.status_ref
+            && (status_ref.stream_position > self.revision.stream_position
                 || (status_ref.commit_id == self.revision.commit_id
-                    && status_ref.stream_position != self.revision.stream_position)
-            {
-                return Err(self_signer_error(
-                    ErrorCode::StateMismatch,
-                    "Agent status Event is not covered by the answered current revision",
-                ));
-            }
+                    && status_ref.stream_position != self.revision.stream_position))
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "Agent status Event is not covered by the answered current revision",
+            ));
         }
         if self.status != AgentCurrentStatus::Active && self.status_ref.is_none() {
             return Err(self_signer_error(

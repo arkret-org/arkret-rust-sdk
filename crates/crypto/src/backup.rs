@@ -1173,7 +1173,7 @@ mod tests {
         let mut empty = wire.clone();
         empty["contents"] = serde_json::json!([]);
         assert!(serde_json::from_value::<KeyBackup>(empty).is_err());
-        let mut empty = envelope.clone();
+        let mut empty = envelope;
         empty.contents.clear();
         assert!(empty.validate().is_err());
         assert!(empty.signing_payload_bytes().is_err());
@@ -1527,7 +1527,7 @@ mod tests {
         });
         assert!(serde_json::from_value::<KeyBackup>(full_committed_ref).is_err());
 
-        let mut string_generation = canonical.clone();
+        let mut string_generation = canonical;
         string_generation["source_commit_ref"]["device_generation_ref"] = json!("4");
         assert!(serde_json::from_value::<KeyBackup>(string_generation).is_err());
 

@@ -151,15 +151,14 @@ impl ContactProducerSigner {
     /// carrier must also check the original Event's executor and exact actor.
     pub fn validate_for_holder(&self, holder: &ContactPeer) -> arkret_wire::Result<()> {
         self.validate()?;
-        if let Some(did) = self.delegated_actor_did() {
-            if !matches!(holder, ContactPeer::Agent { .. })
+        if let Some(did) = self.delegated_actor_did()
+            && (!matches!(holder, ContactPeer::Agent { .. })
                 || arkret_wire::project_did_to_core_id(did)?
-                    != *holder.contact_actor_id().signing_principal_id()
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "delegated Contact producer does not bind the Agent holder".into(),
-                ));
-            }
+                    != *holder.contact_actor_id().signing_principal_id())
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "delegated Contact producer does not bind the Agent holder".into(),
+            ));
         }
         Ok(())
     }
@@ -184,16 +183,14 @@ impl ContactProducerSigner {
             controller_account_id,
             ..
         } = holder
-        {
-            if event.actor_id.route_service_id() != &controller_account_id.station_id
+            && (event.actor_id.route_service_id() != &controller_account_id.station_id
                 || event.executed_by.as_ref().is_some_and(|executor| {
                     executor != &ActorId::account(controller_account_id.clone())
-                })
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "Contact executor differs from the complete Agent controller account".into(),
-                ));
-            }
+                }))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact executor differs from the complete Agent controller account".into(),
+            ));
         }
         Ok(())
     }
@@ -510,18 +507,17 @@ impl ContactRound {
                     .to_owned(),
             ));
         }
-        if let Self::Glare { requests, .. } = self {
-            if !compare_contact_request_event_refs(
+        if let Self::Glare { requests, .. } = self
+            && !compare_contact_request_event_refs(
                 &requests[0].request_event_ref,
                 &requests[1].request_event_ref,
             )
             .is_lt()
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "Contact glare request refs must be distinct and strictly wire-byte ordered"
-                        .to_owned(),
-                ));
-            }
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact glare request refs must be distinct and strictly wire-byte ordered"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }
@@ -2113,14 +2109,13 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
 
 impl ContactListRow {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if self.peer_endpoint.is_some() {
-            if self.state != ContactState::Accepted
-                || !matches!(self.peer, ContactPeer::Human { .. })
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "peer endpoint requires accepted human row".into(),
-                ));
-            }
+        if self.peer_endpoint.is_some()
+            && (self.state != ContactState::Accepted
+                || !matches!(self.peer, ContactPeer::Human { .. }))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "peer endpoint requires accepted human row".into(),
+            ));
         }
         if self.state == ContactState::PendingIncoming && self.request_event_ref.is_none() {
             return Err(arkret_wire::WireError::Protocol(
@@ -2290,7 +2285,7 @@ mod contact_list_projection_tests {
             serde_json::to_value(endpoint).unwrap(),
             value["peer_endpoint"]
         );
-        let mut wrong_account = account.clone();
+        let mut wrong_account = account;
         wrong_account.principal_id = "ak:did_core:web:wrong.example".parse().unwrap();
         assert!(
             ContactPeerEndpoint::from_verified_producer(

@@ -293,7 +293,7 @@ mod tests {
                 member.0
             );
         }
-        let mut slug = definition.clone();
+        let mut slug = definition;
         slug.agent_slug = Some("summary".to_owned());
         assert!(
             slug.validate().is_err(),

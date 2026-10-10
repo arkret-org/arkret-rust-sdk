@@ -7,10 +7,9 @@
 use arkret_models_identity::{AuthenticatedSignerResolutionEvidence, ResolutionCommitment};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, AuditReasonText, BlobRef, CommittedEventRef, Did, DidCoreId, DidUrl,
-    EventAdmissionSubmission, EventId, Hash, IdempotencyKey, NonEmptyString, OpaqueLocalId,
-    ProtocolOpaqueId, ProtocolOperationId, RealmId, Result, SignerEvidenceRef, WireError,
-    canonical,
+    AccountId, AuditReasonText, BlobRef, Did, DidCoreId, DidUrl, EventAdmissionSubmission, EventId,
+    Hash, IdempotencyKey, NonEmptyString, OpaqueLocalId, ProtocolOpaqueId, ProtocolOperationId,
+    RealmId, Result, SignerEvidenceRef, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

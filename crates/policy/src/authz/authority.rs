@@ -526,7 +526,7 @@ mod tests {
     }
 
     fn account_actor(principal_id: &str) -> ActorId {
-        ActorId::account(arkret_wire::AccountId::new(
+        ActorId::account(AccountId::new(
             DidCoreId::new(principal_id).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
         ))
@@ -752,7 +752,7 @@ mod tests {
             "ak:realm:1",
             None,
         );
-        forged.issuer_id = ActorId::account(arkret_wire::AccountId::new(
+        forged.issuer_id = ActorId::account(AccountId::new(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherstation").unwrap(),
         ));
@@ -883,7 +883,7 @@ mod tests {
             "ak:did_core:web:station-a.example",
             "ak:did_core:web:station-b.example",
         ] {
-            let account_executor = ActorId::account(arkret_wire::AccountId::new(
+            let account_executor = ActorId::account(AccountId::new(
                 executor.signing_principal_id().clone(),
                 DidCoreId::new(station).unwrap(),
             ));
@@ -1106,7 +1106,7 @@ mod managed_service_child_tests {
         };
         let mut child = parent.clone();
         child.grant_id = "child".into();
-        child.subject_id = ActorId::account(arkret_wire::AccountId::new(
+        child.subject_id = ActorId::account(AccountId::new(
             DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         ));
@@ -1251,7 +1251,7 @@ mod managed_service_child_tests {
             }
             rejects(&parent, &changed);
         }
-        let mut changed = parent.clone();
+        let mut changed = parent;
         if let GrantConstraint::AuthorityControl { executed_by, .. } = &mut changed.constraints[1] {
             *executed_by = Some(child.subject_id.clone());
         }

@@ -654,7 +654,8 @@ mod tests {
     fn prepared_inception() -> arkret_signatures::webvh::PreparedInception {
         let mut rng = rand_chacha::ChaCha20Rng::from_seed([31; 32]);
         let endpoint = "https://identity.example/".parse().unwrap();
-        let prepared = arkret_signatures::webvh::prepare_service_registration_inception(
+
+        arkret_signatures::webvh::prepare_service_registration_inception(
             &mut rng,
             &arkret_signatures::webvh::ServiceRegistrationInceptionInput {
                 provider_endpoint: &endpoint,
@@ -664,8 +665,7 @@ mod tests {
                 did_key_fragment: None,
             },
         )
-        .unwrap();
-        prepared
+        .unwrap()
     }
 
     fn inception() -> ServiceWebvhInceptionOperation {

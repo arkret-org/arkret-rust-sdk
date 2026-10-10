@@ -362,7 +362,7 @@ fn parse_agent_runtime_public_key(
             "agent runtime public_key must serialize to JSON: {error}"
         ))
     })?;
-    let key: PublicKey = serde_json::from_value(public_key.clone()).map_err(|error| {
+    let key: PublicKey = serde_json::from_value(public_key).map_err(|error| {
         Error::Protocol(format!(
             "agent runtime public_key must match public_key schema: {error}"
         ))
@@ -765,7 +765,7 @@ mod tests {
         let agent_key_id = NonEmptyString::new(verification_method.to_string()).unwrap();
         let authorize_payload = AgentKeyAuthorizePayload {
             agent_id: agent_actor_id.clone(),
-            key_id: agent_key_id.clone(),
+            key_id: agent_key_id,
             verification_method: verification_method.clone(),
             public_key: runtime_public_key,
             accountable_principal_id: controller_principal_id,
@@ -780,7 +780,7 @@ mod tests {
                 pairing_request_id: Some(
                     arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
                 ),
-                approved_by: Some(controller_actor_id.clone()),
+                approved_by: Some(controller_actor_id),
             },
             supersedes: Vec::new(),
             revocation_check_ref: None,

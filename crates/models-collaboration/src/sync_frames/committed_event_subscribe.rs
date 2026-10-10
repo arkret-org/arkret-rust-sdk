@@ -222,8 +222,8 @@ impl CommittedEventSubscribeFrame {
                 ));
             }
         }
-        if let Some(CommittedEventSubscribeFramePayload::Quarantined(payload)) = &self.payload {
-            if payload.affected_stream_refs.is_empty()
+        if let Some(CommittedEventSubscribeFramePayload::Quarantined(payload)) = &self.payload
+            && (payload.affected_stream_refs.is_empty()
                 || payload
                     .affected_stream_refs
                     .windows(2)
@@ -235,10 +235,9 @@ impl CommittedEventSubscribeFrame {
                 || self
                     .realm_id
                     .as_ref()
-                    .is_some_and(|realm_id| realm_id != &payload.realm_id)
-            {
-                return Err(protocol_error("invalid quarantined stream selector set"));
-            }
+                    .is_some_and(|realm_id| realm_id != &payload.realm_id))
+        {
+            return Err(protocol_error("invalid quarantined stream selector set"));
         }
         Ok(())
     }

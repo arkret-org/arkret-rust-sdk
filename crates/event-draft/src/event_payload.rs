@@ -581,7 +581,7 @@ mod tests {
         assert!(payload.pairing_challenge_transcript_digest.is_none());
         validate_event_payload(
             &EventKind::DeviceAuthorize,
-            &Value::Object(event.payload.clone().into_iter().collect()),
+            &Value::Object(event.payload.into_iter().collect()),
         )
         .unwrap();
     }
@@ -633,7 +633,7 @@ mod tests {
         assert!(payload.proof.is_none());
         validate_event_payload(
             &EventKind::DeviceRevoke,
-            &Value::Object(event.payload.clone().into_iter().collect()),
+            &Value::Object(event.payload.into_iter().collect()),
         )
         .unwrap();
     }

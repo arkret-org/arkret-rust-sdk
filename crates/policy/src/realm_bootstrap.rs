@@ -47,6 +47,65 @@ pub fn validate_realm_genesis_event(
     })
 }
 
+/// Draft a Realm owner transfer Event.
+///
+/// Authorization is evaluated by the current governance Station against the
+/// current committed Realm projection; the producer Event carries no state
+/// predecessor or embedded projection authorization reference.
+pub fn build_realm_owner_transfer_intent(
+    scope_ref: ScopeRef,
+    actor_id: ActorId,
+    created_at: DateTime<Utc>,
+    payload: RealmOwnerTransferPayload,
+) -> Result<EventIntent> {
+    if scope_ref.realm_id() != &payload.realm_id
+        || !payload
+            .expected_state_digest
+            .as_str()
+            .starts_with("sha256:")
+    {
+        return Err(WireError::Protocol(
+            "schema_violation: invalid Realm owner transfer payload".to_owned(),
+        ));
+    }
+    let acceptance = serde_json::to_value(&payload.successor_acceptance)?;
+    if match acceptance {
+        serde_json::Value::String(value) => value.is_empty(),
+        serde_json::Value::Object(value) => value.is_empty(),
+        _ => true,
+    } {
+        return Err(WireError::Protocol(
+            "schema_violation: successor_acceptance must be non-empty".to_owned(),
+        ));
+    }
+    TypedEventDraft::<event_spec::RealmOwnerTransfer>::new(scope_ref, actor_id, payload)
+        .map_err(|error| WireError::Protocol(error.to_string()))?
+        .into_intent(created_at)
+        .map_err(|error| WireError::Protocol(error.to_string()))
+}
+
+/// Draft the Realm-stream Event that authorizes a planned governance-Station
+/// handoff. The expected generation and Realm-stream head prevent a stale
+/// administrator decision from changing the authority route.
+pub fn build_governance_station_change_intent(
+    scope_ref: ScopeRef,
+    actor_id: ActorId,
+    created_at: DateTime<Utc>,
+    payload: RealmGovernanceStationChangePayload,
+) -> Result<EventIntent> {
+    if !matches!(scope_ref, ScopeRef::Realm { .. })
+        || payload.expected_governance_generation == u64::MAX
+    {
+        return Err(WireError::Protocol(
+            "schema_violation: invalid governance Station change payload".to_owned(),
+        ));
+    }
+    TypedEventDraft::<event_spec::RealmGovernanceStationChange>::new(scope_ref, actor_id, payload)
+        .map_err(|error| WireError::Protocol(error.to_string()))?
+        .into_intent(created_at)
+        .map_err(|error| WireError::Protocol(error.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::events_payloads::{RealmGenesis, RealmPurpose};
@@ -110,63 +169,4 @@ mod tests {
         wrong_kind.kind = EventKind::ProfileCreate;
         assert!(validate_realm_genesis_event(&wrong_kind).is_err());
     }
-}
-
-/// Draft a Realm owner transfer Event.
-///
-/// Authorization is evaluated by the current governance Station against the
-/// current committed Realm projection; the producer Event carries no state
-/// predecessor or embedded projection authorization reference.
-pub fn build_realm_owner_transfer_intent(
-    scope_ref: ScopeRef,
-    actor_id: ActorId,
-    created_at: DateTime<Utc>,
-    payload: RealmOwnerTransferPayload,
-) -> Result<EventIntent> {
-    if scope_ref.realm_id() != &payload.realm_id
-        || !payload
-            .expected_state_digest
-            .as_str()
-            .starts_with("sha256:")
-    {
-        return Err(WireError::Protocol(
-            "schema_violation: invalid Realm owner transfer payload".to_owned(),
-        ));
-    }
-    let acceptance = serde_json::to_value(&payload.successor_acceptance)?;
-    if match acceptance {
-        serde_json::Value::String(value) => value.is_empty(),
-        serde_json::Value::Object(value) => value.is_empty(),
-        _ => true,
-    } {
-        return Err(WireError::Protocol(
-            "schema_violation: successor_acceptance must be non-empty".to_owned(),
-        ));
-    }
-    TypedEventDraft::<event_spec::RealmOwnerTransfer>::new(scope_ref, actor_id, payload)
-        .map_err(|error| WireError::Protocol(error.to_string()))?
-        .into_intent(created_at)
-        .map_err(|error| WireError::Protocol(error.to_string()))
-}
-
-/// Draft the Realm-stream Event that authorizes a planned governance-Station
-/// handoff. The expected generation and Realm-stream head prevent a stale
-/// administrator decision from changing the authority route.
-pub fn build_governance_station_change_intent(
-    scope_ref: ScopeRef,
-    actor_id: ActorId,
-    created_at: DateTime<Utc>,
-    payload: RealmGovernanceStationChangePayload,
-) -> Result<EventIntent> {
-    if !matches!(scope_ref, ScopeRef::Realm { .. })
-        || payload.expected_governance_generation == u64::MAX
-    {
-        return Err(WireError::Protocol(
-            "schema_violation: invalid governance Station change payload".to_owned(),
-        ));
-    }
-    TypedEventDraft::<event_spec::RealmGovernanceStationChange>::new(scope_ref, actor_id, payload)
-        .map_err(|error| WireError::Protocol(error.to_string()))?
-        .into_intent(created_at)
-        .map_err(|error| WireError::Protocol(error.to_string()))
 }

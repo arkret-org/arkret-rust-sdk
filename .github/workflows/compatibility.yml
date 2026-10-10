@@ -151,6 +151,11 @@ jobs:
           --category static
           --report "${{ runner.temp }}/compatibility-check-reports/static.json"
 
+      - name: Install native desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Run ordered compile matrix
         run: >-
           python arkret-rust-sdk/tools/compatibility_gate.py run

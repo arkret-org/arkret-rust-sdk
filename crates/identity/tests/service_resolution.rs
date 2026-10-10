@@ -289,7 +289,7 @@ fn portable_method_relocation_preserves_the_accepted_service_state() {
         target
     );
     let moved = build_authenticated_webvh_service_resolution(
-        current.service_id.clone(),
+        current.service_id,
         "station".to_owned(),
         serde_json::from_value(state).unwrap(),
         log_entries,

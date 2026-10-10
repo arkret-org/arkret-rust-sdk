@@ -348,7 +348,7 @@ fn committed_replication_carries_only_source_submission_and_commit() {
         "branch": "committed_replication",
         "processing": "per_item",
         "submissions": [{
-            "committed_event": item.clone(),
+            "committed_event": item,
             "recipient_witnesses": [{
                 "realm_id": item["source_commit"]["realm_id"],
                 "member_id": "ak:actor:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB",
@@ -812,7 +812,7 @@ fn genesis_material_members_bound_the_pair_to_the_group_state_material_response(
     for (over_group_info, over_tree) in [(true, false), (false, true)] {
         let one_more = |over: bool| {
             let bytes = MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES + usize::from(over);
-            arkret_wire::base64url::base64url_encode(&vec![0; bytes])
+            arkret_wire::base64url::base64url_encode(vec![0; bytes])
         };
         let candidate = MlsGenesisMaterial {
             group_info_bytes_b64: one_more(over_group_info),

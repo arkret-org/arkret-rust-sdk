@@ -524,6 +524,10 @@ impl ResolutionMethodHistoryEvidence {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum ServiceResolutionCarrier {
     Inline {
         inline: AuthenticatedServiceResolution,

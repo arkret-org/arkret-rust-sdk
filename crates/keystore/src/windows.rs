@@ -195,7 +195,7 @@ mod tests {
     struct TestVault {
         store: WindowsProtectedKeyStore,
         app: String,
-        root: std::path::PathBuf,
+        root: PathBuf,
     }
 
     impl TestVault {

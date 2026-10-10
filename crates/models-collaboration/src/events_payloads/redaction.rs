@@ -274,7 +274,7 @@ mod tests {
                 .is_err()
         );
 
-        let mut unsorted = value.clone();
+        let mut unsorted = value;
         unsorted.assertions.reverse();
         assert!(unsorted.validate_for_subject(target.as_str()).is_err());
         assert!(

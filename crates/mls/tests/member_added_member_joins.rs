@@ -61,7 +61,7 @@ fn attachment_exporter_restores_the_same_key_and_rejects_scope_epoch_drift() {
     changed = context.clone();
     changed.epoch += 1;
     assert!(derive_attachment_content_key(&restored, &changed).is_err());
-    changed = context.clone();
+    changed = context;
     changed.effective_scope = ScopeRef::Realm {
         realm_id: RealmId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,

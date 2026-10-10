@@ -8,7 +8,13 @@ exclude = [
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    # Same accepted maintenance notice as Inkson: OpenMLS 0.9's RustCrypto
+    # backend pins hpke-rs 0.7 -> libcrux-sha3 0.0.10 -> hax-lib 0.3.7.
+    # Remove this entry when that upstream chain replaces proc-macro-error2;
+    # other advisories remain failures, including newly reported notices.
+    { id = "RUSTSEC-2026-0173", reason = "transitive OpenMLS hax macro dependency with no compatible replacement" },
+]
 
 [licenses]
 version = 2
@@ -19,8 +25,10 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "BSL-1.0",
+    "CC0-1.0",
     "ISC",
     "MIT",
+    "MIT-0",
     "MPL-2.0",
     "Unicode-3.0",
     "Zlib",

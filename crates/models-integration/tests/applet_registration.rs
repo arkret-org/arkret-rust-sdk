@@ -837,7 +837,7 @@ fn sample_bot_request_body() -> (
         registration_event_ref: registration_event.event_id,
         authorization_ref: arkret_wire::GrantId::from_event_id(&capability_grant_event.event_id),
         registration_epoch_evidence,
-        package_digest: package.package_digest.clone().unwrap(),
+        package_digest: package.package_digest.unwrap(),
         effective_scope: scope.clone(),
         request_id: "bot-create-001".into(),
     };
@@ -869,7 +869,7 @@ fn sample_bot_request_body() -> (
         arkret_wire::test_support::raw_event_for_actor_at(
             "ak.realm.create",
             ScopeRef::RealmGenesis,
-            ActorId::account(arkret_wire::AccountId::new(actor("bot"), actor("station"))).clone(),
+            ActorId::account(arkret_wire::AccountId::new(actor("bot"), actor("station"))),
             json!({"realm_kind": "pcr"}),
             requested_at,
         )
@@ -892,7 +892,7 @@ fn sample_bot_request_body() -> (
         arkret_wire::test_support::raw_event_for_actor_at(
             "ak.profile.create",
             scope,
-            ActorId::account(arkret_wire::AccountId::new(actor("bot"), actor("station"))).clone(),
+            ActorId::account(arkret_wire::AccountId::new(actor("bot"), actor("station"))),
             json!({"display_name": "Applet Bot"}),
             requested_at,
         )
@@ -1269,12 +1269,12 @@ fn structural_pcr_commit(event: &Event) -> arkret_wire::RealmCommit {
         "verification_method":format!("{}#authority-key",did("station")),
         "signed_digest":format!("sha256:{}","00".repeat(32)),
         "created_at":DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
-        "sig":canonical::base64url_encode(&[0u8;64])}
+        "sig":canonical::base64url_encode([0u8;64])}
     }))
     .unwrap();
     let preimage = canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
     commit.commit_id = RealmCommitId::from_digest(canonical::sha256_bytes(
-        &canonical::canonical_json_bytes(&preimage).unwrap(),
+        canonical::canonical_json_bytes(&preimage).unwrap(),
     ));
     commit
 }

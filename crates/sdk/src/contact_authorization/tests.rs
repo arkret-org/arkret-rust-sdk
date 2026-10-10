@@ -264,7 +264,7 @@ fn verifies_method_history_and_historical_assertion_relationship() {
     let lineage = fixture.lineage(1, &[ContactScope::DirectMessage], false);
     fixture.history.has_more = true;
     assert!(matches!(
-        fixture.verify(&[lineage.clone()]),
+        fixture.verify(std::slice::from_ref(&lineage)),
         Err(ContactAuthorizationError::MissingMaterial(_))
     ));
     fixture.history.has_more = false;
@@ -728,7 +728,7 @@ fn carrier_scope_and_terminal_bind_real_event_not_unsigned_lineage() {
     let carrier = fixture.successor(&event_id(1), 2, false);
     let verified = fixture.authenticate(&carrier).unwrap();
     assert!(verified.terminal_fence().is_none());
-    let mut forged = carrier.clone();
+    let mut forged = carrier;
     if let PeerContactSubmitRequestBody::ScopeUpdate { lineage, .. } = &mut forged {
         lineage.granted_to_peer_scopes = vec![ContactScope::VideoCall];
         fixture.source.resign(lineage);
@@ -771,7 +771,7 @@ fn carrier_later_head_requires_exact_successor_chain_and_remote_terminal_preserv
         origin_checkpoints: Vec::new(),
     };
     let mut v2 = fixture.successor(&event_id(1), 2, false);
-    let id2 = fixture.authenticate(&v2).unwrap().event_id.clone();
+    let id2 = fixture.authenticate(&v2).unwrap().event_id;
     let v3 = fixture.successor(&id2, 3, true);
     let proof3 = match &v3 {
         PeerContactSubmitRequestBody::Tombstone { current_proof, .. } => current_proof.clone(),
@@ -1216,7 +1216,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
     let mut grant_event = event.clone();
     grant_event.authorization_ref = Some(event_id(91).into());
     grant_event = f.sign_event(grant_event);
-    let carrier = make_carrier(grant_event.clone(), producer.clone());
+    let carrier = make_carrier(grant_event.clone(), producer);
     let histories = CombinedHistory {
         source: &f.source,
         agent: &history,

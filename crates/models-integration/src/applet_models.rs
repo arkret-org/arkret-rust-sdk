@@ -559,7 +559,7 @@ mod membership_remove_identity_tests {
                 principal.clone(),
                 DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
             )),
-            ActorId::service(principal.clone()),
+            ActorId::service(principal),
         ] {
             let wire = json!({"event_kind": "ak.member.state", "member_id": actor, "membership": "leave", "reason_code": "applet_revoked"});
             registry.validate_value(&schema, &wire).unwrap();
@@ -824,7 +824,7 @@ mod actor_view_tests {
                 principal.clone(),
                 DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
             )),
-            ActorId::service(principal.clone()),
+            ActorId::service(principal),
         ] {
             let value = json!({"exists": true, "actor_id": actor});
             registry.validate_value(&schema, &value).unwrap();

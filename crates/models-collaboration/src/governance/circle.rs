@@ -316,6 +316,10 @@ pub enum CirclePreviewVisibility {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum CircleReadView {
     Full(CircleView),
     Preview(CirclePreview),

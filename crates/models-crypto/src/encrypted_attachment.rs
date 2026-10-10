@@ -153,16 +153,11 @@ impl<'de> Deserialize<'de> for EncryptedAttachmentMarker {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum WholeFileEncryptionScheme {
     #[serde(rename = "ak.blob.whole_file_aead.v1")]
+    #[default]
     V1,
-}
-
-impl Default for WholeFileEncryptionScheme {
-    fn default() -> Self {
-        Self::V1
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -401,7 +401,7 @@ fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
     )
     .unwrap();
     body.invite_commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-        &arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
+        arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
     ));
     body.producer_signer_fact = Some(fact);
     body.validate_minimal().unwrap();

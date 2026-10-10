@@ -722,7 +722,7 @@ fn enforce_document_test_material_policy(
             format!("{}#{}", document.id, method_id.trim_start_matches('#'))
         };
         let key_id = DidUrl::new(absolute)
-            .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_string()))?;
+            .map_err(|error| BindingResolveError::PublicKeyMaterial(error.to_owned()))?;
         enforce_formal_test_material_policy(
             None,
             Some(&document.id),

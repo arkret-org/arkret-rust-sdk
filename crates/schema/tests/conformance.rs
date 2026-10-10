@@ -84,9 +84,7 @@ fn event_value() -> serde_json::Value {
     let created_at = "2026-05-02T00:00:00.000Z".parse().unwrap();
     let event = arkret_wire::test_support::raw_event_at(
         "ak.message.create",
-        ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        },
+        ScopeRef::Realm { realm_id },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
         json!({

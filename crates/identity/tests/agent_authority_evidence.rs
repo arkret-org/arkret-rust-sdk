@@ -194,7 +194,7 @@ fn commit(
     body.as_object_mut().unwrap().remove("commit_id");
     body.as_object_mut().unwrap().remove("signature");
     commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-        &arkret_canonical::canonical_json_bytes(&body).unwrap(),
+        arkret_canonical::canonical_json_bytes(&body).unwrap(),
     ));
     let unsigned = arkret_canonical::canonical::unsigned_value(&commit, &["signature"]).unwrap();
     commit.signature = arkret_signatures::detached_object::sign_detached_object(
@@ -242,7 +242,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     let method = format!("{PRINCIPAL_DID}#{DEVICE}");
     let genesis = sign(genesis, &method, DEVICE_SEED);
     let raw = SigningKey::from_bytes(&[88; 32]).verifying_key().to_bytes();
-    let encoded = arkret_canonical::base64url_encode(&raw);
+    let encoded = arkret_canonical::base64url_encode(raw);
     let runtime = "did:webvh:z6mkfixture:agent.example#runtime-key";
     let issued = at + Duration::seconds(10);
     let mut key = arkret_wire::test_support::raw_event_for_actor_at(

@@ -1209,7 +1209,7 @@ mod tests {
         let transcript = String::from_utf8(bytes.clone()).unwrap();
         assert!(transcript.contains("\"proof_kind\":\"agent_key_proof\""));
         assert!(!transcript.contains("\"signature\""));
-        let mut other = proof.clone();
+        let mut other = proof;
         other.signature = "B".repeat(86);
         assert_eq!(other.canonical_signing_bytes().unwrap(), bytes);
     }

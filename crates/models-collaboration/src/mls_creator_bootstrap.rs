@@ -271,6 +271,10 @@ impl MlsCreatorBootstrapCurrentCut {
 /// independent Station/auditor authority verification and are never wire data.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum MlsCreatorBootstrapAuthority {
     NativeAudit(arkret_wire::RealmAuthorityBundle),
     OwnStation(MlsCreatorBootstrapOwnStationCut),
@@ -534,12 +538,12 @@ impl MlsCreatorBootstrapAuthority {
         Ok(())
     }
     fn validate_holder(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
-        if let Self::OwnStation(cut) = self {
-            if intent.owner_actor_id().as_account_id() != Some(&cut.account_id) {
-                return Err(WireError::Protocol(
-                    "creator own-Station consumer is not the complete holder Account".into(),
-                ));
-            }
+        if let Self::OwnStation(cut) = self
+            && intent.owner_actor_id().as_account_id() != Some(&cut.account_id)
+        {
+            return Err(WireError::Protocol(
+                "creator own-Station consumer is not the complete holder Account".into(),
+            ));
         }
         Ok(())
     }
@@ -1090,7 +1094,7 @@ impl MlsCreatorBootstrapWinner {
             || &self.accepted.event.scope_ref != intent.effective_scope()
             || self.accepted.commit.stream_ref
                 != arkret_wire::CommitStreamRef::from_scope(intent.effective_scope(), None)?
-            || &*self.authority_root.realm_id() != intent.effective_scope().realm_id()
+            || self.authority_root.realm_id() != intent.effective_scope().realm_id()
             || self.accepted.commit.governance_generation > self.authority_root.generation()
             || payload.governance_binding != self.immutable_genesis_binding
             || self.immutable_genesis_binding.effective_scope() != intent.effective_scope()
@@ -2694,12 +2698,12 @@ pub fn validate_creator_genesis_absence_snapshot(
     let stream = CommitStreamRef::from_scope(intent.effective_scope(), None)?;
     accepted.validate_binding(intent)?;
     let root = &accepted.authority_root;
-    if let MlsCreatorBootstrapAuthority::OwnStation(cut) = root {
-        if &cut.snapshot != snapshot {
-            return Err(WireError::Protocol(
-                "creator absence changed the original own-Station current result".into(),
-            ));
-        }
+    if let MlsCreatorBootstrapAuthority::OwnStation(cut) = root
+        && &cut.snapshot != snapshot
+    {
+        return Err(WireError::Protocol(
+            "creator absence changed the original own-Station current result".into(),
+        ));
     }
     let create = accepted.covering_commit();
     let scope_head = snapshot
@@ -3004,7 +3008,7 @@ mod tests {
         altered = original.clone();
         altered.creator_signer_method = DidUrl::new("did:web:other.example#key").unwrap();
         assert!(altered.validate().is_err());
-        altered = original.clone();
+        altered = original;
         altered.scope_create_event_id = fixture_intent(true).scope_create_event_id;
         assert!(altered.validate().is_err());
     }
@@ -3432,7 +3436,7 @@ mod tests {
             ratchet_tree_ref: blob(&tree),
             creator_leaf_authority: crate::events_payloads::MlsGenesisCreatorLeafAuthority {
                 leaf_signature_key_b64u: arkret_wire::Base64UrlString::new(
-                    arkret_canonical::base64url::base64url_encode(&[3; 32]),
+                    arkret_canonical::base64url::base64url_encode([3; 32]),
                 )
                 .unwrap(),
                 endpoint: intent.creator_endpoint().clone(),
@@ -3595,7 +3599,7 @@ mod tests {
         unsigned.as_object_mut().unwrap().remove("signature");
         snapshot.snapshot_id =
             arkret_wire::RealmSnapshotId::from_digest(arkret_canonical::sha256_bytes(
-                &arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
+                arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
             ));
         let cut = MlsCreatorBootstrapAuthority::own_station(
             snapshot.clone(),
@@ -3654,7 +3658,7 @@ mod tests {
         unsigned.as_object_mut().unwrap().remove("signature");
         accepted_snapshot.snapshot_id =
             arkret_wire::RealmSnapshotId::from_digest(arkret_canonical::sha256_bytes(
-                &arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
+                arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
             ));
         let MlsCreatorBootstrapAuthority::OwnStation(original) = &cut else {
             unreachable!()
@@ -3695,7 +3699,7 @@ mod tests {
         let known = MlsCreatorBootstrapKnownGenesis::authenticated_winner(
             &record,
             full.clone(),
-            accepted_cut.clone(),
+            accepted_cut,
         )
         .unwrap();
         assert!(matches!(
@@ -3705,7 +3709,7 @@ mod tests {
         let mut wrong = cut.clone();
         if let MlsCreatorBootstrapAuthority::OwnStation(cut) = &mut wrong {
             cut.account_id.station_id =
-                arkret_wire::DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+                DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
         }
         assert!(
             MlsCreatorBootstrapAcceptedCreate::new(
@@ -3761,7 +3765,7 @@ mod tests {
         record.pin_governance(evidence).unwrap();
         record.persist_epoch_zero(unit.clone()).unwrap();
         assert!(record.accept_genesis(accepted.clone()).is_err());
-        record.queue_genesis(signed.clone()).unwrap();
+        record.queue_genesis(signed).unwrap();
         record.accept_genesis(accepted.clone()).unwrap();
         record.accept_genesis(accepted.clone()).unwrap();
         assert_eq!(
@@ -3788,7 +3792,7 @@ mod tests {
             )
             .is_err()
         );
-        let mut changed = row.clone();
+        let mut changed = row;
         changed.commit.event_ref = intent.scope_create_event_id().clone();
         assert!(
             MlsCreatorBootstrapAcceptedGenesis::new(
@@ -3941,7 +3945,7 @@ mod tests {
         let reopened: MlsCreatorBootstrapRecord =
             serde_json::from_slice(&serde_json::to_vec(&record).unwrap()).unwrap();
         reopened.validate().unwrap();
-        assert!(record.reopen_rejected(last_verified.clone()).is_err());
+        assert!(record.reopen_rejected(last_verified).is_err());
         assert_eq!(record, reopened);
         let mut changed = rejection.clone();
         changed.reason_code = "different_reason".into();
@@ -4641,7 +4645,7 @@ mod tests {
         missing.visible_stream_heads.clear();
         let mut stale = snapshot.clone();
         stale.governance_generation += 1;
-        let mut duplicate = snapshot.clone();
+        let mut duplicate = snapshot;
         duplicate
             .visible_stream_heads
             .push(duplicate.visible_stream_heads[0].clone());

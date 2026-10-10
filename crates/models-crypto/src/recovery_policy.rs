@@ -363,12 +363,12 @@ pub struct RecoveryPolicySummary {
 
 impl RecoveryPolicySummary {
     pub fn validate_shape(&self) -> Result<()> {
-        if let Some(reference) = &self.recovery_policy_ref {
-            if reference.policy_id != self.policy_id || reference.policy_version != self.version {
-                return Err(WireError::Protocol(
-                    "recovery policy summary ref must match policy_id and version".to_owned(),
-                ));
-            }
+        if let Some(reference) = &self.recovery_policy_ref
+            && (reference.policy_id != self.policy_id || reference.policy_version != self.version)
+        {
+            return Err(WireError::Protocol(
+                "recovery policy summary ref must match policy_id and version".to_owned(),
+            ));
         }
         if let Some(policy) = &self.policy {
             policy.validate_shape()?;
@@ -431,14 +431,13 @@ impl RecoveryPolicyActiveOutcome {
             )),
             (Some(summary), reference) => {
                 summary.validate_shape()?;
-                if let Some(reference) = reference {
-                    if reference.policy_id != summary.policy_id
-                        || reference.policy_version != summary.version
-                    {
-                        return Err(WireError::Protocol(
-                            "recovery policy ref must match the active policy".to_owned(),
-                        ));
-                    }
+                if let Some(reference) = reference
+                    && (reference.policy_id != summary.policy_id
+                        || reference.policy_version != summary.version)
+                {
+                    return Err(WireError::Protocol(
+                        "recovery policy ref must match the active policy".to_owned(),
+                    ));
                 }
                 Ok(())
             }

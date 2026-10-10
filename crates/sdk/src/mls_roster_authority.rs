@@ -40,14 +40,14 @@ fn verify_station_signature_in_document(
     let verification_method = DidUrl::new(signature.kid.as_str().to_owned())
         .map_err(|error| WireError::Protocol(error.to_owned()))?;
     arkret_identity::validate_verification_method_relationship(
-        &document,
+        document,
         &verification_method,
         &document.id,
         arkret_identity::DidVerificationRelationship::AssertionMethod,
     )
     .map_err(|error| WireError::Protocol(error.to_string()))?;
     let public_key =
-        arkret_identity::public_key_material_from_document(&document, &verification_method)
+        arkret_identity::public_key_material_from_document(document, &verification_method)
             .map_err(|error| WireError::Protocol(error.to_string()))?
             .ed25519_bytes()
             .map_err(|error| WireError::Protocol(error.to_string()))?;
@@ -886,7 +886,7 @@ mod tests {
                 [14; 32],
             ),
             leaf_signature_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
-                &[7; 32],
+                [7; 32],
             ))
             .unwrap(),
             claim_record_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
@@ -905,7 +905,7 @@ mod tests {
                 genesis_event_ref: genesis,
                 actor_id: actor.clone(),
                 leaf_signature_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
-                    &[5; 32],
+                    [5; 32],
                 ))
                 .unwrap(),
                 endpoint: MlsWelcomeRecipientEndpoint::AgentRuntime {
@@ -1001,17 +1001,16 @@ mod tests {
         ] {
             let mut changed = member.clone();
             match field {
-                "realm_id" => changed.realm_id = arkret_wire::RealmId::from_event_id(&event()),
+                "realm_id" => changed.realm_id = RealmId::from_event_id(&event()),
                 "effective_scope" => {
-                    changed.effective_scope = arkret_wire::ScopeRef::Circle {
+                    changed.effective_scope = ScopeRef::Circle {
                         realm_id: member.realm_id.clone(),
                         circle_id: arkret_wire::CircleId::from_event_id(&event()),
                     }
                 }
                 "mls_group_id" => {
                     changed.mls_group_id =
-                        arkret_wire::MlsGroupId::new(arkret_canonical::base64url_encode([19; 32]))
-                            .unwrap()
+                        MlsGroupId::new(arkret_canonical::base64url_encode([19; 32])).unwrap()
                 }
                 "target_commit_event_ref" => {
                     changed.target_commit_event_ref =
@@ -1020,7 +1019,7 @@ mod tests {
                 "target_epoch" => changed.target_epoch += 1,
                 _ => {
                     changed.caller_actor_id = arkret_wire::ActorId::service(
-                        arkret_wire::DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+                        DidCoreId::new("ak:did_core:web:other.example").unwrap(),
                     )
                 }
             }
@@ -1069,7 +1068,7 @@ mod tests {
         assert!(
             verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err()
         );
-        let mut changed = projected.clone();
+        let mut changed = projected;
         changed[1].roster.records.reverse();
         changed.reverse();
         assert!(
@@ -1227,7 +1226,7 @@ mod tests {
                 .public_key_b64u
         );
         verify_mls_self_roster_authority_pages(&projected, &request, &station, head).unwrap();
-        let mut wrong = projected.clone();
+        let mut wrong = projected;
         wrong[1].add_signing_keys[0].claim_receipt_signing_key =
             wrong[1].add_signing_keys[0].attestation_signing_key.clone();
         assert!(verify_mls_self_roster_authority_pages(&wrong, &request, &station, head).is_err());
@@ -1236,12 +1235,10 @@ mod tests {
             attestor_resolution,
             ..
         } = &mut broken.records[0]
-        {
-            if let ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } =
+            && let ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } =
                 &mut attestor_resolution.method_history_evidence
-            {
-                log_entries.remove(0);
-            }
+        {
+            log_entries.remove(0);
         }
         assert!(
             project_mls_self_roster_authority_page(broken, &request, &station, head, &resolution)
@@ -1347,16 +1344,16 @@ mod tests {
     #[test]
     fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historical_signatures() {
         let (request, mut pages, resolution) = signed_two_page_roster();
-        let mut low = 0;
+        let mut low: usize = 0;
         let mut high = 1_600_000;
         while low < high {
-            let candidate = (low + high + 1) / 2;
+            let candidate = (low + high).div_ceil(2);
             if let MlsRosterRecord::Add {
                 proposal_wire_b64u, ..
             } = &mut pages[1].records[0]
             {
                 *proposal_wire_b64u =
-                    Base64UrlString::new(arkret_canonical::base64url_encode(&vec![7; candidate]))
+                    Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; candidate]))
                         .unwrap();
             }
             if arkret_canonical::canonical_json_bytes(&pages[1])
@@ -1374,7 +1371,7 @@ mod tests {
         } = &mut pages[1].records[0]
         {
             *proposal_wire_b64u =
-                Base64UrlString::new(arkret_canonical::base64url_encode(&vec![7; low])).unwrap();
+                Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; low])).unwrap();
         }
         resign_roster_pages(&mut pages);
         let mut combined_page = pages[0].clone();
@@ -1497,7 +1494,7 @@ mod tests {
         } = &mut oversized[1].records[0]
         {
             *proposal_wire_b64u =
-                Base64UrlString::new(arkret_canonical::base64url_encode(&vec![7; 1_600_000]))
+                Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; 1_600_000]))
                     .unwrap();
         }
         resign_roster_pages(&mut oversized);

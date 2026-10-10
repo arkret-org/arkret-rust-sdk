@@ -517,12 +517,12 @@ impl PolicyRule {
                 "Applet fields on non-Applet rule".into(),
             ));
         }
-        if let Some(AppletPolicyTarget::ManagedActor { actor_id }) = &self.applet_target {
-            if !matches!(actor_id, ActorId::Account { .. }) {
-                return Err(WireError::Protocol(
-                    "managed actor selector must be an Account".into(),
-                ));
-            }
+        if let Some(AppletPolicyTarget::ManagedActor { actor_id }) = &self.applet_target
+            && !matches!(actor_id, ActorId::Account { .. })
+        {
+            return Err(WireError::Protocol(
+                "managed actor selector must be an Account".into(),
+            ));
         }
         let reviewable = match self.kind {
             PolicyRuleKind::Agent => self.agent_operations.as_ref().is_some_and(|v| {

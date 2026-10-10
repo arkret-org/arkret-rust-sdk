@@ -463,7 +463,7 @@ fn signed_pcr_commit(
     };
     let preimage = arkret_canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap();
     commit.commit_id = arkret_wire::RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-        &arkret_canonical::canonical_json_bytes(&preimage).unwrap(),
+        arkret_canonical::canonical_json_bytes(&preimage).unwrap(),
     ));
     let unsigned = arkret_canonical::unsigned_value(&commit, &["signature"]).unwrap();
     commit.signature = sign_detached_object(
@@ -561,7 +561,7 @@ fn native_pcr_completion_requires_original_content_id_and_excludes_ordinary_fact
     context_for_pcr(request.clone(), bundle.clone(), valid.clone())
         .validate()
         .unwrap();
-    let mut changed = valid.clone();
+    let mut changed = valid;
     changed.commit_id = arkret_wire::RealmCommitId::from_digest([0x82; 32]);
     assert!(
         context_for_pcr(request.clone(), bundle.clone(), changed)
@@ -612,7 +612,7 @@ fn native_pcr_resolution_lineage_requires_original_content_ids_and_no_ordinary_f
     let successor = signed_pcr_commit(&resolution_event, Some(&genesis), None);
     let evidence = arkret_models_integration::ManagedActorResolutionUpdateEvidence {
         resolution_event: resolution_event.clone(),
-        commits: vec![genesis.clone(), successor.clone()],
+        commits: vec![genesis.clone(), successor],
         method_history_evidence: method_history_evidence(),
         attester_resolution: arkret_models_identity::AuthenticatedServiceResolution {
             service_id: core_id(STATION_DID),

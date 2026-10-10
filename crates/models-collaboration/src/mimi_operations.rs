@@ -827,7 +827,7 @@ mod tests {
     fn request_consent_transcript_binds_the_holder_and_purpose() {
         let body: MimiRequestConsentRequestBody =
             serde_json::from_value(request_consent_value()).unwrap();
-        let mut unsigned = body.clone();
+        let mut unsigned = body;
         unsigned.proofs = Vec::new();
         let mut proof = fixture_proof();
         proof.payload_digest = unsigned.payload_digest().unwrap();
@@ -1287,7 +1287,7 @@ mod mimi_relay_tests {
         let digest_with_proof = anonymous.payload_digest().unwrap();
         anonymous.proofs.clear();
         assert_eq!(anonymous.payload_digest().unwrap(), digest_with_proof);
-        let mut anonymous_proof = proof.clone();
+        let mut anonymous_proof = proof;
         anonymous_proof.payload_digest = digest_with_proof;
         let unsigned_transcript = String::from_utf8(
             anonymous

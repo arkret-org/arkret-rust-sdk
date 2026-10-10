@@ -331,7 +331,8 @@ mod tests {
             ["ak.self.events.command.submit.v1"]
         );
 
-        for activation in ["ak.self.keys.keypackages.command.consume.v1"] {
+        {
+            let activation = "ak.self.keys.keypackages.command.consume.v1";
             let deficiency = assess_agent_runtime_scopes([activation], [activation], [activation])
                 .unwrap()
                 .unwrap();

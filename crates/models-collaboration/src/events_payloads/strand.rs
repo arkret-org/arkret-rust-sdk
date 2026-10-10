@@ -82,10 +82,10 @@ impl StrandPatchPayload {
         expected_state_digest: Hash,
     ) -> Result<Self> {
         let op = match topic {
-            Some(topic) => arkret_wire::patch::PatchOp::set(
+            Some(topic) => PatchOp::set(
                 serde_json::to_value(topic).map_err(|e| WireError::Protocol(e.to_string()))?,
             ),
-            None => arkret_wire::patch::PatchOp::unset(),
+            None => PatchOp::unset(),
         };
         let mut patch = Patch::new();
         patch.insert_op("topic", op)?;
@@ -111,15 +111,15 @@ impl StrandPatchPayload {
                 ));
             }
             match op {
-                arkret_wire::patch::PatchOp::Explicit {
-                    op: arkret_wire::patch::PatchOpKind::Set,
+                PatchOp::Explicit {
+                    op: PatchOpKind::Set,
                     value: Some(value),
                 } => {
                     serde_json::from_value::<StrandTopic>(value.clone())
                         .map_err(|e| WireError::Protocol(e.to_string()))?;
                 }
-                arkret_wire::patch::PatchOp::Explicit {
-                    op: arkret_wire::patch::PatchOpKind::Unset,
+                PatchOp::Explicit {
+                    op: PatchOpKind::Unset,
                     value: None,
                 } => {}
                 _ => {

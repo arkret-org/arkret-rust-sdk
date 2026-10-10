@@ -573,10 +573,10 @@ impl MlsPublicGroupTracker {
                         }
                     })
                     .collect::<BTreeSet<_>>();
-                if staged.update_path_leaf_node().is_some() {
-                    if let Sender::Member(index) = sender {
-                        updated.insert(index.u32());
-                    }
+                if staged.update_path_leaf_node().is_some()
+                    && let Sender::Member(index) = sender
+                {
+                    updated.insert(index.u32());
                 }
                 let mut additions = staged
                     .queued_proposals()

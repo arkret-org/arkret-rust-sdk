@@ -49,15 +49,14 @@ impl ManagedActorResolutionUpdateEvidence {
                     "managed resolution lineage crosses PCR Realms".into(),
                 ));
             }
-            if let Some(prior) = previous {
-                if commit.stream_ref != prior.stream_ref
+            if let Some(prior) = previous
+                && (commit.stream_ref != prior.stream_ref
                     || commit.previous_commit_ref.as_ref() != Some(&prior.commit_id)
-                    || prior.stream_position.checked_add(1) != Some(commit.stream_position)
-                {
-                    return Err(WireError::Protocol(
-                        "managed resolution lineage is not consecutive".into(),
-                    ));
-                }
+                    || prior.stream_position.checked_add(1) != Some(commit.stream_position))
+            {
+                return Err(WireError::Protocol(
+                    "managed resolution lineage is not consecutive".into(),
+                ));
             }
             previous = Some(commit);
         }

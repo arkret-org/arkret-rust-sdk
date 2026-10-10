@@ -191,17 +191,12 @@ pub enum GrantApprovalRelation {
     Custom,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum GrantApprovalThreshold {
     Majority,
+    #[default]
     Unanimous,
     Count(std::num::NonZeroU64),
-}
-
-impl Default for GrantApprovalThreshold {
-    fn default() -> Self {
-        Self::Unanimous
-    }
 }
 
 impl GrantApprovalThreshold {

@@ -25,6 +25,10 @@ pub struct MessageEncryptionContext {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum MessageAuthoringContent {
     Plaintext {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]

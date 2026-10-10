@@ -484,6 +484,12 @@ pub struct RealmFreezePayload {
     pub reason: Option<String>,
 }
 
+impl Default for RealmFreezePayload {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RealmFreezePayload {
     pub fn new() -> Self {
         Self { reason: None }

@@ -421,7 +421,7 @@ mod authority_material_current_tests {
         let scope = arkret_wire::ScopeRef::Realm {
             realm_id: serde_json::from_value(present["realm_id"].clone()).unwrap(),
         };
-        let results = decode(&json!([present.clone()])).unwrap();
+        let results = decode(&json!([present])).unwrap();
         validate_present_current_results_for_scope(&scope, &results).unwrap();
         let mut other_cut = present.clone();
         other_cut["effective_stream_head"]["stream_position"] = json!(
@@ -433,7 +433,7 @@ mod authority_material_current_tests {
         assert!(
             validate_present_current_results_for_scope(
                 &scope,
-                &decode(&json!([present.clone(), other_cut])).unwrap()
+                &decode(&json!([present, other_cut])).unwrap()
             )
             .is_err()
         );
@@ -530,11 +530,8 @@ mod authority_material_current_tests {
         let scope = arkret_wire::ScopeRef::Realm {
             realm_id: realm.clone(),
         };
-        validate_present_current_results_for_scope(
-            &scope,
-            &decode(&json!([value.clone()])).unwrap(),
-        )
-        .unwrap();
+        validate_present_current_results_for_scope(&scope, &decode(&json!([value])).unwrap())
+            .unwrap();
         let circle_scope = arkret_wire::ScopeRef::Circle {
             realm_id: realm,
             circle_id: arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
@@ -545,7 +542,7 @@ mod authority_material_current_tests {
         assert!(
             validate_present_current_results_for_scope(
                 &circle_scope,
-                &decode(&json!([value.clone()])).unwrap()
+                &decode(&json!([value])).unwrap()
             )
             .is_err()
         );

@@ -508,9 +508,7 @@ mod tests {
                 stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await.unwrap();
             }
         });
-        let realm =
-            arkret_wire::RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO")
-                .unwrap();
+        let realm = RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO").unwrap();
         let request = StreamScanRequest {
             realm_id: realm.clone(),
             stream_ref: arkret_wire::CommitStreamRef::Realm { realm_id: realm },
@@ -561,7 +559,7 @@ mod tests {
                 original.binding.clone(),
                 AccountId::new(original.account_id.principal_id.clone(), wrong_station),
                 original.binding.service_id.clone(),
-                original.grant_id.clone(),
+                original.grant_id,
                 0,
                 "session-token".into()
             )

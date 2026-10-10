@@ -46,7 +46,7 @@ fn preview_and_list_have_one_closed_wire_shape() {
     let read: CircleReadView = serde_json::from_value(preview.clone()).unwrap();
     assert_eq!(serde_json::to_value(read).unwrap(), preview);
 
-    let list = json!({"realm_id": REALM, "circles": [preview.clone()]});
+    let list = json!({"realm_id": REALM, "circles": [preview]});
     assert!(schema_accepts("circle_list", &list));
     let parsed: CircleList = serde_json::from_value(list.clone()).unwrap();
     assert_eq!(serde_json::to_value(parsed).unwrap(), list);

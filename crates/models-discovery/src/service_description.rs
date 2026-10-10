@@ -712,13 +712,13 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        if self.service_kind == ServiceKind::DirectoryService {
-            if self.resource_kinds.as_slice() != [DirectoryResourceKind::Realm] {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: service_kind=directory_service indexes only public Realm metadata ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
+        if self.service_kind == ServiceKind::DirectoryService
+            && self.resource_kinds.as_slice() != [DirectoryResourceKind::Realm]
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: service_kind=directory_service indexes only public Realm metadata ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
         }
         Ok(())
     }
@@ -1009,9 +1009,8 @@ mod tests {
         for field in ["claimed_profiles", "ingest_modes"] {
             let mut wire = serde_json::to_value(station_description()).unwrap();
             wire[field] = json!([]);
-            match serde_json::from_value::<ServiceDescribe>(wire) {
-                Ok(description) => assert!(description.validate().is_err()),
-                Err(_) => {}
+            if let Ok(description) = serde_json::from_value::<ServiceDescribe>(wire) {
+                assert!(description.validate().is_err())
             }
         }
     }

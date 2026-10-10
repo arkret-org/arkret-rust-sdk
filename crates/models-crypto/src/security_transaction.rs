@@ -324,6 +324,10 @@ pub enum SecurityTransactionPreparedPlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case", deny_unknown_fields)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum SecurityTransactionTerminalOutcome {
     Completed {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1271,12 +1275,11 @@ fn validate_recovery_event_unit(
     if reanchor_signer != authorize_signer {
         return protocol("recovery Events must use the same session-frozen replacement key");
     }
-    if let Some(binding) = binding {
-        if binding.reanchor_event_id != reanchor.event_id
-            || binding.authorize_event_id != authorize.event_id
-        {
-            return protocol("recovery binding does not name the prepared Event pair");
-        }
+    if let Some(binding) = binding
+        && (binding.reanchor_event_id != reanchor.event_id
+            || binding.authorize_event_id != authorize.event_id)
+    {
+        return protocol("recovery binding does not name the prepared Event pair");
     }
     Ok(())
 }

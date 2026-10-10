@@ -233,7 +233,7 @@ fn binding_current_value_is_an_add_only_dot_set_of_one_digest() {
         )
         .unwrap();
 
-    assert!(value.clone().with_endorsement(first.clone()).is_err());
+    assert!(value.clone().with_endorsement(first).is_err());
     let mut other = payload;
     other.pair_key = arkret_wire::Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap();
     assert!(

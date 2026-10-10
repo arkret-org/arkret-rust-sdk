@@ -386,7 +386,7 @@ impl AgentParticipationObservation {
 mod observation_tests {
     use super::*;
     fn observation() -> AgentParticipationObservation {
-        let realm = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+        let realm = RealmId::from_event_id(&arkret_wire::EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [7; 32],
         ));

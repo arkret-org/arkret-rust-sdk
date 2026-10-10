@@ -53,4 +53,4 @@ jobs:
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
       - run: python tools/check-publish-order.py
-      - run: cargo package --workspace --locked --no-verify
+      - run: cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify

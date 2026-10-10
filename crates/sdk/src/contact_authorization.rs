@@ -817,23 +817,28 @@ pub fn authenticate_contact_event_carrier(
         producer_signer.delegated_actor_did(),
         resolver,
     )?;
-    let address = match carrier {
-        PeerContactSubmitRequestBody::Request {
-            contact_address, ..
-        }
-        | PeerContactSubmitRequestBody::Response {
-            contact_address, ..
-        }
-        | PeerContactSubmitRequestBody::Reject {
-            contact_address, ..
-        }
-        | PeerContactSubmitRequestBody::ScopeUpdate {
-            contact_address, ..
-        }
-        | PeerContactSubmitRequestBody::Tombstone {
-            contact_address, ..
-        } => contact_address,
-        _ => unreachable!(),
+    let (PeerContactSubmitRequestBody::Request {
+        contact_address: address,
+        ..
+    }
+    | PeerContactSubmitRequestBody::Response {
+        contact_address: address,
+        ..
+    }
+    | PeerContactSubmitRequestBody::Reject {
+        contact_address: address,
+        ..
+    }
+    | PeerContactSubmitRequestBody::ScopeUpdate {
+        contact_address: address,
+        ..
+    }
+    | PeerContactSubmitRequestBody::Tombstone {
+        contact_address: address,
+        ..
+    }) = carrier
+    else {
+        unreachable!()
     };
     if address.recipient != peer {
         return Err(invalid("carrier address names a different Contact peer"));
@@ -1224,14 +1229,13 @@ pub fn verify_contact_direction_history(
                 "carrier current proof precedes its own exact command",
             ));
         }
-        if let Some(head) = local {
-            if head.version != proof.complete_through
-                || (head.terminal == Some(true)) != proof.terminal
-            {
-                return Err(invalid(
-                    "carrier proof conflicts with its authenticated exact head",
-                ));
-            }
+        if let Some(head) = local
+            && (head.version != proof.complete_through
+                || (head.terminal == Some(true)) != proof.terminal)
+        {
+            return Err(invalid(
+                "carrier proof conflicts with its authenticated exact head",
+            ));
         }
     }
     verify_transition_history(
@@ -1252,6 +1256,10 @@ pub fn verify_contact_direction_history(
 /// `observed_at` is the actual first observation, not an invented old timestamp.
 /// A complete lineage starts at version one and ends at the signed checkpoint;
 /// a latest-head-only projection cannot construct this verified value.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep signed lineage, observation time, resolver and terminal fence explicit at this verification boundary."
+)]
 fn verify_transition_history(
     issuer: &ContactPeer,
     peer: &ContactPeer,

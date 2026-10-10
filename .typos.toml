@@ -1,5 +1,8 @@
 [default]
 extend-ignore-re = [
+    # Content-addressed protocol fixture IDs and digest known-answer vectors.
+    "ak:[a-z_]+:[A-Za-z0-9_-]{43}",
+    "PfgyVkXhI1H9x4sv9t1SYQ-_HMqFNm0iiOtE_s_cODU",
     # base 58 strings with spaces every four chars.
     # this would also match regular sentence parts with eight or more words of
     # exactly four characters in row, but that doesn't really happen.
@@ -14,6 +17,7 @@ extend-ignore-re = [
     "^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$",
     # deliberately fake SCID in identity tests
     "zNOTtheRealScid",
+    "[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}",
 ]
 
 [default.extend-identifiers]

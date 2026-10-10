@@ -115,7 +115,7 @@ mod tests {
         let selected = native_identity_control_key_from_verified_selection(
             &identity,
             &principal,
-            &[multibase.clone()],
+            std::slice::from_ref(&multibase),
             &method,
             purpose,
         )
@@ -137,7 +137,7 @@ mod tests {
             native_identity_control_key_from_verified_selection(
                 &identity,
                 &principal,
-                &[multibase.clone()],
+                std::slice::from_ref(&multibase),
                 &wrong_fragment,
                 purpose
             )

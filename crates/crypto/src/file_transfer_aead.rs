@@ -277,12 +277,12 @@ mod tests {
         serde_json::from_value(json!({
             "scheme": "ak.blob.stream_aead.v1",
             "aead_profile": "ak.aead.xchacha20_poly1305.v1",
-            "nonce_prefix": base64url_encode(&[0; 19]), "segment_bytes": 1024,
+            "nonce_prefix": base64url_encode([0; 19]), "segment_bytes": 1024,
             "aad": {"schema": "ak.schema.file_transfer.v1", "purpose": "file_transfer",
                 "transfer_id": "0123456789abcdefghijkl",
                 "origin_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
                 "created_at": "2026-08-31T00:00:00.000Z"},
-            "key_delivery": {"method": "account_data_wrapped_key", "content_key": base64url_encode(&[7; 32])}
+            "key_delivery": {"method": "account_data_wrapped_key", "content_key": base64url_encode([7; 32])}
         })).unwrap()
     }
 

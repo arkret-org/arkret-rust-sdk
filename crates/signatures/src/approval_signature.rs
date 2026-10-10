@@ -115,130 +115,6 @@ pub fn verify_event_approval_signature_with_verified_controller(
         .map_err(|_| ApprovalEventVerificationError::Signature)
 }
 
-#[cfg(test)]
-mod tests {
-    use arkret_wire::{
-        ApprovalContext, ApprovalSignatureInput, ApprovalSignatureProof,
-        ApprovalSignatureProofKind, Did, DidCoreId, DidUrl, EventId, Hash, ProducerEventProof,
-        RealmId, ScopeRef, test_support,
-    };
-    use chrono::TimeZone;
-    use serde_json::json;
-
-    use super::*;
-    use crate::Ed25519DetachedJwsSigner;
-
-    #[test]
-    fn exact_event_approval_verifies_and_rejects_changed_binding() {
-        let at = Utc.timestamp_opt(1_800_000_000, 0).unwrap();
-        let realm = RealmId::from_event_id(&EventId::from_digest(
-            arkret_canonical::DigestSuite::Sha256,
-            [3; 32],
-        ));
-        let mut event = test_support::raw_event_at(
-            "ak.strand.move",
-            ScopeRef::Realm {
-                realm_id: realm.clone(),
-            },
-            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-            json!({"board_space_id":"board","strand_id":"strand","target_space_id":"list","rank":"a"}),
-            at,
-        )
-        .unwrap();
-        event.producer_proof = Some(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:web:alice.example#device-1").unwrap(),
-            event_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-            created_at: at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "producer-proof".to_owned(),
-        });
-        let method = DidUrl::new("did:web:manager.example#key-1").unwrap();
-        let signer = Ed25519DetachedJwsSigner::from_seed([23; 32], method.as_str());
-        let key = PublicKeyMaterial::Ed25519Raw {
-            bytes: signer.verifying_key().to_bytes().to_vec(),
-        };
-        let input = ApprovalSignatureInput {
-            approval_context: ApprovalContext::RealmGovernance {},
-            approval_target: ApprovalTarget::Event {
-                event_id: event.event_id.clone(),
-            },
-            request_canonical_digest: Hash::new(
-                arkret_canonical::canonical::canonical_sha256(&event).unwrap(),
-            )
-            .unwrap(),
-            operation: "ak.self.events.command.submit.v1".to_owned(),
-            action: CapabilityActionId::StrandMove,
-            realm_id: realm,
-            initiating_actor_id: event.actor_id.clone(),
-            approver_did: Did::new("did:web:manager.example").unwrap(),
-            approved_at: at,
-            nonce: "ABCDEFGHIJKLMNOPQRSTUV".to_owned(),
-        };
-        let mut signature = ApprovalSignature {
-            input,
-            proof: ApprovalSignatureProof {
-                kind: ApprovalSignatureProofKind::DetachedJws,
-                verification_method: method,
-                jws: String::new(),
-            },
-        };
-        signature.proof.jws =
-            signer.sign_detached_jws(&approval_signature_signing_bytes(&signature).unwrap());
-        assert!(
-            verify_event_approval_signature(
-                &signature,
-                &event,
-                "ak.self.events.command.submit.v1",
-                CapabilityActionId::StrandMove,
-                at,
-                &key,
-            )
-            .is_ok()
-        );
-        let mut tampered = signature.clone();
-        tampered.input.nonce.push('X');
-        assert!(matches!(
-            verify_event_approval_signature(
-                &tampered,
-                &event,
-                "ak.self.events.command.submit.v1",
-                CapabilityActionId::StrandMove,
-                at,
-                &key
-            ),
-            Err(ApprovalEventVerificationError::Signature)
-        ));
-        assert!(matches!(
-            verify_event_approval_signature(
-                &signature,
-                &event,
-                "ak.peer.events.command.submit.v1",
-                CapabilityActionId::StrandMove,
-                at,
-                &key
-            ),
-            Err(ApprovalEventVerificationError::Binding)
-        ));
-        let mut changed_event = event.clone();
-        changed_event.producer_proof.as_mut().unwrap().jws.push('X');
-        assert!(matches!(
-            verify_event_approval_signature(
-                &signature,
-                &changed_event,
-                "ak.self.events.command.submit.v1",
-                CapabilityActionId::StrandMove,
-                at,
-                &key
-            ),
-            Err(ApprovalEventVerificationError::Digest)
-        ));
-    }
-}
-
 /// Immutable private review ledger coordinates resolved independently of the signature.
 pub struct ManagementApprovalBinding<'a> {
     pub request_id: &'a str,
@@ -356,4 +232,128 @@ pub fn verify_management_operation_approval_signature(
             approver_public_key,
         )
         .map_err(|_| ApprovalEventVerificationError::Signature)
+}
+
+#[cfg(test)]
+mod tests {
+    use arkret_wire::{
+        ApprovalContext, ApprovalSignatureInput, ApprovalSignatureProof,
+        ApprovalSignatureProofKind, Did, DidCoreId, DidUrl, EventId, Hash, ProducerEventProof,
+        RealmId, ScopeRef, test_support,
+    };
+    use chrono::TimeZone;
+    use serde_json::json;
+
+    use super::*;
+    use crate::Ed25519DetachedJwsSigner;
+
+    #[test]
+    fn exact_event_approval_verifies_and_rejects_changed_binding() {
+        let at = Utc.timestamp_opt(1_800_000_000, 0).unwrap();
+        let realm = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [3; 32],
+        ));
+        let mut event = test_support::raw_event_at(
+            "ak.strand.move",
+            ScopeRef::Realm {
+                realm_id: realm.clone(),
+            },
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            json!({"board_space_id":"board","strand_id":"strand","target_space_id":"list","rank":"a"}),
+            at,
+        )
+        .unwrap();
+        event.producer_proof = Some(ProducerEventProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new("did:web:alice.example#device-1").unwrap(),
+            event_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+            created_at: at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "producer-proof".to_owned(),
+        });
+        let method = DidUrl::new("did:web:manager.example#key-1").unwrap();
+        let signer = Ed25519DetachedJwsSigner::from_seed([23; 32], method.as_str());
+        let key = PublicKeyMaterial::Ed25519Raw {
+            bytes: signer.verifying_key().to_bytes().to_vec(),
+        };
+        let input = ApprovalSignatureInput {
+            approval_context: ApprovalContext::RealmGovernance {},
+            approval_target: ApprovalTarget::Event {
+                event_id: event.event_id.clone(),
+            },
+            request_canonical_digest: Hash::new(
+                arkret_canonical::canonical::canonical_sha256(&event).unwrap(),
+            )
+            .unwrap(),
+            operation: "ak.self.events.command.submit.v1".to_owned(),
+            action: CapabilityActionId::StrandMove,
+            realm_id: realm,
+            initiating_actor_id: event.actor_id.clone(),
+            approver_did: Did::new("did:web:manager.example").unwrap(),
+            approved_at: at,
+            nonce: "ABCDEFGHIJKLMNOPQRSTUV".to_owned(),
+        };
+        let mut signature = ApprovalSignature {
+            input,
+            proof: ApprovalSignatureProof {
+                kind: ApprovalSignatureProofKind::DetachedJws,
+                verification_method: method,
+                jws: String::new(),
+            },
+        };
+        signature.proof.jws =
+            signer.sign_detached_jws(&approval_signature_signing_bytes(&signature).unwrap());
+        assert!(
+            verify_event_approval_signature(
+                &signature,
+                &event,
+                "ak.self.events.command.submit.v1",
+                CapabilityActionId::StrandMove,
+                at,
+                &key,
+            )
+            .is_ok()
+        );
+        let mut tampered = signature.clone();
+        tampered.input.nonce.push('X');
+        assert!(matches!(
+            verify_event_approval_signature(
+                &tampered,
+                &event,
+                "ak.self.events.command.submit.v1",
+                CapabilityActionId::StrandMove,
+                at,
+                &key
+            ),
+            Err(ApprovalEventVerificationError::Signature)
+        ));
+        assert!(matches!(
+            verify_event_approval_signature(
+                &signature,
+                &event,
+                "ak.peer.events.command.submit.v1",
+                CapabilityActionId::StrandMove,
+                at,
+                &key
+            ),
+            Err(ApprovalEventVerificationError::Binding)
+        ));
+        let mut changed_event = event;
+        changed_event.producer_proof.as_mut().unwrap().jws.push('X');
+        assert!(matches!(
+            verify_event_approval_signature(
+                &signature,
+                &changed_event,
+                "ak.self.events.command.submit.v1",
+                CapabilityActionId::StrandMove,
+                at,
+                &key
+            ),
+            Err(ApprovalEventVerificationError::Digest)
+        ));
+    }
 }

@@ -342,17 +342,15 @@ impl PeerStreamScanOutcome {
         }
         let mut facts = self.producer_signer_facts.iter();
         for row in &self.committed_events {
-            if let arkret_wire::CommittedEventView::Full(full) = row {
-                if full.commit.producer_signer_fact_digest.is_some() {
-                    facts
-                        .next()
-                        .ok_or_else(|| {
-                            WireError::Protocol(
-                                "peer Full row lacks original Human signer fact".into(),
-                            )
-                        })?
-                        .validate_target(full)?;
-                }
+            if let arkret_wire::CommittedEventView::Full(full) = row
+                && full.commit.producer_signer_fact_digest.is_some()
+            {
+                facts
+                    .next()
+                    .ok_or_else(|| {
+                        WireError::Protocol("peer Full row lacks original Human signer fact".into())
+                    })?
+                    .validate_target(full)?;
             }
         }
         if facts.next().is_some() {
@@ -764,6 +762,10 @@ impl MembershipCompensationFederationSubmission {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum SelfAuthoritySubmitRequest {
     Event(EventAdmissionSubmission),
     MlsCommit(MlsCommitSubmission),
@@ -786,6 +788,10 @@ impl SelfAuthoritySubmitRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum PeerRegisteredAtomicUnit {
     DirectConversationFounding(DirectConversationFoundingFederationSubmission),
     MembershipCompensation(MembershipCompensationFederationSubmission),
@@ -1068,6 +1074,10 @@ pub struct PeerRegisteredAtomicUnitRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum PeerAuthoritySubmitRequest {
     AuthorityForwardEvent(PeerAuthorityForwardEventRequest),
     AuthorityForwardMls(PeerAuthorityForwardMlsRequest),
@@ -1206,6 +1216,10 @@ impl MembershipCompensationAcceptanceOutcome {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum SelfAuthoritySubmitOutcome {
     Ordinary(arkret_wire::AuthoritySubmitOutcome),
     OrdinaryRealmBootstrap(OrdinaryRealmBootstrapAcceptanceOutcome),
@@ -1260,19 +1274,17 @@ impl SelfAuthoritySubmitOutcome {
                 SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(request),
                 Self::OrdinaryRealmBootstrap(outcome),
             ) = (request, self)
-            {
-                if request.events.len() != outcome.commits.len()
+                && (request.events.len() != outcome.commits.len()
                     || !request
                         .events
                         .iter()
                         .zip(&outcome.commits)
-                        .all(|(event, commit)| event.event.event_id == commit.event_ref)
-                {
-                    return Err(WireError::Protocol(
-                        "ordinary Realm bootstrap outcome must commit each submitted Event in order"
-                            .to_owned(),
-                    ));
-                }
+                        .all(|(event, commit)| event.event.event_id == commit.event_ref))
+            {
+                return Err(WireError::Protocol(
+                    "ordinary Realm bootstrap outcome must commit each submitted Event in order"
+                        .to_owned(),
+                ));
             }
             Ok(())
         } else {
@@ -1335,6 +1347,10 @@ pub enum RegisteredAtomicUnitRejectionStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum PeerRegisteredAtomicUnitOutcomeValue {
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
@@ -1350,6 +1366,10 @@ pub struct PeerRegisteredAtomicUnitOutcome {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum PeerAuthoritySubmitOutcome {
     AuthorityForward(PeerAuthorityForwardOutcome),
     CommittedReplication(PeerCommittedReplicationOutcome),
@@ -1756,7 +1776,7 @@ pub fn validate_new_producer_admission_fact(
         (None, Some(HistoricalProducerSignerFact::Service(fact))) => {
             fact.validate_event_binding(event, suite)
         }
-        (None, None) if event.applet_id.is_none() || !matches!(event.actual_signer(), arkret_wire::ActorId::Service { .. }) => Ok(()),
+        (None, None) if event.applet_id.is_none() || !matches!(event.actual_signer(), ActorId::Service { .. }) => Ok(()),
         _ => Err(WireError::Protocol(
             "new ordinary admission requires the immutable fact of its actual Human or Applet Service producer"
                 .into(),

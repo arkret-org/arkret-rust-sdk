@@ -732,7 +732,7 @@ mod tests {
         details.validate_after(after).unwrap();
         assert!(details.validate_after("ak:cursor:another-cut").is_err());
         assert_eq!(details.continuation_cursor(), after);
-        let mut wrong_status = problem.clone();
+        let mut wrong_status = problem;
         wrong_status.status = 400;
         assert!(wrong_status.account_revision_stale_details().is_err());
         let wrong_code = Problem::from_code("cas_conflict", "not recovery")

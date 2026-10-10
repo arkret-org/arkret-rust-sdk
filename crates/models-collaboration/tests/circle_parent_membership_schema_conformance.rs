@@ -58,7 +58,7 @@ fn schema_accepts(registry: &mut ProtocolSchemaRegistry, schema_ref: &str, value
         .register_fragment(
             schema_id.clone(),
             read_json(artifacts_dir().join("schemas").join(file)),
-            &format!("#{fragment}"),
+            format!("#{fragment}"),
         )
         .unwrap();
     registry.validate_value(&schema_id, value).is_ok()
@@ -275,7 +275,7 @@ fn admission_verdict(parent: &Value, payload: &Value) -> Value {
         serde_json::from_value(parent["source_stream_ref"].clone()).unwrap();
     let bound = CircleMemberStateCurrent {
         membership: MembershipState::Join,
-        parent_membership_revision: payload.parent_membership_revision.clone(),
+        parent_membership_revision: payload.parent_membership_revision,
         effective_at: chrono::Utc::now(),
     };
     if bound.is_effective_under_parent(

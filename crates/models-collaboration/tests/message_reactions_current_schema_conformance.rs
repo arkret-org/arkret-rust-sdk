@@ -218,7 +218,7 @@ fn message_reactions_insert_keeps_the_canonical_dot_order() {
     let mut entries = set.into_assertions();
     let last = entries.pop().unwrap();
     let first = entries.pop().unwrap();
-    let rebuilt = MessageReactionsCurrentValue::new(vec![last.clone()])
+    let rebuilt = MessageReactionsCurrentValue::new(vec![last])
         .unwrap()
         .with_assertion(first.clone())
         .unwrap();

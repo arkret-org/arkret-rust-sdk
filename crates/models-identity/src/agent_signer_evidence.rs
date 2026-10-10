@@ -631,7 +631,7 @@ mod tests {
             serde_json::from_value(request_json.clone()).unwrap();
         assert_eq!(serde_json::to_value(&request).unwrap(), request_json);
 
-        let mut carrier = request_json.clone();
+        let mut carrier = request_json;
         carrier["source_service_id"] = serde_json::json!("did:web:caller.example");
         serde_json::from_value::<ControllerAccountGateIssuanceInput>(carrier)
             .expect_err("no service resolution carrier may enter the request body");

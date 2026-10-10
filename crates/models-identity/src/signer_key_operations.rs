@@ -601,15 +601,11 @@ struct SignerKeyQueryResultWire {
 
 /// Distinguish an absent member from an explicit JSON `null`. Every optional
 /// member in the schema is optional-by-absence; `null` is never an alias.
+#[derive(Default)]
 enum WireField<T> {
+    #[default]
     Missing,
     Present(T),
-}
-
-impl<T> Default for WireField<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de, T> Deserialize<'de> for WireField<T>
@@ -997,7 +993,7 @@ mod tests {
         };
         let result = SignerKeyQueryOutcome::HistoricalServiceResolved {
             selector: selector.clone(),
-            key: key.clone(),
+            key,
             accepted_at: accepted_at(),
         };
         result.validate(&realm_id()).unwrap();
@@ -1014,7 +1010,7 @@ mod tests {
             null[member] = json!(null);
             assert!(serde_json::from_value::<SignerKeyQueryOutcome>(null).is_err());
         }
-        let mut wrong = value.clone();
+        let mut wrong = value;
         wrong["selector"]["sender_kind"] = json!("agent");
         assert!(serde_json::from_value::<SignerKeyQueryOutcome>(wrong).is_err());
         let mut current = serde_json::to_value(selector).unwrap();

@@ -12,8 +12,19 @@ jobs:
   rust:
     name: Rust checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arkret-rust-sdk
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: arkret-rust-sdk
+      - name: Checkout normative audit schemas
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/arkret-spec
+          path: arkret-spec
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -22,6 +33,8 @@ jobs:
           toolchain: "1.98"
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: arkret-rust-sdk
       - run: cargo +nightly fmt --all -- --check
       # Event audits scan the SDK here. Downstream scans retain their own --root
       # scope and the shared event-derived identifier inventory.
@@ -203,6 +216,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
@@ -241,7 +256,7 @@ jobs:
           toolchain: "1.98"
       - uses: Swatinem/rust-cache@v2
       - run: python tools/check-publish-order.py
-      - run: cargo package --workspace --locked --no-verify
+      - run: cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify
 
   spec-drift:
     name: spec artifact drift report
@@ -262,8 +277,7 @@ jobs:
         with:
           repository: arkret-org/arkret-spec
           path: arkret-spec
-          # Public spec repo; if private, set a PAT under
-          # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt

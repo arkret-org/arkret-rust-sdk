@@ -480,7 +480,7 @@ mod tests {
             .insert("source_ref".to_owned(), source_commit_ref);
         assert!(serde_json::from_value::<KeyBackupActiveSeries>(old_top_level.clone()).is_err());
 
-        let mut old_nested = value.clone();
+        let mut old_nested = value;
         old_nested["source_commit_ref"] = json!({
             "commit_ref": {
                 "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",

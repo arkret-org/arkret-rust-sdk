@@ -365,12 +365,12 @@ impl RecoverySessionProof {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        if let Self::DeviceQuorum(body) = self {
-            if body.threshold < 2 || body.signatures.len() < 2 {
-                return Err(WireError::Protocol(
-                    "device quorum recovery proof carries at least two signatures".to_owned(),
-                ));
-            }
+        if let Self::DeviceQuorum(body) = self
+            && (body.threshold < 2 || body.signatures.len() < 2)
+        {
+            return Err(WireError::Protocol(
+                "device quorum recovery proof carries at least two signatures".to_owned(),
+            ));
         }
         Ok(())
     }

@@ -359,9 +359,9 @@ pub fn sdk_conformance_contract_digest(
     Ok(canonical::sha256_digest(&bytes))
 }
 
-fn expand_vector_pattern<'a>(
+fn expand_vector_pattern(
     pattern: &str,
-    active: &BTreeSet<&'a str>,
+    active: &BTreeSet<&str>,
 ) -> Result<Vec<String>, SdkConformanceClaimError> {
     if let Some(prefix) = pattern.strip_suffix(".*") {
         let prefix = format!("{prefix}.");

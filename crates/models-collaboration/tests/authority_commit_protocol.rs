@@ -19,7 +19,7 @@ fn realm_and_circle_are_independent_commit_streams() {
         realm_id: realm.clone(),
     };
     let circle_stream = CommitStreamRef::Circle {
-        realm_id: realm.clone(),
+        realm_id: realm,
         circle_id: CircleId::new("ak:circle:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0").unwrap(),
     };
     assert_ne!(realm_stream, circle_stream);

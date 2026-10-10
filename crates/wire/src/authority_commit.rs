@@ -2589,28 +2589,28 @@ impl StreamScanOutcome {
                 }
             }
         }
-        if let StreamScanDirection::Before(_) = request.direction {
-            if let Some(last) = self.committed_events.last() {
-                if self.truncated
-                    && self
-                        .readable_floor
-                        .as_ref()
-                        .is_some_and(|floor| last.commit().stream_position == floor.oldest_position)
-                {
-                    return Err(WireError::Protocol(
-                        "before_position scan cannot truncate at readable floor".to_owned(),
-                    ));
-                }
-                if !self.truncated
-                    && self
-                        .readable_floor
-                        .as_ref()
-                        .is_none_or(|floor| last.commit().stream_position != floor.oldest_position)
-                {
-                    return Err(WireError::Protocol(
-                        "before_position scan reached floor without its anchor".to_owned(),
-                    ));
-                }
+        if let StreamScanDirection::Before(_) = request.direction
+            && let Some(last) = self.committed_events.last()
+        {
+            if self.truncated
+                && self
+                    .readable_floor
+                    .as_ref()
+                    .is_some_and(|floor| last.commit().stream_position == floor.oldest_position)
+            {
+                return Err(WireError::Protocol(
+                    "before_position scan cannot truncate at readable floor".to_owned(),
+                ));
+            }
+            if !self.truncated
+                && self
+                    .readable_floor
+                    .as_ref()
+                    .is_none_or(|floor| last.commit().stream_position != floor.oldest_position)
+            {
+                return Err(WireError::Protocol(
+                    "before_position scan reached floor without its anchor".to_owned(),
+                ));
             }
         }
         Ok(())
@@ -2721,6 +2721,13 @@ impl AuthorityBundleRequest {
         }
         Ok(())
     }
+}
+
+// Absent legacy fields are distinct from an explicit wire-null digest.
+fn deserialize_optional_original_digest<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Hash>, D::Error> {
+    Hash::deserialize(deserializer).map(Some)
 }
 
 #[cfg(test)]
@@ -3663,7 +3670,7 @@ mod tests {
         ));
         let circle_stream = CommitStreamRef::Circle {
             realm_id: realm_id.clone(),
-            circle_id: circle_id.clone(),
+            circle_id,
         };
         assert!(!parsed.is_effective_under_parent(
             &realm_id,
@@ -3759,7 +3766,7 @@ mod tests {
         let wire = json!({"kind":"direct_conversation_binding","pair_key":pair_key});
         assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
         assert_eq!(
-            serde_json::from_value::<CurrentSelector>(wire.clone()).unwrap(),
+            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
             selector
         );
         for invalid in [
@@ -3808,7 +3815,7 @@ mod tests {
         let mut invalid = entry["selector"].clone();
         invalid["primary_conflict_domain"]["scope_circle_id"] = Value::Null;
         assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
-        let mut invalid = value.clone();
+        let mut invalid = value;
         invalid["extra"] = Value::Null;
         assert!(serde_json::from_value::<crate::relation::Relation>(invalid).is_err());
         let mut changed = relation.clone();
@@ -4052,7 +4059,7 @@ mod tests {
         let rows = [6, 5, 4]
             .map(|position| CommittedEventView::Full(circle_item(realm_id.clone(), position)));
         let request = StreamScanRequest {
-            realm_id: realm_id.clone(),
+            realm_id,
             stream_ref: rows[0].commit().stream_ref.clone(),
             direction: StreamScanDirection::Before(None),
             limit: 3,
@@ -4223,7 +4230,7 @@ mod tests {
 
         let circle_row = RealmStreamRow {
             stream_ref: CommitStreamRef::Circle {
-                realm_id: realm_id.clone(),
+                realm_id,
                 circle_id: "ak:circle:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
                     .parse()
                     .unwrap(),
@@ -4233,7 +4240,7 @@ mod tests {
             readable_floor: None,
         };
         let mut ordered = page.clone();
-        ordered.streams = vec![circle_row.clone(), realm_row.clone()];
+        ordered.streams = vec![circle_row, realm_row.clone()];
         let first = canonical_json_bytes_for_test(&ordered.streams[0].stream_ref);
         let second = canonical_json_bytes_for_test(&ordered.streams[1].stream_ref);
         if first > second {
@@ -4273,7 +4280,7 @@ mod tests {
             json!({"context_kind":"list_wip","list_space_id":list,"list_policy_revision":revision});
         assert_eq!(serde_json::to_value(&context).unwrap(), wire);
         assert_eq!(
-            serde_json::from_value::<ApprovalContext>(wire.clone()).unwrap(),
+            serde_json::from_value::<ApprovalContext>(wire).unwrap(),
             context
         );
         for invalid in [
@@ -4338,11 +4345,4 @@ mod tests {
                 .is_err()
         );
     }
-}
-
-// Absent legacy fields are distinct from an explicit wire-null digest.
-fn deserialize_optional_original_digest<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<Option<Hash>, D::Error> {
-    Hash::deserialize(deserializer).map(Some)
 }

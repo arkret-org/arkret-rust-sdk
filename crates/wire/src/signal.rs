@@ -852,7 +852,7 @@ mod tests {
         let mut null = serde_json::to_value(&signal).unwrap();
         null["parent_realm_authority_commit_id"] = Value::Null;
         assert!(serde_json::from_value::<SignalEnvelope>(null).is_err());
-        signal.parent_realm_authority_commit_id = Some(parent.clone());
+        signal.parent_realm_authority_commit_id = Some(parent);
         assert!(signal.aead_binding().validate().is_err());
         signal.scope_ref = ScopeRef::Circle {
             realm_id: signal.realm_id.clone(),

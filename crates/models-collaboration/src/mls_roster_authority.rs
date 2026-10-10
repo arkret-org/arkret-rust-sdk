@@ -277,6 +277,10 @@ impl MlsRosterAuthorityReadRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum MlsRosterRecord {
     Genesis {
         genesis_event_ref: EventId,

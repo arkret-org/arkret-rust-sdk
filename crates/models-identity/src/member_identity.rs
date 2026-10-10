@@ -595,7 +595,7 @@ mod tests {
         let raw = serde_json::json!({"realm_id":realm,"member_id":first,"segment":"member_identity","identity_payload":{"member_identity":sample_identity("Unverified")}});
         let assertion = serde_json::json!({"tag_id":format!("{}:0",fake_event_ref("selector-current")),"value":raw});
         let parsed: MemberIdentityUpdatesCurrentValue =
-            serde_json::from_value(serde_json::json!({"assertions":[assertion.clone()]})).unwrap();
+            serde_json::from_value(serde_json::json!({"assertions":[assertion]})).unwrap();
         parsed
             .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
             .unwrap();
@@ -604,10 +604,9 @@ mod tests {
                 .validate_for_tuple(&realm, &second, MemberIdentitySegment::MemberIdentity)
                 .is_err()
         );
-        let duplicate: MemberIdentityUpdatesCurrentValue = serde_json::from_value(
-            serde_json::json!({"assertions":[assertion.clone(),assertion.clone()]}),
-        )
-        .unwrap();
+        let duplicate: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[assertion.clone(),assertion]}))
+                .unwrap();
         assert!(
             duplicate
                 .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)

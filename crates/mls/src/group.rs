@@ -2241,6 +2241,204 @@ pub(super) fn restore_provider_storage(
     Ok(())
 }
 
+pub(super) fn encode(bytes: &[u8]) -> String {
+    base64url_encode(bytes)
+}
+
+pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
+    Ok(base64url_decode(value)?)
+}
+
+fn verify_group_context_governance_binding(
+    context: &GroupContext,
+    public_state: &MlsGovernanceBindingPublicState,
+    event_payload_binding: &MlsGovernanceBindingPayload,
+) -> Result<VerifiedMlsGovernanceBinding> {
+    let binding = decode_group_context_governance_binding(context)?;
+    crate::verify_governance_binding_against_public_state_and_payload(
+        &binding,
+        public_state,
+        event_payload_binding,
+    )
+    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+}
+
+pub(crate) fn decode_group_context_governance_binding(
+    context: &GroupContext,
+) -> Result<MlsGovernanceBindingPayload> {
+    let extension = context
+        .extensions()
+        .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("MLS governance binding GroupContext extension is missing".to_owned())
+        })?;
+    MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+pub(super) fn arkret_required_capabilities_extension() -> Extension {
+    Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
+        &[
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+        ],
+        &[],
+        &[],
+    ))
+}
+
+pub(super) fn arkret_openmls_capabilities() -> Capabilities {
+    Capabilities::builder()
+        .extensions(vec![
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
+        ])
+        .build()
+}
+
+pub(super) fn keypackage_capabilities_leaf_extensions() -> Result<Extensions<LeafNode>> {
+    let extension_data = encode_keypackage_capability_extension(
+        crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
+    )
+    .map_err(|error| Error::Protocol(error.to_string()))?;
+    Extensions::from_vec(vec![Extension::Unknown(
+        MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+        UnknownExtension(extension_data),
+    )])
+    .map_err(mls_error)
+}
+
+fn required_keypackage_capabilities_group_context_extension() -> Result<Extension> {
+    let extension_data = encode_keypackage_capability_extension(REQUIRED_ARKRET_GROUP_CAPABILITIES)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    Ok(Extension::Unknown(
+        MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+        UnknownExtension(extension_data),
+    ))
+}
+
+pub(super) fn arkret_group_context_extensions(
+    governance_binding: Option<&MlsGovernanceBindingPayload>,
+) -> Result<Extensions<GroupContext>> {
+    let mut extensions = vec![
+        arkret_required_capabilities_extension(),
+        required_keypackage_capabilities_group_context_extension()?,
+    ];
+    if let Some(binding) = governance_binding {
+        extensions.push(Extension::Unknown(
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+            UnknownExtension(binding.to_deterministic_cbor()?),
+        ));
+    }
+    Extensions::from_vec(extensions).map_err(mls_error)
+}
+
+fn group_context_extensions_for_verified_binding(
+    verified: VerifiedMlsGovernanceBinding,
+) -> Result<Extensions<GroupContext>> {
+    arkret_group_context_extensions(Some(verified.binding()))
+}
+
+fn validate_keypackage_capability_binding(
+    record: &MlsKeyPackageRecord,
+    keypackage: &openmls::prelude::KeyPackage,
+    required: &[String],
+) -> Result<()> {
+    let extension = keypackage
+        .leaf_node()
+        .extensions()
+        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("KeyPackage LeafNode keypackage_capabilities is missing".to_owned())
+        })?;
+    let signed = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    if signed != record.capabilities {
+        return Err(Error::Protocol(
+            "outer KeyPackage capabilities do not match signed LeafNode capabilities".to_owned(),
+        ));
+    }
+    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
+    let signed = signed.iter().map(String::as_str).collect::<Vec<_>>();
+    validate_required_keypackage_capabilities(&required, &signed)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+fn validate_leaf_capability_floor(leaf: &LeafNode, required: &[String]) -> Result<()> {
+    let extension = leaf
+        .extensions()
+        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| Error::Protocol("LeafNode keypackage_capabilities is missing".to_owned()))?;
+    let advertised = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
+    let advertised = advertised.iter().map(String::as_str).collect::<Vec<_>>();
+    validate_required_keypackage_capabilities(&required, &advertised)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+fn validate_group_capability_floor(group: &MlsGroup, required: &[String]) -> Result<()> {
+    for leaf in group.export_ratchet_tree().leaves() {
+        validate_leaf_capability_floor(leaf, required)?;
+    }
+    Ok(())
+}
+
+fn validate_staged_commit_capability_floor(
+    current_group: &MlsGroup,
+    provider: &OpenMlsRustCrypto,
+    staged: &StagedCommit,
+) -> Result<()> {
+    let extension = staged
+        .group_context()
+        .extensions()
+        .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol(
+                "required_keypackage_capabilities GroupContext extension is missing".to_owned(),
+            )
+        })?;
+    let required = decode_keypackage_capability_extension(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))?;
+    // OpenMLS keeps only public state when this authenticated Commit removes
+    // the local member. There is no prospective member tree to inspect; merge
+    // the removal so subsequent content operations observe an inactive group.
+    if staged.self_removed() {
+        return Ok(());
+    }
+    let original_tree = current_group.export_ratchet_tree();
+    let prospective_tree = staged
+        .export_ratchet_tree(provider.crypto(), original_tree)
+        .map_err(mls_error)?
+        .ok_or_else(|| Error::Protocol("staged member Commit has no ratchet tree".to_owned()))?;
+    for leaf in prospective_tree.leaves() {
+        validate_leaf_capability_floor(leaf, &required)?;
+    }
+    Ok(())
+}
+
+pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {
+    Error::Mls(format!("{error:?}"))
+}
+
+/// A live Arkret MLS group is the only authorized source for SFrame media
+/// frame / recording / transcript keys (`arkret_crypto::sframe`). The bound
+/// makes a non-MLS provenance unrepresentable at the type level.
+impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
+    fn export_secret(
+        &self,
+        label: &str,
+        context: &[u8],
+        length: usize,
+    ) -> arkret_crypto::Result<Zeroizing<Vec<u8>>> {
+        // Bridge the MLS behavior-layer error into the crypto-boundary error.
+        ArkretMlsGroup::export_secret(self, label, context, length)
+            .map_err(|error| arkret_crypto::Error::Crypto(error.to_string()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use arkret_wire::{DeviceId, RealmId};
@@ -2781,7 +2979,7 @@ mod tests {
         wrong_base
             .storage_entries
             .insert(key, encode(b"another epoch secret"));
-        let mut wrong_record = frozen.clone();
+        let mut wrong_record = frozen;
         wrong_record.serialized_state = serde_json::to_vec(&wrong_base).unwrap();
         assert!(
             live.resume_frozen_pending_commit(&wrong_record, &accepted, &binding)
@@ -3185,7 +3383,7 @@ mod tests {
         assert!(
             crate::verify_adds_from_accepted_public_commit(
                 &decode(&added.commit.commit).unwrap(),
-                &arkret_canonical::base64url_encode([0; 32]),
+                &base64url_encode([0; 32]),
                 previous_epoch
             )
             .is_err()
@@ -3605,203 +3803,5 @@ mod tests {
 
         assert_eq!(group.epoch(), base_epoch);
         assert_eq!(commit.epoch, base_epoch + 1);
-    }
-}
-
-pub(super) fn encode(bytes: &[u8]) -> String {
-    base64url_encode(bytes)
-}
-
-pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
-    Ok(base64url_decode(value)?)
-}
-
-fn verify_group_context_governance_binding(
-    context: &GroupContext,
-    public_state: &MlsGovernanceBindingPublicState,
-    event_payload_binding: &MlsGovernanceBindingPayload,
-) -> Result<VerifiedMlsGovernanceBinding> {
-    let binding = decode_group_context_governance_binding(context)?;
-    crate::verify_governance_binding_against_public_state_and_payload(
-        &binding,
-        public_state,
-        event_payload_binding,
-    )
-    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
-}
-
-pub(crate) fn decode_group_context_governance_binding(
-    context: &GroupContext,
-) -> Result<MlsGovernanceBindingPayload> {
-    let extension = context
-        .extensions()
-        .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
-        .ok_or_else(|| {
-            Error::Protocol("MLS governance binding GroupContext extension is missing".to_owned())
-        })?;
-    MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
-        .map_err(|error| Error::Protocol(error.to_string()))
-}
-
-pub(super) fn arkret_required_capabilities_extension() -> Extension {
-    Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
-        &[
-            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
-            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
-            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
-        ],
-        &[],
-        &[],
-    ))
-}
-
-pub(super) fn arkret_openmls_capabilities() -> Capabilities {
-    Capabilities::builder()
-        .extensions(vec![
-            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
-            ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
-            ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
-        ])
-        .build()
-}
-
-pub(super) fn keypackage_capabilities_leaf_extensions() -> Result<Extensions<LeafNode>> {
-    let extension_data = encode_keypackage_capability_extension(
-        crate::identity::ARKRET_MLS_KEY_PACKAGE_CAPABILITIES,
-    )
-    .map_err(|error| Error::Protocol(error.to_string()))?;
-    Extensions::from_vec(vec![Extension::Unknown(
-        MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
-        UnknownExtension(extension_data),
-    )])
-    .map_err(mls_error)
-}
-
-fn required_keypackage_capabilities_group_context_extension() -> Result<Extension> {
-    let extension_data = encode_keypackage_capability_extension(REQUIRED_ARKRET_GROUP_CAPABILITIES)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
-    Ok(Extension::Unknown(
-        MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
-        UnknownExtension(extension_data),
-    ))
-}
-
-pub(super) fn arkret_group_context_extensions(
-    governance_binding: Option<&MlsGovernanceBindingPayload>,
-) -> Result<Extensions<GroupContext>> {
-    let mut extensions = vec![
-        arkret_required_capabilities_extension(),
-        required_keypackage_capabilities_group_context_extension()?,
-    ];
-    if let Some(binding) = governance_binding {
-        extensions.push(Extension::Unknown(
-            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-            UnknownExtension(binding.to_deterministic_cbor()?),
-        ));
-    }
-    Extensions::from_vec(extensions).map_err(mls_error)
-}
-
-fn group_context_extensions_for_verified_binding(
-    verified: VerifiedMlsGovernanceBinding,
-) -> Result<Extensions<GroupContext>> {
-    arkret_group_context_extensions(Some(verified.binding()))
-}
-
-fn validate_keypackage_capability_binding(
-    record: &MlsKeyPackageRecord,
-    keypackage: &openmls::prelude::KeyPackage,
-    required: &[String],
-) -> Result<()> {
-    let extension = keypackage
-        .leaf_node()
-        .extensions()
-        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
-        .ok_or_else(|| {
-            Error::Protocol("KeyPackage LeafNode keypackage_capabilities is missing".to_owned())
-        })?;
-    let signed = decode_keypackage_capability_extension(&extension.0)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
-    if signed != record.capabilities {
-        return Err(Error::Protocol(
-            "outer KeyPackage capabilities do not match signed LeafNode capabilities".to_owned(),
-        ));
-    }
-    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
-    let signed = signed.iter().map(String::as_str).collect::<Vec<_>>();
-    validate_required_keypackage_capabilities(&required, &signed)
-        .map_err(|error| Error::Protocol(error.to_string()))
-}
-
-fn validate_leaf_capability_floor(leaf: &LeafNode, required: &[String]) -> Result<()> {
-    let extension = leaf
-        .extensions()
-        .unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
-        .ok_or_else(|| Error::Protocol("LeafNode keypackage_capabilities is missing".to_owned()))?;
-    let advertised = decode_keypackage_capability_extension(&extension.0)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
-    let required = required.iter().map(String::as_str).collect::<Vec<_>>();
-    let advertised = advertised.iter().map(String::as_str).collect::<Vec<_>>();
-    validate_required_keypackage_capabilities(&required, &advertised)
-        .map_err(|error| Error::Protocol(error.to_string()))
-}
-
-fn validate_group_capability_floor(group: &MlsGroup, required: &[String]) -> Result<()> {
-    for leaf in group.export_ratchet_tree().leaves() {
-        validate_leaf_capability_floor(leaf, required)?;
-    }
-    Ok(())
-}
-
-fn validate_staged_commit_capability_floor(
-    current_group: &MlsGroup,
-    provider: &OpenMlsRustCrypto,
-    staged: &StagedCommit,
-) -> Result<()> {
-    let extension = staged
-        .group_context()
-        .extensions()
-        .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
-        .ok_or_else(|| {
-            Error::Protocol(
-                "required_keypackage_capabilities GroupContext extension is missing".to_owned(),
-            )
-        })?;
-    let required = decode_keypackage_capability_extension(&extension.0)
-        .map_err(|error| Error::Protocol(error.to_string()))?;
-    // OpenMLS keeps only public state when this authenticated Commit removes
-    // the local member. There is no prospective member tree to inspect; merge
-    // the removal so subsequent content operations observe an inactive group.
-    if staged.self_removed() {
-        return Ok(());
-    }
-    let original_tree = current_group.export_ratchet_tree();
-    let prospective_tree = staged
-        .export_ratchet_tree(provider.crypto(), original_tree)
-        .map_err(mls_error)?
-        .ok_or_else(|| Error::Protocol("staged member Commit has no ratchet tree".to_owned()))?;
-    for leaf in prospective_tree.leaves() {
-        validate_leaf_capability_floor(leaf, &required)?;
-    }
-    Ok(())
-}
-
-pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {
-    Error::Mls(format!("{error:?}"))
-}
-
-/// A live Arkret MLS group is the only authorized source for SFrame media
-/// frame / recording / transcript keys (`arkret_crypto::sframe`). The bound
-/// makes a non-MLS provenance unrepresentable at the type level.
-impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
-    fn export_secret(
-        &self,
-        label: &str,
-        context: &[u8],
-        length: usize,
-    ) -> arkret_crypto::Result<Zeroizing<Vec<u8>>> {
-        // Bridge the MLS behavior-layer error into the crypto-boundary error.
-        ArkretMlsGroup::export_secret(self, label, context, length)
-            .map_err(|error| arkret_crypto::Error::Crypto(error.to_string()))
     }
 }
