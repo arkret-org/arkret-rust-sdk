@@ -8,6 +8,14 @@ pub type Result<T> = std::result::Result<T, WireError>;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum WireError {
+    /// A readable stream has an unexplained forward position jump. This is
+    /// a local validation error, not a service problem or a new wire shape.
+    #[error("stream {stream_ref:?} skipped readable position {expected}; received {actual}")]
+    StreamPositionGap {
+        stream_ref: crate::CommitStreamRef,
+        expected: u64,
+        actual: u64,
+    },
     #[error("wire validation failed: {0}")]
     Protocol(String),
 

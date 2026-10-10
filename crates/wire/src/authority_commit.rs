@@ -357,7 +357,15 @@ impl RealmCommit {
                 "RealmCommit predecessor must be in the same independent stream".to_owned(),
             ));
         }
-        if self.stream_position != previous.stream_position.saturating_add(1) {
+        let expected = previous.stream_position.saturating_add(1);
+        if self.stream_position > expected {
+            return Err(WireError::StreamPositionGap {
+                stream_ref: self.stream_ref.clone(),
+                expected,
+                actual: self.stream_position,
+            });
+        }
+        if self.stream_position != expected {
             return Err(WireError::Protocol(
                 "RealmCommit stream_position must increase by exactly one".to_owned(),
             ));
@@ -2522,6 +2530,15 @@ impl StreamScanOutcome {
                             && first.commit().stream_position == floor.oldest_position
                     });
                     if next != Some(first.commit().stream_position) && !starts_at_floor {
+                        if let Some(expected) = next
+                            && first.commit().stream_position > expected
+                        {
+                            return Err(WireError::StreamPositionGap {
+                                stream_ref: request.stream_ref.clone(),
+                                expected,
+                                actual: first.commit().stream_position,
+                            });
+                        }
                         return Err(WireError::Protocol(
                             "after_position scan skipped or repeated a readable position"
                                 .to_owned(),
@@ -3950,6 +3967,32 @@ mod tests {
             truncated: false,
         };
         assert!(outcome.validate_for_request(&request).is_err());
+    }
+
+    #[test]
+    fn independent_stream_gap_is_distinct_from_a_fork_or_rollback() {
+        let first = circle_item(realm(0x10), 0).commit;
+        let mut next = first.clone();
+        next.stream_position = 2;
+        next.previous_commit_ref = Some(first.commit_id.clone());
+        assert!(matches!(
+            next.validate_successor_of(&first),
+            Err(WireError::StreamPositionGap {
+                expected: 1,
+                actual: 2,
+                ..
+            })
+        ));
+        next.stream_position = 1;
+        next.previous_commit_ref = Some(RealmCommitId::from_digest([99; 32]));
+        assert!(matches!(
+            next.validate_successor_of(&first),
+            Err(WireError::Protocol(_))
+        ));
+        assert!(matches!(
+            first.validate_successor_of(&next),
+            Err(WireError::Protocol(_))
+        ));
     }
 
     #[test]
