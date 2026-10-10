@@ -1,6 +1,14 @@
 use arkret_wire::{AuthoritySetPolicyKind, AuthoritySetSourceKind, BindingKind, TrackName};
 
 #[test]
+fn opaque_cursor_has_no_unverifiable_foreign_issuer_error() {
+    use arkret_wire::{ErrorCode, ReasonCode};
+
+    assert_eq!(ErrorCode::from_wire("cursor_unrecognized"), None);
+    assert!(!ReasonCode::is_registered("cursor_unrecognized"));
+}
+
+#[test]
 fn account_subscription_declares_registered_cursor_recovery_errors() {
     use arkret_wire::{ErrorCode, OperationSpecificError, ServiceOperationId};
 

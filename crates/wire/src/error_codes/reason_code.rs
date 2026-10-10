@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-09.2;
-//! sha256=028e997fecb43e647ba8a78d9cb5fe63b798cbb37199677b01dc8ed408dc7bcf
-//! Entries: reason_codes=310, reserved_not_emitted=67
+//! Input: registry/error-code-registry.json; version=2026-10-10.1;
+//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9
+//! Entries: reason_codes=309, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -70,7 +70,6 @@ pub enum ReasonCode {
     CursorExpired,
     CursorIntegrityInvalid,
     CursorRevoked,
-    CursorUnrecognized,
     DecryptionPending,
     DependencyMissing,
     DeviceDirectoryUnavailable,
@@ -405,7 +404,6 @@ impl ReasonCode {
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
-    pub const CURSOR_UNRECOGNIZED: &'static str = "cursor_unrecognized";
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_DIRECTORY_UNAVAILABLE: &'static str = "device_directory_unavailable";
@@ -778,7 +776,6 @@ impl ReasonCode {
             Self::CursorExpired => Self::CURSOR_EXPIRED,
             Self::CursorIntegrityInvalid => Self::CURSOR_INTEGRITY_INVALID,
             Self::CursorRevoked => Self::CURSOR_REVOKED,
-            Self::CursorUnrecognized => Self::CURSOR_UNRECOGNIZED,
             Self::DecryptionPending => Self::DECRYPTION_PENDING,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
             Self::DeviceDirectoryUnavailable => Self::DEVICE_DIRECTORY_UNAVAILABLE,
@@ -1156,7 +1153,6 @@ impl ReasonCode {
             Self::CURSOR_EXPIRED => Self::CursorExpired,
             Self::CURSOR_INTEGRITY_INVALID => Self::CursorIntegrityInvalid,
             Self::CURSOR_REVOKED => Self::CursorRevoked,
-            Self::CURSOR_UNRECOGNIZED => Self::CursorUnrecognized,
             Self::DECRYPTION_PENDING => Self::DecryptionPending,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
             Self::DEVICE_DIRECTORY_UNAVAILABLE => Self::DeviceDirectoryUnavailable,
@@ -1821,22 +1817,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CURSOR_EXPIRED,
         applies_to: &["client_sync"],
-        description: "Cursor's `x` expiry is in the past; caller MUST request a fresh cursor.",
+        description: "Cursor's expires_at is in the past; caller MUST request a fresh cursor.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CURSOR_INTEGRITY_INVALID,
         applies_to: &["client_sync", "encoding"],
-        description: "Cursor failed the §8.3.1 integrity check: the stateful `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal / device / service / filter_digest / purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Triggered before any server-side state advancement (/account/subscribe after= resume, X-Arkret-Wait-For release, dropped/resync_required recovery; to-device queue deletion is decoupled from cursors per client-sync.md §10.1). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
+        description: "Cursor failed the stateful handle integrity check: h is unknown, its stored binding has expired, or account/device/service/operation/filter/purpose binding does not match. A fresh foreign-service cursor and an unknown tampered handle MUST both use this code; the wire contains no public issuer proof. Syntax failures use invalid_cursor, wire expires_at expiry uses cursor_expired, and explicit revocation of a valid binding uses cursor_revoked. Reject before any server-side advancement, discard only the affected surface cursor, rebuild its baseline, and preserve verified Commits, MLS private state and delivery ACKs.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CURSOR_REVOKED,
         applies_to: &["client_sync", "encoding"],
         description: "Cursor passed syntax and integrity validation but is present in the issuing service's revocation set. Treated as an authority revocation, not tamper; endpoint MUST NOT advance server-side state.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CURSOR_UNRECOGNIZED,
-        applies_to: &["client_sync"],
-        description: "Cursor decoded successfully but cannot be used by this service because it is a stateful handle issued by another service. This is a cross-service portability miss, not TTL expiry and not local integrity failure; caller MUST restart sync from a fresh cursor.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DECRYPTION_PENDING,
@@ -2130,7 +2121,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_CURSOR,
         applies_to: &["client_sync", "encoding"],
-        description: "Cursor payload fails the §8.2 / §8.3 cursor syntax or schema before integrity verification. HTTP endpoints surface this as top-level `param_invalid` with reason_code `invalid_cursor`. Expiry uses `cursor_expired`; handle lookup or cross-binding failures use `cursor_integrity_invalid`; cross-service portability misses use `cursor_unrecognized`.",
+        description: "Cursor payload fails the cursor syntax or schema before integrity verification. HTTP endpoints surface this as top-level param_invalid with reason_code invalid_cursor. Wire expires_at expiry uses cursor_expired; unknown handles, including a fresh foreign-service handle, and cross-binding failures use cursor_integrity_invalid; explicit revocation of a valid binding uses cursor_revoked.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_ENCODING,

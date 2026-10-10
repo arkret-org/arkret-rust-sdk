@@ -287,11 +287,41 @@ fn a_durable_checkpoint_never_outruns_the_installed_projection() {
     }
 }
 
-/// The three cursor-integrity outcomes discard the stored cursor and redo that
+#[test]
+fn foreign_cursor_and_local_tamper_keep_distinct_recovery_cases() {
+    let fixture = fixture();
+    let reconnect = cases(&fixture, "reconnect");
+    for (case_name, origin) in [
+        (
+            "cursor_integrity_invalid_redoes_only_that_surface_baseline",
+            "local_unknown_tampered_handle",
+        ),
+        (
+            "foreign_station_cursor_redoes_only_that_surface_baseline",
+            "distinct_station_valid_issued_binding",
+        ),
+    ] {
+        let matches: Vec<_> = reconnect
+            .iter()
+            .filter(|case| name(case) == case_name)
+            .collect();
+        assert_eq!(matches.len(), 1);
+        let case = matches[0];
+        assert_eq!(case["cursor_origin"], origin);
+        assert_eq!(case["server_outcome"], "cursor_integrity_invalid");
+        assert_eq!(flag(case, "server_state_advanced"), Some(false));
+        assert_eq!(flag(case, "local_verified_commits_deleted"), Some(false));
+        assert_eq!(flag(case, "mls_private_state_deleted"), Some(false));
+        assert_eq!(flag(case, "delivery_acks_invalidated"), Some(false));
+        assert_eq!(flag(case, "fresh_process_readback"), Some(true));
+    }
+}
+
+/// Cursor expiry and integrity refusals discard the stored cursor and redo that
 /// one surface baseline; everything else continues from the cursor it has.
 fn reconnect_verdict(server_outcome: &str) -> &'static str {
     match server_outcome {
-        "cursor_expired" | "cursor_integrity_invalid" | "cursor_unrecognized" => "reset",
+        "cursor_expired" | "cursor_integrity_invalid" => "reset",
         "accepted" | "revision_stale" | "stream_tail_missing" => "resume",
         other => panic!("unregistered reconnect outcome {other}"),
     }

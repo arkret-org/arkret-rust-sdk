@@ -75,7 +75,6 @@ impl Error {
             Some(
                 ErrorCode::CursorExpired
                     | ErrorCode::CursorIntegrityInvalid
-                    | ErrorCode::CursorUnrecognized
                     | ErrorCode::CursorInvalid
             )
         ) {
@@ -94,7 +93,6 @@ impl Error {
                     reason,
                     ReasonCode::CursorExpired
                         | ReasonCode::CursorIntegrityInvalid
-                        | ReasonCode::CursorUnrecognized
                         | ReasonCode::InvalidCursor
                 )
             })

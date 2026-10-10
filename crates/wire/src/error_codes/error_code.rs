@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-09.2;
-//! sha256=028e997fecb43e647ba8a78d9cb5fe63b798cbb37199677b01dc8ed408dc7bcf
-//! Entries: error_codes=162, reserved_not_emitted=94
+//! Input: registry/error-code-registry.json; version=2026-10-10.1;
+//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9
+//! Entries: error_codes=161, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -71,7 +71,6 @@ pub enum ErrorCode {
     CursorIntegrityInvalid,
     CursorInvalid,
     CursorRevoked,
-    CursorUnrecognized,
     DependencyMissing,
     DeviceGenerationFenced,
     DeviceReanchorAuthorizeMismatch,
@@ -249,7 +248,6 @@ impl ErrorCode {
         Self::CursorIntegrityInvalid,
         Self::CursorInvalid,
         Self::CursorRevoked,
-        Self::CursorUnrecognized,
         Self::DependencyMissing,
         Self::DeviceGenerationFenced,
         Self::DeviceReanchorAuthorizeMismatch,
@@ -414,7 +412,6 @@ impl ErrorCode {
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_INVALID: &'static str = "cursor_invalid";
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
-    pub const CURSOR_UNRECOGNIZED: &'static str = "cursor_unrecognized";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
@@ -590,7 +587,6 @@ impl ErrorCode {
             Self::CursorIntegrityInvalid => "cursor_integrity_invalid",
             Self::CursorInvalid => "cursor_invalid",
             Self::CursorRevoked => "cursor_revoked",
-            Self::CursorUnrecognized => "cursor_unrecognized",
             Self::DependencyMissing => "dependency_missing",
             Self::DeviceGenerationFenced => "device_generation_fenced",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
@@ -769,7 +765,6 @@ impl ErrorCode {
             "cursor_integrity_invalid" => Some(Self::CursorIntegrityInvalid),
             "cursor_invalid" => Some(Self::CursorInvalid),
             "cursor_revoked" => Some(Self::CursorRevoked),
-            "cursor_unrecognized" => Some(Self::CursorUnrecognized),
             "dependency_missing" => Some(Self::DependencyMissing),
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
@@ -1293,7 +1288,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The opaque cursor (ak:cursor:...) has a valid shape but its `x` expiry is in the past. Client MUST request a fresh cursor (initial /account/subscribe, /snapshot/head, or new write barrier).",
+        description: "The opaque cursor (ak:cursor:...) has a valid shape but its expires_at is in the past. Client MUST request a fresh cursor (initial /account/subscribe, /snapshot/head, or new write barrier).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorIntegrityInvalid,
@@ -1303,7 +1298,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync §12.1, canonical body `{v, purpose, issued_at, expires_at, h}`): the `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal, device, service, filter_digest, purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
+        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync §12.1, canonical body `{v, purpose, issued_at, expires_at, h}`): the h handle is unknown, its stored binding has expired, or the binding does not match the authenticated account/device/service/operation/filter/purpose. A fresh cursor issued by another service and an unknown tampered handle are indistinguishable at this service and MUST both fail with this code. Syntax failures use param_invalid with invalid_cursor; wire expires_at expiry uses cursor_expired; an explicitly revoked valid binding uses cursor_revoked. Before any server-side advancement, reject and rebuild only the affected surface baseline without deleting verified Commits, MLS private state or delivery ACKs.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorInvalid,
@@ -1324,16 +1319,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "Cursor integrity is valid but the issuing service has explicitly revoked this cursor authority before TTL expiry. Endpoint MUST NOT advance subscription position, barrier wait, or dropped recovery state; caller MUST restart from a fresh cursor. To-device queue deletion is decoupled from cursors and unaffected (client-sync.md §10.1).",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::CursorUnrecognized,
-        type_uri: "https://arkret.org/problems/cursor_unrecognized",
-        title: "Cursor unrecognized",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The cursor decoded successfully but cannot be used by this service because it is a stateful handle issued by another service. Caller MUST restart sync from a fresh cursor.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DependencyMissing,
