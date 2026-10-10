@@ -357,7 +357,9 @@ impl RealmCommit {
                 "RealmCommit predecessor must be in the same independent stream".to_owned(),
             ));
         }
-        let expected = previous.stream_position.saturating_add(1);
+        let expected = previous.stream_position.checked_add(1).ok_or_else(|| {
+            WireError::Protocol("RealmCommit predecessor position overflows".to_owned())
+        })?;
         if self.stream_position > expected {
             return Err(WireError::StreamPositionGap {
                 stream_ref: self.stream_ref.clone(),
