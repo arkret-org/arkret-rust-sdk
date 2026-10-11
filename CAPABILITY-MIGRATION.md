@@ -210,7 +210,7 @@ type locally.
   `models-collaboration/src/objects/direct_conversation.rs:330`, carrying the
   `service-operation-dtos.schema.json#/$defs/DirectConversationFoundingAuthorityEvidence`
   reference on line 325, reachable through `lib.rs:36 pub mod objects`.
-  soland-http has 11 references to it and was reading this line as blocked.
+  coland-http has 11 references to it and was reading this line as blocked.
   `DidWebvhIdentityMethodEvidence` is covered by its own entry below.
 - `account-subscribe-frame.schema.json` and `websocket-frame.schema.json`: the
   account-sync / client-sync / demand-sync / stream-trace and WebSocket session
@@ -236,7 +236,7 @@ type locally.
   already consumed inside the SDK at
   `models-collaboration/src/agent_operations.rs:7,289`. The gap line looked for
   it under `models-collaboration` and so kept reporting a gap that had been
-  filled in a different crate. This matters downstream: soland-http has 36
+  filled in a different crate. This matters downstream: coland-http has 36
   references in 19 files to a local `governance_dependencies::GovernanceDependency
   ::AuthenticatedSignerResolutionEvidence`, and they port onto
   `arkret_models_identity::AuthenticatedSignerResolutionEvidence` rather than
@@ -295,12 +295,12 @@ type locally.
   §5.1.1, `common-fields.md:54` (MUST use this spelling), and this repo's own
   `wire/src/generated/security_strings.rs:1826`, which is generated from the
   spec registry and lists it `status: "active"`.
-  **Downstream consequence:** soland cannot faithfully restore
+  **Downstream consequence:** coland cannot faithfully restore
   `ak.peer.mls.read.group_state_material.v1`. Without the extension a peer gets
   epoch-0 GroupInfo/tree bytes that are RFC 9420-valid but tied to no
   governance checkpoint, and `normative-clause-registry.json:534` says the
-  epoch-0 leaf index they feed has no second source. soland left the route
-  unmounted rather than ship it (soland `531326a57`). Which carrier is
+  epoch-0 leaf index they feed has no second source. coland left the route
+  unmounted rather than ship it (coland `531326a57`). Which carrier is
   authoritative was an open spec question at the time of this record, filed in
   [the contemporaneous arkret-work report](https://github.com/arkret-org/arkret-work/blob/3247527771a2469eaa01323b649c3c0986ad635f/tasks/spec-open/2026-09-19-0130-mls-governance-binding-has-two-carriers.md).
 - `docs/move-anchor-runtime.md` documented the removed Move / anchor / cell

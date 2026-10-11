@@ -27,7 +27,7 @@
       "rationale": "Current replicas and own-Station scan pages embed SDK-owned commit-stream carriers. Moving or adding a source must not recreate these wire DTOs locally."
     },
     {
-      "repository": "soland",
+      "repository": "coland",
       "path": "crates/http/src/routing/spaces/space.rs",
       "pattern": "struct\\s+RealmExport(Event|Operation|Outcome)\\b",
       "owner": "arkret_models_collaboration::governance::realm_governance::RealmExport"

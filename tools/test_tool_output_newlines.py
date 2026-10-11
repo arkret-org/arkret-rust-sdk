@@ -114,7 +114,7 @@ class DepMatrixArtifactBytesTest(unittest.TestCase):
                     "intra_lock_split": False,
                     "direct": [],
                 },
-                "soland": {
+                "coland": {
                     "resolved_versions": ["1.0.0"],
                     "resolved_majors": ["1"],
                     "intra_lock_split": False,

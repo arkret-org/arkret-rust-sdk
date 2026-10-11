@@ -1,7 +1,7 @@
 //! R3.2 (arkret-spec @ b56cab1) — §3.2.1 primary handle selection,
 //! `claim_digest(c)`, and §3.8.2 mention rendering.
 //!
-//! These helpers are shared across inkson / sodmin / soland / cotest so
+//! These helpers are shared across inkson / codmin / coland / cotest so
 //! every implementation agrees on the deterministic primary-handle
 //! selection and the canonical claim digest. The DID-Document
 //! `metadata.primary_handle` lookup (`holder_primary_handle_at_as_of`) is
@@ -14,7 +14,7 @@
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
 //! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
 //! these symbols from `arkret::identity`, while wasm-only consumers (e.g.
-//! sodmin) depend on this authoritative implementation directly instead of
+//! codmin) depend on this authoritative implementation directly instead of
 //! mirroring the algorithm by hand.
 
 use arkret_wire::{AccountId, DidCoreId, Result};

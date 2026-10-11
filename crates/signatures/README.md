@@ -15,7 +15,7 @@ This crate is the single source of truth for:
 
 ## Migrating downstream services
 
-`coauth`, `soland`, and `inkson` historically grew their own canonical JSON
+`coauth`, `coland`, and `inkson` historically grew their own canonical JSON
 plumbing and detached-JWS construction. These are consolidated into one
 pipeline. Migration steps:
 

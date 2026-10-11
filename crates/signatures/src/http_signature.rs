@@ -11,7 +11,7 @@
 //! 3. Computing and verifying the RFC 9530 `Content-Digest` for the request body.
 //! 4. Ed25519 sign / verify on the canonical message bytes.
 //!
-//! Wire shape (matches floria's verifier and soland's fanout signer):
+//! Wire shape (matches floria's verifier and coland's fanout signer):
 //!
 //! ```text
 //! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
@@ -224,7 +224,7 @@ pub enum Component {
     /// `@authority` — request authority (host + optional port) per
     /// RFC 9421 §2.2.3.
     Authority,
-    /// `@path` — request path per RFC 9421 §2.2.5. Used by soland's
+    /// `@path` — request path per RFC 9421 §2.2.5. Used by coland's
     /// fanout signer.
     Path,
     /// Named lowercase header. Re-emitted as `"name": value` in the
@@ -528,7 +528,7 @@ pub fn sign_http_message_for_scenario(
 }
 
 /// Parse a `Signature-Input` header value. Accepts the format emitted
-/// by floria, chime, and soland:
+/// by floria, chime, and coland:
 ///
 /// ```text
 /// label=("@method" "@target-uri" ...);created=...;expires=...;keyid="...";alg="ed25519"
@@ -797,7 +797,7 @@ impl ContentDigest {
     }
 
     /// Parse a `Content-Digest` header value. Accepts the simple
-    /// `alg=:base64:` form emitted by floria, chime, and soland.
+    /// `alg=:base64:` form emitted by floria, chime, and coland.
     pub fn parse(value: &str) -> Result<ContentDigest, SignatureError> {
         let trimmed = value.trim();
         // Find the first `=` (algorithm name boundary).

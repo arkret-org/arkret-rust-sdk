@@ -112,7 +112,7 @@ impl fmt::Display for ClaimedProfile {
 
 /// Provenance for a [`ProfileClaim`].
 ///
-/// Tracks how strong the claim is so downstream tooling (cotest gate, soland
+/// Tracks how strong the claim is so downstream tooling (cotest gate, coland
 /// `describe`, inkson capability manifest) can distinguish "we ran the suite
 /// and it passed" from "the implementor asserts this themselves" from
 /// "experimental / not-yet-in-v1-catalog".

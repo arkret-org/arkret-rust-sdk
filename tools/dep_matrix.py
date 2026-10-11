@@ -31,7 +31,7 @@ Usage:
     python dep_matrix.py --format text        # summary on stdout only
     python dep_matrix.py --focus-only         # restrict summary to focus crates
     python dep_matrix.py --fail-on-divergence # non-zero exit when majors split
-    python dep_matrix.py --require-repository soland
+    python dep_matrix.py --require-repository coland
                                               # exit 2 when a repository the
                                               # caller expects is absent
 """
@@ -54,13 +54,13 @@ WORKSPACE_REPOS = [
     "arkret-rust-sdk",
     "garth",
     "inkson",
-    "soland",
+    "coland",
     "cotest",
     "coauth",
     "flagon",
     "floria",
     "chime",
-    "sodmin",
+    "codmin",
     "bridges",
 ]
 

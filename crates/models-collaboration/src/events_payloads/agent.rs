@@ -558,7 +558,7 @@ impl std::error::Error for AgentKeyAuthorizePayloadError {}
 
 /// Read the closed authorize payload out of a signed Event envelope.
 ///
-/// Consumers (Coauth's runtime pairing gate, Soland's admission path) validate
+/// Consumers (Coauth's runtime pairing gate, Coland's admission path) validate
 /// business fields against this type rather than re-reading string keys off a
 /// `serde_json::Value`, so a payload field rename is a compile error at every
 /// call site instead of a silently absent check.

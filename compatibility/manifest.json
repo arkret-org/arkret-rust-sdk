@@ -7,7 +7,7 @@
       "arkret-spec",
       "arkret-rust-sdk",
       "floria",
-      "soland",
+      "coland",
       "coauth",
       "garth",
       "chime",
@@ -41,13 +41,13 @@
       "commit": "a0dd7530fdc614b4d7d533f148435ff798b0ce4a",
       "checkout_path": "floria",
       "roles": [
-        "soland-build-dependency"
+        "coland-build-dependency"
       ]
     },
-    "soland": {
-      "repository": "arkret-org/soland",
+    "coland": {
+      "repository": "arkret-org/coland",
       "commit": "cadf69e568de0348dcb161b2e81adb7270188ebd",
-      "checkout_path": "soland",
+      "checkout_path": "coland",
       "roles": [
         "protocol-producer",
         "server"
@@ -519,7 +519,7 @@
         "--require-repository",
         "garth",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth"
       ]
@@ -558,7 +558,7 @@
         "--require-repository",
         "arkret-rust-sdk",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth",
         "--require-repository",
@@ -602,7 +602,7 @@
         "--workspace-root",
         "..",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth",
         "--require-repository",
@@ -719,7 +719,7 @@
       "category": "compile",
       "surface": {
         "kind": "type",
-        "name": "server opt-in exposing Soland server surface"
+        "name": "server opt-in exposing Coland server surface"
       },
       "working_directory": "arkret-rust-sdk",
       "command": [
@@ -834,14 +834,14 @@
       ]
     },
     {
-      "id": "soland.compile",
-      "repository": "soland",
+      "id": "coland.compile",
+      "repository": "coland",
       "category": "compile",
       "surface": {
         "kind": "type",
-        "name": "Soland SDK producer integration"
+        "name": "Coland SDK producer integration"
       },
-      "working_directory": "soland",
+      "working_directory": "coland",
       "command": [
         "cargo",
         "check",
@@ -962,10 +962,10 @@
         "pwsh",
         "-File",
         "./scripts/run-joint-e2e.ps1",
-        "-SolandRuntime",
+        "-ColandRuntime",
         "docker",
-        "-SolandImage",
-        "cotest-soland:compatibility",
+        "-ColandImage",
+        "cotest-coland:compatibility",
         "-StartCoauth",
         "-RunProfile",
         "joint-smoke",
@@ -990,7 +990,7 @@
       {
         "id": "no-consumer-local-compatibility-dto",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",
@@ -1001,7 +1001,7 @@
       {
         "id": "no-dual-read-fallback",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",
@@ -1012,7 +1012,7 @@
       {
         "id": "no-permissive-flattened-extra",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",

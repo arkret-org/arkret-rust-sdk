@@ -43,7 +43,7 @@ pub mod webvh;
 pub mod service_identity;
 
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
-// soland's `verify_realm_organization_proof_signature`.
+// coland's `verify_realm_organization_proof_signature`.
 #[cfg(feature = "collaboration")]
 #[path = "realm_organization.rs"]
 pub mod realm_organization;

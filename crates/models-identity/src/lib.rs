@@ -33,7 +33,7 @@ pub mod member_identity;
 pub mod organization_registration;
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
-/// shared by inkson / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
+/// shared by inkson / codmin / coland / cotest (SOD-05-001 / SPEC-CR-019).
 pub mod primary_handle;
 pub mod principal_registration_anchor;
 pub mod proof;

@@ -45,9 +45,9 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v6
         with:
-          repository: ${{ github.repository_owner }}/soland
-          path: soland
-          ref: ${{ inputs.repository == 'soland' && github.sha || 'main' }}
+          repository: ${{ github.repository_owner }}/coland
+          path: coland
+          ref: ${{ inputs.repository == 'coland' && github.sha || 'main' }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
           persist-credentials: false
       - uses: actions/checkout@v6
@@ -87,9 +87,9 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v6
         with:
-          repository: ${{ github.repository_owner }}/sodmin
-          path: sodmin
-          ref: ${{ inputs.repository == 'sodmin' && github.sha || 'main' }}
+          repository: ${{ github.repository_owner }}/codmin
+          path: codmin
+          ref: ${{ inputs.repository == 'codmin' && github.sha || 'main' }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@master

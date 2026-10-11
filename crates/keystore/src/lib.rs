@@ -39,7 +39,7 @@
 //! ## Service-name namespacing
 //!
 //! Backends namespace credentials under `"arkret.<application_id>"` so
-//! multiple Arkret-using apps on the same host (inkson, sodmin, soland
+//! multiple Arkret-using apps on the same host (inkson, codmin, coland
 //! authority, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application

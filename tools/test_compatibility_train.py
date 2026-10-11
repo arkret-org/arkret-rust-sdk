@@ -121,7 +121,7 @@ class CompatibilityTrainTests(unittest.TestCase):
 
     def test_resolved_workflow_manifest_must_match_every_candidate(self) -> None:
         mutated = copy.deepcopy(self.manifest)
-        mutated["repositories"]["soland"]["commit"] = "f" * 40
+        mutated["repositories"]["coland"]["commit"] = "f" * 40
         with self.assertRaisesRegex(train.gate.CompatibilityError, "complete staged candidate set"):
             train.verify_resolved_manifest(self.manifest, mutated)
 

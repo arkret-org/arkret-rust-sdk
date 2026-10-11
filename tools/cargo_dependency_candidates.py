@@ -9,8 +9,8 @@ import shutil
 import subprocess
 
 REPOSITORIES = (
-    "arkret-spec", "arkret-rust-sdk", "floria", "soland", "coauth",
-    "garth", "chime", "inkson", "cotest", "sodmin",
+    "arkret-spec", "arkret-rust-sdk", "floria", "coland", "coauth",
+    "garth", "chime", "inkson", "cotest", "codmin",
 )
 
 

@@ -1,6 +1,6 @@
 //! Organization-side statement signing helper (A3).
 //!
-//! The verifier (soland's `verify_realm_organization_proof_signature`) decodes
+//! The verifier (coland's `verify_realm_organization_proof_signature`) decodes
 //! `authorization.proof` with base64url (no padding) and runs
 //! `verify_strict(signing_bytes, signature)` where `signing_bytes` come from
 //! [`realm_organization_statement_signing_bytes`]. This
@@ -22,7 +22,7 @@ use crate::{Error, Result};
 ///
 /// The signature is computed over
 /// [`realm_organization_statement_signing_bytes`] and
-/// encoded with base64url (no padding), so it round-trips through soland's
+/// encoded with base64url (no padding), so it round-trips through coland's
 /// `verify_realm_organization_proof_signature` (which decodes with
 /// `URL_SAFE_NO_PAD` and calls `verify_strict` over the same bytes).
 ///
@@ -111,9 +111,9 @@ mod tests {
     }
 
     /// Sign, then re-derive the signing bytes and verify with `verify_strict`
-    /// over the verifying key — exactly the path soland's verifier runs.
+    /// over the verifying key — exactly the path coland's verifier runs.
     #[test]
-    fn sign_round_trips_through_soland_verifier_shape() {
+    fn sign_round_trips_through_coland_verifier_shape() {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let verifying_key = signing_key.verifying_key();
 

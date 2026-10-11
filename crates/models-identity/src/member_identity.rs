@@ -84,7 +84,7 @@ impl MemberIdentity {
     /// the top-level `proof` field excluded. The signature in `proof`
     /// MUST cover the same canonical bytes.
     ///
-    /// Exported so soland + inkson + cotest agree on the exact bytes
+    /// Exported so coland + inkson + cotest agree on the exact bytes
     /// used for `MemberIdentityProof.payload_digest`.
     pub fn canonical_payload_sha256(&self) -> Result<String> {
         let bytes = self.canonical_payload_bytes()?;

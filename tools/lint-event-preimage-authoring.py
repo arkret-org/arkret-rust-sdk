@@ -15,7 +15,7 @@ reproduces, so a *valid* signature verifies as invalid:
   * `inkson/src/identity/agent_signer_evidence.rs` -- omitted `event_id`, so
     every well-formed Agent evidence Event failed as `SigningKeyMismatch`;
   * `inkson/src/views/chat/tests.rs` -- fixture signer with its own copy;
-  * `soland/crates/server/tests/http_api/common.rs` -- kept `event_id` and
+  * `coland/crates/server/tests/http_api/common.rs` -- kept `event_id` and
     stripped slots that do not exist on the envelope;
   * `arkret-spec` crypto-signature vector -- hashed the envelope, not the
     preimage.
@@ -48,10 +48,10 @@ HAND_ROLLED = re.compile(
     r"""(?:remove|remove_entry|swap_remove|shift_remove)\s*\(\s*"(event_id)"\s*\)"""
 )
 SKIP_DIRS = {".git", "target", "node_modules", "vendor", "dist", "artifacts"}
-# The downstream repo-local copies of this guard (inkson and soland run one in
+# The downstream repo-local copies of this guard (inkson and coland run one in
 # their own test gate, where the sibling SDK checkout may be absent). They name
 # the forbidden shapes in order to search for them, the same self-exclusion
-# `soland/scripts/stale-literal-scan.sh` takes.
+# `coland/scripts/stale-literal-scan.sh` takes.
 SKIP_FILES = {"event_preimage_authoring_guard.rs"}
 
 

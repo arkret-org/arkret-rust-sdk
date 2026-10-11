@@ -727,7 +727,7 @@ struct OrganizationStatementTranscript<'a> {
 
 /// Canonical bytes the organization-side `authorization.proof` signs over.
 ///
-/// Both the issuing side (coauth) and the verifying side (soland) MUST derive
+/// Both the issuing side (coauth) and the verifying side (coland) MUST derive
 /// the signing input from this one function so the bytes are byte-identical.
 /// The transcript binds every semantic field of the statement except the proof
 /// itself, so a detached signature over these bytes authenticates the whole

@@ -166,7 +166,7 @@ becomes the canonical history.
 
 *Mitigations.* The gate requires at least one
 `ak.schema.key_backup.v1` envelope (with `series_seq == 0`) to be visible
-on the home soland before any `recovery_policy` can accept a binding. SDK
+on the home coland before any `recovery_policy` can accept a binding. SDK
 callers see this as `Error::Protocol("first_backup_required")` from the
 recovery client; the spec layer codifies it as the
 `first_backup_required` failure mode on `ak.account.recovery.*` operations.

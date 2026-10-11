@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Conventional admin-scope identifiers. These mirror the operations
-/// soland already gates on `require_admin_principal`. Servers MAY add
+/// coland already gates on `require_admin_principal`. Servers MAY add
 /// custom scopes; the introspection helper does not enforce a closed
 /// set.
 pub mod admin_scopes {
@@ -30,7 +30,7 @@ pub mod admin_scopes {
 /// Stations receive this from their upstream IdP (coauth, by
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
-/// `org.arkret.*` extensions soland already uses.
+/// `org.arkret.*` extensions coland already uses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantAdminIntrospectionStatus {

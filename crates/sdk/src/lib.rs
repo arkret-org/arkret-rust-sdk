@@ -360,7 +360,7 @@ pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519PayloadSigner;
 // Account Authority controller-gate issuance/verification and the generic
-// detached authority-object seal, surfaced so coauth / soland / inkson reach
+// detached authority-object seal, surfaced so coauth / coland / inkson reach
 // one implementation instead of re-deriving either transcript.
 pub use arkret_signatures::agent_evidence::{
     sign_controller_account_gate_attestation, verify_controller_account_gate_attestation,
@@ -383,7 +383,7 @@ pub use arkret_signatures::keypackages::{
     verify_keypackage_signing_input,
 };
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
-// at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
+// at the SDK root so clients (codmin / inkson) and servers (coland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{
@@ -502,7 +502,7 @@ pub use arkret_hlc as hlc;
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so station-style consumers (inkson,
-/// floria, cotest, flagon, soland) all reach the same verifier. Depends
+/// floria, cotest, flagon, coland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
 pub use arkret_signatures::{dpop, http_signature};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate

@@ -1,7 +1,7 @@
 //! Embedded `did:webvh` inception builder, shared by clients and servers.
 //!
-//! Soland accepts WebVH inception as a protocol DID operation at
-//! `/_arkret/root/identity/submit-did-operation`. Soland's embedded WebVH
+//! Coland accepts WebVH inception as a protocol DID operation at
+//! `/_arkret/root/identity/submit-did-operation`. Coland's embedded WebVH
 //! profile requires the client to:
 //!
 //! 1. derive the cold root keypair and its next-generation pre-rotation commitment,
@@ -21,9 +21,9 @@
 //! module still self-validates every proof it constructs and every proof
 //! accepted by its public inception validator.
 //!
-//! HTTP transport (POSTing the prepared operation to soland) deliberately lives
+//! HTTP transport (POSTing the prepared operation to coland) deliberately lives
 //! outside this crate: this module is pure build + cryptography so clients
-//! (sodmin / inkson) and servers (soland / coauth) can all share one
+//! (codmin / inkson) and servers (coland / coauth) can all share one
 //! implementation with no drift.
 
 use std::collections::BTreeSet;
@@ -64,7 +64,7 @@ use crate::eddsa_jcs_2022::{
 /// Errors produced while preparing a `did:webvh` inception entry.
 ///
 /// Only build / cryptography failures live here; transport (HTTP submit) and
-/// storage errors stay in the caller (e.g. coauth's `SolandWebvhError`).
+/// storage errors stay in the caller (e.g. coauth's `ColandWebvhError`).
 #[derive(Debug, Error)]
 pub enum WebvhInceptionError {
     #[error("station endpoint is not a valid URL: {0}")]
@@ -755,7 +755,7 @@ pub struct PrincipalInceptionInput<'a> {
     /// WebVH Provider base endpoint. Drives the DID method authority and may
     /// differ from the Station published in the DID document.
     pub provider_endpoint: &'a Url,
-    /// Soland's public base endpoint. Drives the in-document
+    /// Coland's public base endpoint. Drives the in-document
     /// `serviceEndpoint` and the `also_known_as` reverse-link surface.
     pub principal_endpoint: &'a Url,
     /// Stable per-user identifier — typically the user's ULID lower-cased.
@@ -763,7 +763,7 @@ pub struct PrincipalInceptionInput<'a> {
     pub local_id: &'a str,
     /// Optional `alsoKnownAs` entries (e.g. the user's `@handle@host`).
     pub also_known_as: &'a [String],
-    /// `versionTime` for the inception entry. Soland requires RFC3339.
+    /// `versionTime` for the inception entry. Coland requires RFC3339.
     pub version_time: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
@@ -800,7 +800,7 @@ pub struct AgentBindingUpdateInput<'a> {
 /// Inputs for a client-authored WebVH inception. The client supplies the DID
 /// and update public keys plus the signed log proof; the server reconstructs
 /// the exact inception entry, verifies the proof locally, and submits the typed
-/// DID operation to soland.
+/// DID operation to coland.
 pub struct SuppliedPrincipalInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
@@ -2182,7 +2182,7 @@ pub fn prepare_supplied_principal_inception(
         key_log_head: version_id,
         document_url,
         log_url,
-        provider_id: "soland.protocol".to_owned(),
+        provider_id: "coland.protocol".to_owned(),
         did_document,
         did_log: vec![log_entry],
     })
@@ -2255,7 +2255,7 @@ fn principal_document_value(
         "id": did,
         "alsoKnownAs": also_known_as,
         "service": [{
-            "id": format!("{did}#soland"),
+            "id": format!("{did}#coland"),
             "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }],
@@ -2277,7 +2277,7 @@ fn agent_document_value(
     let authorization_ref = format!("{did}#managed-controller");
     let mut services = vec![
         json!({
-            "id": format!("{did}#soland"),
+            "id": format!("{did}#coland"),
             "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }),
@@ -2361,8 +2361,8 @@ pub fn validate_agent_did_document_profile(
                     .to_owned(),
             )
         })?;
-    let expected_soland_id = format!("{did}#soland");
-    if services[0].get("id").and_then(Value::as_str) != Some(expected_soland_id.as_str())
+    let expected_coland_id = format!("{did}#coland");
+    if services[0].get("id").and_then(Value::as_str) != Some(expected_coland_id.as_str())
         || services[0].get("type").and_then(Value::as_str) != Some("ArkretStation")
         || services[0]
             .get("serviceEndpoint")
@@ -2492,7 +2492,7 @@ pub fn validate_principal_did_document_profile(
             )
         })?;
     let service = &services[0];
-    let expected_service_id = format!("{did}#soland");
+    let expected_service_id = format!("{did}#coland");
     if service.get("id").and_then(Value::as_str) != Some(expected_service_id.as_str())
         || service.get("type").and_then(Value::as_str) != Some("ArkretStation")
         || service

@@ -34,7 +34,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
 
     def test_repository_commits_must_be_exact(self) -> None:
         mutated = copy.deepcopy(self.manifest)
-        mutated["repositories"]["soland"]["commit"] = "main"
+        mutated["repositories"]["coland"]["commit"] = "main"
         with self.assertRaisesRegex(gate.CompatibilityError, "exact 40-byte hex SHA"):
             gate.validate_manifest(mutated)
 
@@ -51,8 +51,8 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
         resolved = gate.resolve_manifest(self.manifest, {"garth": candidate})
         self.assertEqual(resolved["repositories"]["garth"]["commit"], candidate)
         self.assertEqual(
-            resolved["repositories"]["soland"]["commit"],
-            self.manifest["repositories"]["soland"]["commit"],
+            resolved["repositories"]["coland"]["commit"],
+            self.manifest["repositories"]["coland"]["commit"],
         )
         self.assertEqual(
             resolved["resolved_candidates"],
@@ -194,7 +194,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
         checks = copy.deepcopy(self.manifest["checks"][:2])
         for check in checks:
             check["working_directory"] = "."
-        checks[0]["repository"] = "soland"
+        checks[0]["repository"] = "coland"
         checks[0]["working_directory"] = "missing-consumer"
         with tempfile.TemporaryDirectory() as temporary:
             report = Path(temporary) / "selection.json"

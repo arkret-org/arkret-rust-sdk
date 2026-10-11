@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-10.6;
-//! sha256=4e2fdb85f9e7f995e59989a001d9acc6fbc163bba3d7eceef0a13a672b93da0c Entries: registered=215
+//! Input: registry/contract-registry.json; version=2026-10-11;
+//! sha256=ed52e81d08ba9134713238b195905646c9ef33983815c4968e9adf2523e41cf6 Entries: registered=215
 
 use serde::{Deserialize, Serialize};
 

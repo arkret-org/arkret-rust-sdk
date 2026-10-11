@@ -443,7 +443,7 @@ mod tests {
             "https://user:secret@identity.example/did.json",
             "https://169.254.169.254/did.json",
             "https://10.0.0.1/did.json",
-            "https://soland-server2.localhost/did.json",
+            "https://coland-server2.localhost/did.json",
         ] {
             assert!(fetch_method_bytes(url, None).await.is_err());
             let scope = LoopbackMethodScope::new("local.host", 443).unwrap();
@@ -453,8 +453,8 @@ mod tests {
 
     #[test]
     fn local_method_discovery_requires_explicit_scope_and_retains_it_after_relocation() {
-        let source = Url::parse("https://soland-server1.localhost:24630/").unwrap();
-        let target = Url::parse("https://soland-server2.localhost:24630/did.json").unwrap();
+        let source = Url::parse("https://coland-server1.localhost:24630/").unwrap();
+        let target = Url::parse("https://coland-server2.localhost:24630/did.json").unwrap();
         let default = crate::ClientBuilder::new(source.clone())
             .allow_insecure_localhost()
             .build()
@@ -481,14 +481,14 @@ mod tests {
         );
         assert!(
             method_fetch_policy(
-                &Url::parse("https://soland-server2.localhost:24631/did.json").unwrap(),
+                &Url::parse("https://coland-server2.localhost:24631/did.json").unwrap(),
                 relocated.loopback_method_scope.as_ref(),
             )
             .is_err()
         );
         assert!(
             method_fetch_policy(
-                &Url::parse("https://soland-server2.localhost.evil.example:24630/did.json")
+                &Url::parse("https://coland-server2.localhost.evil.example:24630/did.json")
                     .unwrap(),
                 relocated.loopback_method_scope.as_ref(),
             )
@@ -505,7 +505,7 @@ mod tests {
         for namespace in ["localhost", "local.host"] {
             let scope = LoopbackMethodScope::new(namespace, 24630).unwrap();
             let url = Url::parse(&format!(
-                "https://soland-server2.{namespace}:24630/did.json"
+                "https://coland-server2.{namespace}:24630/did.json"
             ))
             .unwrap();
             let guard = method_egress_guard(&url, Some(&scope)).unwrap();

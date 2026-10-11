@@ -9,7 +9,7 @@
 //! ## Service-name namespacing
 //!
 //! Platform backends namespace credentials under `"arkret.<application_id>"`
-//! so multiple Arkret-using apps on the same host (inkson, sodmin, soland
+//! so multiple Arkret-using apps on the same host (inkson, codmin, coland
 //! authority, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
@@ -187,6 +187,6 @@ mod tests {
     #[test]
     fn service_name_namespaces_per_application_id() {
         assert_eq!(service_name("inkson"), "arkret.inkson");
-        assert_eq!(service_name("soland.authority"), "arkret.soland.authority");
+        assert_eq!(service_name("coland.authority"), "arkret.coland.authority");
     }
 }

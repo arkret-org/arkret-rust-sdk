@@ -25,7 +25,7 @@ git diff --check
 
 ## Interop Evidence
 
-cotest local release gate against soland:
+cotest local release gate against coland:
 
 - Command:
   `pwsh -NoProfile -File ..\cotest\scripts\run-server-conformance.ps1 -Profile release-gate -Runtime process -SkipJointSmokeGate`
@@ -40,7 +40,7 @@ cotest local release gate against soland:
 The gate covers protocol conformance fixtures, profile discovery, privacy
 boundary checks, push-rule consistency, account/session edges, federation
 replay, optional starid resolver discovery, session-grant introspection, and
-inkson mock-vs-live soland parity.
+inkson mock-vs-live coland parity.
 
 ## Security Evidence
 

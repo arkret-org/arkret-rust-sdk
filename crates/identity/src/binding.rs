@@ -53,9 +53,9 @@ use crate::binding_digest::EvidenceDependencies;
 /// | [`Controller`](Self::Controller) | task DID-P0-B01 |
 /// | [`DeviceSigner`](Self::DeviceSigner) | task DID-P0-B01 (device signer authorization) |
 /// | [`AgentSigner`](Self::AgentSigner) | task DID-P0-B01 (agent signer authorization) |
-/// | [`DirectoryIngest`](Self::DirectoryIngest) | Teabay DID-P0-C02 |
-/// | [`DirectoryIssuer`](Self::DirectoryIssuer) | Teabay DID-P0-C02 |
-/// | [`PrincipalServiceEndpoint`](Self::PrincipalServiceEndpoint) | Teabay DID-P0-C02 |
+/// | [`DirectoryIngest`](Self::DirectoryIngest) | Flagon DID-P0-C02 |
+/// | [`DirectoryIssuer`](Self::DirectoryIssuer) | Flagon DID-P0-C02 |
+/// | [`PrincipalServiceEndpoint`](Self::PrincipalServiceEndpoint) | Flagon DID-P0-C02 |
 /// | [`AccountBinding`](Self::AccountBinding) | Coauth DID-P2-A |
 /// | [`Recovery`](Self::Recovery) | Coauth DID-P2-A |
 /// | [`OrganizationRegistry`](Self::OrganizationRegistry) | Coauth DID-P2-A |
@@ -75,11 +75,11 @@ pub enum DidBindingPurpose {
     DeviceSigner,
     /// Agent signer epoch authorization for a principal.
     AgentSigner,
-    /// Directory ingest of an announced resource (Teabay DID-P0-C02).
+    /// Directory ingest of an announced resource (Flagon DID-P0-C02).
     DirectoryIngest,
-    /// Directory-scoped claim / invite issuer (Teabay DID-P0-C02).
+    /// Directory-scoped claim / invite issuer (Flagon DID-P0-C02).
     DirectoryIssuer,
-    /// Station service endpoint binding (Teabay DID-P0-C02).
+    /// Station service endpoint binding (Flagon DID-P0-C02).
     PrincipalServiceEndpoint,
     /// Account registration / claim binding (Coauth DID-P2-A).
     AccountBinding,

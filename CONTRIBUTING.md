@@ -122,8 +122,8 @@ python tools/compatibility_gate.py run \
 ```
 
 The ordered checks cover the normative operation registry and schemas, SDK
-public-model probes, SDK/Soland/Coauth/Garth/Inkson/Cotest compilation, Cotest
-TypeScript and generated wire mirrors, and a live joint Soland/Coauth/Inkson
+public-model probes, SDK/Coland/Coauth/Garth/Inkson/Cotest compilation, Cotest
+TypeScript and generated wire mirrors, and a live joint Coland/Coauth/Inkson
 smoke. The first failure is emitted with its operation/schema/type surface.
 The committed negative-mutation test deletes a real SDK `Event` field in a
 temporary copy and must prove the gate rejects it.

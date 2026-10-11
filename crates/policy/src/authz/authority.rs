@@ -1,8 +1,8 @@
 //! Capability authority-chain checks — pure, in-memory predicates.
 //!
-//! This module hosts the runtime authority-chain helpers that soland's
+//! This module hosts the runtime authority-chain helpers that coland's
 //! authorization engine (and any other consumer — inkson for client-side
-//! pre-validation, sodmin for admin feedback) needs to enforce
+//! pre-validation, codmin for admin feedback) needs to enforce
 //! capabilities.md §10:
 //!
 //! - Re-granting MUST NOT widen the action scope (`ActionsNotHeld`).
@@ -16,7 +16,7 @@
 //!   expired (`ParentExpired`).
 //!
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
-//! soland's in-memory runtime form (stringly-typed `resource`, single
+//! coland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list plus `issuer_authority_refs`). The
 //! wire-spec shape is the core authority
 //! [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]
@@ -31,7 +31,7 @@
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
 //! I/O. That makes them safe to call from inkson (compile-to-wasm) and
-//! from sodmin admin UI as well as the server-side authorization engine.
+//! from codmin admin UI as well as the server-side authorization engine.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -92,10 +92,10 @@ impl IssuerAuthorityRef {
 
 /// A capability grant in its runtime / in-memory form.
 ///
-/// Mirrors soland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
+/// Mirrors coland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
 /// `issuer_authority_refs` is a wire field per `ak.schema.capability.v1`; the remaining
 /// fields are runtime projections (`resource` is a stringly-typed selector
-/// rather than the typed Soland `ResourceSelector` enum so that this
+/// rather than the typed Coland `ResourceSelector` enum so that this
 /// module can be reused by client pre-checks without forcing the full
 /// selector parser pipeline).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ pub struct Grant {
 /// In-memory runtime projection of the canonical v1
 /// `arkret_models_collaboration::governance::grant_constraint::GrantConstraint`
 /// shape, plus service-only evaluation families such as `Decision` and
-/// `AllowedObjectFacets`. Soland threads this compact projection through its
+/// `AllowedObjectFacets`. Coland threads this compact projection through its
 /// authorization checks after validating the canonical event-boundary model.
 ///
 /// AKP-0007 P1.3.4: the previous `{ constraint_kind: String, value:
@@ -137,11 +137,11 @@ pub struct Grant {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "constraint_kind", rename_all = "snake_case")]
 pub enum GrantConstraint {
-    /// Hard decision constraint used by soland to attach explicit
+    /// Hard decision constraint used by coland to attach explicit
     /// allow/deny/quarantine/require_review verdicts to a grant
     /// (capabilities.md §B5 priority: deny > quarantine > require_review >
     /// allow). Maps onto the spec `effect` field but is materialised as a
-    /// standalone constraint type because soland's engine treats decision
+    /// standalone constraint type because coland's engine treats decision
     /// constraints separately from the spec-typed evaluation families.
     Decision { decision: GrantDecisionVerdict },
     /// Temporal constraint (`constraint_kind: "temporal"`). Carries two
@@ -185,7 +185,7 @@ pub enum GrantConstraint {
     AllowedSessionIds {
         allowed_session_ids: BTreeSet<String>,
     },
-    /// Resource must carry at least one of the listed facets. soland uses
+    /// Resource must carry at least one of the listed facets. coland uses
     /// this on `ak:strand:` / `ak:realm:` / `ak:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
@@ -430,7 +430,7 @@ pub fn authority_chain_intact(grants: &[Grant], grant_id: &str, now: DateTime<Ut
 }
 
 /// `BTreeMap`-keyed variant of [`authority_chain_intact`] for callers that
-/// already maintain an id → grant lookup (e.g. soland's authorization engine).
+/// already maintain an id → grant lookup (e.g. coland's authorization engine).
 pub fn authority_chain_intact_map<G>(
     snapshot: &BTreeMap<&str, G>,
     grant_id: &str,

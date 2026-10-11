@@ -106,9 +106,9 @@ def test_declared_split_is_gated_but_upstream_only_split_is_not() -> None:
             [_lock("coauth", "sha2", "0.11.0"), _lock("coauth", "widget", "0.5.0")],
         ),
         _repo(
-            "soland",
-            [_decl("soland", "widget", "0.6.0")],
-            [_lock("soland", "widget", "0.6.0")],
+            "coland",
+            [_decl("coland", "widget", "0.6.0")],
+            [_lock("coland", "widget", "0.6.0")],
         ),
     ]
     found = {item["crate"]: item for item in divergences(build_matrix(repos))}
@@ -177,7 +177,7 @@ def test_exemption_must_cover_every_observed_major() -> None:
                 "core_majors": ["0.5", "0.6"],
                 "core_split": True,
                 "actionable": True,
-                "declared_in_core": ["coauth", "soland"],
+                "declared_in_core": ["coauth", "coland"],
             }
         ]
     }
@@ -232,7 +232,7 @@ def test_partial_checkout_cannot_pass_the_gate_vacuously() -> None:
         empty = Path(temporary)
         argv = ["--workspace-root", str(empty), "--format", "text", "--fail-on-divergence"]
         assert dep_matrix.main(argv) == 0
-        assert dep_matrix.main(argv + ["--require-repository", "soland"]) == 2
+        assert dep_matrix.main(argv + ["--require-repository", "coland"]) == 2
         # A name outside the analysed repository set is a caller error, not a
         # finding, and must not be reported as a passing gate either.
         assert dep_matrix.main(argv + ["--require-repository", "not-a-repository"]) == 2
@@ -240,7 +240,7 @@ def test_partial_checkout_cannot_pass_the_gate_vacuously() -> None:
 
 def test_declared_split_without_lockfile_is_not_hidden() -> None:
     repos = [_repo(name, [_decl(name, "widget", req)], [])
-             for name, req in [("coauth", "1"), ("soland", "2")]]
+             for name, req in [("coauth", "1"), ("coland", "2")]]
     found = divergences(build_matrix(repos))
     assert found[0]["declared_split"]
     assert not found[0]["core_split"]
@@ -254,12 +254,12 @@ def test_declared_split_without_lockfile_is_not_hidden() -> None:
 def test_bad_member_manifest_fails_instead_of_narrowing_report() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         workspace = Path(temporary)
-        repo = workspace / "soland"
+        repo = workspace / "coland"
         (repo / "member").mkdir(parents=True)
         (repo / "Cargo.toml").write_text('[workspace]\nmembers = ["member"]\n', encoding="utf-8")
         (repo / "member" / "Cargo.toml").write_text("[package\n", encoding="utf-8")
         assert dep_matrix.main(["--workspace-root", str(workspace), "--format", "text",
-                                "--require-repository", "soland"]) == 2
+                                "--require-repository", "coland"]) == 2
 
 
 def test_nonmatching_exemptions_explain_all_filtering_cases() -> None:
@@ -279,7 +279,7 @@ def test_nonmatching_exemptions_explain_all_filtering_cases() -> None:
 def test_text_and_json_reports_use_the_same_verdict() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         workspace = Path(temporary)
-        for name, version in [("coauth", "1"), ("soland", "2")]:
+        for name, version in [("coauth", "1"), ("coland", "2")]:
             repo = workspace / name
             repo.mkdir()
             (repo / "Cargo.toml").write_text(

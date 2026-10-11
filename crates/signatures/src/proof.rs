@@ -1,7 +1,7 @@
 //! Canonical proof builders, Event proof verification, and signing primitives.
 //!
 //! Single canonical JSON + detached JWS pipeline for signing Event
-//! Envelopes, shared by `coauth`, `soland`, and `inkson`:
+//! Envelopes, shared by `coauth`, `coland`, and `inkson`:
 //! canonical-bytes computation, the `EventSigner` /
 //! `EventVerifier` traits, the `PublicKeyMaterial` carrier, and a
 //! generic `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier` primitives.
@@ -463,7 +463,7 @@ impl From<VerifierError> for Error {
 /// Builds Event Envelope canonical to-be-signed bytes from any payload.
 ///
 /// `EventProofBuilder` is the single entry point that downstream
-/// services (`coauth`, `soland`, `inkson`) call to derive the bytes
+/// services (`coauth`, `coland`, `inkson`) call to derive the bytes
 /// the signer puts under the signature. It threads the canonical
 /// JSON encoder used everywhere else in the SDK so all services
 /// produce byte-identical signing input.

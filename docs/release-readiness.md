@@ -32,7 +32,7 @@ these gates pass:
 - Local encryption helpers use authenticated encryption and no insecure placeholder encryption remains.
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.
-- Basic interoperability smoke is recorded under `docs/` for `soland`,
+- Basic interoperability smoke is recorded under `docs/` for `coland`,
   `floria`, `chime`, and federation endpoints.
 - The `cargo audit` ignore is a tracked upstream-dependency exception:
   `libcrux-chacha20poly1305` is present only through hpke-rs's optional

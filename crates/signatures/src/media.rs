@@ -205,7 +205,7 @@ pub struct ParticipantBindingContext<'a> {
 /// canonical JSON of exactly the seven authoritative fields. Implementations
 /// MUST NOT introduce a private domain prefix or fold metadata into the input.
 ///
-/// This is `pub` so issuers (e.g. soland) can lock their construction against
+/// This is `pub` so issuers (e.g. coland) can lock their construction against
 /// the SDK verifier byte-for-byte: the bytes returned here are exactly what
 /// `participant_binding.sig` covers, so a
 /// cross-implementation test can assert the issuer's signing input equals this.
@@ -467,7 +467,7 @@ mod tests {
         assert_eq!(verified.participant_id, outcome.participant_id);
 
         // Anchor: the signing input is label-prefixed (`media-service-binding.md`
-        // §3). soland's cross-implementation lock asserts byte equality against
+        // §3). coland's cross-implementation lock asserts byte equality against
         // this same function.
         let signing_input =
             participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))

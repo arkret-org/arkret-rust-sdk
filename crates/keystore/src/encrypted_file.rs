@@ -569,7 +569,7 @@ mod tests {
         let path = directory.file();
         let key = [7u8; 32];
         {
-            let store = EncryptedFileKeyStore::new(&path, "soland", key).unwrap();
+            let store = EncryptedFileKeyStore::new(&path, "coland", key).unwrap();
             store.store("service-key", b"highly-secret-seed").unwrap();
             assert_eq!(
                 store.load("service-key").unwrap().as_slice(),
@@ -588,7 +588,7 @@ mod tests {
                 .any(|window| window == b"highly-secret-seed")
         );
 
-        let reopened = EncryptedFileKeyStore::new(&path, "soland", key).unwrap();
+        let reopened = EncryptedFileKeyStore::new(&path, "coland", key).unwrap();
         assert_eq!(reopened.list().unwrap(), vec!["service-key"]);
         assert_eq!(
             reopened.load("service-key").unwrap().as_slice(),
@@ -601,8 +601,8 @@ mod tests {
         let directory = TestDirectory::new("namespaces");
         let path = directory.file();
         let key = [9u8; 32];
-        let first = EncryptedFileKeyStore::new(&path, "soland.identity", key).unwrap();
-        let second = EncryptedFileKeyStore::new(&path, "soland.admin", key).unwrap();
+        let first = EncryptedFileKeyStore::new(&path, "coland.identity", key).unwrap();
+        let second = EncryptedFileKeyStore::new(&path, "coland.admin", key).unwrap();
         first.store("same-id", b"identity").unwrap();
         second.store("same-id", b"admin").unwrap();
 
@@ -619,18 +619,18 @@ mod tests {
     fn wrong_master_key_and_corruption_fail_closed() {
         let directory = TestDirectory::new("authentication");
         let path = directory.file();
-        EncryptedFileKeyStore::new(&path, "soland", [1u8; 32])
+        EncryptedFileKeyStore::new(&path, "coland", [1u8; 32])
             .unwrap()
             .store("key", b"secret")
             .unwrap();
 
-        let wrong = EncryptedFileKeyStore::new(&path, "soland", [2u8; 32]).unwrap();
+        let wrong = EncryptedFileKeyStore::new(&path, "coland", [2u8; 32]).unwrap();
         assert!(!wrong.load("key").unwrap_err().is_not_found());
 
         let mut encoded = fs::read(&path).unwrap();
         *encoded.last_mut().unwrap() ^= 1;
         fs::write(&path, encoded).unwrap();
-        let original = EncryptedFileKeyStore::new(&path, "soland", [1u8; 32]).unwrap();
+        let original = EncryptedFileKeyStore::new(&path, "coland", [1u8; 32]).unwrap();
         assert!(!original.load("key").unwrap_err().is_not_found());
     }
 
@@ -639,7 +639,7 @@ mod tests {
         let directory = TestDirectory::new("concurrent");
         let path = directory.file();
         let stores = (0..16)
-            .map(|_| Arc::new(EncryptedFileKeyStore::new(&path, "soland", [3u8; 32]).unwrap()))
+            .map(|_| Arc::new(EncryptedFileKeyStore::new(&path, "coland", [3u8; 32]).unwrap()))
             .collect::<Vec<_>>();
         let threads = stores
             .into_iter()
@@ -656,7 +656,7 @@ mod tests {
             thread.join().unwrap();
         }
 
-        let reopened = EncryptedFileKeyStore::new(&path, "soland", [3u8; 32]).unwrap();
+        let reopened = EncryptedFileKeyStore::new(&path, "coland", [3u8; 32]).unwrap();
         assert_eq!(reopened.list().unwrap().len(), 16);
         for index in 0..16 {
             assert_eq!(
@@ -673,7 +673,7 @@ mod tests {
     fn missing_file_and_delete_are_idempotent() {
         let directory = TestDirectory::new("missing");
         let path = directory.file();
-        let store = EncryptedFileKeyStore::new(&path, "soland", [4u8; 32]).unwrap();
+        let store = EncryptedFileKeyStore::new(&path, "coland", [4u8; 32]).unwrap();
         assert!(store.list().unwrap().is_empty());
         store.delete("missing").unwrap();
         assert!(!path.exists());

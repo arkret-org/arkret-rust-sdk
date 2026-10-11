@@ -25,7 +25,7 @@ pub type RealmOrganizationVerificationResult<T> = Result<T, RealmOrganizationVer
 //
 // Stateless, injectable verification of a [`RealmOrganizationPayload`]
 // relationship statement. This is the canonical organization-side check
-// shared across soland / flagon / cotest so none of them re-implements the
+// shared across coland / flagon / cotest so none of them re-implements the
 // issuer-role / delegation / proof / validity-window / scope / revocation
 // invariants. The helper performs NO product-side DB queries; the DID /
 // delegation resolution it needs is injected via

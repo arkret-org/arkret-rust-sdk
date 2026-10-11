@@ -19,7 +19,7 @@ from typing import Any, Iterable
 REQUIRED_REPOSITORIES = {
     "arkret-spec",
     "arkret-rust-sdk",
-    "soland",
+    "coland",
     "coauth",
     "garth",
     "inkson",
@@ -90,14 +90,14 @@ def validate_manifest(document: dict[str, Any]) -> None:
         raise CompatibilityError("train.merge_order must list every repository exactly once")
     ordering_constraints = [
         ("arkret-spec", "arkret-rust-sdk"),
-        ("arkret-rust-sdk", "soland"),
+        ("arkret-rust-sdk", "coland"),
         ("arkret-rust-sdk", "coauth"),
         ("arkret-rust-sdk", "garth"),
-        ("floria", "soland"),
+        ("floria", "coland"),
         ("garth", "inkson"),
         ("chime", "inkson"),
         ("inkson", "cotest"),
-        ("soland", "cotest"),
+        ("coland", "cotest"),
         ("coauth", "cotest"),
     ]
     positions = {repository: position for position, repository in enumerate(merge_order)}
@@ -173,7 +173,7 @@ def validate_manifest(document: dict[str, Any]) -> None:
         ):
             raise CompatibilityError(f"check {check['id']} depends_on must name earlier checks")
 
-    compile_repositories = {"arkret-rust-sdk", "soland", "coauth", "garth", "inkson", "cotest"}
+    compile_repositories = {"arkret-rust-sdk", "coland", "coauth", "garth", "inkson", "cotest"}
     missing_compile_checks = compile_repositories - covered_repositories
     if missing_compile_checks:
         raise CompatibilityError(
