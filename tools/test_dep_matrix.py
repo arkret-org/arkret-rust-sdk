@@ -298,6 +298,28 @@ def test_text_and_json_reports_use_the_same_verdict() -> None:
         assert (output / "dep-matrix.txt").read_text(encoding="utf-8") == dep_matrix.render_text(payload, False) + "\n"
 
 
+def test_runtime_artifacts_cannot_manufacture_dependency_divergences() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        workspace = Path(temporary)
+        repo = workspace / "cotest"
+        for relative, version in [(".", "1"), ("fuzz", "1"), ("artifacts/runs/copied-vendor", "9")]:
+            directory = repo / relative
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / "Cargo.toml").write_text(
+                f'[package]\nname = "fixture"\nversion = "0.1.0"\n[workspace]\n[dependencies]\nwidget = "{version}"\n',
+                encoding="utf-8")
+            (directory / "Cargo.lock").write_text(
+                f'[[package]]\nname = "widget"\nversion = "{version}.0.0"\nsource = "registry+x"\n',
+                encoding="utf-8")
+        analysed = dep_matrix.analyse_repo("cotest", repo, workspace)
+        assert {row["manifest"] for row in analysed["direct"]} == {
+            "cotest/Cargo.toml", "cotest/fuzz/Cargo.toml"
+        }
+        assert analysed["lock_scopes"] == [".", "fuzz"]
+        assert {row["version"] for row in analysed["resolved"]} == {"1.0.0"}
+        assert divergences(build_matrix([analysed])) == []
+
+
 def main() -> None:
     tests = [value for key, value in sorted(globals().items()) if key.startswith("test_")]
     for test in tests:
