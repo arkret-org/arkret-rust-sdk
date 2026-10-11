@@ -210,6 +210,7 @@ pub enum ErasedClass {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ErasureSubject {
     pub kind: ErasureSubjectKind,
     pub subject_ref: String,
@@ -217,6 +218,7 @@ pub struct ErasureSubject {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ErasureScope {
     pub storage_boundary: ErasureStorageBoundary,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -281,6 +283,7 @@ pub enum ErasurePeerStatus {
 /// Station that ever held this Realm's content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ErasurePeerReceipt {
     /// Peer Station DID.
     pub peer_id: DidCoreId,
@@ -298,6 +301,7 @@ pub struct ErasurePeerReceipt {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ErasureReceipt {
     pub receipt_id: String,
     pub trigger: crate::events_payloads::event_wire::ErasureTrigger,
@@ -332,6 +336,33 @@ impl ErasureReceipt {
     pub const SCHEMA: &'static str = SchemaId::ERASURE_RECEIPT_V1;
 
     pub fn validate_minimal(&self) -> Result<()> {
+        let valid_id = self
+            .receipt_id
+            .strip_prefix("ak:receipt:")
+            .and_then(|id| uuid::Uuid::parse_str(id).ok())
+            .is_some_and(|id| {
+                id.get_version_num() == 7
+                    && id.get_variant() == uuid::Variant::RFC4122
+                    && self.receipt_id == format!("ak:receipt:{id}")
+            });
+        if !valid_id
+            || self.subject.subject_ref.is_empty()
+            || self.scope.target_refs.iter().any(String::is_empty)
+            || self
+                .scope
+                .service_scope
+                .as_ref()
+                .is_some_and(String::is_empty)
+            || self
+                .erased_classes
+                .iter()
+                .enumerate()
+                .any(|(index, class)| self.erased_classes[..index].contains(class))
+        {
+            return Err(WireError::Protocol(
+                "erasure receipt violates its closed schema constraints".into(),
+            ));
+        }
         if self.schema != SchemaId::ERASURE_RECEIPT_V1 {
             return Err(WireError::Protocol(
                 "erasure receipt schema mismatch".to_owned(),
@@ -433,5 +464,84 @@ impl ErasureReceipt {
         })?;
         self.validate_with_retained_stub(retained_stub)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn receipt() -> ErasureReceipt {
+        let mut receipt = ErasureReceipt {
+            receipt_id: format!("ak:receipt:{}", uuid::Uuid::now_v7()),
+            trigger: crate::events_payloads::event_wire::ErasureTrigger::Event {
+                event_id: arkret_wire::EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [3; 32],
+                ),
+            },
+            schema: ErasureReceipt::SCHEMA.into(),
+            issuer_id: DidCoreId::new("ak:did_core:web:issuer.example").unwrap(),
+            subject: ErasureSubject {
+                kind: ErasureSubjectKind::Principal,
+                subject_ref: "ak:did_core:web:alice.example".into(),
+            },
+            scope: ErasureScope {
+                storage_boundary: ErasureStorageBoundary::ServiceDefined,
+                realm_id: None,
+                target_refs: Vec::new(),
+                retention_policy_id: None,
+                service_scope: Some("schema verification".into()),
+            },
+            outcome: ErasureOutcome::PartiallyCompleted,
+            erased_classes: Vec::new(),
+            retained_stub_digest: Hash::new(arkret_canonical::sha256_digest(
+                b"schema-only stub identity",
+            ))
+            .unwrap(),
+            retained_stub: None,
+            legal_hold_ref: None,
+            completed_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
+            issued_at: None,
+            proofs: Vec::new(),
+            fanout_status: None,
+            peer_receipts: Vec::new(),
+        };
+        receipt.proofs.push(ErasureReceiptProof {
+            verification_method: DidUrl::new("did:web:issuer.example#notary-key").unwrap(),
+            payload_digest: receipt.canonical_payload_digest().unwrap(),
+            signature: "schema test does not exercise signature acceptance".into(),
+            extra: BTreeMap::new(),
+        });
+        receipt
+    }
+
+    #[test]
+    fn receipt_subject_and_scope_preserve_closed_schema_boundaries() {
+        let value = serde_json::to_value(receipt()).unwrap();
+        assert!(serde_json::from_value::<ErasureReceipt>(value.clone()).is_ok());
+        for path in [Vec::<&str>::new(), vec!["subject"], vec!["scope"]] {
+            let mut corrupt = value.clone();
+            let mut row = &mut corrupt;
+            for field in path {
+                row = &mut row[field];
+            }
+            row.as_object_mut()
+                .unwrap()
+                .insert("undocumented".into(), Value::Bool(true));
+            assert!(serde_json::from_value::<ErasureReceipt>(corrupt).is_err());
+        }
+    }
+
+    #[test]
+    fn receipt_identity_and_erased_classes_follow_the_registered_schema() {
+        let valid = receipt();
+        valid.validate_minimal().unwrap();
+        let mut invalid = valid.clone();
+        invalid.receipt_id = format!("ak:receipt:{}", uuid::Uuid::new_v4());
+        assert!(invalid.validate_minimal().is_err());
+        invalid = valid;
+        invalid.erased_classes = vec![ErasedClass::BlobBytes, ErasedClass::BlobBytes];
+        assert!(invalid.validate_minimal().is_err());
     }
 }
