@@ -97,6 +97,56 @@ pub fn verify_native_control_event_approval(
     )
 }
 
+/// Bind management review to its authenticated historical native approver.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_native_control_management_event_approval(
+    control: &NativeIdentityControlKey,
+    signature: &arkret_wire::ApprovalSignature,
+    event: &arkret_wire::Event,
+    operation: &str,
+    action: arkret_wire::CapabilityActionId,
+    at: chrono::DateTime<chrono::Utc>,
+    binding: &arkret_signatures::approval_signature::ManagementApprovalBinding<'_>,
+) -> std::result::Result<(), arkret_signatures::approval_signature::ApprovalEventVerificationError>
+{
+    use arkret_signatures::approval_signature::ApprovalEventVerificationError as Error;
+    if control.method() != &signature.proof.verification_method {
+        return Err(Error::Binding);
+    }
+    let key = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: control.public_key().to_vec(),
+    };
+    arkret_signatures::approval_signature::verify_management_event_approval_signature_with_verified_controller(
+        signature, event, operation, action, at, &key, binding, Some(control.principal()),
+    )
+}
+
+/// Creation approval keeps its request digest, private ledger and native signer distinct.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_native_control_management_operation_approval(
+    control: &NativeIdentityControlKey,
+    signature: &arkret_wire::ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: arkret_wire::CapabilityActionId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: chrono::DateTime<chrono::Utc>,
+    binding: &arkret_signatures::approval_signature::ManagementApprovalBinding<'_>,
+) -> std::result::Result<(), arkret_signatures::approval_signature::ApprovalEventVerificationError>
+{
+    use arkret_signatures::approval_signature::ApprovalEventVerificationError as Error;
+    if control.method() != &signature.proof.verification_method {
+        return Err(Error::Binding);
+    }
+    let key = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: control.public_key().to_vec(),
+    };
+    arkret_signatures::approval_signature::verify_management_operation_approval_signature_with_verified_controller(
+        signature, expected_digest, operation, action, initiating_actor, at, &key, binding,
+        Some(control.principal()),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

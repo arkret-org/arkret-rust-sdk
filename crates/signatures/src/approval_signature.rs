@@ -99,7 +99,15 @@ pub fn verify_event_approval_signature_with_verified_controller(
         || signature.input.operation != operation
         || signature.input.action != action
         || signature.input.realm_id != event.realm_id
-        || signature.input.initiating_actor_id != event.actor_id
+        || &signature.input.initiating_actor_id
+            != if matches!(
+                signature.input.approval_context,
+                arkret_wire::ApprovalContext::Management { .. }
+            ) {
+                event.executed_by.as_ref().unwrap_or(&event.actor_id)
+            } else {
+                &event.actor_id
+            }
     {
         return Err(ApprovalEventVerificationError::Binding);
     }
@@ -138,14 +146,43 @@ pub fn verify_management_event_approval_signature(
     approver_public_key: &PublicKeyMaterial,
     binding: &ManagementApprovalBinding<'_>,
 ) -> Result<(), ApprovalEventVerificationError> {
-    validate_management_binding(signature, verification_time, binding)?;
-    verify_event_approval_signature(
+    verify_management_event_approval_signature_with_verified_controller(
         signature,
         event,
         operation,
         action,
         verification_time,
         approver_public_key,
+        binding,
+        None,
+    )
+}
+
+/// Verify a management Event after independently authenticating native DID control.
+/// The supplied controller does not replace the exact historical method/key check.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_management_event_approval_signature_with_verified_controller(
+    signature: &ApprovalSignature,
+    event: &Event,
+    operation: &str,
+    action: CapabilityActionId,
+    verification_time: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    binding: &ManagementApprovalBinding<'_>,
+    verified_controller: Option<&arkret_wire::DidCoreId>,
+) -> Result<(), ApprovalEventVerificationError> {
+    validate_management_binding(signature, verification_time, binding)?;
+    if binding.effective_scope.realm_id_opt() != Some(&event.realm_id) {
+        return Err(ApprovalEventVerificationError::Binding);
+    }
+    verify_event_approval_signature_with_verified_controller(
+        signature,
+        event,
+        operation,
+        action,
+        verification_time,
+        approver_public_key,
+        verified_controller,
     )
 }
 
@@ -203,6 +240,33 @@ pub fn verify_management_operation_approval_signature(
     approver_public_key: &PublicKeyMaterial,
     binding: &ManagementApprovalBinding<'_>,
 ) -> Result<(), ApprovalEventVerificationError> {
+    verify_management_operation_approval_signature_with_verified_controller(
+        signature,
+        expected_digest,
+        operation,
+        action,
+        initiating_actor,
+        at,
+        approver_public_key,
+        binding,
+        None,
+    )
+}
+
+/// Native-history counterpart of the management operation verifier.
+/// Callers authenticate the historical method, key and principal before passing it.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_management_operation_approval_signature_with_verified_controller(
+    signature: &ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: CapabilityActionId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    binding: &ManagementApprovalBinding<'_>,
+    verified_controller: Option<&arkret_wire::DidCoreId>,
+) -> Result<(), ApprovalEventVerificationError> {
     validate_management_binding(signature, at, binding)?;
     signature
         .input
@@ -214,13 +278,23 @@ pub fn verify_management_operation_approval_signature(
         || signature.input.action != action
         || &signature.input.initiating_actor_id != initiating_actor
         || binding.effective_scope.realm_id_opt() != Some(&signature.input.realm_id)
-        || signature
-            .proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(did, _)| did)
-            != Some(signature.input.approver_did.as_str())
+        || !match verified_controller {
+            Some(controller) => {
+                arkret_wire::project_did_to_core_id(&signature.input.approver_did)
+                    .ok()
+                    .as_ref()
+                    == Some(controller)
+            }
+            None => {
+                signature
+                    .proof
+                    .verification_method
+                    .as_str()
+                    .split_once('#')
+                    .map(|(did, _)| did)
+                    == Some(signature.input.approver_did.as_str())
+            }
+        }
     {
         return Err(ApprovalEventVerificationError::Binding);
     }
