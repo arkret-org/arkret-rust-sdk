@@ -5,14 +5,46 @@ use arkret_models_collaboration::authority_commit::{
     PeerStreamScanOutcome, SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
 use arkret_wire::{
-    AuthorityBundleRequest, RealmAuthorityBundle, RealmAuthorityHandoff, StreamScanOutcome,
-    StreamScanRequest,
+    AuthorityBundleRequest, RealmAuthorityBundle, RealmAuthorityHandoff, RealmId, RealmStreamList,
+    StreamScanOutcome, StreamScanRequest,
 };
 use reqwest::Method;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
 impl Client {
+    /// Discover a bounded page from a frozen caller-visible stream enumeration.
+    pub async fn realm_streams_page(
+        &self,
+        realm_id: &RealmId,
+        cursor: Option<&str>,
+        limit: u16,
+    ) -> Result<RealmStreamList> {
+        if !(1..=500).contains(&limit) {
+            return Err(Error::Protocol(
+                "stream discovery limit must be 1..=500".to_owned(),
+            ));
+        }
+        let mut query = vec![("limit", limit.to_string())];
+        if let Some(cursor) = cursor {
+            query.push(("cursor", cursor.to_owned()));
+        }
+        let request = self
+            .request(
+                Method::GET,
+                &format!("/_arkret/self/realms/{realm_id}/streams"),
+            )?
+            .query(&query);
+        let page: RealmStreamList = self.send_json(request).await?;
+        page.validate()?;
+        if page.realm_id != *realm_id || page.streams.len() > usize::from(limit) {
+            return Err(Error::Protocol(
+                "stream discovery response differs from the request".to_owned(),
+            ));
+        }
+        Ok(page)
+    }
+
     /// Submit a producer-signed Event, or an atomic MLS Commit + Welcome set,
     /// to the current Realm governance Station.
     pub async fn submit_to_realm_authority(
@@ -112,6 +144,59 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn stream_discovery_uses_registered_operation_and_validates_limit() {
+        let realm_id: RealmId = "ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO"
+            .parse()
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = serde_json::to_string(&RealmStreamList {
+            realm_id: realm_id.clone(),
+            streams: vec![],
+            next_cursor: None,
+            has_more: false,
+        })
+        .unwrap();
+        let captured = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = [0u8; 4096];
+            let count = stream.read(&mut bytes).await.unwrap();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            String::from_utf8_lossy(&bytes[..count]).to_ascii_lowercase()
+        });
+        let client = Client::builder(url::Url::parse(&format!("http://{address}/")).unwrap())
+            .allow_insecure_localhost()
+            .build()
+            .unwrap();
+        assert!(
+            client
+                .realm_streams_page(&realm_id, None, 501)
+                .await
+                .is_err()
+        );
+        let token = "ak:cursor:AAAAAAAAAAAAAAAAAAAAAA";
+        assert!(
+            client
+                .realm_streams_page(&realm_id, Some(token), 37)
+                .await
+                .unwrap()
+                .streams
+                .is_empty()
+        );
+        let captured = captured.await.unwrap();
+        assert!(captured.contains("ak.self.realm.read.streams.v1"));
+        assert!(captured.contains("limit=37"));
+        assert!(captured.contains("cursor=ak%3acursor%3a"));
+        assert!(captured.starts_with(
+            &format!("get /_arkret/self/realms/{realm_id}/streams?").to_ascii_lowercase()
+        ));
+    }
+
+    #[tokio::test]
     async fn routed_open_authority_bundle_never_forwards_account_credentials() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -137,10 +222,8 @@ mod tests {
             .with_base_url(url::Url::parse(&format!("http://{address}/")).unwrap())
             .unwrap();
         let request = AuthorityBundleRequest {
-            realm_id: arkret_wire::RealmId::new(
-                "ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO",
-            )
-            .unwrap(),
+            realm_id: RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO")
+                .unwrap(),
             nonce: arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),
         };
         assert!(remote.realm_authority_bundle(&request).await.is_err());

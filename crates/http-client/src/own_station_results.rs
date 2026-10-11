@@ -24,7 +24,7 @@ use arkret_models_identity::signer_key_operations::{
 };
 use arkret_wire::{
     AccountId, CommittedEventView, DidCoreId, EventId, RealmId, RealmSnapshotId,
-    RealmStateSnapshot, SessionGrantId, StreamScanOutcome, StreamScanRequest,
+    RealmStateSnapshot, RealmStreamList, SessionGrantId, StreamScanOutcome, StreamScanRequest,
 };
 
 use crate::{Auth, Client, ClientRequestOptions, Error, Result};
@@ -276,6 +276,19 @@ impl OwnStationResultClient {
         self.check_session()?;
         let value = self.client.scan_commit_stream(request).await?;
         self.bind(request.clone(), value)
+    }
+
+    /// Discovery retains the same accepted Station and live session fence as
+    /// the independent scans; the page is no governance or history proof.
+    pub async fn realm_streams_page(
+        &self,
+        realm: &RealmId,
+        cursor: Option<&str>,
+        limit: u16,
+    ) -> Result<BoundOwnStationResponse<(RealmId, Option<String>, u16), RealmStreamList>> {
+        self.check_session()?;
+        let page = self.client.realm_streams_page(realm, cursor, limit).await?;
+        self.bind((realm.clone(), cursor.map(str::to_owned), limit), page)
     }
     pub async fn committed_event_get(
         &self,

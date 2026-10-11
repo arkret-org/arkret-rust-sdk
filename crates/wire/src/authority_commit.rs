@@ -2672,9 +2672,15 @@ impl RealmStreamList {
                 ));
             }
         }
+        Self::validate_rows(&self.realm_id, &self.streams)
+    }
+
+    /// Validate an internal full discovery cut before it is divided into wire
+    /// pages. The 500-item wire bound remains enforced by `validate`.
+    pub fn validate_rows(realm_id: &RealmId, streams: &[RealmStreamRow]) -> Result<()> {
         let mut previous: Option<Vec<u8>> = None;
-        for row in &self.streams {
-            if row.stream_ref.realm_id() != &self.realm_id {
+        for row in streams {
+            if row.stream_ref.realm_id() != realm_id {
                 return Err(WireError::Protocol(
                     "realm stream list row belongs to another Realm".to_owned(),
                 ));
@@ -4247,6 +4253,27 @@ mod tests {
             ordered.streams.reverse();
         }
         ordered.validate().unwrap();
+        let mut full_cut = ordered.clone();
+        full_cut.streams = (0u64..501)
+            .map(|index| {
+                let mut token = [0u8; 33];
+                token[0] = 1;
+                token[1..9].copy_from_slice(&index.to_be_bytes());
+                let mut row = realm_row.clone();
+                row.stream_ref = CommitStreamRef::Circle {
+                    realm_id: full_cut.realm_id.clone(),
+                    circle_id: CircleId::from_event_id(&EventId::from_token_bytes(token).unwrap()),
+                };
+                row
+            })
+            .collect();
+        full_cut
+            .streams
+            .sort_by_cached_key(|row| canonical_json_bytes_for_test(&row.stream_ref));
+        RealmStreamList::validate_rows(&full_cut.realm_id, &full_cut.streams).unwrap();
+        assert!(full_cut.validate().is_err());
+        full_cut.streams[500] = full_cut.streams[499].clone();
+        assert!(RealmStreamList::validate_rows(&full_cut.realm_id, &full_cut.streams).is_err());
         let mut reversed = ordered.clone();
         reversed.streams.reverse();
         assert!(reversed.validate().is_err());
