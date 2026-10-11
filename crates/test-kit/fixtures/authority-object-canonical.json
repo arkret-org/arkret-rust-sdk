@@ -1,0 +1,62 @@
+{
+  "description": "Serialization and signature KAT only; stream provenance and handoff import are verified by their owning integration suites.",
+  "commit": {
+    "realm_id": "ak:realm:AR4cvd-cF0px3ua1F-6Fffd9lPSdeiLucv07qVxcEb2E",
+    "stream_ref": {
+      "kind": "realm",
+      "realm_id": "ak:realm:AR4cvd-cF0px3ua1F-6Fffd9lPSdeiLucv07qVxcEb2E"
+    },
+    "stream_position": 1,
+    "previous_commit_ref": "ak:realm_commit:AbPomrM79nJgvYYkPDiCF0QzfDOzAInLQahva_4m4_G-",
+    "event_ref": "ak:event:ASGkAgG9MT-2g7L0Bj308knxK6bub4Gj_J4MwFdj4PQI",
+    "governance_generation": 0,
+    "authority_ref": "ak:event:Af9qKXpmQJPQYy_2B0ujmYWXKnEEepKruvXJlSoOrLYu",
+    "committed_at": "2026-09-25T13:31:00.000Z",
+    "producer_signer_fact_digest": "sha256:16a74e40073ac4cee70137133b48bdbffe711e9e7e5acd4d5efde593573bbe76",
+    "commit_id": "ak:realm_commit:AaMeVVp4nSLbEEQ_kwfbYxPHroYLJlVoh6g9tvVU_0C6",
+    "signature": {
+      "context": "ak.realm_commit_signature.v1",
+      "signature_algorithm": "Ed25519",
+      "verification_method": "did:web:old-authority.example#authority",
+      "signed_digest": "sha256:e13614b3f3815bd768033e4dc5dfabb7af98f91a74835db98a39492732b49291",
+      "created_at": "2026-09-25T13:31:00.000Z",
+      "sig": "q1agKEXfCB1P9Om-Ai6PMjb1nge1r6A7Ook-ByaWeOOYFDgbv3nLkrpgZqYAxihJ-FI9ISAB9ATDx7V4n8rBCg"
+    }
+  },
+  "handoff": {
+    "realm_id": "ak:realm:AR4cvd-cF0px3ua1F-6Fffd9lPSdeiLucv07qVxcEb2E",
+    "from_generation": 0,
+    "to_generation": 1,
+    "from_service_id": "ak:did_core:web:old-authority.example",
+    "to_service_id": "ak:did_core:web:new-authority.example",
+    "final_stream_heads_digest": "sha256:aa7f691fee33810e9d1170529e02553401c851ed0dc7bae3ca1eb6feaa4501d0",
+    "snapshot_ref": "ak:realm_snapshot:AaNtIpd8-8HM_-jGRVZQNNSXPB-BelwLnsOLP0W4jkuj",
+    "historical_signer_facts_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "change_event_ref": "ak:event:ASGkAgG9MT-2g7L0Bj308knxK6bub4Gj_J4MwFdj4PQI",
+    "change_commit_id": "ak:realm_commit:AaMeVVp4nSLbEEQ_kwfbYxPHroYLJlVoh6g9tvVU_0C6",
+    "handoff_id": "ak:realm_authority_handoff:AQgLolCX5itWUpJY0SPC63h6hswgNj4VaRPxz6AJTMO-",
+    "old_authority_signature": {
+      "context": "ak.realm_authority_handoff_old_signature.v1",
+      "signature_algorithm": "Ed25519",
+      "verification_method": "did:web:old-authority.example#authority",
+      "signed_digest": "sha256:f14761492b8290fa327aa75992c4902d6aa6bb1c6f38a80a22e40ab4c4b6ff75",
+      "created_at": "2026-09-25T13:31:00.000Z",
+      "sig": "rpOa5ynHjdEV3xwU7YRF5_6jYkhBI881qfkq-VKBdDO2k6DXsPxFytvO7lM8Hn01Q2jyPhMpuhhFa5EeGownAg"
+    },
+    "new_authority_acceptance_signature": {
+      "context": "ak.realm_authority_handoff_new_acceptance_signature.v1",
+      "signature_algorithm": "Ed25519",
+      "verification_method": "did:web:new-authority.example#authority",
+      "signed_digest": "sha256:f14761492b8290fa327aa75992c4902d6aa6bb1c6f38a80a22e40ab4c4b6ff75",
+      "created_at": "2026-09-25T13:31:00.000Z",
+      "sig": "ae83yIlJyG_EikPyGAZKynqOdTc1ra03_Y5nUUIoYg_kghDfcHOdyWb0pKyH4N_JA8b2TNrsO66XaESP4-rDCg"
+    }
+  },
+  "commit_canonical_b64": "eyJhdXRob3JpdHlfcmVmIjoiYWs6ZXZlbnQ6QWY5cUtYcG1RSlBRWXlfMkIwdWptWVdYS25FRWVwS3J1dlhKbFNvT3JMWXUiLCJjb21taXRfaWQiOiJhazpyZWFsbV9jb21taXQ6QWFNZVZWcDRuU0xiRUVRX2t3ZmJZeFBIcm9ZTEpsVm9oNmc5dHZWVV8wQzYiLCJjb21taXR0ZWRfYXQiOiIyMDI2LTA5LTI1VDEzOjMxOjAwLjAwMFoiLCJldmVudF9yZWYiOiJhazpldmVudDpBU0drQWdHOU1ULTJnN0wwQmozMDhrbnhLNmJ1YjRHal9KNE13RmRqNFBRSSIsImdvdmVybmFuY2VfZ2VuZXJhdGlvbiI6MCwicHJldmlvdXNfY29tbWl0X3JlZiI6ImFrOnJlYWxtX2NvbW1pdDpBYlBvbXJNNzluSmd2WVlrUERpQ0YwUXpmRE96QUluTFFhaHZhXzRtNF9HLSIsInByb2R1Y2VyX3NpZ25lcl9mYWN0X2RpZ2VzdCI6InNoYTI1NjoxNmE3NGU0MDA3M2FjNGNlZTcwMTM3MTMzYjQ4YmRiZmZlNzExZTllN2U1YWNkNGQ1ZWZkZTU5MzU3M2JiZTc2IiwicmVhbG1faWQiOiJhazpyZWFsbTpBUjRjdmQtY0YwcHgzdWExRi02RmZmZDlsUFNkZWlMdWN2MDdxVnhjRWIyRSIsInNpZ25hdHVyZSI6eyJjb250ZXh0IjoiYWsucmVhbG1fY29tbWl0X3NpZ25hdHVyZS52MSIsImNyZWF0ZWRfYXQiOiIyMDI2LTA5LTI1VDEzOjMxOjAwLjAwMFoiLCJzaWciOiJxMWFnS0VYZkNCMVA5T20tQWk2UE1qYjFuZ2UxcjZBN09vay1CeWFXZU9PWUZEZ2J2M25Ma3JwZ1pxWUF4aWhKLUZJOUlTQUI5QVREeDdWNG44ckJDZyIsInNpZ25hdHVyZV9hbGdvcml0aG0iOiJFZDI1NTE5Iiwic2lnbmVkX2RpZ2VzdCI6InNoYTI1NjplMTM2MTRiM2YzODE1YmQ3NjgwMzNlNGRjNWRmYWJiN2FmOThmOTFhNzQ4MzVkYjk4YTM5NDkyNzMyYjQ5MjkxIiwidmVyaWZpY2F0aW9uX21ldGhvZCI6ImRpZDp3ZWI6b2xkLWF1dGhvcml0eS5leGFtcGxlI2F1dGhvcml0eSJ9LCJzdHJlYW1fcG9zaXRpb24iOjEsInN0cmVhbV9yZWYiOnsia2luZCI6InJlYWxtIiwicmVhbG1faWQiOiJhazpyZWFsbTpBUjRjdmQtY0YwcHgzdWExRi02RmZmZDlsUFNkZWlMdWN2MDdxVnhjRWIyRSJ9fQ",
+  "handoff_canonical_b64": "eyJjaGFuZ2VfY29tbWl0X2lkIjoiYWs6cmVhbG1fY29tbWl0OkFhTWVWVnA0blNMYkVFUV9rd2ZiWXhQSHJvWUxKbFZvaDZnOXR2VlVfMEM2IiwiY2hhbmdlX2V2ZW50X3JlZiI6ImFrOmV2ZW50OkFTR2tBZ0c5TVQtMmc3TDBCajMwOGtueEs2YnViNEdqX0o0TXdGZGo0UFFJIiwiZmluYWxfc3RyZWFtX2hlYWRzX2RpZ2VzdCI6InNoYTI1NjphYTdmNjkxZmVlMzM4MTBlOWQxMTcwNTI5ZTAyNTUzNDAxYzg1MWVkMGRjN2JhZTNjYTFlYjZmZWFhNDUwMWQwIiwiZnJvbV9nZW5lcmF0aW9uIjowLCJmcm9tX3NlcnZpY2VfaWQiOiJhazpkaWRfY29yZTp3ZWI6b2xkLWF1dGhvcml0eS5leGFtcGxlIiwiaGFuZG9mZl9pZCI6ImFrOnJlYWxtX2F1dGhvcml0eV9oYW5kb2ZmOkFRZ0xvbENYNWl0V1VwSlkwU1BDNjNoNmhzd2dOajRWYVJQeHo2QUpUTU8tIiwiaGlzdG9yaWNhbF9zaWduZXJfZmFjdHNfZGlnZXN0Ijoic2hhMjU2OjRmNTNjZGExOGMyYmFhMGMwMzU0YmI1ZjlhM2VjYmU1ZWQxMmFiNGQ4ZTExYmE4NzNjMmYxMTE2MTIwMmI5NDUiLCJuZXdfYXV0aG9yaXR5X2FjY2VwdGFuY2Vfc2lnbmF0dXJlIjp7ImNvbnRleHQiOiJhay5yZWFsbV9hdXRob3JpdHlfaGFuZG9mZl9uZXdfYWNjZXB0YW5jZV9zaWduYXR1cmUudjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0wOS0yNVQxMzozMTowMC4wMDBaIiwic2lnIjoiYWU4M3lJbEp5R19FaWtQeUdBWkt5bnFPZFRjMXJhMDNfWTVuVVVJb1lnX2tnaERmY0hPZHlXYjBwS3lINE5fSkE4YjJUTnJzTzY2WGFFU1A0LXJEQ2ciLCJzaWduYXR1cmVfYWxnb3JpdGhtIjoiRWQyNTUxOSIsInNpZ25lZF9kaWdlc3QiOiJzaGEyNTY6ZjE0NzYxNDkyYjgyOTBmYTMyN2FhNzU5OTJjNDkwMmQ2YWE2YmIxYzZmMzhhODBhMjJlNDBhYjRjNGI2ZmY3NSIsInZlcmlmaWNhdGlvbl9tZXRob2QiOiJkaWQ6d2ViOm5ldy1hdXRob3JpdHkuZXhhbXBsZSNhdXRob3JpdHkifSwib2xkX2F1dGhvcml0eV9zaWduYXR1cmUiOnsiY29udGV4dCI6ImFrLnJlYWxtX2F1dGhvcml0eV9oYW5kb2ZmX29sZF9zaWduYXR1cmUudjEiLCJjcmVhdGVkX2F0IjoiMjAyNi0wOS0yNVQxMzozMTowMC4wMDBaIiwic2lnIjoicnBPYTV5bkhqZEVWM3h3VTdZUkY1XzZqWWtoQkk4ODFxZmtxLVZLQmRETzJrNkRYc1B4Rnl0dk83bE04SG4wMVEyanlQaE1wdWhoRmE1RWVHb3duQWciLCJzaWduYXR1cmVfYWxnb3JpdGhtIjoiRWQyNTUxOSIsInNpZ25lZF9kaWdlc3QiOiJzaGEyNTY6ZjE0NzYxNDkyYjgyOTBmYTMyN2FhNzU5OTJjNDkwMmQ2YWE2YmIxYzZmMzhhODBhMjJlNDBhYjRjNGI2ZmY3NSIsInZlcmlmaWNhdGlvbl9tZXRob2QiOiJkaWQ6d2ViOm9sZC1hdXRob3JpdHkuZXhhbXBsZSNhdXRob3JpdHkifSwicmVhbG1faWQiOiJhazpyZWFsbTpBUjRjdmQtY0YwcHgzdWExRi02RmZmZDlsUFNkZWlMdWN2MDdxVnhjRWIyRSIsInNuYXBzaG90X3JlZiI6ImFrOnJlYWxtX3NuYXBzaG90OkFhTnRJcGQ4LThITV8takdSVlpRTk5TWFBCLUJlbHdMbnNPTFAwVzRqa3VqIiwidG9fZ2VuZXJhdGlvbiI6MSwidG9fc2VydmljZV9pZCI6ImFrOmRpZF9jb3JlOndlYjpuZXctYXV0aG9yaXR5LmV4YW1wbGUifQ",
+  "commit_signing_b64": "YWsucmVhbG1fY29tbWl0X3NpZ25hdHVyZS52MQp7ImNvbnRleHQiOiJhay5yZWFsbV9jb21taXRfc2lnbmF0dXJlLnYxIiwiY3JlYXRlZF9hdCI6IjIwMjYtMDktMjVUMTM6MzE6MDAuMDAwWiIsInNpZ25hdHVyZV9hbGdvcml0aG0iOiJFZDI1NTE5Iiwic2lnbmVkX2RpZ2VzdCI6InNoYTI1NjplMTM2MTRiM2YzODE1YmQ3NjgwMzNlNGRjNWRmYWJiN2FmOThmOTFhNzQ4MzVkYjk4YTM5NDkyNzMyYjQ5MjkxIiwidmVyaWZpY2F0aW9uX21ldGhvZCI6ImRpZDp3ZWI6b2xkLWF1dGhvcml0eS5leGFtcGxlI2F1dGhvcml0eSJ9",
+  "handoff_old_signing_b64": "YWsucmVhbG1fYXV0aG9yaXR5X2hhbmRvZmZfb2xkX3NpZ25hdHVyZS52MQp7ImNvbnRleHQiOiJhay5yZWFsbV9hdXRob3JpdHlfaGFuZG9mZl9vbGRfc2lnbmF0dXJlLnYxIiwiY3JlYXRlZF9hdCI6IjIwMjYtMDktMjVUMTM6MzE6MDAuMDAwWiIsInNpZ25hdHVyZV9hbGdvcml0aG0iOiJFZDI1NTE5Iiwic2lnbmVkX2RpZ2VzdCI6InNoYTI1NjpmMTQ3NjE0OTJiODI5MGZhMzI3YWE3NTk5MmM0OTAyZDZhYTZiYjFjNmYzOGE4MGEyMmU0MGFiNGM0YjZmZjc1IiwidmVyaWZpY2F0aW9uX21ldGhvZCI6ImRpZDp3ZWI6b2xkLWF1dGhvcml0eS5leGFtcGxlI2F1dGhvcml0eSJ9",
+  "handoff_new_signing_b64": "YWsucmVhbG1fYXV0aG9yaXR5X2hhbmRvZmZfbmV3X2FjY2VwdGFuY2Vfc2lnbmF0dXJlLnYxCnsiY29udGV4dCI6ImFrLnJlYWxtX2F1dGhvcml0eV9oYW5kb2ZmX25ld19hY2NlcHRhbmNlX3NpZ25hdHVyZS52MSIsImNyZWF0ZWRfYXQiOiIyMDI2LTA5LTI1VDEzOjMxOjAwLjAwMFoiLCJzaWduYXR1cmVfYWxnb3JpdGhtIjoiRWQyNTUxOSIsInNpZ25lZF9kaWdlc3QiOiJzaGEyNTY6ZjE0NzYxNDkyYjgyOTBmYTMyN2FhNzU5OTJjNDkwMmQ2YWE2YmIxYzZmMzhhODBhMjJlNDBhYjRjNGI2ZmY3NSIsInZlcmlmaWNhdGlvbl9tZXRob2QiOiJkaWQ6d2ViOm5ldy1hdXRob3JpdHkuZXhhbXBsZSNhdXRob3JpdHkifQ",
+  "old_public_key_b64": "-AzM3OSuHAeuIIoq35mjEK5CB-Awb6AjYRCwaCe7uNA",
+  "new_public_key_b64": "n0lDnp2wlbxBEe0l01eV2DG8VaBH9LHX9q7jd3u0EiA"
+}

@@ -29,6 +29,7 @@
 //! derives signing keys from public strings, so a production build that can
 //! reach it can mint any fixture actor's signature.
 
+pub mod authority_objects;
 pub mod hlc;
 pub mod keys;
 pub mod negative;
