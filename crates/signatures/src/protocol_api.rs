@@ -95,7 +95,8 @@ pub use jwt::{
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, PublicKeyMaterial, SignedPayload, SignerError, VerifierError,
-    build_proof_envelope, detached_jws_kind, sign_ed25519_detached_jws,
+    build_proof_envelope, detached_jws_kind, ed25519_detached_jws_from_signature,
+    ed25519_detached_jws_signing_input, sign_ed25519_detached_jws,
     verify_detached_ed25519_signature, verify_ed25519_detached_jws_payload_proof,
     verify_ed25519_detached_jws_proof, verify_ed25519_detached_jws_proof_with_digest_suite,
     verify_ed25519_signal_proof,
