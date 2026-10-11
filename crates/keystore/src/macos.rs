@@ -76,6 +76,19 @@ impl KeyStore for MacOsKeychainKeyStore {
         Ok(())
     }
 
+    fn create_if_absent(&self, id: &str, key: &[u8]) -> Result<KeyBytes> {
+        use security_framework::os::macos::keychain::SecKeychain;
+
+        validate_id(id)?;
+        let keychain = Self::map_sf(SecKeychain::default())?;
+        match keychain.add_generic_password(&self.service, id, key) {
+            Ok(()) => self.load(id),
+            // errSecDuplicateItem: another creator won; never update that item.
+            Err(error) if error.code() == -25299 => self.load(id),
+            Err(error) => Self::map_sf(Err(error)),
+        }
+    }
+
     fn list(&self) -> Result<Vec<String>> {
         // Use SecItemCopyMatching via security-framework's item module.
         // We request `load_attributes(true)` so each result is a `Dict`

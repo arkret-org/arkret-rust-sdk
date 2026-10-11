@@ -1,6 +1,6 @@
 //! Pluggable key storage abstraction for SDK signers and HSM integrations.
 //!
-//! The trait stays small — `load` / `store` / `list` / `delete` only — so it
+//! The trait keeps ordinary storage and optional atomic first creation separate so it
 //! can wrap any durable backend (OS keyring, encrypted file, HSM) behind a single
 //! signing surface. This module holds the **pure contract** — the
 //! [`KeyStore`] trait, the typed [`KeyStoreError`], and zeroizing key bytes.
@@ -91,6 +91,20 @@ pub trait KeyStore: Send + Sync {
     /// overwritten.
     fn store(&self, id: &str, key: &[u8]) -> Result<()>;
 
+    /// Atomically create `id` only when absent, returning the committed winner.
+    ///
+    /// Concurrent creators across threads and processes MUST return the same
+    /// bytes. Existing entries MUST remain unchanged, including invalid data.
+    /// Implementations MUST NOT emulate this with an unlocked load then store.
+    /// Unsupported backends fail closed; ordinary imports still use `store`.
+    /// Explicit rotation/deletion must be serialized by the application.
+    fn create_if_absent(&self, id: &str, _key: &[u8]) -> Result<KeyBytes> {
+        validate_id(id)?;
+        Err(KeyStoreError::unsupported(
+            "atomic first creation is unavailable",
+        ))
+    }
+
     /// List all key ids known to this store, sorted ascending.
     fn list(&self) -> Result<Vec<String>>;
 
@@ -167,26 +181,5 @@ pub fn service_name(application_id: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn key_bytes_debug_output_is_redacted() {
-        let bytes = KeyBytes::new(b"must-not-appear".to_vec());
-        assert_eq!(format!("{bytes:?}"), "KeyBytes([REDACTED])");
-    }
-
-    #[test]
-    fn key_store_error_unsupported_renders_reason() {
-        let err = KeyStoreError::unsupported("no-D-Bus session bus");
-        let rendered = format!("{err}");
-        assert!(rendered.contains("unsupported"));
-        assert!(rendered.contains("no-D-Bus session bus"));
-    }
-
-    #[test]
-    fn service_name_namespaces_per_application_id() {
-        assert_eq!(service_name("inkson"), "arkret.inkson");
-        assert_eq!(service_name("coland.authority"), "arkret.coland.authority");
-    }
-}
+#[path = "contract_tests.rs"]
+mod tests;

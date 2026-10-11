@@ -104,6 +104,36 @@ jobs:
       # crates to assemble downstream, and the manifest all-features compile check above
       # already compiles them.
 
+  native-keystore:
+    name: Native keystore (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.98"
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install native Secret Service
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y dbus-x11 gnome-keyring libsecret-tools
+      - run: cargo clippy -j4 -p arkret-keystore --all-features --all-targets -- -D warnings
+      - name: Native file and platform contracts
+        if: runner.os != 'Linux'
+        run: cargo test -j4 -p arkret-keystore --all-features
+      - name: Native Secret Service contracts and process competition
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          bash tools/with-test-secret-service.sh bash -euo pipefail -c '
+            cargo test -j4 -p arkret-keystore --all-features
+            cargo test -j4 -p arkret-keystore --all-features --test first_creation -- --ignored --exact secret_service_processes_converge_on_one_first_key
+          '
+
   compatibility-manifest-authoring:
     name: compatibility manifest authoring gate
     runs-on: ubuntu-latest

@@ -74,7 +74,9 @@ EXTERNAL_REPOS = [
 # repositories alone, which is what the convergence task can actually act on.
 CORE_REPOS = set(WORKSPACE_REPOS)
 
-SKIP_DIRS = {".git", "target", "node_modules", ".venv", "dist", ".shared-target"}
+# Runtime artifacts can contain copied third-party workspaces. They are not
+# first-party dependency declarations or shipping lockfile scopes.
+SKIP_DIRS = {".git", "target", "node_modules", ".venv", "dist", ".shared-target", "artifacts"}
 
 DEPENDENCY_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
 
