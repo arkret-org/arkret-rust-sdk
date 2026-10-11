@@ -75,14 +75,12 @@ impl AccountabilityScopeSet {
         struct Transcript<'a> {
             scopes: &'a [AccountabilityScopeKind],
         }
-        let mut input = DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1
-            .as_bytes()
-            .to_vec();
-        input.push(b'\n');
-        input.extend(arkret_canonical::canonical_json_bytes(&Transcript {
-            scopes: &self.0,
-        })?);
-        Ok(Hash::new(arkret_canonical::sha256_digest(&input))?)
+        Ok(Hash::new(
+            arkret_canonical::domain_prefixed_canonical_sha256(
+                DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,
+                &Transcript { scopes: &self.0 },
+            )?,
+        )?)
     }
 }
 
@@ -110,6 +108,15 @@ mod tests {
 
     #[test]
     fn digest_matches_the_formal_kat() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/canonical-json-digest-kat-fixture.json"
+        )).unwrap();
+        let case = fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == "accountability_scope_set")
+            .unwrap();
         let set = AccountabilityScopeSet::normalize([
             AccountabilityScopeKind::Employment,
             AccountabilityScopeKind::AgentOperator,
@@ -122,7 +129,7 @@ mod tests {
         );
         assert_eq!(
             set.digest().unwrap().as_str(),
-            "sha256:3b184e4d6501c2b36ae5c19cfb652d5b203ebd3732e76081ba818b5ad066a9cf"
+            case["expected_digest"].as_str().unwrap()
         );
     }
 

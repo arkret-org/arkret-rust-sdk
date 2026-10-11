@@ -50,7 +50,12 @@ fn did() -> Did {
 }
 
 fn verification_method() -> DidUrl {
-    DidUrl::new(format!("{}#key-1", did())).expect("valid did url")
+    let did = did();
+    DidUrl::new(format!(
+        "{did}#{}",
+        did.as_str().strip_prefix("did:key:").unwrap()
+    ))
+    .expect("valid did url")
 }
 
 fn hash(seed: u8) -> Hash {
@@ -67,7 +72,7 @@ fn document() -> DidDocument {
     );
     DidDocument {
         id: did(),
-        verification_methods: BTreeMap::from([(format!("{}#key-1", did()), multibase)]),
+        verification_methods: BTreeMap::from([(verification_method().to_string(), multibase)]),
         also_known_as: Vec::new(),
         updated_at: None,
         raw_properties: BTreeMap::new(),
@@ -376,4 +381,58 @@ fn a_tampered_payload_still_fails_without_falling_back_to_the_resolver() {
         1,
         "a failed ordinary verification must not trigger a 'resolve to be safe' path"
     );
+}
+
+#[test]
+fn did_key_wrong_selector_and_substituted_material_never_install_a_binding() {
+    let now = Utc::now();
+    let store = InMemoryVerifiedDidBindingStore::default();
+    let canonical_method = verification_method();
+    let signature = sign_jws_ed25519(CANONICAL, &signing_key()).unwrap();
+    verify_jws_with_document(
+        CANONICAL,
+        &signature,
+        &canonical_method,
+        &did(),
+        &document(),
+    )
+    .unwrap();
+    let wrong = DidUrl::new(format!("{}#wrong", did())).unwrap();
+    assert!(verify_jws_with_document(CANONICAL, &signature, &wrong, &did(), &document()).is_err());
+    let mut bad_request = request();
+    bad_request.verification_method = Some(wrong);
+    assert!(resolve_and_verify_binding(&FixtureResolver, &store, &bad_request, now).is_err());
+    assert!(store.snapshot().is_empty());
+
+    struct SubstitutedResolver;
+    impl DidResolver for SubstitutedResolver {
+        fn supports(&self, input: &Did) -> bool {
+            input == &did()
+        }
+        fn resolve_did(&self, _: &Did) -> arkret_identity::Result<ResolvedDid> {
+            let mut document = document();
+            document.verification_methods.insert(
+                verification_method().to_string(),
+                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                    SigningKey::from_bytes(&[18; 32]).verifying_key().as_bytes(),
+                ),
+            );
+            Ok(ResolvedDid::proofless(document))
+        }
+    }
+    let substituted = SubstitutedResolver.resolve_did_document(&did()).unwrap();
+    let valid_for_substitute =
+        sign_jws_ed25519(CANONICAL, &SigningKey::from_bytes(&[18; 32])).unwrap();
+    assert!(
+        verify_jws_with_document(
+            CANONICAL,
+            &valid_for_substitute,
+            &canonical_method,
+            &did(),
+            &substituted
+        )
+        .is_err()
+    );
+    assert!(resolve_and_verify_binding(&SubstitutedResolver, &store, &request(), now).is_err());
+    assert!(store.snapshot().is_empty());
 }

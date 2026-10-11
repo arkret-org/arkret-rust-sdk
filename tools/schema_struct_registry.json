@@ -1250,6 +1250,11 @@
     {
       "rust_type": "crates/models-identity/src/account_device_signer_evidence.rs::ForwardAccountDeviceSignerEvidence",
       "schema": "account-device-signer-evidence.schema.json#/$defs/forward_account_device_signer_evidence"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
+      "schema_field_set": "accepted"
     }
   ],
   "exemptions": [

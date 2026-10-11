@@ -289,8 +289,8 @@ mod tests {
         DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
-    /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
-    /// (registered active rows, no client impl) and MUST NOT be advertised as
+    /// SDK-SOTA-01 / SDK-CRY-02: optional `ES256` is not implemented here,
+    /// and `ML-DSA-65` is reserved. Neither may be advertised as
     /// usable production algorithms while the Ed25519 verifier is the only
     /// signer/verifier shipped.
     #[test]

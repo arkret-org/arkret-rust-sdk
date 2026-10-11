@@ -254,6 +254,91 @@ fn consume_command_has_only_claim_and_durable_receipt() {
 }
 
 #[test]
+fn claim_selectors_and_authorization_reject_retired_members_and_null() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
+            .unwrap();
+    for row in fixture["unsigned_selector_transcripts"].as_array().unwrap() {
+        let request = &row["unsigned_request"];
+        let parsed: PeerKeyPackagesClaimUnsignedRequest =
+            serde_json::from_value(request.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), *request);
+        for value in [
+            serde_json::Value::Null,
+            json!("did:key:z6Mkretired#z6Mkretired"),
+        ] {
+            let mut retired = request.clone();
+            retired["target_pairwise_verification_method"] = value;
+            assert!(
+                serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(retired).is_err()
+            );
+        }
+        for field in [
+            "target_account_id",
+            "requester_account_id",
+            "target_agent_id",
+            "target_agent_verification_method",
+            "target_agent_key_authorize_event_id",
+            "timeout_ms",
+            "strand_id",
+            "pair_key",
+            "last_resort_allowed",
+        ] {
+            let mut null = request.clone();
+            null[field] = serde_json::Value::Null;
+            assert!(
+                serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(null).is_err(),
+                "{field}"
+            );
+        }
+    }
+    let mut authorization =
+        fixture["schema_validation_cases"][0]["instance"]["requester_authorization"].clone();
+    authorization["kind"] = json!("minimal_metadata_pairwise");
+    assert!(
+        serde_json::from_value::<arkret_models_crypto::PeerKeyPackageRequesterAuthorization>(
+            authorization
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn durable_recipient_receipt_rejects_retired_members_and_null() {
+    use arkret_models_crypto::RecipientMlsDurableReceipt;
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
+    let request = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "consume_single_claim")
+        .unwrap()["unsigned_request"]
+        .clone();
+    let receipt = &request["recipient_durable_receipt"];
+    let parsed: RecipientMlsDurableReceipt = serde_json::from_value(receipt.clone()).unwrap();
+    assert_eq!(serde_json::to_value(parsed).unwrap(), *receipt);
+    for field in [
+        "recipient_pairwise_verification_method",
+        "recipient_account_id",
+        "recipient_device_id",
+        "device_verification_method",
+        "recipient_agent_id",
+        "recipient_agent_verification_method",
+        "agent_key_authorize_event_id",
+    ] {
+        let mut invalid = receipt.clone();
+        invalid[field] = serde_json::Value::Null;
+        assert!(
+            serde_json::from_value::<RecipientMlsDurableReceipt>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn claim_query_request_carries_only_the_typed_claim_id() {
     use arkret_models_crypto::http_bodies::KeyPackagesClaimQueryRequestBody;
 
@@ -278,4 +363,109 @@ fn claim_query_request_carries_only_the_typed_claim_id() {
             "{rejected}"
         );
     }
+}
+
+#[test]
+fn keypackage_optional_members_preserve_absence_and_reject_null() {
+    use arkret_models_crypto::http_bodies::{
+        KeyPackagesRevokeRequestBody, KeyPackagesRevokeUnsignedRequest,
+        PeerKeyPackagesClaimQueryOutcome,
+    };
+    use arkret_models_crypto::{Failure, KeyOperationSignature};
+
+    fn check<T: serde::de::DeserializeOwned + serde::Serialize>(
+        value: serde_json::Value,
+        fields: &[&str],
+    ) {
+        let parsed: T = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        for field in fields {
+            let mut invalid = value.clone();
+            invalid[*field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<T>(invalid).is_err(), "{field}");
+        }
+    }
+
+    let signature = json!({"kid":"did:key:z6Mkfixture#z6Mkfixture","sig":"AQID"});
+    check::<KeyOperationSignature>(signature.clone(), &["signature_algorithm"]);
+    let mut explicit_algorithm = signature.clone();
+    explicit_algorithm["signature_algorithm"] = json!("Ed25519");
+    check::<KeyOperationSignature>(explicit_algorithm, &["signature_algorithm"]);
+    check::<Failure>(
+        json!({"reason_code":"not_found"}),
+        &["keypackage_ref", "device_id", "retry_after_ms"],
+    );
+
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
+    let revoke = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "revoke_with_reason")
+        .unwrap()["unsigned_request"]
+        .clone();
+    check::<KeyPackagesRevokeUnsignedRequest>(revoke.clone(), &["reason"]);
+    let mut signed_revoke = revoke;
+    signed_revoke["signature"] = signature;
+    check::<KeyPackagesRevokeRequestBody>(signed_revoke, &["reason"]);
+
+    let unknown = json!({"claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ","state":"unknown"});
+    serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(unknown.clone())
+        .unwrap()
+        .validate_shape()
+        .unwrap();
+    check::<PeerKeyPackagesClaimQueryOutcome>(
+        unknown,
+        &[
+            "claim_outcome",
+            "consume_receipt",
+            "terminal_receipt",
+            "retry_after_ms",
+            "error_code",
+        ],
+    );
+    let pending =
+        json!({"claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ","state":"pending","retry_after_ms":100});
+    serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(pending.clone())
+        .unwrap()
+        .validate_shape()
+        .unwrap();
+    check::<PeerKeyPackagesClaimQueryOutcome>(pending, &["retry_after_ms"]);
+}
+
+#[test]
+fn terminal_receipt_optional_refs_follow_the_terminal_state() {
+    use arkret_models_crypto::http_bodies::KeyPackageClaimTerminalReceipt;
+    use arkret_wire::DomainSeparationId;
+
+    let mut receipt = json!({
+        "domain": DomainSeparationId::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
+        "claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ",
+        "request_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "terminal_state":"never_claimed",
+        "source_id":"ak:did_core:webvh:z6mkfixtureservice",
+        "destination_id":"ak:did_core:webvh:z6mkfixtureservice",
+        "terminal_at":"2099-01-01T00:00:00.000Z",
+        "signature":{"kid":"did:webvh:z6mkfixtureservice:service.example#key-1","signature_algorithm":"Ed25519","sig":"AQID"}
+    });
+    let parsed: KeyPackageClaimTerminalReceipt = serde_json::from_value(receipt.clone()).unwrap();
+    parsed.validate_shape().unwrap();
+    assert_eq!(serde_json::to_value(parsed).unwrap(), receipt);
+    receipt["keypackage_refs"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<KeyPackageClaimTerminalReceipt>(receipt.clone()).is_err());
+    receipt["keypackage_refs"] = json!(["ak:mls:keypackage:test-01"]);
+    assert!(
+        serde_json::from_value::<KeyPackageClaimTerminalReceipt>(receipt.clone())
+            .unwrap()
+            .validate_shape()
+            .is_err()
+    );
+    receipt["terminal_state"] = json!("expired");
+    serde_json::from_value::<KeyPackageClaimTerminalReceipt>(receipt)
+        .unwrap()
+        .validate_shape()
+        .unwrap();
 }

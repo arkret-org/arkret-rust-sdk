@@ -331,7 +331,7 @@ pub fn event_proof_verification_context_with_digest_suite(
 /// 1. the absolute DID URL as published;
 /// 2. the bare fragment (`key-1`);
 /// 3. the `#`-prefixed fragment (`#key-1`);
-/// 4. the `did:key` single-method shortcut.
+/// 4. for a fragment-less `did:key`, its canonical embedded-key method.
 ///
 /// Steps 2 and 3 both exist because DID Core 1.0 §3.1 allows
 /// `verificationMethod[].id` to be a *relative* DID URL, and
@@ -345,23 +345,10 @@ fn lookup_verification_method_value(
     document: &DidDocument,
     verification_method: &str,
 ) -> Result<(String, String)> {
-    if let Some(value) = document.verification_methods.get(verification_method) {
-        return Ok((verification_method.to_owned(), value.clone()));
-    }
-    if let Some(fragment) = verification_method_fragment(verification_method) {
-        if let Some(value) = document.verification_methods.get(fragment) {
-            return Ok((fragment.to_owned(), value.clone()));
-        }
-        let relative = format!("#{fragment}");
-        if let Some(value) = document.verification_methods.get(&relative) {
-            return Ok((relative, value.clone()));
-        }
-    }
-    if document.id.method() == "key"
-        && document.verification_methods.len() == 1
-        && let Some((method_id, value)) = document.verification_methods.iter().next()
+    if let Some((method_id, value)) =
+        lookup_verification_method_entry(document, verification_method)
     {
-        return Ok((method_id.clone(), value.clone()));
+        return Ok((method_id.to_owned(), value.to_owned()));
     }
     Err(IdentityError::Protocol(format!(
         "verification_method `{verification_method}` not found in DID document for `{}`",
@@ -369,10 +356,44 @@ fn lookup_verification_method_value(
     )))
 }
 
-fn verification_method_fragment(verification_method: &str) -> Option<&str> {
-    let (_, after_hash) = verification_method.split_once('#')?;
-    let end = after_hash.find('?').unwrap_or(after_hash.len());
-    Some(&after_hash[..end])
+/// Shared lookup for resolvers and pinned-document signature verifiers.
+/// A did:key document cannot replace its embedded public material or select
+/// that material under a different method id.
+pub(crate) fn lookup_verification_method_entry<'a>(
+    document: &'a DidDocument,
+    verification_method: &str,
+) -> Option<(&'a str, &'a str)> {
+    let embedded_key = if document.id.method() == "key" {
+        Some(helpers::did_key_material(&document.id)?)
+    } else {
+        None
+    };
+    let canonical_method = embedded_key
+        .as_ref()
+        .map(|key| format!("{}#{key}", document.id));
+    if let Some(method) = &canonical_method
+        && verification_method != document.id.as_str()
+        && verification_method != method
+    {
+        return None;
+    }
+    let target = canonical_method.as_deref().unwrap_or(verification_method);
+    let fragment = target.split_once('#').map(|(_, fragment)| fragment);
+    let entry = document
+        .verification_methods
+        .get_key_value(target)
+        .or_else(|| fragment.and_then(|value| document.verification_methods.get_key_value(value)))
+        .or_else(|| {
+            fragment.and_then(|value| {
+                document
+                    .verification_methods
+                    .get_key_value(&format!("#{value}"))
+            })
+        })?;
+    if embedded_key.as_ref().is_some_and(|key| entry.1 != key) {
+        return None;
+    }
+    Some((entry.0.as_str(), entry.1.as_str()))
 }
 
 fn public_key_material_from_did_document_value(
@@ -429,17 +450,11 @@ mod tests {
     }
 
     #[test]
-    fn did_key_retains_the_single_method_fallback() {
-        let document = document(
-            "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
-            "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w#z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
-        );
-        assert!(
-            lookup_verification_method_value(
-                &document,
-                "did:key:z6MkhWg7i8fV9nqC2jL4sP6tR1xY3aB5dE7gH9kM2pQ4uV6w",
-            )
-            .is_ok()
-        );
+    fn did_key_bare_lookup_selects_only_its_embedded_method() {
+        let material = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&[7; 32]);
+        let did = Did::new(format!("did:key:{material}")).unwrap();
+        let document = DidKeyResolver::new().resolve_did_document(&did).unwrap();
+        assert!(lookup_verification_method_value(&document, did.as_str()).is_ok());
+        assert!(lookup_verification_method_value(&document, &format!("{did}#missing")).is_err());
     }
 }

@@ -88,9 +88,6 @@ fn kat_case(name: &str, identity: &ArkretMlsIdentity) -> Result<Value, Box<dyn s
             "agent_key_authorize_event_id": agent_key_authorize_event_id,
             "actor_id": record.actor_id,
         }),
-        MlsEndpointIdentity::MinimalMetadataPairwise { .. } => {
-            return Err("the v1 KeyPackage fixture has no pairwise endpoint branch".into());
-        }
     };
     Ok(json!({
         "name": name,

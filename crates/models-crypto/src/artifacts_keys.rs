@@ -100,7 +100,11 @@ mod secret_storage_extension_tests {
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
     pub kid: NonEmptyString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     pub signature_algorithm: Option<NonEmptyString>,
     pub sig: Base64UrlString,
 }
@@ -109,12 +113,24 @@ pub struct KeyOperationSignature {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Failure {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     pub keypackage_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     pub device_id: Option<String>,
     pub reason_code: ReasonCode,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     pub retry_after_ms: Option<u64>,
 }
 
@@ -131,8 +147,6 @@ pub struct KeyPackageClaimRecord {
     pub agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_verification_method: Option<DidUrl>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairwise_verification_method: Option<DidUrl>,
     pub keypackage: String,
     pub capabilities: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -154,25 +168,44 @@ struct KeyPackageClaimRecordWire {
     keypackage_ref: String,
     actor_id: ActorId,
     principal_id: DidCoreId,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     device_id: Option<DeviceId>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     agent_id: Option<DidCoreId>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     agent_verification_method: Option<DidUrl>,
-    #[serde(default)]
-    pairwise_verification_method: Option<DidUrl>,
     keypackage: String,
     capabilities: Vec<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     device_authorize_event_id: Option<EventId>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     agent_key_authorize_event_id: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     revocation_status: Option<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+    )]
     last_resort: Option<bool>,
 }
 
@@ -190,7 +223,6 @@ impl<'de> Deserialize<'de> for KeyPackageClaimRecord {
             device_id: wire.device_id,
             agent_id: wire.agent_id,
             agent_verification_method: wire.agent_verification_method,
-            pairwise_verification_method: wire.pairwise_verification_method,
             keypackage: wire.keypackage,
             capabilities: wire.capabilities,
             device_authorize_event_id: wire.device_authorize_event_id,
@@ -240,21 +272,12 @@ impl KeyPackageClaimRecord {
             &self.agent_id,
             &self.agent_verification_method,
             &self.agent_key_authorize_event_id,
-            &self.pairwise_verification_method,
         ) {
-            (Some(_), Some(_), None, None, None, None) => Ok(()),
-            (None, None, Some(agent), Some(_), Some(_), None)
+            (Some(_), Some(_), None, None, None) => Ok(()),
+            (None, None, Some(agent), Some(_), Some(_))
                 if agent.as_core_id() == self.principal_id.as_core_id() =>
             {
                 Ok(())
-            }
-            (None, None, None, None, None, Some(method)) => {
-                crate::MlsEndpointIdentity::minimal_metadata_pairwise(
-                    self.principal_id.clone(),
-                    method.clone(),
-                )
-                .map(|_| ())
-                .map_err(|_| "pairwise endpoint binding is invalid")
             }
             _ => Err("claim must select exactly one endpoint authority branch"),
         }
@@ -274,8 +297,21 @@ pub struct KeyPackageUploadEntry {
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_upload_last_resort"
+    )]
     pub last_resort: Option<bool>,
+}
+
+fn deserialize_upload_last_resort<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    bool::deserialize(deserializer).map(Some)
 }
 
 pub type AlgorithmCounts = BTreeMap<NonEmptyString, u64>;

@@ -8,8 +8,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
-    project_did_to_core_id,
+    ActorId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,10 +55,6 @@ pub enum MlsEndpointIdentity {
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
     },
-    MinimalMetadataPairwise {
-        pairwise_actor_id: DidCoreId,
-        verification_method: DidUrl,
-    },
 }
 
 impl MlsEndpointIdentity {
@@ -102,46 +97,10 @@ impl MlsEndpointIdentity {
         })
     }
 
-    pub fn minimal_metadata_pairwise(
-        pairwise_actor_id: DidCoreId,
-        verification_method: DidUrl,
-    ) -> arkret_wire::Result<Self> {
-        let (controller, fragment) =
-            verification_method
-                .as_str()
-                .split_once('#')
-                .ok_or_else(|| {
-                    arkret_wire::WireError::Protocol(
-                        "minimal-metadata verification method has no fragment".to_owned(),
-                    )
-                })?;
-        let multibase = controller.strip_prefix("did:key:").ok_or_else(|| {
-            arkret_wire::WireError::Protocol(
-                "minimal-metadata verification method must use did:key".to_owned(),
-            )
-        })?;
-        if fragment != multibase
-            || pairwise_actor_id.as_str() != format!("ak:did_core:key:{multibase}")
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "minimal-metadata endpoint actor and verification method differ".to_owned(),
-            ));
-        }
-        arkret_canonical::decode_ed25519_multibase(multibase)
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        Ok(Self::MinimalMetadataPairwise {
-            pairwise_actor_id,
-            verification_method,
-        })
-    }
-
     pub fn principal_id(&self) -> &DidCoreId {
         match self {
             Self::HumanDevice { principal_id, .. } => principal_id,
             Self::AgentRuntime { agent_id, .. } => agent_id,
-            Self::MinimalMetadataPairwise {
-                pairwise_actor_id, ..
-            } => pairwise_actor_id,
         }
     }
 
@@ -158,130 +117,7 @@ impl MlsEndpointIdentity {
                 agent_key_authorize_event_id.clone(),
             )
             .map(|_| ()),
-            Self::MinimalMetadataPairwise {
-                pairwise_actor_id,
-                verification_method,
-            } => Self::minimal_metadata_pairwise(
-                pairwise_actor_id.clone(),
-                verification_method.clone(),
-            )
-            .map(|_| ()),
         }
-    }
-}
-
-/// Client-local, encrypted-checkpoint state for a minimal-metadata Realm
-/// author. This is deliberately not an HTTP/OpenAPI DTO and must never enter
-/// an Event or service operation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPairwiseAuthorState {
-    pub realm_id: RealmId,
-    pub pairwise_actor_id: DidCoreId,
-    pub pairwise_did: Did,
-    pub verification_method: DidUrl,
-    /// Opaque handle into the platform secure signer; never private material.
-    pub local_signing_key_ref: NonEmptyString,
-    pub mls_group_id: MlsGroupId,
-    pub epoch: u64,
-    pub accepted_group_state_ref: EventId,
-    pub leaf_index: u32,
-    /// Public Ed25519 LeafNode signature key bytes.
-    pub leaf_signature_key: Vec<u8>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RealmPairwiseAcceptedLeaf {
-    pub leaf_index: u32,
-    pub basic_credential_identity: Vec<u8>,
-    pub signature_key: Vec<u8>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RealmPairwiseAcceptedGroupState {
-    pub realm_id: RealmId,
-    pub mls_group_id: MlsGroupId,
-    pub epoch: u64,
-    pub accepted_group_state_ref: EventId,
-    pub active_leaves: Vec<RealmPairwiseAcceptedLeaf>,
-}
-
-/// Durable, client-local uniqueness ledger. A key identity may be restored in
-/// the same Realm, but none of its public identity components may be rebound
-/// to another Realm.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPairwiseKeyScopeLedger {
-    bindings: BTreeMap<String, RealmId>,
-}
-
-impl RealmPairwiseAuthorState {
-    pub fn validate_against(
-        &self,
-        snapshot: &RealmPairwiseAcceptedGroupState,
-    ) -> arkret_wire::Result<()> {
-        if !self.pairwise_did.as_str().starts_with("did:key:") {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author DID must use did:key".to_owned(),
-            ));
-        }
-        if project_did_to_core_id(&self.pairwise_did)? != self.pairwise_actor_id {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise DID does not project to pairwise_actor_id".to_owned(),
-            ));
-        }
-        let (method_base, method_fragment) = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .ok_or_else(|| {
-                arkret_wire::WireError::Protocol(
-                    "pairwise verification method has no fragment".to_owned(),
-                )
-            })?;
-        if method_base != self.pairwise_did.as_str() {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method base differs from pairwise_did".to_owned(),
-            ));
-        }
-        let decoded = arkret_canonical::decode_multibase_base58btc(method_fragment)
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        let Some((codec, prefix_len)) = arkret_canonical::decode_multicodec_varint(&decoded) else {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method has invalid multicodec prefix".to_owned(),
-            ));
-        };
-        if codec != 0xed || decoded.get(prefix_len..) != Some(self.leaf_signature_key.as_slice()) {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method key differs from LeafNode signature_key".to_owned(),
-            ));
-        }
-        if self.realm_id != snapshot.realm_id
-            || self.mls_group_id != snapshot.mls_group_id
-            || self.epoch != snapshot.epoch
-            || self.accepted_group_state_ref != snapshot.accepted_group_state_ref
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author state does not name the exact accepted Realm MLS snapshot"
-                    .to_owned(),
-            ));
-        }
-        let matching = snapshot
-            .active_leaves
-            .iter()
-            .filter(|leaf| leaf.leaf_index == self.leaf_index)
-            .collect::<Vec<_>>();
-        if matching.len() != 1
-            || matching[0].basic_credential_identity.as_slice()
-                != mls_basic_credential_identity(&ActorId::service(self.pairwise_actor_id.clone()))?
-                    .as_slice()
-            || matching[0].signature_key != self.leaf_signature_key
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author is not the exact active BasicCredential leaf".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 

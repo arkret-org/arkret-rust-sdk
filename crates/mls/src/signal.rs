@@ -253,7 +253,6 @@ impl ArkretMlsGroup {
                 binding.sender_actor_id.signing_principal_id() == agent_id
                     && binding.sender_device_id.is_none()
             }
-            MlsEndpointIdentity::MinimalMetadataPairwise { .. } => false,
         }
     }
 
