@@ -78,7 +78,7 @@ jobs:
 
       - name: Download staged evidence
         if: inputs.phase == 'promote'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: compatibility-train-stage-${{ inputs.run_id }}
           path: train-evidence
