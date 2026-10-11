@@ -204,7 +204,7 @@ impl DidVerificationRelationship {
 /// 3. `document.id == issuer` — the argument the removed resolver-driven verifier accepted and
 ///    silently ignored;
 /// 4. `verification_method` resolves inside `document` (absolute DID URL, then fragment-only id,
-///    then the `did:key` single-key shortcut — the exact lookup order of
+///    then the fragment-less `did:key` embedded method — the exact lookup order of
 ///    [`crate::resolve_verification_method_key_from_document`], because DID Document
 ///    `verificationMethod[].id` entries are commonly relative `#key-1` references);
 /// 5. the material decodes to an Ed25519 key (multibase or JWK);
@@ -459,8 +459,8 @@ pub fn verify_jws_with_binding(
 ///
 /// Zero network: the document travels inside the binding. The lookup order is
 /// [`crate::resolve_verification_method_key_from_document`]'s — absolute DID
-/// URL, bare fragment, `#`-prefixed fragment, then the `did:key` single-key
-/// shortcut.
+/// URL, bare fragment, `#`-prefixed fragment, then the fragment-less `did:key`
+/// embedded method.
 ///
 /// This is a **material lookup only**: it deliberately does not consult
 /// [`DidBindingStatus`], because a caller sometimes needs the key of a
@@ -615,31 +615,14 @@ pub fn verify_event_proof_with_binding(
 /// Mirrors [`crate::resolve_verification_method_key_from_document`] exactly:
 /// absolute DID URL, then the fragment-only id (DID Documents commonly store
 /// relative `#key-1` references), then — only for `did:key` documents holding a
-/// single method — the single-key shortcut. It is deliberately no stricter,
-/// so migrating a call site off the resolver-based verifier cannot change which
-/// documents verify.
+/// canonical embedded method. All entry points share the same lookup.
 fn lookup_verification_method_material<'a>(
     document: &'a DidDocument,
     verification_method: &str,
 ) -> Result<&'a str, BindingVerifyError> {
-    if let Some(value) = document.verification_methods.get(verification_method) {
-        return Ok(value.as_str());
-    }
-    if let Some((_, fragment)) = verification_method.split_once('#') {
-        let fragment = fragment.split('?').next().unwrap_or(fragment);
-        if let Some(value) = document.verification_methods.get(fragment) {
-            return Ok(value.as_str());
-        }
-        // Documents that store `#key-1` verbatim as the map key.
-        if let Some(value) = document.verification_methods.get(&format!("#{fragment}")) {
-            return Ok(value.as_str());
-        }
-    }
-    if document.id.method() == "key"
-        && document.verification_methods.len() == 1
-        && let Some(value) = document.verification_methods.values().next()
+    if let Some((_, value)) = crate::lookup_verification_method_entry(document, verification_method)
     {
-        return Ok(value.as_str());
+        return Ok(value);
     }
     Err(BindingVerifyError::VerificationMethodNotFound {
         verification_method: verification_method.to_owned(),

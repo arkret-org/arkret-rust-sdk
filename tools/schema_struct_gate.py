@@ -7,6 +7,11 @@ whose directly attached rustdoc contains a Spec schema pointer must occur in
 exemption. Additional mappings may register structs whose pointer is maintained
 only in the registry. This keeps new counterpart declarations from bypassing
 the gate while avoiding fuzzy type/schema matching.
+
+Mappings with ``schema_field_set=accepted`` compare the exact set of members
+that may occur in a valid branch, excluding only schema-proven presence bans.
+Existing mappings default to the declared property set; no named field can be
+excluded by a mapping override.
 """
 
 from __future__ import annotations
@@ -189,6 +194,8 @@ def schema_property_names(
     path: Path,
     node: Any,
     seen: set[tuple[Path, str]] | None = None,
+    *,
+    accepted: bool = False,
 ) -> set[str]:
     """Collect object properties through cross-file refs and composition."""
     seen = set() if seen is None else seen
@@ -199,7 +206,7 @@ def schema_property_names(
             return set()
         seen.add(marker)
         resolved_path, resolved_node = resolver.resolve_ref(path, node)
-        names = schema_property_names(resolver, resolved_path, resolved_node, seen)
+        names = schema_property_names(resolver, resolved_path, resolved_node, seen, accepted=accepted)
     else:
         names = set()
     if not isinstance(node, dict):
@@ -211,8 +218,50 @@ def schema_property_names(
         branches = node.get(keyword)
         if isinstance(branches, list):
             for branch in branches:
-                names.update(schema_property_names(resolver, path, branch, seen.copy()))
-    return names
+                names.update(schema_property_names(resolver, path, branch, seen.copy(), accepted=accepted))
+    return names - schema_forbidden_property_names(resolver, path, node) if accepted else names
+
+
+def schema_forbidden_property_names(
+    resolver: SchemaResolver,
+    path: Path,
+    node: Any,
+    seen: set[tuple[Path, str]] | None = None,
+) -> set[str]:
+    """Remove only members proven impossible by presence-only exclusions.
+
+    A negated multi-member required set does not forbid either member alone.
+    Alternative branches forbid a member globally only when all forbid it.
+    """
+    if not isinstance(node, dict):
+        return set()
+    seen = set() if seen is None else seen
+    forbidden: set[str] = set()
+    if isinstance(node.get("$ref"), str):
+        marker = (path.resolve(), node["$ref"])
+        if marker not in seen:
+            seen.add(marker)
+            ref_path, ref_node = resolver.resolve_ref(path, node)
+            forbidden.update(schema_forbidden_property_names(resolver, ref_path, ref_node, seen))
+    excluded = node.get("not")
+    if isinstance(excluded, dict):
+        clauses = excluded.get("anyOf") if set(excluded) == {"anyOf"} else [excluded]
+        if isinstance(clauses, list):
+            for clause in clauses:
+                if isinstance(clause, dict) and set(clause) == {"required"}:
+                    required = clause["required"]
+                    if isinstance(required, list) and len(required) == 1 and isinstance(required[0], str):
+                        forbidden.add(required[0])
+    for branch in node.get("allOf", []):
+        forbidden.update(schema_forbidden_property_names(resolver, path, branch, seen.copy()))
+    for keyword in ("oneOf", "anyOf"):
+        branches = node.get(keyword)
+        if isinstance(branches, list) and branches:
+            forbidden.update(set.intersection(*[
+                schema_forbidden_property_names(resolver, path, branch, seen.copy())
+                for branch in branches
+            ]))
+    return forbidden
 
 
 def load_registry(path: Path) -> dict[str, Any]:
@@ -285,7 +334,10 @@ def validate(
             continue
         try:
             schema_path, node = resolver.pointer_node(pointer)
-            schema_fields = schema_property_names(resolver, schema_path, node)
+            field_set = entry.get("schema_field_set", "declared")
+            if field_set not in {"declared", "accepted"}:
+                raise ValueError(f"unknown schema_field_set {field_set!r}")
+            schema_fields = schema_property_names(resolver, schema_path, node, accepted=field_set == "accepted")
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"cannot resolve {pointer} for {rust_type}: {error}")
             continue

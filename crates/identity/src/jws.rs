@@ -118,35 +118,8 @@ pub fn resolve_ed25519_pubkey_from_document(
     document: &DidDocument,
     verification_method: &str,
 ) -> Result<VerifyingKey, JwsVerifyError> {
-    let fragment = verification_method
-        .split_once('#')
-        .map(|(_, fragment)| fragment);
     let did_str = document.id.as_str();
-
-    // Try full URL first, then fragment-only id, then any single-key
-    // shortcut (`did:key:` documents typically have one key whose id
-    // matches the full URL).
-    let material = document
-        .verification_methods
-        .get(verification_method)
-        .or_else(|| fragment.and_then(|fragment| document.verification_methods.get(fragment)))
-        .or_else(|| {
-            fragment.and_then(|fragment| document.verification_methods.get(&format!("#{fragment}")))
-        })
-        .or_else(|| {
-            // Single-key fallback: only for `did:key` documents, where the
-            // key is embedded in the DID itself and the single verification
-            // method's id canonically matches the full URL. Restricting the
-            // fallback to `did:key` keeps the `verification_method` key-id
-            // binding strict for `did:webvh` (and any multi-key-capable
-            // method) so a JWS referencing a wrong/absent fragment is not
-            // silently verified against an unrelated key.
-            if document.id.method() == "key" && document.verification_methods.len() == 1 {
-                document.verification_methods.values().next()
-            } else {
-                None
-            }
-        })
+    let (_, material) = crate::lookup_verification_method_entry(document, verification_method)
         .ok_or_else(|| JwsVerifyError::VerificationMethodNotFound {
             verification_method: verification_method.to_owned(),
             did: did_str.to_owned(),
@@ -334,20 +307,52 @@ mod tests {
     }
 
     #[test]
-    fn single_key_fallback_allowed_for_did_key() {
-        // SEC-02: `did:key` documents embed the key in the DID and carry exactly
-        // one verification method, so the single-key fallback is still honoured.
+    fn did_key_lookup_binds_the_exact_method_and_embedded_public_key() {
         let signing = SigningKey::from_bytes(&[8u8; 32]);
         let multibase = encode_ed25519_multibase(&signing.verifying_key());
         let did = Did::new(format!("did:key:{multibase}")).unwrap();
-        let resolver = StubResolver {
-            did: did.clone(),
-            material: multibase,
-        };
-        // A reference with a mismatched fragment still resolves via the
-        // single-key fallback for did:key.
-        let resolved = resolve_ed25519_pubkey(&resolver, &format!("{did}#anything"))
-            .expect("did:key fallback");
+        let resolver = crate::DidKeyResolver::new();
+        let method = format!("{did}#{multibase}");
+        let resolved = resolve_ed25519_pubkey(&resolver, &method).unwrap();
         assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
+        assert_eq!(
+            resolve_ed25519_pubkey(&resolver, did.as_str()).unwrap(),
+            resolved
+        );
+        assert!(matches!(
+            resolve_ed25519_pubkey(&resolver, &format!("{did}#anything")),
+            Err(JwsVerifyError::VerificationMethodNotFound { .. })
+        ));
+        let mut document = resolver.resolve_did_document(&did).unwrap();
+        document.verification_methods.insert(
+            method.clone(),
+            encode_ed25519_multibase(&SigningKey::from_bytes(&[9; 32]).verifying_key()),
+        );
+        assert!(resolve_ed25519_pubkey_from_document(&document, &method).is_err());
+        assert!(crate::resolve_verification_method_key_from_document(&document, &method).is_err());
+        assert!(
+            crate::public_key_material_from_document(
+                &document,
+                &arkret_wire::DidUrl::new(&method).unwrap()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn did_key_rejects_wrong_multicodec_length_and_nonminimal_varint() {
+        for bytes in [
+            [vec![0xff, 0x01], vec![8; 32]].concat(),
+            [vec![0xed, 0x01], vec![8; 31]].concat(),
+            [vec![0xed, 0x81, 0x00], vec![8; 32]].concat(),
+        ] {
+            let multibase = arkret_canonical::encode_multibase_base58btc(bytes);
+            let did = Did::new(format!("did:key:{multibase}")).unwrap();
+            assert!(
+                crate::DidKeyResolver::new()
+                    .resolve_did_document(&did)
+                    .is_err()
+            );
+        }
     }
 }

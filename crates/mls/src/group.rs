@@ -401,15 +401,6 @@ impl ArkretMlsGroup {
                     }
                 }
                 MlsEndpointIdentity::AgentRuntime { .. } => {}
-                MlsEndpointIdentity::MinimalMetadataPairwise {
-                    pairwise_actor_id, ..
-                } if matches!(&binding.actor_id, ActorId::Service { service_id } if service_id == pairwise_actor_id) =>
-                    {}
-                MlsEndpointIdentity::MinimalMetadataPairwise { .. } => {
-                    return Err(Error::Protocol(
-                        "pairwise MLS endpoint requires the exact service ActorId".to_owned(),
-                    ));
-                }
             }
             let expected_credential =
                 arkret_models_crypto::mls_basic_credential_identity(&binding.actor_id)?;
@@ -485,9 +476,6 @@ impl ArkretMlsGroup {
                     MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
                         actor_id.signing_principal_id() == agent_id
                     }
-                    MlsEndpointIdentity::MinimalMetadataPairwise {
-                        pairwise_actor_id, ..
-                    } => matches!(&actor_id, ActorId::Service { service_id } if service_id == pairwise_actor_id),
                 })
                 .ok_or_else(|| {
                     Error::Protocol("test MLS endpoint does not match a leaf".to_owned())
@@ -885,7 +873,6 @@ impl ArkretMlsGroup {
             ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
-        snapshot.profile.validate_signer(signer.public())?;
         let credential = CredentialWithKey {
             credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.actor_id)?)
                 .into(),
