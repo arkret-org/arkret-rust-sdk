@@ -132,9 +132,9 @@ struct DetachedJwsProtectedHeader {
 /// the signing `actor_id`, and a resolver-supplied public key.
 ///
 /// Per `encoding.md` §6 the verifier sequence is fixed:
-///   1. strip `proofs`/`unsigned` from the Event, canonicalize, compute `event_digest`, and
-///      constant-time compare it to `proof.event_digest` (`canonical_bytes` here is exactly those
-///      stripped canonical bytes);
+///   1. use the shared Event digest preimage (omit `event_id` and `producer_proof`), canonicalize,
+///      compute `event_digest`, and constant-time compare it to `proof.event_digest`
+///      (`canonical_bytes` here is exactly those stripped canonical bytes);
 ///   2. construct the canonical **proof binding object** `{event_digest, actor_id,
 ///      verification_method, created_at, domain?, audience?}` and verify the detached JWS signs
 ///      *those* bytes — NOT the raw event bytes. `actor_id` is the Event envelope's `actor_id`
