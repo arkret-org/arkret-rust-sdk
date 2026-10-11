@@ -129,7 +129,7 @@ pub struct Failure {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "crate::http_bodies::deserialize_keypackage_positive_millis"
     )]
     pub retry_after_ms: Option<u64>,
 }
@@ -291,7 +291,9 @@ pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
     pub keypackage_ref: String,
     pub keypackage: Base64UrlString,
+    #[serde(deserialize_with = "crate::http_bodies::deserialize_keypackage_string_list")]
     pub cipher_suites: Vec<String>,
+    #[serde(deserialize_with = "crate::http_bodies::deserialize_keypackage_string_list")]
     pub capabilities: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,

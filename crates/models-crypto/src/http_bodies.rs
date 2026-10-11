@@ -108,6 +108,75 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
+// A missing Agent device selector defaults to an empty vector. A present
+// selector must satisfy the schema before deserialization can erase presence.
+pub(crate) fn deserialize_keypackage_unique_nonempty<'de, D, T>(
+    deserializer: D,
+) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de> + Ord,
+{
+    let values = Vec::<T>::deserialize(deserializer)?;
+    if values.is_empty() || values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+        return Err(serde::de::Error::custom(
+            "KeyPackage array must be non-empty and unique",
+        ));
+    }
+    Ok(values)
+}
+
+pub(crate) fn deserialize_keypackage_positive_millis<'de, D>(
+    deserializer: D,
+) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let timeout = u64::deserialize(deserializer)?;
+    if timeout == 0 {
+        return Err(serde::de::Error::custom(
+            "millisecond value must be positive when present",
+        ));
+    }
+    Ok(Some(timeout))
+}
+
+fn deserialize_keypackage_nonempty<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let values = Vec::<T>::deserialize(deserializer)?;
+    if values.is_empty() {
+        return Err(serde::de::Error::custom(
+            "KeyPackage array must be non-empty",
+        ));
+    }
+    Ok(values)
+}
+
+pub(crate) fn deserialize_keypackage_string_list<'de, D>(
+    deserializer: D,
+) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values = deserialize_keypackage_unique_nonempty::<D, NonEmptyString>(deserializer)?;
+    Ok(values
+        .into_iter()
+        .map(|value| value.as_str().to_owned())
+        .collect())
+}
+
+fn deserialize_keypackage_optional_string_list<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_keypackage_string_list(deserializer).map(Some)
+}
+
 fn deserialize_upload_expiry<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -284,7 +353,8 @@ pub struct KeyPackagesUploadOutcome {
     #[serde(
         rename = "keypackage_refs",
         default,
-        skip_serializing_if = "Vec::is_empty"
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_keypackage_string_list"
     )]
     pub key_package_refs: Vec<String>,
 }
@@ -340,10 +410,15 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     pub intended_realm_id: RealmId,
     pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
+    #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_keypackage_unique_nonempty"
+    )]
     pub target_device_ids: Vec<DeviceId>,
     #[serde(
         default,
@@ -372,7 +447,7 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "deserialize_keypackage_positive_millis"
     )]
     pub timeout_ms: Option<u64>,
     #[serde(
@@ -423,10 +498,15 @@ pub struct PeerKeyPackagesClaimRequestBody {
     pub intended_realm_id: RealmId,
     pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
+    #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_keypackage_unique_nonempty"
+    )]
     pub target_device_ids: Vec<DeviceId>,
     #[serde(
         default,
@@ -455,7 +535,7 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "deserialize_keypackage_positive_millis"
     )]
     pub timeout_ms: Option<u64>,
     #[serde(
@@ -531,10 +611,15 @@ pub struct KeyPackagesClaimRequestBody {
     pub intended_realm_id: RealmId,
     pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
+    #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_keypackage_unique_nonempty"
+    )]
     pub target_device_ids: Vec<DeviceId>,
     #[serde(
         default,
@@ -563,7 +648,7 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "deserialize_keypackage_positive_millis"
     )]
     pub timeout_ms: Option<u64>,
     #[serde(
@@ -705,6 +790,7 @@ pub struct PeerKeyPackageClaimReceipt {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeyPackagesClaimOutcome {
     pub claim_request_id: Base64UrlString,
+    #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
     pub claims: Vec<KeyPackageClaimRecord>,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
 }
@@ -714,6 +800,7 @@ pub struct PeerKeyPackagesClaimOutcome {
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimOutcome {
     pub claim_request_id: Base64UrlString,
+    #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
     pub claims: Vec<KeyPackageClaimRecord>,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
 }
@@ -843,7 +930,7 @@ pub struct KeyPackageClaimTerminalReceipt {
         rename = "keypackage_refs",
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "deserialize_keypackage_optional_string_list"
     )]
     pub key_package_refs: Option<Vec<String>>,
     pub source_id: DidCoreId,
@@ -912,7 +999,7 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "deserialize_keypackage_positive_millis"
     )]
     pub retry_after_ms: Option<u64>,
     #[serde(
@@ -1041,6 +1128,8 @@ pub enum PeerKeyPackageClaimShapeError {
     InvalidRequiredCapabilities,
     #[error("target_device_ids must be unique")]
     DuplicateTargetDevice,
+    #[error("millisecond value must be positive when present")]
+    InvalidTimeout,
     #[error("direct conversation claims require strand_id and pair_key and forbid last resort")]
     InvalidDirectConversationFields,
     #[error("requester authorization must select exactly one supported authority model")]
@@ -1140,6 +1229,9 @@ fn validate_peer_claim_fields(
     if !(22..=128).contains(&request.claim_request_id.as_str().len()) {
         return Err(PeerKeyPackageClaimShapeError::InvalidClaimRequestId);
     }
+    if request.timeout_ms == Some(0) {
+        return Err(PeerKeyPackageClaimShapeError::InvalidTimeout);
+    }
     let capabilities = request
         .required_capabilities
         .iter()
@@ -1215,6 +1307,11 @@ fn validate_keypackage_account_actor(
 }
 
 impl PeerKeyPackagesClaimUnsignedRequest {
+    /// Validate the unsigned selectors before authoring or consuming a claim.
+    pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
+        validate_peer_claim_fields(self)
+    }
+
     pub fn target_principal_id(&self) -> Option<DidCoreId> {
         self.target_account_id
             .as_ref()
@@ -1711,7 +1808,10 @@ pub struct KeyPackagesConsumeOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    #[serde(rename = "keypackage_refs")]
+    #[serde(
+        rename = "keypackage_refs",
+        deserialize_with = "deserialize_keypackage_string_list"
+    )]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
@@ -1727,7 +1827,10 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeUnsignedRequest {
-    #[serde(rename = "keypackage_refs")]
+    #[serde(
+        rename = "keypackage_refs",
+        deserialize_with = "deserialize_keypackage_string_list"
+    )]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     #[serde(

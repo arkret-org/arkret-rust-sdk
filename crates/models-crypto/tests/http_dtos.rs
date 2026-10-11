@@ -26,6 +26,80 @@ fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
 }
 
 #[test]
+fn keypackage_family_arrays_and_retry_minima_match_schema() {
+    use arkret_models_crypto::http_bodies::{
+        KeyPackagesRevokeUnsignedRequest, KeyPackagesUploadOutcome,
+        PeerKeyPackagesClaimQueryOutcome,
+    };
+    use arkret_models_crypto::{Failure, KeyPackageUploadEntry};
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
+    let upload = &cases
+        .iter()
+        .find(|case| case["name"] == "upload_batch_required_fields")
+        .unwrap()["unsigned_request"]["keypackages"][0];
+    serde_json::from_value::<KeyPackageUploadEntry>(upload.clone()).unwrap();
+    for field in ["cipher_suites", "capabilities"] {
+        for value in [
+            json!([]),
+            json!([upload[field][0], upload[field][0]]),
+            json!([""]),
+            serde_json::Value::Null,
+        ] {
+            let mut invalid = upload.clone();
+            invalid[field] = value;
+            assert!(
+                serde_json::from_value::<KeyPackageUploadEntry>(invalid).is_err(),
+                "{field}"
+            );
+        }
+    }
+    let revoke = &cases
+        .iter()
+        .find(|case| case["name"] == "revoke_with_reason")
+        .unwrap()["unsigned_request"];
+    serde_json::from_value::<KeyPackagesRevokeUnsignedRequest>(revoke.clone()).unwrap();
+    let outcome = json!({"accepted":1,"keypackage_refs":[revoke["keypackage_refs"][0]]});
+    serde_json::from_value::<KeyPackagesUploadOutcome>(outcome.clone()).unwrap();
+    serde_json::from_value::<KeyPackagesUploadOutcome>(json!({"accepted":0})).unwrap();
+    for value in [
+        json!([]),
+        json!([revoke["keypackage_refs"][0], revoke["keypackage_refs"][0]]),
+        json!([""]),
+        serde_json::Value::Null,
+    ] {
+        let mut invalid = revoke.clone();
+        invalid["keypackage_refs"] = value.clone();
+        assert!(serde_json::from_value::<KeyPackagesRevokeUnsignedRequest>(invalid).is_err());
+        let mut invalid = outcome.clone();
+        invalid["keypackage_refs"] = value;
+        assert!(serde_json::from_value::<KeyPackagesUploadOutcome>(invalid).is_err());
+    }
+    serde_json::from_value::<Failure>(json!({"reason_code":"not_found","retry_after_ms":1}))
+        .unwrap();
+    let pending =
+        json!({"claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ","state":"pending","retry_after_ms":1});
+    serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(pending.clone())
+        .unwrap()
+        .validate_shape()
+        .unwrap();
+    for value in [json!(0), serde_json::Value::Null] {
+        assert!(
+            serde_json::from_value::<Failure>(
+                json!({"reason_code":"not_found","retry_after_ms":value})
+            )
+            .is_err()
+        );
+        let mut invalid = pending.clone();
+        invalid["retry_after_ms"] = value;
+        assert!(serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(invalid).is_err());
+    }
+}
+
+#[test]
 fn human_claim_account_station_is_bound() {
     let fixture =
         arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
@@ -142,6 +216,10 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             }
         }
     });
+    let mut empty = outcome.clone();
+    empty["claims"] = json!([]);
+    assert!(serde_json::from_value::<KeyPackagesClaimOutcome>(empty.clone()).is_err());
+    assert!(serde_json::from_value::<PeerKeyPackagesClaimOutcome>(empty).is_err());
     let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
     assert_eq!(parsed.claims[0].principal_id, core_id("alice"));
     assert!(parsed.claims[0].device_authorize_event_id.is_some());
@@ -300,6 +378,117 @@ fn claim_selectors_and_authorization_reject_retired_members_and_null() {
             authorization
         )
         .is_err()
+    );
+}
+
+#[test]
+fn claim_arrays_preserve_presence_and_timeout_obeys_schema_minimum() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
+            .unwrap();
+    let authorization =
+        fixture["schema_validation_cases"][0]["instance"]["requester_authorization"].clone();
+    for row in fixture["unsigned_selector_transcripts"].as_array().unwrap() {
+        let value = row["unsigned_request"].clone();
+        let unsigned: PeerKeyPackagesClaimUnsignedRequest =
+            serde_json::from_value(value.clone()).unwrap();
+        unsigned.validate_shape().unwrap();
+        assert_eq!(serde_json::to_value(&unsigned).unwrap(), value);
+        let mut signed = value.clone();
+        signed["requester_authorization"] = authorization.clone();
+        signed["service_binding"] = json!({
+            "source_id": value["requester_account_id"]["station_id"],
+            "destination_id": "ak:did_core:webvh:z6mkfixturepsexample"
+        });
+        let self_body: KeyPackagesClaimRequestBody =
+            serde_json::from_value(signed.clone()).unwrap();
+        self_body.validate_shape().unwrap();
+        let peer_body: PeerKeyPackagesClaimRequestBody =
+            serde_json::from_value(signed.clone()).unwrap();
+        peer_body.validate_shape().unwrap();
+        let transcript = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
+            &unsigned,
+            &self_body.service_binding,
+            &self_body.requester_authorization,
+        )
+        .unwrap();
+        assert_eq!(
+            transcript,
+            arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
+                &self_body.unsigned_request(),
+                &peer_body.service_binding,
+                &peer_body.requester_authorization,
+            )
+            .unwrap()
+        );
+        for (field, invalid) in [
+            ("target_device_ids", json!([])),
+            ("target_device_ids", serde_json::Value::Null),
+            (
+                "target_device_ids",
+                json!([
+                    "ak:device:0196419b-0000-7000-8000-000000000001",
+                    "ak:device:0196419b-0000-7000-8000-000000000001"
+                ]),
+            ),
+            ("required_capabilities", json!([])),
+            (
+                "required_capabilities",
+                json!(["ak.content.v1", "ak.content.v1"]),
+            ),
+            ("timeout_ms", json!(0)),
+            ("timeout_ms", serde_json::Value::Null),
+        ] {
+            let mut unsigned_invalid = value.clone();
+            unsigned_invalid[field] = invalid.clone();
+            let mut signed_invalid = signed.clone();
+            signed_invalid[field] = invalid;
+            assert!(
+                serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(unsigned_invalid)
+                    .is_err(),
+                "unsigned {} {field}",
+                row["branch"]
+            );
+            assert!(
+                serde_json::from_value::<KeyPackagesClaimRequestBody>(signed_invalid.clone())
+                    .is_err(),
+                "self {} {field}",
+                row["branch"]
+            );
+            assert!(
+                serde_json::from_value::<PeerKeyPackagesClaimRequestBody>(signed_invalid).is_err(),
+                "peer {} {field}",
+                row["branch"]
+            );
+        }
+        let mut smallest = value.clone();
+        smallest["timeout_ms"] = json!(1);
+        serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(smallest)
+            .unwrap()
+            .validate_shape()
+            .unwrap();
+        let mut zero_constructed = unsigned;
+        zero_constructed.timeout_ms = Some(0);
+        assert!(zero_constructed.validate_shape().is_err());
+    }
+    let mut mixed = fixture["unsigned_selector_transcripts"][1]["unsigned_request"].clone();
+    mixed["target_device_ids"] = json!(["ak:device:0196419b-0000-7000-8000-000000000001"]);
+    assert!(
+        serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(mixed)
+            .unwrap()
+            .validate_shape()
+            .is_err()
+    );
+    let mut missing_human = fixture["unsigned_selector_transcripts"][0]["unsigned_request"].clone();
+    missing_human
+        .as_object_mut()
+        .unwrap()
+        .remove("target_device_ids");
+    assert!(
+        serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(missing_human)
+            .unwrap()
+            .validate_shape()
+            .is_err()
     );
 }
 
