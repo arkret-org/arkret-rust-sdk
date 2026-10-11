@@ -3,9 +3,9 @@
 use std::collections::BTreeSet;
 
 use arkret_models_identity::actor_profile::ActorProfile;
+pub use arkret_wire::{AccountabilityScopeKind, AccountabilityScopeSet};
 use arkret_wire::{
     DidCoreId, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
-    composite_subject, string_set_digest_component,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,24 +19,6 @@ pub const ACCOUNTABILITY_SCOPE_SET_CONTEXT: &str =
 pub enum AccountabilityGrantStatus {
     Active,
     Revoked,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AccountabilityScopeKind {
-    Employment,
-    ContractedService,
-    AgentOperator,
-}
-
-impl AccountabilityScopeKind {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Employment => "employment",
-            Self::ContractedService => "contracted_service",
-            Self::AgentOperator => "agent_operator",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -79,21 +61,21 @@ impl AccountabilityScope {
         Ok(self.canonical_kinds_unchecked())
     }
 
+    /// The normalized exact set the `identity_accountability` subject and
+    /// value carry (`zh/models/actor.md` section 3.3.1).
+    pub fn normalized_set(&self) -> Result<AccountabilityScopeSet> {
+        AccountabilityScopeSet::normalize(match self {
+            Self::Single(scope) => vec![*scope],
+            Self::Multiple(scopes) => scopes.clone(),
+        })
+    }
+
     pub fn canonicalized_for_authoring(&self) -> Result<Self> {
         let scopes = self.canonical_set()?;
         Ok(match scopes.as_slice() {
             [scope] => Self::Single(*scope),
             _ => Self::Multiple(scopes),
         })
-    }
-
-    pub fn scope_set_component(&self) -> Result<String> {
-        let values = self
-            .canonical_set()?
-            .into_iter()
-            .map(|scope| scope.as_str().to_owned())
-            .collect::<Vec<_>>();
-        string_set_digest_component(&values, ACCOUNTABILITY_SCOPE_SET_CONTEXT)
     }
 }
 
@@ -156,15 +138,6 @@ impl AccountabilityGrantPayload {
         Ok(Hash::new(canonical::sha256_digest(&input))?)
     }
 
-    pub fn cell_subject(&self) -> Result<String> {
-        let scope_component = self.accountability_scope.scope_set_component()?;
-        composite_subject(&[
-            self.issuer_id.as_str(),
-            self.subject_id.as_str(),
-            scope_component.as_str(),
-        ])
-    }
-
     pub fn canonical_proof_binding_bytes(&self) -> Result<Vec<u8>> {
         let payload_digest = self.payload_digest()?;
         if self.proof.payload_digest != payload_digest {
@@ -207,6 +180,32 @@ impl AccountabilityGrantPayload {
             binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
         Ok(canonical::canonical_json_bytes(&Value::Object(binding))?)
+    }
+
+    /// Admission-time shape checks that need no accepted state: the closed
+    /// schema constant, a normalizable scope set, an ordered validity window
+    /// and a production proof carrier.
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.schema != SchemaId::ACCOUNTABILITY_GRANT_V1 {
+            return Err(WireError::Protocol(
+                "accountability_grant schema must be ak.schema.accountability_grant.v1".to_owned(),
+            ));
+        }
+        self.accountability_scope.normalized_set()?;
+        if self
+            .expires_at
+            .is_some_and(|expires_at| self.not_before >= expires_at)
+        {
+            return Err(WireError::Protocol(
+                "accountability_grant not_before must be before expires_at".to_owned(),
+            ));
+        }
+        if self.proof.kind != "detached_jws" {
+            return Err(WireError::Protocol(
+                "accountability_grant proof must be a detached JWS".to_owned(),
+            ));
+        }
+        self.proof.validate_production()
     }
 
     pub fn validate_lifecycle_at(&self, now: DateTime<Utc>) -> Result<()> {
@@ -258,69 +257,136 @@ impl AccountabilityGrantPayload {
     }
 }
 
+/// Canonical business value of the `identity_accountability` typed current
+/// result (`accountability-grant.schema.json#/$defs/accountability_projection`).
+///
+/// One record has two registered writers: the independent
+/// `ak.identity.accountability_grant` and the atomic accountability projection
+/// of `ak.agent.provision` (`zh/models/actor.md` section 3.3.1). Neither the
+/// inner proof nor a source Event reference is part of the value; the head
+/// Event and its accepting Commit carry provenance.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityProjection {
+    pub issuer_id: DidCoreId,
+    pub subject_id: DidCoreId,
+    pub accountability_scope: AccountabilityScopeSet,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub grant_status: AccountabilityGrantStatus,
+}
+
+impl AccountabilityProjection {
+    /// The independent writer's `value_projection`: every member is the signed
+    /// payload member, the scope normalized, `expires_at` only when present.
+    pub fn from_grant(grant: &AccountabilityGrantPayload) -> Result<Self> {
+        grant.validate_shape()?;
+        Ok(Self {
+            issuer_id: grant.issuer_id.clone(),
+            subject_id: grant.subject_id.clone(),
+            accountability_scope: grant.accountability_scope.normalized_set()?,
+            not_before: grant.not_before,
+            expires_at: grant.expires_at,
+            grant_status: grant.grant_status,
+        })
+    }
+
+    /// The provision writer's `value_projection`: `not_before` is the carrying
+    /// envelope's `created_at`, which admission requires to equal the signed
+    /// payload time byte for byte; `expires_at` is absent and the status is
+    /// the literal `active`.
+    pub fn from_provision(
+        provision: &crate::events_payloads::agent::AgentProvisionPayload,
+        envelope_created_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        if canonical::format_timestamp_canonical(provision.created_at)
+            != canonical::format_timestamp_canonical(envelope_created_at)
+        {
+            return Err(WireError::Protocol(
+                "ak.agent.provision payload.created_at must equal envelope.created_at".to_owned(),
+            ));
+        }
+        Ok(Self {
+            issuer_id: provision.controller_principal_id.clone(),
+            subject_id: provision.agent_id.clone(),
+            accountability_scope: AccountabilityScopeSet::normalize([
+                AccountabilityScopeKind::AgentOperator,
+            ])?,
+            not_before: envelope_created_at,
+            expires_at: None,
+            grant_status: AccountabilityGrantStatus::Active,
+        })
+    }
+
+    /// Whether this record verifies an `accountable_principal_ids` entry at
+    /// the frozen admission time `now` (`zh/models/actor.md` section 3.3.1).
+    pub fn verifies_at(&self, now: DateTime<Utc>) -> bool {
+        self.grant_status == AccountabilityGrantStatus::Active
+            && self.not_before <= now
+            && self.expires_at.is_none_or(|expires_at| now <= expires_at)
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod projection_tests {
+    use serde_json::json;
+
     use super::*;
 
-    #[test]
-    fn accountability_scope_is_closed_non_empty_and_unique() {
-        assert!(
-            serde_json::from_value::<AccountabilityScope>(serde_json::json!("custom")).is_err()
-        );
-        assert!(
-            AccountabilityScope::Multiple(Vec::new())
-                .validate()
-                .is_err()
-        );
-        assert!(
-            AccountabilityScope::Multiple(vec![
-                AccountabilityScopeKind::ContractedService,
-                AccountabilityScopeKind::ContractedService,
-            ])
-            .validate()
-            .is_err()
-        );
+    fn grant(scope: Value, expires_at: Option<&str>) -> AccountabilityGrantPayload {
+        let mut value = json!({
+            "schema": "ak.schema.accountability_grant.v1",
+            "issuer_id": "ak:did_core:web:alice.example",
+            "subject_id": "ak:did_core:web:agent.example",
+            "accountability_scope": scope,
+            "not_before": "2026-01-01T00:00:00.000Z",
+            "grant_status": "active",
+            "proof": {
+                "kind": "detached_jws",
+                "verification_method": "did:web:alice.example#key-1",
+                "payload_digest": format!("sha256:{}", "3".repeat(64)),
+                "created_at": "2026-01-01T00:00:00.000Z",
+                "jws": "eyJhbGciOiJFZERTQSJ9..c2lnbmF0dXJl"
+            }
+        });
+        if let Some(expires_at) = expires_at {
+            value["expires_at"] = json!(expires_at);
+        }
+        serde_json::from_value(value).unwrap()
     }
 
     #[test]
-    fn accountability_scope_kats_and_domain_equality_are_canonical() {
-        let singleton = AccountabilityScope::Single(AccountabilityScopeKind::Employment);
-        let singleton_array =
-            AccountabilityScope::Multiple(vec![AccountabilityScopeKind::Employment]);
-        assert_eq!(singleton, singleton_array);
-        assert_eq!(
-            singleton.scope_set_component().unwrap(),
-            "CbgdIHArQNPwYmdaAOdv1G1B9LEmtBtgkYaG6tLR2Bg"
-        );
+    fn grant_projection_normalizes_scope_and_keeps_absent_expiry_absent() {
+        let single =
+            AccountabilityProjection::from_grant(&grant(json!("employment"), None)).unwrap();
+        let array =
+            AccountabilityProjection::from_grant(&grant(json!(["employment"]), None)).unwrap();
+        assert_eq!(single, array);
+        let value = serde_json::to_value(&single).unwrap();
+        assert_eq!(value["accountability_scope"], json!(["employment"]));
+        assert!(value.get("expires_at").is_none());
+        assert!(value.get("proof").is_none());
+    }
 
-        let reordered = AccountabilityScope::Multiple(vec![
-            AccountabilityScopeKind::Employment,
-            AccountabilityScopeKind::AgentOperator,
-        ]);
-        let canonical = AccountabilityScope::Multiple(vec![
-            AccountabilityScopeKind::AgentOperator,
-            AccountabilityScopeKind::Employment,
-        ]);
-        assert_eq!(reordered, canonical);
-        assert_eq!(
-            reordered.scope_set_component().unwrap(),
-            "AWANhOFZ5FNgAQMK9mqCeI3ATOZR6o7qwshmpk3ij3U"
-        );
-
-        let all = AccountabilityScope::Multiple(vec![
-            AccountabilityScopeKind::Employment,
-            AccountabilityScopeKind::ContractedService,
-            AccountabilityScopeKind::AgentOperator,
-        ]);
-        assert_eq!(
-            all.scope_set_component().unwrap(),
-            "0sKY5mg--AeXwZefBw5FAjz9rpQ3NuCVm22vRPKJrLE"
-        );
-
-        let duplicated = AccountabilityScope::Multiple(vec![
-            AccountabilityScopeKind::Employment,
-            AccountabilityScopeKind::Employment,
-        ]);
-        assert!(duplicated.canonicalized_for_authoring().is_err());
+    #[test]
+    fn verification_window_is_inclusive_and_status_gated() {
+        let projection = AccountabilityProjection::from_grant(&grant(
+            json!(["employment", "agent_operator"]),
+            Some("2026-06-01T00:00:00.000Z"),
+        ))
+        .unwrap();
+        let at = |value: &str| value.parse::<DateTime<Utc>>().unwrap();
+        assert!(!projection.verifies_at(at("2025-12-31T23:59:59.999Z")));
+        assert!(projection.verifies_at(at("2026-01-01T00:00:00.000Z")));
+        assert!(projection.verifies_at(at("2026-06-01T00:00:00.000Z")));
+        assert!(!projection.verifies_at(at("2026-06-01T00:00:00.001Z")));
+        let revoked = AccountabilityProjection {
+            grant_status: AccountabilityGrantStatus::Revoked,
+            ..projection
+        };
+        assert!(!revoked.verifies_at(at("2026-03-01T00:00:00.000Z")));
     }
 }

@@ -2,7 +2,8 @@
 
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
-    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
+    CircleMembershipOutcome, CircleReadView, CircleScopeRotateOutcome,
+    CircleScopeRotateRequestBody, CircleView,
 };
 use arkret_wire::ActorId;
 use reqwest::Method;
@@ -15,6 +16,12 @@ impl Client {
             .request(Method::GET, "/_arkret/self/circles")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
+    }
+
+    pub async fn circle_get(&self, circle_id: &str) -> Result<CircleReadView> {
+        reject_path_segment(circle_id)?;
+        self.get(&format!("/_arkret/self/circles/{circle_id}"))
+            .await
     }
 
     pub async fn circle_create(&self, request: &CircleCreateRequestBody) -> Result<CircleView> {

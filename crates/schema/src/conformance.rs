@@ -142,9 +142,9 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         conformance_suite(
             ConformanceProfile::Hlc,
             "hlc-monotonic-canonical-form",
-            "HLC values use fixed-width lowercase hex and preserve causal ordering.",
+            "HLC values use fixed-width lowercase hex as a private concurrent-update preference; they never order shared governance history.",
             None,
-            json!({"fixed_width": true, "lowercase": true, "causal_ordering": true}),
+            json!({"fixed_width": true, "lowercase": true, "private_only": true, "shared_governance_ordering": false}),
         ),
         conformance_suite(
             ConformanceProfile::Cursor,
@@ -155,31 +155,31 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         ),
         conformance_suite(
             ConformanceProfile::StateResolution,
-            "canonical-container-position-event-kinds",
-            "Reducer fixtures use canonical container operation kinds.",
+            "canonical-strand-position-event-kinds",
+            "Reducer fixtures use the canonical Strand position operation kinds.",
             Some(SchemaId::EVENT_V1),
             json!({
                 "order_independent": true,
                 "requires_merkle_root": true,
                 "canonical_kinds": [
-                    EventKind::ContainerMoveItem,
-                    EventKind::ContainerRebalance
+                    EventKind::StrandMove,
+                    EventKind::StrandReorder
                 ]
             }),
         ),
         conformance_suite(
             ConformanceProfile::Redaction,
-            "redaction-preserves-reference-fields",
-            "Redaction removes payload while preserving IDs, actor, HLC and semantic refs.",
+            "committed-event-disclosure-is-not-a-partial-event",
+            "Committed Event reads carry either the complete canonical Event or a minimal withheld marker; they never synthesize a partial Event envelope.",
             Some(SchemaId::EVENT_V1),
-            json!({"preserve": ["event_id", "actor_id", "hlc", "refs"]}),
+            json!({"full_event_or_withheld": true, "partial_event": false}),
         ),
         conformance_suite(
             ConformanceProfile::Capability,
-            "facet-aware-capability-frontier-validation",
-            "Capability checks run at the causal frontier and can fail closed on allowed facets.",
+            "facet-aware-capability-checkpoint-validation",
+            "Capability checks run at the accepted commit checkpoint and can fail closed on allowed facets.",
             Some(SchemaId::CAPABILITY_V1),
-            json!({"fail_closed": true, "frontier_bound": true, "allowed_facets": true}),
+            json!({"fail_closed": true, "checkpoint_bound": true, "allowed_facets": true}),
         ),
         conformance_suite(
             ConformanceProfile::Sync,

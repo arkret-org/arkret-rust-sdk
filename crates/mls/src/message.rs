@@ -1,4 +1,5 @@
 use arkret_models_crypto::{EncryptedEnvelope, EncryptedPayload, EventContentPreEncryptionHeader};
+use arkret_wire::MlsGroupId;
 use serde::{Deserialize, Serialize};
 
 use crate::group::ArkretMlsGroup;
@@ -12,7 +13,7 @@ pub struct EncryptedMessage {
 
 pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
-/// Assemble the encrypted envelope for an already-sealed payload.
+/// Assemble the encrypted envelope for an already-encrypted payload.
 pub fn encrypted_envelope_from_payload(payload: &EncryptedPayload) -> Result<EncryptedEnvelope> {
     payload.to_envelope().map_err(Into::into)
 }
@@ -31,7 +32,6 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
         || header.content_type != envelope.content_type
         || header.epoch != epoch
         || &header.group_state_ref != envelope.encryption_context.group_state_ref()
-        || header.counter != envelope.encryption_context.counter()
     {
         return Err(Error::Protocol(
             "reconstructed pre-encryption header does not match the minimal envelope".to_owned(),
@@ -45,7 +45,6 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
         ciphertext: envelope.ciphertext.clone(),
         pre_encryption_header: header,
         payload_digest: envelope.payload_digest()?,
-        counter: envelope.encryption_context.counter(),
     })
 }
 
@@ -68,8 +67,8 @@ pub enum MessageCryptoUnavailable {
     NoSession,
     Removed,
     WrongGroup {
-        expected: String,
-        actual: String,
+        expected: MlsGroupId,
+        actual: MlsGroupId,
     },
     EpochUnavailable {
         local_epoch: u64,

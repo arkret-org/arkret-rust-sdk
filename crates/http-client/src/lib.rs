@@ -34,16 +34,21 @@ mod builder;
 mod client_internals;
 mod endpoints;
 mod error;
+mod key_backup_client;
+pub mod own_station_results;
 mod request;
+mod service_method_resolution;
+pub mod station_connection;
 mod subscribe_body;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of
 // which exist on the wasm32 fetch backend — native-only.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http_did_resolver;
-pub mod key_backup_client;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod service_resolution_fetcher;
+#[cfg(not(target_arch = "wasm32"))]
+mod tls_roots;
 
 pub use account_subscribe::AccountSubscribeFolder;
 pub use builder::ClientBuilder;
@@ -58,20 +63,26 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
-    EventsSubscribeFrameStream, EventsSubscribeOptions, RESUMABLE_UPLOAD_FEATURE,
-    RESUMABLE_UPLOAD_THRESHOLD_BYTES, SignalSubscribeFrameStream, blob_resumable_upload_base_url,
+    COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
+    CommittedEventSubscribeOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
+    STREAM_SCAN_MAX_LIMIT, SignalSendTransportObservation, SignalSubscribeFrameStream,
+    blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
+pub use key_backup_client::KeyBackupClient;
 #[cfg(not(target_arch = "wasm32"))]
-pub use service_resolution_fetcher::{
-    MaterializedServiceResolution, SERVICE_DESCRIBE_FETCH_MAX_BYTES,
-    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
-};
+pub use service_resolution_fetcher::{MaterializedServiceResolution, ServiceResolutionFetcher};
+
+pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
+pub const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 1024 * 1024;
+pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 pub const HEADER_OPERATION: &str = "Arkret-Operation";
+pub const HEADER_SOURCE_SERVICE_ID: &str = "Source-Service-ID";
+pub const HEADER_DESTINATION_SERVICE_ID: &str = "Destination-Service-ID";
 
 /// Default total request timeout applied per request when
 /// [`ClientBuilder::timeout`] is not called. reqwest itself defaults to
@@ -79,7 +90,7 @@ pub const HEADER_OPERATION: &str = "Arkret-Operation";
 /// never-ending body) suspend the caller forever; this crate is the
 /// shared transport for all Arkret services, so the default must be
 /// bounded. The long-lived NDJSON subscribe streams
-/// (`account_subscribe_frames`, `events_subscribe_frames`) are exempt — they
+/// (`account_subscribe_frames`, `committed_event_subscribe_frames`) are exempt — they
 /// stay open by design. Override with [`ClientBuilder::timeout`] (an
 /// explicit value applies client-wide, including streams).
 /// Native-only — the browser owns timeouts on wasm32.
@@ -176,13 +187,14 @@ impl DpopAuth {
     }
 }
 
-/// Optional RFC 9421 HTTP message signer for account-client requests.
+/// Optional RFC 9421 HTTP message signer for typed client requests.
 ///
 /// The signer is applied immediately before a request is executed so retry
 /// attempts get fresh `created` / `expires` values. It is intentionally
-/// separate from [`Auth`]: Arkret account-client calls commonly present both a
-/// DPoP session grant and an HTTP message signature bound to the grant's
-/// signing key.
+/// separate from [`Auth`]: account-client calls may present both a DPoP session
+/// grant and an HTTP message signature, while service-to-service calls such as
+/// public Push Gateway handoff must use this signer without forwarding the
+/// account authorization.
 #[derive(Clone)]
 pub struct HttpMessageSigner {
     key_id: String,
@@ -380,8 +392,15 @@ pub struct Client {
     pub(crate) base_url: Url,
     pub(crate) http: reqwest::Client,
     pub(crate) auth: Option<Auth>,
+    pub(crate) own_station_context: Option<Arc<own_station_results::OwnStationContext>>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
+    pub(crate) service_signature_identity: Option<(arkret_wire::DidCoreId, arkret_wire::DidCoreId)>,
+    pub(crate) managed_device_signature_identity: Option<(
+        arkret_models_integration::AppletManagedDeviceMetadata,
+        arkret_wire::DidCoreId,
+    )>,
     pub(crate) allow_insecure_localhost: bool,
+    pub(crate) loopback_method_scope: Option<service_method_resolution::LoopbackMethodScope>,
     pub(crate) retry: RetryConfig,
     pub(crate) user_agent: Option<String>,
     /// Per-request total timeout applied by [`Client::request`] when the

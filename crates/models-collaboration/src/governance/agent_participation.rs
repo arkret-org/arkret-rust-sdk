@@ -272,201 +272,175 @@ pub struct AgentParticipationOutcome {
     pub agent_participation_entries: Vec<AgentParticipationEntry>,
 }
 
-#[cfg(test)]
-mod tests {
-    use arkret_wire::{CircleId, RealmId, StrandId};
+/// An observation from one exact authenticated Agent session. This local
+/// value is never a participation-current verdict or a wire carrier.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentParticipationObservation {
+    pub agent_account: arkret_wire::AccountId,
+    pub controller_account: arkret_wire::AccountId,
+    pub grant_id: arkret_wire::SessionGrantId,
+    pub agent_key_authorization_ref: arkret_wire::EventId,
+    pub verification_method: arkret_wire::DidUrl,
+    pub session_id: String,
+    pub observed_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub entries: Vec<AgentParticipationEntry>,
+}
 
-    use super::*;
-
-    fn p(reply: bool, mention: bool, aob: bool) -> ParticipationBits {
-        ParticipationBits {
-            reply_message: reply,
-            reaction_add: reply,
-            reaction_remove: reply,
-            accept_third_party_mention: mention,
-            act_on_behalf: aob,
-        }
-    }
-
-    #[test]
-    fn subset_and_intersect() {
-        assert!(ParticipationBits::NONE.is_subset_of(ParticipationBits::ALL));
-        assert!(!ParticipationBits::ALL.is_subset_of(ParticipationBits::NONE));
-        assert!(p(true, false, false).is_subset_of(p(true, true, false)));
-        assert!(!p(true, true, false).is_subset_of(p(true, false, false)));
-        assert_eq!(
-            p(true, true, false).intersect(p(true, false, true)),
-            p(true, false, false)
-        );
-    }
-
-    #[test]
-    fn tighten_only_rejects_widening() {
-        // Parent allows reply only; child tries to add mention → reject.
-        let parent = p(true, false, false);
-        let child = p(true, true, false);
-        assert!(matches!(
-            validate_agent_participation_tightens(parent, child),
-            Err(AgentParticipationError::CeilingWiden { .. })
-        ));
-        // Child that only drops bits is accepted.
-        assert!(validate_agent_participation_tightens(parent, p(false, false, false)).is_ok());
-        assert!(validate_agent_participation_tightens(parent, parent).is_ok());
-    }
-
-    #[test]
-    fn complete_ceiling_tightens_parent() {
-        let parent = p(true, false, true);
-        let child = p(false, false, true);
-        assert_eq!(
-            validate_agent_participation_ceiling_tightens(parent, child).unwrap(),
-            p(false, false, true)
-        );
-    }
-
-    #[test]
-    fn governance_policy_wraps_agent_ceiling() {
-        let policy = AgentParticipationPolicy {
-            agent: Some(ParticipationBits {
-                reply_message: true,
-                reaction_add: false,
-                reaction_remove: false,
-                accept_third_party_mention: false,
-                act_on_behalf: false,
-            }),
+impl AgentParticipationObservation {
+    /// The caller authenticates the exact session claims before using this
+    /// helper. Claim parsing alone does not authenticate an issuer.
+    pub fn from_authenticated_claims(
+        claims: &arkret_models_identity::SignedSessionGrantClaims,
+    ) -> Result<Self, String> {
+        let arkret_models_identity::SessionGrantHolderBinding::AgentRuntime {
+            agent_id,
+            agent_key_authorization_ref,
+            verification_method,
+        } = &claims.holder_binding
+        else {
+            return Err("participation overlay requires an Agent runtime session".into());
         };
-        assert_eq!(
-            serde_json::to_value(policy).unwrap(),
-            serde_json::json!({
-                "agent": {
-                    "reply_message": true,
-                    "reaction_add": false,
-                    "reaction_remove": false,
-                    "accept_third_party_mention": false,
-                    "act_on_behalf": false
-                }
-            })
-        );
-        assert!(
-            serde_json::from_value::<AgentParticipationPolicy>(serde_json::json!({
-                "reply_message": true
-            }))
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn ceiling_declaration_rejects_explicit_widening() {
-        let parent = p(true, false, false);
-        let child = p(true, true, false);
-        assert!(matches!(
-            validate_agent_participation_ceiling_tightens(parent, child),
-            Err(AgentParticipationError::CeilingWiden { .. })
-        ));
-    }
-
-    #[test]
-    fn effective_is_ceiling_meet_selection() {
-        let ceiling = p(true, true, false);
-        let selection = p(true, false, true);
-        assert_eq!(
-            effective_participation(ceiling, selection),
-            p(true, false, false)
-        );
-    }
-
-    #[test]
-    fn ceiling_chain_folds_by_intersection() {
-        // deployment ⊇ realm ⊇ circle ⊇ strand.
-        let chain = [
-            p(true, true, true),   // deployment
-            p(true, true, false),  // realm
-            p(true, false, false), // circle
-            p(true, false, false), // strand
-        ];
-        assert_eq!(fold_ceiling_chain(chain), p(true, false, false));
-    }
-
-    #[test]
-    fn scope_key_canonical() {
-        let realm =
-            RealmId::new("ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_".to_owned())
-                .unwrap();
-        let circle =
-            CircleId::new("ak:circle:ATJAIjBI0IsGktoRBk8hQVl6fL1XAnXvUYA7NmoAmBHA".to_owned())
-                .unwrap();
-        let strand =
-            StrandId::new("ak:strand:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH".to_owned())
-                .unwrap();
-
-        assert_eq!(
-            ParticipationScope::Realm {
-                realm_id: realm.clone(),
-            }
-            .scope_key(),
-            "realm:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_"
-        );
-        assert_eq!(
-            ParticipationScope::Circle {
-                realm_id: realm.clone(),
-                circle_id: circle,
-            }
-            .scope_key(),
-            "circle:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ak:circle:ATJAIjBI0IsGktoRBk8hQVl6fL1XAnXvUYA7NmoAmBHA"
-        );
-        assert_eq!(
-            ParticipationScope::Strand {
-                realm_id: realm,
-                strand_id: strand,
-            }
-            .scope_key(),
-            "strand:ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_:ak:strand:ASZ8VNF9qzH4Hcjd-1qOOKONYlZmfQOIRvMYdkQ0XXBH"
-        );
-    }
-
-    #[test]
-    fn participation_entry_carries_exact_next_replace_echo() {
-        let value = serde_json::json!({
-            "target_scope": {
-                "kind": "realm",
-                "realm_id": "ak:realm:AW8g2h2iHdN9i-z7GORwPPXCV0N87FIhj-8Zy3R5Z-V_"
-            },
-            "selection": {
-                "reply_message": true,
-                "reaction_add": false,
-                "reaction_remove": false,
-                "accept_third_party_mention": false,
-                "act_on_behalf": false
-            },
-            "version": 7,
-            "next_replace_input": { "expected_version": 7 }
-        });
-        let entry: AgentParticipationEntry = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(entry).unwrap(), value);
-
-        for invalid in [
-            {
-                let mut value = value.clone();
-                value.as_object_mut().unwrap().remove("next_replace_input");
-                value
-            },
-            {
-                let mut value = value.clone();
-                value["next_replace_input"]["expected_version"] = serde_json::json!(6);
-                value
-            },
-            {
-                let mut value = value.clone();
-                value["next_replace_input"]["unknown"] = serde_json::json!(true);
-                value
-            },
-            {
-                let mut value = value;
-                value["next_replace_input"]["expected_version"] = serde_json::json!("7");
-                value
-            },
-        ] {
-            assert!(serde_json::from_value::<AgentParticipationEntry>(invalid).is_err());
+        if agent_id != &claims.account_id.principal_id
+            || claims.account_id.station_id != claims.audience_id
+        {
+            return Err("Agent participation observation has another Account/Station".into());
         }
+        let details = claims
+            .scope_details
+            .as_ref()
+            .ok_or("Agent session has no scope details")?;
+        let controller: arkret_wire::DidCoreId = serde_json::from_value(
+            details
+                .get("controller_principal_id")
+                .ok_or("Agent session has no controller binding")?
+                .clone(),
+        )
+        .map_err(|e| e.to_string())?;
+        let entries: Vec<AgentParticipationEntry> = serde_json::from_value(
+            details
+                .get("participation")
+                .ok_or("Agent session has no participation observation")?
+                .clone(),
+        )
+        .map_err(|e| e.to_string())?;
+        let mut scopes = std::collections::BTreeSet::new();
+        for entry in &entries {
+            entry.validate()?;
+            if !scopes.insert(entry.scope.scope_key()) {
+                return Err("duplicate participation target scope".into());
+            }
+        }
+        Ok(Self {
+            agent_account: claims.account_id.clone(),
+            controller_account: arkret_wire::AccountId::new(
+                controller,
+                claims.account_id.station_id.clone(),
+            ),
+            grant_id: claims.grant_id.clone(),
+            agent_key_authorization_ref: agent_key_authorization_ref.clone(),
+            verification_method: verification_method.clone(),
+            session_id: claims.session_id.clone(),
+            observed_at: claims.not_before,
+            expires_at: claims.expires_at,
+            entries,
+        })
+    }
+
+    /// Use the most specific observed selection only to suppress local work.
+    /// This does not assert that the owner-current or governance cut is current.
+    pub fn observed_selection_for_scopes(
+        &self,
+        scopes: &[ParticipationScope],
+    ) -> Option<ParticipationBits> {
+        scopes.iter().rev().find_map(|scope| {
+            self.entries
+                .iter()
+                .find(|entry| &entry.scope == scope)
+                .map(|entry| entry.selection)
+        })
+    }
+
+    pub fn validate_successor(&self, next: &Self) -> Result<(), String> {
+        if self.agent_account != next.agent_account
+            || self.controller_account != next.controller_account
+            || self.agent_key_authorization_ref != next.agent_key_authorization_ref
+            || self.verification_method != next.verification_method
+            || next.observed_at < self.observed_at
+        {
+            return Err("participation observation changed owner or moved backwards".into());
+        }
+        for entry in &next.entries {
+            if let Some(old) = self.entries.iter().find(|old| old.scope == entry.scope)
+                && (entry.version < old.version
+                    || (entry.version == old.version && entry.selection != old.selection))
+            {
+                return Err("participation selection version regressed or conflicts".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    fn observation() -> AgentParticipationObservation {
+        let realm = RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [7; 32],
+        ));
+        let scope = ParticipationScope::Realm { realm_id: realm };
+        AgentParticipationObservation {
+            agent_account: arkret_wire::AccountId::new(
+                "ak:did_core:web:agent.example".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            ),
+            controller_account: arkret_wire::AccountId::new(
+                "ak:did_core:web:controller.example".parse().unwrap(),
+                "ak:did_core:web:station.example".parse().unwrap(),
+            ),
+            grant_id: arkret_wire::SessionGrantId::from_issuance_digest([8; 32]),
+            agent_key_authorization_ref: arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [9; 32],
+            ),
+            verification_method: arkret_wire::DidUrl::new("did:web:agent.example#runtime").unwrap(),
+            session_id: "session".into(),
+            observed_at: "2026-10-05T00:00:00.000Z".parse().unwrap(),
+            expires_at: "2026-10-05T00:05:00.000Z".parse().unwrap(),
+            entries: vec![AgentParticipationEntry {
+                scope,
+                selection: ParticipationBits::ALL,
+                version: 2,
+                next_replace_input: ParticipationNextReplaceInput {
+                    expected_version: 2,
+                },
+            }],
+        }
+    }
+    #[test]
+    fn refresh_observation_rejects_rollback_conflict_and_changed_owner() {
+        let old = observation();
+        let mut next = old.clone();
+        next.entries[0].version = 1;
+        next.entries[0].next_replace_input.expected_version = 1;
+        assert!(old.validate_successor(&next).is_err());
+        let mut next = old.clone();
+        next.entries[0].selection = ParticipationBits::NONE;
+        assert!(old.validate_successor(&next).is_err());
+        next.entries[0].version = 3;
+        next.entries[0].next_replace_input.expected_version = 3;
+        old.validate_successor(&next).unwrap();
+        assert_eq!(
+            next.observed_selection_for_scopes(&[next.entries[0].scope.clone()]),
+            Some(ParticipationBits::NONE)
+        );
+        next.controller_account.station_id = "ak:did_core:web:another.example".parse().unwrap();
+        assert!(old.validate_successor(&next).is_err());
+        let mut next = old.clone();
+        next.agent_key_authorization_ref =
+            arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [10; 32]);
+        assert!(old.validate_successor(&next).is_err());
     }
 }

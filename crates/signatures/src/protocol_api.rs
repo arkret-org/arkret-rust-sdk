@@ -1,12 +1,5 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
-#[cfg(any(feature = "signer", test))]
-#[path = "signer.rs"]
-pub mod signer;
-
-#[cfg(any(feature = "signer", test))]
-pub use signer::Ed25519PayloadSigner;
-
 // Unified Event Envelope proof builder/verifier pipeline. Available without
 // the `signer` feature (canonical bytes + traits + dev-proof gating); the
 // `signer` feature also exposes the Ed25519 detached-JWS backend.
@@ -50,7 +43,7 @@ pub mod webvh;
 pub mod service_identity;
 
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
-// soland's `verify_realm_organization_proof_signature`.
+// coland's `verify_realm_organization_proof_signature`.
 #[cfg(feature = "collaboration")]
 #[path = "realm_organization.rs"]
 pub mod realm_organization;
@@ -102,7 +95,8 @@ pub use jwt::{
 pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, PublicKeyMaterial, SignedPayload, SignerError, VerifierError,
-    build_proof_envelope, detached_jws_kind, sign_ed25519_detached_jws,
+    build_proof_envelope, detached_jws_kind, ed25519_detached_jws_from_signature,
+    ed25519_detached_jws_signing_input, sign_ed25519_detached_jws,
     verify_detached_ed25519_signature, verify_ed25519_detached_jws_payload_proof,
     verify_ed25519_detached_jws_proof, verify_ed25519_detached_jws_proof_with_digest_suite,
     verify_ed25519_signal_proof,
@@ -296,8 +290,8 @@ mod tests {
         DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
-    /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
-    /// (registered active rows, no client impl) and MUST NOT be advertised as
+    /// SDK-SOTA-01 / SDK-CRY-02: optional `ES256` is not implemented here,
+    /// and `ML-DSA-65` is reserved. Neither may be advertised as
     /// usable production algorithms while the Ed25519 verifier is the only
     /// signer/verifier shipped.
     #[test]
@@ -326,7 +320,6 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
-            signer_resolution_evidence_ref: None,
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single(actor("service").to_string())),
@@ -377,7 +370,6 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
-            signer_resolution_evidence_ref: None,
             created_at: Utc::now(),
             domain: None,
             audience: Some(Audience::Single(
@@ -395,10 +387,13 @@ mod tests {
 
         let error =
             verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true)).unwrap_err();
-        assert!(
-            error.to_string().contains("proof_binding_missing"),
-            "{error}"
-        );
+        assert!(matches!(
+            error,
+            Error::Wire(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::SchemaViolation,
+                ..
+            })
+        ));
 
         proof.domain = Some("ak:trust_domain:example.net".to_owned());
         assert!(

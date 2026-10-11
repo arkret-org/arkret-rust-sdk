@@ -27,7 +27,7 @@
 //! * `directory`— directory / identity-registry surfaces.
 //! * `admin` — deployment / hardening / constraint posture profiles that describe operator stance
 //!   rather than wire conformance.
-//! * `interop` — explicit cross-role bridge surfaces (mimi_interop, matrix_compat,
+//! * `interop` — explicit cross-role bridge surfaces (mimi_interop,
 //!   push_gateway.matrix_passthrough, encoding / hash interop, conformance vector packs).
 //!
 //! A [`ServiceKind`] declares which roles it can legitimately claim; profiles
@@ -112,7 +112,7 @@ impl fmt::Display for ClaimedProfile {
 
 /// Provenance for a [`ProfileClaim`].
 ///
-/// Tracks how strong the claim is so downstream tooling (cotest gate, soland
+/// Tracks how strong the claim is so downstream tooling (cotest gate, coland
 /// `describe`, inkson capability manifest) can distinguish "we ran the suite
 /// and it passed" from "the implementor asserts this themselves" from
 /// "experimental / not-yet-in-v1-catalog".
@@ -252,7 +252,7 @@ impl std::error::Error for ProfileClaimError {}
 ///
 /// Role allow-set is derived from `ServiceKind` once, then reused for every
 /// claim. `interop` is added to every allow-set because the spec defines that
-/// role specifically as the cross-role bridge namespace (matrix_compat,
+/// role specifically as the cross-role bridge namespace (mimi_interop,
 /// push_gateway.matrix_passthrough, encoding / hash interop vectors).
 #[derive(Clone, Debug)]
 pub struct ProfileValidator {
@@ -290,7 +290,6 @@ impl ProfileValidator {
             | ServiceKind::AppletService
             | ServiceKind::AgentRuntime
             | ServiceKind::ModerationService
-            | ServiceKind::Notary
             | ServiceKind::RecoveryService => {
                 vec![ProfileRole::Server]
             }
@@ -418,7 +417,7 @@ mod tests {
                 // Admin profiles (deployment posture) are allowed on the
                 // client because clients ship with a deployment stance.
                 ProfileClaim::self_claimed("ak.profile.personal_node.v1"),
-                ProfileClaim::conformance_verified("ak.profile.matrix_compat.v1"),
+                ProfileClaim::conformance_verified("ak.profile.mimi_interop.v1"),
             ])
             .expect("client + client_profile + admin + interop must validate");
     }

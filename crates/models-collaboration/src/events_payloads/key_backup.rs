@@ -24,10 +24,8 @@ struct UnsignedKeyBackupActiveSeriesAuthData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupActiveSeriesFrontierRef {
-    pub frontier_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SealId>,
+pub struct KeyBackupActiveSeriesSourceCommitRef {
+    pub realm_commit_id: RealmCommitId,
     pub device_generation_ref: u64,
 }
 
@@ -39,7 +37,7 @@ pub struct KeyBackupActiveSeries {
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
-    pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    pub source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
@@ -60,7 +58,7 @@ pub struct UnsignedKeyBackupActiveSeries {
     active_series_id: BackupSeriesId,
     series_pointer_version: u64,
     previous_series_ids: Vec<BackupSeriesId>,
-    frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
     auth_data: UnsignedKeyBackupActiveSeriesAuthData,
@@ -76,8 +74,7 @@ impl UnsignedKeyBackupActiveSeries {
         active_series_id: BackupSeriesId,
         series_pointer_version: u64,
         previous_series_ids: Vec<BackupSeriesId>,
-        frontier_digest: Hash,
-        seal_ref: Option<SealId>,
+        realm_commit_id: RealmCommitId,
         issued_at: DateTime<Utc>,
         verification_method: DidUrl,
         trust_anchor: ControllerBackupTrustAnchor,
@@ -117,9 +114,8 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id,
             series_pointer_version,
             previous_series_ids,
-            frontier_ref: KeyBackupActiveSeriesFrontierRef {
-                frontier_digest,
-                seal_ref,
+            source_commit_ref: KeyBackupActiveSeriesSourceCommitRef {
+                realm_commit_id,
                 device_generation_ref: trust_anchor.generation_ref,
             },
             issued_at,
@@ -147,7 +143,7 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id: self.active_series_id,
             series_pointer_version: self.series_pointer_version,
             previous_series_ids: self.previous_series_ids,
-            frontier_ref: self.frontier_ref,
+            source_commit_ref: self.source_commit_ref,
             issued_at: self.issued_at,
             auth_data: KeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method,
@@ -174,7 +170,7 @@ impl KeyBackupActiveSeries {
             active_series_id: self.active_series_id.clone(),
             series_pointer_version: self.series_pointer_version,
             previous_series_ids: self.previous_series_ids.clone(),
-            frontier_ref: self.frontier_ref.clone(),
+            source_commit_ref: self.source_commit_ref.clone(),
             issued_at: self.issued_at,
             auth_data: UnsignedKeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method.clone(),
@@ -184,16 +180,6 @@ impl KeyBackupActiveSeries {
             extra: self.extra.clone(),
         };
         unsigned.signing_payload_bytes()
-    }
-
-    /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
-    pub fn cell_ref(&self) -> Result<CellRef> {
-        let actor_key = self.actor_id.canonical_key()?;
-        let subject = composite_subject(&[actor_key.as_str(), self.backup_kind.as_str()])?;
-        Ok(CellRef::new(format!(
-            "ak:cell:{}:{subject}",
-            CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
-        ))?)
     }
 }
 
@@ -207,7 +193,7 @@ pub struct KeyBackupActiveSeriesHead {
     pub record_digest: String,
 }
 
-/// Current reducer-managed generation and accepted device authorization used
+/// Current authority-projected generation and accepted device authorization used
 /// to sign one active-series selection.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControllerBackupTrustAnchor {
@@ -219,7 +205,7 @@ impl ControllerBackupTrustAnchor {
     pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
         Self {
             authorize_event_id: record.auth_data.device_authorize_event_id.clone(),
-            generation_ref: record.frontier_ref.device_generation_ref,
+            generation_ref: record.source_commit_ref.device_generation_ref,
         }
     }
 }
@@ -242,18 +228,17 @@ pub fn resolve_controller_backup_trust_anchor(
         .and_then(|devices| devices.get(device_id))
         .ok_or(ControllerBackupTrustAnchorError::DeviceUnknown)?;
     let generation_state = outcome.generation_for(account_id);
+    // The row is already positioned by `account_id` and the `device_id` map key
+    // its own Station matched against the verified origin attestation, so the
+    // self projection carries no identity of its own to re-check.
     record
-        .validate_attestation_binding(account_id, device_id)
+        .validate_projection()
         .map_err(|_| ControllerBackupTrustAnchorError::DeviceNotCurrent)?;
     if !record.is_usable_in_generation(generation_state) {
         return Err(ControllerBackupTrustAnchorError::DeviceNotCurrent);
     }
     Ok(ControllerBackupTrustAnchor {
-        authorize_event_id: record
-            .device_projection_attestation
-            .attestation
-            .device_authorize_event_id
-            .clone(),
+        authorize_event_id: record.device_projection.device_authorize_event_id.clone(),
         generation_ref: generation_state
             .expect("usable record has generation state")
             .current_device_generation_ref,
@@ -325,8 +310,7 @@ pub fn validate_key_backup_active_series_transition(
     Ok(next)
 }
 
-/// Validate one active-series record independently of its predecessor. This is
-/// shared by admission, authority, and reducer paths.
+/// Validate one active-series record independently of the prior projection.
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
@@ -386,51 +370,133 @@ fn valid_active_series_extension_key(key: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
+    use arkret_schema::ProtocolSchemaRegistry;
+    use arkret_schema_conformance::schema_registry_from_spec_artifacts;
+    use chrono::TimeZone;
+    use serde_json::{Value, json};
+
     use super::*;
 
-    fn unsigned_fixture() -> UnsignedKeyBackupActiveSeries {
+    fn record() -> KeyBackupActiveSeries {
         UnsignedKeyBackupActiveSeries::new(
-            ActorId::service(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
-            BackupKind::MlsHistory,
-            BackupSeriesId::new("ak:backup_series:019a6760-0000-7000-8000-000000000001".to_owned())
-                .unwrap(),
+            ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkaccount").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+            )),
+            BackupKind::SecretStorage,
+            BackupSeriesId::new("ak:backup_series:01997c77-7ac0-7000-8000-000000000001").unwrap(),
             1,
-            vec![],
-            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
-            DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            DidUrl::new("did:web:alice.example#device-1".to_owned()).unwrap(),
+            Vec::new(),
+            RealmCommitId::from_digest([7; 32]),
+            Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
+            DidUrl::new("did:web:account.example#device-1").unwrap(),
             ControllerBackupTrustAnchor {
-                authorize_event_id: EventId::new(
-                    "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e".to_owned(),
-                )
-                .unwrap(),
-                generation_ref: 1,
+                authorize_event_id: EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [8; 32],
+                ),
+                generation_ref: 3,
             },
         )
         .unwrap()
+        .attach_signature(Base64UrlString::new("AQ").unwrap())
+        .unwrap()
+    }
+
+    fn schema_registry() -> (ProtocolSchemaRegistry, String) {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
+            .expect("the arkret-spec artifacts checkout must be reachable for conformance");
+        let mut registry = schema_registry_from_spec_artifacts(&artifacts)
+            .expect("the spec artifacts must produce a schema registry");
+        let path = artifacts
+            .join("schemas")
+            .join("key-backup-active-series.schema.json");
+        let schema: Value = serde_json::from_str(
+            &fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display())),
+        )
+        .expect("active-series schema must be valid JSON");
+        registry
+            .register_reference_document(schema.clone())
+            .expect("active-series schema declares an absolute $id");
+        let schema_id = "test:key-backup-active-series".to_owned();
+        registry
+            .register_fragment(schema_id.clone(), schema, "#")
+            .expect("active-series schema root must register");
+        (registry, schema_id)
     }
 
     #[test]
-    fn active_series_signing_transcript_kat_is_stable_across_typestates() {
-        const EXPECTED: &str = concat!(
-            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":{"kind":"service","service_id":"ak:did_core:web:alice.example"},"auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":1,"frontier_digest":"sha256:"#,
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            r#"","seal_ref":"ak:seal:sha256:"#,
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            r#""},"issued_at":"2026-08-08T00:00:00.000Z","previous_series_ids":[],"schema":"ak.schema.key_backup_active_series.v1","series_pointer_version":1}"#,
-        );
-        let unsigned = unsigned_fixture();
+    fn active_series_uses_the_closed_source_commit_ref_shape() {
+        let record = record();
+        let value = serde_json::to_value(&record).unwrap();
+        assert!(value.get("source_ref").is_none());
         assert_eq!(
-            unsigned.signing_payload_bytes().unwrap(),
-            EXPECTED.as_bytes()
+            value["source_commit_ref"],
+            json!({
+                "realm_commit_id": record.source_commit_ref.realm_commit_id,
+                "device_generation_ref": 3,
+            })
         );
 
-        let signed = unsigned
-            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
+        let (registry, schema_id) = schema_registry();
+        registry
+            .validate_value(&schema_id, &value)
+            .expect("SDK active-series record must match the live schema");
+        let round_trip: KeyBackupActiveSeries = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(round_trip).unwrap(), value);
+    }
+
+    #[test]
+    fn signing_payload_binds_source_commit_ref_and_excludes_only_signature() {
+        let record = record();
+        let unsigned: Value =
+            arkret_canonical::from_canonical_json_slice(&record.signing_payload_bytes().unwrap())
+                .unwrap();
+        assert_eq!(
+            unsigned["source_commit_ref"]["realm_commit_id"],
+            record.source_commit_ref.realm_commit_id.as_str()
+        );
+        assert_eq!(unsigned["source_commit_ref"]["device_generation_ref"], 3);
+        assert!(unsigned.get("source_ref").is_none());
+        assert!(unsigned["auth_data"].get("signature").is_none());
+    }
+
+    #[test]
+    fn old_source_ref_and_full_committed_ref_shapes_are_rejected() {
+        let value = serde_json::to_value(record()).unwrap();
+
+        let mut old_top_level = value.clone();
+        let source_commit_ref = old_top_level
+            .as_object_mut()
+            .unwrap()
+            .remove("source_commit_ref")
             .unwrap();
-        assert_eq!(signed.signing_payload_bytes().unwrap(), EXPECTED.as_bytes());
+        old_top_level
+            .as_object_mut()
+            .unwrap()
+            .insert("source_ref".to_owned(), source_commit_ref);
+        assert!(serde_json::from_value::<KeyBackupActiveSeries>(old_top_level.clone()).is_err());
+
+        let mut old_nested = value;
+        old_nested["source_commit_ref"] = json!({
+            "commit_ref": {
+                "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
+                "commit_id": RealmCommitId::from_digest([7; 32]),
+                "stream_ref": {
+                    "kind": "realm",
+                    "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+                },
+                "stream_position": 1
+            },
+            "device_generation_ref": 3
+        });
+        assert!(serde_json::from_value::<KeyBackupActiveSeries>(old_nested.clone()).is_err());
+
+        let (registry, schema_id) = schema_registry();
+        assert!(registry.validate_value(&schema_id, &old_top_level).is_err());
+        assert!(registry.validate_value(&schema_id, &old_nested).is_err());
     }
 }

@@ -12,7 +12,7 @@
 //!
 //! ## Normative grammar rules
 //! * PATH carries identity: keyword + bare token (the `ak:<kind>:` sigil is stripped). Hierarchy is
-//!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
+//!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message segment keyword is exactly `m/`.
 //! * The `<realm>` segment: a registered 44-character Realm token is a `realm_id`; otherwise it is
 //!   an ALIAS (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare Event token.
 //! * Strand/Message addresses MUST carry `realm/<r>`. A global strand_id is never guessed.
@@ -265,7 +265,7 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
         // `m/<msg>` without an intermediate `strand/` is a missing-level error.
         Some("m") => {
             return Err(protocol_err(
-                "message seal 'm/' requires an intermediate 'strand/' level",
+                "message segment 'm/' requires an intermediate 'strand/' level",
             ));
         }
         Some(other) => {

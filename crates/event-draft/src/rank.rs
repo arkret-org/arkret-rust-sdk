@@ -1,7 +1,5 @@
 //! LexoRank-style rank interval arithmetic for container ordering drafts.
 
-use serde::{Deserialize, Serialize};
-
 use crate::{EventDraftError, Result};
 
 const RANK_ALPHABET: &[u8; 62] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -68,58 +66,6 @@ pub fn rank_exhausted(before: Option<&str>, after: Option<&str>) -> Result<bool>
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ContainerRebalanceAssignment {
-    pub object_ref: String,
-    pub rank: String,
-}
-
-pub fn container_rebalance_assignments(
-    object_refs: &[String],
-) -> Result<Vec<ContainerRebalanceAssignment>> {
-    if object_refs.is_empty() {
-        return Ok(Vec::new());
-    }
-    let count = object_refs.len() as u128;
-    let denominator = count + 1;
-    let required_capacity = denominator.checked_mul(2).ok_or_else(|| {
-        EventDraftError::Protocol("too many container assignments to rebalance".to_owned())
-    })?;
-    let mut width = 0usize;
-    let mut capacity = 1u128;
-    while capacity < required_capacity {
-        width += 1;
-        if width > RANK_MAX_LEN {
-            return Err(EventDraftError::Protocol(
-                "too many container assignments to rebalance".to_owned(),
-            ));
-        }
-        capacity = capacity
-            .checked_mul(RANK_ALPHABET.len() as u128)
-            .ok_or_else(|| {
-                EventDraftError::Protocol("too many container assignments to rebalance".to_owned())
-            })?;
-    }
-    object_refs
-        .iter()
-        .enumerate()
-        .map(|(index, object_ref)| {
-            let rank_number = (index as u128 + 1)
-                .checked_mul(capacity)
-                .map(|product| product / denominator)
-                .ok_or_else(|| {
-                    EventDraftError::Protocol(
-                        "too many container assignments to rebalance".to_owned(),
-                    )
-                })?;
-            Ok(ContainerRebalanceAssignment {
-                object_ref: object_ref.clone(),
-                rank: format_rank_number(rank_number, width),
-            })
-        })
-        .collect::<Result<Vec<_>>>()
-}
-
 fn validate_rank_boundary(rank: &str) -> Result<()> {
     if rank.len() > RANK_MAX_LEN || !rank.bytes().all(|byte| rank_value(byte).is_some()) {
         return Err(EventDraftError::Protocol(format!("invalid rank '{rank}'")));
@@ -132,13 +78,4 @@ fn rank_value(byte: u8) -> Option<i16> {
         .iter()
         .position(|candidate| *candidate == byte)
         .map(|index| index as i16)
-}
-
-fn format_rank_number(mut value: u128, width: usize) -> String {
-    let mut output = vec![RANK_ALPHABET[0]; width];
-    for byte in output.iter_mut().rev() {
-        *byte = RANK_ALPHABET[(value % RANK_ALPHABET.len() as u128) as usize];
-        value /= RANK_ALPHABET.len() as u128;
-    }
-    String::from_utf8(output).expect("rank alphabet is valid UTF-8")
 }

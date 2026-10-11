@@ -33,7 +33,7 @@ pub struct QueryValue {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DashboardConfigWidgetsItem {
+pub struct DashboardWidget {
     pub widget_id: String,
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -49,5 +49,5 @@ pub struct DashboardConfigWidgetsItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DashboardConfig {
-    pub widgets: Vec<DashboardConfigWidgetsItem>,
+    pub widgets: Vec<DashboardWidget>,
 }

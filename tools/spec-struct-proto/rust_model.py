@@ -35,7 +35,7 @@ RENAME_ALL_RE = re.compile(r'\brename_all\s*=\s*"([^"]+)"')
 TAG_RE = re.compile(r'\btag\s*=\s*"([^"]+)"')
 CONTENT_RE = re.compile(r'\bcontent\s*=\s*"([^"]+)"')
 WITH_RE = re.compile(r'\bwith\s*=\s*"([^"]+)"')
-SKIP_SER_IF_RE = re.compile(r'\bskip_serializing_if\s*=\s*"([^"]+)"')
+SKIP_SERIALIZING_IF_RE = re.compile(r'\bskip_serializing_if\s*=\s*"([^"]+)"')
 DEFAULT_RE = re.compile(r'\bdefault(?:\s*=\s*"([^"]+)")?')
 NAMED_FIELD_RE = re.compile(
     r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*:(?!:)\s*(.+)\Z",
@@ -189,8 +189,8 @@ def _parse_field(raw_field: str) -> RustField | None:
         has_default=default_match is not None,
         default_path=default_match.group(1) if default_match else None,
         skip_serializing_if=(
-            SKIP_SER_IF_RE.search(serde_attributes).group(1)
-            if SKIP_SER_IF_RE.search(serde_attributes)
+            SKIP_SERIALIZING_IF_RE.search(serde_attributes).group(1)
+            if SKIP_SERIALIZING_IF_RE.search(serde_attributes)
             else None
         ),
         with_module=(

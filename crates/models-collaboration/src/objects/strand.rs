@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, StrandId, WireError,
+    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, SpaceId, StrandId,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::ser::SerializeMap;
@@ -17,6 +18,39 @@ use crate::objects::profiles::{
     STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack, resolve_primary_track,
     validate_strand_track_name,
 };
+
+/// The placed branch of the registered `strand_position` current value.
+///
+/// The unplaced branch is `Option::<StrandPositionCurrent>::None` on the wire.
+/// The Board and Strand belong to the result selector, never to this value;
+/// `contains` is derived from this value rather than a canonical Relation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandPositionCurrent {
+    pub list_space_id: SpaceId,
+    pub rank: String,
+}
+
+/// The single Realm-wide Topic classification of a Direct Conversation Chat.
+/// This field belongs to Strand current and never creates a Board position.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandTopic {
+    pub space_id: SpaceId,
+    #[serde(deserialize_with = "deserialize_topic_rank")]
+    pub rank: String,
+}
+
+fn deserialize_topic_rank<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let rank = String::deserialize(deserializer)?;
+    if rank.is_empty() || rank.len() > 128 || !rank.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return Err(serde::de::Error::custom("invalid Topic rank"));
+    }
+    Ok(rank)
+}
 
 const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
     "id",
@@ -35,6 +69,7 @@ const STRAND_METADATA_FORBIDDEN_KEYS: &[&str] = &[
     "content",
     "encrypted_content",
     "encrypted_payload",
+    "topic",
 ];
 
 /// Extensible user-readable Strand metadata.
@@ -140,49 +175,6 @@ pub struct MessageMetadata {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// `message.schema.json#/$defs/message_metadata` key of the Agent Sidecar
-/// exchange binding. Legal only inside `encrypted_metadata` plaintext of an
-/// Event whose effective scope is the native Sidecar; forbidden in
-/// plaintext metadata and shared Realm/Circle events (forbidden-wire-fields
-/// `sidecar_exchange_binding`).
-pub const MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY: &str = "sidecar_exchange_binding";
-
-impl MessageMetadata {
-    /// Fail-closed consumer accessor for the exchange binding. Any missing
-    /// key, schema mismatch, unknown role, or field-validation failure yields
-    /// `None` — the Event is then non-echo by default, while the carrying
-    /// message still renders as an ordinary private message
-    /// (`zh/models/sidecar.md` §8).
-    pub fn sidecar_exchange_binding(
-        &self,
-    ) -> Option<crate::agent_operations::AgentSidecarEventExchangeBinding> {
-        let value = self
-            .extra
-            .get(MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY)?;
-        let binding: crate::agent_operations::AgentSidecarEventExchangeBinding =
-            serde_json::from_value(value.clone()).ok()?;
-        binding.validate().ok()?;
-        Some(binding)
-    }
-
-    /// Producer setter: validates the binding before mounting it. Callers MUST
-    /// only place the resulting metadata into `encrypted_metadata` plaintext
-    /// of a Sidecar-scoped Event, never into plaintext `metadata`.
-    pub fn set_sidecar_exchange_binding(
-        &mut self,
-        binding: &crate::agent_operations::AgentSidecarEventExchangeBinding,
-    ) -> Result<()> {
-        binding.validate()?;
-        self.extra.insert(
-            MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY.to_owned(),
-            serde_json::to_value(binding).map_err(|_| {
-                WireError::Protocol("Sidecar exchange binding serialization failed".to_owned())
-            })?,
-        );
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Strand {
@@ -230,6 +222,13 @@ pub struct Strand {
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<EncryptedEnvelope>,
+    /// Optional flat Topic classification; whole set/unset requires a digest CAS.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub topic: Option<StrandTopic>,
     /// Strand base body, rendered as Description. This field is independent
     /// of every track and uses the canonical wire name `content` directly.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -246,8 +245,7 @@ pub struct Strand {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// Optional business-progression stage. Orthogonal to lifecycle `state`.
-    /// Mutated only via `ak.strand.stage.set`; constructors fill `draft`,
-    /// while sparse wire objects may omit the field.
+    /// Mutated only via `ak.strand.stage.set`; create payloads omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stage: Option<ObjectStage>,
     /// Reducer-derived timestamp of the most recent `stage` transition;
@@ -293,12 +291,13 @@ impl Strand {
             agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
+            topic: None,
             content: None,
             encrypted_content: None,
             tracks,
             state: Some(ObjectState::Active),
             state_changed_at: None,
-            stage: Some(ObjectStage::Draft),
+            stage: None,
             stage_changed_at: None,
             created_by,
             created_at: Utc::now(),
@@ -486,5 +485,36 @@ impl Strand {
         }
         resolve_primary_track(&self.tracks, None)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod position_current_tests {
+    use serde_json::json;
+
+    use super::StrandPositionCurrent;
+
+    #[test]
+    fn position_current_keeps_null_and_closed_placed_values_distinct() {
+        let list = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let placed = json!({"list_space_id":list,"rank":"a0"});
+        let value: Option<StrandPositionCurrent> = serde_json::from_value(placed.clone()).unwrap();
+        assert_eq!(serde_json::to_value(value).unwrap(), placed);
+        let unplaced: Option<StrandPositionCurrent> = serde_json::from_value(json!(null)).unwrap();
+        assert!(unplaced.is_none());
+        assert_eq!(serde_json::to_value(unplaced).unwrap(), json!(null));
+        for invalid in [
+            json!({"list_space_id":list}),
+            json!({"rank":"a0"}),
+            json!({"space_id":list,"rank":"a0"}),
+            json!({"list_space_id":"ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7","rank":"a0"}),
+            json!({"list_space_id":list,"rank":null}),
+            json!({"list_space_id":list,"rank":"a0","relation_id":"ak:relation:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+        ] {
+            assert!(
+                serde_json::from_value::<Option<StrandPositionCurrent>>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
     }
 }

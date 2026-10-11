@@ -8,11 +8,39 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, NonEmptyString, RealmId,
-    project_did_to_core_id,
+    ActorId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Encode the only Arkret v1 RFC 9420 BasicCredential identity.
+///
+/// The credential is the UTF-8 RFC 8785/JCS serialization of the complete
+/// closed [`ActorId`]. Callers must not substitute an endpoint selector,
+/// display string, DID projection, or digest.
+pub fn mls_basic_credential_identity(actor_id: &ActorId) -> arkret_wire::Result<Vec<u8>> {
+    actor_id.validate()?;
+    arkret_canonical::canonical_json_bytes(actor_id)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
+}
+
+/// Decode and validate an Arkret v1 RFC 9420 BasicCredential identity.
+///
+/// Besides requiring a closed [`ActorId`], this rejects any byte sequence that
+/// is valid JSON but is not already its RFC 8785/JCS representation. A
+/// receiver must validate the exact credential bytes, not normalize an
+/// alternate spelling and then accept it.
+pub fn decode_mls_basic_credential_identity(bytes: &[u8]) -> arkret_wire::Result<ActorId> {
+    let actor_id: ActorId = serde_json::from_slice(bytes)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    actor_id.validate()?;
+    if mls_basic_credential_identity(&actor_id)?.as_slice() != bytes {
+        return Err(arkret_wire::WireError::Protocol(
+            "MLS BasicCredential identity is not canonical ActorId JCS".to_owned(),
+        ));
+    }
+    Ok(actor_id)
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,10 +54,6 @@ pub enum MlsEndpointIdentity {
         agent_id: DidCoreId,
         verification_method: DidUrl,
         agent_key_authorize_event_id: EventId,
-    },
-    MinimalMetadataPairwise {
-        pairwise_actor_id: DidCoreId,
-        verification_method: DidUrl,
     },
 }
 
@@ -73,46 +97,10 @@ impl MlsEndpointIdentity {
         })
     }
 
-    pub fn minimal_metadata_pairwise(
-        pairwise_actor_id: DidCoreId,
-        verification_method: DidUrl,
-    ) -> arkret_wire::Result<Self> {
-        let (controller, fragment) =
-            verification_method
-                .as_str()
-                .split_once('#')
-                .ok_or_else(|| {
-                    arkret_wire::WireError::Protocol(
-                        "minimal-metadata verification method has no fragment".to_owned(),
-                    )
-                })?;
-        let multibase = controller.strip_prefix("did:key:").ok_or_else(|| {
-            arkret_wire::WireError::Protocol(
-                "minimal-metadata verification method must use did:key".to_owned(),
-            )
-        })?;
-        if fragment != multibase
-            || pairwise_actor_id.as_str() != format!("ak:did_core:key:{multibase}")
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "minimal-metadata endpoint actor and verification method differ".to_owned(),
-            ));
-        }
-        arkret_canonical::decode_ed25519_multibase(multibase)
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        Ok(Self::MinimalMetadataPairwise {
-            pairwise_actor_id,
-            verification_method,
-        })
-    }
-
-    pub fn actor_id(&self) -> &DidCoreId {
+    pub fn principal_id(&self) -> &DidCoreId {
         match self {
             Self::HumanDevice { principal_id, .. } => principal_id,
             Self::AgentRuntime { agent_id, .. } => agent_id,
-            Self::MinimalMetadataPairwise {
-                pairwise_actor_id, ..
-            } => pairwise_actor_id,
         }
     }
 
@@ -129,129 +117,7 @@ impl MlsEndpointIdentity {
                 agent_key_authorize_event_id.clone(),
             )
             .map(|_| ()),
-            Self::MinimalMetadataPairwise {
-                pairwise_actor_id,
-                verification_method,
-            } => Self::minimal_metadata_pairwise(
-                pairwise_actor_id.clone(),
-                verification_method.clone(),
-            )
-            .map(|_| ()),
         }
-    }
-}
-
-/// Client-local, encrypted-checkpoint state for a minimal-metadata Realm
-/// author. This is deliberately not an HTTP/OpenAPI DTO and must never enter
-/// an Event or service operation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPairwiseAuthorState {
-    pub realm_id: RealmId,
-    pub pairwise_actor_id: DidCoreId,
-    pub pairwise_did: Did,
-    pub verification_method: DidUrl,
-    /// Opaque handle into the platform secure signer; never private material.
-    pub local_signing_key_ref: NonEmptyString,
-    pub mls_group_id: NonEmptyString,
-    pub epoch: u64,
-    pub accepted_group_state_ref: EventId,
-    pub leaf_index: u32,
-    /// Public Ed25519 LeafNode signature key bytes.
-    pub leaf_signature_key: Vec<u8>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RealmPairwiseAcceptedLeaf {
-    pub leaf_index: u32,
-    pub basic_credential_identity: Vec<u8>,
-    pub signature_key: Vec<u8>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RealmPairwiseAcceptedGroupState {
-    pub realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
-    pub epoch: u64,
-    pub accepted_group_state_ref: EventId,
-    pub active_leaves: Vec<RealmPairwiseAcceptedLeaf>,
-}
-
-/// Durable, client-local uniqueness ledger. A key identity may be restored in
-/// the same Realm, but none of its public identity components may be rebound
-/// to another Realm.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPairwiseKeyScopeLedger {
-    bindings: BTreeMap<String, RealmId>,
-}
-
-impl RealmPairwiseAuthorState {
-    pub fn validate_against(
-        &self,
-        snapshot: &RealmPairwiseAcceptedGroupState,
-    ) -> arkret_wire::Result<()> {
-        if !self.pairwise_did.as_str().starts_with("did:key:") {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author DID must use did:key".to_owned(),
-            ));
-        }
-        if project_did_to_core_id(&self.pairwise_did)? != self.pairwise_actor_id {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise DID does not project to pairwise_actor_id".to_owned(),
-            ));
-        }
-        let (method_base, method_fragment) = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .ok_or_else(|| {
-                arkret_wire::WireError::Protocol(
-                    "pairwise verification method has no fragment".to_owned(),
-                )
-            })?;
-        if method_base != self.pairwise_did.as_str() {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method base differs from pairwise_did".to_owned(),
-            ));
-        }
-        let decoded = arkret_canonical::decode_multibase_base58btc(method_fragment)
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        let Some((codec, prefix_len)) = arkret_canonical::decode_multicodec_varint(&decoded) else {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method has invalid multicodec prefix".to_owned(),
-            ));
-        };
-        if codec != 0xed || decoded.get(prefix_len..) != Some(self.leaf_signature_key.as_slice()) {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise verification method key differs from LeafNode signature_key".to_owned(),
-            ));
-        }
-        if self.realm_id != snapshot.realm_id
-            || self.mls_group_id != snapshot.mls_group_id
-            || self.epoch != snapshot.epoch
-            || self.accepted_group_state_ref != snapshot.accepted_group_state_ref
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author state does not name the exact accepted Realm MLS snapshot"
-                    .to_owned(),
-            ));
-        }
-        let matching = snapshot
-            .active_leaves
-            .iter()
-            .filter(|leaf| leaf.leaf_index == self.leaf_index)
-            .collect::<Vec<_>>();
-        if matching.len() != 1
-            || matching[0].basic_credential_identity.as_slice()
-                != self.pairwise_actor_id.as_str().as_bytes()
-            || matching[0].signature_key != self.leaf_signature_key
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "pairwise author is not the exact active BasicCredential leaf".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -277,6 +143,8 @@ pub enum MlsKeyPackageState {
 pub struct MlsKeyPackageRecord {
     /// Globally unique typed identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
+    /// Complete holder identity carried byte-for-byte by the BasicCredential.
+    pub actor_id: ActorId,
     /// Exact MLS endpoint that owns the BasicCredential and LeafNode key.
     /// Human devices and Agent runtimes are mutually exclusive; callers
     /// must not infer one from the other or synthesize a placeholder device.
@@ -370,12 +238,46 @@ impl LocalMlsKeyPackageInventory {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DeviceId, DidCoreId, Hash};
+    use arkret_wire::{ActorId, DeviceId, DidCoreId, Hash};
     use chrono::{DateTime, Utc};
 
     use super::{
         MlsEndpointIdentity, MlsGroupStateRecord, MlsKeyPackageRecord, MlsKeyPackageState,
+        decode_mls_basic_credential_identity, mls_basic_credential_identity,
     };
+
+    fn fixture_actor() -> ActorId {
+        ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkkatordinary".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationa".to_owned()).unwrap(),
+        ))
+    }
+
+    #[test]
+    fn basic_credential_is_exact_complete_actor_jcs() {
+        let actor = fixture_actor();
+        let expected = br#"{"account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"},"kind":"account"}"#;
+        assert_eq!(mls_basic_credential_identity(&actor).unwrap(), expected);
+        assert_eq!(
+            decode_mls_basic_credential_identity(expected).unwrap(),
+            actor
+        );
+    }
+
+    #[test]
+    fn basic_credential_rejects_noncanonical_and_projected_identities() {
+        let reordered = br#"{"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"}}"#;
+        let padded = br#" {"account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"},"kind":"account"}"#;
+        for rejected in [
+            reordered.as_slice(),
+            padded.as_slice(),
+            b"ak:did_core:webvh:z6mkkatordinary".as_slice(),
+            b"ak:device:01904100-0000-7000-8000-00000000aa11".as_slice(),
+            b"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".as_slice(),
+        ] {
+            assert!(decode_mls_basic_credential_identity(rejected).is_err());
+        }
+    }
 
     #[test]
     fn keypackage_wire_state_accepts_retired_and_rejects_expired() {
@@ -393,8 +295,13 @@ mod tests {
         let updated_at = DateTime::parse_from_rfc3339("2026-08-25T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
+        let actor_id = ActorId::account(arkret_wire::AccountId::new(
+            principal_id.clone(),
+            DidCoreId::new("ak:did_core:web:station.example".to_owned()).unwrap(),
+        ));
         let key_package = MlsKeyPackageRecord {
             keypackage_id: "ak:mls:kp:01904100-0000-7000-8000-000000000001".to_owned(),
+            actor_id: actor_id.clone(),
             endpoint: MlsEndpointIdentity::human_device(principal_id.clone(), device_id.clone()),
             keypackage: "AQ".to_owned(),
             keypackage_ref: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
@@ -407,7 +314,9 @@ mod tests {
             last_resort: false,
         };
         let group = MlsGroupStateRecord {
-            group_id: "group-1".to_owned(),
+            group_id: arkret_wire::MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4")
+                .unwrap(),
+            actor_id,
             endpoint: MlsEndpointIdentity::human_device(principal_id, device_id),
             epoch: 1,
             serialized_state: vec![1, 2, 3],
@@ -442,7 +351,8 @@ mod tests {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupStateRecord {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
+    pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
@@ -457,6 +367,7 @@ impl std::fmt::Debug for MlsGroupStateRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MlsGroupStateRecord")
             .field("group_id", &self.group_id)
+            .field("actor_id", &self.actor_id)
             .field("endpoint", &self.endpoint)
             .field("epoch", &self.epoch)
             .field(

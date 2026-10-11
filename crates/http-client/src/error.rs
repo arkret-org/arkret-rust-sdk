@@ -66,11 +66,28 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 
     #[error(transparent)]
-    StreamTrace(#[from] arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError),
+    StreamTrace(
+        #[from] arkret_models_collaboration::sync_frames::account_subscribe::StreamTraceError,
+    ),
 
     /// DID resolution failure raised by the native `HttpDidResolver`
     /// (`arkret-identity` is a native-only dependency of this crate).
     #[cfg(not(target_arch = "wasm32"))]
     #[error(transparent)]
     Identity(#[from] arkret_identity::IdentityError),
+}
+
+impl Error {
+    /// The registered error code of a service problem envelope.
+    ///
+    /// Callers branch on [`arkret_wire::ErrorCode`] rather than comparing
+    /// `detail` strings or bare HTTP statuses: a status alone cannot separate,
+    /// say, an authority stream-position conflict from any other 409.
+    #[must_use]
+    pub fn error_code(&self) -> Option<arkret_wire::ErrorCode> {
+        match self {
+            Self::Api { error, .. } => error.error_code(),
+            _ => None,
+        }
+    }
 }

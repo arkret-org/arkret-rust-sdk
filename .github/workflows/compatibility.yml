@@ -1,9 +1,6 @@
 name: atomic compatibility
 
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       manifest_ref:
@@ -24,23 +21,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      CANDIDATE_REPOSITORY: ${{ github.event.repository.name }}
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       CARGO_TERM_COLOR: always
       RUSTFLAGS: -D warnings
+      CARGO_BUILD_JOBS: "1"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
-      - name: Checkout candidate
-        uses: actions/checkout@v4
-        with:
-          path: candidate-source
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
       - name: Checkout compatibility manifest source
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/arkret-rust-sdk
           path: .compatibility-source
-          ref: ${{ inputs.manifest_ref || 'main' }}
+          persist-credentials: false
+          ref: ${{ inputs.manifest_ref || github.sha }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
 
       - name: Resolve the immutable candidate set
@@ -48,11 +42,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gate_source=.compatibility-source
-          if [ "$CANDIDATE_REPOSITORY" = "arkret-rust-sdk" ]; then
-            gate_source=candidate-source
-          fi
-          python "$gate_source/tools/compatibility_gate.py" resolve             --manifest "$gate_source/compatibility/manifest.json"             --candidate "$CANDIDATE_REPOSITORY=$CANDIDATE_SHA"             --output "${{ runner.temp }}/resolved-compatibility-manifest.json"             --github-output "$GITHUB_OUTPUT"
+          resolver_root="$RUNNER_TEMP/compatibility-resolver-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$resolver_root"
+          mv -- "$GITHUB_WORKSPACE/.compatibility-source" "$resolver_root/manifest-source"
+          gate_source="$resolver_root/manifest-source"
+          sdk_source_sha="$(git -C "$gate_source" rev-parse --verify HEAD)"
+          python "$gate_source/tools/compatibility_gate.py" resolve \
+            --manifest "$gate_source/compatibility/manifest.json" \
+            --candidate "arkret-rust-sdk=$sdk_source_sha" \
+            --output "${{ runner.temp }}/resolved-compatibility-manifest.json" \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Preserve resolved manifest
         uses: actions/upload-artifact@v4
@@ -81,9 +80,9 @@ jobs:
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/soland
-          path: soland
-          ref: ${{ steps.manifest.outputs.soland }}
+          repository: ${{ github.repository_owner }}/coland
+          path: coland
+          ref: ${{ steps.manifest.outputs.coland }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: actions/checkout@v4
         with:
@@ -122,14 +121,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
+          targets: wasm32-unknown-unknown
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             arkret-rust-sdk
-            soland
+            coland
             coauth
             garth
             inkson
@@ -137,11 +137,23 @@ jobs:
 
       - name: Verify exact checkouts and static contract probes
         run: |
-          python arkret-rust-sdk/tools/test_compatibility_gate.py
+          python arkret-rust-sdk/tools/test_compatibility_gate.py --workspace-only
           python arkret-rust-sdk/tools/test_compatibility_train.py
           python arkret-rust-sdk/tools/compatibility_gate.py check             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .             --verify-workspace-heads
           python arkret-rust-sdk/tools/compatibility_gate.py negative-mutation             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .
-          python arkret-rust-sdk/tools/compatibility_gate.py run             --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"             --workspace-root .             --category static
+
+      - name: Run ordered static checks
+        run: >-
+          python arkret-rust-sdk/tools/compatibility_gate.py run
+          --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
+          --workspace-root .
+          --category static
+          --report "${{ runner.temp }}/compatibility-check-reports/static.json"
+
+      - name: Install native desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev dbus-x11 gnome-keyring libsecret-tools
 
       - name: Run ordered compile matrix
         run: >-
@@ -149,24 +161,51 @@ jobs:
           --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
           --workspace-root .
           --category compile
+          --report "${{ runner.temp }}/compatibility-check-reports/compile.json"
+
+      - name: Install Dioxus CLI for the real Inkson web contract
+        run: cargo install dioxus-cli --version 0.7.10 --locked
+      - name: Install frontend task runner
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: "1.46.0"
 
       - name: Install Cotest contract dependencies
         working-directory: cotest/e2e
         run: |
-          npm ci || npm install
+          npm ci
           npx playwright install --with-deps chromium
 
-      - name: Build exact Soland candidate image
+      - name: Build exact Coland candidate image
         working-directory: cotest
         shell: pwsh
-        run: ./scripts/build-soland-image.ps1 -ImageTag cotest-soland:compatibility
+        run: ./scripts/build-coland-image.ps1 -ImageTag cotest-coland:compatibility
+
+      - name: Prepare Linux joint prerequisites
+        id: joint_prerequisites
+        run: bash cotest/scripts/prepare-linux-joint-e2e.sh setup
 
       - name: Run ordered wire and joint contract gates
         run: >-
+          bash inkson/scripts/with-native-keystore.sh
           python arkret-rust-sdk/tools/compatibility_gate.py run
           --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json"
           --workspace-root .
           --category contract
+          --report "${{ runner.temp }}/compatibility-check-reports/contract.json"
+
+      - name: Preserve per-check compatibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-check-results-${{ github.run_id }}
+          path: ${{ runner.temp }}/compatibility-check-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Restore Linux hosts permissions
+        if: always() && steps.joint_prerequisites.outcome != 'skipped' && steps.joint_prerequisites.outcome != ''
+        run: bash cotest/scripts/prepare-linux-joint-e2e.sh restore
 
       - name: Preserve joint failure evidence
         if: always()

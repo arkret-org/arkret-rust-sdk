@@ -3,10 +3,7 @@
 //! The account-subscribe sync frame containers stay in the `arkret` umbrella
 //! (`models/artifacts/account_sync.rs`).
 
-use arkret_wire::{
-    DeviceId, DeviceRevocationGateRecord, EventId, MAX_DEVICE_REVOCATION_GATE_RECORDS, Result,
-    WireError,
-};
+use arkret_wire::{DeviceId, DeviceRevocationGateRecord, EventId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +16,6 @@ pub enum DeviceSummaryStatus {
     Revoked,
     Expired,
     GenerationFenced,
-    Conflicted,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +25,22 @@ pub enum DeviceSummaryVerificationState {
     Verified,
     Unresolved,
     Stale,
+}
+
+/// Closed provenance of the verification checkpoint behind
+/// [`DeviceSummaryVerificationState`], per `crypto-media/device-lifecycle.md`
+/// §10.1. Login factors, SSO sessions, ordinary session grants and bare server
+/// projections never mint a checkpoint, so they have no spelling here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceSummaryVerificationSource {
+    /// PCR genesis first device.
+    Genesis,
+    /// Accepted-device pairing or re-verification ceremony.
+    PairingCode,
+    /// Replacement device of an accepted recovery unit.
+    Recovery,
 }
 
 /// Counterpart for
@@ -41,6 +53,8 @@ pub struct DeviceSummary {
     pub display_name: Option<String>,
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_source: Option<DeviceSummaryVerificationSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -58,51 +72,96 @@ pub struct DeviceSummary {
 
 impl DeviceSummary {
     pub fn validate(&self) -> Result<()> {
-        validate_device_summary_state(self.status, self.revocation_states.as_deref())
+        validate_device_summary_evidence(
+            self.status,
+            self.verification_state,
+            self.verification_source,
+            self.authorized_event_ref.as_ref(),
+            self.revocation_states.as_deref(),
+        )
     }
 }
 
-pub fn validate_device_summary_state(
+pub fn validate_device_summary_evidence(
     status: DeviceSummaryStatus,
+    verification_state: DeviceSummaryVerificationState,
+    verification_source: Option<DeviceSummaryVerificationSource>,
+    authorized_event_ref: Option<&EventId>,
     revocation_states: Option<&[DeviceRevocationGateRecord]>,
 ) -> Result<()> {
-    let states = revocation_states.unwrap_or_default();
-    if states.len() > MAX_DEVICE_REVOCATION_GATE_RECORDS {
-        return Err(WireError::Protocol(
-            "device summary exceeds the 128 revocation-state bound".to_owned(),
-        ));
+    // `device-lifecycle.md` §10.1: the provenance is present exactly when a
+    // checkpoint exists. `stale` keeps the source of the checkpoint it used to
+    // hold, `unresolved` never had one.
+    match verification_state {
+        DeviceSummaryVerificationState::Verified if verification_source.is_none() => {
+            return Err(WireError::Protocol(
+                "verified device summary requires a verification_source".to_owned(),
+            ));
+        }
+        DeviceSummaryVerificationState::Unresolved if verification_source.is_some() => {
+            return Err(WireError::Protocol(
+                "unresolved device summary must not carry a verification_source".to_owned(),
+            ));
+        }
+        _ => {}
     }
-    for state in states {
-        state.validate()?;
-    }
-    if states.windows(2).any(|pair| {
-        (
-            pair[0].acceptance_seq(),
-            pair[0].proposal_event_id().as_str(),
-        ) >= (
-            pair[1].acceptance_seq(),
-            pair[1].proposal_event_id().as_str(),
-        )
-    }) {
+    if matches!(
+        verification_state,
+        DeviceSummaryVerificationState::Verified | DeviceSummaryVerificationState::Stale
+    ) {
+        if authorized_event_ref.is_none() {
+            return Err(WireError::Protocol(
+                "verified or stale device summary requires its exact committed authorization Event"
+                    .to_owned(),
+            ));
+        }
+    } else if authorized_event_ref.is_some() {
         return Err(WireError::Protocol(
-            "device summary revocation_states must be sorted and duplicate-free".to_owned(),
+            "an unresolved device summary must not expose an authorization reference".to_owned(),
         ));
     }
     match status {
-        DeviceSummaryStatus::RevocationPending
-            if !states.is_empty() && states.iter().all(DeviceRevocationGateRecord::is_pending) => {}
-        DeviceSummaryStatus::Revoked
-            if !states.is_empty() && states.iter().any(DeviceRevocationGateRecord::is_revoked) => {}
-        DeviceSummaryStatus::Active
-        | DeviceSummaryStatus::Expired
-        | DeviceSummaryStatus::GenerationFenced
-        | DeviceSummaryStatus::Conflicted
-            if revocation_states.is_none() => {}
-        _ => {
+        DeviceSummaryStatus::RevocationPending | DeviceSummaryStatus::Revoked => {
+            let states = revocation_states.ok_or_else(|| {
+                WireError::Protocol("revocation status requires revocation_states".to_owned())
+            })?;
+            if states.is_empty() || states.len() > 128 {
+                return Err(WireError::Protocol(
+                    "revocation_states must contain 1..=128 records".to_owned(),
+                ));
+            }
+            if status == DeviceSummaryStatus::RevocationPending
+                && states.iter().any(|state| !state.is_pending())
+            {
+                return Err(WireError::Protocol(
+                    "revocation_pending requires only pending records".to_owned(),
+                ));
+            }
+            if status == DeviceSummaryStatus::Revoked
+                && !states.iter().any(|state| state.is_revoked())
+            {
+                return Err(WireError::Protocol(
+                    "revoked requires a committed revocation record".to_owned(),
+                ));
+            }
+            let mut previous = None;
+            for state in states {
+                state.validate()?;
+                let key = (state.acceptance_seq(), state.proposal_event_id().as_str());
+                if previous.is_some_and(|previous| previous >= key) {
+                    return Err(WireError::Protocol(
+                        "revocation_states must be unique and strictly sorted".to_owned(),
+                    ));
+                }
+                previous = Some(key);
+            }
+        }
+        _ if revocation_states.is_some() => {
             return Err(WireError::Protocol(
-                "device summary status is inconsistent with revocation_states".to_owned(),
+                "this device status must not carry revocation_states".to_owned(),
             ));
         }
+        _ => {}
     }
     Ok(())
 }

@@ -1,16 +1,19 @@
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode, RequestId,
-    Result, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
+    DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId, DidUrl,
+    EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId,
+    ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::artifacts_account::{
-    DeviceSummaryStatus, DeviceSummaryVerificationState, validate_device_summary_state,
+    DeviceSummaryStatus, DeviceSummaryVerificationSource, DeviceSummaryVerificationState,
+    validate_device_summary_evidence,
 };
 use crate::handle::Handle;
-use crate::identity::DidOperationSubmitRequestBody;
+use crate::principal_registration_anchor::PrincipalRegistrationAnchor;
 use crate::session_credential::CanonicalSessionPublicJwk;
 
 fn is_false(value: &bool) -> bool {
@@ -161,11 +164,9 @@ pub struct AccountRegistrationAudit {
 
 /// Body of `ak.self.account_data.resource.replace.v1`.
 ///
-/// `ak.account_data.set`'s actor-private cell subject is
-/// `composite[envelope.actor_id, payload.key]`, so the subject *is* the holder:
-/// only the holder can sign the Event, and a service that authors it under its own
-/// DID collapses every holder's value for one key into a single cell keyed by the
-/// service, sharing one `server_revision_cas` counter.
+/// `ak.account_data.set` is actor-private and therefore bypasses RealmCommit.
+/// Its logical key is `(envelope.actor_id, payload.key)`, so only the holder may
+/// sign it and each holder keeps an independent `server_revision_cas` counter.
 ///
 /// So the body carries the signed Event and nothing else. `expected_revision`,
 /// `key` and the value (`body` or `encrypted_payload`) all live in
@@ -178,7 +179,7 @@ pub struct AccountRegistrationAudit {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::EventInitialSubmission,
+    pub set_event: arkret_wire::EventAdmissionSubmission,
 }
 
 /// Body of `ak.self.account_data.resource.delete.v1`.
@@ -193,7 +194,7 @@ pub struct AccountDataReplaceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::EventInitialSubmission,
+    pub set_event: arkret_wire::EventAdmissionSubmission,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -214,7 +215,7 @@ pub struct AccountDataRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataCasConflictDetails {
+pub struct AccountDataCasConflict {
     pub account_data_key: String,
     pub current_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -242,10 +243,12 @@ pub struct AccountDataDeleteOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
+    pub verification_source: Option<DeviceSummaryVerificationSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -258,12 +261,18 @@ pub struct AccountDeviceSummary {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_states: Option<Vec<arkret_wire::DeviceRevocationGateRecord>>,
+    pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
 }
 
 impl AccountDeviceSummary {
     pub fn validate(&self) -> Result<()> {
-        validate_device_summary_state(self.status, self.revocation_states.as_deref())
+        validate_device_summary_evidence(
+            self.status,
+            self.verification_state,
+            self.verification_source,
+            self.authorized_event_ref.as_ref(),
+            self.revocation_states.as_deref(),
+        )
     }
 }
 
@@ -485,12 +494,12 @@ pub enum AccountHandoffAllowedOperation {
     IssueIdentityBindingChallenge,
     #[serde(rename = "ak.gate.account.command.register.v1")]
     Register,
+    #[serde(rename = "ak.gate.account.command.finalize_device_pairing.v1")]
+    FinalizeDevicePairing,
     #[serde(rename = "ak.gate.account.command.issue_session_grant.v1")]
     IssueSessionGrant,
     #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant.v1")]
     IssueRecoveryCompletionGrant,
-    #[serde(rename = "ak.gate.account.command.issue_identity_abandonment_challenge.v1")]
-    IssueIdentityAbandonmentChallenge,
     #[serde(rename = "ak.gate.account.command.abandon_identity_creation.v1")]
     AbandonIdentityCreation,
 }
@@ -498,9 +507,9 @@ pub enum AccountHandoffAllowedOperation {
 pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7] = [
     AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
     AccountHandoffAllowedOperation::IssueDidBindingChallenge,
-    AccountHandoffAllowedOperation::IssueIdentityAbandonmentChallenge,
     AccountHandoffAllowedOperation::AbandonIdentityCreation,
     AccountHandoffAllowedOperation::Register,
+    AccountHandoffAllowedOperation::FinalizeDevicePairing,
     AccountHandoffAllowedOperation::IssueSessionGrant,
     AccountHandoffAllowedOperation::IssueRecoveryCompletionGrant,
 ];
@@ -511,21 +520,21 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7
 pub struct ReservedIdentityCreation {
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub registration_anchor_digest: Hash,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
 }
 
 impl ReservedIdentityCreation {
-    pub fn from_operation(did_operation: DidOperationSubmitRequestBody) -> Result<Self> {
-        did_operation.validate()?;
-        let did = did_operation.did.clone();
+    pub fn from_anchor(principal_registration_anchor: PrincipalRegistrationAnchor) -> Result<Self> {
+        principal_registration_anchor.validate()?;
+        let did = principal_registration_anchor.did().clone();
         let principal_id = project_did_to_core_id(&did)?;
-        let operation_digest = Hash::new(canonical::canonical_sha256(&did_operation)?)?;
+        let registration_anchor_digest = principal_registration_anchor.canonical_digest()?;
         Ok(Self {
             principal_id,
             did,
-            operation_digest,
-            did_operation,
+            registration_anchor_digest,
+            principal_registration_anchor,
         })
     }
 }
@@ -596,30 +605,16 @@ pub enum IdentityCreationGoal {
 }
 
 /// Server-authored goal for the currently authenticated onboarding flow.
-///
-/// The abandonment variant is deliberately a closed product: a client cannot
-/// observe an abandonment goal without the exact durable challenge needed to
-/// continue it, nor can it infer authentication freshness from local grants.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "goal", rename_all = "snake_case", deny_unknown_fields)]
-#[allow(clippy::large_enum_variant)]
 pub enum AccountOnboardingGoal {
     CompleteIdentity,
-    AbandonProvisionalIdentity {
-        challenge: IdentityAbandonmentChallengeOutcome,
-        fresh_authentication_required: bool,
-    },
 }
 
 impl AccountOnboardingGoal {
     pub const fn kind(&self) -> IdentityCreationGoal {
-        match self {
-            Self::CompleteIdentity => IdentityCreationGoal::CompleteIdentity,
-            Self::AbandonProvisionalIdentity { .. } => {
-                IdentityCreationGoal::AbandonProvisionalIdentity
-            }
-        }
+        IdentityCreationGoal::CompleteIdentity
     }
 }
 
@@ -629,7 +624,6 @@ impl AccountOnboardingGoal {
 pub enum IdentityCreationCommandKind {
     IssueIdentityBindingChallenge,
     SubmitRegistration,
-    IssueAbandonmentChallenge,
     ConfirmAbandonment,
 }
 
@@ -639,7 +633,6 @@ pub enum IdentityCreationCommandKind {
 pub enum IdentityCreationLocalArtifactKind {
     RegistrationCheckpoint,
     PreparedRegistrationRequest,
-    AbandonmentChallenge,
     FreshAccountHandoff,
 }
 
@@ -735,8 +728,7 @@ impl IdentityCreationLease {
             AccountBound, Active, Completed, DidPublished, PcrAccepted, Reserved,
         };
         use IdentityCreationLocalArtifactKind::{
-            AbandonmentChallenge, FreshAccountHandoff, PreparedRegistrationRequest,
-            RegistrationCheckpoint,
+            FreshAccountHandoff, PreparedRegistrationRequest, RegistrationCheckpoint,
         };
         if !self.allowed_goals().contains(&goal) {
             return Err(WireError::Protocol(
@@ -750,9 +742,7 @@ impl IdentityCreationLease {
                 &[RegistrationCheckpoint, PreparedRegistrationRequest]
             }
             (Completed, CompleteIdentity) => &[],
-            (Reserved | DidPublished, AbandonProvisionalIdentity) => {
-                &[AbandonmentChallenge, FreshAccountHandoff]
-            }
+            (Reserved | DidPublished, AbandonProvisionalIdentity) => &[FreshAccountHandoff],
             _ => unreachable!("goal membership was checked above"),
         })
     }
@@ -761,6 +751,10 @@ impl IdentityCreationLease {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum AccountHandoffBinding {
     IdentityCreationActive {
         identity_creation_lease: IdentityCreationLease,
@@ -853,37 +847,6 @@ impl AccountOnboardingState {
                             .to_owned(),
                     ));
                 }
-                if let AccountOnboardingGoal::AbandonProvisionalIdentity { challenge, .. } =
-                    &self.goal
-                {
-                    let reserved = identity_creation_lease
-                        .reserved_identity
-                        .as_ref()
-                        .ok_or_else(|| {
-                            WireError::Protocol(
-                                "account onboarding abandonment goal has no reserved identity"
-                                    .to_owned(),
-                            )
-                        })?;
-                    if challenge.identity_creation_lease_id
-                        != identity_creation_lease.identity_creation_lease_id
-                        || challenge.lease_fence != identity_creation_lease.fence
-                        || challenge.principal_id != reserved.principal_id
-                    {
-                        return Err(WireError::Protocol(
-                            "account onboarding abandonment challenge does not match the lease"
-                                .to_owned(),
-                        ));
-                    }
-                    if challenge.account_subject != self.account_subject
-                        || challenge.expires_at <= self.observed_at
-                    {
-                        return Err(WireError::Protocol(
-                            "account onboarding abandonment challenge is stale or belongs to another account"
-                                .to_owned(),
-                        ));
-                    }
-                }
             }
             AccountHandoffBinding::Bound { principal_id, did } => {
                 if project_did_to_core_id(did)?.as_str() != principal_id.as_str() {
@@ -891,119 +854,8 @@ impl AccountOnboardingState {
                         "bound account onboarding did does not project to principal_id".to_owned(),
                     ));
                 }
-                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(WireError::Protocol(
-                        "a bound account cannot have a provisional abandonment goal".to_owned(),
-                    ));
-                }
             }
-            AccountHandoffBinding::IdentityCreationBusy { .. } => {
-                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(WireError::Protocol(
-                        "a busy identity-creation lease cannot expose another holder's goal"
-                            .to_owned(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdentityAbandonmentConsequence {
-    OrphanAnchorPermanentlyUnusable,
-    OrphanAnchorCannotBeDeactivated,
-    NoContinuableStateOnTheOrphanAnchor,
-    #[serde(rename = "a_new_identity_root_did_and_pcr_must_be_created")]
-    ANewIdentityRootDidAndPcrMustBeCreated,
-}
-
-pub const IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE: [IdentityAbandonmentConsequence; 4] = [
-    IdentityAbandonmentConsequence::OrphanAnchorPermanentlyUnusable,
-    IdentityAbandonmentConsequence::OrphanAnchorCannotBeDeactivated,
-    IdentityAbandonmentConsequence::NoContinuableStateOnTheOrphanAnchor,
-    IdentityAbandonmentConsequence::ANewIdentityRootDidAndPcrMustBeCreated,
-];
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityAbandonmentChallengeRequestBody {
-    pub request_id: RequestId,
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub principal_id: DidCoreId,
-    pub did_version_id: String,
-}
-
-impl IdentityAbandonmentChallengeRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.identity_creation_lease_id.is_empty()
-            || self.lease_fence == 0
-            || self.did_version_id.is_empty()
-        {
-            return Err(WireError::Protocol(
-                "identity abandonment challenge request is incomplete".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_request_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum IdentityAbandonmentPurpose {
-    #[serde(rename = "provisional_identity_abandonment")]
-    ProvisionalIdentityAbandonment,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityAbandonmentChallengeOutcome {
-    pub request_id: RequestId,
-    pub challenge_id: String,
-    pub challenge: String,
-    pub purpose: IdentityAbandonmentPurpose,
-    pub account_subject: Hash,
-    pub principal_id: DidCoreId,
-    pub did_version_id: String,
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
-    pub dpop_jkt: String,
-    pub audience_id: DidCoreId,
-    pub origin: WebOrigin,
-    pub trust_domain: TrustDomainId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-impl IdentityAbandonmentChallengeOutcome {
-    pub fn validate(&self) -> Result<()> {
-        if self.challenge_id.is_empty()
-            || self.challenge.len() < 22
-            || self.did_version_id.is_empty()
-            || self.identity_creation_lease_id.is_empty()
-            || self.lease_fence == 0
-            || self.consequence_disclosure != IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE
-            || self.dpop_jkt.is_empty()
-            || self.expires_at <= self.issued_at
-            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-        {
-            return Err(WireError::Protocol(
-                "identity abandonment challenge violates the closed transcript".to_owned(),
-            ));
+            AccountHandoffBinding::IdentityCreationBusy { .. } => {}
         }
         Ok(())
     }
@@ -1014,8 +866,6 @@ impl IdentityAbandonmentChallengeOutcome {
 #[serde(deny_unknown_fields)]
 pub struct IdentityAbandonmentRequestBody {
     pub request_id: RequestId,
-    pub challenge_id: String,
-    pub challenge: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub principal_id: DidCoreId,
@@ -1024,9 +874,7 @@ pub struct IdentityAbandonmentRequestBody {
 
 impl IdentityAbandonmentRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.challenge_id.is_empty()
-            || self.challenge.len() < 22
-            || self.identity_creation_lease_id.is_empty()
+        if self.identity_creation_lease_id.is_empty()
             || self.lease_fence == 0
             || self.did_version_id.is_empty()
         {
@@ -1044,18 +892,10 @@ impl IdentityAbandonmentRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdentityAbandonmentStatus {
-    Abandoned,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityAbandonmentOutcome {
     pub request_id: RequestId,
-    pub status: IdentityAbandonmentStatus,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did_version_id: String,
@@ -1142,7 +982,7 @@ pub struct IdentityBindingChallengeRequestBody {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did: Did,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
@@ -1151,12 +991,10 @@ pub struct IdentityBindingChallengeRequestBody {
 
 impl IdentityBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        if self.did != self.did_operation.did
-            || project_did_to_core_id(&self.did)?
-                != project_did_to_core_id(&self.did_operation.did)?
-        {
+        self.principal_registration_anchor.validate()?;
+        if &self.did != self.principal_registration_anchor.did() {
             return Err(WireError::Protocol(
-                "identity creation did does not project to did_operation core id".to_owned(),
+                "identity creation did is not the registration anchor did".to_owned(),
             ));
         }
         Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
@@ -1213,7 +1051,6 @@ pub struct DidBindingChallengeOutcome {
     pub principal_id: DidCoreId,
     pub did: Did,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_evidence: Option<String>,
@@ -1265,7 +1102,6 @@ pub struct AccountRegistrationControlProof {
     pub principal_id: DidCoreId,
     pub did: Did,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
@@ -1318,16 +1154,16 @@ impl AccountRegistrationControlProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum PcrGenesisUnitEventKind {
+pub enum PcrGenesisUnitKind {
     #[serde(rename = "ak.realm.create")]
     RealmCreate,
     #[serde(rename = "ak.device.authorize")]
     DeviceAuthorize,
 }
 
-pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
-    PcrGenesisUnitEventKind::RealmCreate,
-    PcrGenesisUnitEventKind::DeviceAuthorize,
+pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitKind; 2] = [
+    PcrGenesisUnitKind::RealmCreate,
+    PcrGenesisUnitKind::DeviceAuthorize,
 ];
 
 /// The first sender-constrained Standard grant requested atomically with
@@ -1337,24 +1173,22 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
 pub enum InitialSessionGrantOperation {
     #[serde(rename = "ak.self.account.read.describe.v1")]
     AccountReadDescribe,
-    #[serde(rename = "ak.self.events.read.scan.v1")]
-    EventsReadScan,
+    #[serde(rename = "ak.self.committed_event.read.scan.v1")]
+    CommittedEventReadScan,
 }
 
 impl InitialSessionGrantOperation {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AccountReadDescribe => {
-                arkret_wire::ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1
-            }
-            Self::EventsReadScan => arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+            Self::AccountReadDescribe => ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1,
+            Self::CommittedEventReadScan => ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
         }
     }
 }
 
 pub const STANDARD_INITIAL_SESSION_GRANT_OPERATIONS: [InitialSessionGrantOperation; 2] = [
     InitialSessionGrantOperation::AccountReadDescribe,
-    InitialSessionGrantOperation::EventsReadScan,
+    InitialSessionGrantOperation::CommittedEventReadScan,
 ];
 
 pub fn standard_initial_session_grant_scope() -> Vec<String> {
@@ -1364,20 +1198,19 @@ pub fn standard_initial_session_grant_scope() -> Vec<String> {
         .collect()
 }
 
-pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 13] = [
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_FRONTIER_V1,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
+pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 12] = [
+    ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
+    ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
+    ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
+    ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1408,24 +1241,6 @@ pub struct IdentityBindingChallengeOutcome {
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
-    pub account_subject: Hash,
-    pub principal_id: DidCoreId,
-    pub did: Did,
-    pub operation_digest: Hash,
-    pub did_version_id: String,
-    pub log_head_digest: Hash,
-    pub control_key_digest: Hash,
-    pub pcr_realm_id: RealmId,
-    pub realm_create_payload_digest: Hash,
-    pub founding_authorize_payload_digest: Hash,
-    pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub dpop_jkt: String,
-    pub audience_id: DidCoreId,
-    pub origin: WebOrigin,
-    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1439,6 +1254,17 @@ pub enum IdentityCreationControlProofKind {
     DidWebvhInceptionUpdateKey,
 }
 
+impl IdentityCreationControlProofKind {
+    /// The registered `registration_anchor_kind` this derivation pairs with.
+    /// A proof whose kind disagrees with its anchor fails closed rather than
+    /// letting a caller choose which root-key derivation is checked.
+    pub const fn registration_anchor_kind(self) -> &'static str {
+        match self {
+            Self::DidWebvhInceptionUpdateKey => crate::WEBVH_REGISTRATION_ANCHOR_KIND,
+        }
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1450,15 +1276,14 @@ pub struct IdentityCreationControlProof {
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
+    pub registration_anchor_digest: Hash,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub genesis_unit_kinds: [PcrGenesisUnitKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1470,15 +1295,21 @@ pub struct IdentityCreationControlProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub verification_key_multibase: String,
+    pub signature_algorithm: DetachedSignatureAlgorithm,
     pub signature: String,
 }
 
 impl IdentityCreationControlProof {
     pub fn validate_shape(&self) -> Result<()> {
         validate_identity_creation_control_proof_body(&self.unsigned_body())?;
-        arkret_wire::Base64UrlString::new(self.signature.clone())
-            .map(|_| ())
-            .map_err(|error| WireError::Protocol(error.to_owned()))
+        let signature = arkret_canonical::base64url_decode(&self.signature)
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        if signature.len() != 64 {
+            return Err(WireError::Protocol(
+                "identity creation control proof signature must be 64-byte Ed25519".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
@@ -1487,15 +1318,15 @@ impl IdentityCreationControlProof {
 
     fn unsigned_body(&self) -> UnsignedIdentityCreationControlProofBody {
         UnsignedIdentityCreationControlProofBody {
+            proof_kind: self.proof_kind,
             challenge_id: self.challenge_id.clone(),
             challenge: self.challenge.clone(),
             purpose: self.purpose,
             account_subject: self.account_subject.clone(),
             principal_id: self.principal_id.clone(),
             did: self.did.clone(),
-            operation_digest: self.operation_digest.clone(),
+            registration_anchor_digest: self.registration_anchor_digest.clone(),
             did_version_id: self.did_version_id.clone(),
-            log_head_digest: self.log_head_digest.clone(),
             control_key_digest: self.control_key_digest.clone(),
             pcr_realm_id: self.pcr_realm_id.clone(),
             realm_create_payload_digest: self.realm_create_payload_digest.clone(),
@@ -1511,6 +1342,7 @@ impl IdentityCreationControlProof {
             issued_at: self.issued_at,
             expires_at: self.expires_at,
             verification_key_multibase: self.verification_key_multibase.clone(),
+            signature_algorithm: self.signature_algorithm,
         }
     }
 }
@@ -1518,21 +1350,21 @@ impl IdentityCreationControlProof {
 /// Identity-creation control members before the cold-root signature exists.
 #[derive(Clone, Debug)]
 pub struct UnsignedIdentityCreationControlProofBody {
+    pub proof_kind: IdentityCreationControlProofKind,
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
+    pub registration_anchor_digest: Hash,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub genesis_unit_kinds: [PcrGenesisUnitKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1542,6 +1374,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verification_key_multibase: String,
+    pub signature_algorithm: DetachedSignatureAlgorithm,
 }
 
 /// Non-serializable cold-root authoring state.
@@ -1566,16 +1399,15 @@ impl UnsignedIdentityCreationControlProof {
     ) -> Result<IdentityCreationControlProof> {
         let body = self.body;
         let proof = IdentityCreationControlProof {
-            proof_kind: IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            proof_kind: body.proof_kind,
             challenge_id: body.challenge_id,
             challenge: body.challenge,
             purpose: body.purpose,
             account_subject: body.account_subject,
             principal_id: body.principal_id,
             did: body.did,
-            operation_digest: body.operation_digest,
+            registration_anchor_digest: body.registration_anchor_digest,
             did_version_id: body.did_version_id,
-            log_head_digest: body.log_head_digest,
             control_key_digest: body.control_key_digest,
             pcr_realm_id: body.pcr_realm_id,
             realm_create_payload_digest: body.realm_create_payload_digest,
@@ -1591,6 +1423,7 @@ impl UnsignedIdentityCreationControlProof {
             issued_at: body.issued_at,
             expires_at: body.expires_at,
             verification_key_multibase: body.verification_key_multibase,
+            signature_algorithm: body.signature_algorithm,
             signature: signature.into_string(),
         };
         proof.validate_shape()?;
@@ -1606,6 +1439,7 @@ fn validate_identity_creation_control_proof_body(
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
+        || body.signature_algorithm != DetachedSignatureAlgorithm::Ed25519
         || project_did_to_core_id(&body.did)?.as_str() != body.principal_id.as_str()
     {
         return Err(WireError::Protocol(
@@ -1620,16 +1454,15 @@ fn identity_creation_control_proof_signing_bytes(
 ) -> Result<Vec<u8>> {
     validate_identity_creation_control_proof_body(body)?;
     let value = serde_json::json!({
-        "proof_kind": IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+        "proof_kind": body.proof_kind,
         "challenge_id": &body.challenge_id,
         "challenge": &body.challenge,
         "purpose": body.purpose,
         "account_subject": &body.account_subject,
         "principal_id": &body.principal_id,
         "did": &body.did,
-        "operation_digest": &body.operation_digest,
+        "registration_anchor_digest": &body.registration_anchor_digest,
         "did_version_id": &body.did_version_id,
-        "log_head_digest": &body.log_head_digest,
         "control_key_digest": &body.control_key_digest,
         "pcr_realm_id": &body.pcr_realm_id,
         "realm_create_payload_digest": &body.realm_create_payload_digest,
@@ -1645,6 +1478,7 @@ fn identity_creation_control_proof_signing_bytes(
         "issued_at": canonical::format_timestamp_canonical(body.issued_at),
         "expires_at": canonical::format_timestamp_canonical(body.expires_at),
         "verification_key_multibase": &body.verification_key_multibase,
+        "signature_algorithm": body.signature_algorithm,
     });
     let mut bytes = IDENTITY_CREATION_CONTROL_PROOF_DOMAIN.as_bytes().to_vec();
     bytes.extend(canonical::canonical_json_bytes(&value)?);
@@ -1658,16 +1492,17 @@ pub struct IdentityCreationRegistration {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did: Did,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
-    pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
+    pub pcr_genesis_unit: PcrGenesisUnit,
     pub initial_session: InitialSessionGrantIntent,
 }
 
 impl IdentityCreationRegistration {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate_shape()?;
+        self.principal_registration_anchor.validate()?;
         self.registration_did_evidence_draft.validate_shape()?;
         self.pcr_genesis_unit.validate_ordered_envelopes()?;
         self.initial_session.validate()?;
@@ -1680,19 +1515,24 @@ impl IdentityCreationRegistration {
                 != self.control_proof.dpop_jkt
             || self.identity_creation_lease_id != self.control_proof.identity_creation_lease_id
             || self.lease_fence != self.control_proof.lease_fence
-            || self.did != self.did_operation.did
+            || &self.did != self.principal_registration_anchor.did()
+            || self.control_proof.proof_kind.registration_anchor_kind()
+                != self.principal_registration_anchor.anchor_kind()
             || self.did != self.control_proof.did
             || self.registration_did_evidence_draft.principal_id != self.control_proof.principal_id
             || self.registration_did_evidence_draft.did != self.did
             || self.registration_did_evidence_draft.version_id != self.control_proof.did_version_id
             || self.registration_did_evidence_draft.method_history_head
-                != self.control_proof.log_head_digest.as_str()
+                != self
+                    .principal_registration_anchor
+                    .declared_method_history_head()?
+                    .as_str()
             || self.registration_did_evidence_draft.control_key_digest
                 != self.control_proof.control_key_digest
             || project_did_to_core_id(&self.did)?.as_str()
                 != self.control_proof.principal_id.as_str()
-            || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
-                != self.control_proof.operation_digest
+            || self.principal_registration_anchor.canonical_digest()?
+                != self.control_proof.registration_anchor_digest
             || self
                 .pcr_genesis_unit
                 .create()
@@ -1770,8 +1610,7 @@ pub struct AccountBindingReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lease_fence: Option<u64>,
     pub operation_status: IdentityCreationOperationStatus,
-    pub operation_digest: Hash,
-    pub head_event_digest: Hash,
+    pub registration_anchor_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub proof: PayloadProof,
@@ -1792,8 +1631,7 @@ struct AccountBindingReceiptPayload<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     lease_fence: Option<u64>,
     operation_status: IdentityCreationOperationStatus,
-    operation_digest: &'a Hash,
-    head_event_digest: &'a Hash,
+    registration_anchor_digest: &'a Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
@@ -1826,8 +1664,7 @@ impl AccountBindingReceipt {
             identity_creation_lease_id: self.identity_creation_lease_id.as_deref(),
             lease_fence: self.lease_fence,
             operation_status: self.operation_status,
-            operation_digest: &self.operation_digest,
-            head_event_digest: &self.head_event_digest,
+            registration_anchor_digest: &self.registration_anchor_digest,
             issued_at: self.issued_at,
         };
         Hash::new(canonical::canonical_sha256(&payload)?).map_err(Into::into)
@@ -1905,6 +1742,9 @@ impl AccountBindingReceipt {
 pub struct AccountUpdateProfileOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: crate::actor_profile::AccountMaterializedProfile,
+    /// The exact RealmCommit covering the submitted profile Event.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub commit: arkret_wire::RealmCommit,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1946,8 +1786,53 @@ mod account_data_tests {
     use super::*;
 
     #[test]
+    fn identity_creation_control_signature_covers_algorithm_and_excludes_signature() {
+        let value = json!({
+            "proof_kind": "did_webvh_inception_update_key",
+            "challenge_id": "challenge-identity-creation-1",
+            "challenge": "challenge-material-0123456789",
+            "purpose": "account_binding_and_pcr_genesis",
+            "account_subject": format!("sha256:{}", "1".repeat(64)),
+            "principal_id": "ak:did_core:web:alice.example",
+            "did": "did:web:alice.example",
+            "registration_anchor_digest": format!("sha256:{}", "2".repeat(64)),
+            "did_version_id": "1-fixture",
+            "control_key_digest": format!("sha256:{}", "3".repeat(64)),
+            "pcr_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "realm_create_payload_digest": format!("sha256:{}", "4".repeat(64)),
+            "founding_authorize_payload_digest": format!("sha256:{}", "5".repeat(64)),
+            "initial_session_request_digest": format!("sha256:{}", "6".repeat(64)),
+            "genesis_unit_kinds": ["ak.realm.create", "ak.device.authorize"],
+            "identity_creation_lease_id": "lease-identity-creation-1",
+            "lease_fence": 1,
+            "dpop_jkt": "A".repeat(43),
+            "audience_id": "ak:did_core:web:authority.example",
+            "origin": "https://client.example",
+            "trust_domain": "ak:trust_domain:example.net",
+            "issued_at": "2026-09-19T00:00:00.000Z",
+            "expires_at": "2026-09-19T00:05:00.000Z",
+            "verification_key_multibase": "z6Mkh6h1dMiHWPXNm45oJZhVjZVZJHhZ8cQSRg2WQ2Yh8wXH",
+            "signature_algorithm": "Ed25519",
+            "signature": "A".repeat(86)
+        });
+        let proof: IdentityCreationControlProof = serde_json::from_value(value.clone()).unwrap();
+        proof.validate_shape().unwrap();
+        let signing_bytes = String::from_utf8(proof.canonical_signing_bytes().unwrap()).unwrap();
+        assert!(signing_bytes.starts_with(IDENTITY_CREATION_CONTROL_PROOF_DOMAIN));
+        assert!(signing_bytes.contains("\"signature_algorithm\":\"Ed25519\""));
+        assert!(!signing_bytes.contains("\"signature\":"));
+
+        let mut missing_algorithm = value;
+        missing_algorithm
+            .as_object_mut()
+            .unwrap()
+            .remove("signature_algorithm");
+        assert!(serde_json::from_value::<IdentityCreationControlProof>(missing_algorithm).is_err());
+    }
+
+    #[test]
     fn cas_conflict_details_preserve_revision_without_live_entry() {
-        let details: AccountDataCasConflictDetails = serde_json::from_value(json!({
+        let details: AccountDataCasConflict = serde_json::from_value(json!({
             "account_data_key": "ak.client.ui_state",
             "current_revision": 7
         }))
@@ -1960,13 +1845,37 @@ mod account_data_tests {
     #[test]
     fn cas_conflict_details_reject_unknown_fields() {
         assert!(
-            serde_json::from_value::<AccountDataCasConflictDetails>(json!({
+            serde_json::from_value::<AccountDataCasConflict>(json!({
                 "account_data_key": "ak.client.ui_state",
                 "current_revision": 7,
                 "expected_revision": 6
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn verified_device_summary_requires_exact_authorization_provenance() {
+        let mut value = json!({
+            "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
+            "status": "active",
+            "verification_state": "verified",
+            "verification_source": "pairing_code"
+        });
+        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
+        assert!(summary.validate().is_err());
+
+        value["authorized_event_ref"] =
+            json!("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e");
+        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
+        summary.validate().unwrap();
+
+        let mut retired = value.clone();
+        retired["signer_resolution_evidence_ref"] =
+            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+        assert!(serde_json::from_value::<AccountDeviceSummary>(retired).is_err());
+        value["authorization_ref"] = json!("retired");
+        assert!(serde_json::from_value::<AccountDeviceSummary>(value).is_err());
     }
 }
 
@@ -1995,8 +1904,7 @@ mod account_handoff_tests {
             identity_creation_lease_id: Some("lease-fixture".to_owned()),
             lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
-            operation_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            head_event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
+            registration_anchor_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             issued_at: now,
             proof: PayloadProof {
                 kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
@@ -2266,5 +2174,98 @@ mod account_handoff_tests {
                 .can_control_identity()
         );
         assert!(IdentityCreationRecoveryKeyState::ExistingValidatedDurable.can_control_identity());
+    }
+}
+
+pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = SchemaId::ACCOUNT_OPERATIONS_V1;
+
+/// Closed authorization factor set for the account lifecycle commands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountLifecycleProofKind {
+    DidBoundSignature,
+    PairedDeviceProof,
+    PasskeyAssertion,
+    OidcCodeExchange,
+    AgentKeyProof,
+}
+
+// Field declaration order is byte-for-byte the properties order of
+// account-operations.schema.json#/$defs/account_lifecycle_proof.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountLifecycleProof {
+    pub proof_kind: AccountLifecycleProofKind,
+    pub challenge: String,
+    pub request_canonical_digest: Hash,
+    pub audience_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_method: Option<DidUrl>,
+    pub signature: String,
+}
+
+/// Maximum issued lifetime of an account lifecycle proof, in seconds.
+pub const ACCOUNT_LIFECYCLE_PROOF_MAX_LIFETIME_SECONDS: i64 = 15 * 60;
+
+impl AccountLifecycleProof {
+    pub fn session_revoke_request_digest(
+        actor_id: &DidCoreId,
+        service_id: &DidCoreId,
+        session_device_id: &DeviceId,
+        target_session_grant_id: Option<&SessionGrantId>,
+        target_device_id: Option<&DeviceId>,
+        all_sessions: bool,
+    ) -> Result<Hash> {
+        let request = json!({
+            "schema": SchemaId::ACCOUNT_OPERATIONS_V1,
+            "operation": ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
+            "actor_id": actor_id,
+            "service_id": service_id,
+            "session_device_id": session_device_id,
+            "target_session_grant_id": target_session_grant_id,
+            "target_device_id": target_device_id,
+            "all_sessions": all_sessions,
+        });
+        Ok(Hash::new(canonical::canonical_sha256(&request)?)?)
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let signing_input = json!({
+            "schema": ACCOUNT_LIFECYCLE_PROOF_SCHEMA,
+            "proof_kind": &self.proof_kind,
+            "challenge": &self.challenge,
+            "request_canonical_digest": &self.request_canonical_digest,
+            "audience_id": &self.audience_id,
+            "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
+            "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
+            "verification_method": &self.verification_method,
+        });
+        Ok(canonical::canonical_json_bytes(&signing_input)?)
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.challenge.chars().count() < 16 {
+            return Err(WireError::Protocol(
+                "account lifecycle proof challenge is too short".to_owned(),
+            ));
+        }
+        if self.signature.is_empty() {
+            return Err(WireError::Protocol(
+                "account lifecycle proof requires a signature".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.issued_at
+            || (self.expires_at - self.issued_at).num_seconds()
+                > ACCOUNT_LIFECYCLE_PROOF_MAX_LIFETIME_SECONDS
+        {
+            return Err(WireError::Protocol(
+                "account lifecycle proof lifetime exceeds the 15 minute ceiling".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }

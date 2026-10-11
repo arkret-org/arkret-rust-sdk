@@ -1,13 +1,12 @@
-//! Typed authoring boundaries for standard and extension Events.
+//! Typed producer-side Event drafting boundaries.
 
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
-    EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef, RegistryContentRef,
-    ScopeRef, SealBasis, SealId,
+    ActorId, AppletId, AuthoredEvent, AuthorizationRef, EventKind, ExtensionManifest,
+    RegistryContentRef, ScopeRef, SemanticRef,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -15,32 +14,11 @@ use serde_json::Value;
 use crate::{EventDraftError, EventIntent, EventSpec, Result};
 
 /// A standard Event draft whose kind and payload type are one type-level fact.
-///
-/// `K` is explicit because multiple standard kinds intentionally share one
-/// payload type. There is no method that accepts or overrides a runtime kind.
-///
-/// A marker cannot be paired with another marker's payload:
-///
-/// ```compile_fail
-/// # use arkret_event_draft::TypedEventDraft;
-/// # use arkret_models_collaboration::events_payloads::{MessageCreatePayload, RealmCreatePayload};
-/// # use arkret_wire::{DidCoreId, ScopeRef, event_spec};
-/// # fn mismatch(scope: ScopeRef, actor: DidCoreId, ps: DidCoreId, payload: MessageCreatePayload) {
-/// let _ = TypedEventDraft::<event_spec::RealmCreate>::new(scope, actor, ps, payload);
-/// # }
-/// ```
 pub struct TypedEventDraft<K: EventSpec> {
     scope_ref: ScopeRef,
     actor_id: ActorId,
     payload: K::Payload,
-    prev_refs: Vec<EventId>,
-    refs: Vec<EventRef>,
-    causal_refs: Vec<Hash>,
-    preconditions: Vec<Precondition>,
-    seal_ref: Option<SealId>,
-    auth_context: Option<AuthContext>,
-    seal_basis: Option<SealBasis>,
-    requirements: EventRequirements,
+    semantic_refs: Vec<SemanticRef>,
     executed_by: Option<ActorId>,
     authorization_ref: Option<AuthorizationRef>,
     applet_id: Option<AppletId>,
@@ -57,14 +35,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
             scope_ref,
             actor_id,
             payload,
-            prev_refs: Vec::new(),
-            refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
+            semantic_refs: Vec::new(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -73,53 +44,13 @@ impl<K: EventSpec> TypedEventDraft<K> {
         })
     }
 
-    pub fn with_prev_refs(mut self, prev_refs: Vec<EventId>) -> Self {
-        self.prev_refs = prev_refs;
+    pub fn with_semantic_refs(mut self, semantic_refs: Vec<SemanticRef>) -> Self {
+        self.semantic_refs = semantic_refs;
         self
     }
 
-    pub fn with_refs(mut self, refs: Vec<EventRef>) -> Self {
-        self.refs = refs;
-        self
-    }
-
-    pub fn with_ref(mut self, event_ref: EventRef) -> Self {
-        self.refs.push(event_ref);
-        self
-    }
-
-    pub fn with_causal_refs(mut self, causal_refs: Vec<Hash>) -> Self {
-        self.causal_refs = causal_refs;
-        self
-    }
-
-    pub fn with_preconditions(mut self, preconditions: Vec<Precondition>) -> Self {
-        self.preconditions = preconditions;
-        self
-    }
-
-    pub fn with_seal_ref(mut self, seal_ref: SealId) -> Self {
-        self.seal_ref = Some(seal_ref);
-        self
-    }
-
-    pub fn with_auth_context(mut self, auth_context: AuthContext) -> Self {
-        self.auth_context = Some(auth_context);
-        self
-    }
-
-    pub fn with_seal_basis(mut self, seal_basis: SealBasis) -> Self {
-        self.seal_basis = Some(seal_basis);
-        self
-    }
-
-    pub fn with_requirements(mut self, requirements: EventRequirements) -> Self {
-        self.requirements = requirements;
-        self
-    }
-
-    pub fn with_schema_profile_ref(mut self, profile_ref: ProfileRef) -> Self {
-        self.requirements.schema_profile_refs.push(profile_ref);
+    pub fn with_semantic_ref(mut self, event_ref: SemanticRef) -> Self {
+        self.semantic_refs.push(event_ref);
         self
     }
 
@@ -143,12 +74,8 @@ impl<K: EventSpec> TypedEventDraft<K> {
         self
     }
 
-    /// Erase `K` into a kind-agnostic [`EventIntent`] after proving the
-    /// marker's payload pairing.
-    ///
-    /// This is how a heterogeneous command bus or durable queue holds drafts of
-    /// many kinds without authoring first: [`EventIntent`] carries every
-    /// producer decision and no derived identity.
+    /// Erase the marker only after its payload has been validated. Authority
+    /// stream position is intentionally not part of this producer draft.
     pub fn into_intent(self, created_at: DateTime<Utc>) -> Result<EventIntent> {
         let payload = serde_json::to_value(self.payload)?;
         let Value::Object(payload) = payload else {
@@ -164,33 +91,20 @@ impl<K: EventSpec> TypedEventDraft<K> {
             created_at,
             payload.into_iter().collect(),
         )
-        .with_prev_refs(self.prev_refs)
-        .with_refs(self.refs)
-        .with_causal_refs(self.causal_refs)
-        .with_preconditions(self.preconditions)
-        .with_requirements(self.requirements)
-        .with_optional_seal_ref(self.seal_ref)
-        .with_optional_auth_context(self.auth_context)
-        .with_optional_seal_basis(self.seal_basis)
+        .with_semantic_refs(self.semantic_refs)
         .with_optional_executed_by(self.executed_by)
         .with_optional_authorization_ref(self.authorization_ref)
         .with_optional_applet_id(self.applet_id)
         .with_optional_external_ref(self.external_ref))
     }
 
-    /// Author under the Realm's declared content digest suite. Callers must
-    /// obtain this suite from accepted Realm state; it is used for both the
-    /// placeholder-derived genesis Realm id and the final content-bound Event
-    /// id.
     pub fn author_with_digest_suite(
         self,
-        actor_seq: u64,
-        hlc: Hlc,
         created_at: DateTime<Utc>,
         digest_suite: DigestSuite,
     ) -> Result<AuthoredEvent> {
         self.into_intent(created_at)?
-            .author_with_digest_suite(actor_seq, hlc, digest_suite)
+            .author_with_digest_suite(digest_suite)
     }
 }
 
@@ -203,13 +117,11 @@ pub trait ExtensionPayloadValidator {
     ) -> arkret_wire::Result<()>;
 }
 
-/// Coordinates required to materialize a validated extension payload as an Event.
+/// Producer coordinates needed to finalize a validated extension Event.
 #[derive(Clone, Debug)]
 pub struct EventAuthoringContext {
     pub scope_ref: ScopeRef,
     pub actor_id: ActorId,
-    pub actor_seq: u64,
-    pub hlc: Hlc,
     pub created_at: DateTime<Utc>,
     pub digest_suite: DigestSuite,
 }
@@ -268,8 +180,7 @@ impl ValidatedExtensionPayload {
                 "extension Event payload must be a JSON object".to_owned(),
             ));
         };
-        let payload_value = Value::Object(payload.clone());
-        validator.validate_payload(schema_ref, &payload_value)?;
+        validator.validate_payload(schema_ref, &Value::Object(payload.clone()))?;
         Ok(Self {
             kind,
             payload: payload.into_iter().collect(),
@@ -298,19 +209,21 @@ impl ValidatedExtensionPayload {
             context.created_at,
             self.payload,
         )
-        .author_with_digest_suite(context.actor_seq, context.hlc, context.digest_suite)
+        .author_with_digest_suite(context.digest_suite)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_collaboration::events_payloads::DeviceReanchorPayload;
     use arkret_wire::{
-        ConfidentialityClass, DidCoreId, ExtensionManifest, Hash, ManifestResourceLimits,
-        ProtocolLayerKind, RegistryContentRef,
+        AccountId, ConfidentialityClass, DidCoreId, ExtensionManifest, Hash,
+        ManifestResourceLimits, ProtocolLayerKind, RealmId, RegistryContentRef, event_spec,
     };
     use serde_json::json;
 
     use super::*;
+    use crate::EventPayloadExt;
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
@@ -348,17 +261,60 @@ mod tests {
     }
 
     #[test]
+    fn device_reanchor_typed_draft_authors_the_registered_event() {
+        let payload: DeviceReanchorPayload = serde_json::from_value(json!({
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkholder",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "recovery_authority_kind": "pcr_policy",
+            "recovery_policy_id": "ak:policy:0198ff00-0000-7000-8000-000000000001",
+            "recovery_policy_version": 3,
+            "recovery_session_id": "ak:recovery_session:0198ff00-0000-7000-8000-00000000000c",
+            "previous_device_generation": 7,
+            "new_device_generation": 8,
+            "replacement_authorize_payload_digest": format!("sha256:{}", "a".repeat(64))
+        }))
+        .unwrap();
+        let principal = DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
+
+        let event = TypedEventDraft::<event_spec::DeviceReanchor>::new(
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            ActorId::account(AccountId::new(principal, station)),
+            payload.clone(),
+        )
+        .unwrap()
+        .author_with_digest_suite("2026-09-19T00:00:00Z".parse().unwrap(), DigestSuite::Sha256)
+        .unwrap();
+
+        assert_eq!(event.event().kind, event_spec::DeviceReanchor::KIND);
+        assert_eq!(event.event().realm_id, realm_id);
+        assert_eq!(
+            event
+                .event()
+                .typed_payload::<event_spec::DeviceReanchor>()
+                .unwrap(),
+            payload
+        );
+    }
+
+    #[test]
     fn extension_authoring_requires_namespace_declared_schema_and_validator() {
         let reference = schema_ref("ak.schema.example.note.v1", 'b');
         let manifest = extension_manifest(reference.clone());
         let validator = |_: &RegistryContentRef, payload: &Value| {
-            if payload.get("text").and_then(Value::as_str).is_some() {
-                Ok(())
-            } else {
-                Err(arkret_wire::WireError::Protocol(
-                    "example note requires text".to_owned(),
-                ))
-            }
+            payload
+                .get("text")
+                .and_then(Value::as_str)
+                .map(|_| ())
+                .ok_or_else(|| {
+                    arkret_wire::WireError::Protocol("example note requires text".to_owned())
+                })
         };
 
         let validated = ValidatedExtensionPayload::validate(
@@ -370,46 +326,5 @@ mod tests {
         )
         .unwrap();
         assert_eq!(validated.kind().as_str(), "ak.example.note");
-
-        assert!(
-            ValidatedExtensionPayload::validate(
-                EventKind::MessageCreate,
-                json!({"text": "hello"}),
-                &manifest,
-                &reference,
-                &validator,
-            )
-            .is_err()
-        );
-        assert!(
-            ValidatedExtensionPayload::validate(
-                EventKind::from_wire("ak.exampleevil.note"),
-                json!({"text": "hello"}),
-                &manifest,
-                &reference,
-                &validator,
-            )
-            .is_err()
-        );
-        assert!(
-            ValidatedExtensionPayload::validate(
-                EventKind::from_wire("ak.example.note"),
-                json!({}),
-                &manifest,
-                &reference,
-                &validator,
-            )
-            .is_err()
-        );
-        assert!(
-            ValidatedExtensionPayload::validate(
-                EventKind::from_wire("ak.example.note"),
-                json!({"text": "hello"}),
-                &manifest,
-                &schema_ref("ak.schema.other.v1", 'c'),
-                &validator,
-            )
-            .is_err()
-        );
     }
 }

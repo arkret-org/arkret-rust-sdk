@@ -11,23 +11,18 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Conventional admin-scope identifiers. These mirror the operations
-/// soland already gates on `require_admin_principal`. Servers MAY add
+/// coland already gates on `require_admin_principal`. Servers MAY add
 /// custom scopes; the introspection helper does not enforce a closed
 /// set.
 pub mod admin_scopes {
-    /// Submit a Move that reconfigures a Space's notary cell.
-    pub const NOTARY_RECONFIGURE: &str = "notary.reconfigure";
-    /// Trigger a compaction seal (MAL-11).
-    pub const SEAL_COMPACT: &str = "seal.compact";
-    /// Submit a manual repair Move for a bottom cell.
-    pub const BOTTOM_REPAIR: &str = "bottom.repair";
+    /// Authorize an operator-assisted Realm authority handoff.
+    pub const AUTHORITY_HANDOFF: &str = "authority.handoff";
+    /// Trigger retention-aware commit-log compaction.
+    pub const COMMIT_LOG_COMPACT: &str = "commit_log.compact";
+    /// Repair a damaged independent Realm/Circle/Sidecar stream.
+    pub const STREAM_REPAIR: &str = "stream.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
     pub const ADMIN_READ: &str = "admin.read";
-    /// Plan or cancel a same-core service route handover: sign a
-    /// `ServiceRouteHandoverNotice` against the current record basis and
-    /// drive the owner-side publish/ACK barrier. Write-scoped and distinct
-    /// from [`ADMIN_READ`], which only exposes the route projection.
-    pub const SERVICE_ROUTE_HANDOVER: &str = "service_route.handover";
 }
 
 /// Typed view of an OAuth-style session-grant introspection response.
@@ -35,7 +30,7 @@ pub mod admin_scopes {
 /// Stations receive this from their upstream IdP (coauth, by
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
-/// `org.arkret.*` extensions soland already uses.
+/// `org.arkret.*` extensions coland already uses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SessionGrantAdminIntrospectionStatus {
@@ -65,7 +60,7 @@ pub struct SessionGrantIntrospection {
     /// `org.arkret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: DidCoreId,
     /// Granted admin scopes — e.g.
-    /// [`admin_scopes::NOTARY_RECONFIGURE`]. Receivers gate
+    /// [`admin_scopes::AUTHORITY_HANDOFF`]. Receivers gate
     /// individual admin operations on whether the relevant scope is
     /// present here.
     #[serde(default)]
@@ -101,7 +96,7 @@ impl SessionGrantIntrospection {
     }
 
     /// True iff the grant lists `scope`. Note: this is **exact match**;
-    /// hierarchical scopes (`seal.*` covering `seal.compact`) MUST
+    /// hierarchical scopes (`commit_log.*` covering `commit_log.compact`) MUST
     /// be expanded by the IdP before introspection.
     pub fn has_admin_scope(&self, scope: &str) -> bool {
         self.admin_scopes.iter().any(|s| s == scope)
@@ -172,24 +167,24 @@ mod tests {
 
     #[test]
     fn has_admin_scope_exact_match() {
-        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
-        assert!(g.has_admin_scope(admin_scopes::NOTARY_RECONFIGURE));
-        assert!(!g.has_admin_scope(admin_scopes::SEAL_COMPACT));
+        let g = grant_active(&[admin_scopes::AUTHORITY_HANDOFF]);
+        assert!(g.has_admin_scope(admin_scopes::AUTHORITY_HANDOFF));
+        assert!(!g.has_admin_scope(admin_scopes::COMMIT_LOG_COMPACT));
     }
 
     #[test]
     fn require_admin_scope_rejects_missing() {
         let g = grant_active(&[admin_scopes::ADMIN_READ]);
         let err = g
-            .require_admin_scope(admin_scopes::BOTTOM_REPAIR)
+            .require_admin_scope(admin_scopes::STREAM_REPAIR)
             .unwrap_err();
-        assert!(format!("{err}").contains("bottom.repair"));
+        assert!(format!("{err}").contains("stream.repair"));
     }
 
     #[test]
     fn require_admin_scope_ok_when_present() {
-        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
-        g.require_admin_scope(admin_scopes::NOTARY_RECONFIGURE)
+        let g = grant_active(&[admin_scopes::AUTHORITY_HANDOFF]);
+        g.require_admin_scope(admin_scopes::AUTHORITY_HANDOFF)
             .unwrap();
     }
 

@@ -15,9 +15,38 @@ use thiserror::Error;
 
 pub mod generated {
     pub mod digest_suite_codes;
+    pub mod protocol_time_tolerances;
 }
 
 pub use generated::digest_suite_codes::DigestSuiteCode;
+pub use generated::protocol_time_tolerances::{
+    ProtocolTimeToleranceDescriptor, ProtocolTimeToleranceDirection, ProtocolTimeToleranceScenario,
+    ProtocolTimeToleranceScenarioDescriptor, protocol_time_tolerance,
+    protocol_time_tolerance_scenario, protocol_time_tolerance_scenario_descriptor,
+};
+
+impl ProtocolTimeToleranceScenarioDescriptor {
+    /// Registry-selected tolerance magnitude for this scenario.
+    pub fn tolerance_ms(self) -> i64 {
+        protocol_time_tolerance(self.tolerance_id)
+            .expect("generated scenario references a generated tolerance")
+            .value_ms
+    }
+
+    /// Whether a timestamp this many milliseconds after verification time is
+    /// accepted. Equality at the registered bound is accepted.
+    pub fn accepts_future_offset_ms(self, offset_ms: i64) -> bool {
+        offset_ms <= 0 || offset_ms <= self.tolerance_ms()
+    }
+
+    /// Whether an expiry this many milliseconds before verification time is
+    /// accepted. A future-only scenario has no past-expiry grace.
+    pub fn accepts_past_expiry_offset_ms(self, offset_ms: i64) -> bool {
+        offset_ms <= 0
+            || (self.direction == ProtocolTimeToleranceDirection::SymmetricNotBeforeAndExpiry
+                && offset_ms <= self.tolerance_ms())
+    }
+}
 
 pub type Result<T> = std::result::Result<T, IdentifierError>;
 
@@ -38,7 +67,7 @@ pub enum IdentifierError {
 }
 
 macro_rules! id_type {
-    ($(#[$meta:meta])* $name:ident, $expect:expr) => {
+    ($(#[$meta:meta])* $name:ident, $expect:expr $(, $validate:expr)?) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -47,6 +76,7 @@ macro_rules! id_type {
         impl $name {
             pub fn new(value: impl Into<String>) -> Result<Self> {
                 let value = value.into();
+                $( $validate(&value)?; )?
                 if !$expect(&value) {
                     return Err(IdentifierError::InvalidId(value));
                 }
@@ -103,7 +133,7 @@ macro_rules! id_type {
     };
 }
 
-/// Like [`id_type!`] but for **pure uuidv7 typed ids** (`ak:<kind>:<uuidv7>`,
+/// Like `id_type!` but for **pure uuidv7 typed ids** (`ak:<kind>:<uuidv7>`,
 /// single prefix, no hash alternative). In addition to the string-newtype API
 /// it exposes the at-rest bare-uuid form:
 ///
@@ -113,8 +143,8 @@ macro_rules! id_type {
 /// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB uuid + this type's
 ///   kind prefix.
 ///
-/// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
-/// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
+/// Hash-bearing kinds (`BlobRef`, `Hash`), `OperationId`, DIDs,
+/// cursors and `trust_domain` MUST stay on plain `id_type!` — they have no
 /// bare-uuid form.
 /// Database mappings are deliberately type-specific: the optional `diesel`
 /// feature currently maps [`DidCoreId`] to PostgreSQL `text`; it does not
@@ -179,11 +209,17 @@ const DIGEST_SUITE_LOW_NIBBLE_MASK: u8 = 0x0F;
 fn event_digest_suite_from_header(header: u8) -> Result<DigestSuiteCode> {
     let reserved = header >> IDENTITY_HEADER_HIGH_NIBBLE_SHIFT;
     if reserved != EVENT_RESERVED_HIGH_NIBBLE {
-        return Err(IdentifierError::InvalidId(format!(
-            "Event reserved header nibble must be zero, got 0x{reserved:x}"
+        return Err(IdentifierError::Protocol(format!(
+            "schema_violation: Event reserved header nibble must be zero, got 0x{reserved:x}"
         )));
     }
-    DigestSuiteCode::try_from(header & DIGEST_SUITE_LOW_NIBBLE_MASK)
+    let suite = header & DIGEST_SUITE_LOW_NIBBLE_MASK;
+    if suite != DigestSuiteCode::Sha256.as_u8() {
+        return Err(IdentifierError::Protocol(format!(
+            "unsupported_digest_algorithm: Event token suite code 0x{suite:02x}"
+        )));
+    }
+    Ok(DigestSuiteCode::Sha256)
 }
 
 /// Parsed form of an [`EventId`]'s complete cryptographic identity.
@@ -202,6 +238,10 @@ impl EventIdentityKey {
     }
 
     pub const fn new(suite: DigestSuiteCode, digest: [u8; 32]) -> Self {
+        assert!(
+            matches!(suite, DigestSuiteCode::Sha256),
+            "v1 Event identity is fixed to SHA-256"
+        );
         Self { suite, digest }
     }
 
@@ -238,6 +278,12 @@ pub fn encode_event_token(prefix: &str, bytes: [u8; 33]) -> String {
 /// spelling, and leads with an active v1 digest suite code whose high nibble is
 /// zero.
 pub fn decode_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
+    let bytes = decode_raw_digest_token(value, prefix)?;
+    DigestSuiteCode::try_from(bytes[0]).ok()?;
+    Some(bytes)
+}
+
+fn decode_raw_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix(prefix)?;
     if payload.len() != 44
         || !payload
@@ -252,7 +298,6 @@ pub fn decode_digest_token(value: &str, prefix: &str) -> Option<[u8; 33]> {
     if URL_SAFE_NO_PAD.encode(bytes) != payload {
         return None;
     }
-    DigestSuiteCode::try_from(bytes[0]).ok()?;
     Some(bytes)
 }
 
@@ -266,9 +311,23 @@ fn is_event_token_id(value: &str, prefix: &str) -> bool {
     decode_event_token(value, prefix).is_some()
 }
 
+fn validate_event_token(value: &str, prefix: &str) -> Result<()> {
+    let bytes = decode_raw_digest_token(value, prefix).ok_or_else(|| {
+        IdentifierError::Protocol(format!(
+            "schema_violation: invalid Event token encoding: {value}"
+        ))
+    })?;
+    event_digest_suite_from_header(bytes[0])?;
+    Ok(())
+}
+
 macro_rules! event_token_id_type {
     ($name:ident, $prefix:literal) => {
-        id_type!($name, |value: &str| is_event_token_id(value, $prefix));
+        id_type!(
+            $name,
+            |value: &str| is_event_token_id(value, $prefix),
+            |value: &str| validate_event_token(value, $prefix)
+        );
 
         impl $name {
             pub const KIND_PREFIX: &'static str = $prefix;
@@ -314,12 +373,12 @@ macro_rules! declare_event_token_id_kinds {
 /// `KIND_PREFIX` is an inherent associated const with no registry behind it —
 /// so the spec-coverage constants in `arkret-schema` had to repeat the kind
 /// list as hand-written strings. That copy silently fell five kinds behind the
-/// registry (`authorization_lease`, `invite_locator`, `message_stream`,
-/// `sidecar`). [`DECLARED_UUID_ID_KIND_PREFIXES`]
+/// registry (`invite_locator`, `message_stream`, `sidecar`).
+/// [`DECLARED_UUID_ID_KIND_PREFIXES`]
 /// closes that gap: it is derived from the same literals the types validate
 /// against, so it cannot disagree with them.
 ///
-/// Hash-bearing, hybrid and special-form kinds stay on plain [`id_type!`] and
+/// Hash-bearing, hybrid and special-form kinds stay on plain `id_type!` and
 /// are deliberately absent from this block — they have no `ak:<kind>:<uuidv7>`
 /// wire form and the spec lists them under `special_forms`.
 macro_rules! declare_uuid_id_kinds {
@@ -341,8 +400,9 @@ macro_rules! declare_uuid_id_kinds {
 ///
 /// Special forms are the spec `id-kind-registry.json` `special_forms` rows:
 /// `ak:<kind>:` identifiers whose payload is *not* a UUIDv7 — content digests,
-/// opaque base64url tokens, a cell family plus subject. Each therefore keeps
-/// its own validator instead of sharing one like [`declare_uuid_id_kinds!`].
+/// opaque base64url tokens, or externally scoped identities. Each therefore
+/// keeps its own validator instead of sharing one like
+/// [`declare_uuid_id_kinds!`].
 ///
 /// What the two blocks share is the reason they exist. `arkret-schema`'s
 /// `SUPPORTED_SPECIAL_FORM_ID_KINDS` was a hand-written list with nothing behind
@@ -353,7 +413,7 @@ macro_rules! declare_uuid_id_kinds {
 /// types are generated from, so neither direction can drift unnoticed.
 ///
 /// Identifiers that are not registry `special_forms` rows stay on plain
-/// [`id_type!`]: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
+/// `id_type!`: [`Did`], [`Hash`] (a bare `<algo>:<hex>` digest with no `ak:`
 /// prefix), [`OperationId`] (producer-allocated, but with no bare-uuid form)
 /// and [`DeviceMessageTransactionId`] (a payload field charset, not an id
 /// kind).
@@ -373,7 +433,7 @@ macro_rules! declare_special_form_id_kinds {
         /// Cross-checked against the spec `id-kind-registry.json` and
         /// `arkret_schema::SUPPORTED_SPECIAL_FORM_ID_KINDS` by
         /// `arkret-schema`'s `id_kind_coverage` test.
-        pub const DECLARED_SPECIAL_FORM_ID_KINDS: &[&str] = &[$($kind),*];
+        pub const DECLARED_SPECIAL_FORM_ID_KINDS: &[&str] = &[DidCoreId::ID_KIND, $($kind),*];
     };
 }
 
@@ -448,83 +508,6 @@ fn is_hash(value: &str) -> bool {
             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
-fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
-    move |value| value.starts_with(prefix) && value.len() > prefix.len()
-}
-
-/// Validate a canonical Arkret cell-family identifier.
-///
-/// Cell families are first-class registry identifiers with the wire form
-/// `ak.component.<facet-path>.v<n>`. The complete family identifier is
-/// embedded unchanged in a [`CellRef`].
-pub fn is_cell_family(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak.component.") else {
-        return false;
-    };
-    let Some((facet_path, version)) = rest.rsplit_once(".v") else {
-        return false;
-    };
-
-    !facet_path.is_empty()
-        && facet_path.split('.').all(|segment| {
-            !segment.is_empty()
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        })
-        && !version.is_empty()
-        && version.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-/// Validate the canonical `ak:cell:<cell-family>:<subject>` wire form.
-///
-/// The family MUST be a complete `ak.component.*.v<n>` identifier. Subjects
-/// may contain colon-separated typed identifiers; an empty subject is allowed
-/// for a family-scoped singleton and is represented by the trailing colon.
-pub fn is_cell_ref(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak:cell:") else {
-        return false;
-    };
-    let Some((family, subject)) = rest.split_once(':') else {
-        return false;
-    };
-    if !is_cell_family(family) {
-        return false;
-    }
-    if subject.is_empty() {
-        return true;
-    }
-
-    subject.split(':').all(is_cell_subject_segment)
-}
-
-fn is_cell_subject_segment(segment: &str) -> bool {
-    if segment.is_empty() {
-        return false;
-    }
-
-    let bytes = segment.as_bytes();
-    let mut index = 0;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        if byte == b'%' {
-            if index + 2 >= bytes.len()
-                || !bytes[index + 1].is_ascii_hexdigit()
-                || !bytes[index + 2].is_ascii_hexdigit()
-            {
-                return false;
-            }
-            index += 3;
-            continue;
-        }
-        if !byte.is_ascii_alphanumeric() && !matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-') {
-            return false;
-        }
-        index += 1;
-    }
-    true
-}
-
 /// Validate the `ak:plan:<base64url>` wire form. The suffix is an opaque,
 /// non-empty, unpadded base64url token. Spec: id-kind-registry.json
 /// `special_forms[plan]`; pattern matches applet-install-plan.schema.json
@@ -543,13 +526,17 @@ pub fn is_plan_id(value: &str) -> bool {
 
 /// Validate the `ak:service_registration_receipt:<sha256-hex>` wire form. The
 /// suffix is the lower-case hex SHA-256 over the canonical receipt claims, so
-/// it is exactly 64 hex digits — unlike [`is_hash`], which carries its own
+/// it is exactly 64 hex digits — unlike `is_hash`, which carries its own
 /// `<algo>:` prefix. Spec: id-kind-registry.json
 /// `special_forms[service_registration_receipt]`; pattern matches
 /// service-operation-dtos.schema.json
 /// `^ak:service_registration_receipt:[0-9a-f]{64}$`.
 pub fn is_service_registration_receipt_id(value: &str) -> bool {
-    match value.strip_prefix("ak:service_registration_receipt:") {
+    is_hex_identifier(value, "ak:service_registration_receipt:")
+}
+
+fn is_hex_identifier(value: &str, prefix: &str) -> bool {
+    match value.strip_prefix(prefix) {
         Some(digest) => {
             digest.len() == 64
                 && digest
@@ -635,9 +622,6 @@ impl TryFrom<u8> for RealmDerivationClass {
 /// minted, per the spec `id-kind-registry.json` `id_form` column.
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
-    "ak:audit_binding:",
-    "ak:audit_release:",
-    "ak:audit_session:",
     "ak:call:",
     "ak:circle:",
     "ak:event:",
@@ -850,6 +834,7 @@ mod diesel_support;
 pub use diesel_support::parse_text_identifier as __parse_text_identifier;
 
 impl DidCoreId {
+    pub const ID_KIND: &'static str = "did_core";
     /// Borrow this already-normalized identity core.
     ///
     /// This is a shape-neutral convenience for APIs that also accept projected
@@ -909,15 +894,11 @@ declare_uuid_id_kinds! {
     // AKP-0008/0009 (spec head 37ce729) — Agent auxiliary typed ids.
     // `agent_id` business references use the stable `DidCoreId`; full Agent
     // DIDs remain confined to registration and method-resolution evidence.
-    // Audit release-session + attestation typed ids (id-kind-registry kinds
-    // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
-    AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
     // RTC call participant id (id-kind-registry kind `rtc_participant`).
     RtcParticipantId, "ak:rtc_participant:", UUID_VERSION_PRODUCER_ALLOCATED;
     // Key-backup hardening (B-C) typed ids.
     BackupSeriesId, "ak:backup_series:", UUID_VERSION_PRODUCER_ALLOCATED;
     RecoverySessionId, "ak:recovery_session:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AnnounceId, "ak:announce:", UUID_VERSION_PRODUCER_ALLOCATED;
     AppletId, "ak:applet:", UUID_VERSION_PRODUCER_ALLOCATED;
     BackupId, "ak:backup:", UUID_VERSION_PRODUCER_ALLOCATED;
     BatchId, "ak:batch:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -938,8 +919,6 @@ declare_uuid_id_kinds! {
     FrameId, "ak:frame:", UUID_VERSION_PRODUCER_ALLOCATED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
-    KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
-    AuthorizationLeaseId, "ak:authorization_lease:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceId, "ak:device:", UUID_VERSION_PRODUCER_ALLOCATED;
     NotificationId, "ak:notification:", UUID_VERSION_PRODUCER_ALLOCATED;
     PolicyId, "ak:policy:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -948,15 +927,14 @@ declare_uuid_id_kinds! {
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
     ScheduledSendId, "ak:scheduled_send:", UUID_VERSION_PRODUCER_ALLOCATED;
     RealmStateSnapshotId, "ak:realm_state_snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
+    MlsWelcomeDeliveryId, "ak:mls_welcome_delivery:", UUID_VERSION_PRODUCER_ALLOCATED;
+    KeypackageClaimId, "ak:keypackage_claim:", UUID_VERSION_PRODUCER_ALLOCATED;
     SubscriptionId, "ak:subscription:", UUID_VERSION_PRODUCER_ALLOCATED;
     TransactionId, "ak:transaction:", UUID_VERSION_PRODUCER_ALLOCATED;
 }
 
 declare_event_token_id_kinds! {
     ActorProfileId, "ak:actor_profile:";
-    AuditBindingId, "ak:audit_binding:";
-    AuditReleaseId, "ak:audit_release:";
-    AuditSessionId, "ak:audit_session:";
     CallId, "ak:call:";
     CircleId, "ak:circle:";
     EventId, "ak:event:";
@@ -981,6 +959,23 @@ fn decode_session_grant_token(value: &str) -> Option<[u8; 33]> {
 fn decode_account_status_record_token(value: &str) -> Option<[u8; 33]> {
     let token = decode_digest_token(value, AccountStatusRecordId::KIND_PREFIX)?;
     (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
+}
+
+id_type!(NotificationProjectionId, |value: &str| {
+    decode_digest_token(value, NotificationProjectionId::KIND_PREFIX)
+        .is_some_and(|token| token[0] == DigestSuiteCode::Sha256.as_u8())
+});
+
+impl NotificationProjectionId {
+    pub const KIND_PREFIX: &'static str = "ak:notification_projection:";
+
+    /// Encode all digest octets; this is neither a UUID nor an Event retype.
+    pub fn from_projection_digest(digest: [u8; 32]) -> Self {
+        let mut token = [0_u8; 33];
+        token[0] = DigestSuiteCode::Sha256.as_u8();
+        token[1..].copy_from_slice(&digest);
+        Self(encode_digest_token(Self::KIND_PREFIX, token))
+    }
 }
 
 id_type!(AccountStatusRecordId, |value: &str| {
@@ -1041,12 +1036,46 @@ impl SessionGrantId {
     }
 }
 
-/// Issuer-record identifiers whose wire payload is a complete registered
-/// suite byte plus a 32-byte digest, but whose authority is not an Event.
+/// Identifiers whose wire payload is a complete registered suite byte plus
+/// a 32-byte digest, with authority distinct from Event-derived identities.
 pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] = &[
     SessionGrantId::KIND_PREFIX,
     AccountStatusRecordId::KIND_PREFIX,
+    NotificationProjectionId::KIND_PREFIX,
+    RealmCommitId::KIND_PREFIX,
+    RealmAuthorityHandoffId::KIND_PREFIX,
+    RealmSnapshotId::KIND_PREFIX,
 ];
+
+macro_rules! suite_tagged_content_id_type {
+    ($name:ident, $prefix:literal) => {
+        id_type!($name, |value: &str| decode_digest_token(value, $prefix)
+            .is_some_and(|token| token[0] == DigestSuiteCode::Sha256.as_u8()));
+
+        impl $name {
+            pub const KIND_PREFIX: &'static str = $prefix;
+
+            pub fn from_digest(digest: [u8; 32]) -> Self {
+                let mut token = [0_u8; 33];
+                token[0] = DigestSuiteCode::Sha256.as_u8();
+                token[1..].copy_from_slice(&digest);
+                Self(encode_digest_token(Self::KIND_PREFIX, token))
+            }
+
+            pub fn digest_bytes(&self) -> [u8; 32] {
+                let token = decode_digest_token(&self.0, Self::KIND_PREFIX)
+                    .expect("validated content id carries a canonical digest token");
+                let mut digest = [0_u8; 32];
+                digest.copy_from_slice(&token[1..]);
+                digest
+            }
+        }
+    };
+}
+
+suite_tagged_content_id_type!(RealmCommitId, "ak:realm_commit:");
+suite_tagged_content_id_type!(RealmAuthorityHandoffId, "ak:realm_authority_handoff:");
+suite_tagged_content_id_type!(RealmSnapshotId, "ak:realm_snapshot:");
 
 fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix("ak:realm:")?;
@@ -1126,10 +1155,13 @@ declare_special_form_id_kinds! {
     // Content-addressed Blob bytes. Distinct from `BlobId`, which is the
     // `ak:blob:<uuidv7>` metadata-resource identity.
     BlobRef, "blob", is_blob_ref;
-    CellRef, "cell", is_cell_ref;
-    Cursor, "cursor", has_prefix("ak:cursor:");
+    Cursor, "cursor", |value: &str| value.strip_prefix("ak:cursor:").is_some_and(|token|
+        !token.is_empty() && token.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')));
+    OrganizationRegistrationChallengeId, "organization_registration_challenge",
+        |value: &str| is_hex_identifier(value, "ak:organization_registration_challenge:");
+    OrganizationRegistrationReceiptId, "organization_registration_receipt",
+        |value: &str| is_hex_identifier(value, "ak:organization_registration_receipt:");
     PlanId, "plan", is_plan_id;
-    SealId, "seal", is_content_addressed("ak:seal:");
     ServiceRegistrationReceiptId,
         "service_registration_receipt",
         is_service_registration_receipt_id;
@@ -1138,25 +1170,28 @@ declare_special_form_id_kinds! {
     TrustDomainId, "trust_domain", is_trust_domain;
 }
 
-// `id-kind-registry.json` gives `operation` `wire_form: ak:operation:<uuid>`
-// and `id_form: producer_allocated`, and it is not a `special_forms` row — the
-// content-addressed kinds (`blob`, `seal`, `service_registration_receipt`,
-// `membership_compensation_delegation`) all are. So a bare digest is not an
-// Operation id: accepting one here was permissiveness no producer emitted and
-// no consumer relied on. It stays a text `id_type!` because there is no bare
-// uuid form.
-id_type!(OperationId, |value: &str| is_strict_typed_id(
-    value,
-    "ak:operation:",
-    UUID_VERSION_PRODUCER_ALLOCATED
-));
-
-impl OperationId {
-    /// Mint the UUIDv7 form of an Operation id at an explicit Unix timestamp.
-    pub fn new_v7_at(unix_ms: u64) -> Self {
-        Self(format!("ak:operation:{}", uuid_v7_at(unix_ms)))
-    }
+// Producer-allocated UUIDv7 identifiers with no implicit database conversion.
+macro_rules! declare_producer_allocated_ids {
+    ($($name:ident, $prefix:literal;)*) => {
+        $(
+            id_type!($name, |value: &str| is_strict_typed_id(
+                value, $prefix, UUID_VERSION_PRODUCER_ALLOCATED
+            ));
+            impl $name {
+                pub const KIND_PREFIX: &'static str = $prefix;
+                pub fn new_v7_at(unix_ms: u64) -> Self {
+                    Self(format!("{}{}", $prefix, uuid_v7_at(unix_ms)))
+                }
+            }
+        )*
+        pub const DECLARED_PRODUCER_ALLOCATED_ID_KIND_PREFIXES: &[&str] = &[$($prefix),*];
+    };
 }
+
+declare_producer_allocated_ids! {
+    OperationId, "ak:operation:";
+}
+
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {
@@ -1171,10 +1206,10 @@ impl InviteId {
     /// derived from (`zh/models/common-fields.md` section 6.0).
     ///
     /// The `ak.component.invite.live_target.v1` slot stores the `ak:event:`
-    /// spelling verbatim, so a release Move's `head_eq` value must come through
-    /// this retype rather than through the `ak:invite:` string a caller already
-    /// holds. The two spellings share one 33-octet token and would otherwise
-    /// compare unequal forever, leaking the slot.
+    /// spelling verbatim, so a release Event's `expected_revision` value must
+    /// come through this retype rather than through the `ak:invite:` string a
+    /// caller already holds. The two spellings share one 33-octet token and
+    /// would otherwise compare unequal forever, leaking the slot.
     pub fn event_id(&self) -> EventId {
         EventId(encode_event_token(EventId::KIND_PREFIX, self.token_bytes()))
     }
@@ -1198,6 +1233,11 @@ impl EventId {
     }
 
     pub fn from_digest(suite: arkret_canonical::DigestSuite, digest: [u8; 32]) -> Self {
+        assert_eq!(
+            suite,
+            arkret_canonical::DigestSuite::Sha256,
+            "v1 Event identity is fixed to SHA-256"
+        );
         Self::from_identity(EventIdentityKey::new(
             DigestSuiteCode::from_digest_suite(suite),
             digest,
@@ -1223,11 +1263,7 @@ fn is_blob_ref(value: &str) -> bool {
     value.strip_prefix("ak:blob:").is_some_and(is_hash)
 }
 
-fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
-    move |value| value.strip_prefix(prefix).is_some_and(is_hash)
-}
-
-/// `device-message.schema.json#/$defs/key_verification_content.transaction_id`:
+/// `device-message.schema.json` to-device correlation coordinate:
 /// `^[A-Za-z0-9._~=-]{1,128}$`.
 ///
 /// This is a **different namespace** from [`TransactionId`], which is
@@ -1235,7 +1271,7 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// family. The two share a word, not a value space: `:` is outside the charset
 /// above, so *every* `TransactionId` value violates this pattern. Typing the
 /// device-message field as `TransactionId` would therefore make it impossible
-/// to author conformant `ak.key.verification.*` content.
+/// to author conformant to-device content.
 fn is_device_message_transaction_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -1265,10 +1301,8 @@ id_type!(
     is_push_target_id
 );
 
-// Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
-// root, or a control-plane `Seal.delta[]` entry. `ak:seal:` prefixes the
-// content-addressed Seal identifier itself, which is a special form and is
-// declared with the other `special_forms` kinds.
+// Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest` or another
+// authenticated content commitment.
 id_type!(Hash, is_hash);
 
 impl Hash {
@@ -1295,8 +1329,11 @@ impl EventIdentityKey {
             .ok_or_else(|| IdentifierError::InvalidId(value.as_str().to_owned()))?;
         let suite = match suite {
             "sha256" => DigestSuiteCode::Sha256,
-            "blake3" => DigestSuiteCode::Blake3,
-            _ => return Err(IdentifierError::InvalidId(value.as_str().to_owned())),
+            _ => {
+                return Err(IdentifierError::Protocol(
+                    "unsupported_digest_algorithm: Event digest suite must be sha256".to_owned(),
+                ));
+            }
         };
         let mut digest = [0_u8; 32];
         for (index, octet) in digest.iter_mut().enumerate() {
@@ -1616,14 +1653,18 @@ mod tests {
         assert!(BlobRef::new(format!("ak:blob:blake3:{digest64}")).is_ok());
         assert!(BlobRef::new(format!("sha256:{digest64}")).is_err());
         assert!(BlobRef::new("ak:blob:01904100-0000-7000-8000-000000000001").is_err());
-        assert_eq!(CellRef::ID_KIND, "cell");
-        assert!(CellRef::new("ak:cell:ak.component.relation.lifecycle.v1:subject").is_ok());
         assert_eq!(Cursor::ID_KIND, "cursor");
         assert!(Cursor::new("ak:cursor:b3RoZXI").is_ok());
+        for token in [
+            "ak:cursor:",
+            "ak:cursor:one,two",
+            "ak:cursor:a=",
+            "ak:cursor:a b",
+        ] {
+            assert!(Cursor::new(token).is_err());
+        }
         assert_eq!(PlanId::ID_KIND, "plan");
         assert!(PlanId::new("ak:plan:b3RoZXI").is_ok());
-        assert_eq!(SealId::ID_KIND, "seal");
-        assert!(SealId::new(format!("ak:seal:sha256:{digest64}")).is_ok());
         assert_eq!(
             ServiceRegistrationReceiptId::ID_KIND,
             "service_registration_receipt"
@@ -1660,15 +1701,10 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "ak:actor_profile:");
-        assert_id!(AttestationId, "ak:attestation:");
         assert_id!(CollisionVariantRecordId, "ak:collision_variant_record:");
-        assert_id!(AuditBindingId, "ak:audit_binding:");
-        assert_id!(AuditReleaseId, "ak:audit_release:");
-        assert_id!(AuditSessionId, "ak:audit_session:");
         assert_id!(RtcParticipantId, "ak:rtc_participant:");
         assert_id!(BackupSeriesId, "ak:backup_series:");
         assert_id!(RecoverySessionId, "ak:recovery_session:");
-        assert_id!(AnnounceId, "ak:announce:");
         assert_id!(AppletId, "ak:applet:");
         assert_id!(BackupId, "ak:backup:");
         assert_id!(BatchId, "ak:batch:");
@@ -1688,12 +1724,10 @@ mod tests {
         assert_id!(GrantId, "ak:grant:");
         assert_id!(SessionGrantId, "ak:session_grant:");
         assert_id!(InviteId, "ak:invite:");
-        assert_id!(KeyEventId, "ak:key_event:");
         assert_id!(MessageId, "ak:message:");
         assert_id!(MessageStreamId, "ak:message_stream:");
         assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
         assert_id!(MorphId, "ak:morph:");
-        assert_id!(AuthorizationLeaseId, "ak:authorization_lease:");
         assert_id!(NotificationId, "ak:notification:");
         assert_id!(RealmId, "ak:realm:");
         assert_id!(SpaceId, "ak:space:");
@@ -1742,8 +1776,16 @@ mod tests {
         );
         assert!(SessionGrantId::new(blake3_token).is_err());
 
-        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
-        assert!(EventId::new(blake3_event.as_str()).is_ok());
+        let mut blake3_event =
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]).token_bytes();
+        blake3_event[0] = DigestSuiteCode::Blake3.as_u8();
+        let error =
+            EventId::new(encode_event_token(EventId::KIND_PREFIX, blake3_event)).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .starts_with("unsupported_digest_algorithm:")
+        );
     }
 
     #[test]
@@ -1756,32 +1798,13 @@ mod tests {
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
         assert!(BlobRef::new(format!("ak:blob:sha3_256:{digest64}")).is_err());
-        assert!(SealId::new(format!("ak:seal:blake3:{digest64}")).is_ok());
-        assert!(SealId::new(format!("ak:seal:sha512:{digest128}")).is_err());
-    }
-
-    #[test]
-    fn cell_ref_requires_complete_cell_family_identifier() {
-        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_ok());
-        assert!(CellRef::new("ak:cell:ak.component.realm.join_rule.v1:").is_ok());
-        assert!(CellRef::new(
-            "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:127.0.0.1%3A22816:webvh:alice"
-        )
-        .is_ok());
-        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%3").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%XZ").is_err());
-        assert!(CellRef::new("ak:cell:component.strand.position.v1:board:strand").is_err());
-        assert!(CellRef::new("ak:cell:message:019640ed-8000-7000-8000-000000000000").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.Strand.position.v1:board:strand").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.strand.position:board:strand").is_err());
     }
 
     #[test]
     fn strand_id_accepts_active_strand_prefix() {
-        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x23; 32]);
+        let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x23; 32]);
         let strand_id = StrandId::from_event_id(&event_id);
-        assert_eq!(strand_id.digest_suite_code(), DigestSuiteCode::Blake3);
+        assert_eq!(strand_id.digest_suite_code(), DigestSuiteCode::Sha256);
         assert!(StrandId::new(strand_id.as_str()).is_ok());
         assert!(StrandId::new(format!("ak:space:{}", &strand_id.as_str()[10..])).is_err());
         assert!(StrandId::new("ak:strand:01js0ke000000000000000000").is_err());
@@ -1826,8 +1849,9 @@ mod tests {
         assert!(RealmId::new(encode_event_token("ak:realm:", reserved)).is_err());
 
         assert!(RealmId::new("ak:realm:019a6aa0-0000-7000-8000-000000000001").is_err());
-        let blake3_event = EventId::from_digest(arkret_canonical::DigestSuite::Blake3, [0x42; 32]);
-        let blake3_retyped = encode_event_token("ak:realm:", blake3_event.token_bytes());
+        let mut blake3_token = event_id.token_bytes();
+        blake3_token[0] = DigestSuiteCode::Blake3.as_u8();
+        let blake3_retyped = encode_event_token("ak:realm:", blake3_token);
         assert!(
             RealmId::new(blake3_retyped).is_err(),
             "v1 Realm IDs reject non-SHA-256 Event suites"
@@ -1862,7 +1886,7 @@ mod tests {
     /// `DeviceMessageTransactionId` and `TransactionId` are disjoint value
     /// spaces, not two spellings of one id.
     ///
-    /// The regression this pins: `KeyVerificationContent.transaction_id` used to
+    /// The regression this pins: a to-device correlation id used to
     /// be a `TransactionId`, and *every* value of that type violates the
     /// device-message pattern, so the field could not be given a conformant
     /// value at all.
@@ -1904,11 +1928,21 @@ mod tests {
 
         let mut unknown_suite = valid.token_bytes();
         unknown_suite[0] = 0x03;
-        assert!(EventId::new(encode_event_token("ak:event:", unknown_suite)).is_err());
+        for suite in [0x00, 0x02, 0x03, 0x04] {
+            unknown_suite[0] = suite;
+            let error = EventId::new(encode_event_token("ak:event:", unknown_suite)).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .starts_with("unsupported_digest_algorithm:")
+            );
+        }
 
         let mut nonzero_reserved_nibble = valid.token_bytes();
         nonzero_reserved_nibble[0] = 0x11;
-        assert!(EventId::new(encode_event_token("ak:event:", nonzero_reserved_nibble)).is_err());
+        let error =
+            EventId::new(encode_event_token("ak:event:", nonzero_reserved_nibble)).unwrap_err();
+        assert!(error.to_string().starts_with("schema_violation:"));
         assert!(
             MessageId::new(encode_event_token("ak:message:", nonzero_reserved_nibble)).is_err(),
             "every Event-derived kind must reject a non-zero Event reserved nibble"
@@ -1927,20 +1961,19 @@ mod tests {
             *byte = index as u8;
         }
         let sha = EventIdentityKey::new(DigestSuiteCode::Sha256, digest);
-        let blake = EventIdentityKey::new(DigestSuiteCode::Blake3, digest);
         assert_eq!(
             sha.event_id().as_str(),
             "ak:event:AQABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
         );
-        assert_eq!(
-            blake.event_id().as_str(),
-            "ak:event:AgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f"
-        );
         assert_eq!(sha.event_id().digest_bytes(), digest);
         assert_eq!(sha.event_id().identity_key(), sha);
         assert_eq!(sha.event_id().event_digest(), sha.event_digest());
-        assert_eq!(blake.event_id().event_digest(), blake.event_digest());
-        assert_ne!(blake.event_id(), sha.event_id());
+        assert!(
+            EventIdentityKey::from_event_digest(
+                &Hash::new(format!("blake3:{}", "00".repeat(32))).unwrap()
+            )
+            .is_err()
+        );
         assert_eq!(
             EventIdentityKey::from_event_digest(&sha.event_digest()).unwrap(),
             sha

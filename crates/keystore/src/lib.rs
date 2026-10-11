@@ -1,20 +1,17 @@
 //! [`KeyStore`] contract and durable backends for the Arkret v1 SDK.
 //!
-//! The pure storage contract — the [`KeyStore`] trait, [`KeyStoreError`] and
-//! the dependency-free [`InMemoryKeyStore`] — lives in [`contract`] (owned by
-//! this crate; the `arkret` umbrella re-exports it). The sibling
-//! modules add the OS-native backends that carry platform IO and native OS
-//! dependencies.
+//! The pure storage contract — [`KeyStore`], [`KeyStoreError`], and zeroizing
+//! key bytes — lives in [`contract`]. Sibling modules provide durable
+//! encrypted-file and OS-native backends.
 //!
 //! ## Backends
 //!
 //! | Backend | Feature | `target_os` |
 //! |---|---|---|
-//! | [`InMemoryKeyStore`] | always available | any |
 //! | [`EncryptedFileKeyStore`] | `keystore-encrypted-file` | native targets |
 //! | [`MacOsKeychainKeyStore`] | `keystore-macos` | `macos` |
 //! | [`LinuxSecretServiceKeyStore`] | `keystore-linux` | `linux` |
-//! | [`WindowsCredentialKeyStore`] | `keystore-windows` | `windows` |
+//! | [`WindowsProtectedKeyStore`] | `keystore-windows` | `windows` |
 //!
 //! Off-target compilation: each platform type still **compiles** on every
 //! target so downstream code can reference it unconditionally; constructors
@@ -28,23 +25,27 @@
 //!
 //! | Backend | Persistence | At-rest protection | Cross-process concurrency |
 //! |---|---|---|---|
-//! | [`InMemoryKeyStore`] | none — lost on process exit | none (process memory) | none (per-process map) |
 //! | [`EncryptedFileKeyStore`] | survives reboot with caller-custodied master key | XChaCha20-Poly1305 authenticated encryption | stable lock file + atomic same-directory replacement |
-//! | [`MacOsKeychainKeyStore`] | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | Keychain serializes item ops; no SDK-level CAS |
-//! | [`LinuxSecretServiceKeyStore`] | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | D-Bus daemon serializes ops; no SDK-level CAS |
-//! | [`WindowsCredentialKeyStore`] | survives logout and reboot (`CRED_PERSIST_LOCAL_MACHINE`) | DPAPI, scoped to the user profile | Win32 credential API serializes ops; no SDK-level CAS |
+//! | [`MacOsKeychainKeyStore`] | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | atomic add-if-absent using Keychain uniqueness |
+//! | [`LinuxSecretServiceKeyStore`] | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | namespaced D-Bus lease serializes SDK mutations |
+//! | [`WindowsProtectedKeyStore`] | survives logout and reboot (current-user DPAPI) | XChaCha20-Poly1305 vault; 32-byte master key protected by user-profile DPAPI | stable lock files + atomic same-directory replacement |
 //!
-//! Concurrency: every backend is last-writer-wins for `store` on the same id
-//! and provides no compare-and-swap. The encrypted-file backend serializes
-//! whole-map updates with a cross-process lock; OS-native backends rely on
-//! their platform service. Serialize semantic key rotation at the application
-//! layer.
-//!
+//! `store` remains last-writer-wins. `create_if_absent` atomically returns the
+//! first committed value without replacing existing bytes, including corrupt
+//! values. File and Windows stores use the existing stable vault lock; macOS uses
+//! Keychain's unique `(service, account)` add operation. Linux holds an exclusive
+//! D-Bus name on the same connection as its Secret Service session, queueing
+//! cooperating SDK mutations and releasing ownership on disconnect/crash. Direct
+//! external writers must not mutate the Linux namespace concurrently; duplicate
+//! Secret Service items fail closed. This is first creation, not key rotation or
+//! compare-and-swap; serialize explicit rotation/deletion at the application layer.
+//! Custom import-only backends default to typed `Unsupported` for first creation.
+
 //! ## Service-name namespacing
 //!
 //! Backends namespace credentials under `"arkret.<application_id>"` so
-//! multiple Arkret-using apps on the same host (inkson, sodmin, soland
-//! notary, …) don't trample each other's keychain items. The
+//! multiple Arkret-using apps on the same host (inkson, codmin, coland
+//! authority, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
 //! (e.g. `"chat.acroidea.inkson"`).
@@ -58,9 +59,7 @@
 
 pub mod contract;
 
-pub use contract::{
-    InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, service_name, validate_id,
-};
+pub use contract::{KeyBytes, KeyStore, KeyStoreError, service_name, validate_id};
 
 #[cfg(feature = "keystore-encrypted-file")]
 mod encrypted_file;
@@ -80,7 +79,7 @@ pub use linux::LinuxSecretServiceKeyStore;
 #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
 mod windows;
 #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
-pub use windows::WindowsCredentialKeyStore;
+pub use windows::WindowsProtectedKeyStore;
 
 // ---------------------------------------------------------------------------
 // Off-target stubs.
@@ -105,89 +104,31 @@ pub use linux_stub::LinuxSecretServiceKeyStore;
 #[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
 mod windows_stub;
 #[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
-pub use windows_stub::WindowsCredentialKeyStore;
+pub use windows_stub::WindowsProtectedKeyStore;
 
-/// Identifies which concrete [`KeyStore`] backend
-/// [`platform_default_keystore_with_kind`] resolved to, so callers can detect
-/// (and refuse) a downgrade to the non-durable in-memory backend.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BackendKind {
-    /// macOS Keychain ([`MacOsKeychainKeyStore`]).
-    MacOsKeychain,
-    /// Linux Secret Service / D-Bus ([`LinuxSecretServiceKeyStore`]).
-    LinuxSecretService,
-    /// Windows Credential Manager ([`WindowsCredentialKeyStore`]).
-    WindowsCredential,
-    /// Non-durable, OS-unprotected in-memory fallback ([`InMemoryKeyStore`]).
-    InMemory,
-}
-
-/// Resolve the target's native backend together with its concrete kind.
-pub fn platform_default_keystore_with_kind(
-    application_id: &str,
-) -> (Box<dyn KeyStore>, BackendKind) {
+/// Resolve a durable platform-native key store or fail closed when the target,
+/// feature set, or host service cannot provide one.
+pub fn durable_platform_keystore(application_id: &str) -> Result<Box<dyn KeyStore>, KeyStoreError> {
     #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
     {
         if let Ok(store) = MacOsKeychainKeyStore::new(application_id) {
-            return (Box::new(store), BackendKind::MacOsKeychain);
+            return Ok(Box::new(store));
         }
     }
     #[cfg(all(target_os = "linux", feature = "keystore-linux"))]
     {
         if let Ok(store) = LinuxSecretServiceKeyStore::new(application_id) {
-            return (Box::new(store), BackendKind::LinuxSecretService);
+            return Ok(Box::new(store));
         }
     }
     #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
     {
-        if let Ok(store) = WindowsCredentialKeyStore::new(application_id) {
-            return (Box::new(store), BackendKind::WindowsCredential);
+        if let Ok(store) = WindowsProtectedKeyStore::new(application_id) {
+            return Ok(Box::new(store));
         }
     }
     let _ = application_id;
-    (Box::new(InMemoryKeyStore::new()), BackendKind::InMemory)
-}
-
-/// Resolve a durable platform-native key store or fail closed when the target,
-/// feature set, or host service cannot provide one.
-pub fn durable_platform_keystore(application_id: &str) -> Result<Box<dyn KeyStore>, KeyStoreError> {
-    let (store, kind) = platform_default_keystore_with_kind(application_id);
-    if kind == BackendKind::InMemory {
-        return Err(KeyStoreError::unsupported(
-            "no durable platform key-store backend is available",
-        ));
-    }
-    Ok(store)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn platform_default_keystore_returns_a_working_keystore() {
-        // On targets/features without a native backend this falls back to
-        // InMemoryKeyStore. On targets WITH a native backend, the native
-        // backend is constructed; either way we can round-trip a key. The
-        // resolved kind is surfaced so callers can reject the downgrade.
-        let (store, kind) = platform_default_keystore_with_kind("arkret.test.platform_default");
-        if cfg!(all(target_os = "windows", feature = "keystore-windows")) {
-            assert_eq!(kind, BackendKind::WindowsCredential);
-        }
-        // We can't reuse a fixed id across runs because some backends
-        // persist; use a per-process unique id instead.
-        let id = format!(
-            "arkret:test:platform-default:{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        );
-        store.store(&id, b"platform-default-secret").unwrap();
-        assert_eq!(
-            store.load(&id).unwrap().as_slice(),
-            b"platform-default-secret"
-        );
-        store.delete(&id).unwrap();
-    }
+    Err(KeyStoreError::unsupported(
+        "no durable platform key-store backend is available",
+    ))
 }

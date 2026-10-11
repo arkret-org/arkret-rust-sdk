@@ -101,6 +101,12 @@ mod caching_tests {
             .expect("second resolution");
 
         assert_eq!(first.document, second.document);
+        // Projection equality ignores retained raw input; determinism of the
+        // resolver output is asserted on the exact wire value too.
+        assert_eq!(
+            serde_json::to_value(&first.document).expect("serialize first"),
+            serde_json::to_value(&second.document).expect("serialize second")
+        );
         assert!(first.document.updated_at.is_none());
         let verification_method = format!(
             "{}#{}",

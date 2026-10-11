@@ -65,7 +65,7 @@ re-exports the public SDK surface:
 - `arkret-schema`: generated protocol registries and schema/artifact validation
 - `arkret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `arkret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
-- `arkret-state`: reducer, snapshot, lattice and state-transition primitives
+- `arkret-state`: authority commit-log primitives
 - `arkret-wire`: foundational wire constants, identifiers and protocol primitives
 - `arkret-models-*`: identity, crypto, collaboration, discovery and integration protocol model leaves
 - `arkret`: umbrella SDK crate with curated owner re-exports and integration feature forwarding
@@ -88,6 +88,27 @@ cargo test
 - [Security audit checklist](docs/security-audit.md)
 - [Conformance certification](docs/conformance-certification.md)
 
+## Applet managed governance
+
+The active Applet contract uses HTTPS management discovery and Service-only
+installation. Bot and Ghost creation is a separate four-Event operation;
+installation creates neither an Account nor a Device. Shared DTOs, Policy
+restrictions, management approval binding, and Service/managed-Device HTTP
+signature helpers follow `arkret-work` decision 0160. Approval consumption,
+current installation/ownership verification, shared quota accounting and MLS
+recipient admission remain the implementing Station's durable transaction
+responsibilities; the pure SDK helpers do not establish them by themselves.
+
+`AppletAuthorityMaterialOutcome` preserves present current results with their
+Realm, governance generation and exact covering heads. Its structural validator
+binds grant streams to the requested scope and requires one head per stream.
+The shared `AppletCommittedEvent` retains the regular
+`AccountDeviceSignerEvidence` exactly for an Account Device producer; it rejects
+missing, surplus and forward-only evidence. The integration crate re-exports
+this collaboration type. Consumers authenticate the original Event, Commit and
+retained native Station history at the original accepted coordinates; codec
+validation alone does not establish that authority.
+
 ## Protocol review closures
 
 Spec review closure `arkret-spec` range `2a4d39b..a77b995` (8 commits)
@@ -97,7 +118,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
 wire-breaking list.
 Headline additions:
 
-- **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
+- **Types**: `CommittedEventSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
   `EventsFrontierState` oneOf (`AccountClient` / `FederationPeer` /
   `AnonymousHealth`),
   `FederationServiceBindingRef` (6 required fields),
@@ -106,8 +127,8 @@ Headline additions:
   `SpaceObjectTombstonePayload`, `AppletId` enum.
 - **DID method-name regex** tightened to `^did:[a-z0-9]+:[^\s]+$`
   (method segment lowercase alnum only).
-- **Historical replay diagnostic**: `historical_only` remains available for
-  idempotency-cache responses that must not trigger new side effects.
+- **Peer replay authentication**: a revoked service key cannot use a cached
+  idempotency outcome to pass current peer submit authentication.
 - **1 new capability action**: `ak.morph.create` (medium risk).
 - **Federation trust-domain header constants**: `Source-Trust-Domain` /
   `Destination-Trust-Domain` (entered into the HTTP-message-signature

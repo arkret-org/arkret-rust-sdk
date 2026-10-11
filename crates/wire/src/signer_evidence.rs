@@ -10,6 +10,7 @@ use crate::{Hash, Result, WireError};
 pub struct SignerEvidenceRef(String);
 
 impl SignerEvidenceRef {
+    pub const ID_KIND: &'static str = "signer_evidence";
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
         let Some(digest) = value.strip_prefix("ak:signer_evidence:sha256:") else {

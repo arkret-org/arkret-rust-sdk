@@ -1,34 +1,27 @@
 //! Calendar RSVP authoring.
 //!
-//! Payload half of RSVP authoring. Building the signed Event and its
-//! registry-derived cell effect needs the event-kind registry, which this
-//! drafting layer deliberately does not depend on; that half lives in
-//! `arkret_sdk::build_rsvp_set_event`. Clients MUST use the two together and
-//! MUST NOT hand-assemble the cell effect: the registry declares
-//! `effect_projection = set(payload.entry)` for
-//! `ak.component.calendar.rsvp.v1`, so a hand-rolled effect that omits the
-//! write, targets another cell, or carries an op value that differs from the
-//! payload entry is rejected by receivers with `effects_payload_mismatch`.
+//! This layer validates the RSVP payload before it is placed in the minimal
+//! producer Event envelope. Schedule dependencies name exact committed Events;
+//! authority ordering is assigned later by the current governance Station.
 
 use arkret_models_collaboration::objects::calendar_projection::CalendarScheduleProjection;
 use arkret_models_collaboration::objects::productivity::{
     CalendarEventFields, CalendarStatus, RsvpEntry, RsvpResponse, RsvpSetPayload,
 };
-use arkret_wire::{Hash, Result, StrandId, WireError};
+use arkret_wire::{EventId, Result, StrandId, WireError};
 
-/// Schedule revision frontier the responder observed, plus the response itself.
+/// Schedule revision winner the responder observed, plus the response itself.
 ///
-/// `schedule_basis_refs` is canonicalized here (deduplicated and sorted in
-/// ascending byte order) so the producer cannot sign an unsorted basis, which
-/// the receiver would reject with `rsvp_basis_not_causal`.
+/// The wire field remains an array, but it MUST contain exactly the committed
+/// Event ID for the deterministic schedule winner.
 #[derive(Clone, Debug)]
 pub struct RsvpAuthoring {
     pub event_ref: StrandId,
     /// `None` responds to the whole series. For a non-recurring calendar this
     /// is the only legal value, so the same event never has both a series and
-    /// a base-instance cell.
+    /// a base-instance response key.
     pub occurrence: Option<String>,
-    pub schedule_basis_refs: Vec<Hash>,
+    pub schedule_basis_refs: Vec<EventId>,
     pub response: RsvpResponseBranch,
 }
 
@@ -46,7 +39,7 @@ impl RsvpAuthoring {
     ///
     /// `calendar` is the schedule subtree of the target Strand; it is used to
     /// canonicalize `occurrence`, so a caller cannot accidentally sign a
-    /// non-canonical instance key and address a different cell.
+    /// non-canonical instance key and address a different response record.
     pub fn into_payload(
         self,
         calendar: &CalendarEventFields,
@@ -59,20 +52,9 @@ impl RsvpAuthoring {
                     .to_owned(),
             ));
         }
-        if !schedule.is_settled() {
+        if !schedule.is_available() {
             return Err(WireError::Protocol(
-                "calendar_schedule_unsettled: cannot author an RSVP against conflicting or unreadable schedule heads"
-                    .to_owned(),
-            ));
-        }
-        if schedule.schedule_revision_heads.is_empty() {
-            return Err(WireError::Protocol(
-                "calendar_schedule_unsettled: the observed schedule frontier is empty".to_owned(),
-            ));
-        }
-        if schedule.schedule_revision_heads.len() > 128 {
-            return Err(WireError::Protocol(
-                "schedule_frontier_too_large: resolve the schedule frontier before responding"
+                "calendar_schedule_unavailable: cannot author an RSVP against an unreadable schedule winner"
                     .to_owned(),
             ));
         }
@@ -83,12 +65,12 @@ impl RsvpAuthoring {
                     .to_owned(),
             ));
         }
-        let mut schedule_basis_refs = self.schedule_basis_refs;
-        schedule_basis_refs.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-        schedule_basis_refs.dedup_by(|left, right| left.as_str() == right.as_str());
-        if schedule_basis_refs != schedule.schedule_revision_heads {
+        let schedule_basis_refs = self.schedule_basis_refs;
+        if schedule_basis_refs.len() != 1
+            || schedule_basis_refs[0].event_digest() != schedule.schedule_revision_source
+        {
             return Err(WireError::Protocol(
-                "rsvp schedule_basis_refs must equal the complete observed schedule frontier"
+                "rsvp schedule_basis_refs must contain exactly the deterministic schedule winner"
                     .to_owned(),
             ));
         }

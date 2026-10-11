@@ -1,8 +1,8 @@
 //! Capability authority-chain checks — pure, in-memory predicates.
 //!
-//! This module hosts the runtime authority-chain helpers that soland's
+//! This module hosts the runtime authority-chain helpers that coland's
 //! authorization engine (and any other consumer — inkson for client-side
-//! pre-validation, sodmin for admin feedback) needs to enforce
+//! pre-validation, codmin for admin feedback) needs to enforce
 //! capabilities.md §10:
 //!
 //! - Re-granting MUST NOT widen the action scope (`ActionsNotHeld`).
@@ -16,7 +16,7 @@
 //!   expired (`ParentExpired`).
 //!
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
-//! soland's in-memory runtime form (stringly-typed `resource`, single
+//! coland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list plus `issuer_authority_refs`). The
 //! wire-spec shape is the core authority
 //! [`arkret_models_collaboration::governance::grant_constraint::CapabilityGrant`]
@@ -31,12 +31,12 @@
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
 //! I/O. That makes them safe to call from inkson (compile-to-wasm) and
-//! from sodmin admin UI as well as the server-side authorization engine.
+//! from codmin admin UI as well as the server-side authorization engine.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, Hash};
+use arkret_wire::{AccountId, ActorId, AppletId, CircleId, EventId, Hash, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -48,20 +48,21 @@ use crate::authz::ConstraintDuration;
 /// this" and "someone re-granted what they hold" — v1 carries no separate
 /// separate child-grant event, cell family or wire bit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     /// A grant the issuer holds. The issuer MUST be its subject, and it MUST
     /// be active at evaluation time.
     Grant { grant_id: String },
-    /// The Realm authority-root cell. `controller_epoch_at_issuance` proves the
-    /// issuer controlled the root when it signed and is never compared against
-    /// the current epoch — doing so would make an owner transfer kill the whole
-    /// authority tree. `authority_generation` IS compared: that is what an
-    /// authority reset advances.
+    /// A Realm authority root accepted by the governing Station.
     RealmRoot {
-        realm_id: String,
-        cell_ref: String,
-        controller_epoch_at_issuance: u64,
+        realm_id: RealmId,
+        authority_event_ref: EventId,
         authority_generation: u64,
     },
 }
@@ -72,7 +73,7 @@ impl IssuerAuthorityRef {
     pub fn grant_id(&self) -> Option<&str> {
         match self {
             Self::Grant { grant_id } => Some(grant_id.as_str()),
-            Self::RealmRoot { .. } => None,
+            Self::RealmRoot { .. } | Self::OwnedAgent { .. } => None,
         }
     }
 
@@ -84,17 +85,17 @@ impl IssuerAuthorityRef {
                 authority_generation,
                 ..
             } => Some(*authority_generation),
-            Self::Grant { .. } => None,
+            Self::Grant { .. } | Self::OwnedAgent { .. } => None,
         }
     }
 }
 
 /// A capability grant in its runtime / in-memory form.
 ///
-/// Mirrors soland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
+/// Mirrors coland's `crate::authz::Grant`. The fields `issuer_authority_refs` and
 /// `issuer_authority_refs` is a wire field per `ak.schema.capability.v1`; the remaining
 /// fields are runtime projections (`resource` is a stringly-typed selector
-/// rather than the typed [`crate::authz::ResourceSelector`] enum so that this
+/// rather than the typed Coland `ResourceSelector` enum so that this
 /// module can be reused by client pre-checks without forcing the full
 /// selector parser pipeline).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -115,11 +116,9 @@ pub struct Grant {
     /// revoking the grant it names invalidates this one at read time.
     #[serde(default)]
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    /// Reducer-derived absolute distance from an authority root.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authority_depth: Option<u64>,
-    /// Reducer-derived identities of the roots reached by this grant.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Absolute distance from a committed authority decision.
+    pub authority_depth: u64,
+    /// Committed authority decisions reached by this grant.
     pub authority_root_refs:
         Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
 }
@@ -129,7 +128,7 @@ pub struct Grant {
 /// In-memory runtime projection of the canonical v1
 /// `arkret_models_collaboration::governance::grant_constraint::GrantConstraint`
 /// shape, plus service-only evaluation families such as `Decision` and
-/// `AllowedObjectFacets`. Soland threads this compact projection through its
+/// `AllowedObjectFacets`. Coland threads this compact projection through its
 /// authorization checks after validating the canonical event-boundary model.
 ///
 /// AKP-0007 P1.3.4: the previous `{ constraint_kind: String, value:
@@ -138,11 +137,11 @@ pub struct Grant {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "constraint_kind", rename_all = "snake_case")]
 pub enum GrantConstraint {
-    /// Hard decision constraint used by soland to attach explicit
+    /// Hard decision constraint used by coland to attach explicit
     /// allow/deny/quarantine/require_review verdicts to a grant
     /// (capabilities.md §B5 priority: deny > quarantine > require_review >
     /// allow). Maps onto the spec `effect` field but is materialised as a
-    /// standalone constraint type because soland's engine treats decision
+    /// standalone constraint type because coland's engine treats decision
     /// constraints separately from the spec-typed evaluation families.
     Decision { decision: GrantDecisionVerdict },
     /// Temporal constraint (`constraint_kind: "temporal"`). Carries two
@@ -186,7 +185,7 @@ pub enum GrantConstraint {
     AllowedSessionIds {
         allowed_session_ids: BTreeSet<String>,
     },
-    /// Resource must carry at least one of the listed facets. soland uses
+    /// Resource must carry at least one of the listed facets. coland uses
     /// this on `ak:strand:` / `ak:realm:` / `ak:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
@@ -197,7 +196,7 @@ pub enum GrantConstraint {
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },
     /// Field-scoped access retained in the runtime projection.  These fields
-    /// must not be collapsed away: DataEvent admission needs the exact dotted
+    /// must not be collapsed away: ordinary Event admission needs the exact dotted
     /// patch paths in order to distinguish, for example, Strand Description
     /// (`content`) from Synthesis (`tracks.synthesis.content`).
     FieldAccess {
@@ -240,6 +239,9 @@ pub enum GrantConstraint {
         max_authority_depth: Option<u32>,
         #[serde(default, skip_serializing_if = "is_false")]
         authority_regrant_allowed: bool,
+        #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+        allowed_managed_actor_roles:
+            BTreeSet<arkret_models_collaboration::governance::grant_constraint::ManagedActorRole>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         constraint_subkind: Option<GrantConstraintSubkind>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -319,8 +321,10 @@ pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
 ///
 /// `None` means the grant did not opt into a finite authority-depth seal.
 /// When present, child grants must carry a `AuthorityControl` constraint no
-/// greater than `parent_depth - 1`; a parent depth of zero cannot issue a child
-/// grant. Applet-authority bindings do not contribute a depth ceiling.
+/// greater than `parent_depth - 1` when regrant is explicitly enabled; a zero
+/// ceiling then prohibits children. The managed-role terminal-child exception
+/// for an ordinary control with regrant disabled takes precedence and permits
+/// an explicitly sealed depth-zero child. Applet bindings never supply a ceiling.
 pub fn max_authority_depth(grant: &Grant) -> Option<u32> {
     max_authority_depth_from_constraints(&grant.constraints)
 }
@@ -411,7 +415,7 @@ pub fn validate_applet_authority_binding(
 
 /// Returns `true` iff every ancestor reachable through `issuer_authority_refs`
 /// is still active (not revoked, not expired). A grant whose refs are all
-/// `realm_root` is trivially intact — a root is a terminal, not an edge.
+/// `realm_root` is trivially intact: it is a terminal, not an edge.
 ///
 /// Multiple refs only ever *add* constraints: the grant holds iff **every**
 /// path is intact. An alternate live path MUST NOT launder a revoked one.
@@ -426,7 +430,7 @@ pub fn authority_chain_intact(grants: &[Grant], grant_id: &str, now: DateTime<Ut
 }
 
 /// `BTreeMap`-keyed variant of [`authority_chain_intact`] for callers that
-/// already maintain an id → grant lookup (e.g. soland's authorization engine).
+/// already maintain an id → grant lookup (e.g. coland's authorization engine).
 pub fn authority_chain_intact_map<G>(
     snapshot: &BTreeMap<&str, G>,
     grant_id: &str,
@@ -452,6 +456,16 @@ where
         if grant.revoked || is_grant_expired(grant, now) {
             return false;
         }
+        // A grant-only snapshot cannot prove current controller membership,
+        // ownership or management policy. Never treat this execution root as
+        // an unconditional Realm root or a delegable parent.
+        if grant
+            .issuer_authority_refs
+            .iter()
+            .any(|reference| matches!(reference, IssuerAuthorityRef::OwnedAgent { .. }))
+        {
+            return false;
+        }
         for parent in grant
             .issuer_authority_refs
             .iter()
@@ -471,19 +485,58 @@ where
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidCoreId;
+    use arkret_wire::{DidCoreId, EventId, RealmId};
     use chrono::Duration;
 
     use super::*;
 
+    #[test]
+    fn owned_agent_source_requires_current_facts_and_is_not_a_parent() {
+        let mut grant = root_grant("owned", &["ak.message.create"], "ak:realm:1");
+        let realm_id = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [17; 32],
+        ));
+        let join = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [17; 32]);
+        grant.issuer_authority_refs = vec![IssuerAuthorityRef::OwnedAgent {
+            realm_id,
+            controller_account_id: grant.issuer_id.as_account_id().unwrap().clone(),
+            controller_join_event_id: join.clone(),
+            agent_join_event_id: join,
+        }];
+        assert!(!authority_chain_intact(
+            &[grant.clone()],
+            "owned",
+            Utc::now()
+        ));
+        let child = child_grant(
+            "child",
+            "owned",
+            "ak:did_core:webvh:z6mkfixturebob",
+            "ak:did_core:webvh:z6mkfixturecarol",
+            &["ak.message.create"],
+            "ak:realm:1",
+            None,
+        );
+        assert!(!authority_chain_intact(
+            &[grant, child],
+            "child",
+            Utc::now()
+        ));
+    }
+
     fn account_actor(principal_id: &str) -> ActorId {
-        ActorId::account(arkret_wire::AccountId::new(
+        ActorId::account(AccountId::new(
             DidCoreId::new(principal_id).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver").unwrap(),
         ))
     }
 
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
+        let realm_id = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [1; 32],
+        ));
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
@@ -495,13 +548,24 @@ mod tests {
             revoked: false,
             created_at: Utc::now(),
             issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
-                realm_id: "ak:realm:1".to_owned(),
-                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
-                controller_epoch_at_issuance: 0,
+                realm_id: realm_id.clone(),
+                authority_event_ref: EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [2; 32],
+                ),
                 authority_generation: 0,
             }],
-            authority_depth: Some(1),
-            authority_root_refs: Vec::new(),
+            authority_depth: 1,
+            authority_root_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                    realm_id,
+                    authority_event_ref: EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [2; 32],
+                    ),
+                    authority_generation: 0,
+                },
+            ],
         }
     }
 
@@ -536,8 +600,20 @@ mod tests {
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
                 grant_id: parent.to_owned(),
             }],
-            authority_depth: None,
-            authority_root_refs: Vec::new(),
+            authority_depth: 2,
+            authority_root_refs: vec![
+                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                    realm_id: RealmId::from_event_id(&EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [1; 32],
+                    )),
+                    authority_event_ref: EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [2; 32],
+                    ),
+                    authority_generation: 0,
+                },
+            ],
         }
     }
 
@@ -676,7 +752,7 @@ mod tests {
             "ak:realm:1",
             None,
         );
-        forged.issuer_id = ActorId::account(arkret_wire::AccountId::new(
+        forged.issuer_id = ActorId::account(AccountId::new(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherstation").unwrap(),
         ));
@@ -749,6 +825,7 @@ mod tests {
         let registration_epoch = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let constraint = GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            allowed_managed_actor_roles: BTreeSet::new(),
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(
@@ -786,6 +863,7 @@ mod tests {
         ));
         grant.constraints.push(GrantConstraint::AuthorityControl {
             max_authority_depth: None,
+            allowed_managed_actor_roles: BTreeSet::new(),
             authority_regrant_allowed: false,
             constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
             applet_id: Some(AppletId::new(applet_id).unwrap()),
@@ -805,7 +883,7 @@ mod tests {
             "ak:did_core:web:station-a.example",
             "ak:did_core:web:station-b.example",
         ] {
-            let account_executor = ActorId::account(arkret_wire::AccountId::new(
+            let account_executor = ActorId::account(AccountId::new(
                 executor.signing_principal_id().clone(),
                 DidCoreId::new(station).unwrap(),
             ));
@@ -818,6 +896,455 @@ mod tests {
                 ),
                 Err(AppletAuthorityBindingError::ExecutedByMismatch)
             );
+        }
+    }
+}
+
+/// A Service may issue only terminal children to verified managed Account subjects.
+/// Parent quota accounting, current-cut installation verification and resource
+/// hierarchy resolution remain caller-owned. `resource_is_narrower` must use the
+/// same selector coverage verifier as ordinary capability issuance.
+/// The caller must authenticate the accepted full Account provision and its
+/// Applet/Service/hosting-Station/role provenance; a supplied role is not proof.
+/// Only the exact Applet executor binding changes from the Service parent to
+/// the Account child. All other retained runtime constraints remain at least
+/// as strict; canonical constraint fields omitted by this runtime projection
+/// must additionally be checked at the typed Event boundary.
+pub fn validate_managed_service_child(
+    parent: &Grant,
+    child: &Grant,
+    role: arkret_models_collaboration::governance::grant_constraint::ManagedActorRole,
+    resource_is_narrower: impl FnOnce(&str, &str) -> bool,
+) -> bool {
+    let binding = |grant: &Grant| {
+        let mut bindings = grant.constraints.iter().filter(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+                    ..
+                }
+            )
+        });
+        let first = bindings.next()?;
+        if bindings.next().is_some() {
+            return None;
+        }
+        Some(first.clone())
+    };
+    let (Some(mut rebound), Some(child_binding)) = (binding(parent), binding(child)) else {
+        return false;
+    };
+    let GrantConstraint::AuthorityControl {
+        applet_id: Some(_),
+        executed_by: Some(executor),
+        registration_epoch: Some(_),
+        ..
+    } = &mut rebound
+    else {
+        return false;
+    };
+    if executor != &parent.subject_id {
+        return false;
+    }
+    *executor = child.subject_id.clone();
+    if rebound != child_binding {
+        return false;
+    }
+    let ordinary: Vec<_> = parent
+        .constraints
+        .iter()
+        .filter_map(|v| match v {
+            GrantConstraint::AuthorityControl {
+                constraint_subkind: None,
+                authority_regrant_allowed,
+                max_authority_depth,
+                allowed_managed_actor_roles,
+                ..
+            } => Some((
+                *authority_regrant_allowed,
+                *max_authority_depth,
+                allowed_managed_actor_roles,
+            )),
+            _ => None,
+        })
+        .collect();
+    matches!(parent.subject_id, ActorId::Service { .. })
+        && child.issuer_id == parent.subject_id
+        && matches!(child.subject_id, ActorId::Account { .. })
+        && child
+            .issuer_authority_refs
+            .iter()
+            .any(|v| v.grant_id() == Some(parent.grant_id.as_str()))
+        && max_authority_depth(child) == Some(0)
+        && !authority_regrant_allowed(child)
+        && !ordinary.is_empty()
+        && child.constraints.iter().any(|constraint| {
+            matches!(
+                constraint,
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: None,
+                    max_authority_depth: Some(0),
+                    authority_regrant_allowed: false,
+                    ..
+                }
+            )
+        }) && child.constraints.iter().all(|constraint| {
+        !matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                constraint_subkind: None,
+                ..
+            }
+        ) || matches!(
+            constraint,
+            GrantConstraint::AuthorityControl {
+                max_authority_depth: Some(0),
+                authority_regrant_allowed: false,
+                allowed_managed_actor_roles,
+                applet_id: None,
+                executed_by: None,
+                registration_epoch: None,
+                ..
+            } if ordinary.iter().all(|(_, _, roles)| allowed_managed_actor_roles.is_subset(roles))
+        )
+    }) && ordinary.iter().all(|(regrant, depth, roles)| {
+        roles.contains(&role) && (!regrant || depth.is_none_or(|v| v > 0))
+    }) && child.actions.iter().all(|v| parent.actions.contains(v))
+        && child.realm_id == parent.realm_id
+        && resource_is_narrower(&child.resource, &parent.resource)
+        && parent
+            .constraints
+            .iter()
+            .all(|constraint| match constraint {
+                GrantConstraint::AuthorityControl {
+                    constraint_subkind: None,
+                    ..
+                }
+                | GrantConstraint::AuthorityControl {
+                    constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+                    ..
+                } => true,
+                GrantConstraint::Temporal {
+                    expires_at,
+                    constraint_subkind,
+                    message_edit_window,
+                    message_redact_window,
+                    redact_after_window_allowed,
+                } => child.constraints.iter().any(|candidate| {
+                    matches!(candidate, GrantConstraint::Temporal {
+                    expires_at: child_expiry, constraint_subkind: child_subkind,
+                    message_edit_window: child_edit, message_redact_window: child_redact,
+                    redact_after_window_allowed: child_after,
+                } if child_subkind == constraint_subkind
+                    && child_edit == message_edit_window
+                    && child_redact == message_redact_window
+                    && child_after == redact_after_window_allowed
+                    && expires_at.is_none_or(|parent_expiry|
+                        child_expiry.is_some_and(|expiry| expiry <= parent_expiry)))
+                }),
+                _ => child.constraints.contains(constraint),
+            })
+        && match (
+            grant_effective_expiry(parent),
+            grant_effective_expiry(child),
+        ) {
+            (Some(p), Some(c)) => c <= p,
+            (Some(_), None) => false,
+            _ => true,
+        }
+}
+
+#[cfg(test)]
+mod managed_service_child_tests {
+    use arkret_models_collaboration::governance::grant_constraint::ManagedActorRole;
+    use arkret_wire::DidCoreId;
+
+    use super::*;
+    fn control(regrant: bool, depth: u32, roles: &[ManagedActorRole]) -> GrantConstraint {
+        GrantConstraint::AuthorityControl {
+            max_authority_depth: Some(depth),
+            authority_regrant_allowed: regrant,
+            allowed_managed_actor_roles: roles.iter().copied().collect(),
+            constraint_subkind: None,
+            applet_id: None,
+            executed_by: None,
+            registration_epoch: None,
+        }
+    }
+    fn binding(executor: &ActorId) -> GrantConstraint {
+        GrantConstraint::AuthorityControl {
+            max_authority_depth: None,
+            authority_regrant_allowed: false,
+            allowed_managed_actor_roles: BTreeSet::new(),
+            constraint_subkind: Some(GrantConstraintSubkind::AppletAuthority),
+            applet_id: Some(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
+            ),
+            executed_by: Some(executor.clone()),
+            registration_epoch: Some(Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap()),
+        }
+    }
+    fn pair() -> (Grant, Grant) {
+        let service = ActorId::service(DidCoreId::new("ak:did_core:web:service.example").unwrap());
+        let parent = Grant {
+            grant_id: "parent".into(),
+            realm_id: "realm".into(),
+            issuer_id: service.clone(),
+            subject_id: service.clone(),
+            resource: "realm".into(),
+            actions: vec!["ak.message.create".into()],
+            constraints: vec![
+                control(false, 0, &[ManagedActorRole::Bot]),
+                binding(&service),
+            ],
+            revoked: false,
+            created_at: Utc::now(),
+            issuer_authority_refs: vec![],
+            authority_depth: 1,
+            authority_root_refs: vec![],
+        };
+        let mut child = parent.clone();
+        child.grant_id = "child".into();
+        child.subject_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        child.resource = "space".into();
+        child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+            grant_id: "parent".into(),
+        }];
+        child.constraints = vec![control(false, 0, &[]), binding(&child.subject_id)];
+        (parent, child)
+    }
+    fn covers(child: &str, parent: &str) -> bool {
+        child == "space" && parent == "realm"
+    }
+    #[test]
+    fn disabled_regrant_parent_can_issue_explicit_terminal_child_with_narrower_resource() {
+        let (parent, child) = pair();
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Ghost,
+            covers
+        ));
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            |_, _| false
+        ));
+    }
+    #[test]
+    fn ordinary_controls_roles_and_depth_are_required() {
+        let (mut parent, mut child) = pair();
+        parent.constraints.clear();
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        parent.constraints = vec![
+            control(true, 0, &[ManagedActorRole::Bot]),
+            binding(&parent.subject_id),
+        ];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        parent.constraints = vec![
+            control(true, 1, &[ManagedActorRole::Bot]),
+            binding(&parent.subject_id),
+        ];
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        child.constraints = vec![control(false, 1, &[]), binding(&child.subject_id)];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        child.constraints = vec![control(true, 0, &[]), binding(&child.subject_id)];
+        assert!(!validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+    }
+    #[test]
+    fn executor_rebinding_requires_unique_complete_matching_applet_bindings() {
+        let (parent, child) = pair();
+        let rejects = |parent: &Grant, child: &Grant| {
+            assert!(!validate_managed_service_child(
+                parent,
+                child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        };
+        let mut changed = parent.clone();
+        changed.constraints.pop();
+        rejects(&changed, &child);
+        let mut changed = child.clone();
+        changed.constraints.pop();
+        rejects(&parent, &changed);
+        for is_parent in [false, true] {
+            let mut changed = if is_parent {
+                parent.clone()
+            } else {
+                child.clone()
+            };
+            changed.constraints.push(changed.constraints[1].clone());
+            if is_parent {
+                rejects(&changed, &child);
+            } else {
+                rejects(&parent, &changed);
+            }
+        }
+        for mutation in 0..7 {
+            let mut changed = child.clone();
+            let GrantConstraint::AuthorityControl {
+                applet_id,
+                executed_by,
+                registration_epoch,
+                ..
+            } = &mut changed.constraints[1]
+            else {
+                unreachable!()
+            };
+            match mutation {
+                0 => *executed_by = Some(parent.subject_id.clone()),
+                1 => {
+                    *applet_id = Some(
+                        AppletId::new("ak:applet:01904100-0000-7000-8000-cccccccccccc").unwrap(),
+                    )
+                }
+                2 => {
+                    *registration_epoch =
+                        Some(Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap())
+                }
+                3 => *applet_id = None,
+                4 => *executed_by = None,
+                5 => *registration_epoch = None,
+                _ => {
+                    *executed_by = Some(ActorId::account(AccountId::new(
+                        child.subject_id.signing_principal_id().clone(),
+                        DidCoreId::new("ak:did_core:web:another-station.example").unwrap(),
+                    )))
+                }
+            }
+            rejects(&parent, &changed);
+        }
+        let mut changed = parent;
+        if let GrantConstraint::AuthorityControl { executed_by, .. } = &mut changed.constraints[1] {
+            *executed_by = Some(child.subject_id.clone());
+        }
+        rejects(&changed, &child);
+    }
+    #[test]
+    fn rebinding_cannot_escape_terminal_account_or_drop_other_constraints() {
+        let (parent, child) = pair();
+        for mutation in 0..4 {
+            let mut changed = child.clone();
+            match mutation {
+                0 => changed.subject_id = parent.subject_id.clone(),
+                1 => changed.issuer_id = child.subject_id.clone(),
+                2 => changed.constraints.push(control(false, 1, &[])),
+                _ => changed.issuer_authority_refs.clear(),
+            }
+            assert!(!validate_managed_service_child(
+                &parent,
+                &changed,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
+        for hard in [
+            GrantConstraint::Decision {
+                decision: GrantDecisionVerdict::Deny,
+            },
+            GrantConstraint::Decision {
+                decision: GrantDecisionVerdict::RequireReview,
+            },
+            GrantConstraint::RateLimiting {
+                max_operations: 5,
+                period: "PT1H".into(),
+            },
+            GrantConstraint::Temporal {
+                expires_at: Some(Utc::now()),
+                constraint_subkind: Some("edit_window".into()),
+                message_edit_window: None,
+                message_redact_window: None,
+                redact_after_window_allowed: false,
+            },
+        ] {
+            let mut parent = parent.clone();
+            parent.constraints.push(hard.clone());
+            assert!(!validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+            let mut child = child.clone();
+            child.constraints.push(hard);
+            assert!(validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
+    }
+    #[test]
+    fn only_expiry_may_narrow_while_other_temporal_fields_are_preserved() {
+        let (mut parent, mut child) = pair();
+        let expiry = Utc::now() + chrono::Duration::hours(1);
+        let temporal = |expires_at, redact_after_window_allowed| GrantConstraint::Temporal {
+            expires_at,
+            constraint_subkind: Some("window".into()),
+            message_edit_window: None,
+            message_redact_window: None,
+            redact_after_window_allowed,
+        };
+        parent.constraints.push(temporal(Some(expiry), false));
+        child
+            .constraints
+            .push(temporal(Some(expiry - chrono::Duration::minutes(1)), false));
+        assert!(validate_managed_service_child(
+            &parent,
+            &child,
+            ManagedActorRole::Bot,
+            covers
+        ));
+        for candidate in [
+            temporal(None, false),
+            temporal(Some(expiry + chrono::Duration::seconds(1)), false),
+            temporal(Some(expiry), true),
+        ] {
+            *child.constraints.last_mut().unwrap() = candidate;
+            assert!(!validate_managed_service_child(
+                &parent,
+                &child,
+                ManagedActorRole::Bot,
+                covers
+            ));
         }
     }
 }

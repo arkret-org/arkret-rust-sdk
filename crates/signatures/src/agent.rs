@@ -1,23 +1,22 @@
 //! Agent key-pairing canonical binding helpers.
 
 use arkret_canonical::{base64url_decode, canonical};
+use arkret_models_collaboration::agent_operations::AgentPairingBootstrap;
 /// The immutable provision ceiling commitment digest is defined with the
 /// agent lifecycle models and surfaced by the signature owner.
-pub use arkret_models_collaboration::agent_operations::agent_requested_scope_digest;
-use arkret_models_collaboration::agent_operations::{
-    AgentKeyPairRequestBody, AgentPairingBootstrap, AgentRequestedScopeDisclosure,
-    AgentRuntimeApprovalRequestBody, AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof,
-    AgentRuntimeKeyPossessionProofKind,
+pub use arkret_models_collaboration::agent_scope::agent_requested_scope_digest;
+use arkret_models_collaboration::agent_scope::{
+    AgentKeyPairRequestBody, AgentRequestedScopeDisclosure, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof, AgentRuntimeKeyPossessionProofKind,
     agent_runtime_key_binding_digest as model_agent_runtime_key_binding_digest,
 };
 use arkret_models_collaboration::events_payloads::agent::{
     AgentKeyAuthorizePayload, AgentKeyAuthorizePayloadRuntimeAttestation,
 };
 use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
-use arkret_models_identity::agent_signer_evidence::AgentSigningKeyBinding;
 use arkret_wire::{
-    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Event, EventInitialSubmission,
-    EventKind, Hash, NonEmptyString, project_did_to_core_id,
+    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Event, EventKind, Hash,
+    NonEmptyString, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};
@@ -26,10 +25,10 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 
-/// A runtime-key request body together with the private request-domain digest
-/// of its generated PublicKey DTO. This digest MUST NOT be copied into the
-/// controller-side authorize event, which commits the raw-key authorization
-/// digest returned by [`ValidatedAgentRuntimePublicKey::authorization_digest`].
+/// A runtime-key request body together with the digest of the runtime key it
+/// carries. v1 has one Agent runtime key digest domain, the SHA-256 of the
+/// decoded 32-byte Ed25519 key, so this is the same value the controller-side
+/// authorize event commits.
 #[derive(Clone, Debug)]
 pub struct RuntimeKeyRequest<T> {
     pub body: T,
@@ -175,9 +174,9 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
 
     pub fn build_key_pair_request(
         &self,
+        approval_request_id: arkret_wire::OpaqueLocalId,
         requested_scope_disclosure: AgentRequestedScopeDisclosure,
-        signing_key_binding: AgentSigningKeyBinding,
-        authorize_event: EventInitialSubmission,
+        authorize_event: Event,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
         requested_scope_disclosure
             .validate()
@@ -186,60 +185,30 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             || requested_scope_disclosure.verifier_id != self.bootstrap.service_id
         {
             return Err(Error::Protocol(
-                "agent requested-scope disclosure is not bound to this pairing".to_owned(),
-            ));
-        }
-        let request_uuid = self
-            .bootstrap
-            .pairing_request_id
-            .strip_prefix("agent_pairing_request:")
-            .ok_or_else(|| Error::Protocol("pairing request id is invalid".to_owned()))?;
-        if requested_scope_disclosure.request_id.as_str() != format!("ak:request:{request_uuid}")
-            || requested_scope_disclosure.challenge.as_str()
-                != self.bootstrap.pairing_request_id.as_str()
-        {
-            return Err(Error::Protocol(
-                "agent requested-scope disclosure request or challenge does not match this pairing"
-                    .to_owned(),
+                "scope disclosure is not bound to this pairing".to_owned(),
             ));
         }
         validate_pairing_authorize_event(
-            &authorize_event.event,
+            &authorize_event,
             &self.bootstrap.agent_id,
             &self.bootstrap.service_id,
         )?;
-        let authorize_event_id = authorize_event.event.event_id.clone();
-        if signing_key_binding.agent_key_authorize_event_id != authorize_event_id {
-            return Err(Error::Protocol(
-                "agent signing-key binding must reference the exact authorize Event identity"
-                    .to_owned(),
-            ));
-        }
-        let authorize_payload = AgentKeyAuthorizePayload::try_from(&authorize_event.event)
+        let payload = AgentKeyAuthorizePayload::try_from(&authorize_event)
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        let binding_core_digest =
-            crate::agent_evidence::agent_signing_key_binding_digest(&signing_key_binding)
-                .map_err(|reason| Error::Protocol(reason.as_str().to_owned()))?;
-        if authorize_payload.signing_key_binding_digest != binding_core_digest {
+        let own = self.public_key()?;
+        if serde_json::to_value(&payload.public_key)? != own {
             return Err(Error::Protocol(
-                "authorize Event signing_key_binding_digest must match the binding core".to_owned(),
+                "authorize Event does not carry this runtime key".to_owned(),
             ));
         }
-        let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
+            runtime_request_public_key_digest: agent_runtime_public_key_digest(&own)?,
             body: AgentKeyPairRequestBody {
                 pairing_request_id: self.bootstrap.pairing_request_id.clone(),
-                agent_id: self.bootstrap.agent_id.clone(),
-                verification_method: DidUrl::new(self.verification_method.clone())
-                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
-                public_key,
-                proof_of_possession,
+                approval_request_id,
                 requested_scope_disclosure,
-                signing_key_binding,
-                runtime_attestation: self.runtime_attestation.clone(),
-                authorize_event,
+                authorize_event: arkret_wire::EventAdmissionSubmission::new(authorize_event),
             },
-            runtime_request_public_key_digest: public_key_digest,
         })
     }
 
@@ -355,19 +324,21 @@ struct AgentRuntimeKeyBinding<'a> {
 }
 
 pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Hash> {
-    parse_agent_runtime_public_key(public_key, None)
-        .map(|validated| validated.runtime_request_digest)
+    parse_agent_runtime_public_key(public_key, None).map(|validated| validated.public_key_digest)
 }
 
-/// A closed, canonical Agent runtime signing key. Both digest domains are
-/// returned together so callers cannot accidentally compare one domain with
-/// the other.
+/// A closed canonical Agent runtime key.
+///
+/// `identity/key-management.md` §7.9 fixes one digest domain for this key: the
+/// SHA-256 of the decoded 32-byte Ed25519 bytes, with no second DTO digest
+/// retained. The pairing request and the authorization therefore name the same
+/// value through this one field; two same-valued fields only invited
+/// cross-domain comparisons that could never disagree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ValidatedAgentRuntimePublicKey {
     pub public_key: PublicKey,
     pub raw_public_key: [u8; 32],
-    pub runtime_request_digest: Hash,
-    pub authorization_digest: Hash,
+    pub public_key_digest: Hash,
 }
 
 /// Parse and validate the sole v1 Agent runtime key profile.
@@ -391,7 +362,7 @@ fn parse_agent_runtime_public_key(
             "agent runtime public_key must serialize to JSON: {error}"
         ))
     })?;
-    let key: PublicKey = serde_json::from_value(public_key.clone()).map_err(|error| {
+    let key: PublicKey = serde_json::from_value(public_key).map_err(|error| {
         Error::Protocol(format!(
             "agent runtime public_key must match public_key schema: {error}"
         ))
@@ -425,15 +396,15 @@ fn parse_agent_runtime_public_key(
             "agent runtime public_key.key must use canonical unpadded base64url".to_owned(),
         ));
     }
-    let runtime_request_digest =
-        Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)?;
-    let authorization_digest =
+    ed25519_dalek::VerifyingKey::from_bytes(&raw_public_key).map_err(|_| {
+        Error::Protocol("agent runtime public_key.key must be an Ed25519 curve point".to_owned())
+    })?;
+    let public_key_digest =
         Hash::new(canonical::sha256_digest(raw_public_key)).map_err(Error::from)?;
     Ok(ValidatedAgentRuntimePublicKey {
         public_key: key,
         raw_public_key,
-        runtime_request_digest,
-        authorization_digest,
+        public_key_digest,
     })
 }
 
@@ -490,106 +461,59 @@ mod tests {
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
     };
     use arkret_wire::{
-        AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
-        AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
-        AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, DeviceId, Did, DidCoreId,
-        EventId, Hlc, LeaseBasisRef, ProducerEventProof, RealmId, RequestId, RiskTier, SchemaId,
-        SealId,
+        DeviceId, Did, DidCoreId, EventId, PayloadProof, RealmId, RequestId, SchemaId,
     };
     use chrono::TimeZone;
     use serde_json::json;
 
     use super::*;
 
-    fn initial_submission(event: Event, actor_did: Did) -> EventInitialSubmission {
-        let policy = AuthoritySetPolicy {
-            schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
-            authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
-            policy_kind: AuthoritySetPolicyKind::RealmAdmission,
-            scope_ref: event.scope_ref.clone(),
-            source: AuthoritySetPolicySource {
-                source_kind: AuthoritySetSourceKind::RealmControl,
-                source_ref: event.event_id.as_str().to_owned(),
-                source_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-                generation_ref: "1".to_owned(),
-            },
-            authorization_rules: vec![AuthoritySetAuthorizationRule {
-                rule_id: "realm_admission".to_owned(),
-                issuer_role: AuthoritySetIssuerRole::RealmAdmission,
-                allowed_actions: vec!["ak.agent.key.authorize".to_owned()],
-                issuers: vec![AuthoritySetIssuer {
-                    verification_method: DidUrl::new(format!("{actor_did}#controller")).unwrap(),
-                }],
-                threshold: 1,
-            }],
-        };
-        EventInitialSubmission {
-            authorization_lease: Some(AuthorizationLease {
-                authorization_lease_id: AuthorizationLeaseId::new(
-                    "ak:authorization_lease:01904100-0000-7000-8000-0000000000f1",
-                )
-                .unwrap(),
-                basis_ref: LeaseBasisRef::Seal(
-                    SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
-                ),
-                actor_id: event.actor_id.clone(),
-                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-                scope_ref: event.scope_ref.clone(),
-                action: "ak.agent.key.authorize".to_owned(),
-                authorization_rule_id: "realm_admission".to_owned(),
-                risk_tier: RiskTier::High,
-                issued_at: event.created_at,
-                expires_at: event.created_at + chrono::Duration::minutes(5),
-                authority_set_ref: AuthoritySetRef {
-                    authority_set_id: policy.authority_set_id.clone(),
-                    authority_set_digest: policy.digest().unwrap(),
-                },
-                authority_set_policy: policy,
-                proofs: Vec::new(),
-            }),
-            event,
-            cba_proof_bundles: Vec::new(),
-            control_proposal_ack: None,
-            membership_compensation_evidence: None,
-        }
+    fn runtime_key_binding_vector() -> Value {
+        let fixture =
+            arkret_schema_conformance::spec_json_artifact("fixtures/agent-vectors-fixture.json")
+                .unwrap();
+        fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["vector_id"] == "ak.vector.agent.runtime_key_binding.v1")
+            .cloned()
+            .unwrap()
     }
 
+    /// `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
+    /// `ak.vector.agent.runtime_key_binding.v1`. The fixture is the truth; this
+    /// test reads it so the SDK cannot drift from it silently.
     #[test]
     fn runtime_key_binding_matches_normative_vector() {
-        let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap();
-        let public_key = json!({
-            "algorithm": "Ed25519",
-            "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "kid": "did:webvh:z6mkagent:agent.example#runtime-1",
-            "kty": "OKP"
-        });
+        let vector = runtime_key_binding_vector();
+        let input = &vector["pairing_request_binding_input"];
+        let agent_id = DidCoreId::new(input["agent_id"].as_str().unwrap()).unwrap();
+        let public_key = vector["source_public_key"].clone();
+        assert!(vector["source_runtime_attestation"].is_null());
 
         let public_key_digest = agent_runtime_public_key_digest(&public_key).unwrap();
         let attestation_digest = agent_runtime_attestation_digest(None).unwrap();
         let binding_digest = agent_runtime_key_binding_digest(
             &agent_id,
-            "pairing_request:01964137-0000-7000-8000-000000000000",
-            "did:webvh:z6mkagent:agent.example#runtime-1",
+            input["pairing_request_id"].as_str().unwrap(),
+            input["verification_method"].as_str().unwrap(),
             &public_key,
             None,
         )
         .unwrap();
 
-        // The three expected values are copied verbatim from
-        // `spec/v1/artifacts/fixtures/agent-vectors-fixture.json`, vector
-        // `ak.vector.agent.runtime_key_binding.v1`. The fixture is the truth;
-        // this test exists so the SDK cannot drift from it silently.
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:30bde072332c796c2bfa2cca05564e592d49a6dd11719cfdb8a918c0897486a4"
+            vector["expected_public_key_digest"].as_str().unwrap()
         );
         assert_eq!(
             attestation_digest.as_str(),
-            "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+            vector["expected_attestation_digest"].as_str().unwrap()
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:d9bfa43d517f962dd5fa8e1a8873dce0de410bffec06b553ea03dd01e330460f"
+            vector["expected_binding_digest"].as_str().unwrap()
         );
     }
 
@@ -629,6 +553,7 @@ mod tests {
         let agent_did = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
@@ -636,7 +561,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "12345678".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: "2026-07-14T14:43:48.784473Z"
                 .parse::<DateTime<Utc>>()
                 .unwrap(),
@@ -654,7 +579,8 @@ mod tests {
         .build_approval_request()
         .unwrap();
         let proof = &request.body.proof_of_possession;
-        let transcript = proof.canonical_transcript_bytes("12345678").unwrap();
+        // The transcript binds the pairing code, so it has to be the one the builder used.
+        let transcript = proof.canonical_transcript_bytes("01234567").unwrap();
         let signature = base64url_decode(proof.signature.as_str()).unwrap();
         let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
 
@@ -679,6 +605,7 @@ mod tests {
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let pairing_expires_at = Utc::now() + chrono::Duration::minutes(10);
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
@@ -686,7 +613,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "12345678".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at,
         };
 
@@ -712,6 +639,7 @@ mod tests {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let agent_id = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
             agent_id,
@@ -719,7 +647,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "12345678".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
         };
         let verification_method = DidUrl::new("did:web:agent.example#runtime-1").unwrap();
@@ -747,6 +675,7 @@ mod tests {
     fn runtime_key_request_builder_rejects_method_for_another_agent() {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
             agent_id: DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
@@ -754,7 +683,7 @@ mod tests {
                 "01970000-0000-7000-8000-000000000022",
             )
             .unwrap(),
-            pairing_code: "12345678".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
         };
         let wrong_method = DidUrl::new("did:web:other.example#runtime-1").unwrap();
@@ -800,11 +729,10 @@ mod tests {
             challenge: NonEmptyString::new(pairing_request_id).unwrap(),
             issued_at,
             expires_at: issued_at + chrono::Duration::minutes(5),
-            proofs: vec![ProducerEventProof {
+            proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: DidUrl::new(format!("{controller_did}#key-1")).unwrap(),
-                event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                signer_resolution_evidence_ref: None,
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: issued_at,
                 domain: None,
                 audience: None,
@@ -812,16 +740,17 @@ mod tests {
                 jws: "eyJhbGciOiJFZDI1NTE5In0..c2ln".to_owned(),
             }],
         };
-        disclosure.proofs[0].event_digest = disclosure.payload_digest().unwrap();
+        disclosure.proofs[0].payload_digest = disclosure.payload_digest().unwrap();
         let mut tampered_disclosure = disclosure.clone();
         tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: service_id.clone(),
             agent_id: agent_actor_id.clone(),
             pairing_request_id: arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
-            pairing_code: "12345678".to_owned(),
+            pairing_code: "01234567".to_owned(),
             pairing_expires_at: issued_at + chrono::Duration::minutes(5),
         };
         let endpoint_device_id =
@@ -834,25 +763,11 @@ mod tests {
         let runtime_public_key: PublicKey =
             serde_json::from_value(builder.public_key().unwrap()).unwrap();
         let agent_key_id = NonEmptyString::new(verification_method.to_string()).unwrap();
-        let binding_core = super::super::agent_evidence::prepare_agent_signing_key_binding_core(
-            agent_actor_id.clone(),
-            agent_key_id.clone(),
-            verification_method.clone(),
-            &runtime_public_key,
-            issued_at,
-            None,
-            controller_actor_id.clone(),
-        )
-        .unwrap();
-        let binding_core_digest =
-            super::super::agent_evidence::agent_signing_key_binding_core_digest(&binding_core)
-                .unwrap();
         let authorize_payload = AgentKeyAuthorizePayload {
             agent_id: agent_actor_id.clone(),
-            key_id: agent_key_id.clone(),
+            key_id: agent_key_id,
             verification_method: verification_method.clone(),
-            public_key_digest: binding_core.public_key_digest,
-            signing_key_binding_digest: binding_core_digest,
+            public_key: runtime_public_key,
             accountable_principal_id: controller_principal_id,
             agent_key_scope: requested_scope,
             audience: vec!["https://arkret.example".to_owned()],
@@ -865,7 +780,7 @@ mod tests {
                 pairing_request_id: Some(
                     arkret_wire::OpaqueLocalId::new(pairing_request_id).unwrap(),
                 ),
-                approved_by: Some(controller_actor_id.clone()),
+                approved_by: Some(controller_actor_id),
             },
             supersedes: Vec::new(),
             revocation_check_ref: None,
@@ -883,32 +798,17 @@ mod tests {
                 agent_actor_id.clone(),
                 service_id,
             )),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             serde_json::to_value(authorize_payload).unwrap(),
             issued_at,
         )
         .unwrap();
-        let authorize_event_id = authorize_event.event_id.clone();
 
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
             .build_key_pair_request(
+                arkret_wire::OpaqueLocalId::new("approval-request-1").unwrap(),
                 disclosure,
-                super::super::agent_evidence::build_agent_signing_key_binding(
-                    agent_actor_id.clone(),
-                    agent_key_id,
-                    verification_method.clone(),
-                    signing_key.verifying_key().to_bytes(),
-                    authorize_event_id,
-                    issued_at,
-                    None,
-                    controller_actor_id,
-                    DidUrl::new(format!("{controller_did}#key-1")).unwrap(),
-                    &SigningKey::from_bytes(&[3_u8; 32]),
-                )
-                .unwrap(),
-                initial_submission(authorize_event, agent_did.clone()),
+                authorize_event,
             )
             .unwrap();
 
@@ -918,10 +818,16 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_value(approval.body.public_key).unwrap(),
-            serde_json::to_value(pairing.body.public_key).unwrap()
+            pairing.body.authorize_event.event.payload["public_key"]
         );
-        assert_eq!(pairing.body.agent_id, agent_actor_id);
+        assert_eq!(
+            pairing.body.authorize_event.event.payload["agent_id"],
+            serde_json::to_value(agent_actor_id).unwrap()
+        );
         assert_eq!(approval.body.verification_method, verification_method);
-        assert_eq!(pairing.body.verification_method, verification_method);
+        assert_eq!(
+            pairing.body.authorize_event.event.payload["verification_method"],
+            serde_json::to_value(verification_method).unwrap()
+        );
     }
 }

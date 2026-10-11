@@ -8,12 +8,14 @@
 
 use arkret_signatures::proof::{PublicKeyMaterial, verify_ed25519_detached_jws_proof};
 use arkret_test_kit::hlc::{pinned_hlc, wall_hlc};
-use arkret_test_kit::keys::{development_signing_key_seed, seeded_signer};
+use arkret_test_kit::keys::{
+    development_signing_key_seed, development_verifying_key, seeded_signer,
+};
 use arkret_test_kit::negative::wire_negative_from_sdk;
 use arkret_test_kit::proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 use arkret_test_kit::signed_event::SignedEventFixtureBuilder;
 use arkret_test_kit::subjects;
-use arkret_wire::{ActorId, ScopeRef};
+use arkret_wire::{ActorId, ScopeRef, SemanticRef};
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
@@ -81,7 +83,6 @@ fn the_standard_signed_event_identity_is_pinned() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_verifiable(&seeded_signer(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -92,9 +93,9 @@ fn the_standard_signed_event_identity_is_pinned() {
     let event = signed.event();
     assert_eq!(
         event.event_id.as_str(),
-        "ak:event:AW-5fxFMfgN58Oexz8peEZ3_FQr3yyP4l2Yfuk6Nd1Ot"
+        "ak:event:AeZlbBfFlhs4ObtXms3ev-RJ-yXkEdeVYmx5EV5IOKde"
     );
-    assert_eq!(event.proofs.len(), 1);
+    assert!(event.producer_proof.is_some());
 }
 
 #[test]
@@ -107,7 +108,6 @@ fn a_placeholder_proof_is_never_reported_as_verifiable() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_structural_only(&StructuralOnlyPayloadSigner::new(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -141,7 +141,6 @@ fn a_verifiable_proof_really_verifies_and_one_changed_byte_breaks_it() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_verifiable(&signer)
     .expect("the standard fixture Event signs")
     .expect_verifiable();
@@ -149,10 +148,7 @@ fn a_verifiable_proof_really_verifies_and_one_changed_byte_breaks_it() {
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: signer.verifying_key().to_bytes().to_vec(),
     };
-    let proof = event.proofs[0]
-        .as_producer()
-        .expect("the fixture proof is a producer proof")
-        .clone();
+    let proof = event.producer_proof.clone().expect("producer proof");
     let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(
         &event.digest_payload().expect("the fixture digest payload"),
     )
@@ -182,7 +178,6 @@ fn a_placeholder_proof_never_verifies() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_structural_only(&StructuralOnlyPayloadSigner::new(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -196,10 +191,7 @@ fn a_placeholder_proof_never_verifies() {
             .to_bytes()
             .to_vec(),
     };
-    let proof = event.proofs[0]
-        .as_producer()
-        .expect("the placeholder proof is a producer proof")
-        .clone();
+    let proof = event.producer_proof.clone().expect("producer proof");
     let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(
         &event.digest_payload().expect("the fixture digest payload"),
     )
@@ -209,5 +201,71 @@ fn a_placeholder_proof_never_verifies() {
         verify_ed25519_detached_jws_proof(&proof, &canonical_bytes, &event.actor_id, &public_key)
             .is_err(),
         "a StructuralOnly placeholder must never satisfy a signature verifier"
+    );
+}
+
+#[test]
+fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
+    use arkret_canonical::DigestSuite;
+    use arkret_signatures::{SignEventOptions, sign_event};
+    use arkret_wire::AuthoredEvent;
+
+    let signer = seeded_signer(subjects::alice_did(), subjects::alice_verification_method());
+    let created_at = "2026-08-17T12:34:56.789Z".parse::<DateTime<Utc>>().unwrap();
+    let mut event = SignedEventFixtureBuilder::new(
+        "ak.message.create",
+        ScopeRef::Realm {
+            realm_id: subjects::realm_id(),
+        },
+        ActorId::account(subjects::alice_account_id()),
+        json!({"track_name": subjects::DISCUSSION_TRACK}),
+    )
+    .with_created_at(created_at)
+    .build_unsigned()
+    .unwrap();
+    event.semantic_refs.push(SemanticRef::new(
+        "ak:event:AYWFNfF8FDwLazsD2l4T6VYTFaH_DSzEOh9I05VjH0_l",
+        "fixture_dependency",
+    ));
+    let before = event.clone();
+    let mut direct =
+        AuthoredEvent::finalize_with_digest_suite(event.clone(), DigestSuite::Sha256).unwrap();
+    sign_event(
+        &mut direct,
+        &signer,
+        SignEventOptions::new().with_created_at(created_at),
+    )
+    .unwrap();
+    let shared = arkret_test_kit::sign_verifiable_event(event, &signer, DigestSuite::Sha256)
+        .unwrap()
+        .expect_verifiable();
+    assert_eq!(
+        serde_json::to_vec(&shared).unwrap(),
+        serde_json::to_vec(&direct.into_event()).unwrap()
+    );
+    assert_eq!(shared.semantic_refs, before.semantic_refs);
+    assert_eq!(shared.scope_ref, before.scope_ref);
+    assert_eq!(shared.payload, before.payload);
+    assert_eq!(shared.created_at, created_at);
+    assert_eq!(
+        shared
+            .producer_proof
+            .as_ref()
+            .expect("producer proof")
+            .created_at,
+        created_at
+    );
+}
+
+#[test]
+fn development_keys_are_deterministic_and_method_bound() {
+    let alice = "did:web:alice.example#cotest";
+    assert_eq!(
+        development_signing_key_seed(alice),
+        development_signing_key_seed(alice)
+    );
+    assert_ne!(
+        development_verifying_key(alice),
+        development_verifying_key("did:web:bob.example#cotest")
     );
 }

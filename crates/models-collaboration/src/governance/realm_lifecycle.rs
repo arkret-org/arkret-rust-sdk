@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
 use arkret_wire::{
-    CircleId, DidCoreId, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId, WireError,
+    CircleId, DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -27,19 +26,11 @@ pub enum RealmJoinRuleValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinRulePayload {
     pub value: RealmJoinRuleValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl RealmJoinRulePayload {
     pub fn new(value: RealmJoinRuleValue) -> Self {
-        Self {
-            value,
-            state: None,
-            reason: None,
-        }
+        Self { value }
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -148,10 +139,6 @@ pub struct RealmDiscoveryValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmDiscoveryPayload {
     pub value: RealmDiscoveryValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl RealmDiscoveryPayload {
@@ -164,8 +151,6 @@ impl RealmDiscoveryPayload {
                 directory_ids: Vec::new(),
                 anti_enumeration: None,
             },
-            state: None,
-            reason: None,
         }
     }
 
@@ -173,24 +158,6 @@ impl RealmDiscoveryPayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("realm discovery payload serialize: {err}")))
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyValue {
-    pub policy_id: PolicyId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmPolicyPayload {
-    pub value: RealmPolicyValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -282,31 +249,25 @@ pub struct RealmSchemaPayload {
 /// Strong type for `ak.realm.archive` payloads
 /// (`event-payload.schema.json#/$defs/realm_archive_payload`).
 ///
-/// Reversible boolean register (there is no separate `ak.realm.restore`):
-/// `archived:false` un-archives. `additionalProperties:false`.
+/// Shared closed payload for explicit archive/restore operations.
+/// The registered Event kind determines the state change.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmArchivePayload {
-    pub archived: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// Canonical `Z`-suffixed timestamp; the reducer treats absence as "now".
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl Default for RealmArchivePayload {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RealmArchivePayload {
-    pub fn new(archived: bool) -> Self {
-        Self {
-            archived,
-            reason: None,
-            effective_at: None,
-        }
+    pub fn new() -> Self {
+        Self { reason: None }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -339,12 +300,6 @@ pub struct RealmTombstonePayload {
     /// carried as a bare string per the spec wire shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_event_id: Option<ObjectRef>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl RealmTombstonePayload {
@@ -353,7 +308,6 @@ impl RealmTombstonePayload {
             reason: reason.into(),
             successor_realm_id,
             replacement_event_id: None,
-            effective_at: None,
         }
     }
 
@@ -374,12 +328,6 @@ impl RealmTombstonePayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmDestroyPayload {
     pub reason: String,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Optional retention-policy `object_ref` (bare string per spec wire shape).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<ObjectRef>,
@@ -391,7 +339,6 @@ impl RealmDestroyPayload {
     pub fn new(reason: impl Into<String>) -> Self {
         Self {
             reason: reason.into(),
-            effective_at: None,
             retention_policy_id: None,
             verification_stub_required: None,
         }
@@ -415,33 +362,16 @@ impl RealmDestroyPayload {
 #[serde(deny_unknown_fields)]
 pub struct ObjectLifecyclePayload {
     pub target_ref: ObjectRef,
-    /// Intended lifecycle result (e.g. `archived` / `active`); descriptive
-    /// only — it cannot replace `target_ref`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl ObjectLifecyclePayload {
     pub fn new(target_ref: impl Into<ObjectRef>) -> Self {
         Self {
             target_ref: target_ref.into(),
-            target_state: None,
             reason: None,
-            effective_at: None,
         }
-    }
-
-    pub fn with_target_state(mut self, target_state: impl Into<String>) -> Self {
-        self.target_state = Some(target_state.into());
-        self
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -453,6 +383,38 @@ impl ObjectLifecyclePayload {
         serde_json::to_value(self).map_err(|err| {
             WireError::Protocol(format!("object lifecycle payload serialize: {err}"))
         })
+    }
+}
+
+#[cfg(test)]
+mod object_lifecycle_tests {
+    use serde_json::json;
+
+    use super::ObjectLifecyclePayload;
+
+    #[test]
+    fn lifecycle_state_is_derived_from_event_kind() {
+        let target_ref = "ak:strand:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let payload: ObjectLifecyclePayload = serde_json::from_value(json!({
+            "target_ref": target_ref,
+            "reason": "archived by owner"
+        }))
+        .unwrap();
+        assert_eq!(payload.reason.as_deref(), Some("archived by owner"));
+        assert_eq!(
+            payload.to_value().unwrap(),
+            json!({
+                "target_ref": target_ref,
+                "reason": "archived by owner"
+            })
+        );
+        assert!(
+            serde_json::from_value::<ObjectLifecyclePayload>(json!({
+                "target_ref": target_ref,
+                "target_state": "active"
+            }))
+            .is_err()
+        );
     }
 }
 

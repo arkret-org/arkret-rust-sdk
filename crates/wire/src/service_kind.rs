@@ -46,7 +46,7 @@ impl ServiceKind {
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
             Self::TurnService => &[crate::ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1],
             Self::ModerationService => &["ak.self.moderation."],
-            Self::Notary | Self::ArchiveNode => &[],
+            Self::ArchiveNode => &[],
             Self::KeyRecoveryService | Self::RecoveryService => &[
                 "ak.root.identity.recovery_policy.",
                 "ak.root.identity.recovery_session.",

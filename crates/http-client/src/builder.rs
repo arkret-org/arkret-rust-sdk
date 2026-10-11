@@ -166,6 +166,7 @@ pub struct ClientBuilder {
     auth: Option<Auth>,
     http_message_signer: Option<HttpMessageSigner>,
     allow_insecure_localhost: bool,
+    loopback_method_scope: Option<crate::service_method_resolution::LoopbackMethodScope>,
     transport: TransportConfig,
     retry: RetryConfig,
     user_agent: Option<String>,
@@ -179,6 +180,7 @@ impl ClientBuilder {
             auth: None,
             http_message_signer: None,
             allow_insecure_localhost: false,
+            loopback_method_scope: None,
             transport: TransportConfig::default(),
             retry: RetryConfig::default(),
             user_agent: None,
@@ -207,6 +209,17 @@ impl ClientBuilder {
     pub fn allow_insecure_localhost(mut self) -> Self {
         self.allow_insecure_localhost = true;
         self
+    }
+
+    /// Allow credential-free HTTPS DID method discovery in one local development
+    /// DNS namespace and port. Only `localhost` and `local.host` are supported.
+    /// Native DNS answers must all be loopback. Other targets retain public HTTPS
+    /// policy. This scope is retained when the client changes its base URL.
+    pub fn loopback_service_discovery(mut self, namespace: &str, port: u16) -> Result<Self> {
+        self.loopback_method_scope = Some(
+            crate::service_method_resolution::LoopbackMethodScope::new(namespace, port)?,
+        );
+        Ok(self)
     }
 
     /// Total timeout for a single request including the connect handshake,
@@ -416,18 +429,23 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => self
-                .transport
-                .apply(reqwest::Client::builder())
-                .build()
-                .map_err(transport_error)?,
+            None => {
+                let builder = self.transport.apply(reqwest::Client::builder());
+                #[cfg(not(target_arch = "wasm32"))]
+                let builder = crate::tls_roots::apply_explicit_tls_roots(builder)?;
+                builder.build().map_err(transport_error)?
+            }
         };
         Ok(Client {
             base_url: self.base_url,
             http,
             auth: self.auth,
+            own_station_context: None,
             http_message_signer: self.http_message_signer,
+            service_signature_identity: None,
+            managed_device_signature_identity: None,
             allow_insecure_localhost: self.allow_insecure_localhost,
+            loopback_method_scope: self.loopback_method_scope,
             retry: self.retry,
             user_agent: self.user_agent,
             #[cfg(not(target_arch = "wasm32"))]

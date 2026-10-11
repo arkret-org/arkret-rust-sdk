@@ -1,7 +1,7 @@
 //! Embedded `did:webvh` inception builder, shared by clients and servers.
 //!
-//! Soland accepts WebVH inception as a protocol DID operation at
-//! `/_arkret/root/identity/submit-did-operation`. Soland's embedded WebVH
+//! Coland accepts WebVH inception as a protocol DID operation at
+//! `/_arkret/root/identity/submit-did-operation`. Coland's embedded WebVH
 //! profile requires the client to:
 //!
 //! 1. derive the cold root keypair and its next-generation pre-rotation commitment,
@@ -21,9 +21,9 @@
 //! module still self-validates every proof it constructs and every proof
 //! accepted by its public inception validator.
 //!
-//! HTTP transport (POSTing the prepared operation to soland) deliberately lives
+//! HTTP transport (POSTing the prepared operation to coland) deliberately lives
 //! outside this crate: this module is pure build + cryptography so clients
-//! (sodmin / inkson) and servers (soland / coauth) can all share one
+//! (codmin / inkson) and servers (coland / coauth) can all share one
 //! implementation with no drift.
 
 use std::collections::BTreeSet;
@@ -37,7 +37,7 @@ use arkret_models_identity::service_identity::{
 };
 use arkret_models_identity::{
     DidDocument, IdentityCreationControlProof, UnsignedIdentityCreationControlProof,
-    normalized_did_document_digest,
+    ValidatedRegistrationAnchor, normalized_did_document_digest,
 };
 use arkret_wire::{
     Base64UrlString, Did, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -64,7 +64,7 @@ use crate::eddsa_jcs_2022::{
 /// Errors produced while preparing a `did:webvh` inception entry.
 ///
 /// Only build / cryptography failures live here; transport (HTTP submit) and
-/// storage errors stay in the caller (e.g. coauth's `SolandWebvhError`).
+/// storage errors stay in the caller (e.g. coauth's `ColandWebvhError`).
 #[derive(Debug, Error)]
 pub enum WebvhInceptionError {
     #[error("station endpoint is not a valid URL: {0}")]
@@ -456,30 +456,34 @@ pub fn validate_principal_inception_operation(
     })
 }
 
-/// Verify the account-binding control proof with the inception operation's
-/// method-native identity root.
+/// Verify the account-binding control proof against an already authenticated
+/// registration anchor.
+///
+/// The caller derives the anchor once through the single adapter dispatch and
+/// passes the result here, so this verifier never re-parses method-native
+/// material and never selects a root key of its own. `proof_kind` must name the
+/// derivation the anchor's branch actually used.
 pub fn verify_identity_creation_control_proof(
-    request: &DidOperationSubmitRequestBody,
+    anchor: &ValidatedRegistrationAnchor,
     proof: &IdentityCreationControlProof,
-) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
-    let validated = validate_principal_inception_operation(request)?;
-    if proof.principal_id != validated.principal_id
-        || proof.operation_digest != validated.operation_digest
-        || proof.did_version_id != validated.did_version_id
-        || proof.log_head_digest != validated.log_head_digest
-        || proof.control_key_digest != validated.control_key_digest
-        || proof.verification_key_multibase != validated.root_public_key_multibase
+) -> Result<(), WebvhInceptionError> {
+    if proof.proof_kind.registration_anchor_kind() != anchor.anchor_kind
+        || proof.principal_id != anchor.principal_id
+        || proof.did != anchor.did
+        || proof.registration_anchor_digest != anchor.registration_anchor_digest
+        || proof.did_version_id != anchor.did_version_id
+        || proof.control_key_digest != anchor.control_key_digest
+        || proof.verification_key_multibase != anchor.root_public_key_multibase
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "identity-creation proof does not match the reserved inception root or operation"
-                .to_owned(),
+            "identity-creation proof does not match the reserved registration anchor".to_owned(),
         ));
     }
     let signing_bytes = proof
         .canonical_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let public_key = crate::proof::PublicKeyMaterial::Ed25519Multibase {
-        value: validated.root_public_key_multibase.clone(),
+        value: anchor.root_public_key_multibase.clone(),
     };
     if !crate::proof::verify_detached_ed25519_signature(
         &public_key,
@@ -490,7 +494,7 @@ pub fn verify_identity_creation_control_proof(
             "identity-creation control signature is invalid".to_owned(),
         ));
     }
-    Ok(validated)
+    Ok(())
 }
 
 /// Verify the dedicated frozen registration-evidence proof against the exact
@@ -751,7 +755,7 @@ pub struct PrincipalInceptionInput<'a> {
     /// WebVH Provider base endpoint. Drives the DID method authority and may
     /// differ from the Station published in the DID document.
     pub provider_endpoint: &'a Url,
-    /// Soland's public base endpoint. Drives the in-document
+    /// Coland's public base endpoint. Drives the in-document
     /// `serviceEndpoint` and the `also_known_as` reverse-link surface.
     pub principal_endpoint: &'a Url,
     /// Stable per-user identifier — typically the user's ULID lower-cased.
@@ -759,7 +763,7 @@ pub struct PrincipalInceptionInput<'a> {
     pub local_id: &'a str,
     /// Optional `alsoKnownAs` entries (e.g. the user's `@handle@host`).
     pub also_known_as: &'a [String],
-    /// `versionTime` for the inception entry. Soland requires RFC3339.
+    /// `versionTime` for the inception entry. Coland requires RFC3339.
     pub version_time: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
@@ -796,7 +800,7 @@ pub struct AgentBindingUpdateInput<'a> {
 /// Inputs for a client-authored WebVH inception. The client supplies the DID
 /// and update public keys plus the signed log proof; the server reconstructs
 /// the exact inception entry, verifies the proof locally, and submits the typed
-/// DID operation to soland.
+/// DID operation to coland.
 pub struct SuppliedPrincipalInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
@@ -1903,7 +1907,7 @@ pub fn prepare_service_inception<R: Rng + ?Sized>(
 /// the service's durable signing-key custody layer.
 ///
 /// This is the correct primitive when the same service identity signs Arkret
-/// credentials or notary Seals: the resulting DID document publishes the
+/// credentials or other durable attestations: the resulting DID document publishes the
 /// public half of `did_key_seed`, while the WebVH update key remains freshly
 /// generated from `rng`. The secret seed is copied into the returned
 /// [`PreparedInception`] so its existing zeroization guarantees still apply.
@@ -2178,7 +2182,7 @@ pub fn prepare_supplied_principal_inception(
         key_log_head: version_id,
         document_url,
         log_url,
-        provider_id: "soland.protocol".to_owned(),
+        provider_id: "coland.protocol".to_owned(),
         did_document,
         did_log: vec![log_entry],
     })
@@ -2251,7 +2255,7 @@ fn principal_document_value(
         "id": did,
         "alsoKnownAs": also_known_as,
         "service": [{
-            "id": format!("{did}#soland"),
+            "id": format!("{did}#coland"),
             "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }],
@@ -2273,7 +2277,7 @@ fn agent_document_value(
     let authorization_ref = format!("{did}#managed-controller");
     let mut services = vec![
         json!({
-            "id": format!("{did}#soland"),
+            "id": format!("{did}#coland"),
             "type": "ArkretStation",
             "serviceEndpoint": service_endpoint,
         }),
@@ -2357,8 +2361,8 @@ pub fn validate_agent_did_document_profile(
                     .to_owned(),
             )
         })?;
-    let expected_soland_id = format!("{did}#soland");
-    if services[0].get("id").and_then(Value::as_str) != Some(expected_soland_id.as_str())
+    let expected_coland_id = format!("{did}#coland");
+    if services[0].get("id").and_then(Value::as_str) != Some(expected_coland_id.as_str())
         || services[0].get("type").and_then(Value::as_str) != Some("ArkretStation")
         || services[0]
             .get("serviceEndpoint")
@@ -2488,7 +2492,7 @@ pub fn validate_principal_did_document_profile(
             )
         })?;
     let service = &services[0];
-    let expected_service_id = format!("{did}#soland");
+    let expected_service_id = format!("{did}#coland");
     if service.get("id").and_then(Value::as_str) != Some(expected_service_id.as_str())
         || service.get("type").and_then(Value::as_str) != Some("ArkretStation")
         || service
@@ -2901,14 +2905,67 @@ mod historical_verification_tests {
                 .is_err()
         );
 
+        let mut wrong_head_pin = draft.clone();
+        wrong_head_pin.method_history_head = format!("sha256:{}", "1".repeat(64));
+        assert!(
+            verify_registration_did_evidence_draft(&prepared.submit_body, &wrong_head_pin).is_err()
+        );
+
+        let mut wrong_key_pin = draft.clone();
+        wrong_key_pin.control_key_digest = Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap();
+        assert!(
+            verify_registration_did_evidence_draft(&prepared.submit_body, &wrong_key_pin).is_err()
+        );
+
         let mut omitted = serde_json::to_value(&draft).unwrap();
         omitted.as_object_mut().unwrap().remove("method_evidence");
         assert!(serde_json::from_value::<RegistrationDidEvidenceDraft>(omitted).is_err());
-        assert!(
-            draft
-                .accept(created_at - Duration::milliseconds(1))
-                .is_err()
-        );
+    }
+
+    #[test]
+    fn registration_evidence_accepts_every_registry_acceptance_instant() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let draft =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap();
+        // `accepted_at` is the registry's own clock and `control_proof.created_at`
+        // is the signer's; the pair carries no causal order, so every delta below
+        // -- including the smallest representable millisecond step and a large
+        // skew in either direction -- MUST survive this comparison alone.
+        for delta in [
+            Duration::zero(),
+            Duration::milliseconds(-1),
+            Duration::milliseconds(1),
+            Duration::seconds(-3),
+            Duration::seconds(3),
+            Duration::hours(-30),
+            Duration::hours(30),
+        ] {
+            let evidence = draft
+                .clone()
+                .accept(created_at + delta)
+                .expect("cross-Authority acceptance time must never be range-checked");
+            assert_eq!(evidence.accepted_at, created_at + delta);
+            assert_eq!(evidence.control_proof.created_at, created_at);
+            evidence.validate_shape().unwrap();
+            evidence.canonical_digest().unwrap();
+            verify_registration_did_evidence_draft(&prepared.submit_body, &evidence.draft())
+                .expect("frozen evidence must still verify against the exact operation");
+        }
+    }
+
+    #[test]
+    fn registration_evidence_rejects_a_control_proof_time_changed_after_signing() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let evidence =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap()
+                .accept(created_at - Duration::seconds(2))
+                .unwrap();
+
+        let mut tampered = evidence.draft();
+        tampered.control_proof.created_at = created_at - Duration::seconds(4);
+        assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &tampered).is_err());
     }
 
     #[test]

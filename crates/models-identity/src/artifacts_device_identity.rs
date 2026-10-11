@@ -1,11 +1,8 @@
-//! Device identity receipt and key-verification shapes.
-
-use std::collections::{BTreeMap, BTreeSet};
+//! Device identity receipt shapes.
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash, NonEmptyString,
-    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId, TrustDomainId,
-    WireError, canonical, project_did_to_core_id,
+    Audience, Did, DidCoreId, DidKey, DidUrl, Hash, PayloadProof, ProofContextId, ReceiptId,
+    Result, SchemaId, TrustDomainId, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -32,7 +29,7 @@ pub struct IdentityReceipt {
     pub receipt_id: String,
     pub subject_did: Did,
     pub seq: u64,
-    pub head_event_digest: Hash,
+    pub accepted_entry_digest: Hash,
     pub registry_id: DidCoreId,
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -43,6 +40,23 @@ pub struct IdentityReceipt {
 }
 
 impl IdentityReceipt {
+    /// Check the byte-consensus commitment against a complete native entry.
+    pub fn validate_accepted_entry(
+        &self,
+        did: &Did,
+        seq: u64,
+        entry: &impl Serialize,
+    ) -> Result<()> {
+        if &self.subject_did != did
+            || self.seq != seq
+            || self.accepted_entry_digest.as_str() != canonical::canonical_sha256(entry)?
+        {
+            return Err(WireError::Protocol(
+                "identity receipt does not commit to the exact accepted entry".to_owned(),
+            ));
+        }
+        self.validate_proof_binding()
+    }
     pub const SCHEMA: &'static str = SchemaId::IDENTITY_RECEIPT_V1;
     /// `sha256(canonical_json(receipt with signature omitted))`.
     pub fn payload_digest(&self) -> Result<Hash> {
@@ -93,6 +107,11 @@ impl IdentityReceipt {
     /// Validate the receipt body and the plaintext proof bindings before JWS
     /// verification with the registry service key.
     pub fn validate_proof_binding(&self) -> Result<()> {
+        if !self.accepted_entry_digest.as_str().starts_with("sha256:") {
+            return Err(WireError::Protocol(
+                "accepted entry commitment requires SHA-256".to_owned(),
+            ));
+        }
         if self.schema != SchemaId::IDENTITY_RECEIPT_V1 {
             return Err(WireError::Protocol(format!(
                 "identity receipt schema '{}' is not {schemaid_identity_receipt_v1}",
@@ -150,7 +169,7 @@ pub struct DidWebvhWitnessReceipt {
     pub version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_head_digest: Option<Hash>,
-    pub witness_did: Did,
+    pub witness_did: DidKey,
     pub witness_verification_method: DidUrl,
     pub controlling_organization_did: Did,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -245,16 +264,17 @@ impl DidWebvhWitnessReceipt {
                 "did:webvh witness receipt version_id must not be empty".to_owned(),
             ));
         }
-        if self.witness_did.method() != "key" {
-            return Err(WireError::Protocol(
-                "did:webvh witness receipt witness_did must use did:key".to_owned(),
-            ));
-        }
+        // `DidKey` only constructs from a `did:key:` string, so the method
+        // check the wire type used to need is now part of the type itself.
         let witness_key = self
             .witness_did
             .as_str()
             .strip_prefix("did:key:")
-            .expect("did:key method was checked above");
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "did:webvh witness receipt witness_did must use did:key".to_owned(),
+                )
+            })?;
         if self.witness_verification_method != format!("{}#{witness_key}", self.witness_did) {
             return Err(WireError::Protocol(
                 "did:webvh witness receipt witness_verification_method must be the canonical did:key verification method".to_owned(),
@@ -369,7 +389,7 @@ mod tests {
             log_head_digest: Some(
                 Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            witness_did: Did::new(
+            witness_did: DidKey::new(
                 "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
             )
             .unwrap(),
@@ -426,7 +446,7 @@ mod tests {
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
-            "head_event_digest":
+            "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
@@ -459,7 +479,7 @@ mod tests {
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
-            "head_event_digest":
+            "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
@@ -484,272 +504,5 @@ mod tests {
 
         receipt.signature.created_at = "2026-07-15T00:00:01.000Z".parse().unwrap();
         assert!(receipt.validate_proof_binding().is_err());
-    }
-}
-
-// ── Device-message / key-verification counterparts ───────────────────────
-// The `arkret` umbrella re-exports these owner-defined shapes at its root.
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyVerificationContent {
-    /// `device-message.schema.json` constrains this to
-    /// `^[A-Za-z0-9._~=-]{1,128}$`, which no `ak:transaction:<uuidv7>` value can
-    /// satisfy — the `:` is outside the charset. This is a different namespace
-    /// from `TransactionId`, not a laxer spelling of it.
-    pub transaction_id: DeviceMessageTransactionId,
-    pub from_device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub methods: Option<ProtocolKindList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub method: Option<ProtocolKind>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub timestamp: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<KeyVerificationPurpose>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_agreement_protocols: Option<StringList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hashes: Option<StringList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message_authentication_codes: Option<StringList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub short_authentication_string: Option<StringList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commitment: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mac: Option<BTreeMap<String, NonEmptyString>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keys: Option<BTreeMap<String, NonEmptyString>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verified_keys: Option<StringList>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signatures: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub code: Option<KeyVerificationCancellationCode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<KeyVerificationCancellationReason>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl KeyVerificationContent {
-    /// Start one key-verification device-message content object.
-    ///
-    /// The selected device-message marker determines which additional fields
-    /// are required before sending; the typed target builder validates that
-    /// branch and rejects an incomplete content object.
-    pub fn new(transaction_id: DeviceMessageTransactionId, from_device_id: DeviceId) -> Self {
-        Self {
-            transaction_id,
-            from_device_id,
-            methods: None,
-            method: None,
-            timestamp: None,
-            expires_at: None,
-            purpose: None,
-            key_agreement_protocols: None,
-            hashes: None,
-            message_authentication_codes: None,
-            short_authentication_string: None,
-            commitment: None,
-            key: None,
-            mac: None,
-            keys: None,
-            verified_keys: None,
-            signatures: None,
-            code: None,
-            reason: None,
-            extra: BTreeMap::new(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyVerificationPurpose {
-    DeviceKeyVerification,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyVerificationCancellationCode {
-    UserCancelled,
-    Timeout,
-    UnknownTransaction,
-    UnexpectedMessage,
-    UnsupportedMethod,
-    UnsupportedAlgorithm,
-    MismatchedCommitment,
-    MismatchedMac,
-    DeviceRevoked,
-    UntrustedDevice,
-    PolicyDenied,
-    AcceptedByOtherDevice,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/string_list`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(transparent)]
-pub struct StringList(Vec<NonEmptyString>);
-
-impl StringList {
-    pub fn new(values: Vec<NonEmptyString>) -> Result<Self> {
-        if values.is_empty() {
-            return Err(WireError::Protocol(
-                "string list must not be empty".to_owned(),
-            ));
-        }
-        let mut unique = BTreeSet::new();
-        if values.iter().any(|value| !unique.insert(value.as_str())) {
-            return Err(WireError::Protocol(
-                "string list values must be unique".to_owned(),
-            ));
-        }
-        Ok(Self(values))
-    }
-
-    pub fn as_slice(&self) -> &[NonEmptyString] {
-        &self.0
-    }
-
-    pub fn into_vec(self) -> Vec<NonEmptyString> {
-        self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for StringList {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let values = Vec::<NonEmptyString>::deserialize(deserializer)?;
-        Self::new(values).map_err(serde::de::Error::custom)
-    }
-}
-
-/// Non-empty unique list of Arkret protocol kinds.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(transparent)]
-pub struct ProtocolKindList(Vec<ProtocolKind>);
-
-impl ProtocolKindList {
-    pub fn new(values: Vec<ProtocolKind>) -> Result<Self> {
-        if values.is_empty() {
-            return Err(WireError::Protocol(
-                "protocol kind list must not be empty".to_owned(),
-            ));
-        }
-        let mut unique = BTreeSet::new();
-        if values.iter().any(|value| !unique.insert(value.as_str())) {
-            return Err(WireError::Protocol(
-                "protocol kind list values must be unique".to_owned(),
-            ));
-        }
-        Ok(Self(values))
-    }
-
-    pub fn as_slice(&self) -> &[ProtocolKind] {
-        &self.0
-    }
-
-    pub fn into_vec(self) -> Vec<ProtocolKind> {
-        self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for ProtocolKindList {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let values = Vec::<ProtocolKind>::deserialize(deserializer)?;
-        Self::new(values).map_err(serde::de::Error::custom)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(transparent)]
-pub struct KeyVerificationCancellationReason(String);
-
-impl KeyVerificationCancellationReason {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        if value.chars().count() > 256 {
-            return Err(WireError::Protocol(
-                "key verification cancellation reason exceeds 256 characters".to_owned(),
-            ));
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyVerificationCancellationReason {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).map_err(serde::de::Error::custom)
-    }
-}
-
-#[cfg(test)]
-mod key_verification_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn key_verification_content_enforces_schema_string_constraints() {
-        // `device-message.schema.json` constrains `transaction_id` to
-        // `^[A-Za-z0-9._~=-]{1,128}$`, so the wire value is a bare UUIDv7. This
-        // fixture used to carry `ak:transaction:<uuidv7>`, which that pattern
-        // rejects — the fixture was as off-spec as the type it exercised.
-        let valid = json!({
-            "transaction_id": "01904100-0000-7000-8000-000000000001",
-            "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-            "methods": ["ak.key.verification.sas_v1"],
-            "mac": {"ed25519:key": "c2ln"},
-            "vendor_extension": {"opaque": true}
-        });
-        assert!(serde_json::from_value::<KeyVerificationContent>(valid.clone()).is_ok());
-
-        let mut empty_methods = valid.clone();
-        empty_methods["methods"] = json!([]);
-        assert!(serde_json::from_value::<KeyVerificationContent>(empty_methods).is_err());
-
-        let mut duplicate_methods = valid.clone();
-        duplicate_methods["methods"] =
-            json!(["ak.key.verification.sas_v1", "ak.key.verification.sas_v1"]);
-        assert!(serde_json::from_value::<KeyVerificationContent>(duplicate_methods).is_err());
-
-        let mut invalid_method = valid.clone();
-        invalid_method["methods"] = json!(["invalid.verification"]);
-        assert!(serde_json::from_value::<KeyVerificationContent>(invalid_method).is_err());
-
-        let mut empty_mac = valid.clone();
-        empty_mac["mac"] = json!({"ed25519:key": ""});
-        assert!(serde_json::from_value::<KeyVerificationContent>(empty_mac).is_err());
-
-        let mut long_reason = valid.clone();
-        long_reason["reason"] = json!("x".repeat(257));
-        assert!(serde_json::from_value::<KeyVerificationContent>(long_reason).is_err());
-
-        // The prefixed `ak:transaction:` form is not merely unusual here, it is
-        // unrepresentable: `:` is outside the schema charset.
-        let mut typed_transaction_id = valid;
-        typed_transaction_id["transaction_id"] =
-            json!("ak:transaction:01904100-0000-7000-8000-000000000001");
-        assert!(serde_json::from_value::<KeyVerificationContent>(typed_transaction_id).is_err());
     }
 }

@@ -9,7 +9,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_bytes, sha256_digest};
-use arkret_wire::ReasonCode;
+use arkret_wire::{MlsGroupId, ReasonCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -23,13 +23,13 @@ pub const AEAD_NONCE_COUNTER_LEN: usize = 8;
 pub const AEAD_NONCE_XCHACHA20_POLY1305_LEN: usize = 24;
 /// `N_AEAD` for AES-GCM (`encoding.md` §10.1).
 pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
-/// `alg` value of the XChaCha20-Poly1305 **blob** AEAD scheme
-/// (`blob.schema.json#/properties/encryption/properties/alg`,
+/// `encryption_algorithm` value of the XChaCha20-Poly1305 **blob** AEAD scheme
+/// (`blob.schema.json#/$defs/encrypted_attachment/properties/encryption_algorithm`,
 /// `crypto-media/media-and-blob.md` §3.1).
 ///
 /// This is a blob/attachment algorithm id, NOT an `aead_profile`. §10.1 routes
 /// `aead_profile` by how the key was obtained, and the MLS-exporter-derived
-/// domains (`mls_exporter_aead_v1` content, ephemeral signal AEAD) take the
+/// domains (encrypted blobs and ephemeral Signal AEAD) take the
 /// `canonical_id` of the group's negotiated `mls-ciphersuite-registry.json`
 /// row — a value that MUST NOT be an HPKE suite name or a local alias such as
 /// this one.
@@ -41,7 +41,7 @@ pub const AEAD_PROFILE_AES_256_GCM: &str = "mls_exporter_aead_aes_256_gcm";
 /// Canonical replay scope for a v1 full-width AEAD sender counter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AeadNonceContext {
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub sender_domain: String,
 }
@@ -262,7 +262,7 @@ mod tests {
 
     fn fixture_nonce_context(sender_domain: &str) -> AeadNonceContext {
         AeadNonceContext {
-            mls_group_id: "YWs6cmVhbG06QWFkbm9uY2VmaXh0dXJl".to_owned(),
+            mls_group_id: MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4").unwrap(),
             epoch: 42,
             sender_domain: sender_domain.to_owned(),
         }

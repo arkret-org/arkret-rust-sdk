@@ -43,7 +43,7 @@ impl AppletInstallPlan {
     }
 
     /// Recompute and replace the canonical plan digest.
-    pub fn seal(&mut self) -> Result<()> {
+    pub fn stamp_plan_digest(&mut self) -> Result<()> {
         self.plan_digest = self.compute_plan_digest()?;
         Ok(())
     }

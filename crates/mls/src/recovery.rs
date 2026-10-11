@@ -17,7 +17,7 @@ pub struct MlsDeviceWorkflowStep {
     pub action: MlsDeviceWorkflowAction,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
-    pub group_id: Option<String>,
+    pub group_id: Option<arkret_wire::MlsGroupId>,
     pub from_epoch: Option<u64>,
     pub to_epoch: Option<u64>,
 }

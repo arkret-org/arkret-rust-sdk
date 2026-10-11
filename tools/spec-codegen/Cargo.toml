@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+arkret-canonical = { path = "../../crates/canonical" }
 anyhow = "1.0"
 hex = "0.4"
 regex-lite = "0.1"

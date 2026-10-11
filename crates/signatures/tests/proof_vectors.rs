@@ -1,6 +1,6 @@
 //! Known-answer tests (KAT) for `arkret_signatures::proof`.
 //!
-//! These vectors are the migration checkpoint between coauth, soland and
+//! These vectors are the migration checkpoint between coauth, coland and
 //! inkson: every downstream implementation MUST reproduce the canonical
 //! bytes, payload hashes, and Ed25519 signatures below. Drift here is a
 //! breaking protocol change.

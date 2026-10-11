@@ -3,7 +3,8 @@
 Protocol crypto machine contracts for Arkret.
 
 This crate models the E2EE boundary that client runtimes and stores need to
-agree on: device-key upload/query/claim, key lifecycle, secret backup,
-encrypted media descriptors, unable-to-decrypt preservation and store binding.
+agree on: device-key upload/query/claim, key lifecycle, secret backup, generic
+RFC 9180 X25519 HPKE framing, encrypted media descriptors,
+unable-to-decrypt preservation and store binding.
 Concrete MLS/OpenMLS machinery can implement these contracts without depending
 on the umbrella SDK.

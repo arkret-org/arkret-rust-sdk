@@ -7,7 +7,7 @@
       "arkret-spec",
       "arkret-rust-sdk",
       "floria",
-      "soland",
+      "coland",
       "coauth",
       "garth",
       "chime",
@@ -18,7 +18,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "92bc3bb35a3a9848a93ed292b8366da514543934",
+      "commit": "4bf0fa8a3efa603c42e46271de0a352be22d39f8",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -28,7 +28,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "d3131dfddb6d9a2d4312146739c3651ed189d9e4",
+      "commit": "f5fa1f2d71d9e48437a046f21a931996813bb847",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -38,16 +38,16 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "72ab0eb7989da84908fbfa16d5fc1a2d5b6b287c",
+      "commit": "a0dd7530fdc614b4d7d533f148435ff798b0ce4a",
       "checkout_path": "floria",
       "roles": [
-        "soland-build-dependency"
+        "coland-build-dependency"
       ]
     },
-    "soland": {
-      "repository": "arkret-org/soland",
-      "commit": "526104138d59007acf3e56457b87720bd9ec6cdd",
-      "checkout_path": "soland",
+    "coland": {
+      "repository": "arkret-org/coland",
+      "commit": "cadf69e568de0348dcb161b2e81adb7270188ebd",
+      "checkout_path": "coland",
       "roles": [
         "protocol-producer",
         "server"
@@ -55,7 +55,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "1f3038a5b1b0e48775878bfc792aeee2fefa7ca3",
+      "commit": "eb354ca7c320b63d51cc4f39cbe3ee58f950e049",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -64,7 +64,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "5419b7f0b4368410a7b776bc8389f0abffe09fed",
+      "commit": "6902d6b4681aa3669ac4c84067e0a7fbdba494c8",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -72,7 +72,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "7bc9678bd053b5877a53713e4bef002075db4ae2",
+      "commit": "2117217febc1682e975bac38e419ae91c243cd36",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -80,7 +80,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "3ede0be4085297d1880c1cb1435054ee4e93fd3d",
+      "commit": "935c285a6f84b91335b59f086c235c5aaaa00d6f",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -88,7 +88,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "ed8f9869c078547b007040f4020ee3381fbff9a6",
+      "commit": "75089deb2cd66ff30ec33507e1f41b1b6558f08b",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -107,10 +107,9 @@
         "realm_id",
         "scope_ref",
         "actor_id",
-        "actor_seq",
         "created_at",
-        "prev_refs",
-        "payload"
+        "payload",
+        "producer_proof"
       ]
     }
   ],
@@ -135,6 +134,356 @@
     }
   ],
   "checks": [
+    {
+      "id": "sdk.protocol-type-names",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "protocol wrapper names and exact domain exceptions"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-type-names.py"
+      ]
+    },
+    {
+      "id": "sdk.protocol-type-names-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "protocol wrapper name gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_type_names.py"
+      ]
+    },
+    {
+      "id": "sdk.compatibility-runner-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "compatibility manifest validation and check execution"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_compatibility_gate.py",
+        "--tools-only"
+      ]
+    },
+    {
+      "id": "sdk.layering-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "precise carrier ownership and retained layering rejection rules"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_check_layering.py"
+      ]
+    },
+    {
+      "id": "sdk.layering",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "crate layering and lightweight dependency leaves"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/check-layering.py"
+      ]
+    },
+    {
+      "id": "sdk.test-layout-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "test layout gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tools.tests.test_test_layout_gate"
+      ]
+    },
+    {
+      "id": "sdk.test-layout",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "in-source test layout and hotspot growth"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_layout_gate.py"
+      ]
+    },
+    {
+      "id": "sdk.time-representations",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "canonical UTC-millisecond wire profile"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-time-representations.py"
+      ]
+    },
+    {
+      "id": "sdk.optional-timestamp-defaults-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "optional timestamp default gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_optional_timestamp_defaults.py"
+      ]
+    },
+    {
+      "id": "sdk.optional-timestamp-defaults",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "optional canonical timestamp defaults"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-optional-timestamp-defaults.py"
+      ]
+    },
+    {
+      "id": "sdk.event-preimage-authoring-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "Event preimage authoring gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_event_preimage_authoring.py"
+      ]
+    },
+    {
+      "id": "sdk.event-preimage-authoring",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK Event digest preimage ownership"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-event-preimage-authoring.py"
+      ]
+    },
+    {
+      "id": "sdk.event-derived-id-minting-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "Event-derived identifier audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_lint_event_derived_id_minting.py"
+      ]
+    },
+    {
+      "id": "sdk.event-derived-id-minting",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK Event-derived identifier minting"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/lint-event-derived-id-minting.py"
+      ]
+    },
+    {
+      "id": "sdk.identity-type-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "identity type audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_identity_type_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.identity-types",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "SDK identity wrappers and formal schema fields"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/identity_type_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.wire-value-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "wire Value boundary audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/tests/test_wire_value_audit.py"
+      ]
+    },
+    {
+      "id": "sdk.wire-values",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "typed wire boundaries and retained raw evidence"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/wire_value_audit.py",
+        "--check"
+      ]
+    },
+    {
+      "id": "sdk.deny-unknown-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "closed schema boundary audit itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "tools.test_deny_unknown_audit"
+      ]
+    },
+    {
+      "id": "sdk.deny-unknown",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "closed schema boundary inventory"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/deny_unknown_audit.py",
+        "--check"
+      ]
+    },
+    {
+      "id": "sdk.generated-contracts-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "schema struct gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "tools.test_schema_struct_gate"
+      ]
+    },
+    {
+      "id": "sdk.utf8-byte-order",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "canonical generated UTF-8 byte order"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "tools/test-utf8-byte-order.ps1"
+      ]
+    },
+    {
+      "id": "sdk.operation-coverage-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "operation coverage evidence symbol validation"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tools.tests.test_operation_coverage_matrix"
+      ]
+    },
+    {
+      "id": "sdk.operation-coverage",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "claimable profile operation coverage evidence"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/generate-operation-coverage-matrix.py",
+        "--check",
+        "--artifacts",
+        "../arkret-spec/spec/v1/artifacts"
+      ]
+    },
     {
       "id": "sdk.generated-contracts",
       "repository": "arkret-rust-sdk",
@@ -170,7 +519,7 @@
         "--require-repository",
         "garth",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth"
       ]
@@ -209,7 +558,7 @@
         "--require-repository",
         "arkret-rust-sdk",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth",
         "--require-repository",
@@ -253,7 +602,7 @@
         "--workspace-root",
         "..",
         "--require-repository",
-        "soland",
+        "coland",
         "--require-repository",
         "coauth",
         "--require-repository",
@@ -310,6 +659,163 @@
       ]
     },
     {
+      "id": "sdk.compile-default",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "umbrella default surface without opt-in transports"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-no-default",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "umbrella without default features"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-client",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson client transport opt-in"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "client",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-server",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "server opt-in exposing Coland server surface"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "server",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-mls",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson MLS opt-in without client transport"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--no-default-features",
+        "--features",
+        "mls",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-client",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "Inkson browser client transport"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--features",
+        "client",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-mls",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "browser MLS RNG/backend surface"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret-mls",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "sdk.compile-wasm-identifiers",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "browser identifiers without runtime features"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "arkret-identifiers",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--no-default-features",
+        "--locked"
+      ]
+    },
+    {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",
@@ -328,14 +834,14 @@
       ]
     },
     {
-      "id": "soland.compile",
-      "repository": "soland",
+      "id": "coland.compile",
+      "repository": "coland",
       "category": "compile",
       "surface": {
         "kind": "type",
-        "name": "Soland SDK producer integration"
+        "name": "Coland SDK producer integration"
       },
-      "working_directory": "soland",
+      "working_directory": "coland",
       "command": [
         "cargo",
         "check",
@@ -456,13 +962,11 @@
         "pwsh",
         "-File",
         "./scripts/run-joint-e2e.ps1",
-        "-SolandRuntime",
+        "-ColandRuntime",
         "docker",
-        "-SolandImage",
-        "cotest-soland:compatibility",
+        "-ColandImage",
+        "cotest-coland:compatibility",
         "-StartCoauth",
-        "-SkipNpmInstall",
-        "-SkipBrowserInstall",
         "-RunProfile",
         "joint-smoke",
         "-PlaywrightProject",
@@ -486,7 +990,7 @@
       {
         "id": "no-consumer-local-compatibility-dto",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",
@@ -497,7 +1001,7 @@
       {
         "id": "no-dual-read-fallback",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",
@@ -508,7 +1012,7 @@
       {
         "id": "no-permissive-flattened-extra",
         "repositories": [
-          "soland",
+          "coland",
           "coauth",
           "garth",
           "inkson",

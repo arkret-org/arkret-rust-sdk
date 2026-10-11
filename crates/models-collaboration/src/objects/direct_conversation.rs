@@ -2,14 +2,15 @@
 
 use std::collections::BTreeSet;
 
-use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AccountId, ActorId, EncryptionProfile, EventId, GenesisSalt, Hash, ObjectStage, ObjectState,
-    ProfileId, RealmId, Result, SchemaId, SecurityClass, TrustDomainId, WireError, canonical,
+    AccountId, ActorId, DidCoreId, Discoverability, EventId, GenesisSalt, Hash, HistoryAccess,
+    JoinRule, ObjectState, RealmId, Result, SecurityClass, SemanticRef, TrustDomainId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::contact_operations::{ContactRound, ContactRoundEvidenceBundle};
 use crate::events_payloads::{RealmCreatePayload, RealmGenesis, RealmPurpose, StrandCreatePayload};
 use crate::governance::membership_invite::MembershipPayload;
 use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrack};
@@ -18,6 +19,7 @@ use crate::objects::strand::Strand;
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
     "ak.feature.direct_conversation_realm_role.v1";
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DirectConversationAuthorizationKind {
@@ -25,6 +27,7 @@ pub enum DirectConversationAuthorizationKind {
     AgentController,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationAuthorizationBasis {
@@ -121,18 +124,9 @@ pub struct DirectConversationRealmRole;
 
 impl DirectConversationRealmRole {
     pub fn validate(genesis: &RealmGenesis) -> Result<Self> {
-        let has_profile = genesis
-            .schema_refs
-            .iter()
-            .any(|profile| profile == ProfileId::DIRECT_CONVERSATION_REALM_V1);
-        if !has_profile || genesis.purpose != RealmPurpose::DirectConversation {
+        if genesis.purpose != RealmPurpose::DirectConversation {
             return Err(WireError::Protocol(
                 "direct conversation Realm purpose/profile mismatch (schema_violation)".to_owned(),
-            ));
-        }
-        if genesis.encryption_profile != EncryptionProfile::MlsRfc9420 {
-            return Err(WireError::Protocol(
-                "direct conversation Realm genesis mismatch (schema_violation)".to_owned(),
             ));
         }
         Ok(Self)
@@ -146,28 +140,26 @@ impl DirectConversationRealmRole {
 pub fn direct_conversation_realm_create_payload(
     genesis_salt: GenesisSalt,
     trust_domain: TrustDomainId,
-    notary: NotaryValue,
+    governance_station_id: DidCoreId,
     _created_at: DateTime<Utc>,
 ) -> Result<RealmCreatePayload> {
-    let genesis = RealmGenesis::event_derived(
+    let genesis = RealmGenesis::new(
         RealmPurpose::DirectConversation,
         genesis_salt,
         trust_domain,
-        vec![
-            SchemaId::REALM_V1.to_owned(),
-            ProfileId::DIRECT_CONVERSATION_REALM_V1.to_owned(),
-        ],
-        arkret_wire::CORE_REDUCER_PROFILE,
-        arkret_canonical::DigestSuite::Sha256,
         SecurityClass::Standard,
-        EncryptionProfile::MlsRfc9420,
-        notary,
+        governance_station_id,
+        JoinRule::Closed,
+        HistoryAccess::SinceJoin,
+        Discoverability::InviteOnly,
+        None,
+        None,
     )?;
     Ok(RealmCreatePayload::new(genesis))
 }
 
 /// Build the peer membership payload in the exact four-Event Direct
-/// Conversation founding unit. The founder membership is the unit's final
+/// Conversation founding unit. The founder membership is the unit's preceding
 /// explicit genesis slot and uses [`direct_conversation_member_join_payload`].
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
@@ -223,7 +215,6 @@ pub fn direct_conversation_main_strand_create_payload(
     );
     strand.scope_circle_id = None;
     strand.state = Some(ObjectState::Active);
-    strand.stage = Some(ObjectStage::InProgress);
     strand.created_at = created_at;
     StrandCreatePayload { object: strand }
 }
@@ -232,31 +223,33 @@ pub fn direct_conversation_main_strand_create_payload(
 ///
 /// The founder is derived from the pair's **root** Contact round and never from the current one, so
 /// tombstone/recontact cycles cannot flip it. Both sides compute it independently from data both
-/// already hold and both already signed, which is what removes the cross-server creation race: only
-/// one principal can create, so the contention collapses into a unique index on that principal's
-/// own Station.
+/// can independently verify. Incomplete evidence grants neither participant creation authority.
+/// Only after the same founder is established can its current Station's atomic unique slot
+/// serialize competing units; a local index alone does not establish cross-Station authority.
 ///
 /// See `zh/identity/contact-and-direct-conversation.md` §5.2.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DirectConversationFoundingAuthority {
     /// Exactly one accepted request. The founder is the **responder** — the participant that is not
-    /// the request issuer.
+    /// the request author.
     ///
-    /// This is deliberate and normative: the authority is lit up by the responder's
-    /// `normal_response_acceptance_receipt`, which proves the responder was online at the moment
-    /// the authority came into existence. The requester may have gone offline days earlier. Since
-    /// base v1 defines no fallback, naming the possibly-absent party as founder would leave the
-    /// pair unable to ever create the conversation.
-    Normal { request_issuer: ActorId },
-    /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
-    /// `requests[0]` under the ordering already registered for glare requests.
-    Glare { first_request_issuer: ActorId },
+    /// The caller must first validate the root round and its exact request and normal-response
+    /// acceptance evidence. Current online status does not select or replace the founder;
+    /// an offline founder retains authority and there is no timeout takeover.
+    Normal { request_author_actor_id: ActorId },
+    /// Concurrent requests from both sides. The caller supplies the signed Event author ActorId
+    /// of `requests[0]` after validating strict full request_event_ref wire-byte order and
+    /// evidence. This is never the Station receipt issuer, receipt-digest order, or arrival
+    /// order.
+    Glare {
+        first_request_author_actor_id: ActorId,
+    },
     /// controller-to-own-Agent conversations have no Contact round at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
     ControllerOwnedAgent { controller_actor_id: ActorId },
 }
 
-/// Derive the sole principal allowed to author the founding unit for `participants`.
+/// Derive the sole ActorId allowed to author the founding unit for `participants`.
 ///
 /// `participants` is the unordered pair; ordering of the argument does not matter.
 pub fn direct_conversation_founder(
@@ -270,26 +263,28 @@ pub fn direct_conversation_founder(
         ));
     }
     match authority {
-        DirectConversationFoundingAuthority::Normal { request_issuer } => {
-            if *request_issuer == left {
+        DirectConversationFoundingAuthority::Normal {
+            request_author_actor_id,
+        } => {
+            if *request_author_actor_id == left {
                 Ok(right)
-            } else if *request_issuer == right {
+            } else if *request_author_actor_id == right {
                 Ok(left)
             } else {
                 Err(WireError::Protocol(
-                    "direct conversation normal authority request issuer is not a pair participant"
+                    "direct conversation normal authority request author is not a pair participant"
                         .to_owned(),
                 ))
             }
         }
         DirectConversationFoundingAuthority::Glare {
-            first_request_issuer,
+            first_request_author_actor_id,
         } => {
-            if *first_request_issuer == left || *first_request_issuer == right {
-                Ok(first_request_issuer.clone())
+            if *first_request_author_actor_id == left || *first_request_author_actor_id == right {
+                Ok(first_request_author_actor_id.clone())
             } else {
                 Err(WireError::Protocol(
-                    "direct conversation glare authority requests[0] issuer is not a pair participant"
+                    "direct conversation glare authority requests[0] request author is not a pair participant"
                         .to_owned(),
                 ))
             }
@@ -322,267 +317,306 @@ pub fn direct_conversation_may_found(
     Ok(direct_conversation_founder(participants, authority)? == *actor)
 }
 
+/// Closed XOR authorization evidence for one Direct Conversation founding
+/// unit, matching the two registered `ak.realm.create` admission variants.
+///
+/// The `human` branch feeds `direct_conversation_genesis`; the
+/// `controller_agent` branch feeds `direct_conversation_agent_genesis`.
+/// Carrying both, neither, or mixed branch members rejects the whole unit.
+// Field declaration order is byte-for-byte the properties order of
+// service-operation-dtos.schema.json#/$defs/DirectConversationFoundingAuthorityEvidence
+// (both oneOf branches).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[allow(clippy::large_enum_variant)]
+pub enum DirectConversationFoundingAuthorityEvidence {
+    Human {
+        /// Portable evidence for the pair's current Contact round. The
+        /// verifier re-derives the founder from the root Contact round, never
+        /// from the current one.
+        contact_round_evidence: ContactRoundEvidenceBundle,
+        /// Ordered tombstone/recontact predecessors from the current Contact
+        /// round back to the pair's unique root round, each linked by
+        /// `previous_terminal_contact_round_id`. Empty means the current round
+        /// is itself the root. A break, a cycle, multiple roots, or two
+        /// directional proofs yielding different roots reject the unit.
+        contact_round_continuity_chains: Vec<ContactRoundEvidenceBundle>,
+    },
+    ControllerAgent {
+        /// Complete identity of the accepted Agent provision Event. Its digest
+        /// is decoded from this suite-tagged full-digest EventId; no parallel
+        /// `agent_provision_digest` is carried.
+        agent_provision_ref: EventId,
+        controller_binding_digest: Hash,
+    },
+}
+
+/// Largest recontact continuity chain a founding unit may carry.
+pub const DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX: usize = 64;
+
+impl DirectConversationFoundingAuthorityEvidence {
+    /// The single accepted Event reference this branch is founded on.
+    #[must_use]
+    pub fn founding_ref(&self) -> SemanticRef {
+        match self {
+            Self::ControllerAgent {
+                agent_provision_ref,
+                ..
+            } => SemanticRef::new(
+                agent_provision_ref.to_string(),
+                "direct_conversation_agent_provision",
+            ),
+            Self::Human {
+                contact_round_evidence,
+                ..
+            } => SemanticRef::new(
+                contact_round_evidence.contact_round_id.to_string(),
+                "direct_conversation_contact_round",
+            ),
+        }
+    }
+
+    /// Commit to the accepted provision payload that binds the Agent to its
+    /// controller, delegation, PCR and accountability scope.
+    pub fn from_agent_provision(
+        agent_provision_ref: EventId,
+        payload: &crate::events_payloads::agent::AgentProvisionPayload,
+    ) -> Result<Self> {
+        payload.validate()?;
+        Ok(Self::ControllerAgent {
+            agent_provision_ref,
+            controller_binding_digest: Hash::new(arkret_canonical::canonical_sha256(payload)?)?,
+        })
+    }
+
+    #[must_use]
+    pub fn agent_provision_digest(&self) -> Option<Hash> {
+        match self {
+            Self::ControllerAgent {
+                agent_provision_ref,
+                ..
+            } => Some(agent_provision_ref.event_digest()),
+            Self::Human { .. } => None,
+        }
+    }
+
+    /// Fail-closed shape and continuity check for the branch that has one.
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::ControllerAgent { .. } => Ok(()),
+            Self::Human {
+                contact_round_evidence,
+                contact_round_continuity_chains,
+            } => {
+                if contact_round_continuity_chains.len() > DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX
+                {
+                    return Err(WireError::Protocol(format!(
+                        "direct conversation continuity chain exceeds {DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX} entries"
+                    )));
+                }
+                crate::contact_operations::validate_recontact_continuity(
+                    contact_round_evidence,
+                    contact_round_continuity_chains,
+                )
+            }
+        }
+    }
+
+    /// The pair and the sole ActorId allowed to author the founding unit.
+    ///
+    /// The founder comes from the pair's **root** Contact round, so a
+    /// tombstone/recontact cycle can never flip it. The `controller_agent`
+    /// branch has no Contact round at all and is resolved from the accepted
+    /// provision projection instead.
+    pub fn participants_and_founder(&self) -> Result<([ActorId; 2], ActorId)> {
+        let Self::Human {
+            contact_round_evidence,
+            contact_round_continuity_chains,
+        } = self
+        else {
+            return Err(WireError::Protocol(
+                "controller_agent founding evidence requires the accepted provision projection"
+                    .to_owned(),
+            ));
+        };
+        self.validate()?;
+        let checkpoint_root = contact_round_evidence
+            .continuity_checkpoint
+            .as_ref()
+            .map(|checkpoint| checkpoint.validate_contact_shape())
+            .transpose()?;
+        let root = checkpoint_root.as_ref().unwrap_or_else(|| {
+            contact_round_continuity_chains
+                .last()
+                .unwrap_or(contact_round_evidence)
+        });
+        let (participants, request_ref) = match &root.contact_round {
+            ContactRound::Normal {
+                sorted_pair_member_ids,
+                request_event_ref,
+                ..
+            } => (sorted_pair_member_ids.clone(), request_event_ref),
+            ContactRound::Glare {
+                sorted_pair_member_ids,
+                requests,
+            } => (
+                sorted_pair_member_ids.clone(),
+                &requests[0].request_event_ref,
+            ),
+        };
+        root.contact_round.validate_canonical_order()?;
+        let request_author_actor_id = root
+            .request_receipts
+            .iter()
+            .find(|receipt| &receipt.core.request_event_ref == request_ref)
+            .map(|receipt| receipt.core.holder.contact_actor_id())
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "direct conversation root contact_round request receipt is missing".to_owned(),
+                )
+            })?;
+        let authority = match &root.contact_round {
+            ContactRound::Normal { .. } => DirectConversationFoundingAuthority::Normal {
+                request_author_actor_id,
+            },
+            ContactRound::Glare { .. } => DirectConversationFoundingAuthority::Glare {
+                first_request_author_actor_id: request_author_actor_id,
+            },
+        };
+        let founder = direct_conversation_founder(participants.clone(), &authority)?;
+        Ok((participants, founder))
+    }
+}
+
 #[cfg(test)]
-mod tests {
-    use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
-    use arkret_wire::{Did, DidCoreId, DidUrl};
+mod founding_authority_evidence_tests {
+    use serde_json::json;
 
     use super::*;
 
-    fn did(value: &str) -> Did {
-        Did::new(value.to_owned()).unwrap()
+    const EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    fn digest(seed: char) -> String {
+        format!("sha256:{}", seed.to_string().repeat(64))
     }
 
-    fn actor(value: &str) -> ActorId {
-        ActorId::service(arkret_wire::project_did_to_core_id(&did(value)).unwrap())
-    }
-
-    fn principal(value: &str) -> ActorId {
-        ActorId::service(arkret_wire::project_did_to_core_id(&did(value)).unwrap())
-    }
-
-    fn trust_domain() -> TrustDomainId {
-        TrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
-    }
-
-    fn notary(creator: &Did) -> NotaryValue {
-        NotaryValue::single_signer(NotarySignerDescriptor {
-            actor_id: ActorId::service(arkret_wire::project_did_to_core_id(creator).unwrap()),
-            verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
-            key_kind: NotaryKeyKind::Ed25519Raw32,
-            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-            frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
-            frozen_public_key_digest: Hash::new(
-                "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-            )
-            .unwrap(),
+    fn controller_agent_value() -> serde_json::Value {
+        json!({
+            "kind": "controller_agent",
+            "agent_provision_ref": EVENT,
+            "controller_binding_digest": digest('1')
         })
     }
 
     #[test]
-    fn pair_key_is_order_independent() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturealice:alice.example",
-        ));
-        let bob = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturebob:bob.example",
-        ));
-
-        let a = direct_conversation_pair_key(trust_domain(), alice.clone(), bob.clone()).unwrap();
-        let b = direct_conversation_pair_key(trust_domain(), bob, alice).unwrap();
-
-        assert_eq!(a, b);
-        assert!(a.as_str().starts_with("sha256:"));
+    fn controller_agent_branch_round_trips() {
+        let decoded: DirectConversationFoundingAuthorityEvidence =
+            serde_json::from_value(controller_agent_value()).unwrap();
+        assert_eq!(
+            serde_json::to_value(&decoded).unwrap(),
+            controller_agent_value()
+        );
+        assert_eq!(
+            decoded.agent_provision_digest(),
+            Some(EventId::new(EVENT).unwrap().event_digest())
+        );
+        assert_eq!(
+            decoded.founding_ref().role,
+            "direct_conversation_agent_provision"
+        );
+        decoded.validate().unwrap();
     }
 
     #[test]
-    fn pair_key_matches_normative_known_answer() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturealice:alice.example",
-        ));
-        let bob = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturebob:bob.example",
-        ));
-
-        let pair_key = direct_conversation_pair_key(trust_domain(), alice, bob).unwrap();
-
-        assert_eq!(
-            pair_key.as_str(),
-            "sha256:93579842aa9c2d29256cae0dcf194185847f43aeb3e69b97cac8e73c3d60ef1f"
+    fn branches_reject_unknown_members() {
+        let mut unknown = controller_agent_value();
+        unknown
+            .as_object_mut()
+            .unwrap()
+            .insert("agent_provision_digest".to_owned(), json!(digest('2')));
+        assert!(
+            serde_json::from_value::<DirectConversationFoundingAuthorityEvidence>(unknown).is_err()
         );
     }
 
     #[test]
-    fn pairwise_did_maps_to_stable_subject() {
-        let stable = actor("did:webvh:z6mkfixturebob:bob.example");
-        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturealice:alice.example",
-        ));
-        let pairwise_bob = DirectConversationPairKeyParticipant {
-            actor_id: ActorId::service(
-                DidCoreId::new("ak:did_core:webvh:z6mkpairwisebob").unwrap(),
-            ),
-            stable_subject: stable.clone(),
-        };
-        let stable_bob = DirectConversationPairKeyParticipant {
-            actor_id: stable.clone(),
-            stable_subject: stable,
-        };
-
-        let pairwise_key =
-            direct_conversation_pair_key(trust_domain(), alice.clone(), pairwise_bob).unwrap();
-        let stable_key = direct_conversation_pair_key(trust_domain(), alice, stable_bob).unwrap();
-
-        assert_eq!(pairwise_key, stable_key);
+    fn branches_reject_each_omitted_required_member() {
+        for member in ["kind", "agent_provision_ref", "controller_binding_digest"] {
+            let mut missing = controller_agent_value();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<DirectConversationFoundingAuthorityEvidence>(missing)
+                    .is_err(),
+                "{member} must be required"
+            );
+        }
     }
 
     #[test]
-    fn pair_key_rejects_identical_stable_subjects() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(actor(
-            "did:webvh:z6mkfixturealice:alice.example",
-        ));
-        assert!(direct_conversation_pair_key(trust_domain(), alice.clone(), alice).is_err());
+    fn the_two_branches_never_mix() {
+        let mut mixed = controller_agent_value();
+        mixed
+            .as_object_mut()
+            .unwrap()
+            .insert("contact_round_continuity_chains".to_owned(), json!([]));
+        assert!(
+            serde_json::from_value::<DirectConversationFoundingAuthorityEvidence>(mixed).is_err()
+        );
+
+        let human_without_evidence = json!({
+            "kind": "human",
+            "contact_round_continuity_chains": []
+        });
+        assert!(
+            serde_json::from_value::<DirectConversationFoundingAuthorityEvidence>(
+                human_without_evidence
+            )
+            .is_err()
+        );
+
+        let unregistered_branch =
+            json!({"kind": "unregistered_branch", "agent_provision_ref": EVENT});
+        assert!(
+            serde_json::from_value::<DirectConversationFoundingAuthorityEvidence>(
+                unregistered_branch
+            )
+            .is_err()
+        );
     }
 
     #[test]
-    fn builder_emits_closed_profiled_e2ee_realm() {
-        let creator = did("did:webvh:z6mkfixturealice:alice.example");
+    fn controller_agent_branch_has_no_contact_round_founder() {
+        let evidence: DirectConversationFoundingAuthorityEvidence =
+            serde_json::from_value(controller_agent_value()).unwrap();
+        assert!(evidence.participants_and_founder().is_err());
+    }
+}
+
+#[cfg(test)]
+mod founding_baseline_tests {
+    use super::*;
+
+    /// contact-and-direct-conversation.md section 6.2: the genesis pins the
+    /// closed, since_join, non-discoverable Direct Conversation baseline.
+    #[test]
+    fn realm_create_payload_pins_the_fixed_baseline() {
         let payload = direct_conversation_realm_create_payload(
-            GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
-            trust_domain(),
-            notary(&creator),
-            DateTime::parse_from_rfc3339("2026-07-21T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
+            GenesisSalt::generate().unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            Utc::now(),
         )
         .unwrap();
         assert_eq!(payload.object.purpose, RealmPurpose::DirectConversation);
+        assert_eq!(payload.object.initial_join_rule, JoinRule::Closed);
         assert_eq!(
-            payload.object.genesis_salt.as_str(),
-            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            payload.object.initial_history_access,
+            HistoryAccess::SinceJoin
         );
-        assert_eq!(payload.object.security_class, SecurityClass::Standard);
-    }
-
-    fn event_id(suffix: &str) -> EventId {
-        EventId::from_event_digest(
-            &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn authorization_basis_enforces_kind_specific_event_refs() {
-        assert!(
-            DirectConversationAuthorizationBasis::accepted_contact(vec![
-                event_id("301"),
-                event_id("308"),
-            ])
-            .validate_shape()
-            .is_ok()
-        );
-        assert!(
-            DirectConversationAuthorizationBasis::agent_controller(vec![
-                event_id("311"),
-                event_id("313"),
-            ])
-            .validate_shape()
-            .is_ok()
-        );
-        assert!(
-            DirectConversationAuthorizationBasis::accepted_contact(vec![event_id("301")])
-                .validate_shape()
-                .is_err()
-        );
-        assert!(
-            DirectConversationAuthorizationBasis::agent_controller(vec![
-                event_id("311"),
-                event_id("311"),
-            ])
-            .validate_shape()
-            .is_err()
-        );
-        assert!(
-            DirectConversationAuthorizationBasis::agent_controller(vec![
-                event_id("311"),
-                event_id("312"),
-                event_id("313"),
-            ])
-            .validate_shape()
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn normal_basis_founder_is_the_responder_not_the_requester() {
-        let alice = actor("did:webvh:z6mkexamplealice:alice.example");
-        let bob = actor("did:webvh:z6mkexamplebob:bob.example");
-
-        // Alice sends the request, Bob accepts. Bob lit up the authority and is provably online at
-        // that moment, so Bob founds. Naming Alice would pick the party most likely to be
-        // absent, and base v1 has no fallback.
-        let authority = DirectConversationFoundingAuthority::Normal {
-            request_issuer: alice.clone(),
-        };
-        let founder =
-            direct_conversation_founder([alice.clone(), bob.clone()], &authority).unwrap();
-        assert_eq!(founder, bob);
-        assert_ne!(founder, alice, "founder must not be the request issuer");
-
-        // Argument order must not matter.
         assert_eq!(
-            direct_conversation_founder([bob.clone(), alice.clone()], &authority).unwrap(),
-            bob
-        );
-
-        assert!(
-            direct_conversation_may_found(&bob, [alice.clone(), bob.clone()], &authority).unwrap()
-        );
-        assert!(
-            !direct_conversation_may_found(&alice, [alice.clone(), bob], &authority).unwrap(),
-            "the non-founder may never author the founding unit"
-        );
-    }
-
-    #[test]
-    fn glare_basis_founder_is_the_first_request_issuer() {
-        let alice = actor("did:webvh:z6mkexamplealice:alice.example");
-        let bob = actor("did:webvh:z6mkexamplebob:bob.example");
-        let authority = DirectConversationFoundingAuthority::Glare {
-            first_request_issuer: alice.clone(),
-        };
-        assert_eq!(
-            direct_conversation_founder([alice.clone(), bob], &authority).unwrap(),
-            alice
-        );
-    }
-
-    #[test]
-    fn controller_owned_agent_founder_is_fixed_to_the_controller() {
-        let controller = principal("did:webvh:z6mkexamplealice:alice.example");
-        let controller_actor = actor("did:webvh:z6mkexamplealice:alice.example");
-        let agent = actor("did:webvh:z6mkexampleagent:alice-agent.example");
-        let authority = DirectConversationFoundingAuthority::ControllerOwnedAgent {
-            controller_actor_id: controller,
-        };
-        // Fixed regardless of DID ordering, so an Agent runtime key never needs founding scope.
-        assert_eq!(
-            direct_conversation_founder([agent.clone(), controller_actor.clone()], &authority)
-                .unwrap(),
-            controller_actor
-        );
-        assert!(
-            !direct_conversation_may_found(&agent.clone(), [agent, controller_actor], &authority)
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn founder_derivation_rejects_malformed_pairs() {
-        let alice = actor("did:webvh:z6mkexample:alice.example");
-        let bob = actor("did:webvh:z6mkexample:bob.example");
-        let carol = actor("did:webvh:z6mkexample:carol.example");
-
-        // Issuer outside the pair: never guess the complement.
-        assert!(
-            direct_conversation_founder(
-                [alice.clone(), bob],
-                &DirectConversationFoundingAuthority::Normal {
-                    request_issuer: carol,
-                },
-            )
-            .is_err()
-        );
-
-        // Not two distinct participants.
-        assert!(
-            direct_conversation_founder(
-                [alice.clone(), alice.clone()],
-                &DirectConversationFoundingAuthority::Normal {
-                    request_issuer: alice,
-                },
-            )
-            .is_err()
+            payload.object.initial_discoverability,
+            Discoverability::InviteOnly
         );
     }
 }

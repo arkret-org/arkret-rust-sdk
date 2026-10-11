@@ -12,13 +12,13 @@
 //!   string instead of failing the whole envelope; whether an unknown *standard* kind is acceptable
 //!   is the validation layer's decision (`schema_violation`), not the parser's.
 //!
-//! - **Closed-set wire enums hard-reject unknown values** (e.g. [`EnvelopeActorKind`],
-//!   [`ScopeRef`], cursor purpose, subscribe frame kinds): no `#[serde(other)]` catch-all, so an
-//!   unrecognised value fails deserialisation of the surrounding object. These enums gate
-//!   authorization, scope and stream-control decisions; silently mapping an unknown value to a
-//!   default could *widen* what the message is allowed to do. `conformance-profiles.md` requires
-//!   implementations to reject illegal enum values — hard failure is the fail-closed behaviour, and
-//!   a spec revision that extends a closed set is a coordinated upgrade, not a silent downgrade.
+//! - **Closed-set wire enums hard-reject unknown values** (e.g. [`ScopeRef`], cursor purpose,
+//!   subscribe frame kinds): no `#[serde(other)]` catch-all, so an unrecognised value fails
+//!   deserialisation of the surrounding object. These enums gate authorization, scope and
+//!   stream-control decisions; silently mapping an unknown value to a default could *widen* what
+//!   the message is allowed to do. `conformance-profiles.md` requires implementations to reject
+//!   illegal enum values — hard failure is the fail-closed behaviour, and a spec revision that
+//!   extends a closed set is a coordinated upgrade, not a silent downgrade.
 //!
 //! Consequently: adding an event kind is a non-breaking registry evolution
 //! (old SDKs keep parsing), while extending a closed-set enum intentionally
@@ -29,28 +29,22 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
+    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, RealmId, SidecarId,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::cba::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
-use crate::error_codes::ReasonCode;
-use crate::events::kinds::{CbaEffectPlane, EventKind};
+use crate::events::kinds::EventKind;
 use crate::primitives::{
-    ActorId, Audience, CriticalExtension, EventProof, ProofBindingRequirements,
-    SignatureBindingPayload,
+    ActorId, Audience, ProducerEventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{
-    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, OpaqueLocalId, ProfileRef, SchemaId,
-    canonical,
-};
+use crate::{AuthorizationRef, Base64UrlString, DidUrl, MlsGroupId, SchemaId, canonical};
 
-/// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
-/// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
+/// Full canonical Event Envelope bound, measured over the accepted envelope including every
+/// producer proof.
 ///
 /// See `zh/conformance/scalability-constraints.md` section 2.1.1.
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
@@ -63,21 +57,12 @@ pub const MAX_OPERATION_CANONICAL_BODY_BYTES: usize = 8 * 1024 * 1024;
 /// (`scalability-constraints.md` section 2.1.3).
 pub const MAX_HTTP_MESSAGE_CONTENT_BYTES: usize = 16 * 1024 * 1024;
 
-/// Bound on the service-added read-view `unsigned` object of a single Event
-/// (`scalability-constraints.md` section 2.1.1). Submit paths MUST reject `unsigned` outright.
-pub const MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES: usize = 16 * 1024;
-
 pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
 pub const MAX_EVENT_RESOLVE: usize = 100;
-pub const MAX_EVENT_PREV_REFS: usize = 128;
-pub const MAX_EVENT_REFS: usize = 128;
+pub const MAX_SEMANTIC_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
-pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
-pub const MAX_ACTOR_SEQ_TOTAL_SIBLINGS: usize = 64;
-pub const MAX_AUTHORITY_CHAIN_DEPTH: usize = 4;
-pub const MAX_AUTHORITY_CONTROL_DEPTH: u32 = 4;
 
-pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
+pub const SEMANTIC_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
 pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_EVENT_ENVELOPE_BYTES {
@@ -97,19 +82,10 @@ pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_event_prev_ref_count(count: usize) -> Result<()> {
-    if count > MAX_EVENT_PREV_REFS {
+pub fn validate_semantic_ref_count(count: usize) -> Result<()> {
+    if count > MAX_SEMANTIC_REFS {
         return Err(WireError::Protocol(format!(
-            "prev_refs exceeds v1 maximum of {MAX_EVENT_PREV_REFS} entries"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_event_ref_count(count: usize) -> Result<()> {
-    if count > MAX_EVENT_REFS {
-        return Err(WireError::Protocol(format!(
-            "refs exceeds v1 maximum of {MAX_EVENT_REFS} entries"
+            "semantic_refs exceeds v1 maximum of {MAX_SEMANTIC_REFS} entries"
         )));
     }
     Ok(())
@@ -118,168 +94,46 @@ pub fn validate_event_ref_count(count: usize) -> Result<()> {
 pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
     if count > MAX_AUTHORIZED_BY_REFS {
         return Err(WireError::Protocol(format!(
-            "authorized_by refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
+            "authorized_by semantic_refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
         )));
     }
     Ok(())
 }
 
-pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
-    let mut sorted = prev_refs.to_vec();
-    sorted.sort();
-    sorted.dedup();
-    Ok(canonical::canonical_sha256(&Value::Array(
-        sorted
-            .into_iter()
-            .map(|id| Value::String(id.into_string()))
-            .collect(),
-    ))?)
-}
-
-/// Reducer-stamped projection of the exact Actor Profile classification.
-///
-/// Event `actor_kind` and `ActorProfile.actor_kind` share one closed wire enum;
-/// the field is not a runtime-origin classifier. In particular, devices are
-/// endpoints rather than actors, Ghost Actor is provenance rather than an
-/// actor kind, Agent is reserved for controller-provisioned Agents, and
-/// Applet-managed automation uses `Bot`.
-pub type EnvelopeActorKind = crate::ActorKind;
-
-/// RFC 6962 inclusion proof for one leaf under a Seal-signed root.
-///
-/// `event-envelope.schema.json#/$defs/semantic_ref_merkle_proof`. The proof
-/// names which of the two Seal roots it resolves against and carries the
-/// leaf's canonical preimage, so a receiver that holds neither the Realm's
-/// accepted state nor a dependency read face can recompute the leaf digest and
-/// the root from the proof alone. That is the only shape available to an
-/// `invite-addressing.md` §7 step 4 receiver, whose authority-root branch
-/// `capabilities.md` §3.2 requires to run off this proof rather than off a
-/// replayed Control Move.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct SemanticRefProof {
-    pub kind: SemanticRefProofKind,
-    pub root_field: SemanticRefProofRootField,
-    pub root_digest: Hash,
-    pub leaf_canonical_preimage_b64u: Base64UrlString,
-    pub leaf_digest: Hash,
-    pub audit_path: Vec<Hash>,
-    pub leaf_index: u64,
-    pub leaf_count: u64,
-}
-
-/// Maximum `audit_path` length (`semantic_ref_merkle_proof.audit_path.maxItems`).
-pub const MAX_SEMANTIC_REF_PROOF_AUDIT_PATH: usize = 64;
-
-impl SemanticRefProof {
-    /// Bounds and index/count coherence. Digest recomputation is the receiver's
-    /// step, not this one.
-    pub fn validate_structural(&self) -> Result<()> {
-        if self.audit_path.len() > MAX_SEMANTIC_REF_PROOF_AUDIT_PATH {
-            return Err(WireError::Protocol(format!(
-                "semantic ref proof audit_path exceeds {MAX_SEMANTIC_REF_PROOF_AUDIT_PATH} entries"
-            )));
-        }
-        if self.leaf_count == 0 {
-            return Err(WireError::Protocol(
-                "semantic ref proof leaf_count MUST be at least 1".to_owned(),
-            ));
-        }
-        if self.leaf_index >= self.leaf_count {
-            return Err(WireError::Protocol(
-                "semantic ref proof leaf_index MUST be inside leaf_count".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SemanticRefProofKind {
-    #[serde(rename = "rfc6962_merkle")]
-    Rfc6962Merkle,
-}
-
-/// The Seal-signed root a [`SemanticRefProof`] resolves against.
-///
-/// A proof that does not say which root it is under can be replayed from the
-/// covered-event tree into the governance state tree, so the field is part of
-/// the signed shape rather than context the receiver supplies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SemanticRefProofRootField {
-    StateRoot,
-    ControlEventSetRoot,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventRef {
+pub struct SemanticRef {
     pub id: String,
     pub role: String,
     #[serde(default = "default_event_ref_critical")]
     pub critical: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SemanticRefProof>,
 }
 
-impl EventRef {
+/// Audience shape used by Applet publication artifacts.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EventProofAudience {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl SemanticRef {
     pub fn new(id: impl Into<String>, role: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             role: role.into(),
             critical: true,
-            proof: None,
         }
     }
 
     pub fn authorized_by_grant(grant_id: GrantId) -> Self {
-        Self::new(grant_id.to_string(), EVENT_REF_ROLE_AUTHORIZED_BY)
+        Self::new(grant_id.to_string(), SEMANTIC_REF_ROLE_AUTHORIZED_BY)
     }
 }
 
 fn default_event_ref_critical() -> bool {
     true
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventRequirements {
-    #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<ProfileRef>,
-    #[serde(default, rename = "features", skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<FeatureRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub critical_extensions: Vec<CriticalExtension>,
-}
-
-/// DataEvent authorization context.
-///
-/// Pins the signing key identifier and key epoch a receiver verifies against
-/// at `seal_ref`. The envelope `actor_id` remains the sole actor carrier. It
-/// carries no capability list: effective capabilities are derived from the
-/// accepted governance basis, never selected by the producer.
-/// `event-and-patch.md` §75 names producer-selected
-/// `auth_context.capability_refs` alongside `effects` as a field a v1 receiver
-/// MUST reject with `schema_violation`, and the envelope schema closes this
-/// object over `{key_id, key_epoch, credential_epoch}` — so
-/// `deny_unknown_fields` here is what makes an inbound one fail rather than be
-/// silently dropped.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthContext {
-    pub key_id: OpaqueLocalId,
-    pub key_epoch: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub credential_epoch: Option<u64>,
-}
-
-impl EventRequirements {
-    pub fn is_empty(&self) -> bool {
-        self.schema_profile_refs.is_empty()
-            && self.required_features.is_empty()
-            && self.critical_extensions.is_empty()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -309,40 +163,19 @@ pub struct Event {
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_kind: Option<EnvelopeActorKind>,
-    pub actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
-    pub prev_refs: Vec<EventId>,
-    #[serde(default)]
-    pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub causal_refs: Vec<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub preconditions: Vec<Precondition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_context: Option<AuthContext>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_basis: Option<SealBasis>,
+    pub semantic_refs: Vec<SemanticRef>,
     pub payload: BTreeMap<String, Value>,
-    /// Reducer/client-local extension data that is not part of the signed
-    /// canonical Event Envelope transcript.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<EventProof>,
-    #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
-    pub requirements: EventRequirements,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_proof: Option<ProducerEventProof>,
 }
 
 /// Minimal accepted-Event facts needed by the registry effect projector.
 ///
-/// This is deliberately not an authorable Event and carries no proofs,
-/// requirements, or unsigned data. It preserves the accepted authorization
+/// This is deliberately not an authorable Event and carries no producer proof. It
+/// preserves the accepted authorization
 /// reference needed by registry effects without fabricating a new signed
 /// [`Event`].
 #[derive(Clone, Debug, PartialEq)]
@@ -351,14 +184,10 @@ pub struct ProjectedEventInput {
     pub event_id: EventId,
     pub actor_id: ActorId,
     pub authorization_ref: Option<AuthorizationRef>,
-    pub actor_seq: u64,
     pub realm_id: RealmId,
     pub created_at: DateTime<Utc>,
     pub payload: BTreeMap<String, Value>,
-    pub refs: Vec<EventRef>,
-    pub preconditions: Vec<Precondition>,
-    pub seal_ref: Option<SealId>,
-    pub seal_basis: Option<SealBasis>,
+    pub semantic_refs: Vec<SemanticRef>,
 }
 
 impl From<&Event> for ProjectedEventInput {
@@ -368,14 +197,10 @@ impl From<&Event> for ProjectedEventInput {
             event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
             authorization_ref: event.authorization_ref.clone(),
-            actor_seq: event.actor_seq,
             realm_id: event.realm_id.clone(),
             created_at: event.created_at,
             payload: event.payload.clone(),
-            refs: event.refs.clone(),
-            preconditions: event.preconditions.clone(),
-            seal_ref: event.seal_ref.clone(),
-            seal_basis: event.seal_basis.clone(),
+            semantic_refs: event.semantic_refs.clone(),
         }
     }
 }
@@ -490,13 +315,11 @@ impl RegistrationDidEvidenceDraft {
         Ok(bytes)
     }
 
+    /// Attach the registry's own original acceptance time. That instant and
+    /// `control_proof.created_at` come from independent Authority clocks, so
+    /// their order is never compared.
     pub fn accept(self, accepted_at: DateTime<Utc>) -> Result<RegistrationDidEvidence> {
         self.validate_shape()?;
-        if accepted_at < self.control_proof.created_at {
-            return Err(WireError::Protocol(
-                "registration evidence acceptance predates its control proof".to_owned(),
-            ));
-        }
         let evidence = RegistrationDidEvidence {
             principal_id: self.principal_id,
             did: self.did,
@@ -542,13 +365,7 @@ impl RegistrationDidEvidence {
             &self.version_id,
             &self.method_evidence,
             &self.control_proof,
-        )?;
-        if self.control_proof.created_at > self.accepted_at {
-            return Err(WireError::Protocol(
-                "registration DID evidence predates its control proof".to_owned(),
-            ));
-        }
-        Ok(())
+        )
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
@@ -592,7 +409,8 @@ fn validate_registration_did_evidence_fields(
             WireError::Protocol("registration control proof has no fragment".to_owned())
         })?;
     let mut witness_ids = BTreeSet::new();
-    if adapter_version.trim().is_empty()
+    if did.method() != "webvh"
+        || adapter_version != "did:webvh:1.0"
         || method_history_head.trim().is_empty()
         || version_id.trim().is_empty()
         || project_did_to_core_id(did)? != *principal_id
@@ -614,16 +432,12 @@ fn validate_registration_did_evidence_fields(
             "registration DID evidence shape or identity binding mismatch".to_owned(),
         ));
     }
-    match did.method() {
-        "webvh"
-            if method_evidence.method_proofs.len() == 1
-                && method_evidence.method_proofs[0].history_head == method_history_head => {}
-        "web" | "key" if method_evidence.method_proofs.is_empty() => {}
-        _ => {
-            return Err(WireError::Protocol(
-                "registration DID evidence method proof mismatch".to_owned(),
-            ));
-        }
+    if method_evidence.method_proofs.len() != 1
+        || method_evidence.method_proofs[0].history_head != method_history_head
+    {
+        return Err(WireError::Protocol(
+            "registration DID evidence requires the exact WebVH method proof".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -644,17 +458,14 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 /// `Value -> Value` function, not just as [`Event::digest_payload`], because
 /// every verifier that holds an envelope it has not parsed into [`Event`] used
 /// to delete the excluded fields by hand — and every hand-rolled copy drifted
-/// from the rule at a different point (one forgot `event_id`, one forgot
-/// `actor_kind`, one hashed the envelope itself). A drifted preimage does not
+/// from the rule at a different point (one forgot `event_id`, one hashed the
+/// envelope itself). A drifted preimage does not
 /// fail loudly: it produces bytes no other implementation can reproduce, so a
 /// valid signature verifies as invalid.
 ///
 /// The excluded set and the reason each field is in it:
 ///
-/// * `proofs` — the signature cannot cover itself.
-/// * `unsigned` — receiver-local projection context, attached after signing.
-/// * `actor_kind` — the one v1 field the reducer stamps after the producer signs, so a peer
-///   recomputing the digest would never see the producer's value.
+/// * `producer_proof` — the signature cannot cover itself.
 /// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in would put a function of
 ///   the digest inside the digest's own input.
 ///
@@ -665,13 +476,18 @@ pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
             "Event digest preimage input must be a JSON object envelope".to_owned(),
         ));
     };
-    let mut map = map.clone();
-    map.remove("proofs");
-    map.remove("unsigned");
-    for field in Event::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
-        map.remove(field);
+    if crate::generated::preimage_commitment_at(
+        "schemas/event-envelope.schema.json",
+        "/properties/event_id",
+    ) != Some(crate::generated::PreimageCommitment::EnvelopeOmission)
+    {
+        return Err(WireError::Protocol(
+            "generated Event preimage contract does not omit event_id".to_owned(),
+        ));
     }
+    let mut map = map.clone();
     map.remove("event_id");
+    map.remove("producer_proof");
     Ok(Value::Object(map))
 }
 
@@ -702,31 +518,13 @@ struct EventSer<'a> {
     applet_id: &'a Option<AppletId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     external_ref: &'a Option<BTreeMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    actor_kind: &'a Option<EnvelopeActorKind>,
-    actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hlc: &'a Option<Hlc>,
-    prev_refs: &'a Vec<EventId>,
-    refs: &'a Vec<EventRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    causal_refs: &'a Vec<Hash>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    preconditions: &'a Vec<Precondition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seal_ref: &'a Option<SealId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    auth_context: &'a Option<AuthContext>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seal_basis: &'a Option<SealBasis>,
+    semantic_refs: &'a Vec<SemanticRef>,
     payload: &'a BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    unsigned: &'a BTreeMap<String, Value>,
-    proofs: &'a Vec<EventProof>,
-    #[serde(skip_serializing_if = "EventRequirements::is_empty")]
-    requirements: &'a EventRequirements,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    producer_proof: &'a Option<ProducerEventProof>,
 }
 
 impl<'a> From<&'a Event> for EventSer<'a> {
@@ -741,21 +539,10 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             authorization_ref: &event.authorization_ref,
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
-            actor_kind: &event.actor_kind,
-            actor_seq: event.actor_seq,
             created_at: event.created_at,
-            hlc: &event.hlc,
-            prev_refs: &event.prev_refs,
-            refs: &event.refs,
-            causal_refs: &event.causal_refs,
-            preconditions: &event.preconditions,
-            seal_ref: &event.seal_ref,
-            auth_context: &event.auth_context,
-            seal_basis: &event.seal_basis,
+            semantic_refs: &event.semantic_refs,
             payload: &event.payload,
-            unsigned: &event.unsigned,
-            proofs: &event.proofs,
-            requirements: &event.requirements,
+            producer_proof: &event.producer_proof,
         }
     }
 }
@@ -787,32 +574,13 @@ struct EventWire {
     pub applet_id: Option<AppletId>,
     #[serde(default)]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default)]
-    pub actor_kind: Option<EnvelopeActorKind>,
-    pub actor_seq: u64,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default)]
-    pub hlc: Option<Hlc>,
-    pub prev_refs: Vec<EventId>,
-    #[serde(default)]
-    pub refs: Vec<EventRef>,
-    #[serde(default)]
-    pub causal_refs: Vec<Hash>,
-    #[serde(default)]
-    pub preconditions: Vec<Precondition>,
-    #[serde(default)]
-    pub seal_ref: Option<SealId>,
-    #[serde(default)]
-    pub auth_context: Option<AuthContext>,
-    #[serde(default)]
-    pub seal_basis: Option<SealBasis>,
+    pub semantic_refs: Option<Vec<SemanticRef>>,
     pub payload: BTreeMap<String, Value>,
     #[serde(default)]
-    pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<EventProof>,
-    #[serde(default)]
-    pub requirements: EventRequirements,
+    pub producer_proof: Option<ProducerEventProof>,
 }
 
 impl TryFrom<EventWire> for Event {
@@ -820,6 +588,13 @@ impl TryFrom<EventWire> for Event {
 
     fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
         let kind = EventKind::from_wire(&wire.kind);
+        let semantic_refs = match wire.semantic_refs {
+            None => Vec::new(),
+            Some(semantic_refs) if semantic_refs.is_empty() => {
+                return Err("semantic_refs must be omitted when empty".to_owned());
+            }
+            Some(semantic_refs) => semantic_refs,
+        };
         // zh/models/realm-and-space.md section 2.5.0: the genesis envelope
         // omits realm_id and receivers derive it from the Event's own id.
         let realm_id = match wire.realm_id {
@@ -848,32 +623,11 @@ impl TryFrom<EventWire> for Event {
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
-            actor_kind: wire.actor_kind,
-            actor_seq: wire.actor_seq,
             created_at: wire.created_at,
-            hlc: wire.hlc,
-            prev_refs: wire.prev_refs,
-            refs: wire.refs,
-            causal_refs: wire.causal_refs,
-            preconditions: wire.preconditions,
-            seal_ref: wire.seal_ref,
-            auth_context: wire.auth_context,
-            seal_basis: wire.seal_basis,
+            semantic_refs,
             payload: wire.payload,
-            unsigned: wire.unsigned,
-            proofs: wire.proofs,
-            requirements: wire.requirements,
+            producer_proof: wire.producer_proof,
         };
-        if event.causal_refs.len() > 128
-            || event.causal_refs.iter().collect::<BTreeSet<_>>().len() != event.causal_refs.len()
-        {
-            return Err("causal_refs must contain at most 128 unique hashes".to_owned());
-        }
-        if let Some(basis) = &event.seal_basis {
-            basis
-                .validate_protocol_bounds()
-                .map_err(|error| error.to_string())?;
-        }
         event.validate_applet_provenance_invariants()?;
         Ok(event)
     }
@@ -930,11 +684,25 @@ pub enum ScopeRef {
 }
 
 impl ScopeRef {
+    /// MLS `group_id` derivation domain separator, `zh/models/realm-and-space.md`
+    /// section 2.2. The trailing `0x00` separates it from the scope key bytes,
+    /// which are printable ASCII and therefore cannot contain it.
+    pub const MLS_GROUP_ID_DOMAIN: &'static str = "ak.mls.group_id.v1";
+
     /// Byte-exact v1 MLS security-scope key.
     ///
-    /// Realm and Circle identifiers are already type-separated canonical IDs.
-    /// A Sidecar group additionally binds its parent Realm, separated by the
-    /// ASCII Unit Separator byte. Genesis has no executable MLS scope.
+    /// Realm and Circle identifiers are already type-separated canonical IDs:
+    /// each is globally unique, self-prefixed with its own kind and fixed
+    /// length, so the id alone determines the scope and a `realm_id` prefix
+    /// would add no separation. A Sidecar group additionally binds its parent
+    /// Realm, separated by the ASCII Unit Separator byte, because its scope key
+    /// was defined that way before this derivation existed. Genesis has no
+    /// executable MLS scope.
+    ///
+    /// The same byte string is the MLS-Exporter context in
+    /// `registry/exporter-label-registry.json`, so prefixing the Circle branch,
+    /// dropping the Sidecar prefix or reordering the Sidecar components is not
+    /// a `group_id`-only change — it silently re-keys every exported secret.
     pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
         match self {
             Self::RealmGenesis => Err(WireError::Protocol(
@@ -956,27 +724,56 @@ impl ScopeRef {
         }
     }
 
-    /// Deterministic MLS `group_id` for this effective security scope.
-    pub fn canonical_mls_group_id(&self) -> Result<String> {
-        Ok(crate::base64url::base64url_encode(
-            self.canonical_effective_scope_key_bytes()?,
-        ))
+    /// Raw RFC 9420 `group_id` bytes for this effective security scope.
+    ///
+    /// `SHA-256(UTF8("ak.mls.group_id.v1") || 0x00 || scope_key_bytes)`, always
+    /// 32 bytes. This is what an MLS group is actually created with; the
+    /// base64url spelling below is only how the same value is carried on the
+    /// wire.
+    ///
+    /// The digest is one-way by design (`zh/models/realm-and-space.md` section
+    /// 2.2): a `group_id` observed on the delivery path MUST NOT reveal which
+    /// Realm, Circle or Sidecar it belongs to. Nothing may recover the scope
+    /// from it — a consumer that needs the scope has to be told, not decode.
+    /// SHA-256 is fixed here and does **not** follow the Realm
+    /// `digest_algorithm`.
+    pub fn canonical_mls_group_id_bytes(&self) -> Result<[u8; 32]> {
+        let scope_key = self.canonical_effective_scope_key_bytes()?;
+        Ok(arkret_canonical::sha256_bytes_from_slices(&[
+            Self::MLS_GROUP_ID_DOMAIN.as_bytes(),
+            &[0x00],
+            &scope_key,
+        ]))
     }
 
-    /// The scope's own id, as selected by the registered composite
-    /// `cell_subject` of the MLS component cells.
+    /// Deterministic MLS `group_id` for this effective security scope, in the
+    /// wire spelling: base64url without padding, therefore always exactly 43
+    /// characters (`common-ids.schema.json#/$defs/mls_group_id`).
     ///
-    /// `event-kind-registry.json` selects on `effective_scope.kind` and takes
-    /// `realm_id` / `circle_id` / `sidecar_id` respectively - never the parent
-    /// Realm id of a Circle or Sidecar. `RealmGenesis` has no MLS scope.
-    pub fn cell_subject_scope_id(&self) -> Result<&str> {
+    /// This is the only accepted formula. The pre-2218 reversible encoding —
+    /// base64url of the scope key bytes themselves — is not a second spelling
+    /// of the same field, and a verifier MUST NOT pick between the two by
+    /// string length, group epoch or local state: it recomputes this and
+    /// rejects anything else.
+    pub fn canonical_mls_group_id(&self) -> Result<MlsGroupId> {
+        MlsGroupId::new(crate::base64url::base64url_encode(
+            self.canonical_mls_group_id_bytes()?,
+        ))
+        .map_err(|message| WireError::Protocol(message.to_owned()))
+    }
+
+    /// The RFC handshake wire format required by this effective scope.
+    ///
+    /// Realm/Circle use the public-handshake contract. Sidecar independently
+    /// requires PublicMessage within its restricted disclosure and participant
+    /// authority contract; this never grants a parent Realm member access.
+    /// The hashed group id carries no scope or policy information.
+    pub fn requires_public_mls_handshake(&self) -> Result<bool> {
         match self {
             Self::RealmGenesis => Err(WireError::Protocol(
                 "RealmGenesis has no executable MLS security scope".to_owned(),
             )),
-            Self::Realm { realm_id } => Ok(realm_id.as_str()),
-            Self::Circle { circle_id, .. } => Ok(circle_id.as_str()),
-            Self::Sidecar { sidecar_id, .. } => Ok(sidecar_id.as_str()),
+            Self::Realm { .. } | Self::Circle { .. } | Self::Sidecar { .. } => Ok(true),
         }
     }
 
@@ -1020,158 +817,271 @@ impl ScopeRef {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_effective_scope`.
-///
-/// The closed subset of [`ScopeRef`] admitted by the private history-key
-/// request/response, history-only backup and organization-recovery archive
-/// contracts. `RealmGenesis` has no executable MLS scope and Sidecar is
-/// deliberately excluded: its profile fixes `mls_rfc9420` and defines neither
-/// `history_access` nor a deliverable history secret.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistoryEffectiveScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-}
-
-impl HistoryEffectiveScope {
-    /// The parent Realm of this scope.
-    pub fn realm_id(&self) -> &RealmId {
-        match self {
-            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => realm_id,
-        }
-    }
-
-    /// The Circle id when this scope is a Circle, otherwise `None`.
-    pub fn circle_id(&self) -> Option<&CircleId> {
-        match self {
-            Self::Realm { .. } => None,
-            Self::Circle { circle_id, .. } => Some(circle_id),
-        }
-    }
-
-    /// Deterministic MLS `group_id` for this effective security scope.
-    pub fn canonical_mls_group_id(&self) -> Result<String> {
-        ScopeRef::from(self.clone()).canonical_mls_group_id()
-    }
-}
-
-impl From<HistoryEffectiveScope> for ScopeRef {
-    fn from(scope: HistoryEffectiveScope) -> Self {
-        match scope {
-            HistoryEffectiveScope::Realm { realm_id } => Self::Realm { realm_id },
-            HistoryEffectiveScope::Circle {
-                realm_id,
-                circle_id,
-            } => Self::Circle {
-                realm_id,
-                circle_id,
-            },
-        }
-    }
-}
-
-impl TryFrom<ScopeRef> for HistoryEffectiveScope {
-    type Error = WireError;
-
-    fn try_from(scope: ScopeRef) -> Result<Self> {
-        match scope {
-            ScopeRef::Realm { realm_id } => Ok(Self::Realm { realm_id }),
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } => Ok(Self::Circle {
-                realm_id,
-                circle_id,
-            }),
-            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. } => Err(WireError::Protocol(
-                "scope is not an admitted history effective scope".to_owned(),
-            )),
-        }
-    }
-}
-
 #[cfg(test)]
 mod scope_mls_group_id_tests {
     use super::*;
 
-    #[test]
-    fn effective_scope_keys_are_byte_exact_and_genesis_is_rejected() {
+    /// The three scopes of `fixtures/mls-group-id-derivation-fixture.json`.
+    ///
+    /// The Circle and Sidecar cases deliberately share one 44-character
+    /// payload under two different kind prefixes: the typed IDs are
+    /// self-describing and fixed length, so the two scopes must not collide
+    /// even though only the Sidecar branch carries a `realm_id`.
+    fn kat_scopes() -> (ScopeRef, ScopeRef, ScopeRef) {
         let realm_id =
             RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
         let circle_id =
-            CircleId::new("ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_").unwrap();
+            CircleId::new("ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
         let sidecar_id =
-            SidecarId::new("ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d").unwrap();
-
-        let realm = ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        };
-        assert_eq!(
-            realm.canonical_effective_scope_key_bytes().unwrap(),
-            realm_id.as_str().as_bytes()
-        );
-        assert_eq!(
-            realm.canonical_mls_group_id().unwrap(),
-            crate::base64url::base64url_encode(realm_id.as_str().as_bytes())
-        );
-
-        let circle = ScopeRef::Circle {
-            realm_id: realm_id.clone(),
-            circle_id: circle_id.clone(),
-        };
-        assert_eq!(
-            circle.canonical_effective_scope_key_bytes().unwrap(),
-            circle_id.as_str().as_bytes()
-        );
-
-        let sidecar = ScopeRef::Sidecar {
-            realm_id: realm_id.clone(),
-            sidecar_id: sidecar_id.clone(),
-        };
-        let expected = format!("{}\u{1f}{}", realm_id.as_str(), sidecar_id.as_str());
-        assert_eq!(
-            sidecar.canonical_effective_scope_key_bytes().unwrap(),
-            expected.as_bytes()
-        );
-        assert_ne!(
-            sidecar.canonical_mls_group_id().unwrap(),
-            realm.canonical_mls_group_id().unwrap()
-        );
-        assert!(ScopeRef::RealmGenesis.canonical_mls_group_id().is_err());
+            SidecarId::new("ak:sidecar:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
+        (
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            ScopeRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id,
+            },
+            ScopeRef::Sidecar {
+                realm_id,
+                sidecar_id,
+            },
+        )
     }
-}
 
-/// CBA context a structural submit check runs under.
-///
-/// `Standard` is the fail-closed default: every reducer-input Event must be a
-/// DataEvent or a Control Move. `AnchorUnit` additionally admits the two closed
-/// `seal_basis`-exempt units of `event-auth-state-resolution.md` §5 and MUST NOT
-/// be used for anything else.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum EventSubmitContext {
-    #[default]
-    Standard,
-    AnchorUnit,
-}
+    /// `ak.vector.mls.group_id_derivation_kat.v1`, pinned to the expected
+    /// values of `fixtures/mls-group-id-derivation-fixture.json` rather than to
+    /// a second copy of the formula, so a drift in either direction shows up as
+    /// a changed constant instead of passing silently.
+    #[test]
+    fn group_id_derivation_matches_the_spec_known_answer_tests() {
+        let (realm, circle, sidecar) = kat_scopes();
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum EventProofSetRequirement {
-    ProducerSubmission,
-    AcceptedEvent,
+        for (scope, scope_key_hex, group_id) in [
+            (
+                &realm,
+                "616b3a7265616c6d3a41633161434b386151646e6b59496d7664483344466a71346a4443503139387058595743477a477556796a35",
+                "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
+            ),
+            (
+                &circle,
+                "616b3a636972636c653a41554432574f68582d5868343776424874524a504d52665852515847694f5751714f724a474a6e4538436149",
+                "mnoZ_saVPf3fDTNZYVjrFGJxJwRL6QkkU1EzZRYPzm4",
+            ),
+            (
+                &sidecar,
+                "616b3a7265616c6d3a41633161434b386151646e6b59496d7664483344466a71346a4443503139387058595743477a477556796a351f616b3a736964656361723a41554432574f68582d5868343776424874524a504d52665852515847694f5751714f724a474a6e4538436149",
+                "YCyHuyYfqfioJ1HN4_laYDdRX02bSwSKseeujcVRPgU",
+            ),
+        ] {
+            assert_eq!(
+                hex::encode(scope.canonical_effective_scope_key_bytes().unwrap()),
+                scope_key_hex,
+                "{scope:?}"
+            );
+            assert_eq!(
+                scope.canonical_mls_group_id().unwrap().as_str(),
+                group_id,
+                "{scope:?}"
+            );
+            // The wire spelling is exactly the base64url of the raw bytes an
+            // MLS group is created with; the two never diverge.
+            assert_eq!(
+                crate::base64url::base64url_encode(scope.canonical_mls_group_id_bytes().unwrap()),
+                group_id
+            );
+            assert_eq!(scope.canonical_mls_group_id().unwrap().as_str().len(), 43);
+        }
+
+        // One 44-character payload, two kind prefixes, two distinct groups.
+        assert_ne!(
+            circle.canonical_mls_group_id().unwrap(),
+            sidecar.canonical_mls_group_id().unwrap()
+        );
+    }
+
+    /// `ak.vector.mls.group_id_reversible_formula_rejected.v1`: the pre-2218
+    /// encoding decodes straight back to the scope id, and is not a second
+    /// accepted spelling of the same field.
+    #[test]
+    fn the_reversible_pre_2218_encoding_is_not_a_second_spelling() {
+        let (realm, ..) = kat_scopes();
+        let offered = "YWs6cmVhbG06QWMxYUNLOGFRZG5rWUltdmRIM0RGanE0akRDUDE5OHBYWVdDR3pHdVZ5ajU";
+        assert_eq!(
+            offered,
+            crate::base64url::base64url_encode(
+                realm.canonical_effective_scope_key_bytes().unwrap()
+            ),
+            "the negative case must really be the old formula"
+        );
+        assert_ne!(realm.canonical_mls_group_id().unwrap().as_str(), offered);
+        // It is not even a well-formed mls_group_id, so it fails closed at the
+        // type boundary before any comparison is reached.
+        assert!(MlsGroupId::new(offered).is_err());
+    }
+
+    #[test]
+    fn handshake_visibility_is_a_property_of_the_scope_not_of_the_group_id() {
+        let (realm, circle, sidecar) = kat_scopes();
+        assert!(realm.requires_public_mls_handshake().unwrap());
+        assert!(circle.requires_public_mls_handshake().unwrap());
+        assert!(sidecar.requires_public_mls_handshake().unwrap());
+        assert!(
+            ScopeRef::RealmGenesis
+                .requires_public_mls_handshake()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn genesis_has_no_executable_mls_scope() {
+        assert!(ScopeRef::RealmGenesis.canonical_mls_group_id().is_err());
+        assert!(
+            ScopeRef::RealmGenesis
+                .canonical_mls_group_id_bytes()
+                .is_err()
+        );
+        assert!(
+            ScopeRef::RealmGenesis
+                .canonical_effective_scope_key_bytes()
+                .is_err()
+        );
+    }
 }
 
 /// A canonical-shaped `event_id` that stands in while the real one is being
 /// derived. It never enters a digest preimage, so its value is arbitrary — it
 /// only has to parse.
 const PLACEHOLDER_EVENT_ID: &str = "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+/// Verification-method fragment prefix that marks a human Account device key.
+pub const HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
+
+/// Human Account device that actually signed an Event.
+///
+/// It exists exactly when the actual signer (`executed_by`, else `actor_id`)
+/// is an Account and the producer proof method fragment is an `ak:device:`
+/// id. Every human-device producer, whatever the Event kind, resolves through
+/// this one rule; there is no Control / Data split.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HumanDeviceProducer {
+    pub account_id: crate::AccountId,
+    pub device_id: arkret_identifiers::DeviceId,
+}
+
+impl Event {
+    /// Actor whose key signed the producer proof.
+    #[must_use]
+    pub fn actual_signer(&self) -> &ActorId {
+        self.executed_by.as_ref().unwrap_or(&self.actor_id)
+    }
+
+    /// Resolve the human-device producer of this Event, if any.
+    ///
+    /// Returns `Ok(None)` for Service, Agent and other non-device signers. A
+    /// missing producer proof or an `ak:device:` fragment that is not a
+    /// canonical device id is a `schema_violation`.
+    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::ProtocolCode {
+                code: crate::ErrorCode::SchemaViolation,
+                message: "Event must carry producer_proof".to_owned(),
+            })?;
+        let Some(account_id) = self.actual_signer().as_account_id() else {
+            return Ok(None);
+        };
+        let Some((_, fragment)) = proof.verification_method.as_str().split_once('#') else {
+            return Ok(None);
+        };
+        if !fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX) {
+            return Ok(None);
+        }
+        let device_id = arkret_identifiers::DeviceId::new(fragment.to_owned()).map_err(|_| {
+            WireError::ProtocolCode {
+                code: crate::ErrorCode::SchemaViolation,
+                message: "producer proof device fragment is not a canonical device id".to_owned(),
+            }
+        })?;
+        Ok(Some(HumanDeviceProducer {
+            account_id: account_id.clone(),
+            device_id,
+        }))
+    }
+
+    /// Key-free producer-proof self-consistency (`federation.md` §3, item 1 of
+    /// the non-governance receiver rule).
+    ///
+    /// Checks, without resolving any signing key:
+    ///
+    /// 1. `producer_proof.event_digest` equals the digest of the exact canonical Event bytes under
+    ///    the trusted Realm `digest_suite` (`signature_invalid`);
+    /// 2. the bare DID of `verification_method`, projected through the registered method adapter,
+    ///    equals the principal of the actual signer — `executed_by` when present, else `actor_id`
+    ///    (`signature_invalid`);
+    /// 3. an `ak:device:` fragment on an Account signer is exactly a complete canonical `device_id`
+    ///    (`signature_invalid`).
+    ///
+    /// A missing proof or a method without a DID URL fragment is a
+    /// `schema_violation`. Returns the human-device producer when there is one,
+    /// so a receiver hosting that Account can still verify the key against its
+    /// own device authorization. Events admitted through the
+    /// `registration_anchor` variant are out of scope: their closed verifier
+    /// owns the method binding. Pinned by
+    /// `ak.vector.federation.non_governance_receiver_trusts_governance_commit.v1`.
+    pub fn verify_producer_proof_self_consistency(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Option<HumanDeviceProducer>> {
+        let rejected = |code, message: &str| WireError::ProtocolCode {
+            code,
+            message: message.to_owned(),
+        };
+        let proof = self.producer_proof.as_ref().ok_or_else(|| {
+            rejected(
+                crate::ErrorCode::SchemaViolation,
+                "Event must carry producer_proof",
+            )
+        })?;
+        if proof.event_digest.as_str() != self.event_digest_with_digest_suite(digest_suite)? {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof event_digest does not cover the canonical Event bytes",
+            ));
+        }
+        let (controller, fragment) = proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .filter(|(_, fragment)| !fragment.is_empty())
+            .and_then(|(did, fragment)| Some((Did::new(did.to_owned()).ok()?, fragment)))
+            .ok_or_else(|| {
+                rejected(
+                    crate::ErrorCode::SchemaViolation,
+                    "producer proof verification_method is not a DID URL with a fragment",
+                )
+            })?;
+        let signer = self.actual_signer();
+        if project_did_to_core_id(&controller).ok().as_ref() != Some(signer.signing_principal_id())
+        {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof verification_method is not controlled by the actual signer",
+            ));
+        }
+        if signer.as_account_id().is_some()
+            && fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX)
+            && arkret_identifiers::DeviceId::new(fragment.to_owned()).is_err()
+        {
+            return Err(rejected(
+                crate::ErrorCode::SignatureInvalid,
+                "producer proof device fragment is not a complete device_id",
+            ));
+        }
+        self.human_device_producer()
+    }
+}
 
 impl Event {
     pub const SCHEMA: &'static str = SchemaId::EVENT_V1;
@@ -1181,12 +1091,12 @@ impl Event {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
-    /// Reconstruct the unsigned Event represented by canonical digest-payload
+    /// Reconstruct the Event represented by canonical digest-payload
     /// bytes returned by a protocol prepare operation.
     ///
     /// Prepare drafts intentionally omit fields outside the producer-signed
     /// transcript. This constructor is the only SDK path that restores those
-    /// fields before a caller appends proofs, so downstream clients never need
+    /// fields before a caller attaches the producer proof, so downstream clients never need
     /// to patch JSON objects themselves.
     pub fn from_digest_payload_bytes(
         bytes: &[u8],
@@ -1196,14 +1106,13 @@ impl Event {
         let object = value.as_object_mut().ok_or_else(|| {
             WireError::Protocol("Event digest payload must be a JSON object".to_owned())
         })?;
-        for forbidden in ["proofs", "unsigned", "actor_kind"] {
+        for forbidden in ["event_id", "producer_proof"] {
             if object.contains_key(forbidden) {
                 return Err(WireError::Protocol(format!(
                     "Event digest payload must omit {forbidden}"
                 )));
             }
         }
-        object.insert("proofs".to_owned(), Value::Array(Vec::new()));
         // `event_id` is not in the preimage either — section 4.0 derives it
         // *from* this digest — so it cannot be read off these bytes. Reconstruct
         // it the only way there is: seed the parse with a placeholder, then
@@ -1223,32 +1132,15 @@ impl Event {
         Ok(event)
     }
 
-    /// Top-level Envelope fields that are stamped by the reducer AFTER the
-    /// producer signs, and therefore MUST NOT enter the signature/digest
-    /// input (otherwise a federated peer independently recomputing the
-    /// digest would mismatch the producer's `proof.event_digest`).
-    ///
-    /// Kept in lockstep with `conformance/encoding.md` §2 / §6. v1 has exactly
-    /// one such field: `actor_kind`. `scope_ref` is producer-signed and MUST
-    /// stay inside the transcript.
-    ///
-    /// Deliberately private: it is one *part* of the exclusion rule, and every
-    /// caller that ever held it went on to hand-roll the rest of
-    /// [`event_digest_preimage`] — and each hand-rolled copy drifted. Callers
-    /// outside this module get the whole rule or nothing.
-    const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 1] = ["actor_kind"];
-
     pub fn digest_payload(&self) -> Result<Value> {
         event_digest_preimage(&serde_json::to_value(self)?)
     }
 
     /// Refresh the content-bound Event id after authoring has finished.
     ///
-    /// Producers commonly have to attach actor-chain, HLC, CBA and requirement
-    /// fields after constructing the initial typed payload. All of those fields
-    /// are in the Event digest preimage, so the id must be derived only after
-    /// they are final. A Realm genesis additionally keeps its in-memory derived
-    /// Realm id in sync with the refreshed Event id.
+    /// Producers call this after the closed business payload and optional
+    /// semantic references are final. Authority ordering is not part of an
+    /// Event and is assigned later by the current governance Station.
     /// Refresh the content-bound identity under the trusted Realm digest suite.
     pub fn refresh_content_bound_identity_with_digest_suite(
         &mut self,
@@ -1261,7 +1153,7 @@ impl Event {
         Ok(())
     }
 
-    /// Derive this Event's `event_id` under the Realm's declared digest suite.
+    /// Derive this Event's `event_id` under the fixed v1 content-address suite.
     pub fn derive_event_id_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
@@ -1311,15 +1203,19 @@ impl Event {
         }
     }
 
-    /// Compute the Event digest with the trusted Realm digest suite.
+    /// Compute the Event digest with the fixed v1 content-address suite.
     ///
-    /// The suite is supplied by the caller because the Event is not trusted
-    /// until its proof has been verified; it must not be inferred from the
-    /// Event payload.
+    /// The caller supplies the selected suite, which must be SHA-256 for an
+    /// Event even when other digest domains support another active suite.
     pub fn event_digest_with_digest_suite(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<String> {
+        if digest_suite != arkret_canonical::DigestSuite::Sha256 {
+            return Err(WireError::Protocol(
+                "unsupported_digest_algorithm: Event digest suite must be sha256".to_owned(),
+            ));
+        }
         let bytes = canonical::canonical_json_bytes(&self.digest_payload()?)?;
         Ok(canonical::digest(digest_suite, &bytes))
     }
@@ -1327,8 +1223,8 @@ impl Event {
     /// Structural (payload-agnostic) submit gate.
     ///
     /// Covers every wire-level check that does not need a schema registry:
-    /// reducer-stamped field rejection, applet provenance invariants, proof
-    /// presence, critical-extension fail-closed flags, and CBA field shape.
+    /// applet provenance invariants, proof
+    /// presence and scope/provenance invariants.
     /// It deliberately does NOT run event-payload schema validation — the
     /// submit gate for callers is `arkret_schema::validate_event_for_submit`,
     /// which layers registry-backed schema validation on top of this check.
@@ -1336,82 +1232,57 @@ impl Event {
     /// deserialization path) is what prevents an arkret-schema dependency
     /// cycle; do not reintroduce it here.
     pub fn validate_for_submit_structural(&self) -> Result<()> {
-        self.validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+        self.validate_structural()
     }
 
-    /// Validate a retained direct-regime Event that has no Station
-    /// admission proof. Its sole producer proof must carry the matching
-    /// content-addressed historical signer-resolution evidence locator.
+    /// Validate a retained Event using the same producer-proof shape as a new
+    /// submission. Historical signer resolution is attested by RealmCommit.
     pub fn validate_for_direct_history_structural(&self) -> Result<()> {
-        self.validate_for_direct_history_structural_in_context(EventSubmitContext::Standard)
+        self.validate_structural()
     }
 
-    pub fn validate_for_direct_history_structural_in_context(
-        &self,
-        context: EventSubmitContext,
-    ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)?;
-        let [EventProof::Producer(producer)] = self.proofs.as_slice() else {
-            unreachable!("producer proof set was validated above")
-        };
-        producer.validate_direct_signer_resolution_evidence()
-    }
-
-    /// [`Event::validate_for_submit_structural`] under an explicit CBA context.
+    /// Validate the wire-level shape of a federated Event.
     ///
-    /// Use [`EventSubmitContext::AnchorUnit`] only for the two closed
-    /// `seal_basis`-exempt anchor units of `event-auth-state-resolution.md` §5:
-    /// the `ak.realm.create` bootstrap with its closed follow-up whitelist, and
-    /// the B-model `ak.device.reanchor` + replacement-authorize unit, which
-    /// fixes its frontier in the payload's `pre_fence_seal_frontier` instead.
-    ///
-    /// Deciding whether an Event *is* one of those needs the closed kind
-    /// whitelist, which lives in the registry; this crate does not hold it by
-    /// layering. So the context is a claim by the caller, and the caller owes
-    /// the whitelist check — `arkret_policy::validate_realm_bootstrap_unit` is
-    /// the one that owns it for the ordinary Realm branch. Passing
-    /// `AnchorUnit` for anything else opens a hole this crate cannot see.
-    pub fn validate_for_submit_structural_in_context(
+    /// Federation preserves the same sole producer proof. Receiver-local
+    /// admission receipts are transport state and never mutate Event bytes.
+    pub fn validate_for_federation_structural(
         &self,
-        context: EventSubmitContext,
-    ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)
-    }
-
-    /// Validate the wire-level shape of an Event already admitted by its
-    /// declared origin Station.
-    pub fn validate_for_federation_structural_in_context(
-        &self,
-        context: EventSubmitContext,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
-        self.validate_station_admission_binding(digest_suite)
+        self.validate_structural()?;
+        self.validate_proof_bindings_with_digest_suite(digest_suite)
     }
 
     /// Shape of an already-accepted Event carried as evidence rather than as a
     /// submission, without the admission-binding digest step.
     ///
-    /// `cba-profiles.md` §5 fixes the receiver's order as «structure, Realm,
-    /// count and canonical order → object id/digest/signature → ...», so the
-    /// container-level pass owns the proof-set *shape* — one producer proof
-    /// followed by one Station admission proof — while recomputing the digest
-    /// that binds them belongs to the next step, where the digest suite the
-    /// Seal roots name is available. Checking accepted evidence against the
-    /// caller-submission proof set instead would reject every object a Station
-    /// has actually accepted.
+    /// The container-level pass owns the exact single producer-proof shape;
+    /// recomputing its binding digest belongs to the next verification step.
     pub fn validate_for_accepted_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(
-            EventSubmitContext::Standard,
-            EventProofSetRequirement::AcceptedEvent,
-        )
+        self.validate_structural()
     }
 
-    fn validate_structural_in_context(
-        &self,
-        context: EventSubmitContext,
-        proof_requirement: EventProofSetRequirement,
-    ) -> Result<()> {
+    /// Validate an original Event carried by one of the five Contact source
+    /// receipts. This is only a structural gate: callers must first authenticate
+    /// the source projection and must independently verify the producer JWS with
+    /// its exact projected key. It grants no generic Event admission exception.
+    pub fn validate_for_contact_history_structural(&self) -> Result<()> {
+        if !matches!(
+            self.kind,
+            EventKind::ContactRequested
+                | EventKind::ContactAccepted
+                | EventKind::ContactRejected
+                | EventKind::ContactScopeUpdate
+                | EventKind::ContactTombstone
+        ) {
+            return Err(WireError::Protocol(
+                "Contact source projection requires an original Contact Event".into(),
+            ));
+        }
+        self.validate_structural()
+    }
+
+    fn validate_structural(&self) -> Result<()> {
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
         // the genesis branch instead pins the closed scope shape.
@@ -1426,106 +1297,15 @@ impl Event {
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
-        if self.actor_kind.is_some() {
-            return Err(WireError::Protocol(
-                ReasonCode::ACTOR_KIND_REDUCER_MANAGED.to_owned(),
-            ));
-        }
+        validate_semantic_ref_count(self.semantic_refs.len())?;
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
-        match proof_requirement {
-            EventProofSetRequirement::ProducerSubmission => match self.proofs.as_slice() {
-                [EventProof::Producer(producer)] => {
-                    producer.validate_signer_resolution_evidence_ref()?;
-                }
-                _ => {
-                    return Err(WireError::Protocol(
-                        "caller submission must carry exactly one producer proof and no Station admission proof"
-                            .to_owned(),
-                    ));
-                }
-            },
-            EventProofSetRequirement::AcceptedEvent => match self.proofs.as_slice() {
-                [
-                    EventProof::Producer(producer),
-                    EventProof::StationAdmission(_),
-                ] => {
-                    if producer.signer_resolution_evidence_ref.is_some() {
-                        return Err(WireError::Protocol(
-                            "admission-backed producer proof must omit direct signer resolution evidence"
-                                .to_owned(),
-                        ));
-                    }
-                }
-                _ => {
-                    return Err(WireError::Protocol(
-                        "federated Event must carry exactly one producer proof followed by one Station admission proof"
-                            .to_owned(),
-                    ));
-                }
-            },
-        }
-        if self
-            .requirements
-            .critical_extensions
-            .iter()
-            .any(|extension| !extension.fail_closed)
-        {
+        let Some(producer) = self.producer_proof.as_ref() else {
             return Err(WireError::Protocol(
-                "event critical extensions must declare fail_closed=true".to_owned(),
+                "Event must carry producer_proof".to_owned(),
             ));
-        }
-        if let Some(basis) = &self.seal_basis {
-            basis.validate_protocol_bounds()?;
-        }
-        if self.kind.is_reducer_input() {
-            let is_data_event = self.seal_ref.is_some()
-                && self.auth_context.is_some()
-                && self.seal_basis.is_none()
-                && self.preconditions.is_empty();
-            let is_control_move =
-                self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
-            // The §5 anchor units carry no basis field at all: bootstrap has no
-            // accepted Seal to point at, and the B-model re-anchor fixes its
-            // frontier in the payload's `pre_fence_seal_frontier`. A bootstrap Event
-            // may still carry a precondition, which is evaluated against the
-            // unit's empty frozen predecessor state; only the three mutually
-            // exclusive CBA basis fields participate in this shape test.
-            let is_anchor_unit = context == EventSubmitContext::AnchorUnit
-                && self.seal_ref.is_none()
-                && self.auth_context.is_none()
-                && self.seal_basis.is_none();
-            match self.kind.cba_plane() {
-                Some(CbaEffectPlane::Data) if is_data_event || is_anchor_unit => {}
-                Some(CbaEffectPlane::Control) if is_control_move || is_anchor_unit => {}
-                Some(CbaEffectPlane::Data) => {
-                    return Err(WireError::Protocol(format!(
-                        "data-plane Event kind {} requires seal_ref + auth_context and forbids seal_basis",
-                        self.kind
-                    )));
-                }
-                Some(CbaEffectPlane::Control) => {
-                    return Err(WireError::Protocol(format!(
-                        "control-plane Event kind {} requires seal_basis and forbids seal_ref + auth_context",
-                        self.kind
-                    )));
-                }
-                None => {
-                    return Err(WireError::Protocol(format!(
-                        "reducer-input Event kind {} has no registered CBA plane",
-                        self.kind
-                    )));
-                }
-            }
-        } else if self.seal_ref.is_some()
-            || self.auth_context.is_some()
-            || self.seal_basis.is_some()
-            || !self.preconditions.is_empty()
-        {
-            return Err(WireError::Protocol(
-                "non-reducer events must not carry CBA reducer fields".to_owned(),
-            ));
-        }
+        };
+        producer.validate()?;
         Ok(())
     }
 
@@ -1555,17 +1335,16 @@ impl Event {
     ) -> Result<()> {
         let digest = self.event_digest_with_digest_suite(digest_suite)?;
         let expected_hash = Hash::new(digest)?;
-        for proof in &self.proofs {
-            let Some(proof) = proof.as_producer() else {
-                continue;
-            };
-            proof.validate()?;
-            if proof.event_digest != expected_hash {
-                return Err(WireError::Protocol(format!(
-                    "event proof event_digest '{}' does not match event digest '{}'",
-                    proof.event_digest, expected_hash
-                )));
-            }
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Event must carry producer_proof".to_owned()))?;
+        proof.validate()?;
+        if proof.event_digest != expected_hash {
+            return Err(WireError::Protocol(format!(
+                "event proof event_digest '{}' does not match event digest '{}'",
+                proof.event_digest, expected_hash
+            )));
         }
         Ok(())
     }
@@ -1578,45 +1357,20 @@ impl Event {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         let expected_hash = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        for proof in self.proofs.iter().filter_map(EventProof::as_producer) {
-            let expected = SignatureBindingPayload {
-                payload_digest: expected_hash.clone(),
-                actor_id: self.actor_id.clone(),
-                verification_method: proof.verification_method.clone(),
-                created_at: proof.created_at,
-                domain: domain.clone(),
-                audience: audience.clone(),
-            };
-            proof.validate_binding_with_requirements(&expected, requirements)?;
-        }
-        Ok(())
-    }
-
-    /// Validate the closed accepted-Event proof set: exactly one producer
-    /// proof followed by exactly one origin Station admission proof.
-    pub fn validate_station_admission_binding(
-        &self,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<()> {
-        let expected_event_digest = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        let [
-            EventProof::Producer(producer),
-            EventProof::StationAdmission(admission),
-        ] = self.proofs.as_slice()
-        else {
-            return Err(WireError::Protocol(
-                "accepted event must contain one producer proof followed by one Station admission proof"
-                    .to_owned(),
-            ));
+        let proof = self
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Event must carry producer_proof".to_owned()))?;
+        let expected = SignatureBindingPayload {
+            payload_digest: expected_hash,
+            actor_id: self.actor_id.clone(),
+            verification_method: proof.verification_method.clone(),
+            created_at: proof.created_at,
+            domain,
+            audience,
         };
-        producer.validate()?;
-        if producer.event_digest != expected_event_digest {
-            return Err(WireError::Protocol(
-                "producer proof event digest does not match accepted event".to_owned(),
-            ));
-        }
-        let author = self.executed_by.as_ref().unwrap_or(&self.actor_id);
-        admission.validate_binding(&expected_event_digest, producer, author.route_service_id())
+        proof.validate_binding_with_requirements(&expected, requirements)?;
+        Ok(())
     }
 
     /// Construct an Event in the given signed security scope.
@@ -1628,19 +1382,9 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
     ) -> Result<Self> {
-        Self::new_at(
-            kind,
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            payload,
-            Utc::now(),
-        )
+        Self::new_at(kind, scope_ref, actor_id, payload, Utc::now())
     }
 
     /// Construct an Event at a caller-supplied instant.
@@ -1650,19 +1394,14 @@ impl Event {
     /// is the deterministic authoring entry point for callers that need an
     /// object timestamp and its containing Event to share one exact instant.
     #[cfg(any(test, feature = "test-support"))]
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
-        Self::new_with_derived_id_at(
-            kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
-        )
+        Self::new_with_derived_id_at(kind, scope_ref, actor_id, payload, created_at)
     }
 
     /// Construct an Event whose `event_id` is derived from its own content.
@@ -1671,14 +1410,11 @@ impl Event {
     /// not a caller choice (`encoding.md` §4.0). It builds the envelope with a
     /// placeholder id, computes the digest over the preimage — which excludes
     /// `event_id` — and then stamps the derived id.
-    #[allow(clippy::too_many_arguments)]
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
@@ -1686,16 +1422,8 @@ impl Event {
         // works here; it is overwritten before the Event is observable.
         let placeholder = EventId::new(PLACEHOLDER_EVENT_ID)
             .expect("placeholder id is a canonical content-bound shape");
-        let mut event = Self::new_unstamped_at(
-            placeholder,
-            kind,
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            payload,
-            created_at,
-        )?;
+        let mut event =
+            Self::new_unstamped_at(placeholder, kind, scope_ref, actor_id, payload, created_at)?;
         event.event_id =
             event.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
         // A genesis scope names no Realm, so `realm_id` was computed from the
@@ -1708,15 +1436,12 @@ impl Event {
 
     /// Internal first pass used only while deriving the content-bound id.
     /// No public API may expose an Event with this placeholder identity.
-    #[allow(clippy::too_many_arguments)]
     #[cfg(any(test, feature = "test-support"))]
     fn new_unstamped_at(
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
@@ -1737,32 +1462,22 @@ impl Event {
             realm_id,
             scope_ref,
             actor_id,
-            actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
-            hlc: Some(hlc),
-            prev_refs: Vec::new(),
-            refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
+            semantic_refs: Vec::new(),
             payload: payload.into_iter().collect(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
+            producer_proof: None,
         })
     }
 }
 
 #[cfg(test)]
 mod event_wire_surface_tests {
-    //! Guard the Event Envelope wire surface against removed non-spec fields.
+    //! Guard the compact producer Event surface. Authority ordering lives in
+    //! `RealmCommit`, independently for Realm, Circle and Sidecar streams.
 
     use serde_json::json;
 
@@ -1787,149 +1502,203 @@ mod event_wire_surface_tests {
         ))
     }
 
-    fn base_event() -> Event {
-        let seed_event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]);
-        let strand_id = arkret_identifiers::StrandId::from_event_id(&seed_event);
-        Event {
-            event_id: seed_event,
-            kind: "ak.message.create".into(),
-            realm_id: realm(),
-            scope_ref: realm_scope(),
-            actor_id: alice(),
-            actor_seq: 1,
-            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
-            prev_refs: Vec::new(),
-            refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
-            payload: serde_json::from_value(json!({
-                "strand_id": strand_id,
-                "track_name": "discussion",
-                "content": {"kind": "ak.content.text", "body": "hello"}
-            }))
-            .unwrap(),
-            executed_by: None,
-            authorization_ref: None,
-            applet_id: None,
-            external_ref: None,
-            actor_kind: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-        }
-    }
-
-    fn producer_proof() -> EventProof {
-        EventProof::Producer(ProducerEventProof {
+    fn producer_proof() -> ProducerEventProof {
+        ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        })
+        }
+    }
+
+    fn base_event() -> Event {
+        Event::new_at(
+            "ak.message.create",
+            realm_scope(),
+            alice(),
+            json!({"body": "hello"}),
+            "2026-04-26T00:00:00.000Z".parse().unwrap(),
+        )
+        .unwrap()
+    }
+
+    const SHA256: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+
+    fn with_consistent_proof(mut event: Event, verification_method: &str) -> Event {
+        let mut proof = producer_proof();
+        proof.verification_method = DidUrl::new(verification_method).unwrap();
+        proof.event_digest =
+            Hash::new(event.event_digest_with_digest_suite(SHA256).unwrap()).unwrap();
+        event.producer_proof = Some(proof);
+        event
+    }
+
+    fn self_consistency_code(event: &Event) -> crate::ErrorCode {
+        event
+            .verify_producer_proof_self_consistency(SHA256)
+            .unwrap_err()
+            .error_code()
+            .expect("self-consistency failures carry an active error code")
+    }
+
+    const DEVICE: &str = "ak:device:0196419b-0000-7000-8000-000000000001";
+
+    #[test]
+    fn self_consistent_account_key_proof_has_no_device_producer() {
+        let event =
+            with_consistent_proof(base_event(), "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            event
+                .verify_producer_proof_self_consistency(SHA256)
+                .unwrap(),
+            None
+        );
     }
 
     #[test]
-    fn prepared_digest_payload_reconstructs_only_the_unsigned_event() {
-        // The round-trip is only total for an Event that carries its own
-        // derived id — which every wire Event must (section 4.0). Stamp it, so
-        // the fixture is a legal Event rather than one with a made-up id.
+    fn self_consistent_human_device_proof_returns_the_exact_device() {
+        let event = with_consistent_proof(
+            base_event(),
+            &format!("did:webvh:z6mkfixture:alice.example#{DEVICE}"),
+        );
+        let producer = event
+            .verify_producer_proof_self_consistency(SHA256)
+            .unwrap()
+            .expect("an ak:device: fragment on an Account signer is a human-device producer");
+        assert_eq!(producer.device_id.as_str(), DEVICE);
+        assert_eq!(Some(&producer.account_id), event.actor_id.as_account_id());
+    }
+
+    #[test]
+    fn self_consistency_binds_the_executor_not_the_actor() {
+        let service = ActorId::service(DidCoreId::new("ak:did_core:web:svc.example").unwrap());
         let mut event = base_event();
-        event.event_id = event
-            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+        event.executed_by = Some(service);
+        let executed = with_consistent_proof(event.clone(), "did:web:svc.example#key-1");
+        assert_eq!(
+            executed
+                .verify_producer_proof_self_consistency(SHA256)
+                .unwrap(),
+            None
+        );
+
+        let actor_signed =
+            with_consistent_proof(event, "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            self_consistency_code(&actor_signed),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_digest_over_other_bytes() {
+        let mut event =
+            with_consistent_proof(base_event(), "did:webvh:z6mkfixture:alice.example#key-1");
+        event.payload.insert("body".to_owned(), json!("tampered"));
+        assert_eq!(
+            self_consistency_code(&event),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_method_of_another_principal() {
+        for method in [
+            "did:webvh:z6mkother:mallory.example#key-1",
+            "did:web:alice.example#key-1",
+            "did:example:alice#key-1",
+        ] {
+            let event = with_consistent_proof(base_event(), method);
+            assert_eq!(
+                self_consistency_code(&event),
+                crate::ErrorCode::SignatureInvalid,
+                "{method}"
+            );
+        }
+    }
+
+    #[test]
+    fn self_consistency_rejects_a_malformed_device_fragment() {
+        let event = with_consistent_proof(
+            base_event(),
+            "did:webvh:z6mkfixture:alice.example#ak:device:dev_alice_1",
+        );
+        assert_eq!(
+            self_consistency_code(&event),
+            crate::ErrorCode::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn self_consistency_requires_a_producer_proof() {
+        assert_eq!(
+            self_consistency_code(&base_event()),
+            crate::ErrorCode::SchemaViolation
+        );
+    }
+
+    #[test]
+    fn event_digest_rejects_blob_only_suite() {
+        let event = base_event();
+        let error = event
+            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Blake3)
+            .unwrap_err();
+        assert!(error.to_string().contains("unsupported_digest_algorithm"));
+    }
+
+    #[test]
+    fn digest_payload_round_trips_without_producer_proof() {
+        let event = base_event();
         let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
         let reconstructed =
             Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
                 .unwrap();
 
         assert_eq!(reconstructed, event);
-        assert!(reconstructed.proofs.is_empty());
-        assert!(reconstructed.unsigned.is_empty());
-        assert!(reconstructed.actor_kind.is_none());
+        assert!(reconstructed.producer_proof.is_none());
     }
 
     #[test]
-    fn prepared_digest_payload_rejects_out_of_transcript_fields_and_noncanonical_json() {
-        let mut with_proofs = base_event().digest_payload().unwrap();
-        with_proofs["proofs"] = json!([]);
-        let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
+    fn digest_payload_rejects_producer_proof_and_noncanonical_json() {
+        let mut with_producer_proof = base_event().digest_payload().unwrap();
+        with_producer_proof["producer_proof"] = json!({});
+        let bytes = canonical::canonical_json_bytes(&with_producer_proof).unwrap();
         assert!(
-            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256,)
+            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
 
         let canonical =
             canonical::canonical_json_bytes(&base_event().digest_payload().unwrap()).unwrap();
-        let mut spaced = Vec::with_capacity(canonical.len() + 1);
-        spaced.extend_from_slice(b" ");
+        let mut spaced = b" ".to_vec();
         spaced.extend_from_slice(&canonical);
         assert!(
-            Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256,)
+            Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
     }
 
     #[test]
-    fn event_new_serializes_created_at_in_canonical_utc_millisecond_form() {
-        let mut event = Event::new(
-            "ak.message.create",
-            realm_scope(),
-            alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            json!({"body": "hello"}),
-        )
-        .unwrap();
-        let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
-        event.created_at = whole_second;
-        event.proofs.push(EventProof::Producer(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
-            created_at: whole_second,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        }));
-        let value = serde_json::to_value(&event).unwrap();
-        let created_at = value["created_at"].as_str().unwrap();
-
-        assert_eq!(created_at, "2026-06-03T12:34:56.000Z");
-        assert_eq!(value["proofs"][0]["created_at"], created_at);
-        canonical::validate_timestamp_canonical(created_at).unwrap();
-        serde_json::from_value::<Event>(value.clone()).unwrap();
-
-        let mut seconds = value.clone();
-        seconds["created_at"] = json!("2026-06-03T12:34:56Z");
-        assert!(serde_json::from_value::<Event>(seconds).is_err());
-
-        let mut micros = value;
-        micros["proofs"][0]["created_at"] = json!("2026-06-03T12:34:56.000123Z");
-        assert!(serde_json::from_value::<Event>(micros).is_err());
+    fn legacy_proofs_array_is_rejected() {
+        let mut value = serde_json::to_value(base_event()).unwrap();
+        value["proofs"] = json!([producer_proof()]);
+        let error = serde_json::from_value::<Event>(value)
+            .expect_err("legacy Event proofs array must be rejected");
+        assert!(error.to_string().contains("proofs"), "{error}");
     }
 
     #[test]
-    fn event_new_at_normalizes_the_supplied_instant_before_serialization() {
-        let created_at = "2026-06-03T12:34:56.987654Z".parse().unwrap();
+    fn event_new_at_normalizes_and_binds_the_timestamp() {
         let event = Event::new_at(
             "ak.message.create",
             realm_scope(),
             alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
-            created_at,
+            "2026-06-03T12:34:56.987654Z".parse().unwrap(),
         )
         .unwrap();
 
@@ -1937,69 +1706,68 @@ mod event_wire_surface_tests {
             event.created_at,
             "2026-06-03T12:34:56.987Z".parse::<DateTime<Utc>>().unwrap()
         );
-        assert_eq!(
-            serde_json::to_value(event).unwrap()["created_at"],
-            json!("2026-06-03T12:34:56.987Z")
-        );
-    }
-
-    #[test]
-    fn event_new_at_derives_and_verifies_the_identifier() {
-        let event = Event::new_at(
-            "ak.message.create",
-            realm_scope(),
-            alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            json!({"body": "hello"}),
-            "2026-06-03T12:34:56.000Z".parse().unwrap(),
-        )
-        .unwrap();
-
         event
             .verify_event_id_matches_content_with_digest_suite(
                 arkret_canonical::DigestSuite::Sha256,
             )
             .unwrap();
-        assert_eq!(
-            serde_json::to_value(event).unwrap()["created_at"],
-            json!("2026-06-03T12:34:56.000Z")
+    }
+
+    #[test]
+    fn refs_are_optional_but_explicit_empty_is_rejected() {
+        let value = serde_json::to_value(base_event()).unwrap();
+        assert!(value.get("semantic_refs").is_none());
+
+        let mut invalid = value;
+        invalid["semantic_refs"] = json!([]);
+        let err = serde_json::from_value::<Event>(invalid).unwrap_err();
+        assert!(
+            err.to_string().contains("must be omitted when empty"),
+            "{err}"
         );
     }
 
     #[test]
-    fn event_ingress_enforces_causal_ref_uniqueness_and_bound() {
-        let mut duplicate = serde_json::to_value(base_event()).unwrap();
-        let digest = format!("sha256:{}", "a".repeat(64));
-        duplicate["causal_refs"] = json!([digest.clone(), digest]);
-        let error = serde_json::from_value::<Event>(duplicate).unwrap_err();
-        assert!(error.to_string().contains("causal_refs"), "{error}");
-
-        let refs = (0_u64..=128)
-            .map(|index| format!("sha256:{index:064x}"))
-            .collect::<Vec<_>>();
-        let mut at_limit = serde_json::to_value(base_event()).unwrap();
-        at_limit["causal_refs"] = json!(refs[..128]);
-        serde_json::from_value::<Event>(at_limit).unwrap();
-
-        let mut over_limit = serde_json::to_value(base_event()).unwrap();
-        over_limit["causal_refs"] = json!(refs);
-        let error = serde_json::from_value::<Event>(over_limit).unwrap_err();
-        assert!(error.to_string().contains("causal_refs"), "{error}");
-    }
-
-    #[test]
-    fn event_serialization_omits_applet_surface_when_absent() {
+    fn signed_scope_ref_is_covered_and_must_match_the_realm() {
         let event = base_event();
-        let serialized = serde_json::to_value(&event).unwrap();
-        assert!(serialized.get("applet_id").is_none());
-        assert!(serialized.get("external_ref").is_none());
+        let baseline = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let mut rescoped = event;
+        rescoped.scope_ref = ScopeRef::Circle {
+            realm_id: realm(),
+            circle_id: CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x1c; 32],
+            )),
+        };
+        assert_ne!(
+            baseline,
+            rescoped
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
+        );
+
+        rescoped.scope_ref = ScopeRef::Realm {
+            realm_id: RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0xff; 32],
+            )),
+        };
+        let err = rescoped.validate_for_submit_structural().unwrap_err();
+        assert!(err.to_string().contains("scope_ref.realm_id"), "{err}");
     }
 
     #[test]
-    fn event_accepts_top_level_applet_provenance_and_round_trips() {
-        // Applet-originated write: applet_id + external_ref, with the
-        // authorization_ref the schema invariant requires.
+    fn structural_validation_requires_producer_proof() {
+        let mut event = base_event();
+        assert!(event.validate_for_submit_structural().is_err());
+        event.producer_proof = Some(producer_proof());
+        event.validate_for_submit_structural().unwrap();
+    }
+
+    #[test]
+    fn applet_provenance_round_trips_and_is_digest_bound() {
         let mut event = base_event();
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
@@ -2010,306 +1778,18 @@ mod event_wire_surface_tests {
             ("protocol".to_owned(), json!("slack")),
             ("external_id".to_owned(), json!("1234567890.0001")),
         ]));
-
         let value = serde_json::to_value(&event).unwrap();
-        // Both fields serialize at the top level (so they enter canonical bytes).
-        assert_eq!(
-            value.get("applet_id").and_then(Value::as_str),
-            Some("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb")
-        );
-        assert!(value.get("external_ref").unwrap().is_object());
-
-        // Round-trips through the wire deserializer (deny_unknown_fields).
-        let round_tripped: Event = serde_json::from_value(value).unwrap();
-        assert_eq!(round_tripped, event);
-
-        // Both fields enter the digest payload (proofs/unsigned removed only).
-        let digest_payload = event.digest_payload().unwrap();
-        assert!(digest_payload.get("applet_id").is_some());
-        assert!(digest_payload.get("external_ref").is_some());
-        // Mutating external_ref changes the event digest (it is covered).
-        let mut mutated = event.clone();
-        mutated.external_ref = Some(BTreeMap::from([
-            ("protocol".to_owned(), json!("slack")),
-            ("external_id".to_owned(), json!("different")),
-        ]));
-        assert_ne!(
-            event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap(),
-            mutated
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn actor_kind_is_the_only_field_outside_the_signed_transcript() {
-        // `actor_kind` is stamped by the reducer AFTER the producer signs, so
-        // it MUST NOT change the `event_digest`; a federated peer recomputing
-        // the digest from the accepted envelope must reach the same value.
-        // See `encoding.md` §2 / §6.
-        let event = base_event();
-        let baseline = event
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-
-        let mut stamped = event;
-        stamped.actor_kind = Some(EnvelopeActorKind::Agent);
-
-        assert_eq!(
-            baseline,
-            stamped
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap()
-        );
-        let digest_payload = stamped.digest_payload().unwrap();
-        assert!(digest_payload.get("actor_kind").is_none());
-        assert!(digest_payload.get("proofs").is_none());
-        assert!(digest_payload.get("unsigned").is_none());
-    }
-
-    #[test]
-    fn signed_scope_ref_is_covered_by_the_event_digest() {
-        let event = base_event();
-        let baseline = event
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        assert!(event.digest_payload().unwrap().get("scope_ref").is_some());
-
-        let mut rescoped = event;
-        rescoped.scope_ref = ScopeRef::Circle {
-            realm_id: realm(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0x1c; 32],
-            )),
-        };
-
-        assert_ne!(
-            baseline,
-            rescoped
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn event_wire_rejects_a_missing_scope_ref() {
-        let mut value = serde_json::to_value(base_event()).unwrap();
-        value.as_object_mut().unwrap().remove("scope_ref");
-
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(err.to_string().contains("scope_ref"), "{err}");
-    }
-
-    #[test]
-    fn event_wire_rejects_the_deleted_producer_reducer_instruction_fields() {
-        for field in ["effects", "conflict_keys_digest", "effective_scope"] {
-            let mut value = serde_json::to_value(base_event()).unwrap();
-            value
-                .as_object_mut()
-                .unwrap()
-                .insert(field.to_owned(), json!([]));
-            let err = serde_json::from_value::<Event>(value)
-                .expect_err("removed wire field must fail deserialization");
-            assert!(err.to_string().contains(field), "{field}: {err}");
-        }
-    }
-
-    #[test]
-    fn event_rejects_external_ref_without_applet_id() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert(
-            "external_ref".to_owned(),
-            json!({ "protocol": "slack", "external_id": "1234567890.0001" }),
-        );
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("external_ref requires a signed applet_id"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn event_rejects_applet_id_without_authorization_ref() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert(
-            "applet_id".to_owned(),
-            json!("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
-        );
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("applet_id requires authorization_ref"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn submit_rejects_actor_supplied_actor_kind() {
-        let mut event = base_event();
-        event.actor_kind = Some(EnvelopeActorKind::Agent);
-
-        let err = event.validate_for_submit_structural().unwrap_err();
-        assert!(
-            err.to_string()
-                .contains(ReasonCode::ACTOR_KIND_REDUCER_MANAGED),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn submit_rejects_a_scope_ref_that_disagrees_with_the_envelope_realm() {
-        let mut event = base_event();
-        event.scope_ref = ScopeRef::Realm {
-            realm_id: RealmId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0xff; 32],
-            )),
-        };
-
-        let err = event.validate_for_submit_structural().unwrap_err();
-        assert!(
-            err.to_string().contains("scope_ref.realm_id"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn standard_submit_uses_the_registry_plane_instead_of_the_envelope_shape() {
-        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap();
-
-        let mut data_kind_with_control_shape = base_event();
-        data_kind_with_control_shape.proofs.push(producer_proof());
-        data_kind_with_control_shape.seal_basis = Some(SealBasis {
-            leaves: vec![seal_id.clone()],
-        });
-        let error = data_kind_with_control_shape
-            .validate_for_submit_structural()
-            .expect_err("data kind must not be reclassified by a control-shaped envelope");
-        assert!(
-            error.to_string().contains("data-plane Event kind"),
-            "{error}"
-        );
-
-        let mut control_kind_with_data_shape = base_event();
-        control_kind_with_data_shape.kind = EventKind::RealmPolicy;
-        control_kind_with_data_shape.proofs.push(producer_proof());
-        control_kind_with_data_shape.seal_ref = Some(seal_id);
-        control_kind_with_data_shape.auth_context = Some(AuthContext {
-            key_id: OpaqueLocalId::new("device").unwrap(),
-            key_epoch: 0,
-            credential_epoch: None,
-        });
-        let error = control_kind_with_data_shape
-            .validate_for_submit_structural()
-            .expect_err("control kind must not be reclassified by a data-shaped envelope");
-        assert!(
-            error.to_string().contains("control-plane Event kind"),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn every_registered_kind_accepts_only_its_declared_cba_shape() {
-        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap();
-        for kind in EventKind::ALL {
-            let mut matching = base_event();
-            matching.kind = kind.clone();
-            matching.proofs.push(producer_proof());
-            matching.seal_ref = None;
-            matching.auth_context = None;
-            matching.seal_basis = None;
-            matching.preconditions.clear();
-            if *kind == EventKind::RealmCreate {
-                matching.scope_ref = ScopeRef::RealmGenesis;
-            }
-            match kind.cba_plane() {
-                Some(CbaEffectPlane::Data) => {
-                    matching.seal_ref = Some(seal_id.clone());
-                    matching.auth_context = Some(AuthContext {
-                        key_id: OpaqueLocalId::new("device").unwrap(),
-                        key_epoch: 0,
-                        credential_epoch: None,
-                    });
-                }
-                Some(CbaEffectPlane::Control) => {
-                    matching.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                }
-                None => {}
-            }
-            matching
-                .validate_for_submit_structural()
-                .unwrap_or_else(|error| panic!("matching shape rejected for {kind}: {error}"));
-
-            let mut mismatched = matching;
-            let expected_error = match kind.cba_plane() {
-                Some(CbaEffectPlane::Data) => {
-                    mismatched.seal_ref = None;
-                    mismatched.auth_context = None;
-                    mismatched.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                    "data-plane Event kind"
-                }
-                Some(CbaEffectPlane::Control) => {
-                    mismatched.seal_basis = None;
-                    mismatched.seal_ref = Some(seal_id.clone());
-                    mismatched.auth_context = Some(AuthContext {
-                        key_id: OpaqueLocalId::new("device").unwrap(),
-                        key_epoch: 0,
-                        credential_epoch: None,
-                    });
-                    "control-plane Event kind"
-                }
-                None => {
-                    mismatched.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                    "non-reducer events"
-                }
-            };
-            let error = mismatched.validate_for_submit_structural().unwrap_err();
-            assert!(
-                error.to_string().contains(expected_error),
-                "unexpected mismatch error for {kind}: {error}"
-            );
-        }
-    }
-
-    #[test]
-    fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
-        let mut event = base_event();
-        event.kind = EventKind::RealmCreate;
-        // A Realm genesis carries the closed `realm_genesis` scope and no
-        // `realm_id` (spec `zh/models/realm-and-space.md` section 2.5.0).
-        event.scope_ref = ScopeRef::RealmGenesis;
-        event.preconditions.push(Precondition {
-            cell_id: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
-                .unwrap(),
-            predicate: crate::cba::Predicate {
-                op: crate::cba::PredicateOp::HeadEq,
-                value: Some(Value::Null),
-                values: None,
-                predicate_id: None,
-            },
-        });
-        event.proofs.push(producer_proof());
-
-        event
-            .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
-            .expect("anchor-unit precondition is evaluated against the frozen predecessor");
+        assert_eq!(serde_json::from_value::<Event>(value).unwrap(), event);
         assert!(
             event
-                .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
-                .is_err(),
-            "the same basis-less Event is not an ordinary Control Move"
+                .digest_payload()
+                .unwrap()
+                .get("external_ref")
+                .is_some()
         );
+
+        let mut invalid = serde_json::to_value(base_event()).unwrap();
+        invalid["external_ref"] = json!({"protocol": "slack"});
+        assert!(serde_json::from_value::<Event>(invalid).is_err());
     }
 }

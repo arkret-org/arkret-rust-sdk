@@ -1,4 +1,4 @@
-//! Off-target stub for [`WindowsCredentialKeyStore`].
+//! Off-target stub for [`WindowsProtectedKeyStore`].
 //!
 //! Used when either the target is not Windows or the `keystore-windows`
 //! feature is disabled. Constructors return [`KeyStoreError::Unsupported`];
@@ -9,43 +9,43 @@ use crate::{KeyStore, KeyStoreError};
 
 /// Windows Credential Manager-backed [`KeyStore`] (off-target stub).
 #[derive(Debug)]
-pub struct WindowsCredentialKeyStore {
+pub struct WindowsProtectedKeyStore {
     _private: (),
 }
 
-impl WindowsCredentialKeyStore {
+impl WindowsProtectedKeyStore {
     /// Construct a keystore for the given application id. Off-target this
     /// always returns [`KeyStoreError::Unsupported`].
     pub fn new(_application_id: &str) -> std::result::Result<Self, KeyStoreError> {
         Err(KeyStoreError::unsupported(
-            "WindowsCredentialKeyStore requires target_os = \"windows\" + feature \
+            "WindowsProtectedKeyStore requires target_os = \"windows\" + feature \
              \"keystore-windows\"",
         ))
     }
 }
 
-impl KeyStore for WindowsCredentialKeyStore {
+impl KeyStore for WindowsProtectedKeyStore {
     fn load(&self, _id: &str) -> Result<KeyBytes> {
         Err(KeyStoreError::unsupported(
-            "WindowsCredentialKeyStore (stub)",
+            "WindowsProtectedKeyStore (stub)",
         ))
     }
 
     fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
         Err(KeyStoreError::unsupported(
-            "WindowsCredentialKeyStore (stub)",
+            "WindowsProtectedKeyStore (stub)",
         ))
     }
 
     fn list(&self) -> Result<Vec<String>> {
         Err(KeyStoreError::unsupported(
-            "WindowsCredentialKeyStore (stub)",
+            "WindowsProtectedKeyStore (stub)",
         ))
     }
 
     fn delete(&self, _id: &str) -> Result<()> {
         Err(KeyStoreError::unsupported(
-            "WindowsCredentialKeyStore (stub)",
+            "WindowsProtectedKeyStore (stub)",
         ))
     }
 }
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn off_target_constructor_returns_unsupported() {
-        let err = WindowsCredentialKeyStore::new("test.app").unwrap_err();
+        let err = WindowsProtectedKeyStore::new("test.app").unwrap_err();
         assert!(matches!(err, KeyStoreError::Unsupported { .. }));
         assert!(format!("{err}").contains("keystore-windows"));
     }

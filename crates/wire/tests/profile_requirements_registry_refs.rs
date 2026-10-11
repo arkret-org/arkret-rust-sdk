@@ -11,9 +11,8 @@
 //! have bought — without making one generator depend on another's identifier
 //! naming rules.
 //!
-//! Not covered, deliberately: `required_features`, `required_fixtures`,
-//! `required_cell_namespaces`, `required_cells` and `required_constraint_kinds`
-//! have no closed registry to resolve against.
+//! Not covered, deliberately: `required_features`, `required_fixtures` and
+//! `required_constraint_kinds` have no closed registry to resolve against.
 
 use arkret_wire::generated::profile_requirements::PROFILE_REQUIREMENTS;
 use arkret_wire::{CapabilityActionId, EventKind, ProfileId, SchemaId};

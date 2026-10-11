@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DidCoreId, Hash, MimiRoomUri, MimiUri, PayloadProof, ProofContextId, RealmId, StrandId,
+    DidCoreId, Hash, MimiRoomUri, MimiUri, MlsGroupId, PayloadProof, ProofContextId, RealmId,
+    StrandId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -108,11 +109,11 @@ pub struct RoomBindingPayload {
     pub follower_provider_ids: Option<Vec<DidCoreId>>,
     pub local_provider_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
+    pub mls_group_id: Option<MlsGroupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_root: Option<Hash>,
+    pub policy_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -142,7 +143,7 @@ pub struct Ciphertext {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GroupInfo {
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub group_info: String,
 }

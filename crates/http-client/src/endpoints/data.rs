@@ -1,29 +1,27 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
 use arkret_canonical::base64url::base64_standard_encode;
-use arkret_models_collaboration::objects::blob::{
-    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
-};
-use arkret_models_collaboration::sync_frames::account_sync::{
+use arkret_models_collaboration::device_messages::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };
+use arkret_models_collaboration::objects::blob::{
+    BlobPresignOutcome, BlobPresignRequestBody, BlobStorageEncryption, BlobUploadMetadata,
+    BlobUploadOutcome,
+};
 use arkret_models_crypto::{
-    BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupSummary,
-    KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
+    KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody, KeyPackagesClaimRequestBody,
     KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
     KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
-    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
+    KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
     AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
     AccountDataRow,
 };
-use arkret_wire::{BackupId, BlobRef};
+use arkret_wire::BlobRef;
 use reqwest::Method;
 use reqwest::header::RANGE;
 use url::Url;
@@ -47,26 +45,21 @@ const DEFAULT_MAX_CHUNK_RETRIES: usize = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlobResumableUploadOptions {
+    pub encryption: Option<BlobStorageEncryption>,
     pub metadata: Vec<(String, String)>,
     pub chunk_bytes: usize,
     pub max_chunk_retries: usize,
 }
 
-impl Default for BlobResumableUploadOptions {
-    fn default() -> Self {
+impl BlobResumableUploadOptions {
+    pub fn new(encryption: Option<BlobStorageEncryption>) -> Self {
         Self {
+            encryption,
             metadata: Vec::new(),
             chunk_bytes: DEFAULT_RESUMABLE_CHUNK_BYTES,
             max_chunk_retries: DEFAULT_MAX_CHUNK_RETRIES,
         }
     }
-}
-
-impl BlobResumableUploadOptions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     #[must_use]
     pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.push((key.into(), value.into()));
@@ -164,10 +157,6 @@ impl Client {
         self.apply_auth(builder, &method_for_auth, &url)
     }
 
-    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutcome> {
-        self.post("/_arkret/self/blob/upload", body).await
-    }
-
     pub async fn blob_presign(&self, body: &BlobPresignRequestBody) -> Result<BlobPresignOutcome> {
         self.post("/_arkret/self/blob/presign", body).await
     }
@@ -182,6 +171,15 @@ impl Client {
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or("application/octet-stream");
+        if metadata.encryption.is_some() && media_type != "application/octet-stream" {
+            return Err(Error::Protocol(
+                "ciphertext blob media_type must be application/octet-stream".to_owned(),
+            ));
+        }
+        let encryption =
+            reqwest::multipart::Part::text(serde_json::to_string(&metadata.encryption)?)
+                .mime_str("application/json")
+                .map_err(|error| Error::Protocol(format!("blob encryption: {error}")))?;
         let mut content = reqwest::multipart::Part::bytes(bytes)
             .mime_str(media_type)
             .map_err(|error| Error::Protocol(format!("blob media_type: {error}")))?;
@@ -190,6 +188,7 @@ impl Client {
         }
         let mut form = reqwest::multipart::Form::new()
             .part("content", content)
+            .part("encryption", encryption)
             .text("size_bytes", metadata.size_bytes.to_string())
             .text("media_type", media_type.to_owned());
         if let Some(realm_id) = metadata.realm_id.as_ref() {
@@ -200,9 +199,6 @@ impl Client {
         }
         if let Some(filename) = metadata.filename.as_ref() {
             form = form.text("filename", filename.clone());
-        }
-        if let Some(purpose) = metadata.purpose.as_ref() {
-            form = form.text("purpose", purpose.clone());
         }
         let builder = self
             .request(Method::POST, "/_arkret/self/blob/upload")?
@@ -299,12 +295,37 @@ impl Client {
                 "resumable upload chunk_bytes must be greater than zero".to_owned(),
             ));
         }
-        let upload_metadata = options
+        let mut keys = std::collections::HashSet::new();
+        for (key, value) in &options.metadata {
+            if !matches!(
+                key.as_str(),
+                "realm_id" | "content_digest" | "media_type" | "filename"
+            ) || !keys.insert(key)
+            {
+                return Err(Error::Protocol(
+                    "invalid resumable upload metadata key".to_owned(),
+                ));
+            }
+            if options.encryption.is_some()
+                && (key == "filename"
+                    || (key == "media_type" && value != "application/octet-stream"))
+            {
+                return Err(Error::Protocol(
+                    "ciphertext upload metadata exposes plaintext metadata".to_owned(),
+                ));
+            }
+        }
+        let encryption = serde_json::to_string(&options.encryption)?;
+        let mut upload_metadata = options
             .metadata
             .iter()
             .map(|(key, value)| format!("{key} {}", b64_metadata_value(value)))
             .collect::<Vec<_>>()
             .join(",");
+        if !upload_metadata.is_empty() {
+            upload_metadata.push(',');
+        }
+        upload_metadata.push_str(&format!("encryption {}", b64_metadata_value(&encryption)));
         let mut create_request = self
             .tus_request(Method::POST, base_url.clone())?
             .header(
@@ -313,9 +334,7 @@ impl Client {
             )
             .header("tus-resumable", TUS_VERSION)
             .header("upload-length", payload.len().to_string());
-        if !upload_metadata.is_empty() {
-            create_request = create_request.header("upload-metadata", upload_metadata);
-        }
+        create_request = create_request.header("upload-metadata", upload_metadata);
         let create = self.execute(create_request).await?;
         if create.status() != reqwest::StatusCode::CREATED {
             return Err(Error::Protocol(format!(
@@ -431,7 +450,10 @@ impl Client {
     }
 
     pub async fn keys_query(&self, request: &KeysQueryRequestBody) -> Result<KeysQueryOutcome> {
-        self.post("/_arkret/self/keys/query", request).await
+        request.validate()?;
+        let outcome: KeysQueryOutcome = self.post("/_arkret/self/keys/query", request).await?;
+        outcome.validate()?;
+        Ok(outcome)
     }
 
     pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {
@@ -470,104 +492,14 @@ impl Client {
             .await
     }
 
-    /// Upload (create or update) an encrypted [`KeyBackup`] envelope.
-    /// Spec: `crypto-media/key-management.md` §7.2 +
-    /// `sync/service-http-binding.md` §3 (PUT
-    /// `/_arkret/self/keys/backups/{backup_id}`). The envelope's
-    /// The caller owns the stable idempotency key and MUST reuse it only for
-    /// byte-identical retries of the same backup body.
-    pub(crate) async fn put_key_backup(
+    /// Read the byte-identical claim outcome that allocated `claim_id`, for
+    /// the claim record's own endpoint (`ak.self.keys.keypackages.read.claim.v1`).
+    pub async fn keypackages_claim_query(
         &self,
-        backup_id: &BackupId,
-        body: &KeyBackup,
-        idempotency_key: &str,
-    ) -> Result<KeysBackupsReplaceOutcome> {
-        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.put_with_options(&path, body, &options).await
-    }
-
-    /// List existing key backups for the authorized actor. Honors the
-    /// `series_id` / `backup_kind` / `cursor` / `limit` filters from
-    /// [`KeyBackupsListQuery`] (key-management.md §7.5).
-    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
-        let mut builder = self.request(Method::GET, "/_arkret/self/keys/backups")?;
-        if let Some(ref series_id) = query.series_id {
-            builder = builder.query(&[("series_id", series_id.as_str())]);
-        }
-        if let Some(class) = query.backup_kind {
-            builder = builder.query(&[("backup_kind", class.as_str())]);
-        }
-        if let Some(ref cursor) = query.cursor {
-            builder = builder.query(&[("cursor", cursor.as_str())]);
-        }
-        if let Some(limit) = query.limit {
-            builder = builder.query(&[("limit", limit.to_string())]);
-        }
-        self.send_json(builder).await
-    }
-
-    /// Convenience variant that returns just the summary list. Equivalent to
-    /// [`list_key_backups`](Self::list_key_backups) with default query.
-    pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
-        let response: KeysBackupsList = self
-            .list_key_backups(&KeyBackupsListQuery {
-                series_id: None,
-                backup_kind: None,
-                cursor: None,
-                limit: None,
-            })
-            .await?;
-        Ok(response.backups)
-    }
-
-    /// Unlock and fetch a single encrypted [`KeyBackup`] envelope for local
-    /// decryption. The full ciphertext is returned only through the
-    /// proof-bearing command body registered as
-    /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.
-    pub async fn unlock_key_backup(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsUnlockRequestBody,
-    ) -> Result<KeyBackup> {
-        let path = format!("/_arkret/self/keys/backups/{}/unlock", backup_id.as_str());
-        self.post(&path, request).await
-    }
-
-    /// Ask the service to mint (or re-return) the single-use delete challenge a
-    /// high-risk delete proof is bound to.
-    ///
-    /// `key-management.md` §7.8.1: freshness is issued by the service, and a
-    /// caller-minted nonce is never accepted. While a challenge for the same
-    /// `(account_id, backup_id, request_id)` is still valid the service
-    /// returns that same challenge, so a retry of this call does not invalidate
-    /// a proof already signed against it; a different `request_id` mints a new
-    /// one.
-    pub async fn issue_key_backup_delete_challenge(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsIssueDeleteChallengeRequestBody,
-    ) -> Result<KeysBackupsDeleteChallenge> {
-        let path = format!(
-            "/_arkret/self/keys/backups/{}/delete-challenge",
-            backup_id.as_str()
-        );
-        self.post(&path, request).await
-    }
-
-    /// Delete an existing key backup envelope. Spec §7.8 marks this as a
-    /// high-risk operation; the caller must supply the typed
-    /// [`KeysBackupsDeleteRequestBody`] carrying the `challenge_id` obtained
-    /// from [`issue_key_backup_delete_challenge`](Self::issue_key_backup_delete_challenge),
-    /// the `request_id` both calls share, one of the three registered proof
-    /// branches and (optionally) a human-readable reason.
-    pub async fn delete_key_backup(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteOutcome> {
-        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        self.delete_with_body(&path, request).await
+        request: &KeyPackagesClaimQueryRequestBody,
+    ) -> Result<KeyPackagesClaimOutcome> {
+        self.post("/_arkret/self/keys/keypackages/claims/query", request)
+            .await
     }
 
     /// Read one account-data entry.
@@ -611,17 +543,6 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn erase_backup_series(
-        &self,
-        request: &BackupSeriesEraseRequestBody,
-    ) -> Result<BackupSeriesEraseOutcome> {
-        let outcome: BackupSeriesEraseOutcome = self
-            .post("/_arkret/self/keys/backup-series/erase", request)
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
     pub async fn send_device_messages(
         &self,
         idempotency_key: &str,
@@ -634,12 +555,12 @@ impl Client {
 
     pub async fn receive_device_messages(
         &self,
-        from: Option<&str>,
+        after: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DeviceMessagesGetOutcome> {
         let mut builder = self.request(Method::GET, "/_arkret/self/device_messages")?;
-        if let Some(from) = from {
-            builder = builder.query(&[("from", from)]);
+        if let Some(after) = after {
+            builder = builder.query(&[("after", after)]);
         }
         if let Some(limit) = limit {
             builder = builder.query(&[("limit", limit)]);
@@ -677,6 +598,46 @@ mod tests {
         assert_eq!(b64_metadata_value("true"), "dHJ1ZQ==");
     }
 
+    #[tokio::test]
+    async fn ciphertext_uploads_reject_plaintext_metadata_before_transport() {
+        use arkret_models_collaboration::objects::blob::BlobStorageEncryptionScheme;
+        let client = ClientBuilder::new(Url::parse("https://server.local/").unwrap())
+            .build()
+            .unwrap();
+        let encryption = Some(BlobStorageEncryption {
+            scheme: BlobStorageEncryptionScheme::StreamV1,
+        });
+        let metadata = BlobUploadMetadata {
+            realm_id: None,
+            content_digest: None,
+            size_bytes: 1,
+            media_type: Some("image/png".to_owned()),
+            filename: None,
+            encryption,
+        };
+        assert!(matches!(
+            client.blob_upload_bytes(&metadata, vec![0]).await,
+            Err(Error::Protocol(_))
+        ));
+        for options in [
+            BlobResumableUploadOptions::new(encryption).metadata("media_type", "image/png"),
+            BlobResumableUploadOptions::new(encryption).metadata("filename", "private.png"),
+            BlobResumableUploadOptions::new(None).metadata("purpose", "file_transfer"),
+            BlobResumableUploadOptions::new(None).metadata("encryption", "null"),
+        ] {
+            assert!(matches!(
+                client
+                    .blob_upload_resumable(
+                        Url::parse("https://server.local/uploads").unwrap(),
+                        &[0],
+                        &options
+                    )
+                    .await,
+                Err(Error::Protocol(_))
+            ));
+        }
+    }
+
     #[test]
     fn resumable_upload_base_url_requires_feature_and_operation() {
         let mut description: ServiceDescribe = serde_json::from_value(json!({
@@ -709,7 +670,6 @@ mod tests {
             "auth_metadata": {"methods": []},
             "limits": {},
             "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
-            "claimed_profiles": [],
             "verified_profiles": [],
             "interop_surfaces": [],
             "development_mode": false,

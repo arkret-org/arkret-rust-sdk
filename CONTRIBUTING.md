@@ -21,7 +21,7 @@ itself lives at `.githooks/pre-commit`.
 Run the standard checks before sending changes:
 
 ```sh
-cargo fmt --check
+cargo +nightly fmt --check
 cargo check
 cargo test
 ```
@@ -67,8 +67,9 @@ time, not of the current spec, so recompute it against the spec file rather than
 trusting the `version:` line.
 
 Nothing above runs in the pre-commit hook (it needs a spec checkout the hook
-cannot assume), so the enforcement is the `spec-drift` CI job. Run the checks
-yourself before claiming a surface is synchronized.
+cannot assume). GitHub Actions are currently disabled by workspace decision;
+run both generated-surface synchronization and the coverage drift report
+locally before claiming a surface is synchronized.
 
 ### Coverage gates layered on top
 
@@ -99,8 +100,9 @@ green here and broke `bridges` and `cotest` at HEAD, which nothing compiled.)
 Any change that touches the public surface of `crates/wire` or
 `crates/models-*` MUST update `compatibility/manifest.json` with every
 coordinated candidate SHA. The `atomic compatibility / exact manifest gate`
-workflow resolves the triggering repository to its candidate SHA, records the
-fully resolved manifest as CI evidence, and checks that exact set before merge.
+workflow is manually dispatched in the SDK repository for a coordinated train.
+It resolves the selected manifest source to its exact SDK SHA, records the
+fully resolved manifest as CI evidence, and checks that exact set before promotion.
 For a local equivalent, resolve the candidate set and execute the ordered gate:
 
 ```bash
@@ -121,16 +123,17 @@ python tools/compatibility_gate.py run \
 ```
 
 The ordered checks cover the normative operation registry and schemas, SDK
-public-model probes, SDK/Soland/Coauth/Garth/Inkson/Cotest compilation, Cotest
-TypeScript and generated wire mirrors, and a live joint Soland/Coauth/Inkson
+public-model probes, SDK/Coland/Coauth/Garth/Inkson/Cotest compilation, Cotest
+TypeScript and generated wire mirrors, and a live joint Coland/Coauth/Inkson
 smoke. The first failure is emitted with its operation/schema/type surface.
 The committed negative-mutation test deletes a real SDK `Event` field in a
 temporary copy and must prove the gate rejects it.
 
-The same workflow is present in every repository in the train and also runs on
-`main` pushes, so local auto-sync cannot create an unobserved green set.
-Configure `atomic compatibility / exact manifest gate` as a required status
-check on each protected `main` branch. CI code cannot itself protect a branch.
+Ordinary repository CI validates current source and dependencies. The exact
+manifest gate is a single manual SDK workflow: independently updated `main`
+branches must not automatically be mixed with old pinned consumers. It is not
+a required per-repository status check. Use the compatibility train when a
+coordinated change needs this full candidate-set evidence.
 The merge order is the manifest's `train.merge_order`; do not use local DTOs,
 dual reads, or permissive extra fields to make an intermediate commit green.
 
@@ -171,6 +174,13 @@ Request/response DTO suffixes are unified workspace-wide (no removed aliases):
 - Endpoint success responses use `*Outcome` (e.g. `EventsQueryOutcome`,
   `AccountRegisterOutcome`). Do not introduce new `*ResBody` or
   `*Response` names.
+- Per-selector success/unavailable unions also use `*Outcome`; `*Result`
+  is not a protocol wrapper suffix. Nested objects use their domain noun or
+  an appropriate registered wrapper such as `*Row`, not generic `*Item` or
+  `*Details`. Domain subjects (ICE candidates, MLS GroupInfo, RSVP answers)
+  are distinct from response wrappers; see `common-fields.md` section 2.0.1 R4.
+  Run `python tools/lint-type-names.py` and
+  `python -m unittest discover -s tools -p test_type_names.py` when adding types.
 - Path/query/header parameter groups use `*Params` / `*Args`.
 - Struct field declaration order for wire objects follows the matching spec
   schema `properties` order (`spec/v1/artifacts/schemas/*.schema.json`,

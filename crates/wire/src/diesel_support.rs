@@ -108,9 +108,8 @@ mod tests {
             super::parse_actor_json(serde_json::to_value(&service).unwrap()).unwrap(),
             service
         );
-        for invalid in [
-            serde_json::json!({"principal_id": "ak:did_core:web:alice.example", "station_id": "ak:did_core:web:a.example", "extra": true}),
-        ] {
+        {
+            let invalid = serde_json::json!({"principal_id": "ak:did_core:web:alice.example", "station_id": "ak:did_core:web:a.example", "extra": true});
             assert!(super::parse_account_text(&invalid.to_string()).is_err());
             assert!(super::parse_actor_json(invalid).is_err());
         }

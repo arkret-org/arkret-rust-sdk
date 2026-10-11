@@ -24,7 +24,7 @@ pub struct DevicePushRouteActivePayload {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub push_route: String,
-    pub expected_revision: u64,
+    pub expected_server_revision: u64,
     pub push_target_id: PushTargetId,
     pub push_gateway_id: DidCoreId,
     pub encryption_key: String,
@@ -49,7 +49,7 @@ pub struct DevicePushRouteRevokedPayload {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub push_route: String,
-    pub expected_revision: u64,
+    pub expected_server_revision: u64,
     pub revoked: PushRouteRevokedMarker,
     #[serde(
         default,
@@ -97,10 +97,60 @@ impl DevicePushRoutePayload {
         }
     }
 
-    pub const fn expected_revision(&self) -> u64 {
+    pub const fn expected_server_revision(&self) -> u64 {
         match self {
-            Self::Active(value) => value.expected_revision,
-            Self::Revoked(value) => value.expected_revision,
+            Self::Active(value) => value.expected_server_revision,
+            Self::Revoked(value) => value.expected_server_revision,
         }
+    }
+}
+
+/// Shared decision for an account-private `server_revision_cas` effect.
+///
+/// The durable owner must compare and write in one transaction. This pure
+/// decision is shared by the owner projection and conformance runner so they
+/// use the same revision and overflow rule.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ServerRevisionCasDecision {
+    Accepted { next_revision: u64 },
+    Conflict,
+    Overflow,
+}
+
+pub fn decide_server_revision_cas(
+    current_revision: Option<u64>,
+    expected_server_revision: u64,
+) -> ServerRevisionCasDecision {
+    if current_revision.unwrap_or(0) != expected_server_revision {
+        return ServerRevisionCasDecision::Conflict;
+    }
+    match expected_server_revision.checked_add(1) {
+        Some(next_revision) => ServerRevisionCasDecision::Accepted { next_revision },
+        None => ServerRevisionCasDecision::Overflow,
+    }
+}
+
+#[cfg(test)]
+mod revision_cas_tests {
+    use super::{ServerRevisionCasDecision, decide_server_revision_cas};
+
+    #[test]
+    fn accepts_create_successor_and_retained_tombstone_high_water() {
+        assert_eq!(
+            decide_server_revision_cas(None, 0),
+            ServerRevisionCasDecision::Accepted { next_revision: 1 }
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(1), 1),
+            ServerRevisionCasDecision::Accepted { next_revision: 2 }
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(3), 0),
+            ServerRevisionCasDecision::Conflict
+        );
+        assert_eq!(
+            decide_server_revision_cas(Some(u64::MAX), u64::MAX),
+            ServerRevisionCasDecision::Overflow
+        );
     }
 }

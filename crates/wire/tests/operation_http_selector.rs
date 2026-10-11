@@ -14,8 +14,8 @@ fn resolves_literal_and_templated_http_operations() {
         Some(ServiceOperationId::SelfMorphResourceGetV1)
     );
     assert_eq!(
-        ServiceOperationId::from_http_request("GET", "/_arkret/self/events/subscribe"),
-        Some(ServiceOperationId::SelfEventsStreamSubscribeV1),
+        ServiceOperationId::from_http_request("GET", "/_arkret/self/committed-events/subscribe"),
+        Some(ServiceOperationId::SelfCommittedEventStreamSubscribeV1),
         "a literal route must beat the overlapping event_id placeholder"
     );
 }
@@ -39,11 +39,11 @@ fn rejects_unknown_method_path_and_empty_placeholder() {
 #[test]
 fn exact_selector_must_belong_to_the_http_route_family() {
     assert!(
-        ServiceOperationId::SelfEventsStreamSubscribeV1
-            .matches_http_request("GET", "/_arkret/self/events/subscribe")
+        ServiceOperationId::SelfCommittedEventStreamSubscribeV1
+            .matches_http_request("GET", "/_arkret/self/committed-events/subscribe")
     );
     assert!(
         !ServiceOperationId::SelfAccountStreamSubscribeV1
-            .matches_http_request("GET", "/_arkret/self/events/subscribe")
+            .matches_http_request("GET", "/_arkret/self/committed-events/subscribe")
     );
 }

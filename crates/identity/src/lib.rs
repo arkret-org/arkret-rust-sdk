@@ -6,6 +6,8 @@
 //! model / signature data crates and the outbound egress classifier; the
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
+pub mod account_device_signer_evidence;
+pub mod agent_authority_evidence;
 pub mod authority_history;
 mod error;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
@@ -18,12 +20,18 @@ pub mod binding;
 pub mod binding_digest;
 pub mod binding_store;
 pub(crate) mod helpers;
-pub mod history_recovery;
 pub mod jws;
+// Cryptographic genesis-to-current Realm authority-chain verification. It
+// lives here, not in a downstream service, because a rule re-implemented per
+// repository drifts away from the verifier it is supposed to mirror.
+pub mod principal_control;
+pub mod realm_authority_chain;
 mod records;
+pub mod registration_anchor;
 mod resolvers;
 pub mod service_identity;
 pub mod service_resolution_evidence;
+pub mod test_material;
 #[cfg(test)]
 mod tests;
 pub mod verifier;
@@ -50,8 +58,8 @@ pub use authority_history::{
     VerifiedAccountBindingReceipt, verify_account_binding_receipt_at_issuance,
 };
 pub use binding::{
-    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRequirement,
-    FreshnessRiskTier, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,
+    BindingError, DidBindingPurpose, DidBindingStatus, DidFreshnessRiskTier, FreshnessProfile,
+    FreshnessRequirement, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,
     VerifiedDidBindingDocumentInput, VerifiedDidBindingInput, VerifiedDidBindingKey,
     document_canonical_digest,
 };
@@ -71,7 +79,13 @@ pub use error::{IdentityError, Result};
 /// downstream crates (e.g. starid) reuse the low-level classifier instead of
 /// re-implementing address tables (STA-05-001).
 pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
+pub use realm_authority_chain::{
+    RealmAuthorityChainError, RealmAuthorityConvergenceError, RealmAuthorityFreshness,
+    RealmAuthorityKeyDirectory, RealmAuthorityKeyLookup, RealmAuthorityKeyMap,
+    VerifiedRealmAuthority, converge_verified_realm_authorities, verify_realm_authority_bundle,
+};
 pub use records::*;
+pub use registration_anchor::validate_principal_registration_anchor;
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;

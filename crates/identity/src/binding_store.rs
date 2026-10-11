@@ -726,16 +726,12 @@ mod tests {
         let json = serde_json::to_string(&accepted).expect("serialize");
         let restored: AcceptedDidBinding = serde_json::from_str(&json).expect("deserialize");
 
-        assert_eq!(restored.binding(), accepted.binding());
-        assert_eq!(restored.document().id, accepted.document().id);
-        assert_eq!(
-            restored.document().verification_methods,
-            accepted.document().verification_methods
-        );
-        // `DidDocument` re-materializes `raw_properties` on the way back in, so
-        // the values are not `==`. What matters is that the pairing invariant
-        // survives: the restored document still hashes to the pinned digest —
-        // which `AcceptedDidBinding::new` just proved by not rejecting it.
+        // `DidDocument` re-materializes `raw_properties` on the way back in;
+        // equality is over the normalized projection, so the round trip is
+        // `==` and the pairing invariant survives: the restored document still
+        // hashes to the pinned digest — which `AcceptedDidBinding::new` just
+        // proved by not rejecting it.
+        assert_eq!(restored, accepted);
         assert_eq!(
             &document_canonical_digest(restored.document()).expect("digest"),
             accepted.binding().document_digest()

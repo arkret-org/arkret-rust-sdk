@@ -1,281 +1,393 @@
-//! Content-addressed historical signer-resolution evidence.
+//! Compact signer-key evidence binding one resolved key to one
+//! authority-committed stream revision.
+//!
+//! The object is the portable half of signer resolution: a consumer that holds
+//! it can check which key signed, which subject owns the key, and which
+//! `RealmCommit` the binding was resolved against, without replaying a stream
+//! or asking the resolving service again. It is content addressed, so the
+//! carriers that reference it (`signer_resolution_evidence_ref` on the Agent
+//! key state and on the account lifecycle proof) commit to these exact bytes.
+//!
+//! The Account Authority controller gate family, which answers a different
+//! question (is the controller principal still eligible), lives in
+//! [`crate::agent_signer_evidence`]; the query-local current-key projection
+//! lives in [`crate::agent_signer_state`].
 
+use arkret_canonical::canonical::{canonical_json_bytes, sha256_hex};
 use arkret_wire::{
-    ActorId, DidCoreId, DidUrl, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
-    Result, SignerEvidenceRef, WireError,
+    DidCoreId, DidUrl, ErrorCode, NonEmptyJsonObject, RealmCommitId, Result, SignerEvidenceRef,
+    WireError,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    AgentSignerEvidence, AuthenticatedServiceResolution, DidDocument, PublicPrincipalResolution,
-};
+/// Minimum property count a public key JWK must carry to be a usable key.
+///
+/// A single-member object cannot name both a key type and its key material, so
+/// the schema floor is two and a shorter object is a schema violation rather
+/// than a partially usable key.
+pub const AUTHENTICATED_SIGNER_PUBLIC_KEY_JWK_MIN_PROPERTIES: usize = 2;
 
+/// Which principal class the resolved key belongs to.
+///
+/// The three classes are distinct authorities, never fallbacks for one another:
+/// a service key never stands in for the account key of its hosted principal,
+/// and an Agent key never stands in for its controller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum AuthenticatedSignerResolutionEvidence {
-    Service {
-        signer_id: DidCoreId,
-        verification_method: DidUrl,
-        authenticated_resolution: AuthenticatedServiceResolution,
-    },
-    Principal {
-        signer_id: DidCoreId,
-        verification_method: DidUrl,
-        public_resolution: PublicPrincipalResolution,
-        normalized_did_document: DidDocument,
-        attester_signer_evidence_ref: SignerEvidenceRef,
-    },
-    Agent {
-        signer_id: DidCoreId,
-        verification_method: DidUrl,
-        agent_signer_evidence: Box<AgentSignerEvidence>,
-        attester_signer_evidence_ref: SignerEvidenceRef,
-        controller_signer_evidence_ref: SignerEvidenceRef,
-        account_authority_signer_evidence_ref: SignerEvidenceRef,
-        receiver_signer_evidence_ref: SignerEvidenceRef,
-    },
+pub enum AuthenticatedSignerKind {
+    Principal,
+    Service,
+    Agent,
 }
 
-impl Eq for AuthenticatedSignerResolutionEvidence {}
+/// Content-addressed signer resolution evidence.
+///
+/// `authority_commit_id` is the single revision coordinate: the evidence
+/// asserts the binding as of that committed revision and carries no window,
+/// no frontier, and no reusable grant. A consumer that needs a later binding
+/// resolves again; it never extrapolates this one forward.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// Field declaration order is byte-for-byte the `properties` order of
+// `authenticated-signer-resolution-evidence.schema.json#/$defs/base`; the three
+// `oneOf` branches differ only by the `signer_kind` const, which this enum
+// field already carries.
+pub struct AuthenticatedSignerResolutionEvidence {
+    pub signer_kind: AuthenticatedSignerKind,
+    pub subject_id: DidCoreId,
+    pub verification_method: DidUrl,
+    pub public_key_jwk: NonEmptyJsonObject,
+    pub authority_commit_id: RealmCommitId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub resolved_at: DateTime<Utc>,
+}
 
 impl AuthenticatedSignerResolutionEvidence {
-    pub fn canonical_sha256_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
-    }
-
-    pub fn evidence_ref(&self) -> Result<SignerEvidenceRef> {
-        let digest = self.canonical_sha256_digest()?;
-        SignerEvidenceRef::new(format!("ak:signer_evidence:{}", digest.as_ref()))
-    }
-
-    pub fn signer_id(&self) -> &DidCoreId {
-        match self {
-            Self::Service { signer_id, .. }
-            | Self::Principal { signer_id, .. }
-            | Self::Agent { signer_id, .. } => signer_id,
-        }
-    }
-
-    pub fn verification_method(&self) -> &DidUrl {
-        match self {
-            Self::Service {
-                verification_method,
-                ..
-            }
-            | Self::Principal {
-                verification_method,
-                ..
-            }
-            | Self::Agent {
-                verification_method,
-                ..
-            } => verification_method,
-        }
-    }
-
-    pub fn validate_attester_binding(&self) -> Result<()> {
-        if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
-            return Err(WireError::Protocol(
-                "authenticated signer resolution evidence exceeds 1 MiB".to_owned(),
+    /// Structural invariants a consumer re-checks before it trusts the key.
+    ///
+    /// Binding the `verification_method` to `subject_id` is a resolution step,
+    /// not a string comparison: the DID URL is resolved through the method
+    /// adapter that produced the core id. This type therefore checks only what
+    /// is decidable from its own bytes.
+    pub fn validate(&self) -> Result<()> {
+        if self.public_key_jwk.as_map().len() < AUTHENTICATED_SIGNER_PUBLIC_KEY_JWK_MIN_PROPERTIES {
+            return Err(evidence_error(
+                "signer resolution evidence public key JWK must carry at least two properties",
             ));
-        }
-        match self {
-            Self::Service {
-                signer_id,
-                verification_method,
-                authenticated_resolution,
-            } => {
-                let record = &authenticated_resolution.service_resolution_record.record;
-                let method_controller = verification_method
-                    .as_str()
-                    .split_once('#')
-                    .map(|(controller, _)| controller);
-                if &record.service_id != signer_id
-                    || !(record.did.as_str().starts_with("did:key:")
-                        || record.did.as_str().starts_with("did:webvh:"))
-                    || method_controller != Some(record.did.as_str())
-                {
-                    return Err(WireError::Protocol(
-                        "service signer evidence does not authorize its signer or method"
-                            .to_owned(),
-                    ));
-                }
-            }
-            Self::Principal {
-                signer_id,
-                verification_method,
-                public_resolution,
-                normalized_did_document,
-                ..
-            } => {
-                if &public_resolution.account_id.principal_id != signer_id
-                    || !normalized_did_document
-                        .verification_methods
-                        .contains_key(verification_method.as_str())
-                {
-                    return Err(WireError::Protocol(
-                        "principal signer evidence does not authorize its signer or method"
-                            .to_owned(),
-                    ));
-                }
-                public_resolution.validate_attestation_binding()?;
-            }
-            Self::Agent {
-                signer_id,
-                verification_method,
-                agent_signer_evidence,
-                ..
-            } => {
-                let matches_signer = match agent_signer_evidence.as_ref() {
-                    AgentSignerEvidence::HistoricalEvent {
-                        event_admission_receipt,
-                        ..
-                    } => {
-                        &event_admission_receipt.agent_id == signer_id
-                            && &event_admission_receipt.verification_method == verification_method
-                    }
-                    AgentSignerEvidence::CurrentAdmission {
-                        admission_evidence, ..
-                    } => {
-                        let binding = &admission_evidence
-                            .agent_authority_state_evidence
-                            .state
-                            .signing_key_binding;
-                        &binding.agent_id == signer_id
-                            && &binding.verification_method == verification_method
-                    }
-                };
-                if !matches_signer {
-                    return Err(WireError::Protocol(
-                        "Agent signer evidence does not authorize its signer or method".to_owned(),
-                    ));
-                }
-            }
-        }
-        let references = match self {
-            Self::Service { .. } => return Ok(()),
-            Self::Principal {
-                attester_signer_evidence_ref,
-                ..
-            } => vec![attester_signer_evidence_ref],
-            Self::Agent {
-                attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
-                account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
-                ..
-            } => vec![
-                attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
-                account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
-            ],
-        };
-        for evidence_ref in references {
-            evidence_ref.content_digest()?;
         }
         Ok(())
     }
-}
 
-/// Freeze the Ed25519 verification method authenticated by retained signer
-/// evidence into the exact Realm notary descriptor used at Realm creation.
-///
-/// Callers must pass historical/authenticated evidence, never a current
-/// unauthenticated DID lookup. Unsupported key families fail closed instead
-/// of guessing a JOSE algorithm or wire encoding.
-pub fn ed25519_notary_signer_descriptor_from_evidence(
-    evidence: &AuthenticatedSignerResolutionEvidence,
-) -> Result<NotarySignerDescriptor> {
-    evidence.validate_attester_binding()?;
-    let document = match evidence {
-        AuthenticatedSignerResolutionEvidence::Service {
-            authenticated_resolution,
-            ..
-        } => &authenticated_resolution.normalized_did_document,
-        AuthenticatedSignerResolutionEvidence::Principal {
-            normalized_did_document,
-            ..
-        } => normalized_did_document,
-        AuthenticatedSignerResolutionEvidence::Agent { .. } => {
-            return Err(WireError::Protocol(
-                "Agent signer evidence does not carry a normalized DID document for Realm notary bootstrap"
-                    .to_owned(),
-            ));
-        }
-    };
-    let verification_method = evidence.verification_method();
-    let material = document
-        .verification_methods
-        .get(verification_method.as_str())
-        .ok_or_else(|| {
-            WireError::Protocol(
-                "authenticated signer evidence omits the selected notary verification method"
-                    .to_owned(),
-            )
+    /// Content address of this exact evidence object.
+    ///
+    /// The ref is `SHA-256(RFC8785-JCS(self))` in the registered
+    /// `ak:signer_evidence:` form. Every carrier that reports a
+    /// `signer_resolution_evidence_ref` alongside the evidence must report the
+    /// value this helper returns; a consumer recomputes it here rather than
+    /// trusting the reported sibling.
+    pub fn signer_evidence_ref(&self) -> Result<SignerEvidenceRef> {
+        let bytes = canonical_json_bytes(self).map_err(|error| {
+            evidence_error(&format!("evidence is not canonicalizable: {error}"))
         })?;
-    let public_key = decode_ed25519_material(material)?;
-    let frozen_public_key_b64u = arkret_wire::base64url::base64url_encode(public_key);
-    let actor_id = match evidence {
-        AuthenticatedSignerResolutionEvidence::Service { signer_id, .. } => {
-            ActorId::service(signer_id.clone())
-        }
-        AuthenticatedSignerResolutionEvidence::Principal {
-            public_resolution, ..
-        } => ActorId::account(public_resolution.authority()),
-        AuthenticatedSignerResolutionEvidence::Agent { .. } => {
-            unreachable!("Agent signer evidence returned before descriptor construction")
-        }
-    };
-    let descriptor = NotarySignerDescriptor {
-        actor_id,
-        verification_method: verification_method.clone(),
-        key_kind: NotaryKeyKind::Ed25519Raw32,
-        jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-        frozen_public_key_b64u,
-        frozen_public_key_digest: Hash::new(arkret_canonical::sha256_digest(public_key))?,
-    };
-    descriptor.validate()?;
-    Ok(descriptor)
+        SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", sha256_hex(bytes)))
+    }
+
+    /// Whether `reported` is the content address of this exact evidence object.
+    pub fn matches_ref(&self, reported: &SignerEvidenceRef) -> Result<bool> {
+        Ok(&self.signer_evidence_ref()? == reported)
+    }
 }
 
-fn decode_ed25519_material(material: &str) -> Result<[u8; 32]> {
-    let material = material.trim();
-    if material.starts_with('z') {
-        return arkret_canonical::decode_ed25519_multibase(material).map_err(Into::into);
+/// Assemble one signer-resolution evidence object without signing anything.
+///
+/// Every input is supplied by the caller, including `resolved_at`: the helper
+/// reads no clock, holds no key and consults no service, so the same inputs
+/// always produce the same bytes and therefore the same
+/// [`SignerEvidenceRef`]. A resolving Station calls it after it has already
+/// resolved the key against `authority_commit_id`; the evidence records that
+/// resolution, it does not perform one.
+///
+/// It is deliberately not a trait or a builder: an evidence object with a
+/// field left to a default is an evidence object that asserts something its
+/// producer never checked.
+pub fn build_signer_resolution_evidence(
+    signer_kind: AuthenticatedSignerKind,
+    subject_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    let evidence = AuthenticatedSignerResolutionEvidence {
+        signer_kind,
+        subject_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    };
+    evidence.validate()?;
+    Ok(evidence)
+}
+
+/// [`build_signer_resolution_evidence`] for an Agent runtime key.
+///
+/// An Agent key never stands in for its controller, so the kind is fixed here
+/// rather than passed in: a caller that holds an Agent key has no way to spell
+/// the principal or service branch by accident.
+pub fn build_agent_signer_evidence(
+    agent_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Agent,
+        agent_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
+/// [`build_signer_resolution_evidence`] for an account principal key.
+pub fn build_principal_signer_evidence(
+    principal_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Principal,
+        principal_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
+/// [`build_signer_resolution_evidence`] for a Station Service key.
+pub fn build_service_signer_evidence(
+    service_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Service,
+        service_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
+fn evidence_error(message: &str) -> WireError {
+    WireError::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: message.to_owned(),
     }
-    let value: serde_json::Value = serde_json::from_str(material).map_err(|error| {
-        WireError::Protocol(format!(
-            "invalid authenticated notary key material: {error}"
-        ))
-    })?;
-    if let serde_json::Value::String(inner) = value {
-        return decode_ed25519_material(&inner);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn evidence_json() -> serde_json::Value {
+        serde_json::json!({
+            "signer_kind": "agent",
+            "subject_id": "ak:did_core:web:agent.example",
+            "verification_method": "did:web:agent.example#runtime-key",
+            "public_key_jwk": {
+                "crv": "Ed25519",
+                "kty": "OKP",
+                "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+            },
+            "authority_commit_id":
+                "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+            "resolved_at": "2026-09-16T00:00:00.000Z"
+        })
     }
-    let object = value.as_object().ok_or_else(|| {
-        WireError::Protocol("authenticated notary key material must be multibase or JWK".to_owned())
-    })?;
-    if object.get("kty").and_then(serde_json::Value::as_str) != Some("OKP")
-        || object.get("crv").and_then(serde_json::Value::as_str) != Some("Ed25519")
-    {
-        return Err(WireError::Protocol(
-            "authenticated notary JWK must be an Ed25519 OKP key".to_owned(),
-        ));
+
+    fn evidence() -> AuthenticatedSignerResolutionEvidence {
+        serde_json::from_value(evidence_json()).unwrap()
     }
-    let encoded = object
-        .get("x")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| WireError::Protocol("authenticated notary JWK omits x".to_owned()))?;
-    let decoded = arkret_wire::base64url::base64url_decode(encoded).map_err(|error| {
-        WireError::Protocol(format!("invalid authenticated notary JWK x: {error}"))
-    })?;
-    if decoded.len() != 32 || arkret_wire::base64url::base64url_encode(&decoded) != encoded {
-        return Err(WireError::Protocol(
-            "authenticated notary JWK x is not canonical Ed25519 key material".to_owned(),
-        ));
+
+    #[test]
+    fn evidence_round_trips_byte_for_byte() {
+        let json = evidence_json();
+        let evidence: AuthenticatedSignerResolutionEvidence =
+            serde_json::from_value(json.clone()).unwrap();
+        evidence.validate().unwrap();
+        assert_eq!(serde_json::to_value(&evidence).unwrap(), json);
     }
-    decoded
-        .try_into()
-        .map_err(|_| WireError::Protocol("authenticated notary key length mismatch".to_owned()))
+
+    #[test]
+    fn every_signer_kind_decodes() {
+        for (kind, expected) in [
+            ("principal", AuthenticatedSignerKind::Principal),
+            ("service", AuthenticatedSignerKind::Service),
+            ("agent", AuthenticatedSignerKind::Agent),
+        ] {
+            let mut json = evidence_json();
+            json["signer_kind"] = serde_json::json!(kind);
+            let evidence: AuthenticatedSignerResolutionEvidence =
+                serde_json::from_value(json).unwrap();
+            assert_eq!(evidence.signer_kind, expected);
+        }
+
+        let mut json = evidence_json();
+        json["signer_kind"] = serde_json::json!("device");
+        serde_json::from_value::<AuthenticatedSignerResolutionEvidence>(json)
+            .expect_err("signer kind is a closed enum");
+    }
+
+    #[test]
+    fn required_members_and_closure_are_enforced() {
+        for required in [
+            "signer_kind",
+            "subject_id",
+            "verification_method",
+            "public_key_jwk",
+            "authority_commit_id",
+            "resolved_at",
+        ] {
+            let mut json = evidence_json();
+            json.as_object_mut().unwrap().remove(required);
+            serde_json::from_value::<AuthenticatedSignerResolutionEvidence>(json)
+                .expect_err("required member omission must be rejected");
+        }
+
+        let mut json = evidence_json();
+        json["stream_position"] = serde_json::json!(7);
+        serde_json::from_value::<AuthenticatedSignerResolutionEvidence>(json)
+            .expect_err("the evidence object is closed");
+    }
+
+    #[test]
+    fn public_key_jwk_floor_is_two_properties() {
+        let mut json = evidence_json();
+        json["public_key_jwk"] = serde_json::json!({ "kty": "OKP" });
+        let evidence: AuthenticatedSignerResolutionEvidence = serde_json::from_value(json).unwrap();
+        evidence
+            .validate()
+            .expect_err("a one-member JWK cannot name both key type and key material");
+
+        let mut json = evidence_json();
+        json["public_key_jwk"] = serde_json::json!({});
+        serde_json::from_value::<AuthenticatedSignerResolutionEvidence>(json)
+            .expect_err("an empty JWK is not a key");
+    }
+
+    #[test]
+    fn signer_evidence_ref_is_the_canonical_content_address() {
+        let evidence = evidence();
+        let reference = evidence.signer_evidence_ref().unwrap();
+        let expected = sha256_hex(canonical_json_bytes(&evidence).unwrap());
+        assert_eq!(
+            reference.as_ref(),
+            format!("ak:signer_evidence:sha256:{expected}")
+        );
+        assert!(evidence.matches_ref(&reference).unwrap());
+
+        let mut rebound = evidence;
+        rebound.authority_commit_id =
+            RealmCommitId::new("ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ")
+                .unwrap();
+        assert!(!rebound.matches_ref(&reference).unwrap());
+    }
+
+    /// The builder takes `resolved_at` rather than reading a clock, so calling
+    /// it twice for the same resolution yields the same content address. A
+    /// helper that stamped its own time would mint a new ref on every call and
+    /// silently break every carrier that commits to these bytes.
+    #[test]
+    fn the_builders_are_deterministic_and_stamp_no_time_of_their_own() {
+        let template = evidence();
+        let built = build_agent_signer_evidence(
+            template.subject_id.clone(),
+            template.verification_method.clone(),
+            template.public_key_jwk.clone(),
+            template.authority_commit_id.clone(),
+            template.resolved_at,
+        )
+        .unwrap();
+        assert_eq!(built, template);
+        assert_eq!(
+            built.signer_evidence_ref().unwrap(),
+            build_agent_signer_evidence(
+                template.subject_id.clone(),
+                template.verification_method.clone(),
+                template.public_key_jwk.clone(),
+                template.authority_commit_id.clone(),
+                template.resolved_at,
+            )
+            .unwrap()
+            .signer_evidence_ref()
+            .unwrap()
+        );
+    }
+
+    /// Each named builder fixes its own `signer_kind`: the three classes are
+    /// distinct authorities, never fallbacks for one another.
+    #[test]
+    fn each_named_builder_fixes_its_own_signer_kind() {
+        let template = evidence();
+        type EvidenceConstructor = fn(
+            DidCoreId,
+            DidUrl,
+            NonEmptyJsonObject,
+            RealmCommitId,
+            DateTime<Utc>,
+        ) -> Result<AuthenticatedSignerResolutionEvidence>;
+        let cases: [(EvidenceConstructor, AuthenticatedSignerKind); 3] = [
+            (build_agent_signer_evidence, AuthenticatedSignerKind::Agent),
+            (
+                build_principal_signer_evidence,
+                AuthenticatedSignerKind::Principal,
+            ),
+            (
+                build_service_signer_evidence,
+                AuthenticatedSignerKind::Service,
+            ),
+        ];
+        for (build, expected) in cases {
+            let built = build(
+                template.subject_id.clone(),
+                template.verification_method.clone(),
+                template.public_key_jwk.clone(),
+                template.authority_commit_id.clone(),
+                template.resolved_at,
+            )
+            .unwrap();
+            assert_eq!(built.signer_kind, expected);
+        }
+    }
+
+    /// The builder validates, so an unusable key never reaches a content
+    /// address at all.
+    #[test]
+    fn the_builder_refuses_a_jwk_that_cannot_name_a_key() {
+        let template = evidence();
+        let mut json = evidence_json();
+        json["public_key_jwk"] = serde_json::json!({ "kty": "OKP" });
+        let thin: AuthenticatedSignerResolutionEvidence = serde_json::from_value(json).unwrap();
+        build_agent_signer_evidence(
+            template.subject_id,
+            template.verification_method,
+            thin.public_key_jwk,
+            template.authority_commit_id,
+            template.resolved_at,
+        )
+        .expect_err("a one-member JWK is not a usable key");
+    }
 }

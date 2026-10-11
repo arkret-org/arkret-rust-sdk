@@ -1,37 +1,40 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
-use arkret_models_collaboration::account_lifecycle::{
+use arkret_models_collaboration::account_operations::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
 use arkret_models_collaboration::contact_operations::{
-    ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
+    ContactAcceptRequestBody, ContactList, ContactOperationOutcome, ContactOperationRequestBody,
     ContactTombstoneRequestBody,
 };
-use arkret_models_collaboration::direct_conversation_ops::{
+use arkret_models_collaboration::device_pairing::{
+    AccountDevicePairOutcome, AccountDevicePairRequestBody, DevicePairingBootstrap,
+    DevicePairingCodeClaimOutcome, DevicePairingCodeClaimRequestBody, DevicePairingFinalizeOutcome,
+    DevicePairingFinalizeRequestBody, DevicePairingResolveRequestBody, DevicePairingStageOutcome,
+    DevicePairingStageRequestBody, DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
+};
+use arkret_models_collaboration::direct_conversation::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
-use arkret_models_collaboration::http_bodies::{
-    AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
-    DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
-    DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
+#[cfg(all(test, not(target_arch = "wasm32")))]
+use arkret_models_collaboration::session_grants::{
+    AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequest,
+    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
 };
-use arkret_models_collaboration::session_grant_bodies::{
+use arkret_models_collaboration::session_grants::{
     SessionGrantOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
-    AccountSubscribeSnapshotResult,
+    AccountSubscribeSnapshotResult, AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
 };
-use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountOnboardingState, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
-    IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
+    AccountOnboardingState, AccountUpdateProfileOutcome, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody,
 };
@@ -58,6 +61,7 @@ pub struct AccountSubscribeFrameStream {
     inner: BoxAccountSubscribeFrameStream,
     trace: StreamTraceValidator,
     failed: bool,
+    round_budget: AccountSyncRoundBudget,
 }
 
 impl AccountSubscribeFrameStream {
@@ -80,7 +84,11 @@ impl AccountSubscribeFrameStream {
                 return Ok(None);
             }
         };
+        self.failed = true;
+        self.round_budget
+            .observe(arkret_canonical::canonical_json_bytes(&frame)?.len())?;
         self.trace.push(&frame)?;
+        self.failed = false;
         Ok(Some(frame))
     }
 
@@ -180,26 +188,8 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Issue the durable, single-use challenge that makes giving up a
-    /// never-accepted provisional identity explicit. Authentication is the
-    /// current account handoff grant, not a principal-bound session grant.
-    pub async fn auth_issue_identity_abandonment_challenge(
-        &self,
-        request: &IdentityAbandonmentChallengeRequestBody,
-    ) -> Result<IdentityAbandonmentChallengeOutcome> {
-        request.validate()?;
-        let outcome: IdentityAbandonmentChallengeOutcome = self
-            .post(
-                "/_arkret/gate/account/identity-abandonment-challenges",
-                request,
-            )
-            .await?;
-        outcome.validate()?;
-        Ok(outcome)
-    }
-
-    /// Consume a previously issued abandonment challenge with a fresh account
-    /// handoff grant. Exact request-id replay returns the recorded terminal.
+    /// Explicitly abandon a provisional identity using fresh account authentication.
+    /// Exact request-id replay returns the recorded terminal.
     pub async fn auth_abandon_identity_creation(
         &self,
         request: &IdentityAbandonmentRequestBody,
@@ -212,9 +202,8 @@ impl Client {
     pub async fn account_update_profile(
         &self,
         request: &AccountUpdateProfileRequestBody,
-        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<AccountUpdateProfileOutcome> {
-        request.validate(digest_suite)?;
+        request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
     }
 
@@ -238,6 +227,37 @@ impl Client {
             .await
     }
 
+    /// `POST /_arkret/gate/account/device-pairing/finalizations`
+    /// (`ak.gate.account.command.finalize_device_pairing.v1`). Authenticated
+    /// with `Authorization: DPoP <account_handoff_grant>` and a matching DPoP
+    /// proof: the staged candidate attaches its signed target proof and the
+    /// record moves one way from `staged` to `ready_for_claim`. This is the
+    /// only server-facing carrier of the target proof; the anonymous stage and
+    /// resolve surfaces MUST NOT receive it.
+    pub async fn auth_finalize_device_pairing(
+        &self,
+        request: &DevicePairingFinalizeRequestBody,
+    ) -> Result<DevicePairingFinalizeOutcome> {
+        self.post(
+            "/_arkret/gate/account/device-pairing/finalizations",
+            request,
+        )
+        .await
+    }
+
+    /// `POST /_arkret/gate/account/device-pairing/code-claims`
+    /// (`ak.gate.account.read.claim_device_pairing_code.v1`). Authenticated,
+    /// body-only: an accepted device of the account exchanges the eight-
+    /// character code for the same bootstrap and byte-equivalent target proof
+    /// the short-link resolve returns. Claiming authorizes nothing.
+    pub async fn device_pairing_claim_code(
+        &self,
+        request: &DevicePairingCodeClaimRequestBody,
+    ) -> Result<DevicePairingCodeClaimOutcome> {
+        self.post("/_arkret/gate/account/device-pairing/code-claims", request)
+            .await
+    }
+
     /// `POST /_arkret/open/device-pairing/resolve`
     /// (`ak.open.device_pairing.read.resolve.v1`). Unauthenticated, body-only: an
     /// already-authorized device exchanges a scanned/pasted pairing token for the
@@ -257,8 +277,13 @@ impl Client {
         &self,
         request: &DevicePairingStatusRequestBody,
     ) -> Result<DevicePairingStatusOutcome> {
-        self.post("/_arkret/open/device-pairing/requests/status", request)
-            .await
+        let outcome: DevicePairingStatusOutcome = self
+            .post("/_arkret/open/device-pairing/requests/status", request)
+            .await?;
+        // The conditional members are the §5.4.1 pre-assembly entry point, so a
+        // shape the schema rejects must not reach the caller as a usable state.
+        outcome.validate()?;
+        Ok(outcome)
     }
 
     fn account_subscribe_request(
@@ -266,18 +291,7 @@ impl Client {
         request: &SyncRequestBody,
         accept: &str,
     ) -> Result<RequestBuilder> {
-        // `ak.self.account.stream.subscribe.v1` has no request body; its query
-        // surface is `after` / `catchup` / `filter.*` (client-sync.md §2
-        // request-parameter table). `subscriptions` and `wait_for` are not
-        // part of this transport — fail loudly instead of silently dropping
-        // fields the caller expects the server to honor.
-        if request.subscriptions.is_some() {
-            return Err(Error::Protocol(
-                "account subscribe does not support `subscriptions`; use per-Realm \
-                 events subscriptions instead"
-                    .to_owned(),
-            ));
-        }
+        request.validate()?;
         let mut builder = self
             .request_unbounded(Method::GET, "/_arkret/self/account/subscribe")?
             .header("accept", accept);
@@ -287,34 +301,18 @@ impl Client {
         if let Some(catchup) = request.catchup {
             builder = builder.query(&[("catchup", catchup)]);
         }
+        if let Some(replace) = request.replace_filter {
+            builder = builder.query(&[("replace_filter", replace)]);
+        }
+        if let Some(page) = &request.realm_list {
+            let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(page)?)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            builder = builder.query(&[("realm_list", encoded)]);
+        }
         if let Some(filter) = &request.filter {
-            // deepObject encoding with the dotted parameter names from the
-            // client-sync.md §2 table (`filter.realms`, `filter.timeline_limit`, …).
-            if !filter.extra.is_empty() {
-                return Err(Error::Protocol(
-                    "account subscribe filter extensions are not representable as query \
-                     parameters"
-                        .to_owned(),
-                ));
-            }
-            for realm_id in &filter.realm_ids {
-                builder = builder.query(&[("filter.realms", realm_id.as_str())]);
-            }
-            if let Some(timeline_limit) = filter.timeline_limit {
-                builder = builder.query(&[("filter.timeline_limit", timeline_limit)]);
-            }
-            if filter.lazy_load_members {
-                builder = builder.query(&[("filter.lazy_load_members", true)]);
-            }
-            if filter.include_redundant_members {
-                builder = builder.query(&[("filter.include_redundant_members", true)]);
-            }
-            for event_type in &filter.event_types {
-                builder = builder.query(&[("filter.event_types", event_type.as_str())]);
-            }
-            for event_type in &filter.not_event_types {
-                builder = builder.query(&[("filter.not_event_types", event_type.as_str())]);
-            }
+            let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(filter)?)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            builder = builder.query(&[("filter", encoded)]);
         }
         Ok(builder)
     }
@@ -341,7 +339,7 @@ impl Client {
     /// deltas are folded until a valid `catchup_complete`; without catch-up,
     /// the first validated delta completes this one-shot call.
     ///
-    /// Benign keepalive and frontier frames are validated while waiting.
+    /// Benign keepalive and checkpoint frames are validated while waiting.
     /// Control interrupts (`dropped` / `resync_required` /
     /// `unauthorized`) surface as [`Error::AccountStreamInterrupt`] so
     /// the caller can reconcile per client-sync.md §2.2 — they are never
@@ -470,13 +468,16 @@ impl Client {
                     ),
                 )
             } else {
-                let mut frames = Vec::new();
-                for line in crate::subscribe_body::bounded_response_lines(response).await? {
-                    if let Some(frame) = AccountSubscribeFrame::from_ndjson_line(&line)? {
-                        frames.push(Ok(frame));
-                    }
-                }
-                Box::pin(futures_util::stream::iter(frames))
+                let lines = crate::subscribe_body::bounded_response_lines(response).await?;
+                Box::pin(
+                    futures_util::stream::iter(lines).filter_map(|line| async move {
+                        match AccountSubscribeFrame::from_ndjson_line(&line) {
+                            Ok(Some(frame)) => Some(Ok(frame)),
+                            Ok(None) => None,
+                            Err(error) => Some(Err(Error::from(error))),
+                        }
+                    }),
+                )
             };
         Ok(AccountSubscribeFrameStream {
             inner,
@@ -485,6 +486,7 @@ impl Client {
                 request.after.clone(),
             ),
             failed: false,
+            round_budget: Default::default(),
         })
     }
 
@@ -518,6 +520,11 @@ impl Client {
         self.get(PATH_SELF_CONTACTS).await
     }
 
+    pub async fn contacts_export_continuity(&self) -> Result<ContactList> {
+        self.get(&format!("{PATH_SELF_CONTACTS}?include_continuity=true"))
+            .await
+    }
+
     pub async fn contacts_tombstone(
         &self,
         request: &ContactTombstoneRequestBody,
@@ -542,8 +549,7 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::client_sync::{SubscriptionConfig, SyncFilter};
-    use arkret_wire::RealmId;
+    use arkret_models_collaboration::sync_frames::account_subscribe::AccountFilter;
     use url::Url;
 
     use super::*;
@@ -556,7 +562,9 @@ mod tests {
             after: None,
             catchup: None,
             filter: None,
-            subscriptions: None,
+
+            realm_list: None,
+            replace_filter: None,
         }
     }
 
@@ -606,27 +614,46 @@ mod tests {
         raw
     }
 
+    /// Built from the wire structs rather than a JSON literal: the literal this
+    /// replaced still carried a retired `nonce` member and no `issued_at`, and
+    /// nothing failed until the body was actually deserialized at run time.
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
-        serde_json::from_value(serde_json::json!({
-            "principal_id": "ak:did_core:web:agent.example",
-            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "requested_scope": ["ak.message.create"],
-            "agent_key_authorization_ref": "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
-            "agent_scope_request": {},
-            "dpop_binding_proof": {"proof_jwt": "holder.proof.jwt"},
-            "proof": {
-                "proof_kind": "agent_key_proof",
-                "challenge": "0123456789abcdef",
-                "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience_id": "ak:did_core:web:service.example",
-                "expires_at": "2026-08-08T12:04:00.000Z",
-                "signature": "detached.jws",
-                "verification_method": "did:web:agent.example#runtime-key-1",
-                "nonce": "agent-nonce"
-            }
-        }))
-        .unwrap()
+        SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
+            principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            requested_scope: vec!["ak.message.create".to_owned()],
+            agent_key_authorization_ref: arkret_wire::EventId::new(
+                "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            )
+            .unwrap(),
+            agent_scope_request: SessionGrantAgentScopeRequest {
+                realm_ids: Vec::new(),
+                strand_ids: Vec::new(),
+                track_names: Vec::new(),
+            },
+            requested_scope_disclosure: None,
+            dpop_binding_proof: SessionGrantDpopBindingProof {
+                proof_jwt: "holder.proof.jwt".to_owned(),
+            },
+            proof: AgentSessionGrantProof {
+                proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
+                challenge: arkret_wire::base64url::base64url_encode([0u8; 16]),
+                request_canonical_digest: arkret_wire::Hash::new(format!(
+                    "sha256:{}",
+                    "00".repeat(32)
+                ))
+                .unwrap(),
+                audience_id: arkret_wire::DidCoreId::new("ak:did_core:web:service.example")
+                    .unwrap(),
+                issued_at: "2026-08-08T12:00:00.000Z".parse().unwrap(),
+                expires_at: "2026-08-08T12:04:00.000Z".parse().unwrap(),
+                verification_method: arkret_wire::DidUrl::new(
+                    "did:web:agent.example#runtime-key-1",
+                )
+                .unwrap(),
+                signature: "detached.jws".to_owned(),
+            },
+        })
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -651,14 +678,23 @@ mod tests {
         serde_json::from_value(serde_json::json!({
             "grant_jwt": "predecessor.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "agent_session_refresh_proof": {
-                "context": "ak.agent_session_refresh_proof.v1",
-                "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
+            "audience_id": "ak:did_core:web:service.example",
+            "accepted_device_possession_proof": {
+                "context": "ak.session_grant_accepted_device_possession_proof.v1",
+                "purpose": "session_grant_refresh",
+                "predecessor_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:service.example"
+                },
+                "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
                 "audience_id": "ak:did_core:web:service.example",
+                "holder_jkt": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "session_intent_digest": format!("sha256:{}", "11".repeat(32)),
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "verification_method": "did:web:agent.example#runtime-key-1"
+                "verification_method": "did:web:alice.example#device-1"
             }
         }))
         .unwrap()
@@ -683,22 +719,12 @@ mod tests {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    #[derive(Clone, Copy)]
-    enum ReplayTrigger {
-        Timeout,
-        ServiceUnavailable,
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
     async fn start_exact_replay_server(
-        trigger: ReplayTrigger,
         success_body: String,
     ) -> (
         std::net::SocketAddr,
         tokio::task::JoinHandle<(Vec<u8>, Vec<u8>)>,
     ) {
-        use std::time::Duration as StdDuration;
-
         use tokio::io::AsyncWriteExt;
         use tokio::net::TcpListener;
 
@@ -707,26 +733,21 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut first, _) = listener.accept().await.unwrap();
             let first_raw = read_http_request(&mut first).await;
-            match trigger {
-                ReplayTrigger::Timeout => {
-                    tokio::time::sleep(StdDuration::from_millis(80)).await;
-                }
-                ReplayTrigger::ServiceUnavailable => {
-                    let body = serde_json::json!({
-                        "type": "https://arkret.org/problems/frontier_unavailable",
-                        "title": "Frontier unavailable",
-                        "status": 503,
-                        "detail": "retry",
-                        "instance": "attempt-1"
-                    })
-                    .to_string();
-                    let response = format!(
-                        "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                        body.len(),
-                        body
-                    );
-                    first.write_all(response.as_bytes()).await.unwrap();
-                }
+            {
+                let body = serde_json::json!({
+                    "type": "https://arkret.org/problems/checkpoint_unavailable",
+                    "title": "Checkpoint unavailable",
+                    "status": 503,
+                    "detail": "retry",
+                    "instance": "attempt-1"
+                })
+                .to_string();
+                let response = format!(
+                    "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/problem+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                first.write_all(response.as_bytes()).await.unwrap();
             }
             drop(first);
 
@@ -741,6 +762,48 @@ mod tests {
             (first_raw, second_raw)
         });
         (addr, server)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn start_timeout_replay_server(
+        success_body: String,
+    ) -> (
+        std::net::SocketAddr,
+        tokio::task::JoinHandle<(Vec<u8>, Vec<u8>)>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        use tokio::io::AsyncWriteExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (received_tx, received_rx) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (mut first, _) = listener.accept().await.unwrap();
+            let first_raw = read_http_request(&mut first).await;
+            received_tx.send(()).unwrap();
+            // Keep the first committed request open until the actual timeout
+            // causes a retry. No server sleep competes with its response budget.
+            let (mut second, _) = listener.accept().await.unwrap();
+            let second_raw = read_http_request(&mut second).await;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                success_body.len(),
+                success_body
+            );
+            second.write_all(response.as_bytes()).await.unwrap();
+            drop(first);
+            (first_raw, second_raw)
+        });
+        (addr, server, received_rx)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn expire_committed_attempt(received: tokio::sync::oneshot::Receiver<()>) {
+        received.await.unwrap();
+        // Freeze only after real TCP/request progress: a paused runtime must
+        // not auto-advance the deadline while the socket is still connecting.
+        tokio::time::pause();
+        tokio::time::advance(std::time::Duration::from_secs(31)).await;
+        tokio::time::resume();
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -787,30 +850,8 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::time::Duration as StdDuration;
 
-        use tokio::io::AsyncWriteExt;
-        use tokio::net::TcpListener;
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move {
-            let (mut first, _) = listener.accept().await.unwrap();
-            let first_raw = read_http_request(&mut first).await;
-            // Keep the committed first request open without a response. The
-            // client timeout deterministically opens the retry; accepting it
-            // directly avoids making the second attempt race an arbitrary
-            // wall-clock sleep under a loaded test runner.
-            let (mut second, _) = listener.accept().await.unwrap();
-            let second_raw = read_http_request(&mut second).await;
-            let body = session_grant_outcome_json();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                body
-            );
-            second.write_all(response.as_bytes()).await.unwrap();
-            drop(first);
-            (first_raw, second_raw)
-        });
+        let (addr, server, received) =
+            start_timeout_replay_server(session_grant_outcome_json()).await;
 
         let proof_calls = Arc::new(AtomicUsize::new(0));
         let proof_calls_for_auth = Arc::clone(&proof_calls);
@@ -822,7 +863,7 @@ mod tests {
                     proof_calls_for_auth.fetch_add(1, Ordering::SeqCst)
                 ))
             })))
-            .timeout(StdDuration::from_millis(40))
+            .timeout(StdDuration::from_secs(30))
             .retry(
                 crate::RetryConfig {
                     base_delay: StdDuration::from_millis(1),
@@ -833,10 +874,13 @@ mod tests {
             .build()
             .unwrap();
 
-        client
-            .auth_issue_session_grant(&session_grant_request())
-            .await
-            .unwrap();
+        let request = tokio::spawn(async move {
+            client
+                .auth_issue_session_grant(&session_grant_request())
+                .await
+        });
+        expire_committed_attempt(received).await;
+        request.await.unwrap().unwrap();
         let (first, second) = server.await.unwrap();
         let (_, first_headers, first_body) = split_request(&first);
         let (_, second_headers, second_body) = split_request(&second);
@@ -868,13 +912,16 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn session_grant_refresh_timeout_reuses_exact_body_without_idempotency_key() {
-        let (addr, server) =
-            start_exact_replay_server(ReplayTrigger::Timeout, session_grant_refresh_outcome_json())
-                .await;
-        exact_replay_client(addr, 40)
-            .auth_refresh_session_grant(&session_grant_refresh_request())
-            .await
-            .unwrap();
+        let (addr, server, received) =
+            start_timeout_replay_server(session_grant_refresh_outcome_json()).await;
+        let client = exact_replay_client(addr, 30_000);
+        let request = tokio::spawn(async move {
+            client
+                .auth_refresh_session_grant(&session_grant_refresh_request())
+                .await
+        });
+        expire_committed_attempt(received).await;
+        request.await.unwrap().unwrap();
         let (first, second) = server.await.unwrap();
         assert_exact_replay_capture(
             &first,
@@ -886,11 +933,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn session_grant_issue_and_refresh_replay_exact_body_after_5xx() {
-        let (addr, server) = start_exact_replay_server(
-            ReplayTrigger::ServiceUnavailable,
-            session_grant_outcome_json(),
-        )
-        .await;
+        let (addr, server) = start_exact_replay_server(session_grant_outcome_json()).await;
         exact_replay_client(addr, 1_000)
             .auth_issue_session_grant(&session_grant_request())
             .await
@@ -898,11 +941,7 @@ mod tests {
         let (first, second) = server.await.unwrap();
         assert_exact_replay_capture(&first, &second, "/_arkret/gate/account/session-grants");
 
-        let (addr, server) = start_exact_replay_server(
-            ReplayTrigger::ServiceUnavailable,
-            session_grant_refresh_outcome_json(),
-        )
-        .await;
+        let (addr, server) = start_exact_replay_server(session_grant_refresh_outcome_json()).await;
         exact_replay_client(addr, 1_000)
             .auth_refresh_session_grant(&session_grant_refresh_request())
             .await
@@ -982,58 +1021,35 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_serializes_filter_deep_object() {
-        let filter = SyncFilter {
-            realm_ids: vec![
-                RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ],
-            timeline_limit: Some(20),
-            lazy_load_members: true,
-            include_redundant_members: false,
-            event_types: vec!["ak.message.create".to_owned()],
-            not_event_types: vec!["ak.reaction.add".to_owned()],
-            extra: Default::default(),
-        };
+    fn account_subscribe_query_preserves_canonical_empty_filter_and_false() {
         let request = SyncRequestBody {
-            after: Some("cur1".to_owned()),
-            catchup: Some(true),
-            filter: Some(filter),
+            after: Some("ak:cursor:resume".to_owned()),
+            filter: Some(
+                serde_json::from_value(
+                    serde_json::json!({"realm_ids":[],"lazy_load_members":false}),
+                )
+                .unwrap(),
+            ),
+            realm_list: Some(Default::default()),
+            replace_filter: Some(true),
             ..empty_request()
         };
-
         let built = client()
             .account_subscribe_request(&request, "application/x-ndjson")
             .unwrap()
             .build()
             .unwrap();
-        let query = built.url().query().unwrap().to_owned();
-
-        assert!(query.contains("after=cur1"), "query: {query}");
-        assert!(query.contains("catchup=true"), "query: {query}");
-        assert!(
-            query.contains(
-                "filter.realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            ),
-            "query: {query}"
+        let query = built
+            .url()
+            .query_pairs()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(
+            query.get("filter").unwrap(),
+            "{\"lazy_load_members\":false,\"realm_ids\":[]}"
         );
-        assert!(query.contains("filter.timeline_limit=20"), "query: {query}");
-        assert!(
-            query.contains("filter.lazy_load_members=true"),
-            "query: {query}"
-        );
-        // Default-false booleans are omitted rather than sent as `false`.
-        assert!(
-            !query.contains("include_redundant_members"),
-            "query: {query}"
-        );
-        assert!(
-            query.contains("filter.event_types=ak.message.create"),
-            "query: {query}"
-        );
-        assert!(
-            query.contains("filter.not_event_types=ak.reaction.add"),
-            "query: {query}"
-        );
+        assert_eq!(query.get("realm_list").unwrap(), "{}");
+        assert_eq!(query.get("replace_filter").unwrap(), "true");
+        assert!(!query.keys().any(|name| name.starts_with("filter.")));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1102,19 +1118,13 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_rejects_transport_unsupported_fields() {
-        let with_subscriptions = SyncRequestBody {
-            subscriptions: Some(SubscriptionConfig {
-                subscriptions: Vec::new(),
-                batch_item_count: None,
-                timeline_filter: None,
-            }),
-            ..empty_request()
-        };
-        let error = client()
-            .account_subscribe_request(&with_subscriptions, "application/x-ndjson")
-            .unwrap_err();
-        assert!(matches!(error, Error::Protocol(message) if message.contains("subscriptions")));
+    fn account_subscribe_request_rejects_unregistered_subscriptions() {
+        for value in [
+            serde_json::json!({"subscriptions": {}}),
+            serde_json::json!({"subscriptions": null}),
+        ] {
+            assert!(serde_json::from_value::<SyncRequestBody>(value).is_err());
+        }
     }
 
     #[test]
@@ -1137,26 +1147,11 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_rejects_unrepresentable_filter_extension() {
-        let mut filter = SyncFilter {
-            realm_ids: Vec::new(),
-            timeline_limit: None,
-            lazy_load_members: false,
-            include_redundant_members: false,
-            event_types: Vec::new(),
-            not_event_types: Vec::new(),
-            extra: Default::default(),
-        };
-        filter
-            .extra
-            .insert("custom".to_owned(), serde_json::json!({"nested": true}));
-        let request = SyncRequestBody {
-            filter: Some(filter),
-            ..empty_request()
-        };
-        let error = client()
-            .account_subscribe_request(&request, "application/x-ndjson")
-            .unwrap_err();
-        assert!(matches!(error, Error::Protocol(message) if message.contains("filter extensions")));
+    fn account_subscribe_filter_extensions_are_closed_at_parse() {
+        assert!(
+            serde_json::from_value::<AccountFilter>(serde_json::json!({"custom":{"nested":true}}))
+                .is_err()
+        );
+        assert!(serde_json::from_value::<AccountFilter>(serde_json::json!({"realms":[]})).is_err());
     }
 }

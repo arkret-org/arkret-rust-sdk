@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
+use crate::{DidCoreId, ProofContextId};
 
 /// Complete protocol identity for one principal at one Station, including
 /// human accounts, Agents and integration actors. This identity does
@@ -304,104 +304,6 @@ pub enum EncryptionProfile {
     External,
 }
 
-/// MLS-backed content envelope scheme, frozen by the accepted MLS group
-/// Genesis.
-///
-/// `models/realm-and-space.md` section 2.3 and `models/circle.md` section 2 both
-/// make this a closed two-value union that applies exactly when
-/// `encryption_profile = mls_rfc9420`. `mls_rfc9420` uses MLS PrivateMessage and
-/// produces no deliverable history secret, so it pins `history_access` to
-/// `since_join`; `mls_exporter_aead_v1` derives a per-epoch `history_secret` and
-/// admits either state. It is immutable for the lifetime of the derived
-/// `mls_group_id`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContentScheme {
-    MlsRfc9420,
-    MlsExporterAeadV1,
-}
-
-impl ContentScheme {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::MlsRfc9420 => "mls_rfc9420",
-            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
-        }
-    }
-}
-
-impl FromStr for ContentScheme {
-    type Err = ContentSchemeParseError;
-
-    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        match value {
-            "mls_rfc9420" => Ok(Self::MlsRfc9420),
-            "mls_exporter_aead_v1" => Ok(Self::MlsExporterAeadV1),
-            _ => Err(ContentSchemeParseError),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContentSchemeParseError;
-
-impl fmt::Display for ContentSchemeParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("content_scheme is unregistered")
-    }
-}
-
-impl std::error::Error for ContentSchemeParseError {}
-
-/// Realm History Recovery Key (RHRK) persistence policy, frozen together with
-/// [`ContentScheme`] by the accepted MLS group Genesis.
-///
-/// `models/realm-and-space.md` section 2.3.1 makes this a required closed
-/// two-value string on an exporter effective scope and forbids it on every
-/// other scheme. Custody topology — replica count, HSM, Shamir, threshold —
-/// never reaches the Realm or Circle wire, so this carries no recipient or
-/// threshold structure.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DurabilityPolicy {
-    None,
-    OrganizationRecoveryKey,
-}
-
-impl DurabilityPolicy {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::OrganizationRecoveryKey => "organization_recovery_key",
-        }
-    }
-}
-
-impl FromStr for DurabilityPolicy {
-    type Err = DurabilityPolicyParseError;
-
-    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        match value {
-            "none" => Ok(Self::None),
-            "organization_recovery_key" => Ok(Self::OrganizationRecoveryKey),
-            _ => Err(DurabilityPolicyParseError),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DurabilityPolicyParseError;
-
-impl fmt::Display for DurabilityPolicyParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("durability_policy is unregistered")
-    }
-}
-
-impl std::error::Error for DurabilityPolicyParseError {}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActorKind {
@@ -550,6 +452,7 @@ pub enum ViewVisibility {
 /// both `strand.schema.json` and `morph.schema.json`. Only `redacted` is a
 /// terminal state now; `ak.strand.tombstone` / `ak.strand.delete` / equivalent
 /// kinds collapse into a single `ak.redaction` event targeting the object.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectState {
@@ -577,6 +480,7 @@ pub enum ObjectStage {
     Superseded,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceState {
@@ -629,7 +533,7 @@ pub enum AuthzDecision {
     RequireReview,
 }
 
-/// Frontier freshness classification for revocation-sensitive authz decisions.
+/// Checkpoint freshness classification for revocation-sensitive authz decisions.
 /// Spec `AuthzCheckOutcome.freshness_state` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -640,18 +544,22 @@ pub enum FreshnessState {
     Unknown,
 }
 
-/// Coarse status of the notary / frontier source used to diagnose stale or
-/// unknown revocation freshness. Spec `AuthzCheckOutcome.notary_status` enum.
+/// Coarse status of the current governance Station and committed-stream source
+/// used to diagnose stale or unknown revocation freshness. Spec
+/// `AuthzCheckOutcome.authority_status` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum NotaryStatus {
+pub enum AuthorityStatus {
     Fresh,
     Lagging,
     Unreachable,
     Unknown,
 }
 
+/// The Invite process-state axis, which is also the closed value of the
+/// `invite_lifecycle` typed current result
+/// (`typed-current-result.schema.json#/$defs/invite_lifecycle_value`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {
@@ -665,6 +573,49 @@ pub enum InviteState {
     RevokedByCapabilityLoss,
     RevokedByInviterLeft,
     InvalidatedByRateLimit,
+}
+
+impl InviteState {
+    /// The wire spelling of this state.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::Revoked => "revoked",
+            Self::Expired => "expired",
+            Self::Claimed => "claimed",
+            Self::SendFailed => "send_failed",
+            Self::RevokedByCapabilityLoss => "revoked_by_capability_loss",
+            Self::RevokedByInviterLeft => "revoked_by_inviter_left",
+            Self::InvalidatedByRateLimit => "invalidated_by_rate_limit",
+        }
+    }
+
+    /// Parse the exact wire spelling of one state.
+    pub fn from_wire(value: &str) -> Option<Self> {
+        Some(match value {
+            "pending" => Self::Pending,
+            "accepted" => Self::Accepted,
+            "rejected" => Self::Rejected,
+            "revoked" => Self::Revoked,
+            "expired" => Self::Expired,
+            "claimed" => Self::Claimed,
+            "send_failed" => Self::SendFailed,
+            "revoked_by_capability_loss" => Self::RevokedByCapabilityLoss,
+            "revoked_by_inviter_left" => Self::RevokedByInviterLeft,
+            "invalidated_by_rate_limit" => Self::InvalidatedByRateLimit,
+            _ => return None,
+        })
+    }
+
+    /// Whether this state is one of the seven
+    /// `event_kind_registry.transition_contracts.invite_lifecycle.terminal_states`.
+    /// Every later state-changing Event on a terminal Invite is refused with
+    /// `invite_already_terminal` (`zh/models/governance-objects.md` section 5.3).
+    pub const fn is_terminal(self) -> bool {
+        !matches!(self, Self::Pending | Self::Claimed | Self::SendFailed)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -683,6 +634,72 @@ pub enum NotificationKind {
     Agent,
     Moderation,
     System,
+}
+
+/// Closed `notification_kind` subset carried by an ordinary source-Event
+/// notification projection
+/// (`notification.schema.json#/$defs/ordinary_notification_kind`).
+///
+/// `invite` has its own private Invite delivery carrier and `agent` belongs to
+/// the account-artifact branch, so neither participates in the deterministic
+/// projection preimage. Keeping the subset as its own type means the exclusion
+/// is a compile-time fact of the preimage and of the account-subscribe ordinary
+/// row, not a runtime rejection each producer has to remember.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrdinaryNotificationKind {
+    Message,
+    Mention,
+    Reply,
+    Assignment,
+    Schedule,
+    Reaction,
+    Policy,
+    Call,
+    Applet,
+    Moderation,
+    System,
+}
+
+impl From<OrdinaryNotificationKind> for NotificationKind {
+    fn from(value: OrdinaryNotificationKind) -> Self {
+        match value {
+            OrdinaryNotificationKind::Message => Self::Message,
+            OrdinaryNotificationKind::Mention => Self::Mention,
+            OrdinaryNotificationKind::Reply => Self::Reply,
+            OrdinaryNotificationKind::Assignment => Self::Assignment,
+            OrdinaryNotificationKind::Schedule => Self::Schedule,
+            OrdinaryNotificationKind::Reaction => Self::Reaction,
+            OrdinaryNotificationKind::Policy => Self::Policy,
+            OrdinaryNotificationKind::Call => Self::Call,
+            OrdinaryNotificationKind::Applet => Self::Applet,
+            OrdinaryNotificationKind::Moderation => Self::Moderation,
+            OrdinaryNotificationKind::System => Self::System,
+        }
+    }
+}
+
+impl TryFrom<&NotificationKind> for OrdinaryNotificationKind {
+    type Error = WireError;
+
+    fn try_from(value: &NotificationKind) -> Result<Self> {
+        match value {
+            NotificationKind::Message => Ok(Self::Message),
+            NotificationKind::Mention => Ok(Self::Mention),
+            NotificationKind::Reply => Ok(Self::Reply),
+            NotificationKind::Assignment => Ok(Self::Assignment),
+            NotificationKind::Schedule => Ok(Self::Schedule),
+            NotificationKind::Reaction => Ok(Self::Reaction),
+            NotificationKind::Policy => Ok(Self::Policy),
+            NotificationKind::Call => Ok(Self::Call),
+            NotificationKind::Applet => Ok(Self::Applet),
+            NotificationKind::Moderation => Ok(Self::Moderation),
+            NotificationKind::System => Ok(Self::System),
+            NotificationKind::Invite | NotificationKind::Agent => Err(WireError::Protocol(
+                "notification category has a dedicated carrier".to_owned(),
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1029,29 +1046,17 @@ pub enum RelationDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-// Deliberate exception to the crate-wide `snake_case` enum convention: the
-// `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
-// `mls_rfc9420` (distinct from the `encryption_profile` enum value
-// `mls_rfc9420`). The exception is made explicit per-variant rather than via
-// `rename_all = "kebab-case"` so a future `snake_case` variant added by habit
-// doesn't silently produce a wire-incompatible token.
+/// The only registered Event content encryption scheme in v1.
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedPayloadScheme {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
-    // §2.10 history-shareable content scheme: content is encrypted under a
-    // retainable per-epoch `history_secret` (MLS exporter) instead of the
-    // forward-secret message ratchet, so an authorized current member can
-    // receive encrypted history keys through the history-key protocol.
-    #[serde(rename = "mls_exporter_aead_v1")]
-    MlsExporterAeadV1,
 }
 
 impl EncryptedPayloadScheme {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::MlsRfc9420 => "mls_rfc9420",
-            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
         }
     }
 }
@@ -1135,10 +1140,10 @@ impl ProofBindingRequirements {
 }
 
 fn proof_binding_missing(field: &str) -> WireError {
-    WireError::Protocol(format!(
-        "{}: proof {field} is required",
-        ReasonCode::PROOF_BINDING_MISSING
-    ))
+    WireError::ProtocolCode {
+        code: ErrorCode::SchemaViolation,
+        message: format!("proof {field} is required"),
+    }
 }
 
 fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<()> {
@@ -1146,10 +1151,10 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
         return Err(proof_binding_missing("domain"));
     }
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
-        return Err(WireError::Protocol(format!(
-            "{}: expected domain is required",
-            ReasonCode::PROOF_BINDING_MISSING
-        )));
+        return Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "expected domain is required".to_owned(),
+        });
     }
     Ok(())
 }
@@ -1159,10 +1164,10 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
         return Err(proof_binding_missing("audience"));
     }
     if expected.is_none() {
-        return Err(WireError::Protocol(format!(
-            "{}: expected audience is required",
-            ReasonCode::PROOF_BINDING_MISSING
-        )));
+        return Err(WireError::ProtocolCode {
+            code: ErrorCode::SchemaViolation,
+            message: "expected audience is required".to_owned(),
+        });
     }
     Ok(())
 }
@@ -1182,8 +1187,6 @@ pub struct ProducerEventProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub event_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1204,8 +1207,8 @@ pub enum PayloadProofPurpose {
     HolderAcceptance,
     StatusAttestation,
     RevocationAuthorization,
-    /// `discovery-directory.md` §8.7.1 write-surface authorization by the
-    /// resource governance key (`DirectoryGovernanceProof`).
+    /// Resource-governance authorization for an object-family contract that
+    /// explicitly makes this purpose load-bearing.
     GovernanceAuthorization,
 }
 
@@ -1316,6 +1319,55 @@ pub fn service_operation_proof_binding_prefix(
     Ok(binding)
 }
 
+/// Complete canonical detached-JWS binding bytes for one registered
+/// service-operation proof context (`conformance/encoding.md` §6 (b)-(d)).
+///
+/// The `context` constant is written by the verifier from the registry row, is
+/// carried as a binding-object member, and never appears as a JWS header
+/// parameter or a wire field of the signed object. The returned bytes are the
+/// detached JWS payload segment; there is no additional domain-tag prefix.
+pub fn service_operation_proof_binding_bytes(
+    context: &str,
+    operation_id: &str,
+    issuer: Option<Value>,
+    targets: Vec<(&'static str, Value)>,
+    payload_digest: &Hash,
+    proof: &UnsignedPayloadProof,
+) -> Result<Vec<u8>> {
+    proof.validate_production()?;
+    if proof.proof_purpose.is_some() {
+        return Err(WireError::Protocol(format!(
+            "{context} proof must not carry proof_purpose"
+        )));
+    }
+    if &proof.payload_digest != payload_digest {
+        return Err(WireError::Protocol(format!(
+            "{context} proof payload_digest mismatch"
+        )));
+    }
+    let domain = proof
+        .domain
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| WireError::Protocol(format!("{context} proof requires domain")))?;
+    let audience = proof
+        .audience
+        .as_ref()
+        .ok_or_else(|| WireError::Protocol(format!("{context} proof requires audience")))?;
+    let mut binding = service_operation_proof_binding_prefix(
+        context,
+        operation_id,
+        issuer,
+        targets,
+        payload_digest,
+        &proof.verification_method,
+        proof.created_at,
+    )?;
+    binding.insert("domain".to_owned(), Value::String(domain.clone()));
+    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -1353,9 +1405,9 @@ impl PayloadProof {
                 "proof kind must not be empty".to_owned(),
             ));
         }
-        if self.jws.is_empty() {
+        if !is_compact_detached_jws(&self.jws) {
             return Err(WireError::Protocol(
-                "proof JWS must not be empty".to_owned(),
+                "proof JWS must use compact detached JWS syntax".to_owned(),
             ));
         }
         if self
@@ -1382,162 +1434,6 @@ impl PayloadProof {
             )));
         }
         Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum StationAdmissionProofKind {
-    #[serde(rename = "station_admission")]
-    StationAdmission,
-}
-
-/// Origin Station attestation over the exact producer proof it admitted.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct StationAdmissionProof {
-    pub kind: StationAdmissionProofKind,
-    pub verification_method: DidUrl,
-    pub event_digest: Hash,
-    pub producer_proof_digest: Hash,
-    pub producer_verification_method: DidUrl,
-    pub producer_signing_key_did: DidKey,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    pub signer_resolution_evidence_ref: SignerEvidenceRef,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    pub jws: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(untagged)]
-pub enum EventProof {
-    Producer(ProducerEventProof),
-    StationAdmission(StationAdmissionProof),
-}
-
-impl EventProof {
-    pub fn as_producer(&self) -> Option<&ProducerEventProof> {
-        match self {
-            Self::Producer(proof) => Some(proof),
-            Self::StationAdmission(_) => None,
-        }
-    }
-
-    pub fn as_producer_mut(&mut self) -> Option<&mut ProducerEventProof> {
-        match self {
-            Self::Producer(proof) => Some(proof),
-            Self::StationAdmission(_) => None,
-        }
-    }
-
-    pub fn as_station_admission(&self) -> Option<&StationAdmissionProof> {
-        match self {
-            Self::Producer(_) => None,
-            Self::StationAdmission(proof) => Some(proof),
-        }
-    }
-}
-
-impl From<ProducerEventProof> for EventProof {
-    fn from(value: ProducerEventProof) -> Self {
-        Self::Producer(value)
-    }
-}
-
-impl From<StationAdmissionProof> for EventProof {
-    fn from(value: StationAdmissionProof) -> Self {
-        Self::StationAdmission(value)
-    }
-}
-
-pub const STATION_ADMISSION_PROOF_CONTEXT: &str = crate::ProofContextId::STATION_ADMISSION_PROOF_V1;
-
-impl StationAdmissionProof {
-    pub fn producer_proof_digest(proof: &ProducerEventProof) -> Result<Hash> {
-        Hash::new(canonical::canonical_sha256(proof)?).map_err(Into::into)
-    }
-
-    pub fn validate_binding(
-        &self,
-        expected_event_digest: &Hash,
-        producer_proof: &ProducerEventProof,
-        expected_station_id: &DidCoreId,
-    ) -> Result<()> {
-        let (controller, fragment) = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .ok_or_else(|| {
-                WireError::Protocol("admission verification method has no fragment".to_owned())
-            })?;
-        let controller = Did::new(controller.to_owned())?;
-        if fragment.is_empty()
-            || project_did_to_core_id(&controller)? != *expected_station_id
-            || self.event_digest != *expected_event_digest
-            || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
-            || self.producer_verification_method != producer_proof.verification_method
-            || self
-                .producer_signer_resolution_evidence_ref
-                .as_ref()
-                .is_some_and(|reference| reference.content_digest().is_err())
-            || self
-                .signer_resolution_evidence_ref
-                .content_digest()
-                .is_err()
-            || !is_compact_jws(&self.jws)
-        {
-            return Err(WireError::Protocol(
-                "Station admission proof binding mismatch".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_binding_bytes(&self) -> Result<Vec<u8>> {
-        let mut binding = serde_json::Map::new();
-        binding.insert(
-            "context".to_owned(),
-            Value::String(STATION_ADMISSION_PROOF_CONTEXT.to_owned()),
-        );
-        binding.insert(
-            "verification_method".to_owned(),
-            serde_json::to_value(&self.verification_method)?,
-        );
-        binding.insert(
-            "event_digest".to_owned(),
-            serde_json::to_value(&self.event_digest)?,
-        );
-        binding.insert(
-            "producer_proof_digest".to_owned(),
-            serde_json::to_value(&self.producer_proof_digest)?,
-        );
-        binding.insert(
-            "producer_verification_method".to_owned(),
-            serde_json::to_value(&self.producer_verification_method)?,
-        );
-        binding.insert(
-            "producer_signing_key_did".to_owned(),
-            serde_json::to_value(&self.producer_signing_key_did)?,
-        );
-        if let Some(reference) = &self.producer_signer_resolution_evidence_ref {
-            binding.insert(
-                "producer_signer_resolution_evidence_ref".to_owned(),
-                serde_json::to_value(reference)?,
-            );
-        }
-        binding.insert(
-            "signer_resolution_evidence_ref".to_owned(),
-            serde_json::to_value(&self.signer_resolution_evidence_ref)?,
-        );
-        binding.insert(
-            "accepted_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.accepted_at)),
-        );
-        canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
     }
 }
 
@@ -1599,23 +1495,6 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
 impl ProducerEventProof {
-    pub fn validate_signer_resolution_evidence_ref(&self) -> Result<()> {
-        if let Some(reference) = &self.signer_resolution_evidence_ref {
-            reference.content_digest()?;
-        }
-        Ok(())
-    }
-
-    pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
-        self.validate_signer_resolution_evidence_ref()?;
-        if self.signer_resolution_evidence_ref.is_none() {
-            return Err(WireError::Protocol(
-                "direct producer proof requires signer resolution evidence".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
     /// Deserialize an inbound Proof after canonical JSON ingress checks
     /// (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
@@ -1636,7 +1515,6 @@ impl ProducerEventProof {
     /// Build the canonical **proof binding object** that the detached JWS
     /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
     /// object over `{event_digest, actor_id, verification_method,
-    /// signer_resolution_evidence_ref?,
     /// created_at, domain?, audience?}`.
     ///
     /// The detached-JWS payload MUST be these bytes — **not** the raw
@@ -1689,12 +1567,6 @@ impl ProducerEventProof {
             "verification_method".to_owned(),
             Value::String(self.verification_method.as_str().to_owned()),
         );
-        if let Some(reference) = &self.signer_resolution_evidence_ref {
-            obj.insert(
-                "signer_resolution_evidence_ref".to_owned(),
-                Value::String(reference.as_ref().to_owned()),
-            );
-        }
         obj.insert(
             "created_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(self.created_at)),
@@ -1716,9 +1588,9 @@ impl ProducerEventProof {
     /// Rejects empty JWS and kind values. The signature layer validates the
     /// protected JOSE `alg`; the Arkret wrapper deliberately does not repeat it.
     pub fn validate(&self) -> Result<()> {
-        if !is_compact_jws(&self.jws) {
+        if !is_compact_detached_jws(&self.jws) {
             return Err(WireError::Protocol(
-                "proof JWS is not compact JWS".to_owned(),
+                "proof JWS is not compact detached JWS".to_owned(),
             ));
         }
         if self.kind != proof_kind::DETACHED_JWS {
@@ -1743,7 +1615,6 @@ impl ProducerEventProof {
                 "producer proof purpose is not registered for Event proofs".to_owned(),
             ));
         }
-        self.validate_signer_resolution_evidence_ref()?;
         Ok(())
     }
 
@@ -1830,12 +1701,19 @@ impl ProducerEventProof {
     }
 }
 
-fn is_compact_jws(value: &str) -> bool {
+/// Return whether `value` has the protocol's compact detached-JWS carrier
+/// shape: exactly `protected..signature`, with unpadded base64url segments.
+///
+/// This is deliberately only the wire-shape gate. Cryptographic consumers
+/// must still decode the protected header, require the active `Ed25519`
+/// algorithm, and verify the signature over the registered transcript.
+pub fn is_compact_detached_jws(value: &str) -> bool {
     let mut segments = value.split('.');
     let protected = segments.next().unwrap_or_default();
-    let _payload = segments.next().unwrap_or_default();
+    let payload = segments.next().unwrap_or_default();
     let signature = segments.next().unwrap_or_default();
     !protected.is_empty()
+        && payload.is_empty()
         && !signature.is_empty()
         && segments.next().is_none()
         && value
@@ -1915,4 +1793,13 @@ mod tests {
         }
         assert!(Discoverability::from_str("private").is_err());
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagementOperation {
+    Join,
+    Publish,
+    CreateBot,
+    MapGhost,
 }

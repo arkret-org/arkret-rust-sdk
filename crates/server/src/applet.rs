@@ -10,11 +10,10 @@
 //! side effects, and conflicting duplicates fail closed with
 //! `duplicate_conflict` (`applet-integration.md` §7.3).
 
-use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_discovery::service_description::ServiceDescribe;
 use arkret_models_integration::applet_models::{
     AppletActorView, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome,
+    AppletTransactionOutcome, AppletTransactionRequestBody,
 };
 use arkret_signatures::VerificationMethodDocument;
 use arkret_wire::{DidUrl, Result};

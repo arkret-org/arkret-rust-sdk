@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hash, Hlc, Result, ScopeRef};
+use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hash, Result, ScopeRef};
 
 /// The detached compact JWS a fixture carries when its case is the envelope
 /// shape and not that anything verified.
@@ -81,29 +81,22 @@ pub fn raw_event(
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
     station_id: DidCoreId,
-    actor_seq: u64,
-    hlc: Hlc,
     payload: Value,
 ) -> Result<Event> {
     Event::new(
         kind,
         scope_ref,
         ActorId::account(AccountId::new(actor_id, station_id)),
-        actor_seq,
-        hlc,
         payload,
     )
 }
 
 #[doc(hidden)]
-#[allow(clippy::too_many_arguments)]
 pub fn raw_event_at(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: DidCoreId,
     station_id: DidCoreId,
-    actor_seq: u64,
-    hlc: Hlc,
     payload: Value,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
@@ -111,8 +104,6 @@ pub fn raw_event_at(
         kind,
         scope_ref,
         ActorId::account(AccountId::new(actor_id, station_id)),
-        actor_seq,
-        hlc,
         payload,
         created_at,
     )
@@ -120,19 +111,14 @@ pub fn raw_event_at(
 
 /// Build a deterministic raw fixture Event from its complete ActorId.
 #[doc(hidden)]
-#[allow(clippy::too_many_arguments)]
 pub fn raw_event_for_actor_at(
     kind: impl Into<String>,
     scope_ref: ScopeRef,
     actor_id: ActorId,
-    actor_seq: u64,
-    hlc: Hlc,
     payload: Value,
     created_at: DateTime<Utc>,
 ) -> Result<Event> {
-    Event::new_at(
-        kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
-    )
+    Event::new_at(kind, scope_ref, actor_id, payload, created_at)
 }
 
 #[cfg(test)]

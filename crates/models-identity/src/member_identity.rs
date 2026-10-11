@@ -17,7 +17,7 @@
 //! * [`IdentityPayloadCarrier::carrier_sha256`] derives the exact `identity_payload` carrier digest
 //!   locally; it is not a payload field.
 //! * [`member_identity_effective_set_digest`] → `expected_state_digest` (writer-observed
-//!   effective-set guard, includes `segment`).
+//!   effective-set guard over the exact signed payloads, `current-results.md` §2).
 //! * [`member_display_state_digest`] → roster display cache key (includes effective events +
 //!   visible handle-claim digests).
 
@@ -84,7 +84,7 @@ impl MemberIdentity {
     /// the top-level `proof` field excluded. The signature in `proof`
     /// MUST cover the same canonical bytes.
     ///
-    /// Exported so soland + inkson + cotest agree on the exact bytes
+    /// Exported so coland + inkson + cotest agree on the exact bytes
     /// used for `MemberIdentityProof.payload_digest`.
     pub fn canonical_payload_sha256(&self) -> Result<String> {
         let bytes = self.canonical_payload_bytes()?;
@@ -139,11 +139,7 @@ pub enum MemberIdentitySignatureAlgorithm {
 /// defines a single full `member_identity` segment; v1 receivers MUST
 /// reject any other value. Narrower segments require a future
 /// schema/profile revision that extends this enum.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MemberIdentitySegment {
-    MemberIdentity,
-}
+pub use arkret_wire::MemberIdentitySegment;
 
 /// One edge in [`MemberIdentityUpdatePayload::replaces`]. Identifies the
 /// prior event id + the `payload_digest` of that event's
@@ -191,7 +187,7 @@ impl IdentityPayloadCarrier {
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentityUpdatePayload {
     pub realm_id: RealmId,
-    pub actor_id: ActorId,
+    pub member_id: ActorId,
     pub segment: MemberIdentitySegment,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
@@ -202,6 +198,59 @@ pub struct MemberIdentityUpdatePayload {
     /// derived carrier digest or the roster `member_display_state_digest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
+}
+
+/// One accepted identity dot. The payload stays raw because the digest names
+/// its exact signed field set, including explicitly present empty members.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemberIdentityUpdateAssertion {
+    pub tag_id: String,
+    pub value: Value,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemberIdentityUpdatesCurrentValue {
+    pub assertions: Vec<MemberIdentityUpdateAssertion>,
+}
+
+impl MemberIdentityUpdatesCurrentValue {
+    /// Validate the closed family without verifying display proofs or folding
+    /// replacement edges, neither of which may reject an accepted assertion.
+    pub fn validate_for_tuple(
+        &self,
+        realm_id: &RealmId,
+        member_id: &ActorId,
+        segment: MemberIdentitySegment,
+    ) -> Result<()> {
+        let mut dots = BTreeSet::new();
+        for assertion in &self.assertions {
+            let event_id = assertion.tag_id.strip_suffix(":0").ok_or_else(|| {
+                arkret_wire::WireError::Protocol(
+                    "member identity dot must name its one registered assertion".to_owned(),
+                )
+            })?;
+            EventId::new(event_id)?;
+            if !dots.insert(&assertion.tag_id) {
+                return Err(arkret_wire::WireError::Protocol(
+                    "duplicate member identity assertion dot".to_owned(),
+                ));
+            }
+            let payload: MemberIdentityUpdatePayload =
+                serde_json::from_value(assertion.value.clone())
+                    .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+            if &payload.realm_id != realm_id
+                || &payload.member_id != member_id
+                || payload.segment != segment
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "member identity assertion differs from its exact selector".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Per-(event_id, segment) entry used by
@@ -277,31 +326,21 @@ where
     Ok(effective)
 }
 
-/// R3.2 — `expected_state_digest` writer-observed effective-set guard.
+/// `expected_state_digest` writer-observed effective-set guard
+/// (`current-results.md` §2, decision 0115).
 ///
-/// SHA-256 over RFC 8785 JCS canonical JSON of
-/// `{realm_id, actor_id, segment, effective_events:[{event_id, segment, payload_digest}]}`
-/// with `effective_events` sorted by `(segment, event_id)`.
-///
-/// This is the value a writer places in
-/// [`MemberIdentityUpdatePayload::expected_state_digest`] before applying
-/// a replacement. It is not the locally derived carrier digest or the roster
-/// [`member_display_state_digest`].
-pub fn member_identity_effective_set_digest(
-    realm_id: &RealmId,
-    actor_id: &ActorId,
-    segment: MemberIdentitySegment,
-    entries: &[EffectiveIdentityEntry],
-) -> Result<String> {
-    let sorted = sorted_effective_entries(entries);
-    let projection = serde_json::json!({
-        "realm_id": realm_id,
-        "actor_id": actor_id,
-        "segment": segment,
-        "effective_events": sorted,
-    });
+/// `"sha256:" || lowercase_hex(SHA-256(RFC8785_JCS(v)))` with no domain
+/// prefix, where `v` is the array of the exact signed payload objects of every
+/// update in the `(realm_id, member_id, segment)` effective set, ordered by
+/// the carrying `event_id` ascending. The empty effective set digests `[]`.
+/// Callers pass the payloads exactly as signed, never a re-serialized typed
+/// struct, so the digest names the bytes the writer observed.
+pub fn member_identity_effective_set_digest(effective: &[(&EventId, &Value)]) -> Result<String> {
+    let mut sorted: Vec<&(&EventId, &Value)> = effective.iter().collect();
+    sorted.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+    let payloads: Vec<&Value> = sorted.into_iter().map(|(_, payload)| *payload).collect();
     Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
-        &projection,
+        &payloads,
     )?))
 }
 
@@ -430,7 +469,7 @@ mod tests {
 
         let payload_a = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
@@ -438,7 +477,7 @@ mod tests {
         };
         let payload_b = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![MemberIdentityReplacementRef {
                 event_id: event_a.clone(),
@@ -470,7 +509,7 @@ mod tests {
 
         let payload_a = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
@@ -478,7 +517,7 @@ mod tests {
         };
         let payload_b = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),
-            actor_id: fake_actor("alice"),
+            member_id: fake_actor("alice"),
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![MemberIdentityReplacementRef {
                 event_id: event_a.clone(),
@@ -499,30 +538,89 @@ mod tests {
 
     #[test]
     fn identity_state_digest_is_sort_stable() {
-        let realm = fake_realm();
-        let actor = fake_actor("alice");
-        let e1 = EffectiveIdentityEntry {
-            event_id: fake_event_ref("0020"),
-            segment: MemberIdentitySegment::MemberIdentity,
-            payload_digest: Hash::new(
-                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-            )
-            .unwrap(),
-        };
-        let e2 = EffectiveIdentityEntry {
-            event_id: fake_event_ref("0021"),
-            segment: MemberIdentitySegment::MemberIdentity,
-            payload_digest: Hash::new(
-                "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-            )
-            .unwrap(),
-        };
-
-        let seg = MemberIdentitySegment::MemberIdentity;
-        let forward =
-            member_identity_effective_set_digest(&realm, &actor, seg, &[e1.clone(), e2.clone()])
-                .unwrap();
-        let reverse = member_identity_effective_set_digest(&realm, &actor, seg, &[e2, e1]).unwrap();
+        let first = fake_event_ref("0020");
+        let second = fake_event_ref("0021");
+        let payload_first = serde_json::json!({"segment": "member_identity", "n": 1});
+        let payload_second = serde_json::json!({"segment": "member_identity", "n": 2});
+        let forward = member_identity_effective_set_digest(&[
+            (&first, &payload_first),
+            (&second, &payload_second),
+        ])
+        .unwrap();
+        let reverse = member_identity_effective_set_digest(&[
+            (&second, &payload_second),
+            (&first, &payload_first),
+        ])
+        .unwrap();
         assert_eq!(forward, reverse);
+    }
+
+    #[test]
+    fn empty_effective_set_digests_the_empty_array() {
+        assert_eq!(
+            member_identity_effective_set_digest(&[]).unwrap(),
+            "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        );
+    }
+    #[test]
+    fn current_assertions_preserve_signed_empty_members_and_bad_inner_proof() {
+        let realm = fake_realm();
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:identity.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let raw = serde_json::json!({"realm_id":realm,"member_id":actor,"segment":"member_identity",
+            "replaces":[],"identity_payload":{"member_identity":sample_identity("Unverified")}});
+        let value = serde_json::json!({"assertions":[{"tag_id":format!("{}:0",fake_event_ref("raw-current")),"value":raw}]});
+        let parsed: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(value.clone()).unwrap();
+        parsed
+            .validate_for_tuple(&realm, &actor, MemberIdentitySegment::MemberIdentity)
+            .unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+    }
+
+    #[test]
+    fn current_assertion_selector_keeps_station_and_rejects_duplicate_dots_and_aliases() {
+        let realm = fake_realm();
+        let principal = DidCoreId::new("ak:did_core:web:identity.example").unwrap();
+        let first = ActorId::account(arkret_wire::AccountId::new(
+            principal.clone(),
+            DidCoreId::new("ak:did_core:web:first.example").unwrap(),
+        ));
+        let second = ActorId::account(arkret_wire::AccountId::new(
+            principal,
+            DidCoreId::new("ak:did_core:web:second.example").unwrap(),
+        ));
+        let raw = serde_json::json!({"realm_id":realm,"member_id":first,"segment":"member_identity","identity_payload":{"member_identity":sample_identity("Unverified")}});
+        let assertion = serde_json::json!({"tag_id":format!("{}:0",fake_event_ref("selector-current")),"value":raw});
+        let parsed: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[assertion]})).unwrap();
+        parsed
+            .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+            .unwrap();
+        assert!(
+            parsed
+                .validate_for_tuple(&realm, &second, MemberIdentitySegment::MemberIdentity)
+                .is_err()
+        );
+        let duplicate: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[assertion.clone(),assertion]}))
+                .unwrap();
+        assert!(
+            duplicate
+                .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+                .is_err()
+        );
+        let mut alias = assertion;
+        alias["value"]["actor_id"] = alias["value"]["member_id"].take();
+        alias["value"].as_object_mut().unwrap().remove("member_id");
+        let invalid: MemberIdentityUpdatesCurrentValue =
+            serde_json::from_value(serde_json::json!({"assertions":[alias]})).unwrap();
+        assert!(
+            invalid
+                .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
+                .is_err()
+        );
     }
 }

@@ -4,7 +4,7 @@ Framework-independent server handler contracts for Arkret v1 services.
 
 > **Not a reference implementation.** `arkret-server` ships protocol contract
 > types. It does not provide a backing protocol service. A production
-> deployment plugs in its own implementation (`soland` is the canonical one
+> deployment plugs in its own implementation (`coland` is the canonical one
 > today). Shared DTOs used by both producers and consumers live in
 > semantic model leaves and are re-exported here for server-side users.
 

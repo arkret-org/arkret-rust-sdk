@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
-use arkret_wire::{DidCoreId, Result, StrandId, WireError};
+use arkret_wire::{DidCoreId, EventId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -836,6 +836,16 @@ pub struct MessageAgentContext {
     pub authorization_ref: String,
 }
 
+/// A producer-visible replacement declaration for one accepted poll response.
+/// The governance Station verifies both Event refs against the same poll,
+/// actor and effective scope; this pair is not a vote-winner selector.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PollResponseHead {
+    pub poll_event_ref: EventId,
+    pub response_event_ref: EventId,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageCreatePayload {
@@ -857,6 +867,36 @@ pub struct MessageCreatePayload {
     pub agent_context: Option<MessageAgentContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mimi_provenance: Option<MimiMessageProvenance>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_poll_response_heads"
+    )]
+    pub poll_response_heads: Vec<PollResponseHead>,
+}
+
+fn poll_response_heads_valid(heads: &[PollResponseHead]) -> bool {
+    !heads.is_empty()
+        && heads.len() <= 64
+        && !heads
+            .iter()
+            .enumerate()
+            .any(|(index, head)| heads[..index].contains(head))
+}
+
+fn deserialize_poll_response_heads<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<PollResponseHead>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let heads = Vec::<PollResponseHead>::deserialize(deserializer)?;
+    if !poll_response_heads_valid(&heads) {
+        return Err(serde::de::Error::custom(
+            "poll_response_heads must contain 1..64 unique entries when present",
+        ));
+    }
+    Ok(heads)
 }
 
 impl MessageCreatePayload {
@@ -876,6 +916,7 @@ impl MessageCreatePayload {
             reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
+            poll_response_heads: Vec::new(),
         }
     }
 
@@ -907,6 +948,41 @@ impl MessageCreatePayload {
             reply_to_id: None,
             agent_context: None,
             mimi_provenance: None,
+            poll_response_heads: Vec::new(),
+        }
+    }
+
+    /// Bind the exact accepted response Events this message supersedes.
+    /// An empty declaration is represented by omission on the wire.
+    pub fn with_poll_response_heads(mut self, heads: Vec<PollResponseHead>) -> Result<Self> {
+        if self.encrypted_content.is_some() && !heads.is_empty() {
+            return Err(WireError::Protocol(
+                "encrypted messages cannot carry poll_response_heads in v1".to_owned(),
+            ));
+        }
+        if !heads.is_empty() && !poll_response_heads_valid(&heads) {
+            return Err(WireError::Protocol(
+                "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
+            ));
+        }
+        self.poll_response_heads = heads;
+        Ok(self)
+    }
+
+    pub fn validate_poll_response_heads(&self) -> Result<()> {
+        if self.encrypted_content.is_some() && !self.poll_response_heads.is_empty() {
+            return Err(WireError::Protocol(
+                "encrypted messages cannot carry poll_response_heads in v1".to_owned(),
+            ));
+        }
+        if self.poll_response_heads.is_empty()
+            || poll_response_heads_valid(&self.poll_response_heads)
+        {
+            Ok(())
+        } else {
+            Err(WireError::Protocol(
+                "poll_response_heads must be unique and contain at most 64 entries".to_owned(),
+            ))
         }
     }
 
@@ -1012,6 +1088,7 @@ impl MessageCreatePayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
+        self.validate_poll_response_heads()?;
         if self.metadata.is_some() && self.encrypted_metadata.is_some() {
             return Err(WireError::Protocol(
                 "message create payload must not carry both metadata and encrypted_metadata"
@@ -1036,7 +1113,7 @@ impl MessageCreatePayload {
 /// Structural error surfaced by the content-block validators.
 ///
 /// A distinct, allocation-free error type so the validators do not couple to
-/// the crate-wide [`Error`]; callers that need to bridge into a facade map it
+/// the shared [`arkret_wire::WireError`]; callers that need to bridge into a facade map it
 /// explicitly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ContentBlockValidationError {
@@ -1164,47 +1241,15 @@ fn validate_location_content_block(block: &Value) -> ContentBlockValidationResul
 }
 
 fn validate_poll_content_block(block: &Value) -> ContentBlockValidationResult<()> {
-    let poll = serde_json::from_value::<PollBlock>(block.clone()).map_err(|_| {
-        ContentBlockValidationError::new(
-            "poll content block requires question and at least two options",
-        )
-    })?;
-    let has_question = !poll.body.trim().is_empty()
-        || poll
-            .poll
-            .question
-            .as_ref()
-            .is_some_and(content_block_has_text_value);
-    if !has_question || poll.poll.answers.len() < 2 {
-        return Err(ContentBlockValidationError::new(
-            "poll content block requires question and at least two options",
-        ));
-    }
-    for answer in &poll.poll.answers {
-        validate_content_block(&answer.text.to_value().map_err(|_| {
-            ContentBlockValidationError::new("poll content block answer requires text")
-        })?)?;
-    }
-    Ok(())
+    let poll = serde_json::from_value::<PollBlock>(block.clone())
+        .map_err(|_| ContentBlockValidationError::new("invalid Poll content block"))?;
+    poll.validate()
 }
 
 fn validate_poll_response_content_block(block: &Value) -> ContentBlockValidationResult<()> {
-    let response = serde_json::from_value::<PollResponseBlock>(block.clone()).map_err(|_| {
-        ContentBlockValidationError::new(
-            "poll response content block requires poll_ref and at least one selection",
-        )
-    })?;
-    if response
-        .poll_response
-        .selections
-        .iter()
-        .all(|selection| selection.trim().is_empty())
-    {
-        return Err(ContentBlockValidationError::new(
-            "poll response content block requires poll_ref and at least one selection",
-        ));
-    }
-    Ok(())
+    let response = serde_json::from_value::<PollResponseBlock>(block.clone())
+        .map_err(|_| ContentBlockValidationError::new("invalid Poll response block"))?;
+    response.validate()
 }
 
 fn content_block_has_text(block: &Value) -> bool {
@@ -1213,10 +1258,6 @@ fn content_block_has_text(block: &Value) -> bool {
             .get("body")
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty())
-}
-
-fn content_block_has_text_value(block: &ContentBlock) -> bool {
-    !block.body.trim().is_empty()
 }
 
 fn json_integer(value: &Value) -> bool {

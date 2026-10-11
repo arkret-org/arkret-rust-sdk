@@ -1,9 +1,7 @@
 //! Strand lifecycle and ordering event payloads.
 
-#[cfg(test)]
-use arkret_wire::DidCoreId;
-
 use crate::internal_prelude::*;
+use crate::strand_watch_operations::StrandWatchCurrentValue;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_create_payload`.
@@ -77,35 +75,86 @@ pub struct StrandPatchPayload {
 }
 
 impl StrandPatchPayload {
+    /// Classify, reorder, or unclassify a Chat using the exact observed current digest.
+    pub fn for_topic(
+        strand_id: StrandId,
+        topic: Option<StrandTopic>,
+        expected_state_digest: Hash,
+    ) -> Result<Self> {
+        let op = match topic {
+            Some(topic) => PatchOp::set(
+                serde_json::to_value(topic).map_err(|e| WireError::Protocol(e.to_string()))?,
+            ),
+            None => PatchOp::unset(),
+        };
+        let mut patch = Patch::new();
+        patch.insert_op("topic", op)?;
+        let payload = Self {
+            target_ref: strand_id,
+            patch,
+            expected_state_digest: Some(expected_state_digest),
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.patch.validate()?;
+        for (path, op) in self
+            .patch
+            .iter()
+            .filter(|(path, _)| path.as_str() == "topic" || path.starts_with("topic."))
+        {
+            if path != "topic" || self.expected_state_digest.is_none() {
+                return Err(WireError::Protocol(
+                    "Topic update requires whole-field CAS".into(),
+                ));
+            }
+            match op {
+                PatchOp::Explicit {
+                    op: PatchOpKind::Set,
+                    value: Some(value),
+                } => {
+                    serde_json::from_value::<StrandTopic>(value.clone())
+                        .map_err(|e| WireError::Protocol(e.to_string()))?;
+                }
+                PatchOp::Explicit {
+                    op: PatchOpKind::Unset,
+                    value: None,
+                } => {}
+                _ => {
+                    return Err(WireError::Protocol(
+                        "Topic update requires explicit set or unset".into(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
-        patch.validate()?;
-        Ok(Self {
+        let payload = Self {
             target_ref: strand_id,
             patch,
             expected_state_digest: None,
-        })
+        };
+        payload.validate()?;
+        Ok(payload)
     }
 
     pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("strand patch payload serialize: {err}")))
     }
 }
-/// Optional CAS guard carried on `ak.strand.move`
-/// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
-///
-/// Compiles to a `head_eq` precondition against the current position cell.
-/// All three fields are optional in the spec sub-schema; `additionalProperties
-/// :false`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandMoveExpectedPosition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
+fn deserialize_position_preimage<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandPositionCurrent>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    StrandPositionCurrent::deserialize(deserializer).map(Some)
 }
 
 /// Strong type for `ak.strand.move` payloads
@@ -126,8 +175,12 @@ pub struct StrandMovePayload {
     pub from_space_id: Option<SpaceId>,
     pub target_space_id: SpaceId,
     pub rank: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<StrandMoveExpectedPosition>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_position_preimage"
+    )]
+    pub expected_position: Option<StrandPositionCurrent>,
 }
 
 impl StrandMovePayload {
@@ -152,7 +205,7 @@ impl StrandMovePayload {
         self
     }
 
-    pub fn with_expected_position(mut self, expected: StrandMoveExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandPositionCurrent) -> Self {
         self.expected_position = Some(expected);
         self
     }
@@ -161,21 +214,6 @@ impl StrandMovePayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("strand move payload serialize: {err}")))
     }
-}
-
-/// Optional CAS guard carried on `ak.strand.reorder`
-/// (`event-payload.schema.json#/$defs/strand_reorder_payload` `expected_position`).
-///
-/// The reorder happens within a single List Space, so unlike
-/// [`StrandMoveExpectedPosition`] there is no `space_id` field here.
-/// `additionalProperties:false`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandReorderExpectedPosition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
 }
 
 /// Strong type for `ak.strand.reorder` payloads
@@ -191,8 +229,12 @@ pub struct StrandReorderPayload {
     pub strand_id: StrandId,
     pub space_id: SpaceId,
     pub rank: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<StrandReorderExpectedPosition>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_position_preimage"
+    )]
+    pub expected_position: Option<StrandPositionCurrent>,
 }
 
 impl StrandReorderPayload {
@@ -211,7 +253,7 @@ impl StrandReorderPayload {
         }
     }
 
-    pub fn with_expected_position(mut self, expected: StrandReorderExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandPositionCurrent) -> Self {
         self.expected_position = Some(expected);
         self
     }
@@ -239,8 +281,9 @@ pub enum StrandWatchLevel {
 /// CAS guard for `ak.strand.watch.set`
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `expected_value`).
 ///
-/// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
-/// compare. `additionalProperties:false`; `level` is required when present.
+/// Carries the prior value `{ level, level_public? }` for a
+/// whole-value compare. `additionalProperties:false`; `level` is
+/// required when present.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchExpectedValue {
@@ -264,11 +307,34 @@ pub struct StrandWatchSetPayload {
     pub strand_id: StrandId,
     pub watcher_actor_id: ActorId,
     /// `None` serializes as JSON `null`, clearing the cell.
+    #[serde(deserialize_with = "deserialize_required_watch_level")]
     pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_value: Option<StrandWatchExpectedValue>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_watch_preimage"
+    )]
+    pub expected_value: Option<StrandWatchCurrentValue>,
+}
+
+fn deserialize_required_watch_level<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandWatchLevel>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<StrandWatchLevel>::deserialize(deserializer)
+}
+
+fn deserialize_watch_preimage<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<StrandWatchCurrentValue>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    StrandWatchCurrentValue::deserialize(deserializer).map(Some)
 }
 
 impl StrandWatchSetPayload {
@@ -301,24 +367,11 @@ impl StrandWatchSetPayload {
         }
     }
 
-    /// Canonical `cas_register` cell this write targets: family
-    /// `ak.component.strand.watch.v1` with the tuple subject
-    /// `(strand_id, watcher_actor_id)` from the event-kind registry
-    /// `cell_writes` contract.
-    ///
-    /// It lives on the payload because two sides need the same id from the
-    /// same place: whoever authors the `ak.audit.accessed` partner of a
-    /// `.others` write fills `target_cell_id` with it, and whoever admits the
-    /// pair matches against it. `watch_cell_ref_matches_the_registered_contract`
-    /// pins the derivation to [`arkret_schema::project_registered_cell_writes`],
-    /// so this cannot quietly fork from the registry.
-    pub fn cell_ref(&self) -> Result<CellRef> {
-        let watcher_actor_key = self.watcher_actor_id.canonical_key()?;
-        let subject = composite_subject(&[self.strand_id.as_str(), &watcher_actor_key])?;
-        Ok(CellRef::new(format!(
-            "ak:cell:{}:{subject}",
-            CellFamilyId::STRAND_WATCH_V1
-        ))?)
+    /// Compare the complete written value, including an explicitly cleared cell.
+    /// Omission remains reserved for a Station-confirmed never-written cell.
+    pub fn with_expected_value(mut self, expected: StrandWatchCurrentValue) -> Self {
+        self.expected_value = Some(expected);
+        self
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -329,117 +382,50 @@ impl StrandWatchSetPayload {
 }
 
 #[cfg(test)]
-mod presence_tests {
+mod position_preimage_tests {
     use serde_json::json;
 
-    use super::*;
-
-    fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j").unwrap()
-    }
-
-    fn strand_id(suffix: &str) -> StrandId {
-        StrandId::from_event_id(
-            &EventId::from_event_digest(
-                &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
-            )
-            .unwrap(),
-        )
-    }
+    use super::{StrandMovePayload, StrandReorderPayload};
 
     #[test]
-    fn default_strand_cas_normalizes_missing_and_null() {
-        let base = json!({
-            "realm_id": realm_id(),
-            "strand_id": strand_id("000000000001")
-        });
-        let missing: RealmSetDefaultStrandPayload = serde_json::from_value(base.clone()).unwrap();
-        let mut explicit_null = base.clone();
-        explicit_null["expected_default_strand_id"] = Value::Null;
-        let null: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_null).unwrap();
-        let mut explicit_value = base;
-        explicit_value["expected_default_strand_id"] = json!(strand_id("000000000002"));
-        let value: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_value).unwrap();
-
-        assert_eq!(missing.expected_default_strand_id, None);
-        assert_eq!(null.expected_default_strand_id, None);
-        assert!(value.expected_default_strand_id.is_some());
+    fn move_and_reorder_require_complete_current_value_when_cas_is_present() {
+        let board = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let strand = "ak:strand:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
+        let mut move_wire =
+            json!({"board_space_id":board,"strand_id":strand,"target_space_id":board,"rank":"b0"});
+        let mut reorder_wire =
+            json!({"board_space_id":board,"strand_id":strand,"space_id":board,"rank":"b0"});
         assert!(
-            serde_json::to_value(missing)
+            serde_json::from_value::<StrandMovePayload>(move_wire.clone())
                 .unwrap()
-                .get("expected_default_strand_id")
+                .expected_position
                 .is_none()
         );
         assert!(
-            serde_json::to_value(null)
+            serde_json::from_value::<StrandReorderPayload>(reorder_wire.clone())
                 .unwrap()
-                .get("expected_default_strand_id")
+                .expected_position
                 .is_none()
         );
-    }
-
-    /// `StrandWatchSetPayload::cell_ref` exists so the audit partner of a
-    /// `.others` write and the admission path that matches it agree on
-    /// `target_cell_id`. It is only worth having if it stays equal to what the
-    /// registered cell contract derives, so assert that directly rather than
-    /// restating the tuple-subject recipe.
-    #[test]
-    fn watch_cell_ref_matches_the_registered_contract() {
-        let payload = StrandWatchSetPayload::set(
-            strand_id("000000000001"),
-            ActorId::account(AccountId::new(
-                project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
-                    .unwrap(),
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
-            )),
-            StrandWatchLevel::Participating,
-            None,
-        );
-        let event = test_support::raw_event(
-            "ak.strand.watch.set",
-            ScopeRef::Realm {
-                realm_id: realm_id(),
-            },
-            project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
-                .unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-            1,
-            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            serde_json::to_value(&payload).unwrap(),
-        )
-        .unwrap();
-
-        let writes = arkret_schema::project_registered_cell_writes(
-            &event,
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap();
-
-        assert_eq!(writes.len(), 1);
-        assert_eq!(writes[0].cell_id, payload.cell_ref().unwrap());
-    }
-
-    #[test]
-    fn watch_cas_normalizes_null_to_the_omitted_empty_value() {
-        let payload: StrandWatchSetPayload = serde_json::from_value(json!({
-            "strand_id": strand_id("000000000001"),
-            "watcher_actor_id": {
-                "kind": "account",
-                "account_id": {
-                    "principal_id": "ak:did_core:web:alice.example",
-                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                }
-            },
-            "level": null,
-            "expected_value": null
-        }))
-        .unwrap();
-        assert_eq!(payload.expected_value, None);
-        assert!(
-            serde_json::to_value(payload)
-                .unwrap()
-                .get("expected_value")
-                .is_none()
-        );
+        for preimage in [
+            json!({"list_space_id":board,"rank":"a0"}),
+            json!({"rank":"a0"}),
+            json!(null),
+            json!({"space_id":board,"rank":"a0"}),
+            json!({"list_space_id":board,"rank":"a0","relation_id":"ak:relation:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7"}),
+        ] {
+            let valid =
+                preimage.get("list_space_id").is_some() && preimage.as_object().unwrap().len() == 2;
+            move_wire["expected_position"] = preimage.clone();
+            reorder_wire["expected_position"] = preimage;
+            assert_eq!(
+                serde_json::from_value::<StrandMovePayload>(move_wire.clone()).is_ok(),
+                valid
+            );
+            assert_eq!(
+                serde_json::from_value::<StrandReorderPayload>(reorder_wire.clone()).is_ok(),
+                valid
+            );
+        }
     }
 }

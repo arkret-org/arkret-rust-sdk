@@ -6,13 +6,44 @@
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, EventId, Hash, Result, SchemaId, ScopeRef, WireError, event_kind_str,
+    EncryptedPayloadScheme, EventId, Hash, MlsGroupId, Result, SchemaId, ScopeRef, WireError,
+    event_kind_str,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Purpose fixed by `encryption-and-audit.md` §2.3 for both content schemes.
+/// Purpose fixed by `encryption-and-audit.md` §2.3 for RFC 9420 content.
 pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "arkret_event_content";
+
+/// Canonical JSON numbers are bounded by encoding.md §1. Nonce byte width
+/// does not enlarge the integer range of the envelope's JSON carrier.
+pub const MAX_EVENT_CONTENT_INTEGER: u64 = 9_007_199_254_740_991;
+
+mod content_integer {
+    use super::*;
+    pub fn serialize<S: serde::Serializer>(
+        value: &u64,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        if *value > MAX_EVENT_CONTENT_INTEGER {
+            return Err(serde::ser::Error::custom(
+                "content integer exceeds the canonical JSON range",
+            ));
+        }
+        serializer.serialize_u64(*value)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<u64, D::Error> {
+        let value = u64::deserialize(deserializer)?;
+        if value > MAX_EVENT_CONTENT_INTEGER {
+            return Err(serde::de::Error::custom(
+                "content integer exceeds the canonical JSON range",
+            ));
+        }
+        Ok(value)
+    }
+}
 
 /// Reaction-only routing fields carried by the minimal encrypted envelope.
 ///
@@ -54,12 +85,10 @@ pub struct EventContentPreEncryptionHeader {
     pub scheme: EncryptedPayloadScheme,
     pub effective_scope: ScopeRef,
     pub event_kind: String,
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub group_state_ref: EventId,
     pub sender_domain: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub counter: Option<u64>,
     pub routing_context: EventContentRoutingContext,
 }
 
@@ -74,7 +103,6 @@ impl EventContentPreEncryptionHeader {
         epoch: u64,
         group_state_ref: EventId,
         sender_domain: impl Into<String>,
-        counter: Option<u64>,
         routing_context: EventContentRoutingContext,
     ) -> Result<Self> {
         let header = Self {
@@ -88,7 +116,6 @@ impl EventContentPreEncryptionHeader {
             epoch,
             group_state_ref,
             sender_domain: sender_domain.into(),
-            counter,
             routing_context,
         };
         header.validate()?;
@@ -117,16 +144,6 @@ impl EventContentPreEncryptionHeader {
                 "event-content pre-encryption Event kind and sender domain are required".to_owned(),
             ));
         }
-        match self.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 if self.counter.is_none() => {}
-            EncryptedPayloadScheme::MlsExporterAeadV1 if self.counter.is_some() => {}
-            _ => {
-                return Err(WireError::Protocol(
-                    "event-content pre-encryption counter does not match the content scheme"
-                        .to_owned(),
-                ));
-            }
-        }
         let reaction_kind = matches!(
             self.event_kind.as_str(),
             event_kind_str::REACTION_ADD | event_kind_str::REACTION_REMOVE
@@ -150,28 +167,31 @@ impl EventContentPreEncryptionHeader {
     }
 }
 
-/// Closed encryption-context branch selected solely by `counter` presence.
+/// Closed RFC 9420 application-message encryption context.
 ///
-/// The branch is cross-checked against the `content_scheme` frozen by the
-/// exact winning `group_state_ref`; no caller-supplied scheme selector exists
-/// on the wire.
+/// It is cross-checked against the exact winning `group_state_ref`; no
+/// caller-supplied scheme selector exists on the wire.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum EncryptedEnvelopeEncryptionContext {
     StandardMls {
+        #[serde(with = "content_integer")]
         epoch: u64,
         group_state_ref: EventId,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "present_routing_context"
+        )]
         routing_context: Option<EncryptedEnvelopeRoutingContext>,
     },
-    ExporterMls {
-        epoch: u64,
-        group_state_ref: EventId,
-        counter: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        routing_context: Option<EncryptedEnvelopeRoutingContext>,
-    },
+}
+
+fn present_routing_context<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<EncryptedEnvelopeRoutingContext>, D::Error> {
+    EncryptedEnvelopeRoutingContext::deserialize(deserializer).map(Some)
 }
 
 impl EncryptedEnvelopeEncryptionContext {
@@ -183,18 +203,9 @@ impl EncryptedEnvelopeEncryptionContext {
         }
     }
 
-    pub fn exporter(epoch: u64, group_state_ref: EventId, counter: u64) -> Self {
-        Self::ExporterMls {
-            epoch,
-            group_state_ref,
-            counter,
-            routing_context: None,
-        }
-    }
-
     pub fn epoch(&self) -> u64 {
         match self {
-            Self::StandardMls { epoch, .. } | Self::ExporterMls { epoch, .. } => *epoch,
+            Self::StandardMls { epoch, .. } => *epoch,
         }
     }
 
@@ -202,26 +213,13 @@ impl EncryptedEnvelopeEncryptionContext {
         match self {
             Self::StandardMls {
                 group_state_ref, ..
-            }
-            | Self::ExporterMls {
-                group_state_ref, ..
             } => group_state_ref,
-        }
-    }
-
-    pub fn counter(&self) -> Option<u64> {
-        match self {
-            Self::StandardMls { .. } => None,
-            Self::ExporterMls { counter, .. } => Some(*counter),
         }
     }
 
     pub fn routing_context(&self) -> Option<&EncryptedEnvelopeRoutingContext> {
         match self {
             Self::StandardMls {
-                routing_context, ..
-            }
-            | Self::ExporterMls {
                 routing_context, ..
             } => routing_context.as_ref(),
         }
@@ -242,6 +240,11 @@ pub struct EncryptedEnvelope {
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
+        if self.encryption_context.epoch() > MAX_EVENT_CONTENT_INTEGER {
+            return Err(WireError::Protocol(
+                "content integer exceeds the canonical JSON range".to_owned(),
+            ));
+        }
         if self.version != "1.0" {
             return Err(WireError::Protocol(
                 "encrypted envelope version must equal 1.0".to_owned(),
@@ -303,7 +306,6 @@ impl EncryptedEnvelope {
             self.encryption_context.epoch(),
             self.encryption_context.group_state_ref().clone(),
             sender_domain,
-            self.encryption_context.counter(),
             routing_context,
         )
     }
@@ -384,18 +386,14 @@ pub fn content_type_byte(byte: u8) -> bool {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncryptedPayload {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     pub content_type: String,
     pub ciphertext: String,
-    /// Durable full-width exporter counter. Present only for
-    /// `mls_exporter_aead_v1`; copied into the minimal wire
-    /// `encryption_context` while the nonce itself remains derived.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub counter: Option<u64>,
     pub pre_encryption_header: EventContentPreEncryptionHeader,
     pub payload_digest: Hash,
 }
@@ -417,22 +415,10 @@ impl EncryptedPayload {
                 routing_tag: routing_tag.clone(),
             }),
         };
-        let encryption_context = match header.scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => EncryptedEnvelopeEncryptionContext::StandardMls {
-                epoch: header.epoch,
-                group_state_ref: header.group_state_ref.clone(),
-                routing_context,
-            },
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                EncryptedEnvelopeEncryptionContext::ExporterMls {
-                    epoch: header.epoch,
-                    group_state_ref: header.group_state_ref.clone(),
-                    counter: header.counter.ok_or_else(|| {
-                        WireError::Protocol("exporter payload requires a counter".to_owned())
-                    })?,
-                    routing_context,
-                }
-            }
+        let encryption_context = EncryptedEnvelopeEncryptionContext::StandardMls {
+            epoch: header.epoch,
+            group_state_ref: header.group_state_ref.clone(),
+            routing_context,
         };
         let envelope = EncryptedEnvelope {
             version: header.envelope_version.clone(),
@@ -449,7 +435,6 @@ impl EncryptedPayload {
             || self.group_id != self.pre_encryption_header.mls_group_id
             || self.epoch != self.pre_encryption_header.epoch
             || self.content_type != self.pre_encryption_header.content_type
-            || self.counter != self.pre_encryption_header.counter
         {
             return Err(WireError::Protocol(
                 "internal encrypted payload does not match its pre-encryption header".to_owned(),

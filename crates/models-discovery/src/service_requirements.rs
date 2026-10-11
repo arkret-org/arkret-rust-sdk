@@ -148,7 +148,6 @@ pub struct ApiConventionMetadata {
 pub struct ServiceRequirements {
     service_kind: Option<ServiceKind>,
     profiles: Vec<String>,
-    reducer_profiles: Vec<String>,
     operation_pairs: Vec<(ServiceOperationId, BindingKind)>,
 }
 
@@ -164,11 +163,6 @@ impl ServiceRequirements {
 
     pub fn profile(mut self, profile: impl Into<String>) -> Self {
         self.profiles.push(profile.into());
-        self
-    }
-
-    pub fn reducer_profile(mut self, profile: impl Into<String>) -> Self {
-        self.reducer_profiles.push(profile.into());
         self
     }
 
@@ -205,18 +199,6 @@ impl ServiceRequirements {
             }
         }
 
-        for profile in &self.reducer_profiles {
-            if !description
-                .supported_reducer_profiles
-                .iter()
-                .any(|actual| actual == profile)
-            {
-                return Err(WireError::Protocol(format!(
-                    "service does not support reducer profile {profile}"
-                )));
-            }
-        }
-
         for &(operation_id, binding_kind) in &self.operation_pairs {
             if !description.supports_operation_binding(operation_id, binding_kind) {
                 return Err(WireError::Protocol(format!(
@@ -235,8 +217,8 @@ mod tests {
 
     use super::*;
     use crate::service_description::{
-        AuthMetadata, DirectoryAcceptPolicyKind, DirectoryIngestMode, DirectoryResourceKind,
-        EgressNetworkPolicy, PlaintextVisibility, RateLimitPolicy, ServerLimits, TransportBinding,
+        AuthMetadata, DirectoryResourceKind, EgressNetworkPolicy, PlaintextVisibility,
+        RateLimitPolicy, ServerLimits, TransportBinding,
     };
 
     #[test]
@@ -257,7 +239,7 @@ mod tests {
             calendar_tzdb_versions: vec![],
             supported_operation_bundles: vec![
                 "ak.operation_bundle.directory_service.describe.v1".to_owned(),
-                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
+                "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
                 base_url: "https://directory.example".to_owned(),
@@ -268,7 +250,6 @@ mod tests {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: vec![],
             verified_profiles: vec![],
             interop_surfaces: vec![],
             invite_addressing: None,
@@ -276,38 +257,12 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
-            resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            private_contact_discovery: None,
-            restricted_query_proof: Some(true),
-            ingest_modes: vec![DirectoryIngestMode::Push],
-            accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
-            accept_policy_ref: None,
-            default_ttl_seconds: Some(86_400),
-            max_ttl_seconds: Some(604_800),
-            revalidation_grace_seconds: Some(3_600),
-            accepted_resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
-            takedown_contact: None,
-            rate_limits: Some(BTreeMap::new()),
-            supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
+            resource_kinds: vec![DirectoryResourceKind::Realm],
             extensions: Default::default(),
         };
 
         ServiceRequirements::new()
             .service_kind(ServiceKind::DirectoryService)
-            .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
             .operation_binding(
                 ServiceOperationId::FindDirectoryReadSearchRealmsV1,
                 BindingKind::HttpJson,

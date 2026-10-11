@@ -58,14 +58,13 @@ pub fn owner_may_author_action(child_action: &str) -> Result<bool> {
     action_covers_event_kinds(CapabilityActionId::REALM_OWNER, child_action)
 }
 
-/// Structural current-v1 boundary: a Realm role can never cross into root,
-/// reducer or subject/personal authority even if generated aggregate rows are
+/// Structural boundary: a Realm role can never cross into root or
+/// subject/personal authority even if generated aggregate rows are
 /// accidentally widened. This predicate is compiled into the profile code and
 /// is evaluated before either direct Event coverage or grant-authority sets.
 fn owner_role_must_not_cover(action: &arkret_schema::CapabilityActionDescriptor) -> bool {
     action.root_control_only
         || action.subject_only
-        || action.reducer_only
         || action.category == "personal"
         || action.action.as_str().starts_with("ak.self.")
 }
@@ -96,20 +95,34 @@ mod tests {
         assert!(owner_may_grant(CapabilityActionId::REALM_OWNER).unwrap());
         assert!(!owner_may_grant("ak.realm.destroy").unwrap());
         assert!(!owner_may_grant("ak.realm.tombstone").unwrap());
-        assert!(!owner_may_grant("ak.capability.derived").unwrap());
         assert!(!owner_may_grant("ak.agent.sidecar.write").unwrap());
         assert!(owner_may_grant("ak.rsvp.set").unwrap());
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        assert!(owner_may_grant("ak.applet.invoke").is_err());
     }
 
     #[test]
-    fn owner_role_hard_denies_root_subject_reducer_personal_and_unknown_semantics() {
+    fn native_bridge_error_is_an_exact_grant_exception_not_direct_event_coverage() {
+        assert!(owner_may_grant("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_action("ak.applet.bridge_error").unwrap());
+        assert!(!owner_may_author_event_kind("ak.applet.bridge_error").unwrap());
+        for action in ["ak.applet.ghost.provision", "ak.applet.bot.provision"] {
+            assert!(!owner_may_grant(action).unwrap(), "{action}");
+        }
+        assert!(action_grants_authority_for("ak.realm.owner", "ak.applet.bridge_error").unwrap());
+        assert!(!action_grants_authority_for("ak.realm.admin", "ak.applet.bridge_error").unwrap());
+    }
+
+    #[test]
+    fn owner_role_hard_denies_root_subject_personal_and_unknown_semantics() {
         for action in [
             "ak.realm.destroy",
             "ak.capability.relinquish",
-            "ak.capability.derived",
             "ak.invite.accept",
             "ak.read_cursor.advance",
-            "ak.self.events.read.scan.v1",
+            "ak.self.committed_event.read.scan.v1",
         ] {
             assert!(!owner_may_author_action(action).unwrap(), "{action}");
             assert!(!owner_may_grant(action).unwrap(), "{action}");

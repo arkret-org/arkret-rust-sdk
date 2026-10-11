@@ -193,16 +193,6 @@ pub enum HandleVisibility {
     Private,
 }
 
-/// Binding-state machine for the handle claim.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HandleBindingState {
-    Pending,
-    Verified,
-    Revoked,
-    Expired,
-}
-
 /// Protocol kind of handle claim (`claim_kind` in the wire schema).
 ///
 /// R3.5 wire-breaking: the draft-era `claim_kind` / `class` discriminators

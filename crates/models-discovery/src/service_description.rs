@@ -4,8 +4,6 @@ use std::str::FromStr;
 
 use arkret_wire::{Did, DidCoreId, ProfileId, SchemaId, *};
 use chrono::{DateTime, Utc};
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::traits::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,28 +12,14 @@ use serde_json::Value;
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryResourceKind {
     Realm,
-    Organization,
-    Actor,
-    Applet,
-    Handle,
 }
 
 impl DirectoryResourceKind {
-    pub const ALL: [Self; 5] = [
-        Self::Realm,
-        Self::Organization,
-        Self::Actor,
-        Self::Applet,
-        Self::Handle,
-    ];
+    pub const ALL: [Self; 1] = [Self::Realm];
 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Realm => "realm",
-            Self::Organization => "organization",
-            Self::Actor => "actor",
-            Self::Applet => "applet",
-            Self::Handle => "handle",
         }
     }
 }
@@ -88,8 +72,7 @@ pub enum PushTargetSecretScope {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PushTargetInputBinding {
-    RecipientDidCoreId,
-    DidCoreId,
+    AccountId,
     DeviceId,
     PushRouteId,
     SaltEpochId,
@@ -281,53 +264,6 @@ pub struct InviteAddressing {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PrivateContactDiscoveryProfile {
-    #[serde(rename = "ak.private_contact_discovery.v1")]
-    V1,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PrivateContactDiscoveryCiphersuite {
-    #[serde(rename = "ristretto255-SHA512")]
-    Ristretto255Sha512,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PrivateContactDiscoveryHandoffStubsMode {
-    Always,
-    Never,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AntiEnumerationDelay {
-    pub minimum_ms: u32,
-    pub jitter_ms: u32,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrivateContactDiscovery {
-    pub profile: PrivateContactDiscoveryProfile,
-    pub public_key: String,
-    pub key_epoch: u64,
-    pub batch_item_count: u16,
-    pub handoff_stubs_mode: PrivateContactDiscoveryHandoffStubsMode,
-    pub blind_response_bucket_bytes: u32,
-    pub match_response_bucket_bytes: u32,
-    pub batch_completion_ttl_seconds: u32,
-    pub max_psi_queries_per_window: u64,
-    pub quota_window_seconds: u32,
-    pub anti_enumeration_delay: AntiEnumerationDelay,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ServiceProtocolVersion {
     #[serde(rename = "1.0")]
@@ -366,68 +302,6 @@ impl<'de> Deserialize<'de> for ServiceProtocolVersion {
                 code.as_str()
             ))),
         }
-    }
-}
-
-impl PrivateContactDiscovery {
-    pub const RESPONSE_SIZE_BUCKETS_BYTES: [u32; 4] = [4096, 16384, 65536, 262144];
-    pub const CIPHERSUITE: PrivateContactDiscoveryCiphersuite =
-        PrivateContactDiscoveryCiphersuite::Ristretto255Sha512;
-    pub const DERIVED_PREFIX_BYTES: u8 = 16;
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        public_key: impl Into<String>,
-        key_epoch: u64,
-        batch_item_count: u16,
-        handoff_stubs_mode: PrivateContactDiscoveryHandoffStubsMode,
-        blind_response_bucket_bytes: u32,
-        match_response_bucket_bytes: u32,
-        batch_completion_ttl_seconds: u32,
-        max_psi_queries_per_window: u64,
-        quota_window_seconds: u32,
-        anti_enumeration_delay: AntiEnumerationDelay,
-    ) -> Self {
-        Self {
-            profile: PrivateContactDiscoveryProfile::V1,
-            public_key: public_key.into(),
-            key_epoch,
-            batch_item_count,
-            handoff_stubs_mode,
-            blind_response_bucket_bytes,
-            match_response_bucket_bytes,
-            batch_completion_ttl_seconds,
-            max_psi_queries_per_window,
-            quota_window_seconds,
-            anti_enumeration_delay,
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        let public_key = arkret_canonical::base64url_decode(&self.public_key).map_err(|_| {
-            WireError::Protocol("private contact discovery public_key is not base64url".to_owned())
-        })?;
-        let public_key_bytes: Option<[u8; 32]> = public_key.as_slice().try_into().ok();
-        let public_key_point =
-            public_key_bytes.and_then(|bytes| CompressedRistretto(bytes).decompress());
-        if public_key.len() != 32
-            || arkret_canonical::base64url_encode(&public_key) != self.public_key
-            || public_key_point
-                .is_none_or(|point| point == curve25519_dalek::RistrettoPoint::identity())
-            || !(1..=1024).contains(&self.batch_item_count)
-            || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.blind_response_bucket_bytes)
-            || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.match_response_bucket_bytes)
-            || !(60..=86_400).contains(&self.batch_completion_ttl_seconds)
-            || self.max_psi_queries_per_window == 0
-            || !(300..=604_800).contains(&self.quota_window_seconds)
-            || self.anti_enumeration_delay.minimum_ms > 10_000
-            || !(1..=10_000).contains(&self.anti_enumeration_delay.jitter_ms)
-        {
-            return Err(WireError::Protocol(
-                "invalid private_contact_discovery configuration".to_owned(),
-            ));
-        }
-        self.validate_response_bucket_plan()
     }
 }
 
@@ -479,13 +353,6 @@ pub struct ServiceDescribe {
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
     pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
-    /// Profiles the service claims (self-declared). Wire
-    /// shape per
-    /// `service-describe.schema.json#/properties/claimed_profiles`:
-    /// every entry MUST be an object with `profile_id` +
-    /// `claim_kind = "self_claimed"`; verified-only assertions live in
-    /// [`Self::verified_profiles`].
-    pub claimed_profiles: Vec<ClaimedProfileEntry>,
     /// Profiles a third party has verified the service
     /// against. MUST be empty when `development_mode == true`. Wire
     /// shape per
@@ -525,50 +392,6 @@ pub struct ServiceDescribe {
     /// `service_kind == "directory_service"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resource_kinds: Vec<DirectoryResourceKind>,
-    /// Closed VOPRF private-contact-discovery configuration. Its presence is
-    /// exactly coupled to the registered directory PCD operation bundle.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub private_contact_discovery: Option<PrivateContactDiscovery>,
-    /// Directory-service overlay: whether restricted or privacy-sensitive
-    /// queries require holder-approved proof.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub restricted_query_proof: Option<bool>,
-    /// Directory-service overlay: supported ingest modes.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ingest_modes: Vec<DirectoryIngestMode>,
-    /// Directory-service overlay: resource acceptance policy kind.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accept_policy_kind: Option<DirectoryAcceptPolicyKind>,
-    /// Directory-service overlay: optional governance or human-readable
-    /// reference for obtaining acceptance.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accept_policy_ref: Option<BTreeMap<String, Value>>,
-    /// Directory-service overlay: default entry TTL in seconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_ttl_seconds: Option<u64>,
-    /// Directory-service overlay: maximum accepted entry TTL in seconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_ttl_seconds: Option<u64>,
-    /// Directory-service overlay: refresh grace period in seconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revalidation_grace_seconds: Option<u64>,
-    /// Directory-service overlay: resource kinds accepted by this instance.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accepted_resource_kinds: Vec<DirectoryResourceKind>,
-    /// Directory-service overlay: accepted principal/governance DID methods.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accepted_did_methods: Vec<String>,
-    /// Directory-service overlay: takedown notification or appeal contact.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub takedown_contact: Option<String>,
-    /// Directory-service overlay: readable per-DID/per-organization/per-IP quota
-    /// limits that do not fit the global `rate_limit_policy` shape.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limits: Option<BTreeMap<String, Value>>,
-    /// Registered Realm reducer profiles this service can actually execute.
-    /// This is a capability set, not a selected Realm profile.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub supported_reducer_profiles: Vec<String>,
     /// Vendor extensions permitted by the service-describe schema. Keys must
     /// use the reserved `x_<vendor>_*` namespace and are serialized at the
     /// top level.
@@ -578,6 +401,39 @@ pub struct ServiceDescribe {
 }
 
 impl ServiceDescribe {
+    /// Confirm the exact route after independent DID-method verification.
+    pub fn validate_route_projection(
+        &self,
+        route: &arkret_models_identity::ServiceResolutionProjection,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.protocol_version.as_str() != PROTOCOL_VERSION
+            || self.service_id != route.service_id
+            || self.service_kind.as_str() != route.service_kind
+            || self.service_resolution.did != route.did
+            || self.service_resolution.method_history_head != route.method_history_head
+            || self.service_resolution.version_id != route.version_id
+        {
+            return Err(WireError::Protocol(
+                "ServiceDescribe differs from the verified DID state".to_owned(),
+            ));
+        }
+        let bases: Vec<_> = self
+            .transport_bindings
+            .iter()
+            .filter_map(|binding| match binding {
+                TransportBinding::HttpJson { base_url, .. } => Some(base_url.as_str()),
+                _ => None,
+            })
+            .collect();
+        if bases != [route.base_url.as_str()] {
+            return Err(WireError::Protocol(
+                "ServiceDescribe must confirm exactly one verified HTTP endpoint".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub const SCHEMA: &'static str = SchemaId::SERVICE_DESCRIBE_V1;
 
     /// Build a complete development-mode description for a service surface.
@@ -611,7 +467,6 @@ impl ServiceDescribe {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: Vec::new(),
             verified_profiles: Vec::new(),
             interop_surfaces: Vec::new(),
             invite_addressing: None,
@@ -620,19 +475,6 @@ impl ServiceDescribe {
             rate_limit_policy_id: None,
             egress_network_policy: None,
             resource_kinds: Vec::new(),
-            private_contact_discovery: None,
-            restricted_query_proof: None,
-            ingest_modes: Vec::new(),
-            accept_policy_kind: None,
-            accept_policy_ref: None,
-            default_ttl_seconds: None,
-            max_ttl_seconds: None,
-            revalidation_grace_seconds: None,
-            accepted_resource_kinds: Vec::new(),
-            accepted_did_methods: Vec::new(),
-            takedown_contact: None,
-            rate_limits: None,
-            supported_reducer_profiles: Vec::new(),
             extensions: XExtensionMap::default(),
         }
     }
@@ -705,22 +547,6 @@ impl ServiceDescribe {
                 )));
             }
             operation_pairs.extend(bundle.members.iter().copied());
-        }
-        let has_private_contact_discovery_configuration = self.private_contact_discovery.is_some();
-        let provides_private_contact_discovery = operation_pairs.contains(&OperationBindingPair {
-            operation_id: ServiceOperationId::FindDirectoryReadPrivateContactDiscoveryV1,
-            binding_kind: BindingKind::HttpJson,
-        });
-        if has_private_contact_discovery_configuration != provides_private_contact_discovery
-            || self
-                .private_contact_discovery
-                .as_ref()
-                .is_some_and(|configuration| configuration.validate().is_err())
-        {
-            return Err(WireError::Protocol(format!(
-                "ServiceDescribe: private_contact_discovery must be valid and appear exactly with its registered HTTP operation pair ({})",
-                ErrorCode::SCHEMA_VIOLATION
-            )));
         }
         let transport_kinds = self
             .transport_bindings
@@ -829,11 +655,6 @@ impl ServiceDescribe {
                 profile.as_str(),
                 ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
             )
-        }) || self.claimed_profiles.iter().any(|claim| {
-            matches!(
-                claim.profile_id.as_str(),
-                ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
-            )
         });
         let valid_tzdb_version = |version: &str| {
             let bytes = version.as_bytes();
@@ -891,43 +712,13 @@ impl ServiceDescribe {
                 ErrorCode::SCHEMA_VIOLATION
             )));
         }
-        if self.service_kind == ServiceKind::DirectoryService {
-            if self.resource_kinds.is_empty()
-                || self.ingest_modes.is_empty()
-                || self.accept_policy_kind.is_none()
-                || self.default_ttl_seconds.is_none()
-                || self.max_ttl_seconds.is_none()
-                || self.revalidation_grace_seconds.is_none()
-                || self.accepted_resource_kinds.is_empty()
-                || self.accepted_did_methods.is_empty()
-                || self.rate_limits.is_none()
-            {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: service_kind=directory_service requires the directory \
-                     describe overlay fields ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
-            let default_ttl = self.default_ttl_seconds.unwrap_or_default();
-            let max_ttl = self.max_ttl_seconds.unwrap_or_default();
-            if max_ttl > 2_592_000 || default_ttl > max_ttl {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: directory TTL fields must satisfy \
-                     default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
-            if self
-                .accepted_did_methods
-                .iter()
-                .any(|method| !is_valid_directory_did_method(method))
-            {
-                return Err(WireError::Protocol(format!(
-                    "ServiceDescribe: directory accepted_did_methods entries must match \
-                     did:<method> with lowercase alphanumeric method names ({})",
-                    ErrorCode::SCHEMA_VIOLATION
-                )));
-            }
+        if self.service_kind == ServiceKind::DirectoryService
+            && self.resource_kinds.as_slice() != [DirectoryResourceKind::Realm]
+        {
+            return Err(WireError::Protocol(format!(
+                "ServiceDescribe: service_kind=directory_service indexes only public Realm metadata ({})",
+                ErrorCode::SCHEMA_VIOLATION
+            )));
         }
         Ok(())
     }
@@ -975,15 +766,6 @@ pub struct ProfileBinding {
     pub carrier: String,
 }
 
-fn is_valid_directory_did_method(value: &str) -> bool {
-    value.strip_prefix("did:").is_some_and(|method| {
-        !method.is_empty()
-            && method
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -999,7 +781,7 @@ mod tests {
             ServiceKind::Station,
             vec![
                 "ak.operation_bundle.station.describe.v1".to_owned(),
-                "ak.operation_bundle.station.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.http_core_current.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://service.example".to_owned(),
@@ -1016,7 +798,7 @@ mod tests {
             vec![
                 "ak.operation_bundle.station.describe.v1".to_owned(),
                 "ak.operation_bundle.station.account_authority_support.v1".to_owned(),
-                "ak.operation_bundle.station.http_core.v1".to_owned(),
+                "ak.operation_bundle.station.http_core_current.v1".to_owned(),
             ],
             vec![TransportBinding::HttpJson {
                 base_url: "https://auth.example".to_owned(),
@@ -1027,7 +809,7 @@ mod tests {
 
     #[test]
     fn directory_resource_kind_tokens_are_closed_and_round_trip() {
-        let tokens = ["realm", "organization", "actor", "applet", "handle"];
+        let tokens = ["realm"];
         assert_eq!(
             DirectoryResourceKind::ALL.map(DirectoryResourceKind::as_str),
             tokens
@@ -1036,7 +818,7 @@ mod tests {
             assert_eq!(DirectoryResourceKind::from_str(token), Ok(value));
             assert_eq!(serde_json::to_value(value).unwrap(), token);
         }
-        assert!(DirectoryResourceKind::from_str("space").is_err());
+        assert!(DirectoryResourceKind::from_str("actor").is_err());
     }
 
     #[test]
@@ -1045,7 +827,7 @@ mod tests {
         let mut wire = serde_json::to_value(description).unwrap();
         wire.as_object_mut().unwrap().insert(
             "supported_operations".to_owned(),
-            json!([ServiceOperationId::SELF_EVENTS_READ_SCAN_V1]),
+            json!([ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1]),
         );
 
         assert!(serde_json::from_value::<ServiceDescribe>(wire).is_err());
@@ -1057,7 +839,7 @@ mod tests {
         assert!(
             description
                 .select_transport_binding(
-                    ServiceOperationId::SelfEventsReadScanV1,
+                    ServiceOperationId::SelfCommittedEventReadScanV1,
                     &[BindingKind::HttpJson],
                 )
                 .is_some()
@@ -1065,7 +847,7 @@ mod tests {
         assert!(
             description
                 .select_transport_binding(
-                    ServiceOperationId::SelfEventsReadScanV1,
+                    ServiceOperationId::SelfCommittedEventReadScanV1,
                     &[BindingKind::Websocket],
                 )
                 .is_none()
@@ -1134,10 +916,33 @@ mod tests {
                 },
                 "x_method_note": 7
             }],
+            "did_binding_methods": ["session_dpop", "did_http_signature"],
             "x_auth_note": {"display": true}
         });
         let metadata: AuthMetadata = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            metadata.did_binding_methods,
+            vec![
+                DidBindingMethod::SessionDpop,
+                DidBindingMethod::DidHttpSignature
+            ]
+        );
         assert_eq!(serde_json::to_value(metadata).unwrap(), value);
+
+        for invalid in ["password", "session_grant", "did:webvh"] {
+            assert!(
+                serde_json::from_value::<AuthMetadata>(json!({
+                    "did_binding_methods": [invalid]
+                }))
+                .is_err()
+            );
+        }
+        assert!(
+            serde_json::from_value::<AuthMetadata>(json!({
+                "did_binding_methods": ["session_dpop", "session_dpop"]
+            }))
+            .is_err()
+        );
 
         assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "vendor"})).is_err());
         assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "vendor"})).is_err());
@@ -1174,7 +979,7 @@ mod tests {
             profile_bindings: BTreeMap::new(),
             supported_operation_bundles: vec![
                 "ak.operation_bundle.directory_service.describe.v1".to_owned(),
-                "ak.operation_bundle.directory_service.http_core.v1".to_owned(),
+                "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
             ],
             transport_bindings: vec![TransportBinding::HttpJson {
                 base_url: "https://directory.example".to_owned(),
@@ -1187,7 +992,6 @@ mod tests {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: vec![],
             verified_profiles: vec![],
             interop_surfaces: vec![],
             invite_addressing: None,
@@ -1195,36 +999,19 @@ mod tests {
             rate_limit_policy: Some(RateLimitPolicy::unspecified()),
             rate_limit_policy_id: None,
             egress_network_policy: None,
-            resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            private_contact_discovery: None,
-            restricted_query_proof: Some(true),
-            ingest_modes: vec![DirectoryIngestMode::Push],
-            accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
-            accept_policy_ref: None,
-            default_ttl_seconds: Some(86_400),
-            max_ttl_seconds: Some(604_800),
-            revalidation_grace_seconds: Some(3_600),
-            accepted_resource_kinds: vec![
-                DirectoryResourceKind::Realm,
-                DirectoryResourceKind::Organization,
-                DirectoryResourceKind::Actor,
-                DirectoryResourceKind::Applet,
-                DirectoryResourceKind::Handle,
-            ],
-            accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
-            takedown_contact: None,
-            rate_limits: Some(BTreeMap::from([(
-                "per_ip_per_minute".to_owned(),
-                json!(60),
-            )])),
-            supported_reducer_profiles: vec![],
+            resource_kinds: vec![DirectoryResourceKind::Realm],
             extensions: XExtensionMap::default(),
+        }
+    }
+
+    #[test]
+    fn removed_describe_mirrors_are_not_extensions() {
+        for field in ["claimed_profiles", "ingest_modes"] {
+            let mut wire = serde_json::to_value(station_description()).unwrap();
+            wire[field] = json!([]);
+            if let Ok(description) = serde_json::from_value::<ServiceDescribe>(wire) {
+                assert!(description.validate().is_err())
+            }
         }
     }
 
@@ -1234,11 +1021,6 @@ mod tests {
         description
             .supported_profiles
             .push("ak.profile.calendar_notification_dispatch.v1".to_owned());
-        description
-            .claimed_profiles
-            .push(ClaimedProfileEntry::self_claimed(
-                "ak.profile.calendar_notification_dispatch.v1",
-            ));
         assert!(description.validate().is_err());
 
         description.calendar_tzdb_versions = vec!["2025b".to_owned()];
@@ -1251,87 +1033,65 @@ mod tests {
     }
 
     #[test]
+    fn directory_public_read_bundle_advertises_only_current_read_operations() {
+        let mut description = directory_description();
+        description.supported_operation_bundles = vec![
+            "ak.operation_bundle.directory_service.describe.v1".to_owned(),
+            "ak.operation_bundle.directory_service.public_read.v1".to_owned(),
+        ];
+
+        description.validate().unwrap();
+        assert!(description.supports_operation(ServiceOperationId::FindDirectoryReadDescribeV1));
+        assert!(
+            description.supports_operation(ServiceOperationId::FindDirectoryReadSearchRealmsV1)
+        );
+        assert!(
+            description.supports_operation(ServiceOperationId::FindDirectoryReadResolveRealmV1)
+        );
+    }
+
+    #[test]
     fn directory_service_requires_overlay_fields() {
         let mut description = directory_description();
         description.resource_kinds.clear();
 
         let error = description.validate().unwrap_err().to_string();
-        assert!(error.contains("directory describe overlay"));
+        assert!(error.contains("public Realm metadata"));
     }
 
     #[test]
-    fn directory_service_rejects_invalid_did_method_tokens() {
+    fn directory_service_rejects_non_realm_resource_kinds() {
         let mut description = directory_description();
-        description.accepted_did_methods = vec!["web".to_owned()];
+        description.resource_kinds.clear();
 
         let error = description.validate().unwrap_err().to_string();
-        assert!(error.contains("accepted_did_methods"));
+        assert!(error.contains("public Realm metadata"));
     }
+}
 
-    #[test]
-    fn directory_service_rejects_invalid_ttl_order() {
-        let mut description = directory_description();
-        description.default_ttl_seconds = Some(604_801);
+/// Closed `auth_metadata.did_binding_methods[]` vocabulary.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DidBindingMethod {
+    SessionDpop,
+    SessionHttpSignature,
+    DidHttpSignature,
+}
 
-        let error = description.validate().unwrap_err().to_string();
-        assert!(error.contains("default_ttl_seconds <= max_ttl_seconds"));
+fn deserialize_did_binding_methods<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<DidBindingMethod>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let methods = Vec::<DidBindingMethod>::deserialize(deserializer)?;
+    if methods.iter().copied().collect::<BTreeSet<_>>().len() != methods.len() {
+        return Err(serde::de::Error::custom(
+            "did_binding_methods must contain unique values",
+        ));
     }
-
-    #[test]
-    fn private_contact_discovery_configuration_and_bundle_are_bidirectional() {
-        let configuration = PrivateContactDiscovery::new(
-            arkret_canonical::base64url_encode(
-                curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED.as_bytes(),
-            ),
-            4,
-            256,
-            PrivateContactDiscoveryHandoffStubsMode::Never,
-            16_384,
-            4_096,
-            3_600,
-            20,
-            86_400,
-            AntiEnumerationDelay {
-                minimum_ms: 20,
-                jitter_ms: 50,
-            },
-        );
-
-        let mut configuration_only = directory_description();
-        configuration_only.private_contact_discovery = Some(configuration.clone());
-        configuration_only.validate().unwrap_err();
-
-        let mut bundle_only = directory_description();
-        bundle_only
-            .supported_operation_bundles
-            .push("ak.operation_bundle.directory_service.private_contact_discovery.v1".to_owned());
-        bundle_only.supported_operation_bundles.sort();
-        bundle_only.validate().unwrap_err();
-
-        bundle_only.private_contact_discovery = Some(configuration);
-        bundle_only.validate().unwrap();
-    }
-
-    #[test]
-    fn private_contact_discovery_rejects_invalid_ristretto_public_key() {
-        let configuration = PrivateContactDiscovery::new(
-            arkret_canonical::base64url_encode([0xff_u8; 32]),
-            4,
-            256,
-            PrivateContactDiscoveryHandoffStubsMode::Never,
-            16_384,
-            4_096,
-            3_600,
-            20,
-            86_400,
-            AntiEnumerationDelay {
-                minimum_ms: 20,
-                jitter_ms: 50,
-            },
-        );
-
-        assert!(configuration.validate().is_err());
-    }
+    Ok(methods)
 }
 
 /// Strongly-typed `auth_metadata` block of the service-describe response.
@@ -1340,14 +1100,18 @@ mod tests {
 /// only what the schema declares still deserializes; the `extra` flatten
 /// round-trips only the closed `x_*` extension namespace.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_authority: Option<AccountAuthority>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub methods: Vec<AuthMethod>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub did_binding_methods: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_did_binding_methods"
+    )]
+    pub did_binding_methods: Vec<DidBindingMethod>,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1371,7 +1135,7 @@ impl AuthMetadata {
 /// the client-visible Account Authority origin and the gate/account base URL
 /// from which all `/_arkret/gate/account/*` endpoints are derived.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountAuthority {
     pub origin: WebOrigin,
     pub gate_account_base_url: String,
@@ -1385,7 +1149,7 @@ pub struct AccountAuthority {
 /// single proof provider, its discovery metadata and the proof kind accepted
 /// by the Account Authority.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthMethod {
     pub method: AuthMethodKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1422,7 +1186,7 @@ pub enum AuthMethodKind {
 /// OIDC discovery describes the only authorization-code consumer: account
 /// handoff. SessionGrant issue is a later, separately authenticated operation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthGrantExchange {
     pub kind: AuthGrantExchangeKind,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.
@@ -1436,35 +1200,6 @@ pub struct AuthGrantExchange {
 pub enum AuthGrantExchangeKind {
     #[serde(rename = "account_handoff")]
     AccountHandoff,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BottomDiagnosticSealView {
-    pub leaves: Vec<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_root: Option<Hash>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BottomDiagnostic {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub kind: BottomKind,
-    pub cell_ids: Vec<CellRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_view: Option<BottomDiagnosticSealView>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub heads: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<BottomDetails>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub escalated_at: Option<DateTime<Utc>>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1516,7 +1251,7 @@ pub enum EgressProtectedPurpose {
     DidResolution,
     Federation,
     MediaFetch,
-    SnapshotFetch,
+    RealmStateSnapshotFetch,
     Webhook,
     Applet,
     Agent,
@@ -1529,7 +1264,7 @@ impl EgressProtectedPurpose {
         Self::DidResolution,
         Self::Federation,
         Self::MediaFetch,
-        Self::SnapshotFetch,
+        Self::RealmStateSnapshotFetch,
         Self::Webhook,
         Self::Applet,
         Self::Agent,
@@ -1554,70 +1289,6 @@ pub struct EgressPrivateException {
     pub development_mode_only: Option<bool>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-}
-
-/// Ingest mode vocabulary for the directory-service describe overlay.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryIngestMode {
-    Push,
-    Pull,
-}
-
-/// Acceptance policy vocabulary for the directory-service describe overlay.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryAcceptPolicyKind {
-    Open,
-    Allowlist,
-    TrustRootSigned,
-    OperatorReview,
-}
-
-/// Wire-level entry in
-/// [`ServiceDescribe::claimed_profiles`]. Mirrors
-/// `service-describe.schema.json#/properties/claimed_profiles/items`:
-/// `profile_id` + `claim_kind = "self_claimed"` are required, the rest
-/// is optional + open (`additionalProperties: true`) so receivers can
-/// round-trip future fields without losing them.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ClaimedProfileEntry {
-    pub profile_id: String,
-    pub claim_kind: SelfClaimedKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub claimed_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notes: Option<String>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl ClaimedProfileEntry {
-    pub fn self_claimed(profile_id: impl Into<String>) -> Self {
-        Self {
-            profile_id: profile_id.into(),
-            claim_kind: SelfClaimedKind::SelfClaimed,
-            claimed_at: None,
-            notes: None,
-            extra: BTreeMap::new(),
-        }
-    }
-}
-
-/// `claim_kind` discriminant for
-/// [`ClaimedProfileEntry`]. The spec restricts this slot to
-/// `self_claimed`; verified-by-cotest claims belong in
-/// [`VerifiedProfileEntry`].
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelfClaimedKind {
-    SelfClaimed,
 }
 
 /// Wire-level entry in

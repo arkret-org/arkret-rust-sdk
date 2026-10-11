@@ -234,6 +234,9 @@ pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
     let Some((code, offset)) = arkret_canonical::decode_multicodec_varint(bytes) else {
         return false;
     };
+    if offset > 1 && bytes[offset - 1] == 0 {
+        return false;
+    }
     let key = &bytes[offset..];
     match code {
         0xec | 0xed => key.len() == 32,           // X25519-pub / Ed25519-pub

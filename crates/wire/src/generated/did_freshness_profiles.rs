@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/did-freshness-profile-registry.json; version=2026-08-31.2;
-//! sha256=31298804f48f7a7bd15655920492298e1f08d05a37268671c555a1100967999a Entries: registered=6
+//! Input: registry/did-freshness-profile-registry.json; version=2026-10-04.1;
+//! sha256=6d22c15c5b36bbbf7f25e315455e53a71100de28ae12854b4253ee9592d54143 Entries: registered=6
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DidFreshnessProfileId {
@@ -15,7 +15,10 @@ pub enum DidFreshnessProfileId {
 
 /// Registered risk tier of a freshness profile. Fixed by registration:
 /// a deployment declares only the numeric windows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum DidFreshnessRiskTier {
     Low,
     Medium,

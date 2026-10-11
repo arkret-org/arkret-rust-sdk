@@ -2,10 +2,9 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, bail};
-use serde_json::Value;
+use anyhow::{Result, bail};
 
-use crate::model::{RealmBootstrapProfile, SpecInputs};
+use crate::model::{CapabilityAction, RealmBootstrapProfile, SpecInputs};
 use crate::render::{
     associated_name, event_kind_slice, header, option_string, rust_string, string_slice, variant,
 };
@@ -18,6 +17,14 @@ pub struct GeneratedOutput {
 pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
     validate(inputs)?;
     Ok(vec![
+        GeneratedOutput {
+            relative_path: "crates/signatures/src/generated/http_signature_contract.rs".into(),
+            contents: generate_http_signature_contract(inputs)?,
+        },
+        GeneratedOutput {
+            relative_path: "crates/identifiers/src/generated/protocol_time_tolerances.rs".into(),
+            contents: generate_protocol_time_tolerances(inputs)?,
+        },
         GeneratedOutput {
             relative_path: "crates/schema/src/generated/registry_descriptors.rs".into(),
             contents: generate_registry_descriptors(inputs),
@@ -33,6 +40,345 @@ pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
     ])
 }
 
+fn generate_http_signature_contract(inputs: &SpecInputs) -> Result<String> {
+    let registry = &inputs.contracts.http_signature_contract_registry;
+    let profile = registry
+        .freshness_profiles
+        .iter()
+        .find(|profile| {
+            profile.freshness_profile_id == registry.common_contract.freshness_profile_id
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "HTTP signature common contract references unknown freshness profile {}",
+                registry.common_contract.freshness_profile_id
+            )
+        })?;
+    let max_lifetime = profile.max_signature_lifetime_seconds.ok_or_else(|| {
+        anyhow::anyhow!(
+            "HTTP signature freshness profile {} has no max_signature_lifetime_seconds",
+            profile.freshness_profile_id
+        )
+    })?;
+    let created_skew = profile.created_skew_seconds.ok_or_else(|| {
+        anyhow::anyhow!(
+            "HTTP signature freshness profile {} has no created_skew_seconds",
+            profile.freshness_profile_id
+        )
+    })?;
+    if max_lifetime <= 0 || created_skew < 0 {
+        bail!("HTTP signature freshness values must be positive/non-negative");
+    }
+
+    let scenario_ids = registry
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.scenario_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if scenario_ids.len() != registry.scenarios.len() {
+        bail!("HTTP signature scenario ids must be unique");
+    }
+    for scenario in &registry.scenarios {
+        if scenario.freshness_profile_id != profile.freshness_profile_id {
+            bail!(
+                "HTTP signature scenario {} does not use the common freshness profile",
+                scenario.scenario_id
+            );
+        }
+        if let Some(parent) = &scenario.extends
+            && !scenario_ids.contains(parent.as_str())
+        {
+            bail!(
+                "HTTP signature scenario {} extends unknown scenario {}",
+                scenario.scenario_id,
+                parent
+            );
+        }
+    }
+
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!(
+            "http_signature_scenarios={}, freshness_profile={}",
+            registry.scenarios.len(),
+            profile.freshness_profile_id
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n\
+pub enum HttpSignatureScenario {\n",
+    );
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    {},",
+            variant(
+                &scenario.scenario_id,
+                &["ak.http_signature.scenario.", ".v1"]
+            )
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct HttpSignatureConditionalComponentDescriptor {\n\
+    pub component: &'static str,\n\
+    pub condition: &'static str,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct HttpSignatureScenarioDescriptor {\n\
+    pub scenario: HttpSignatureScenario,\n\
+    pub scenario_id: &'static str,\n\
+    pub extends: Option<HttpSignatureScenario>,\n\
+    pub additional_covered_components: &'static [&'static str],\n\
+    pub conditional_covered_components: &'static [HttpSignatureConditionalComponentDescriptor],\n\
+    pub operations: &'static [&'static str],\n\
+    pub required_headers: &'static [&'static str],\n\
+    pub freshness_profile_id: &'static str,\n\
+}\n\n",
+    );
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_FRESHNESS_PROFILE_ID: &str = {};",
+        rust_string(&profile.freshness_profile_id)
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_MAX_LIFETIME_SECONDS: i64 = {max_lifetime};"
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_CREATED_SKEW_SECONDS: i64 = {created_skew};"
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_COMMON_COVERED_COMPONENTS: &[&str] = {};",
+        string_slice(&registry.common_contract.covered_components)
+    )
+    .expect("write to String");
+    writeln!(
+        output,
+        "pub const HTTP_SIGNATURE_REQUIRED_PARAMETERS: &[&str] = {};\n",
+        string_slice(&registry.common_contract.signature_parameters)
+    )
+    .expect("write to String");
+
+    for scenario in &registry.scenarios {
+        let name = associated_name(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
+        writeln!(
+            output,
+            "const {name}_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalComponentDescriptor] = &["
+        )
+        .expect("write to String");
+        for conditional in &scenario.conditional_covered_components {
+            writeln!(
+                output,
+                "    HttpSignatureConditionalComponentDescriptor {{ component: {}, condition: {} }},",
+                rust_string(&conditional.component),
+                rust_string(&conditional.condition)
+            )
+            .expect("write to String");
+        }
+        output.push_str("];\n");
+    }
+    output.push_str(
+        "\npub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[\n",
+    );
+    for scenario in &registry.scenarios {
+        let variant_name = variant(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
+        let const_name = associated_name(
+            &scenario.scenario_id,
+            &["ak.http_signature.scenario.", ".v1"],
+        );
+        let parent = scenario.extends.as_ref().map_or_else(
+            || "None".to_owned(),
+            |parent| {
+                format!(
+                    "Some(HttpSignatureScenario::{})",
+                    variant(parent, &["ak.http_signature.scenario.", ".v1"])
+                )
+            },
+        );
+        writeln!(
+            output,
+            "    HttpSignatureScenarioDescriptor {{ scenario: HttpSignatureScenario::{variant_name}, scenario_id: {}, extends: {parent}, additional_covered_components: {}, conditional_covered_components: {const_name}_CONDITIONAL_COMPONENTS, required_headers: {}, freshness_profile_id: {}, operations: {} }},",
+            rust_string(&scenario.scenario_id),
+            string_slice(&scenario.additional_covered_components),
+            string_slice(&scenario.required_headers),
+            rust_string(&scenario.freshness_profile_id),
+            string_slice(&scenario.operations),
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "];\n\n\
+pub const fn http_signature_scenario_descriptor(\n\
+    scenario: HttpSignatureScenario,\n\
+) -> &'static HttpSignatureScenarioDescriptor {\n\
+    &HTTP_SIGNATURE_SCENARIOS[scenario as usize]\n\
+}\n",
+    );
+    Ok(output)
+}
+
+fn generate_protocol_time_tolerances(inputs: &SpecInputs) -> Result<String> {
+    let registry = &inputs.contracts.protocol_time_tolerance_registry;
+    validate_protocol_time_tolerances(registry)?;
+
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!(
+            "protocol_time_tolerances={}, protocol_time_tolerance_scenarios={}",
+            registry.tolerances.len(),
+            registry.scenarios.len()
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub enum ProtocolTimeToleranceDirection {\n\
+    FutureOnly,\n\
+    SymmetricNotBeforeAndExpiry,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\n\
+pub enum ProtocolTimeToleranceScenario {\n",
+    );
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    {},",
+            protocol_time_scenario_variant(&scenario.scenario_id)
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceDescriptor {\n\
+    pub tolerance_id: &'static str,\n\
+    pub name: &'static str,\n\
+    pub value_ms: i64,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceScenarioDescriptor {\n\
+    pub scenario: ProtocolTimeToleranceScenario,\n\
+    pub scenario_id: &'static str,\n\
+    pub tolerance_id: &'static str,\n\
+    pub direction: ProtocolTimeToleranceDirection,\n\
+    pub comparison: &'static str,\n\
+}\n\n",
+    );
+
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "pub const {}: i64 = {};",
+            associated_name(&tolerance.name, &[]),
+            tolerance.value
+        )
+        .expect("write to String");
+    }
+    output.push_str(
+        "\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n",
+    );
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceDescriptor {{ tolerance_id: {}, name: {}, value_ms: {} }},",
+            rust_string(&tolerance.tolerance_id),
+            rust_string(&tolerance.name),
+            associated_name(&tolerance.name, &[])
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub const PROTOCOL_TIME_TOLERANCE_SCENARIOS: &[ProtocolTimeToleranceScenarioDescriptor] = &[\n");
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceScenarioDescriptor {{ scenario: ProtocolTimeToleranceScenario::{}, scenario_id: {}, tolerance_id: {}, direction: ProtocolTimeToleranceDirection::{}, comparison: {} }},",
+            protocol_time_scenario_variant(&scenario.scenario_id),
+            rust_string(&scenario.scenario_id),
+            rust_string(&scenario.tolerance_id),
+            variant(&scenario.direction, &[]),
+            rust_string(&scenario.comparison)
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub fn protocol_time_tolerance(value: &str) -> Option<&'static ProtocolTimeToleranceDescriptor> {\n    PROTOCOL_TIME_TOLERANCES.iter().find(|row| row.tolerance_id == value)\n}\n\npub fn protocol_time_tolerance_scenario(value: &str) -> Option<&'static ProtocolTimeToleranceScenarioDescriptor> {\n    PROTOCOL_TIME_TOLERANCE_SCENARIOS.iter().find(|row| row.scenario_id == value)\n}\n\npub const fn protocol_time_tolerance_scenario_descriptor(\n    scenario: ProtocolTimeToleranceScenario,\n) -> &'static ProtocolTimeToleranceScenarioDescriptor {\n    &PROTOCOL_TIME_TOLERANCE_SCENARIOS[scenario as usize]\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn typed_and_wire_scenario_lookups_are_bijective() {\n        for row in PROTOCOL_TIME_TOLERANCE_SCENARIOS {\n            assert_eq!(\n                protocol_time_tolerance_scenario_descriptor(row.scenario),\n                row\n            );\n            assert_eq!(protocol_time_tolerance_scenario(row.scenario_id), Some(row));\n        }\n        assert_eq!(\n            PROTOCOL_TIME_TOLERANCE_SCENARIOS.len(),\n            ProtocolTimeToleranceScenario::BlobPresignTtl as usize + 1\n        );\n        assert!(protocol_time_tolerance_scenario(\"ak.time_tolerance.unknown.v1\").is_none());\n    }\n}\n");
+    Ok(output)
+}
+
+fn protocol_time_scenario_variant(scenario_id: &str) -> String {
+    variant(
+        scenario_id
+            .strip_prefix("ak.time_tolerance.")
+            .and_then(|value| value.strip_suffix(".v1"))
+            .unwrap_or(scenario_id),
+        &[],
+    )
+}
+
+fn validate_protocol_time_tolerances(
+    registry: &crate::model::ProtocolTimeToleranceRegistry,
+) -> Result<()> {
+    let mut tolerance_ids = BTreeSet::new();
+    let mut tolerance_names = BTreeSet::new();
+    for tolerance in &registry.tolerances {
+        if !tolerance_ids.insert(tolerance.tolerance_id.as_str()) {
+            bail!(
+                "duplicate protocol time tolerance id {}",
+                tolerance.tolerance_id
+            );
+        }
+        if !tolerance_names.insert(tolerance.name.as_str()) {
+            bail!("duplicate protocol time tolerance name {}", tolerance.name);
+        }
+        if tolerance.unit != "milliseconds" || tolerance.value < 0 {
+            bail!(
+                "protocol time tolerance {} must be a non-negative millisecond value",
+                tolerance.tolerance_id
+            );
+        }
+    }
+    let mut scenario_ids = BTreeSet::new();
+    for scenario in &registry.scenarios {
+        if !scenario_ids.insert(scenario.scenario_id.as_str()) {
+            bail!(
+                "duplicate protocol time tolerance scenario {}",
+                scenario.scenario_id
+            );
+        }
+        if !tolerance_ids.contains(scenario.tolerance_id.as_str()) {
+            bail!(
+                "protocol time tolerance scenario {} references unknown tolerance {}",
+                scenario.scenario_id,
+                scenario.tolerance_id
+            );
+        }
+        if !matches!(
+            scenario.direction.as_str(),
+            "future_only" | "symmetric_not_before_and_expiry"
+        ) {
+            bail!(
+                "protocol time tolerance scenario {} uses unsupported direction {}",
+                scenario.scenario_id,
+                scenario.direction
+            );
+        }
+    }
+
+    Ok(())
+}
+
 fn validate(inputs: &SpecInputs) -> Result<()> {
     let operations = inputs
         .operations
@@ -40,6 +386,185 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         .iter()
         .map(|row| row.operation_id.as_str())
         .collect::<BTreeSet<_>>();
+    let approval = &inputs.capability_actions.approval_requirement_eligibility;
+    let eligibility_kinds = approval
+        .eligibility_kind_definitions
+        .keys()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let expected_eligibility_kinds = BTreeSet::from([
+        "event_submission_carrier",
+        "registered_operation_carrier",
+        "ineligible_no_registered_carrier",
+    ]);
+    if eligibility_kinds != expected_eligibility_kinds {
+        bail!("approval eligibility kinds are not the closed v1 set");
+    }
+    if approval
+        .event_mapping_defaults
+        .keys()
+        .collect::<BTreeSet<_>>()
+        != inputs
+            .capability_actions
+            .event_mapping_kind_definitions
+            .keys()
+            .collect::<BTreeSet<_>>()
+    {
+        bail!("approval eligibility defaults do not cover every event mapping kind");
+    }
+    if approval
+        .event_mapping_defaults
+        .values()
+        .any(|value| !eligibility_kinds.contains(value.as_str()))
+    {
+        bail!("approval eligibility defaults contain an unknown eligibility kind");
+    }
+    if approval
+        .event_mapping_defaults
+        .get("non_event_surface")
+        .map(String::as_str)
+        != Some("ineligible_no_registered_carrier")
+        || approval
+            .event_mapping_defaults
+            .iter()
+            .any(|(mapping, eligibility)| {
+                mapping != "non_event_surface" && eligibility != "event_submission_carrier"
+            })
+    {
+        bail!("approval eligibility defaults do not preserve the durable/non-event boundary");
+    }
+    let carrier_ids = approval
+        .carriers
+        .iter()
+        .map(|row| row.carrier_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if carrier_ids.len() != approval.carriers.len() {
+        bail!("approval evidence carrier ids must be unique");
+    }
+    for carrier in &approval.carriers {
+        if !operations.contains(carrier.operation_id.as_str()) {
+            bail!(
+                "approval evidence carrier {} references unknown operation {}",
+                carrier.carrier_id,
+                carrier.operation_id
+            );
+        }
+        if !matches!(
+            carrier.carrier_class.as_str(),
+            "event_submission" | "non_event_operation"
+        ) {
+            bail!(
+                "approval evidence carrier {} has unknown class",
+                carrier.carrier_id
+            );
+        }
+        if carrier.allowed_target_kinds.is_empty()
+            || carrier
+                .allowed_target_kinds
+                .iter()
+                .any(|value| !matches!(value.as_str(), "event" | "operation"))
+        {
+            bail!(
+                "approval evidence carrier {} has invalid target kinds",
+                carrier.carrier_id
+            );
+        }
+    }
+    for (eligibility, carrier_id) in &approval.default_carrier_by_eligibility_kind {
+        if !eligibility_kinds.contains(eligibility.as_str()) {
+            bail!("approval default carrier uses unknown eligibility kind {eligibility}");
+        }
+        if !carrier_ids.contains(carrier_id.as_str()) {
+            bail!("approval eligibility {eligibility} references unknown carrier {carrier_id}");
+        }
+    }
+    if approval
+        .default_carrier_by_eligibility_kind
+        .keys()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>()
+        != BTreeSet::from(["event_submission_carrier"])
+    {
+        bail!("only event_submission_carrier may have a default approval carrier");
+    }
+    let event_default = approval
+        .default_carrier_by_eligibility_kind
+        .get("event_submission_carrier")
+        .and_then(|carrier_id| {
+            approval
+                .carriers
+                .iter()
+                .find(|carrier| carrier.carrier_id == *carrier_id)
+        });
+    if event_default.map(|carrier| carrier.carrier_class.as_str()) != Some("event_submission") {
+        bail!("event_submission_carrier default must name an event_submission carrier");
+    }
+    let actions = inputs
+        .capability_actions
+        .actions
+        .iter()
+        .map(|row| row.action.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut overridden_actions = BTreeSet::new();
+    for row in &approval.action_overrides {
+        if !overridden_actions.insert(row.action.as_str()) {
+            bail!("duplicate approval eligibility override for {}", row.action);
+        }
+        if !actions.contains(row.action.as_str()) {
+            bail!(
+                "approval eligibility override names unknown action {}",
+                row.action
+            );
+        }
+        if !eligibility_kinds.contains(row.eligibility_kind.as_str()) {
+            bail!(
+                "approval eligibility override for {} has unknown kind",
+                row.action
+            );
+        }
+        if !carrier_ids.contains(row.carrier_id.as_str()) {
+            bail!(
+                "approval eligibility override for {} names unknown carrier",
+                row.action
+            );
+        }
+        let action = inputs
+            .capability_actions
+            .actions
+            .iter()
+            .find(|action| action.action == row.action)
+            .expect("override action existence checked above");
+        let carrier = approval
+            .carriers
+            .iter()
+            .find(|carrier| carrier.carrier_id == row.carrier_id)
+            .expect("override carrier existence checked above");
+        let aggregate_carrier = action.event_mapping_kind == "operation_verb"
+            && !action.target_event_kinds.is_empty()
+            && inputs.operations.operations.iter().find(|operation| operation.operation_id == carrier.operation_id)
+                .and_then(|operation| operation.durable_effect.as_ref())
+                .is_some_and(|effect| effect.kind == "event_log" && action.target_event_kinds.iter().all(|kind| effect.event_kinds.contains(kind)));
+        if !(action.event_mapping_kind == "non_event_surface" || aggregate_carrier)
+            || row.eligibility_kind != "registered_operation_carrier"
+            || carrier.carrier_class != "non_event_operation"
+        {
+            bail!(
+                "approval eligibility override for {} does not select a non-event operation carrier",
+                row.action
+            );
+        }
+    }
+    for action in &inputs.capability_actions.actions {
+        if !approval
+            .event_mapping_defaults
+            .contains_key(&action.event_mapping_kind)
+        {
+            bail!(
+                "capability action {} has no approval eligibility default",
+                action.action
+            );
+        }
+    }
     for (owner, values) in inputs
         .agent_runtime
         .capability_sets
@@ -133,12 +658,12 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                     slot.event_kind
                 );
             }
-            if slot.extra.keys().any(|key| key != "head_eq") {
+            if slot.extra.keys().any(|key| key != "expected_revision") {
                 bail!("realm_bootstrap_registry.{owner} contains an unsupported slot field");
             }
-            if let Some(head_eq) = slot.extra.get("head_eq") {
-                if !head_eq.is_null() {
-                    bail!("realm_bootstrap_registry.{owner} supports only head_eq=null");
+            if let Some(expected_revision) = slot.extra.get("expected_revision") {
+                if !expected_revision.is_null() {
+                    bail!("realm_bootstrap_registry.{owner} supports only expected_revision=null");
                 }
             }
             if let Some(condition) = &slot.condition
@@ -175,162 +700,8 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                 bail!("{} references unknown id kind {id_kind}", event.event_kind);
             }
         }
-        for requirement in &event.pre_state_requirements {
-            if !matches!(
-                requirement.predicate.kind.as_str(),
-                PRE_STATE_PRESENT | PRE_STATE_EQUALS_PAYLOAD | PRE_STATE_MATCHES_PAYLOAD
-            ) {
-                bail!(
-                    "{} uses unsupported pre-state predicate {}",
-                    event.event_kind,
-                    requirement.predicate.kind
-                );
-            }
-            if matches!(
-                requirement.predicate.kind.as_str(),
-                PRE_STATE_EQUALS_PAYLOAD | PRE_STATE_MATCHES_PAYLOAD
-            ) && requirement.predicate.payload_field.is_none()
-            {
-                bail!(
-                    "{} omits payload_field for {}",
-                    event.event_kind,
-                    requirement.predicate.kind
-                );
-            }
-            if let Some(condition) = &requirement.condition {
-                validate_pre_state_condition(&event.event_kind, condition)?;
-            }
-        }
     }
     Ok(())
-}
-
-/// The closed stored-field predicates of `zh/models/event-and-patch.md`
-/// section 2.4.2. `stored_field_matches_payload` is the weakest of the three:
-/// it holds when the stored field and the payload field are both absent, or
-/// both present and byte-identical. That closes both directions at once for a
-/// payload field that is optional on the wire, so a forged value cannot enter
-/// a branch that belongs to another object class and an omitted value cannot
-/// skip a registered write.
-const PRE_STATE_PRESENT: &str = "stored_field_present";
-const PRE_STATE_EQUALS_PAYLOAD: &str = "stored_field_equals_payload";
-const PRE_STATE_MATCHES_PAYLOAD: &str = "stored_field_matches_payload";
-
-/// Validate one `pre_state_requirements[].condition` against the closed
-/// payload-condition grammar it shares verbatim with `cell_writes[].condition`.
-///
-/// The condition decides whether the requirement is evaluated at all, so an
-/// unknown operator, a missing member or a source path that is not an explicit
-/// `payload.<path>` fails the generation run instead of being dropped: a
-/// silently ignored condition turns a conditional requirement into an
-/// unconditional one and rejects Events the registry admits.
-fn validate_pre_state_condition(event_kind: &str, condition: &Value) -> Result<()> {
-    let object = condition
-        .as_object()
-        .with_context(|| format!("{event_kind} pre-state condition is not an object"))?;
-    let kind = object
-        .get("kind")
-        .and_then(Value::as_str)
-        .with_context(|| format!("{event_kind} pre-state condition omits kind"))?;
-    let members: &[&str] = match kind {
-        "field_present" | "field_absent" => &["kind", "field"],
-        "field_equals" => &["kind", "field", "const"],
-        "any_field_present" => &["kind", "fields"],
-        other => bail!("{event_kind} uses unsupported pre-state condition {other}"),
-    };
-    for member in object.keys() {
-        if !members.contains(&member.as_str()) {
-            bail!("{event_kind} pre-state condition {kind} carries unsupported member {member}");
-        }
-    }
-    for member in members {
-        if !object.contains_key(*member) {
-            bail!("{event_kind} pre-state condition {kind} omits {member}");
-        }
-    }
-    if let Some(field) = object.get("field") {
-        require_payload_path(event_kind, kind, field)?;
-    }
-    if let Some(fields) = object.get("fields") {
-        let fields = fields.as_array().with_context(|| {
-            format!("{event_kind} pre-state condition {kind} fields is not an array")
-        })?;
-        if fields.len() < 2 {
-            bail!("{event_kind} pre-state condition {kind} needs at least two fields");
-        }
-        for field in fields {
-            require_payload_path(event_kind, kind, field)?;
-        }
-    }
-    if let Some(constant) = object.get("const")
-        && !matches!(
-            constant,
-            Value::String(_) | Value::Number(_) | Value::Bool(_)
-        )
-    {
-        bail!("{event_kind} pre-state condition {kind} const is not a scalar");
-    }
-    Ok(())
-}
-
-fn require_payload_path(event_kind: &str, kind: &str, field: &Value) -> Result<()> {
-    let path = field.as_str().with_context(|| {
-        format!("{event_kind} pre-state condition {kind} field is not a string")
-    })?;
-    if !path.starts_with("payload.") || path.ends_with('.') {
-        bail!(
-            "{event_kind} pre-state condition {kind} field {path} is not an explicit payload path"
-        );
-    }
-    Ok(())
-}
-
-/// Render a registry rule node as the closed `arkret_wire::EventCellRule` AST.
-///
-/// The pre-state condition grammar is the cell-write condition grammar, so it
-/// travels in the same parse-free AST and is evaluated by the same code rather
-/// than being duplicated into a second closed enum that could drift from it.
-fn cell_rule_expression(value: &Value, is_operator: bool) -> Result<String> {
-    if is_operator {
-        let operator = value
-            .as_str()
-            .context("a cell rule kind must be a string operator")?;
-        return Ok(format!(
-            "EventCellRule::Operator(EventCellRuleOperator::{})",
-            variant(operator, &[])
-        ));
-    }
-    Ok(match value {
-        Value::Null => "EventCellRule::Null".to_owned(),
-        Value::Bool(value) => format!("EventCellRule::Bool({value})"),
-        Value::Number(number) => {
-            let value = number
-                .as_i64()
-                .context("a cell rule number must fit in an i64")?;
-            format!("EventCellRule::Integer({value})")
-        }
-        Value::String(value) => format!("EventCellRule::String({})", rust_string(value)),
-        Value::Array(items) => {
-            let items = items
-                .iter()
-                .map(|item| cell_rule_expression(item, false))
-                .collect::<Result<Vec<_>>>()?;
-            format!("EventCellRule::Array(&[{}])", items.join(", "))
-        }
-        Value::Object(fields) => {
-            let fields = fields
-                .iter()
-                .map(|(key, value)| {
-                    Ok(format!(
-                        "EventCellRuleField {{ key: EventCellRuleKey::{}, value: {} }}",
-                        variant(key, &[]),
-                        cell_rule_expression(value, key == "kind")?
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            format!("EventCellRule::Object(&[{}])", fields.join(", "))
-        }
-    })
 }
 
 fn bootstrap_profiles(inputs: &SpecInputs) -> [(&'static str, &RealmBootstrapProfile); 2] {
@@ -352,6 +723,32 @@ fn bootstrap_profiles(inputs: &SpecInputs) -> [(&'static str, &RealmBootstrapPro
     ]
 }
 
+fn approval_resolution<'a>(
+    inputs: &'a SpecInputs,
+    action: &'a CapabilityAction,
+) -> (&'a str, Option<&'a str>) {
+    let registry = &inputs.capability_actions.approval_requirement_eligibility;
+    if let Some(override_row) = registry
+        .action_overrides
+        .iter()
+        .find(|row| row.action == action.action)
+    {
+        return (
+            &override_row.eligibility_kind,
+            Some(&override_row.carrier_id),
+        );
+    }
+    let eligibility = registry
+        .event_mapping_defaults
+        .get(&action.event_mapping_kind)
+        .expect("approval eligibility defaults validated before generation");
+    let carrier_id = registry
+        .default_carrier_by_eligibility_kind
+        .get(eligibility)
+        .map(String::as_str);
+    (eligibility, carrier_id)
+}
+
 fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
     let mut ids = inputs
         .id_kinds
@@ -369,6 +766,13 @@ fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
     special.sort_by_key(|row| &row.kind);
     let mut actions = inputs.capability_actions.actions.iter().collect::<Vec<_>>();
     actions.sort_by_key(|row| &row.action);
+    let mut approval_carriers = inputs
+        .capability_actions
+        .approval_requirement_eligibility
+        .carriers
+        .iter()
+        .collect::<Vec<_>>();
+    approval_carriers.sort_by_key(|row| &row.carrier_id);
     let mut schemas = inputs
         .schemas
         .schemas
@@ -392,10 +796,11 @@ fn generate_registry_descriptors(inputs: &SpecInputs) -> String {
             &inputs.account_data_source,
         ],
         &format!(
-            "id_kinds={}, special_forms={}, actions={}, schemas={}, account_data_patterns={}",
+            "id_kinds={}, special_forms={}, actions={}, approval_carriers={}, schemas={}, account_data_patterns={}",
             ids.len(),
             special.len(),
             actions.len(),
+            approval_carriers.len(),
             schemas.len(),
             patterns.len()
         ),
@@ -428,6 +833,26 @@ impl CapabilityRiskTier {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalRequirementEligibility {
+    EventSubmissionCarrier,
+    RegisteredOperationCarrier,
+    IneligibleNoRegisteredCarrier,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ApprovalEvidenceCarrierDescriptor {
+    pub carrier_id: &'static str,
+    pub carrier_class: &'static str,
+    pub operation_id: &'static str,
+    pub request_schema_ref: &'static str,
+    pub carrier_schema_ref: &'static str,
+    pub carrier_field: &'static str,
+    pub evidence_schema_ref: &'static str,
+    pub allowed_target_kinds: &'static [&'static str],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CapabilityActionDescriptor {
     pub action: CapabilityActionId,
@@ -440,8 +865,9 @@ pub struct CapabilityActionDescriptor {
     pub profile: Option<&'static str>,
     pub root_control_only: bool,
     pub subject_only: bool,
-    pub reducer_only: bool,
     pub event_mapping_kind: &'static str,
+    pub approval_requirement_eligibility: ApprovalRequirementEligibility,
+    pub approval_evidence_carrier_id: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -486,12 +912,31 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         .expect("write to String");
     }
     output.push_str(
+        "];\n\npub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[\n",
+    );
+    for row in approval_carriers {
+        writeln!(
+            output,
+            "    ApprovalEvidenceCarrierDescriptor {{ carrier_id: {}, carrier_class: {}, operation_id: {}, request_schema_ref: {}, carrier_schema_ref: {}, carrier_field: {}, evidence_schema_ref: {}, allowed_target_kinds: {} }},",
+            rust_string(&row.carrier_id),
+            rust_string(&row.carrier_class),
+            rust_string(&row.operation_id),
+            rust_string(&row.request_schema_ref),
+            rust_string(&row.carrier_schema_ref),
+            rust_string(&row.carrier_field),
+            rust_string(&row.evidence_schema_ref),
+            string_slice(&row.allowed_target_kinds),
+        )
+        .expect("write to String");
+    }
+    output.push_str(
         "];\n\npub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[\n",
     );
     for row in actions {
+        let (approval_eligibility, approval_carrier_id) = approval_resolution(inputs, row);
         writeln!(
             output,
-            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, reducer_only: {}, event_mapping_kind: {} }},",
+            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {}, approval_requirement_eligibility: ApprovalRequirementEligibility::{}, approval_evidence_carrier_id: {} }},",
             variant(&row.action, &["ak."]),
             rust_string(&row.category),
             variant(&row.risk_tier, &[]),
@@ -502,8 +947,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
             option_string(row.profile.as_deref()),
             row.root_control_only,
             row.subject_only,
-            row.reducer_only,
             rust_string(&row.event_mapping_kind),
+            variant(approval_eligibility, &[]),
+            option_string(approval_carrier_id),
         )
         .expect("write to String");
     }
@@ -548,6 +994,18 @@ pub const fn capability_action_descriptor(id: CapabilityActionId) -> &'static Ca
 
 pub fn capability_actions_for_event_kind(event_kind: &str) -> impl Iterator<Item = &'static CapabilityActionDescriptor> {
     REGISTERED_CAPABILITY_ACTIONS.iter().filter(move |row| row.target_event_kinds.contains(&event_kind))
+}
+
+pub fn approval_evidence_carrier(value: &str) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    APPROVAL_EVIDENCE_CARRIERS.iter().find(|row| row.carrier_id == value)
+}
+
+pub fn approval_evidence_carrier_for_action(
+    action: CapabilityActionId,
+) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    capability_action_descriptor(action)
+        .approval_evidence_carrier_id
+        .and_then(approval_evidence_carrier)
 }
 
 pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {
@@ -747,7 +1205,7 @@ pub enum RealmBootstrapCondition {
         r#"}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RealmBootstrapHeadEq { Null }
+pub enum RealmBootstrapExpectedRevision { Null }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RealmBootstrapSlotDescriptor {
@@ -755,7 +1213,7 @@ pub struct RealmBootstrapSlotDescriptor {
     pub presence: RealmBootstrapPresence,
     pub id_source: Option<RealmBootstrapIdSource>,
     pub condition: Option<RealmBootstrapCondition>,
-    pub head_eq: Option<RealmBootstrapHeadEq>,
+    pub expected_revision: Option<RealmBootstrapExpectedRevision>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -763,7 +1221,7 @@ pub struct RealmBootstrapProfileDescriptor {
     pub profile: RealmBootstrapProfile,
     pub atomic: bool,
     pub all_or_nothing: bool,
-    pub genesis_seal_covers_complete_unit: bool,
+    pub genesis_confirms_complete_unit: bool,
     pub ordered_slots: &'static [RealmBootstrapSlotDescriptor],
 }
 
@@ -785,14 +1243,14 @@ pub struct RealmBootstrapProfileDescriptor {
                 || "None".to_owned(),
                 |value| format!("Some(RealmBootstrapCondition::{})", variant(value, &[])),
             );
-            let head_eq = if slot.extra.contains_key("head_eq") {
-                "Some(RealmBootstrapHeadEq::Null)"
+            let expected_revision = if slot.extra.contains_key("expected_revision") {
+                "Some(RealmBootstrapExpectedRevision::Null)"
             } else {
                 "None"
             };
             writeln!(
                 output,
-                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, head_eq: {head_eq} }},",
+                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, expected_revision: {expected_revision} }},",
                 associated_name(&slot.event_kind, &["ak."]), variant(&slot.presence, &[])
             )
             .expect("write to String");
@@ -804,9 +1262,9 @@ pub struct RealmBootstrapProfileDescriptor {
     for (name, profile) in bootstrap_profiles(inputs) {
         writeln!(
             output,
-            "    RealmBootstrapProfileDescriptor {{ profile: RealmBootstrapProfile::{}, atomic: {}, all_or_nothing: {}, genesis_seal_covers_complete_unit: {}, ordered_slots: {}_BOOTSTRAP_SLOTS }},",
+            "    RealmBootstrapProfileDescriptor {{ profile: RealmBootstrapProfile::{}, atomic: {}, all_or_nothing: {}, genesis_confirms_complete_unit: {}, ordered_slots: {}_BOOTSTRAP_SLOTS }},",
             variant(name, &[]), profile.atomic, profile.all_or_nothing,
-            profile.genesis_seal_covers_complete_unit, associated_name(name, &[])
+            profile.genesis_confirms_complete_unit, associated_name(name, &[])
         )
         .expect("write to String");
     }
@@ -918,92 +1376,25 @@ fn generate_event_runtime_contracts(inputs: &SpecInputs) -> Result<String> {
         .filter(|event| event.status == "active")
         .collect::<Vec<_>>();
     events.sort_by_key(|event| &event.event_kind);
-    let requirement_count = events
-        .iter()
-        .map(|event| event.pre_state_requirements.len())
-        .sum::<usize>();
     let mut output = header(
         &[&inputs.event_kinds_source, &inputs.id_kinds_source],
-        &format!(
-            "active_events={}, pre_state_requirements={requirement_count}",
-            events.len()
-        ),
+        &format!("active_events={}", events.len()),
     );
-    // A conditional requirement carries the registry's own rule AST, so the
-    // vocabulary types are imported only when the registry actually declares a
-    // condition. Importing them unconditionally would leave the generated file
-    // with unused imports on a registry that declares none.
-    let conditional = events
-        .iter()
-        .flat_map(|event| event.pre_state_requirements.iter())
-        .any(|requirement| requirement.condition.is_some());
-    let rule_imports = if conditional {
-        "CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator, event_kind_str"
-    } else {
-        "CellFamilyId, EventCellRule, event_kind_str"
-    };
-    writeln!(output, "use arkret_wire::{{{rule_imports}}};").expect("write to String");
+    writeln!(output, "use arkret_wire::event_kind_str;").expect("write to String");
     output.push_str(
         r#"
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventIdSource { EventDerived }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload, StoredFieldMatchesPayload }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EventPreStateRequirementDescriptor {
-    pub cell_family: CellFamilyId,
-    pub subject_field: &'static str,
-    pub condition: Option<EventCellRule>,
-    pub predicate: EventPreStatePredicateKind,
-    pub stored_field: &'static str,
-    pub payload_field: Option<&'static str>,
-    pub failure_code: &'static str,
-    pub failure_reason_code: &'static str,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventRuntimeContractDescriptor {
     pub event_kind: &'static str,
-    pub reducer_input: bool,
     pub id_source: Option<EventIdSource>,
     pub derived_id_kinds: &'static [&'static str],
-    pub pre_state_requirements: &'static [EventPreStateRequirementDescriptor],
 }
 
 "#,
     );
-    for event in &events {
-        if event.pre_state_requirements.is_empty() {
-            continue;
-        }
-        writeln!(
-            output,
-            "const {}_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor] = &[",
-            associated_name(&event.event_kind, &["ak."])
-        )
-        .expect("write to String");
-        for requirement in &event.pre_state_requirements {
-            let condition = match &requirement.condition {
-                None => "None".to_owned(),
-                Some(condition) => format!("Some({})", cell_rule_expression(condition, false)?),
-            };
-            writeln!(
-                output,
-                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, condition: {condition}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
-                variant(&requirement.cell_family, &["ak.component."]),
-                rust_string(&requirement.subject.field),
-                variant(&requirement.predicate.kind, &[]),
-                rust_string(&requirement.predicate.field),
-                option_string(requirement.predicate.payload_field.as_deref()),
-                rust_string(&requirement.failure.code),
-                rust_string(&requirement.failure.reason_code),
-            )
-            .expect("write to String");
-        }
-        output.push_str("];\n\n");
-    }
     output.push_str("pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[\n");
     for event in events {
         let mut derived_id_kinds = event.id_kind.iter().cloned().collect::<Vec<_>>();
@@ -1013,19 +1404,10 @@ pub struct EventRuntimeContractDescriptor {
         } else {
             "None"
         };
-        let requirements = if event.pre_state_requirements.is_empty() {
-            "&[]".to_owned()
-        } else {
-            format!(
-                "{}_PRE_STATE_REQUIREMENTS",
-                associated_name(&event.event_kind, &["ak."])
-            )
-        };
         writeln!(
             output,
-            "    EventRuntimeContractDescriptor {{ event_kind: event_kind_str::{}, reducer_input: {}, id_source: {id_source}, derived_id_kinds: {}, pre_state_requirements: {requirements} }},",
+            "    EventRuntimeContractDescriptor {{ event_kind: event_kind_str::{}, id_source: {id_source}, derived_id_kinds: {} }},",
             associated_name(&event.event_kind, &["ak."]),
-            event.reducer_input,
             string_slice(&derived_id_kinds),
         )
         .expect("write to String");
@@ -1042,4 +1424,65 @@ pub fn event_runtime_contract(event_kind: &str) -> Option<&'static EventRuntimeC
 "#,
     );
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use super::*;
+
+    fn spec_artifacts() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
+    }
+
+    #[test]
+    fn protocol_time_codegen_emits_closed_typed_scenarios() {
+        let inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+        let output = generate_protocol_time_tolerances(&inputs).expect("generate time contract");
+
+        for variant in ["ApprovalApprovedAt", "TemporalConstraint", "BlobPresignTtl"] {
+            assert!(output.contains(&format!("    {variant},")));
+            assert!(output.contains(&format!(
+                "scenario: ProtocolTimeToleranceScenario::{variant}"
+            )));
+        }
+        assert!(output.contains("protocol_time_tolerance_scenario_descriptor"));
+    }
+
+    #[test]
+    fn protocol_time_codegen_rejects_mutated_scenario_contracts() {
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+        let scenarios = &mut inputs.contracts.protocol_time_tolerance_registry.scenarios;
+
+        scenarios[0].direction = "past_only".to_owned();
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported direction")
+        );
+
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("reload canonical artifacts");
+        inputs.contracts.protocol_time_tolerance_registry.scenarios[0].tolerance_id =
+            "ak.time_tolerance.unknown.v1".to_owned();
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("references unknown tolerance")
+        );
+
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("reload canonical artifacts");
+        let duplicate = inputs.contracts.protocol_time_tolerance_registry.scenarios[0]
+            .scenario_id
+            .clone();
+        inputs.contracts.protocol_time_tolerance_registry.scenarios[1].scenario_id = duplicate;
+        assert!(
+            generate_protocol_time_tolerances(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate protocol time tolerance scenario")
+        );
+    }
 }

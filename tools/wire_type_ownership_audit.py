@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path
 
+from wire_value_audit import mask_non_code
+
 
 SDK_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKSPACE_ROOT = SDK_ROOT.parent
@@ -27,15 +29,24 @@ def audit(workspace_root: Path, decisions_path: Path, required: set[str]) -> lis
     errors.extend(f"required repository is missing: {repo}" for repo in missing)
 
     for entry in decisions["forbidden"]:
-        path = workspace_root / entry["repository"] / entry["path"]
-        if not path.is_file():
+        repository_root = workspace_root / entry["repository"]
+        if "path_glob" in entry:
+            paths = sorted(path for path in repository_root.glob(entry["path_glob"]) if path.is_file())
+            missing_message = f"audited source scope is empty: {entry['repository']}/{entry['path_glob']}"
+        else:
+            path = repository_root / entry["path"]
+            paths = [path] if path.is_file() else []
+            missing_message = f"audited source is missing: {path}"
+        if not paths:
             if entry["repository"] in required:
-                errors.append(f"audited source is missing: {path}")
+                errors.append(missing_message)
             continue
-        if re.search(entry["pattern"], path.read_text(encoding="utf-8")):
-            errors.append(
-                f"{entry['repository']}/{entry['path']}: duplicates SDK owner {entry['owner']}"
-            )
+        for path in paths:
+            if re.search(entry["pattern"], mask_non_code(path.read_text(encoding="utf-8"))):
+                relative = path.relative_to(repository_root).as_posix()
+                errors.append(
+                    f"{entry['repository']}/{relative}: duplicates SDK owner {entry['owner']}"
+                )
 
     for entry in decisions["classified"]:
         path = workspace_root / entry["repository"] / entry["path"]

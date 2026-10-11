@@ -6,58 +6,91 @@ use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     EncryptedPayload, EventContentPreEncryptionHeader, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
     MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
-    MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsEndpointIdentity,
-    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
-    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
-    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
-    REQUIRED_ARKRET_GROUP_CAPABILITIES, decode_keypackage_capability_extension,
-    encode_keypackage_capability_extension, validate_required_keypackage_capabilities,
-    verify_mls_governance_binding_extension,
+    MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsCommitPayload,
+    MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsGroupStateRecord, MlsGroupStateSink,
+    MlsKeyPackageRecord, REQUIRED_ARKRET_GROUP_CAPABILITIES,
+    decode_keypackage_capability_extension, encode_keypackage_capability_extension,
+    validate_required_keypackage_capabilities,
 };
 use arkret_wire::{
-    ActorId, DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
-    EventCandidateBindingOutcome, EventId, Hash, HistoryCandidateMaterialRecord,
-    HistoryEffectiveScope, LocalAuthoritativeHistorySecret, MLS_CIPHERSUITES, ReasonCode, ScopeRef,
-    canonical,
+    ActorId, Base64UrlString, CommitStreamRef, CommittedEventFullView, DidCoreId,
+    EncryptedPayloadScheme, EventId, EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES,
+    MlsGroupCurrent, MlsGroupId, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, ReasonCode,
+    ScopeRef, canonical,
 };
 use chrono::Utc;
-use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
 use openmls::prelude::{
-    BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
-    GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
+    BasicCredential, Capabilities, ContentType, CredentialWithKey, Extension, ExtensionType,
+    Extensions, GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
     MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
-    RatchetTreeIn, RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
+    RequiredCapabilitiesExtension, StagedCommit, StagedWelcome, UnknownExtension, WireFormat,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
-use unicode_normalization::UnicodeNormalization;
 use zeroize::Zeroizing;
 
 use crate::identity::{
     ARKRET_MLS_CIPHERSUITE, ARKRET_MLS_CIPHERSUITE_CANONICAL_ID, ArkretMlsIdentity,
     ArkretMlsIdentityProfile, decode_key_package,
 };
-use crate::{MlsError as Error, Result};
+use crate::{
+    MlsError as Error, MlsGovernanceBindingPublicState, Result, VerifiedMlsGovernanceBinding,
+};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
-/// MLS exporter label for the per-epoch history secret.
-pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
-/// HKDF-Expand label deriving the content key from the history secret.
-const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
-const REACTION_ROUTING_ROOT_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_ROOT_V1;
-const REACTION_ROUTING_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_V1;
+fn endpoint_replaces(previous: &MlsEndpointIdentity, current: &MlsEndpointIdentity) -> bool {
+    previous == current
+        || matches!((previous, current),
+        (MlsEndpointIdentity::AgentRuntime { agent_id: old, .. },
+         MlsEndpointIdentity::AgentRuntime { agent_id: new, .. }) if old == new)
+}
 
-/// AEAD parameters an `aead_profile` fixes, shared by both MLS-exporter-derived
-/// AEAD domains: `mls_exporter_aead_v1` content (this module) and
-/// `ak.signal_exporter_aead.v1` (`crate::signal`).
+/// Match a recipient Welcome's RFC 9420 KeyPackageRef to public local
+/// inventory. This is allocation bookkeeping only: it neither admits the
+/// Welcome nor authorizes opening it or issuing a durable consume receipt.
+pub fn welcome_addresses_key_package(
+    delivery: &MlsWelcomeDelivery,
+    record: &MlsKeyPackageRecord,
+) -> Result<bool> {
+    delivery.validate_shape()?;
+    let provider = OpenMlsRustCrypto::default();
+    let package = decode_key_package(&provider, record)?;
+    let reference = package.hash_ref(provider.crypto()).map_err(mls_error)?;
+    let bytes = decode(delivery.ciphertext_b64.as_str())?;
+    let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
+    let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
+        return Err(Error::Protocol(
+            "MLS delivery does not contain a Welcome".to_owned(),
+        ));
+    };
+    Ok(welcome
+        .secrets()
+        .iter()
+        .any(|secret| secret.new_member() == reference))
+}
+
+/// Realm and Circle groups carry handshakes as `PublicMessage`; a Sidecar group
+/// keeps its own policy and encrypts them.
+///
+/// This takes the scope, never a `group_id`. Before the 2218 ruling the policy
+/// was recovered by parsing the `group_id` bytes back into a `RealmId` or
+/// `CircleId`, which only worked because those bytes *were* the scope id in
+/// clear. Since `group_id` is now a SHA-256 digest, that parse can only ever
+/// fail — it would have silently downgraded every Realm and Circle group to
+/// `PURE_CIPHERTEXT` instead of failing loudly. The scope is therefore threaded
+/// down from the caller and persisted with the group.
+pub(super) fn handshake_policy(scope: &ScopeRef) -> Result<openmls::prelude::WireFormatPolicy> {
+    scope.requires_public_mls_handshake()?;
+    Ok(openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
+}
+
+/// AEAD parameters fixed by the MLS ciphersuite for the live Signal rail.
 ///
 /// `encoding.md` §10.1 splits the `aead_profile` vocabulary by how the key was
-/// obtained, not by which envelope carries it: application-layer HPKE sealing
+/// obtained, not by which envelope carries it: application-layer HPKE encryption
 /// surfaces take `hpke-suite-registry.json`, while every domain whose key comes
 /// out of the MLS exporter takes the `canonical_id` of the
 /// `mls-ciphersuite-registry.json` row the group at `key_ref.group_state_ref`
@@ -141,7 +174,7 @@ impl ExporterAeadSuite {
         )))
     }
 
-    pub(crate) fn seal(
+    pub(crate) fn encrypt(
         self,
         key: &[u8],
         nonce: &[u8],
@@ -161,7 +194,7 @@ impl ExporterAeadSuite {
         }
     }
 
-    pub(crate) fn open(
+    pub(crate) fn decrypt(
         self,
         key: &[u8],
         nonce: &[u8],
@@ -196,48 +229,52 @@ fn aes_gcm_nonce(nonce: &[u8]) -> Result<[u8; 12]> {
 pub struct ArkretMlsGroup {
     pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
+    /// The effective security scope this group serves.
+    ///
+    /// Held explicitly because the `group_id` is a one-way digest of it: after
+    /// the 2218 ruling nothing can recover the scope from the group, so the
+    /// only way to keep knowing it is to carry it. It also pins the handshake
+    /// wire-format policy, which used to be re-derived from the `group_id`
+    /// bytes.
+    pub(super) scope: ScopeRef,
+    /// The scope's derived `group_id`, in its wire spelling.
+    ///
+    /// Held rather than recomputed per call so the accessor stays infallible.
+    /// Every constructor checks it against the raw bytes the OpenMLS group
+    /// actually carries, so the two can never disagree.
+    pub(super) group_id: MlsGroupId,
     /// Accepted-transition-derived member attribution. It is persisted inside
     /// the same opaque T3 snapshot as the RFC 9420 state and is never inferred
     /// from BasicCredential bytes alone.
     pub(super) leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
-    /// Per-epoch MLS exporter `history_secret[N]` retained for the
-    /// `mls_exporter_aead_v1` content scheme. OpenMLS only evaluates
-    /// `export_secret` against the *current* epoch, so a `history_secret`
-    /// must be derived (via [`Self::derive_and_retain_history_secret`]) at
-    /// the time the group is at epoch `N` and kept here so it can later be
-    /// used to decrypt epoch-`N` content or be HPKE-sealed for a joiner.
-    /// Empty by default; persisted across reload via [`OpenMlsStateSnapshot`].
-    /// Values are [`Zeroizing`] so every retained secret is wiped from memory
-    /// when the entry (or the whole group) is dropped.
-    pub(super) history_secrets: BTreeMap<u64, Zeroizing<Vec<u8>>>,
-    /// Monotonic per-device AEAD nonce counter for the `mls_exporter_aead_v1`
-    /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`). Never
-    /// reused within an epoch because the counter only ever advances, and
-    /// carried through [`OpenMlsStateSnapshot`] because §10.1 makes persisting
-    /// it mandatory: a device that cannot recover the counter for its epoch
-    /// MUST commit to a new epoch rather than restart at 0.
-    pub(super) content_nonce_counter: u64,
     /// Monotonic per-device AEAD nonce counter for the
-    /// `ak.signal_exporter_aead.v1` Signal scheme (`encoding §10.1`). Kept
-    /// separate from [`Self::content_nonce_counter`] because `purpose` is part
-    /// of the nonce-derivation tuple: the two domains have disjoint nonce
-    /// spaces, and sharing one counter would only waste range. Persisted with
-    /// the group snapshot — see [`crate::signal`] for the reuse contract.
+    /// `ak.signal_exporter_aead.v1` Signal scheme. Persisted with the group
+    /// snapshot so a device never repeats a nonce within one MLS epoch.
     pub(super) signal_nonce_counter: u64,
+    /// Exact wire identity of this holder's staged Commit. Own ciphertext
+    /// cannot be authenticated by replaying it through OpenMLS after sending.
+    pub(super) own_pending_commit_digest: Option<Hash>,
 }
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMemberResult {
-    pub proposal: MlsProposalEnvelope,
     pub commit: MlsCommitEnvelope,
-    pub welcome: MlsWelcomeEnvelope,
+    pub welcome: MlsWelcomeDraft,
 }
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMembersResult {
-    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
-    pub welcomes: Vec<MlsWelcomeEnvelope>,
+    pub welcomes: Vec<MlsWelcomeDraft>,
+}
+
+/// Member-side bytes that the producer signs and places in the authority's
+/// recipient queue as an [`MlsWelcomeDelivery`]. It is not a shared Event.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsWelcomeDraft {
+    pub recipient: MlsEndpointIdentity,
+    pub keypackage_claim_ref: KeypackageClaimId,
+    pub ciphertext_b64: Base64UrlString,
 }
 
 /// Result of removing one or more leaves from an MLS group.
@@ -249,7 +286,6 @@ pub struct MlsAddMembersResult {
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
-    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     /// Raw OpenMLS leaf indices that were removed by this commit, in the
     /// order they appeared in the original group state.
@@ -267,8 +303,7 @@ pub struct MlsVerifiedLeafBinding {
     /// Full accepted member identity; the endpoint is only signing evidence.
     pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
-    pub credential_ref: arkret_wire::NonEmptyString,
-    pub signature_key: arkret_wire::Base64UrlString,
+    pub signature_key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
 }
@@ -283,54 +318,32 @@ pub struct MlsVerifiedLeafBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OpenMlsStateSnapshot {
     context: String,
-    group_id: String,
+    group_id: MlsGroupId,
+    /// The effective security scope, persisted because the `group_id` above is
+    /// a one-way digest of it. Without this the restored group could not tell
+    /// whether its own handshakes are public, and no amount of parsing the
+    /// `group_id` would bring it back.
+    scope: ScopeRef,
     epoch: u64,
+    actor_id: ActorId,
     endpoint: MlsEndpointIdentity,
     profile: ArkretMlsIdentityProfile,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
     leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
-    /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
-    /// secret bytes). Defaults to empty for snapshots written before the
-    /// `mls_exporter_aead_v1` content scheme existed.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    history_secrets: BTreeMap<String, String>,
-    /// Persisted monotonic content AEAD nonce counter so a reloaded group
-    /// never re-emits a counter in the same sender scope. Defaults to 0
-    /// for snapshots written before the content scheme existed.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
-    content_nonce_counter: u64,
     /// Persisted monotonic Signal AEAD nonce counter. `encoding.md` §10.1
     /// makes persistence mandatory: a device that cannot recover its counter
     /// for an epoch MUST advance the epoch rather than restart at 0. The
     /// counter only ever reaches this snapshot from an in-memory value that
     /// has already been advanced past every nonce this device emitted, so a
-    /// missing field can only mean "never sealed a Signal", i.e. 0.
+    /// missing field can only mean "never encrypted a Signal", i.e. 0.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     signal_nonce_counter: u64,
+    own_pending_commit_digest: Option<Hash>,
 }
 
 fn is_zero_u64(value: &u64) -> bool {
     *value == 0
-}
-
-/// Explicit test-only identities. Production callers must supply the accepted
-/// membership ActorId and must never infer its Station from signing evidence.
-#[cfg(any(test, feature = "test-utils"))]
-pub(crate) fn test_actor_for_endpoint(endpoint: &MlsEndpointIdentity) -> ActorId {
-    let station =
-        DidCoreId::new("ak:did_core:web:mls-fixture-station.example").expect("fixture Station");
-    match endpoint {
-        MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
-            ActorId::account(arkret_wire::AccountId::new(principal_id.clone(), station))
-        }
-        MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
-            ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station))
-        }
-        MlsEndpointIdentity::MinimalMetadataPairwise {
-            pairwise_actor_id, ..
-        } => ActorId::service(pairwise_actor_id.clone()),
-    }
 }
 
 impl ArkretMlsGroup {
@@ -353,7 +366,11 @@ impl ArkretMlsGroup {
         &mut self,
         bindings: Vec<MlsVerifiedLeafBinding>,
     ) -> Result<()> {
-        let members = self.group.members().collect::<Vec<_>>();
+        let members = self
+            .group
+            .members()
+            .map(|member| (member.index.u32(), member))
+            .collect::<BTreeMap<_, _>>();
         if bindings.len() != members.len() {
             return Err(Error::Protocol(
                 "verified MLS leaf bindings do not cover every occupied leaf".to_owned(),
@@ -361,40 +378,33 @@ impl ArkretMlsGroup {
         }
         let mut installed = BTreeMap::new();
         for binding in bindings {
-            let member = members
-                .iter()
-                .find(|member| member.index.u32() == binding.leaf_index)
-                .ok_or_else(|| {
-                    Error::Protocol("verified MLS binding names an empty leaf".to_owned())
-                })?;
+            let member = members.get(&binding.leaf_index).ok_or_else(|| {
+                Error::Protocol("verified MLS binding names an empty leaf".to_owned())
+            })?;
             if installed.contains_key(&binding.leaf_index) {
                 return Err(Error::Protocol(
                     "duplicate verified MLS leaf binding".to_owned(),
                 ));
             }
             binding.actor_id.validate()?;
-            if binding.endpoint.actor_id() != binding.actor_id.signing_principal_id() {
+            if binding.endpoint.principal_id() != binding.actor_id.signing_principal_id() {
                 return Err(Error::Protocol(
                     "verified MLS binding principal differs from endpoint actor".to_owned(),
                 ));
             }
-            let expected_credential = match &binding.endpoint {
-                MlsEndpointIdentity::HumanDevice { device_id, .. } => {
+            match &binding.endpoint {
+                MlsEndpointIdentity::HumanDevice { .. } => {
                     if binding.device_authorize_event_id.is_none() {
                         return Err(Error::Protocol(
                             "ordinary MLS leaf binding omits device authorization Event".to_owned(),
                         ));
                     }
-                    device_id.as_str()
                 }
-                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
-                MlsEndpointIdentity::MinimalMetadataPairwise {
-                    pairwise_actor_id, ..
-                } => pairwise_actor_id.as_str(),
-            };
-            if binding.credential_ref.as_str() != expected_credential
-                || member.credential.serialized_content() != expected_credential.as_bytes()
-            {
+                MlsEndpointIdentity::AgentRuntime { .. } => {}
+            }
+            let expected_credential =
+                arkret_models_crypto::mls_basic_credential_identity(&binding.actor_id)?;
+            if member.credential.serialized_content() != expected_credential.as_slice() {
                 return Err(Error::Protocol(
                     "verified MLS binding credential differs from the occupied leaf".to_owned(),
                 ));
@@ -423,20 +433,20 @@ impl ArkretMlsGroup {
             ));
         }
         let member = &members[0];
-        let credential_ref = arkret_wire::NonEmptyString::new(
-            std::str::from_utf8(member.credential.serialized_content())
-                .map_err(|_| Error::Protocol("creator credential is not UTF-8".to_owned()))?
-                .to_owned(),
-        )
-        .map_err(|error| Error::Protocol(error.to_owned()))?;
-        let signature_key =
-            arkret_wire::Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
-                .map_err(|error| Error::Protocol(error.to_owned()))?;
+        let credential_actor_id = arkret_models_crypto::decode_mls_basic_credential_identity(
+            member.credential.serialized_content(),
+        )?;
+        if credential_actor_id != actor_id {
+            return Err(Error::Protocol(
+                "creator BasicCredential differs from the supplied ActorId".to_owned(),
+            ));
+        }
+        let signature_key = Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
         self.install_verified_leaf_bindings(vec![MlsVerifiedLeafBinding {
             leaf_index: 0,
             actor_id,
             endpoint: self.identity.endpoint.clone(),
-            credential_ref,
             signature_key,
             device_authorize_event_id,
         }])
@@ -456,28 +466,21 @@ impl ArkretMlsGroup {
                     "test MLS leaf is not BasicCredential".to_owned(),
                 ));
             };
+            let actor_id = arkret_models_crypto::decode_mls_basic_credential_identity(&identity)?;
             let position = remaining
                 .iter()
                 .position(|endpoint| match endpoint {
-                    MlsEndpointIdentity::HumanDevice { device_id, .. } => {
-                        identity.as_slice() == device_id.as_str().as_bytes()
+                    MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
+                        actor_id.signing_principal_id() == principal_id
                     }
                     MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
-                        identity.as_slice() == agent_id.as_str().as_bytes()
+                        actor_id.signing_principal_id() == agent_id
                     }
-                    MlsEndpointIdentity::MinimalMetadataPairwise {
-                        pairwise_actor_id, ..
-                    } => identity.as_slice() == pairwise_actor_id.as_str().as_bytes(),
                 })
                 .ok_or_else(|| {
                     Error::Protocol("test MLS endpoint does not match a leaf".to_owned())
                 })?;
             let endpoint = remaining.remove(position);
-            let credential_ref = arkret_wire::NonEmptyString::new(
-                String::from_utf8(identity)
-                    .map_err(|_| Error::Protocol("test MLS credential is not UTF-8".to_owned()))?,
-            )
-            .map_err(|error| Error::Protocol(error.to_owned()))?;
             let device_authorize_event_id =
                 matches!(endpoint, MlsEndpointIdentity::HumanDevice { .. }).then(|| {
                     EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned())
@@ -485,13 +488,10 @@ impl ArkretMlsGroup {
                 });
             bindings.push(MlsVerifiedLeafBinding {
                 leaf_index: leaf.leaf_index,
-                actor_id: test_actor_for_endpoint(&endpoint),
+                actor_id,
                 endpoint,
-                credential_ref,
-                signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
-                    &leaf.signature_key,
-                ))
-                .map_err(|error| Error::Protocol(error.to_owned()))?,
+                signature_key: Base64UrlString::new(base64url_encode(&leaf.signature_key))
+                    .map_err(|error| Error::Protocol(error.to_owned()))?,
                 device_authorize_event_id,
             });
         }
@@ -524,7 +524,9 @@ impl ArkretMlsGroup {
             let Some(member) = members.get(&binding.leaf_index) else {
                 continue;
             };
-            if member.credential.serialized_content() != binding.credential_ref.as_bytes()
+            if member.credential.serialized_content()
+                != arkret_models_crypto::mls_basic_credential_identity(&binding.actor_id)?
+                    .as_slice()
                 || member.signature_key.as_slice()
                     != base64url_decode(binding.signature_key.as_str())?.as_slice()
             {
@@ -560,8 +562,28 @@ impl ArkretMlsGroup {
         self.group.epoch().as_u64()
     }
 
-    pub fn group_id(&self) -> String {
-        encode(self.group.group_id().as_slice())
+    /// The effective security scope this group serves.
+    pub fn scope(&self) -> &ScopeRef {
+        &self.scope
+    }
+
+    /// The full local actor restored with this group's private state.
+    pub fn local_actor_id(&self) -> &ActorId {
+        &self.identity.actor_id
+    }
+
+    /// The local endpoint restored with this group's private state.
+    pub fn local_endpoint_identity(&self) -> MlsEndpointIdentity {
+        self.identity.endpoint_identity()
+    }
+
+    /// The RFC 9420 `group_id` in its wire spelling, always 43 characters.
+    ///
+    /// Equal by construction to `self.scope().canonical_mls_group_id()` and to
+    /// the raw bytes the OpenMLS group carries; every constructor checks that
+    /// before handing out an `ArkretMlsGroup`.
+    pub fn group_id(&self) -> MlsGroupId {
+        self.group_id.clone()
     }
 
     pub fn ratchet_tree(&self) -> Result<String> {
@@ -594,16 +616,6 @@ impl ArkretMlsGroup {
         Ok((group_info, ratchet_tree))
     }
 
-    pub fn governance_binding_extension(&self) -> Option<MlsGovernanceBindingExtension> {
-        self.group
-            .extensions()
-            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
-            .map(|extension| MlsGovernanceBindingExtension {
-                extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-                extension_data: extension.0.clone(),
-            })
-    }
-
     pub fn required_keypackage_capabilities(&self) -> Result<Vec<String>> {
         let extension = self
             .group
@@ -618,99 +630,14 @@ impl ArkretMlsGroup {
             .map_err(|error| Error::Protocol(error.to_string()))
     }
 
-    pub fn current_governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
-        Ok(self
-            .governance_binding_extension()
-            .map(|extension| extension.decode_payload())
-            .transpose()?)
-    }
-
-    pub fn verify_current_governance_binding(
-        &self,
-        expected: &MlsGovernanceBindingValidationContext<'_>,
-    ) -> Result<MlsGovernanceBindingPayload> {
-        let extension = self.governance_binding_extension();
-        Ok(verify_mls_governance_binding_extension(
-            extension.as_ref(),
-            expected,
-        )?)
-    }
-
-    pub fn update_governance_binding(
-        &mut self,
-        binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsCommitEnvelope> {
-        let extensions = self.governance_extensions_for_next_epoch(binding)?;
-
-        let (commit, _welcome, _group_info) = self
-            .group
-            .update_group_context_extensions(
-                &self.identity.provider,
-                extensions,
-                &self.identity.signer,
-            )
-            .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-
-        let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
-        let ratchet_tree = Some(self.ratchet_tree()?);
-        Ok(MlsCommitEnvelope {
-            group_id: self.group_id(),
-            epoch: self.epoch(),
-            commit: encode(&commit_bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
-            ratchet_tree,
-        })
-    }
-
-    fn governance_extensions_for_next_epoch(
+    /// Verify the same next-epoch governance-binding coordinates used by the
+    /// live add/remove Commit path and return an opaque typed success effect.
+    pub fn verify_governance_binding_for_next_epoch(
         &self,
         binding: &MlsGovernanceBindingPayload,
-    ) -> Result<Extensions<GroupContext>> {
-        binding.validate()?;
-        if binding.mls_group_id() != self.group_id() {
-            return Err(Error::Protocol(
-                "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
-            ));
-        }
-        if binding.previous_epoch() != self.epoch() || binding.next_epoch() != self.epoch() + 1 {
-            return Err(Error::Protocol(
-                "mls_governance_binding epoch does not match current MLS group".to_owned(),
-            ));
-        }
-
-        let mut extensions = self.group.extensions().clone();
-        extensions
-            .add_or_replace(governance_binding_required_capabilities_extension())
-            .map_err(mls_error)?;
-        extensions
-            .add_or_replace(governance_binding_openmls_extension(binding)?)
-            .map_err(mls_error)?;
-        Ok(extensions)
-    }
-
-    /// Content hash of the group's current key schedule, suitable for use as
-    /// the `key_schedule_hash` field in `ak.component.mls.key_schedule.v1` cell
-    /// values and in `ak.profile.mls_governance_binding.full.v1` binding
-    /// payloads. Derived deterministically from the OpenMLS
-    /// `epoch_authenticator()` — a value the spec binds to the current
-    /// (post-commit) MLS epoch + group state, so two clients on the same
-    /// epoch always produce the same hash without exchanging schedule
-    /// material.
-    ///
-    /// Returns a `sha256:`-prefixed lowercase hex `Hash` typed-id so callers
-    /// can hand it straight to `GovernanceBindingPayload::from_anchor` /
-    /// `Hash::new`. Computing the SHA-256 over the authenticator byte slice
-    /// (rather than handing back the raw authenticator) means the value can
-    /// be safely written into projection cells and audit logs without
-    /// leaking the underlying MLS secret directly — the authenticator MUST
-    /// stay scoped to MLS-internal consistency checks per RFC 9420 §8.5.
-    pub fn schedule_hash(&self) -> Hash {
-        let authenticator = self.group.epoch_authenticator();
-        Hash::new(canonical::sha256_digest(authenticator.as_slice()))
-            .expect("sha256:<hex> is always a valid Hash typed-id")
+    ) -> std::result::Result<VerifiedMlsGovernanceBinding, crate::MlsGovernanceBindingRejection>
+    {
+        crate::verify_next_epoch_governance_binding(&self.group_id(), self.epoch(), binding)
     }
 
     /// Derive an MLS RFC 9420 §8.5 exporter secret bound to the current
@@ -737,223 +664,6 @@ impl ArkretMlsGroup {
             .map_err(mls_error)
     }
 
-    /// Derive the current epoch's reaction routing tag from the protocol's
-    /// complete routing context. The returned value is the 32-byte HMAC output
-    /// encoded as 43-character base64url without padding.
-    pub fn reaction_routing_tag(
-        &mut self,
-        realm_id: &str,
-        scheme: EncryptedPayloadScheme,
-        effective_scope: &ScopeRef,
-        target_ref: &EventId,
-        routing_window: u64,
-        canonical_emoji: &str,
-    ) -> Result<String> {
-        let routing_root = match scheme {
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                self.derive_and_retain_history_secret(realm_id)?
-            }
-            EncryptedPayloadScheme::MlsRfc9420 => self.export_secret(
-                REACTION_ROUTING_ROOT_LABEL,
-                &effective_scope.canonical_effective_scope_key_bytes()?,
-                32,
-            )?,
-        };
-        reaction_routing_tag_from_root(
-            &routing_root,
-            effective_scope,
-            target_ref,
-            routing_window,
-            canonical_emoji,
-        )
-    }
-
-    // ── `mls_exporter_aead_v1` history-shareable content scheme ──────────────
-    //
-    // The content key for epoch `N` is derived purely from the MLS exporter at
-    // that epoch:
-    //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
-    //   K_content[N,S]    = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)
-    // `AEAD` is the one the group negotiated ([`ExporterAeadSuite`]) — §2.10.1
-    // takes its lengths and §2.10.2 its `aead_profile` from the MLS ciphersuite
-    // registry, never from a locally chosen algorithm. Content is sealed over
-    // (nonce, aad, plaintext) with the §10.1 nonce
-    // `I2OSP(durable_sender_counter, AEAD.Nn)`. Because `history_secret[N]`
-    // is reproducible from `history_secret` alone (no ratchet state), a provider
-    // can HPKE-seal a retained `history_secret[N]` to a joiner who can then
-    // decrypt every epoch-`N` message — the basis of encrypted history sharing.
-
-    /// Derive `history_secret[N]` for the **current** epoch and retain it for
-    /// later history sharing / decryption, returning the 32-byte secret.
-    ///
-    /// OpenMLS only evaluates `export_secret` against the current epoch, so this
-    /// MUST be called while the group is at epoch `N` (e.g. right after each
-    /// commit) for the secret to be recoverable afterwards. Idempotent within an
-    /// epoch: re-deriving overwrites with the identical value.
-    pub fn derive_and_retain_history_secret(
-        &mut self,
-        realm_id: &str,
-    ) -> Result<Zeroizing<Vec<u8>>> {
-        let secret = self.derive_history_secret(realm_id)?;
-        self.history_secrets.insert(self.epoch(), secret.clone());
-        Ok(secret)
-    }
-
-    /// Derive `history_secret[N]` for the current epoch **without** retaining
-    /// it.
-    ///
-    /// Retention exists so a late joiner can be granted readable history; an
-    /// ephemeral domain (the Signal rail) must not cause an epoch to be
-    /// retained as shareable history just because a typing indicator was sent
-    /// in it. Callers that do want the sharing side effect use
-    /// [`Self::derive_and_retain_history_secret`].
-    pub(crate) fn derive_history_secret(&self, realm_id: &str) -> Result<Zeroizing<Vec<u8>>> {
-        self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)
-    }
-
-    /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
-    /// content scheme, returning the durable counter and ciphertext. The nonce
-    /// is `I2OSP(counter, AEAD.Nn)` and is never duplicated on wire.
-    ///
-    /// Side effects: derives + retains `history_secret[epoch]` (so the sender can
-    /// later re-decrypt or share it) and advances the device nonce counter.
-    /// The caller supplies the already reconstructed closed pre-encryption
-    /// header. The ordinary-profile sender domain is derived internally from
-    /// the local identity and exact active LeafNode and must match the header.
-    pub fn encrypt_content_exporter_aead(
-        &mut self,
-        realm_id: &str,
-        header: &EventContentPreEncryptionHeader,
-        plaintext: &[u8],
-    ) -> Result<(u64, Vec<u8>)> {
-        let sender_domain = self.verified_local_content_sender_domain(&header.sender_domain)?;
-        header.validate()?;
-        if header.scheme != EncryptedPayloadScheme::MlsExporterAeadV1
-            || header.mls_group_id != self.group_id()
-            || header.epoch != self.epoch()
-            || header.sender_domain.as_bytes() != sender_domain
-        {
-            return Err(Error::Protocol(
-                "exporter content header does not match the active MLS sender state".to_owned(),
-            ));
-        }
-        // Resolved before any secret is derived: an unregistered or non-active
-        // ciphersuite must fail closed rather than produce ciphertext under an
-        // algorithm no receiver is allowed to accept.
-        let suite = self.content_suite()?;
-        let history_secret = self.derive_and_retain_history_secret(realm_id)?;
-        let content_key = derive_content_key_from_history_secret(
-            &history_secret,
-            &sender_domain,
-            suite.key_len(),
-        )?;
-
-        let epoch = self.epoch();
-        let counter = self.content_nonce_counter;
-        if header.counter != Some(counter) {
-            return Err(Error::Protocol(
-                "exporter content header counter was not reserved from the active sender state"
-                    .to_owned(),
-            ));
-        }
-        let nonce = self.content_aead_nonce(&sender_domain, epoch, suite, counter)?;
-
-        let aead_aad = header.canonical_bytes()?;
-        let ciphertext = suite.seal(&content_key, &nonce, &aead_aad, plaintext)?;
-
-        self.content_nonce_counter = self
-            .content_nonce_counter
-            .checked_add(1)
-            .ok_or_else(|| Error::Crypto("content nonce counter overflow".to_owned()))?;
-
-        Ok((counter, ciphertext))
-    }
-
-    /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
-    /// a supplied `history_secret` (e.g. one retained locally for the sender's
-    /// own epoch, or opened from a history-key carrier). `nonce_and_ct` is the
-    /// `nonce || ciphertext` blob; `key_ref`, `epoch` and `aad` MUST be the
-    /// verified envelope values. Takes `&self` — it does not touch ratchet state.
-    ///
-    /// The AEAD comes from the ciphersuite *this group* negotiated rather than
-    /// from a caller-declared `aead_profile`: §10.1 makes the group at
-    /// `key_ref.group_state_ref` the authority, so a caller holding the group
-    /// has nothing left to declare. The group-free
-    /// [`decrypt_content_exporter_aead_standalone`] is the path that must be
-    /// told.
-    pub fn decrypt_content_exporter_aead(
-        &self,
-        history_secret: &[u8],
-        verified_sender_domain: &[u8],
-        header: &EventContentPreEncryptionHeader,
-        ciphertext: &[u8],
-    ) -> Result<Vec<u8>> {
-        decrypt_content_exporter_aead_standalone(
-            history_secret,
-            verified_sender_domain,
-            header,
-            self.group_ciphersuite_canonical_id()?,
-            ciphertext,
-        )
-    }
-
-    /// Export one retained epoch secret as a `local_authoritative` record.
-    ///
-    /// This is the only constructor of that record class in the SDK, and it
-    /// takes the secret from **this** group rather than from an argument:
-    /// `key-management.md:864-866` admits a secret as `local_authoritative`
-    /// only when the endpoint exported it from an MLS state it fully verified
-    /// and actually applied, and holding an [`ArkretMlsGroup`] at that epoch is
-    /// exactly that evidence. Material from a history response, an
-    /// organization-recovery archive or a portable backup can never reach this
-    /// path, so it stays an `external_candidate` by construction.
-    ///
-    /// The caller supplies only the coordinates it alone knows: the durable
-    /// local post-state handle and the exact `ak.component.mls.epoch.v1` winner
-    /// tuple (`history-visibility.md:501-503`). All three transition fields are
-    /// required, because the record's whole purpose is to make the post-state
-    /// the secret came from checkable later.
-    pub fn export_local_authoritative_history_secret(
-        &self,
-        effective_scope: &HistoryEffectiveScope,
-        epoch: u64,
-        local_state_ref: &str,
-        transition_ref: &EventId,
-        transition_event_digest: &Hash,
-        mls_transition_digest: &Hash,
-    ) -> Result<LocalAuthoritativeHistorySecret> {
-        let mls_group_id = effective_scope.canonical_mls_group_id()?;
-        if mls_group_id != self.group_id() {
-            return Err(Error::Protocol(
-                "effective scope does not derive this MLS group id".to_owned(),
-            ));
-        }
-        let secret = self.history_secrets.get(&epoch).ok_or_else(|| {
-            Error::Protocol(format!(
-                "no locally derived history secret is retained for epoch {epoch}"
-            ))
-        })?;
-        let record = LocalAuthoritativeHistorySecret {
-            effective_scope: effective_scope.clone(),
-            mls_group_id,
-            epoch,
-            mls_ciphersuite: self.group_ciphersuite_canonical_id()?.to_owned(),
-            local_state_ref: local_state_ref.to_owned(),
-            transition_ref: transition_ref.clone(),
-            transition_event_digest: transition_event_digest.clone(),
-            mls_transition_digest: mls_transition_digest.clone(),
-            secret_b64u: base64url_encode(secret.as_slice()),
-        };
-        record.validate()?;
-        Ok(record)
-    }
-
-    /// The AEAD suite this group negotiated, resolved through
-    /// `mls-ciphersuite-registry.json`.
-    fn content_suite(&self) -> Result<ExporterAeadSuite> {
-        ExporterAeadSuite::resolve(self.group_ciphersuite_canonical_id()?)
-    }
-
     /// `canonical_id` of the ciphersuite this group negotiated.
     ///
     /// The wire value comes from the registry constant, never from the
@@ -972,26 +682,8 @@ impl ArkretMlsGroup {
     }
 
     /// Compose the §10.1 full-width content counter nonce.
-    fn content_aead_nonce(
-        &self,
-        verified_sender_domain: &[u8],
-        epoch: u64,
-        suite: ExporterAeadSuite,
-        counter: u64,
-    ) -> Result<Vec<u8>> {
-        self.content_nonce_context(verified_sender_domain, epoch)?;
-        Ok(arkret_crypto::compose_aead_nonce(
-            counter,
-            suite.nonce_len(),
-        )?)
-    }
-
     /// Counter that must be frozen into the next exporter content header
-    /// before encryption. The subsequent seal consumes exactly this value.
-    pub fn next_content_counter(&self) -> u64 {
-        self.content_nonce_counter
-    }
-
+    /// before encryption. The subsequent encryption consumes exactly this value.
     /// Return the sender-domain string derived from the unique active local
     /// BasicCredential leaf. Callers use this value when freezing the
     /// pre-encryption header; they must not infer it from UI profile state.
@@ -1017,11 +709,7 @@ impl ArkretMlsGroup {
         let identity = std::str::from_utf8(actual_identity).map_err(|_| {
             Error::Protocol("active local MLS leaf identity is not canonical UTF-8".to_owned())
         })?;
-        let derived_sender_domain = identity
-            .rsplit_once('#')
-            .map(|(_, device)| device)
-            .unwrap_or(identity);
-        Ok(derived_sender_domain.to_owned())
+        Ok(identity.to_owned())
     }
 
     fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
@@ -1032,21 +720,6 @@ impl ArkretMlsGroup {
             ));
         }
         Ok(derived_sender_domain.into_bytes())
-    }
-
-    fn content_nonce_context(
-        &self,
-        verified_sender_domain: &[u8],
-        epoch: u64,
-    ) -> Result<arkret_crypto::AeadNonceContext> {
-        let verified_sender_domain = std::str::from_utf8(verified_sender_domain).map_err(|_| {
-            Error::Protocol("verified sender domain must be canonical UTF-8".to_owned())
-        })?;
-        Ok(arkret_crypto::AeadNonceContext {
-            mls_group_id: self.group_id(),
-            epoch,
-            sender_domain: verified_sender_domain.to_owned(),
-        })
     }
 
     /// Snapshot complete member identities from the accepted binding map.
@@ -1075,11 +748,11 @@ impl ArkretMlsGroup {
             .collect())
     }
 
-    /// Snapshot the group's active leaves for minimal-metadata author
-    /// verification (encryption-and-audit.md §2.10.3). Unlike
+    /// Snapshot the group's active leaves for identity and key binding
+    /// verification. Unlike
     /// [`Self::member_principal_ids`] this does NOT dedupe — duplicate
     /// credential identities must stay visible so
-    /// [`crate::verify_minimal_metadata_author`] can reject them.
+    /// callers can verify identity and key bindings against the exact winning state.
     pub fn active_author_leaves(&self) -> Vec<crate::AuthorLeaf> {
         self.group
             .members()
@@ -1115,149 +788,6 @@ impl ArkretMlsGroup {
             .collect()
     }
 
-    /// Canonical current leaf set for MLS security-frontier projection.
-    pub fn security_frontier_leaves(
-        &self,
-    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
-        self.require_complete_leaf_bindings()?;
-        let mut leaves = self
-            .leaf_bindings
-            .values()
-            .map(|binding| arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: binding.leaf_index,
-                actor_id: binding.actor_id.clone(),
-                credential_ref: binding.credential_ref.clone(),
-            })
-            .collect::<Vec<_>>();
-        leaves.sort_by_key(|leaf| leaf.leaf_index);
-        Ok(leaves)
-    }
-
-    /// Compute the exact post-Commit public leaf coordinates for an Add batch
-    /// by staging the transition in an isolated copy of the current RFC 9420
-    /// state. This is the author-side input to the governance proof request;
-    /// callers must not predict leaf positions from claim arrival order or by
-    /// scanning for a locally assumed blank index.
-    pub fn preview_add_members_security_frontier(
-        &self,
-        member_key_packages: &[MlsKeyPackageRecord],
-        member_actor_ids: &[ActorId],
-    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
-        if member_key_packages.is_empty() || member_key_packages.len() != member_actor_ids.len() {
-            return Err(Error::Protocol(
-                "refusing to preview an empty MLS KeyPackage batch".to_owned(),
-            ));
-        }
-        self.require_complete_leaf_bindings()?;
-
-        let state = self.export_state_record()?;
-        let mut preview = Self::restore_from_state_record(&state)?;
-        preview.add_members(member_key_packages)?;
-        let post_leaves = preview.active_author_leaves();
-
-        let mut result = Vec::with_capacity(post_leaves.len());
-        let mut attributed_indices = std::collections::BTreeSet::new();
-        for binding in self.leaf_bindings.values() {
-            let leaf = post_leaves
-                .iter()
-                .find(|leaf| leaf.leaf_index == binding.leaf_index)
-                .ok_or_else(|| {
-                    Error::Protocol("MLS Add preview removed an existing occupied leaf".to_owned())
-                })?;
-            let expected_signature_key = decode(binding.signature_key.as_str())?;
-            let expected_credential = binding.credential_ref.as_bytes();
-            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
-                return Err(Error::Protocol(
-                    "existing Arkret MLS leaf is not BasicCredential".to_owned(),
-                ));
-            };
-            if identity.as_slice() != expected_credential
-                || leaf.signature_key != expected_signature_key
-            {
-                return Err(Error::Protocol(
-                    "MLS Add preview changed an existing accepted leaf binding".to_owned(),
-                ));
-            }
-            attributed_indices.insert(binding.leaf_index);
-            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: binding.leaf_index,
-                actor_id: binding.actor_id.clone(),
-                credential_ref: binding.credential_ref.clone(),
-            });
-        }
-
-        for (record, actor_id) in member_key_packages.iter().zip(member_actor_ids) {
-            record.endpoint.validate()?;
-            actor_id.validate()?;
-            if actor_id.signing_principal_id() != record.endpoint.actor_id() {
-                return Err(Error::Protocol(
-                    "MLS Add preview actor differs from signed endpoint principal".to_owned(),
-                ));
-            }
-            let key_package_bytes = decode(&record.keypackage)?;
-            if canonical::sha256_digest(&key_package_bytes) != record.keypackage_ref.as_str() {
-                return Err(Error::Protocol(
-                    "MLS Add preview KeyPackage bytes differ from keypackage_ref".to_owned(),
-                ));
-            }
-            let expected = crate::author_leaf_from_key_package_bytes(&key_package_bytes, 0)?;
-            let mut matches = post_leaves.iter().filter(|leaf| {
-                !attributed_indices.contains(&leaf.leaf_index)
-                    && leaf.credential == expected.credential
-                    && leaf.signature_key == expected.signature_key
-            });
-            let leaf = matches.next().ok_or_else(|| {
-                Error::Protocol(
-                    "MLS Add preview produced no leaf for an exact KeyPackage".to_owned(),
-                )
-            })?;
-            if matches.next().is_some() {
-                return Err(Error::Protocol(
-                    "MLS Add preview produced ambiguous duplicate KeyPackage leaves".to_owned(),
-                ));
-            }
-            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
-                return Err(Error::Protocol(
-                    "new Arkret MLS leaf is not BasicCredential".to_owned(),
-                ));
-            };
-            let credential = std::str::from_utf8(identity).map_err(|_| {
-                Error::Protocol("new Arkret MLS credential is not UTF-8".to_owned())
-            })?;
-            let expected_credential = match &record.endpoint {
-                MlsEndpointIdentity::HumanDevice { device_id, .. } => device_id.as_str(),
-                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
-                MlsEndpointIdentity::MinimalMetadataPairwise {
-                    pairwise_actor_id, ..
-                } => pairwise_actor_id.as_str(),
-            };
-            if credential != expected_credential {
-                return Err(Error::Protocol(
-                    "MLS Add preview credential differs from the KeyPackage endpoint".to_owned(),
-                ));
-            }
-            if !attributed_indices.insert(leaf.leaf_index) {
-                return Err(Error::Protocol(
-                    "MLS Add preview attributed one leaf to multiple members".to_owned(),
-                ));
-            }
-            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: leaf.leaf_index,
-                actor_id: actor_id.clone(),
-                credential_ref: arkret_wire::NonEmptyString::new(credential.to_owned())
-                    .map_err(|error| Error::Protocol(error.to_owned()))?,
-            });
-        }
-
-        if attributed_indices.len() != post_leaves.len() {
-            return Err(Error::Protocol(
-                "MLS Add preview left an unattributed post-Commit leaf".to_owned(),
-            ));
-        }
-        result.sort_by_key(|leaf| leaf.leaf_index);
-        Ok(result)
-    }
-
     /// Build the [`crate::AuthorGroupStateView`] for this group's current
     /// state. The caller supplies the `group_state_ref` it has verified as
     /// the winning group state for this epoch (accepted genesis / winning
@@ -1273,25 +803,28 @@ impl ArkretMlsGroup {
 
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
         self.require_complete_leaf_bindings()?;
+        if self.has_pending_commit() != self.own_pending_commit_digest.is_some() {
+            return Err(Error::Protocol(
+                "MLS pending Commit has no exact wire binding".into(),
+            ));
+        }
         let snapshot = OpenMlsStateSnapshot {
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
-            group_id: self.group_id(),
+            group_id: self.group_id.clone(),
+            scope: self.scope.clone(),
             epoch: self.epoch(),
+            actor_id: self.identity.actor_id.clone(),
             endpoint: self.identity.endpoint.clone(),
             profile: self.identity.profile().clone(),
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
             leaf_bindings: self.leaf_bindings.clone(),
-            history_secrets: self
-                .history_secrets
-                .iter()
-                .map(|(epoch, secret)| (epoch.to_string(), encode(secret)))
-                .collect(),
-            content_nonce_counter: self.content_nonce_counter,
             signal_nonce_counter: self.signal_nonce_counter,
+            own_pending_commit_digest: self.own_pending_commit_digest.clone(),
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
+            actor_id: snapshot.actor_id.clone(),
             endpoint: snapshot.endpoint.clone(),
             epoch: snapshot.epoch,
             serialized_state: serde_json::to_vec(&snapshot)?,
@@ -1314,10 +847,20 @@ impl ArkretMlsGroup {
         }
         if snapshot.group_id != record.group_id
             || snapshot.epoch != record.epoch
+            || snapshot.actor_id != record.actor_id
             || snapshot.endpoint != record.endpoint
         {
             return Err(Error::Protocol(
                 "OpenMLS state snapshot metadata mismatch".to_owned(),
+            ));
+        }
+        // The persisted scope is what decides the handshake policy below, so a
+        // snapshot whose scope does not derive its own group_id is rejected
+        // here rather than quietly serving the wrong policy.
+        let group_id = snapshot.scope.canonical_mls_group_id()?;
+        if group_id != snapshot.group_id {
+            return Err(Error::Protocol(
+                "OpenMLS state snapshot scope does not derive its own group_id".to_owned(),
             ));
         }
 
@@ -1330,33 +873,36 @@ impl ArkretMlsGroup {
             ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
-        snapshot.profile.validate_signer(signer.public())?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.endpoint))
+            credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.actor_id)?)
                 .into(),
             signature_key: signer.public().into(),
         };
-        let group_id = GroupId::from_slice(&decode(&record.group_id)?);
-        let group = MlsGroup::load(provider.storage(), &group_id)
+        let raw_group_id = GroupId::from_slice(&decode(record.group_id.as_str())?);
+        let group = MlsGroup::load(provider.storage(), &raw_group_id)
             .map_err(mls_error)?
             .ok_or_else(|| Error::Protocol("OpenMLS group state is missing".to_owned()))?;
+        if group.configuration().wire_format_policy() != handshake_policy(&snapshot.scope)? {
+            return Err(Error::Protocol(
+                "OpenMLS snapshot does not enforce the handshake wire-format policy its scope requires"
+                    .to_owned(),
+            ));
+        }
         if group.epoch().as_u64() != record.epoch {
             return Err(Error::Protocol(
                 "OpenMLS restored epoch mismatch".to_owned(),
             ));
         }
-
-        let mut history_secrets = BTreeMap::new();
-        for (epoch, secret_b64) in &snapshot.history_secrets {
-            let epoch: u64 = epoch.parse().map_err(|_| {
-                Error::Protocol("OpenMLS snapshot history_secret epoch is not a u64".to_owned())
-            })?;
-            history_secrets.insert(epoch, Zeroizing::new(decode(secret_b64)?));
+        if group.pending_commit().is_some() != snapshot.own_pending_commit_digest.is_some() {
+            return Err(Error::Protocol(
+                "MLS snapshot pending Commit has no exact wire binding".into(),
+            ));
         }
 
         let bindings = snapshot.leaf_bindings;
         let mut restored = Self {
             identity: ArkretMlsIdentity {
+                actor_id: record.actor_id.clone(),
                 endpoint: record.endpoint.clone(),
                 profile: snapshot.profile,
                 provider,
@@ -1364,10 +910,11 @@ impl ArkretMlsGroup {
                 credential,
             },
             group,
+            scope: snapshot.scope,
+            group_id,
             leaf_bindings: BTreeMap::new(),
-            history_secrets,
-            content_nonce_counter: snapshot.content_nonce_counter,
             signal_nonce_counter: snapshot.signal_nonce_counter,
+            own_pending_commit_digest: snapshot.own_pending_commit_digest,
         };
         restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
         Ok(restored)
@@ -1384,33 +931,203 @@ impl ArkretMlsGroup {
     /// TLS-serialised commit message (base64-url encoded) and whose
     /// `commit_digest` is the SHA-256 of that wire bytes — the same
     /// shape the SDK already emits from `add_member` / `remove_member_*`.
-    /// Side-effect: the group's pending commit is `merge`-d on success
-    /// so subsequent `encrypt_payload` calls run against the new
-    /// epoch.
+    /// The resulting commit remains staged. It is installed only by
+    /// [`Self::install_accepted_commit`] after the governance Station has
+    /// committed the Event to this scope's independent stream.
     pub fn self_update_commit(&mut self) -> Result<MlsCommitEnvelope> {
-        let bundle = self
-            .group
-            .self_update(
-                &self.identity.provider,
-                &self.identity.signer,
-                LeafNodeParameters::default(),
-            )
-            .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
+        self.self_update_commit_with_optional_governance_binding(None)
+    }
+
+    /// Rotate the sender's leaf and replace the fixed GroupContext binding in
+    /// the same inline Commit, without changing membership.
+    pub fn self_update_commit_with_governance_binding(
+        &mut self,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsCommitEnvelope> {
+        self.self_update_commit_with_optional_governance_binding(Some(binding))
+    }
+
+    fn self_update_commit_with_optional_governance_binding(
+        &mut self,
+        binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsCommitEnvelope> {
+        if self.has_pending_commit() {
+            return Err(Error::Protocol(
+                "MLS self-update requires installation of the existing pending Commit".to_owned(),
+            ));
+        }
+        let bundle = if let Some(binding) = binding {
+            let extensions = self
+                .verify_governance_binding_for_next_epoch(binding)
+                .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                .and_then(group_context_extensions_for_verified_binding)?;
+            self.group
+                .commit_builder()
+                .consume_proposal_store(false)
+                .force_self_update(true)
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?
+                .load_psks(self.identity.provider.storage())
+                .map_err(mls_error)?
+                .build(
+                    self.identity.provider.rand(),
+                    self.identity.provider.crypto(),
+                    &self.identity.signer,
+                    |_| true,
+                )
+                .map_err(mls_error)?
+                .stage_commit(&self.identity.provider)
+                .map_err(mls_error)?
+        } else {
+            self.group
+                .self_update(
+                    &self.identity.provider,
+                    &self.identity.signer,
+                    LeafNodeParameters::default(),
+                )
+                .map_err(mls_error)?
+        };
         let commit_bytes = bundle
             .commit()
             .tls_serialize_detached()
             .map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
+        let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
         Ok(MlsCommitEnvelope {
             group_id: self.group_id(),
-            epoch: self.epoch(),
+            epoch: self
+                .epoch()
+                .checked_add(1)
+                .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
             commit: encode(&commit_bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+            commit_digest,
             ratchet_tree,
         })
+    }
+
+    /// Whether a local transition still awaits exact authority acceptance.
+    pub fn has_pending_commit(&self) -> bool {
+        self.group.pending_commit().is_some()
+    }
+
+    /// Abandon the exact own candidate after its frozen submission has received
+    /// a definitive authority rejection. The caller must establish that terminal
+    /// outcome; a timeout, retryable failure or missing response is insufficient.
+    /// This preserves the installed epoch and live application ratchets.
+    /// An unrelated historical rejection leaves the current candidate untouched.
+    pub fn discard_rejected_own_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<bool> {
+        if !self.has_pending_commit()
+            || self.own_pending_commit_digest.as_ref() != Some(&envelope.commit_digest)
+        {
+            return Ok(false);
+        }
+        self.verify_exact_own_pending_commit(envelope)?;
+        self.group
+            .clear_pending_commit(self.identity.provider.storage())
+            .map_err(mls_error)?;
+        self.own_pending_commit_digest = None;
+        Ok(true)
+    }
+
+    /// Restore one already frozen own transition on its identical private
+    /// base, retaining the live base's application ratchets and Signal nonce.
+    /// This does not install or authorize a Commit. The caller must still
+    /// obtain and verify authority acceptance before merging it.
+    pub fn resume_frozen_pending_commit(
+        &self,
+        frozen: &MlsGroupStateRecord,
+        envelope: &MlsCommitEnvelope,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<Self> {
+        let live_record = self.export_state_record()?;
+        let live: OpenMlsStateSnapshot = serde_json::from_slice(&live_record.serialized_state)?;
+        let mut saved: OpenMlsStateSnapshot = serde_json::from_slice(&frozen.serialized_state)?;
+        if live.context != saved.context
+            || live.group_id != saved.group_id
+            || live.scope != saved.scope
+            || live.epoch != saved.epoch
+            || live.actor_id != saved.actor_id
+            || live.endpoint != saved.endpoint
+            || live.profile != saved.profile
+            || live.signer_public_key != saved.signer_public_key
+            || live.leaf_bindings != saved.leaf_bindings
+        {
+            return Err(Error::Protocol(
+                "frozen MLS transition has another private base".into(),
+            ));
+        }
+        // These are the pinned MemoryStorage adapter's candidate-only entries.
+        // All epoch secrets, public context, tree, proposals and identity keys
+        // must remain byte-identical. Unknown storage entries also fail closed.
+        let candidate_entry = |key: &str| -> Result<bool> {
+            let key = decode(key)?;
+            Ok([
+                b"GroupState".as_slice(),
+                b"OwnLeafNodes",
+                b"EncryptionKeyPair",
+                b"MessageSecrets",
+            ]
+            .iter()
+            .any(|label| key.starts_with(label)))
+        };
+        for (key, value) in live
+            .storage_entries
+            .iter()
+            .chain(saved.storage_entries.iter())
+        {
+            if !candidate_entry(key)?
+                && (live.storage_entries.get(key) != Some(value)
+                    || saved.storage_entries.get(key) != Some(value))
+            {
+                return Err(Error::Protocol(
+                    "frozen MLS transition would replace its private base".into(),
+                ));
+            }
+        }
+        for (key, value) in &live.storage_entries {
+            if !decode(key)?.starts_with(b"MessageSecrets") {
+                continue;
+            }
+            let original = saved.storage_entries.get(key).ok_or_else(|| {
+                Error::Protocol("frozen MLS transition has no matching message secrets".into())
+            })?;
+            let mut live_secrets: serde_json::Value = serde_json::from_slice(&decode(value)?)?;
+            let mut saved_secrets: serde_json::Value = serde_json::from_slice(&decode(original)?)?;
+            strip_message_ratchets(&mut live_secrets)?;
+            strip_message_ratchets(&mut saved_secrets)?;
+            if live_secrets != saved_secrets {
+                return Err(Error::Protocol(
+                    "frozen MLS transition has another message-secret base".into(),
+                ));
+            }
+            // Preserve the entire live store, including every retained epoch's
+            // used and skipped generations. Never rewind to the frozen copy.
+            saved.storage_entries.insert(key.clone(), value.clone());
+        }
+        saved.signal_nonce_counter = live.signal_nonce_counter.max(saved.signal_nonce_counter);
+        let mut record = frozen.clone();
+        record.serialized_state = serde_json::to_vec(&saved)?;
+        let mut resumed = Self::restore_from_state_record(&record)?;
+        resumed
+            .verify_governance_binding_for_next_epoch(binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().into()))?;
+        if envelope.group_id != resumed.group_id()
+            || Some(envelope.epoch) != resumed.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "frozen MLS Commit has another group or epoch".into(),
+            ));
+        }
+        resumed.verify_exact_own_pending_commit(envelope)?;
+        let pending = resumed
+            .group
+            .pending_commit()
+            .ok_or_else(|| Error::Protocol("frozen MLS Commit has no pending state".into()))?;
+        let authenticated = decode_group_context_governance_binding(pending.group_context())?;
+        crate::verify_historical_governance_binding(&authenticated, binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().into()))?;
+        Ok(resumed)
     }
 
     pub fn add_member(
@@ -1439,6 +1156,7 @@ impl ArkretMlsGroup {
         let result = self.add_members_with_optional_governance_binding(
             std::slice::from_ref(member_key_package),
             governance_binding,
+            &[],
         )?;
         let welcome = result
             .welcomes
@@ -1446,11 +1164,6 @@ impl ArkretMlsGroup {
             .next()
             .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
         Ok(MlsAddMemberResult {
-            proposal: result
-                .proposals
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::Protocol("MLS add_member returned no Proposal".to_owned()))?,
             commit: result.commit,
             welcome,
         })
@@ -1460,38 +1173,82 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
     ) -> Result<MlsAddMembersResult> {
-        self.add_members_with_optional_governance_binding(member_key_packages, None)
+        self.add_members_with_optional_governance_binding(member_key_packages, None, &[])
+    }
+
+    /// Locate an accepted endpoint incarnation of the exact member. Human
+    /// devices are distinct endpoints; an Agent's current runtime replaces
+    /// that same Agent's previous runtime authorization.
+    pub fn member_endpoint_replacement_actor(
+        &self,
+        endpoint: &MlsEndpointIdentity,
+        actor: &ActorId,
+    ) -> Result<Option<ActorId>> {
+        Ok(self
+            .verified_leaf_bindings()?
+            .into_iter()
+            .find(|leaf| leaf.actor_id == *actor && endpoint_replaces(&leaf.endpoint, endpoint))
+            .map(|leaf| leaf.actor_id))
+    }
+
+    pub fn replace_member_endpoint(
+        &mut self,
+        package: &MlsKeyPackageRecord,
+        actor: &ActorId,
+        binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsAddMemberResult> {
+        if self
+            .member_endpoint_replacement_actor(&package.endpoint, actor)?
+            .is_none()
+        {
+            return Err(Error::Protocol(
+                "endpoint replacement requires the exact current member ActorId and endpoint"
+                    .to_owned(),
+            ));
+        }
+        let result = self.add_members_with_optional_governance_binding(
+            std::slice::from_ref(package),
+            binding,
+            std::slice::from_ref(actor),
+        )?;
+        Ok(MlsAddMemberResult {
+            commit: result.commit,
+            welcome: result.welcomes.into_iter().next().ok_or_else(|| {
+                Error::Protocol("endpoint replacement produced no Welcome".to_owned())
+            })?,
+        })
     }
 
     pub(crate) fn add_members_with_optional_governance_binding(
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
+        replace_actors: &[ActorId],
     ) -> Result<MlsAddMembersResult> {
         if member_key_packages.is_empty() {
             return Err(Error::Protocol(
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
-        #[cfg(any(test, feature = "test-utils"))]
-        let test_endpoints = self
-            .leaf_bindings
-            .values()
-            .map(|binding| binding.endpoint.clone())
-            .chain(
-                member_key_packages
-                    .iter()
-                    .map(|record| record.endpoint.clone()),
-            )
-            .collect::<Vec<_>>();
+        let governance_extensions = governance_binding
+            .map(|binding| {
+                self.verify_governance_binding_for_next_epoch(binding)
+                    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                    .and_then(group_context_extensions_for_verified_binding)
+            })
+            .transpose()?;
         let mut keypackages = Vec::with_capacity(member_key_packages.len());
         let required_capabilities = self.required_keypackage_capabilities()?;
         for member_key_package in member_key_packages {
-            if !member_key_package.is_usable() {
+            if member_key_package.state != arkret_models_crypto::MlsKeyPackageState::Claimed {
                 return Err(Error::Protocol(
-                    "refusing to add revoked MLS KeyPackage".to_owned(),
+                    "MLS Add requires an authority-claimed KeyPackage".to_owned(),
                 ));
             }
+            let claim_id = member_key_package.claim_id.as_deref().ok_or_else(|| {
+                Error::Protocol("claimed MLS KeyPackage omits claim_id".to_owned())
+            })?;
+            KeypackageClaimId::new(claim_id.to_owned())?;
             let keypackage = decode_key_package(&self.identity.provider, member_key_package)?;
             validate_keypackage_capability_binding(
                 member_key_package,
@@ -1502,35 +1259,41 @@ impl ArkretMlsGroup {
         }
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
-        let mut proposals = Vec::with_capacity(keypackages.len());
-        for key_package in &keypackages {
-            let (proposal_message, _proposal_ref) = self
-                .group
-                .propose_add_member(&self.identity.provider, &self.identity.signer, key_package)
-                .map_err(mls_error)?;
-            let proposal_bytes = proposal_message
-                .tls_serialize_detached()
-                .map_err(mls_error)?;
-            proposals.push(MlsProposalEnvelope {
-                group_id: self.group_id(),
-                epoch: base_epoch,
-                proposal_type: "add".to_owned(),
-                proposal: encode(&proposal_bytes),
-                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-            });
+        // A fresh package for an existing endpoint repairs that endpoint in
+        // the same winning Commit. Keeping both leaves would give one device
+        // two incarnations and leave the abandoned package active.
+        let replacements: Vec<_> = self
+            .leaf_bindings
+            .values()
+            .filter(|binding| {
+                replace_actors.contains(&binding.actor_id)
+                    && member_key_packages
+                        .iter()
+                        .any(|record| endpoint_replaces(&binding.endpoint, &record.endpoint))
+            })
+            .map(|binding| LeafNodeIndex::new(binding.leaf_index))
+            .collect();
+        if replacements.contains(&self.group.own_leaf_index()) {
+            return Err(Error::Protocol(
+                "an MLS sender cannot replace its own endpoint via Add".to_owned(),
+            ));
         }
-        let governance_extensions = governance_binding
-            .map(|binding| self.governance_extensions_for_next_epoch(binding))
-            .transpose()?;
-        let mut builder = self.group.commit_builder().consume_proposal_store(true);
+        // Every Proposal travels inline in the one Commit
+        // (authority-commit-log.md §9): the governance Station verifies the
+        // whole public transition from the Commit bytes alone.
+        let mut commit_builder = self
+            .group
+            .commit_builder()
+            .consume_proposal_store(false)
+            .force_self_update(true)
+            .propose_removals(replacements)
+            .propose_adds(keypackages);
         if let Some(extensions) = governance_extensions {
-            builder = builder
+            commit_builder = commit_builder
                 .propose_group_context_extensions(extensions)
                 .map_err(mls_error)?;
         }
-        let bundle = builder
-            .force_self_update(true)
+        let bundle = commit_builder
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
             .build(
@@ -1546,32 +1309,33 @@ impl ArkretMlsGroup {
             Error::Protocol("MLS add_members produced no Welcome message".to_owned())
         })?;
         let (commit, ..) = bundle.into_contents();
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-        #[cfg(any(test, feature = "test-utils"))]
-        self.install_test_leaf_bindings(test_endpoints)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
         let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
-        let welcome_hash = Hash::new(canonical::sha256_digest(&welcome_bytes))?;
         let group_id = self.group_id();
-        let epoch = self.epoch();
+        let epoch = base_epoch
+            .checked_add(1)
+            .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
         let welcomes = member_key_packages
             .iter()
-            .map(|member_key_package| MlsWelcomeEnvelope {
-                group_id: group_id.clone(),
-                epoch,
-                recipient: member_key_package.endpoint.clone(),
-                welcome: encode(&welcome_bytes),
-                welcome_hash: welcome_hash.clone(),
-                ratchet_tree: ratchet_tree.clone(),
+            .map(|member_key_package| {
+                Ok(MlsWelcomeDraft {
+                    recipient: member_key_package.endpoint.clone(),
+                    keypackage_claim_ref: KeypackageClaimId::new(
+                        member_key_package
+                            .claim_id
+                            .clone()
+                            .expect("claimed package was validated"),
+                    )?,
+                    ciphertext_b64: Base64UrlString::new(encode(&welcome_bytes))
+                        .map_err(|error| Error::Protocol(error.to_owned()))?,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
 
         Ok(MlsAddMembersResult {
-            proposals,
             commit: MlsCommitEnvelope {
                 group_id,
                 epoch,
@@ -1651,11 +1415,57 @@ impl ArkretMlsGroup {
         self.remove_leaves(&leaves, governance_binding)
     }
 
+    /// Remove exactly the selected occupied leaves, preserving other endpoints
+    /// even when they belong to the same Actor.
+    pub fn remove_members_by_leaf_indices_with_governance_binding(
+        &mut self,
+        leaf_indices: &[u32],
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_leaf_indices_internal(leaf_indices, Some(governance_binding))
+    }
+
+    pub fn remove_members_by_leaf_indices(
+        &mut self,
+        leaf_indices: &[u32],
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_leaf_indices_internal(leaf_indices, None)
+    }
+
+    fn remove_members_by_leaf_indices_internal(
+        &mut self,
+        leaf_indices: &[u32],
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsRemoveMemberResult> {
+        if leaf_indices.is_empty()
+            || leaf_indices.len() > 65_536
+            || leaf_indices.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(Error::Protocol(
+                "MLS removal indices must be nonempty, bounded and strictly increasing".to_owned(),
+            ));
+        }
+        self.require_complete_leaf_bindings()?;
+        let leaves = leaf_indices
+            .iter()
+            .copied()
+            .map(LeafNodeIndex::new)
+            .collect::<Vec<_>>();
+        self.remove_leaves(&leaves, governance_binding)
+    }
+
     fn remove_leaves(
         &mut self,
         leaves: &[LeafNodeIndex],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
+        let governance_extensions = governance_binding
+            .map(|binding| {
+                self.verify_governance_binding_for_next_epoch(binding)
+                    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
+                    .and_then(group_context_extensions_for_verified_binding)
+            })
+            .transpose()?;
         // Capture the complete actor before commit so we can report
         // which Station-bound member owned each removed leaf even after it
         // is gone from the post-commit group state.
@@ -1682,35 +1492,17 @@ impl ArkretMlsGroup {
 
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
-        let mut proposals = Vec::with_capacity(leaves.len());
-        for leaf in leaves {
-            let (proposal_message, _proposal_ref) = self
-                .group
-                .propose_remove_member(&self.identity.provider, &self.identity.signer, *leaf)
-                .map_err(mls_error)?;
-            let proposal_bytes = proposal_message
-                .tls_serialize_detached()
-                .map_err(mls_error)?;
-            proposals.push(MlsProposalEnvelope {
-                group_id: self.group_id(),
-                epoch: base_epoch,
-                proposal_type: "remove".to_owned(),
-                proposal: encode(&proposal_bytes),
-                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-            });
-        }
-
-        let governance_extensions = governance_binding
-            .map(|binding| self.governance_extensions_for_next_epoch(binding))
-            .transpose()?;
-        let mut builder = self.group.commit_builder().consume_proposal_store(true);
+        let mut commit_builder = self
+            .group
+            .commit_builder()
+            .consume_proposal_store(false)
+            .propose_removals(leaves.iter().copied());
         if let Some(extensions) = governance_extensions {
-            builder = builder
+            commit_builder = commit_builder
                 .propose_group_context_extensions(extensions)
                 .map_err(mls_error)?;
         }
-        let (commit, _welcome_opt, _) = builder
+        let (commit, _welcome_opt, _) = commit_builder
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
             .build(
@@ -1723,12 +1515,6 @@ impl ArkretMlsGroup {
             .stage_commit(&self.identity.provider)
             .map_err(mls_error)?
             .into_contents();
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-        for leaf in leaves {
-            self.leaf_bindings.remove(&leaf.u32());
-        }
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
 
@@ -1738,14 +1524,17 @@ impl ArkretMlsGroup {
             removed_leaves.push(idx.u32());
             removed_actors.push(principal);
         }
+        let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
+        self.own_pending_commit_digest = Some(commit_digest.clone());
 
         Ok(MlsRemoveMemberResult {
-            proposals,
             commit: MlsCommitEnvelope {
                 group_id: self.group_id(),
-                epoch: self.epoch(),
+                epoch: base_epoch
+                    .checked_add(1)
+                    .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
                 commit: encode(&commit_bytes),
-                commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+                commit_digest,
                 ratchet_tree,
             },
             removed_leaves,
@@ -1753,48 +1542,138 @@ impl ArkretMlsGroup {
         })
     }
 
-    pub fn join_from_welcome(
+    /// Consume an authority-queued Welcome only after resolving the exact
+    /// accepted Commit Event it names. Producer-proof verification is a
+    /// prerequisite performed by the caller against the accepted producer
+    /// identity; this method validates every MLS and stream binding.
+    pub fn join_from_verified_welcome_delivery(
         identity: ArkretMlsIdentity,
-        envelope: &MlsWelcomeEnvelope,
+        delivery: &MlsWelcomeDelivery,
+        accepted_commit: &CommittedEventFullView,
     ) -> Result<Self> {
-        if envelope.recipient != identity.endpoint_identity() {
+        delivery.validate_shape()?;
+        accepted_commit.validate_shape()?;
+        if accepted_commit.event.kind != EventKind::MlsCommit
+            || delivery.commit_event_ref != accepted_commit.event.event_id
+            || delivery.realm_id != accepted_commit.event.realm_id
+            || delivery.effective_scope != accepted_commit.event.scope_ref
+        {
             return Err(Error::Protocol(
-                "MLS Welcome recipient does not match identity".to_owned(),
+                "MLS Welcome does not name the exact accepted Commit Event".to_owned(),
+            ));
+        }
+        let expected_stream = CommitStreamRef::from_scope(&delivery.effective_scope, None)?;
+        if accepted_commit.commit.stream_ref != expected_stream {
+            return Err(Error::Protocol(
+                "MLS Welcome Commit is in a different independent stream".to_owned(),
+            ));
+        }
+        let commit_payload = serde_json::from_value::<MlsCommitPayload>(
+            serde_json::Value::Object(accepted_commit.event.payload.clone().into_iter().collect()),
+        )?;
+        commit_payload.validate()?;
+        if commit_payload.governance_binding().effective_scope() != &delivery.effective_scope {
+            return Err(Error::Protocol(
+                "MLS Welcome scope differs from the accepted Commit payload".to_owned(),
+            ));
+        }
+        let recipient_matches = match (&identity.endpoint, &delivery.recipient_endpoint) {
+            (
+                MlsEndpointIdentity::HumanDevice {
+                    principal_id,
+                    device_id,
+                },
+                MlsWelcomeRecipientEndpoint::Device {
+                    device_id: delivered_device,
+                },
+            ) => {
+                device_id == delivered_device
+                    && delivery.recipient_actor_id.signing_principal_id() == principal_id
+            }
+            (
+                MlsEndpointIdentity::AgentRuntime {
+                    agent_id,
+                    verification_method,
+                    ..
+                },
+                MlsWelcomeRecipientEndpoint::AgentRuntime {
+                    verification_method: delivered_method,
+                },
+            ) => {
+                verification_method == delivered_method
+                    && delivery.recipient_actor_id.signing_principal_id() == agent_id
+            }
+            _ => false,
+        };
+        if !recipient_matches {
+            return Err(Error::Protocol(
+                "MLS Welcome recipient does not match this endpoint".to_owned(),
             ));
         }
 
-        let welcome_bytes = decode(&envelope.welcome)?;
-        let actual_welcome_hash = canonical::sha256_digest(&welcome_bytes);
-        if actual_welcome_hash != envelope.welcome_hash.as_str() {
-            return Err(Error::Protocol("MLS Welcome hash mismatch".to_owned()));
-        }
-
+        let welcome_bytes = decode(delivery.ciphertext_b64.as_str())?;
         let message =
             MlsMessageIn::tls_deserialize_exact(welcome_bytes.as_slice()).map_err(mls_error)?;
         let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
-            return Err(Error::Protocol("MLS message is not a Welcome".to_owned()));
+            return Err(Error::Protocol(
+                "MLS delivery does not contain a Welcome".to_owned(),
+            ));
         };
-        let ratchet_tree = match &envelope.ratchet_tree {
-            Some(tree) => {
-                let tree_bytes = decode(tree)?;
-                Some(
-                    RatchetTreeIn::tls_deserialize_exact(tree_bytes.as_slice())
-                        .map_err(mls_error)?,
-                )
-            }
-            None => None,
-        };
-
         let staged_welcome = StagedWelcome::new_from_welcome(
             &identity.provider,
             &MlsGroupJoinConfig::default(),
             welcome,
-            ratchet_tree,
+            None,
         )
         .map_err(mls_error)?;
+        let context = staged_welcome.group_context();
+        if encode(context.group_id().as_slice()) != commit_payload.mls_group_id()?.as_str()
+            || context.epoch().as_u64() != commit_payload.next_epoch()
+        {
+            return Err(Error::Protocol(
+                "MLS Welcome authenticated group state differs from the accepted Commit".to_owned(),
+            ));
+        }
+        let authenticated_binding = decode_group_context_governance_binding(context)?;
+        let verified = crate::verify_historical_governance_binding(
+            &authenticated_binding,
+            commit_payload.governance_binding(),
+        )
+        .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        Self::join_staged_welcome(
+            identity,
+            &delivery.effective_scope,
+            staged_welcome,
+            verified,
+        )
+    }
 
-        let required_extension = staged_welcome
-            .group_context()
+    fn join_staged_welcome(
+        identity: ArkretMlsIdentity,
+        scope: &ScopeRef,
+        staged_welcome: StagedWelcome,
+        _verified: VerifiedMlsGovernanceBinding,
+    ) -> Result<Self> {
+        let context = staged_welcome.group_context();
+        // The joiner is told which scope it is joining; it cannot read that
+        // back out of the authenticated group_id, so it checks the two agree
+        // instead. A Welcome whose group_id is not this scope's derivation is
+        // a Welcome into a different group.
+        let group_id = scope.canonical_mls_group_id()?;
+        if encode(context.group_id().as_slice()) != group_id.as_str() {
+            return Err(Error::Protocol(
+                "MLS Welcome group_id is not the derivation of the named effective scope"
+                    .to_owned(),
+            ));
+        }
+        // Like a group it creates, a joined member carries the ratchet tree
+        // in every Welcome it seals: a member it adds has no other source
+        // for the tree.
+        let join_config = MlsGroupJoinConfig::builder()
+            .wire_format_policy(handshake_policy(scope)?)
+            .use_ratchet_tree_extension(true)
+            .build();
+        let required_extension = context
             .extensions()
             .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
             .ok_or_else(|| {
@@ -1814,20 +1693,23 @@ impl ArkretMlsGroup {
         let mut group = staged_welcome
             .into_group(&identity.provider)
             .map_err(mls_error)?;
+        group
+            .set_configuration(identity.provider.storage(), &join_config)
+            .map_err(mls_error)?;
         if let Err(error) = validate_group_capability_floor(&group, &required) {
             group
                 .delete(identity.provider.storage())
                 .map_err(mls_error)?;
             return Err(error);
         }
-
         Ok(Self {
             identity,
             group,
+            scope: scope.clone(),
+            group_id,
             leaf_bindings: BTreeMap::new(),
-            history_secrets: BTreeMap::new(),
-            content_nonce_counter: 0,
             signal_nonce_counter: 0,
+            own_pending_commit_digest: None,
         })
     }
 
@@ -1863,38 +1745,6 @@ impl ArkretMlsGroup {
             epoch,
             content_type: header.content_type.clone(),
             ciphertext,
-            counter: None,
-            pre_encryption_header: header,
-            payload_digest,
-        })
-    }
-
-    /// Encrypt `plaintext` under the §2.10 `mls_exporter_aead_v1` content scheme
-    /// and return the full [`EncryptedPayload`] (scheme / key_ref / digest set),
-    /// so a late joiner granted the epoch's `history_secret` can decrypt it.
-    ///
-    /// `header` is the exact authenticated pre-encryption object. Side effect:
-    /// derives + retains this
-    /// epoch's `history_secret` (so the author can re-decrypt and later share it).
-    pub fn encrypt_payload_exporter_aead(
-        &mut self,
-        realm_id: &str,
-        header: EventContentPreEncryptionHeader,
-        plaintext: &[u8],
-    ) -> Result<EncryptedPayload> {
-        let (counter, ciphertext) =
-            self.encrypt_content_exporter_aead(realm_id, &header, plaintext)?;
-        let epoch = self.epoch();
-        let ciphertext = encode(&ciphertext);
-        let payload_digest =
-            EncryptedPayload::payload_digest_for_header(&header, ciphertext.clone())?;
-        Ok(EncryptedPayload {
-            scheme: EncryptedPayloadScheme::MlsExporterAeadV1,
-            group_id: self.group_id(),
-            epoch,
-            content_type: header.content_type.clone(),
-            ciphertext,
-            counter: Some(counter),
             pre_encryption_header: header,
             payload_digest,
         })
@@ -1948,7 +1798,223 @@ impl ArkretMlsGroup {
         }
     }
 
-    pub fn apply_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
+    /// Install an MLS Commit only after the containing Event has an accepted
+    /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
+    /// `current` is the exact Station `MlsGroupCurrent` base result pinned
+    /// before this transition; callers must not reconstruct it from the Event
+    /// payload being verified.
+    pub fn install_accepted_commit(
+        &mut self,
+        item: &CommittedEventFullView,
+        current: &MlsGroupCurrent,
+    ) -> Result<u64> {
+        item.validate_shape()?;
+        if item.event.kind != EventKind::MlsCommit {
+            return Err(Error::Protocol(
+                "accepted MLS transition must contain ak.mls.commit".to_owned(),
+            ));
+        }
+        let payload = serde_json::from_value::<MlsCommitPayload>(serde_json::Value::Object(
+            item.event.payload.clone().into_iter().collect(),
+        ))?;
+        payload.validate()?;
+        if payload.governance_binding().effective_scope() != &item.event.scope_ref
+            || payload
+                .governance_binding()
+                .effective_scope()
+                .realm_id_opt()
+                != Some(&item.event.realm_id)
+        {
+            return Err(Error::Protocol(
+                "accepted MLS Commit payload differs from its independent Event stream".to_owned(),
+            ));
+        }
+        let public_state = MlsGovernanceBindingPublicState::new(
+            current.effective_scope.clone(),
+            Some(current.current_mls_commit_event_ref.clone()),
+            current.epoch,
+            current.current_key_access_revision,
+        );
+        self.merge_accepted_commit_envelope(
+            &payload.commit_envelope()?,
+            &public_state,
+            payload.governance_binding(),
+        )
+    }
+
+    /// Bind a persisted accepted base Event to this group's actual installed
+    /// GroupContext. The caller must independently verify this full Event's
+    /// authority signature and its continuous stream before calling.
+    pub fn verify_installed_historical_base(
+        &self,
+        predecessor: &CommittedEventFullView,
+        installed_base: &EventId,
+    ) -> Result<()> {
+        predecessor.validate_shape()?;
+        if &predecessor.event.event_id != installed_base
+            || &predecessor.event.scope_ref != self.scope()
+            || self.scope().realm_id_opt() != Some(&predecessor.event.realm_id)
+        {
+            return Err(Error::Protocol(
+                "historical MLS base differs from installed scope/reference".to_owned(),
+            ));
+        }
+        let value =
+            serde_json::Value::Object(predecessor.event.payload.clone().into_iter().collect());
+        let binding = match predecessor.event.kind {
+            EventKind::MlsGenesis => {
+                let payload: arkret_models_collaboration::events_payloads::MlsGenesisPayload =
+                    serde_json::from_value(value)?;
+                payload.validate()?;
+                payload.governance_binding
+            }
+            EventKind::MlsCommit => {
+                let payload: MlsCommitPayload = serde_json::from_value(value)?;
+                payload.validate()?;
+                payload.governance_binding().clone()
+            }
+            _ => {
+                return Err(Error::Protocol(
+                    "historical MLS base is not Genesis or Commit".to_owned(),
+                ));
+            }
+        };
+        if binding.mls_group_id()? != self.group_id() || binding.next_epoch() != self.epoch() {
+            return Err(Error::Protocol(
+                "historical MLS base differs from actual installed group/epoch".to_owned(),
+            ));
+        }
+        let extension = self
+            .group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol("installed MLS governance binding is missing".to_owned())
+            })?;
+        let actual = MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        crate::verify_historical_governance_binding(&actual, &binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        Ok(())
+    }
+
+    /// Finish this device's durably staged Commit after recovering its exact
+    /// accepted Event. The installed checkpoint supplies the accepted base
+    /// Event; the authenticated pending GroupContext supplies the immutable
+    /// historical binding. This cannot install a remote or newly authored
+    /// transition and does not use a later current result as its base.
+    pub fn install_recovered_own_commit(
+        &mut self,
+        item: &CommittedEventFullView,
+        installed_base: &EventId,
+    ) -> Result<u64> {
+        item.validate_shape()?;
+        if item.event.kind != EventKind::MlsCommit {
+            return Err(Error::Protocol(
+                "recovery requires an accepted MLS Commit".to_owned(),
+            ));
+        }
+        let payload: MlsCommitPayload = serde_json::from_value(serde_json::Value::Object(
+            item.event.payload.clone().into_iter().collect(),
+        ))?;
+        payload.validate()?;
+        let binding = payload.governance_binding();
+        if binding.effective_scope() != &item.event.scope_ref
+            || binding.effective_scope() != self.scope()
+            || binding.base_group_state_ref() != Some(installed_base)
+            || binding.previous_epoch() != self.epoch()
+        {
+            return Err(Error::Protocol(
+                "recovered MLS Commit differs from its installed base".to_owned(),
+            ));
+        }
+        let envelope = payload.commit_envelope()?;
+        if envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "recovered MLS Commit is not the next local epoch".to_owned(),
+            ));
+        }
+        self.verify_exact_own_pending_commit(&envelope)?;
+        let pending = self
+            .group
+            .pending_commit()
+            .ok_or_else(|| Error::Protocol("own MLS Commit has no pending state".to_owned()))?;
+        let authenticated = decode_group_context_governance_binding(pending.group_context())?;
+        let verified = crate::verify_historical_governance_binding(&authenticated, binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        self.merge_verified_pending_commit(&envelope, verified)
+    }
+
+    /// Replay a remote Commit from a verified, authorized continuous stream.
+    /// The caller pins the installed accepted base and verifies the Event's
+    /// authority Commit before calling. Historical GroupContext evidence is
+    /// compared to that immutable Event, never to today's key-access revision.
+    /// Own pending commits must use their separate exact recovery path.
+    pub fn install_recovered_remote_commit(
+        &mut self,
+        item: &CommittedEventFullView,
+        installed_base: &EventId,
+    ) -> Result<u64> {
+        item.validate_shape()?;
+        if item.event.kind != EventKind::MlsCommit {
+            return Err(Error::Protocol(
+                "recovery requires an accepted MLS Commit".to_owned(),
+            ));
+        }
+        let payload: MlsCommitPayload = serde_json::from_value(serde_json::Value::Object(
+            item.event.payload.clone().into_iter().collect(),
+        ))?;
+        payload.validate()?;
+        let binding = payload.governance_binding();
+        if binding.effective_scope() != &item.event.scope_ref
+            || binding.effective_scope() != self.scope()
+            || binding.base_group_state_ref() != Some(installed_base)
+            || binding.previous_epoch() != self.epoch()
+        {
+            return Err(Error::Protocol(
+                "recovered remote Commit differs from its installed base".to_owned(),
+            ));
+        }
+        let envelope = payload.commit_envelope()?;
+        if envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "recovered remote Commit is not the next local epoch".to_owned(),
+            ));
+        }
+        let bytes = decode(&envelope.commit)?;
+        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
+            return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
+        }
+        let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
+        let protocol = message
+            .try_into_protocol_message()
+            .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".to_owned()))?;
+        let processed = self
+            .group
+            .process_message(&self.identity.provider, protocol)
+            .map_err(mls_error)?;
+        let ProcessedMessageContent::StagedCommitMessage(commit) = processed.into_content() else {
+            return Err(Error::Protocol(
+                "remote recovery requires a remote staged Commit".to_owned(),
+            ));
+        };
+        validate_staged_commit_capability_floor(&self.group, &self.identity.provider, &commit)?;
+        let authenticated = decode_group_context_governance_binding(commit.group_context())?;
+        let verified = crate::verify_historical_governance_binding(&authenticated, binding)
+            .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
+        self.merge_verified_staged_commit(&envelope, *commit, verified)
+    }
+
+    fn merge_accepted_commit_envelope(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        public_state: &MlsGovernanceBindingPublicState,
+        event_payload_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<u64> {
         if envelope.group_id != self.group_id() {
             return Err(Error::Protocol(
                 "MLS Commit group_id does not match the local group".to_owned(),
@@ -1970,6 +2036,19 @@ impl ArkretMlsGroup {
             return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
         }
 
+        if self.own_pending_commit_digest.as_ref() == Some(&envelope.commit_digest) {
+            self.verify_exact_own_pending_commit(envelope)?;
+            let verified = verify_group_context_governance_binding(
+                self.group
+                    .pending_commit()
+                    .ok_or_else(|| Error::Protocol("own MLS Commit has no pending state".into()))?
+                    .group_context(),
+                public_state,
+                event_payload_binding,
+            )?;
+            return self.merge_verified_pending_commit(envelope, verified);
+        }
+
         let message =
             MlsMessageIn::tls_deserialize_exact(commit_bytes.as_slice()).map_err(mls_error)?;
         let protocol_message = message
@@ -1981,303 +2060,142 @@ impl ArkretMlsGroup {
             .map_err(mls_error)?;
 
         match processed.into_content() {
+            ProcessedMessageContent::OwnPendingCommit => Err(Error::Protocol(
+                "own MLS Commit differs from its exact staged wire binding".into(),
+            )),
             ProcessedMessageContent::StagedCommitMessage(commit) => {
                 validate_staged_commit_capability_floor(
                     &self.group,
                     &self.identity.provider,
                     &commit,
                 )?;
-                self.group
-                    .merge_staged_commit(&self.identity.provider, *commit)
-                    .map_err(mls_error)?;
-                let applied_epoch = self.epoch();
-                if applied_epoch != envelope.epoch {
-                    return Err(Error::Protocol(format!(
-                        "MLS Commit entered epoch {applied_epoch}, envelope declared {}",
-                        envelope.epoch
-                    )));
-                }
-                // A transition may add, remove, or replace occupied leaves.
-                // The old map is never a valid compatibility fallback; the
-                // caller must install the every-and-only accepted-transition
-                // binding before any roster/frontier API can succeed.
-                self.leaf_bindings.clear();
-                Ok(applied_epoch)
+                let verified = verify_group_context_governance_binding(
+                    commit.group_context(),
+                    public_state,
+                    event_payload_binding,
+                )?;
+                self.merge_verified_staged_commit(envelope, *commit, verified)
             }
             _ => Err(Error::Protocol("expected MLS Commit".to_owned())),
         }
     }
 
-    /// Stage an incoming by-reference MLS proposal so a subsequent
-    /// `apply_commit` that references it can resolve `MissingProposal`.
-    ///
-    /// Add and Remove commits carry their proposals out-of-band. Existing
-    /// members MUST apply each proposal through this method before applying
-    /// the referencing commit; new Add recipients join from the Welcome.
-    pub fn apply_proposal(&mut self, envelope: &MlsProposalEnvelope) -> Result<()> {
-        let proposal_bytes = decode(&envelope.proposal)?;
-        let actual_digest = canonical::sha256_digest(&proposal_bytes);
-        if actual_digest != envelope.proposal_digest.as_str() {
-            return Err(Error::Protocol("MLS Proposal hash mismatch".to_owned()));
+    fn verify_exact_own_pending_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<()> {
+        if self.own_pending_commit_digest.as_ref() != Some(&envelope.commit_digest)
+            || !self.has_pending_commit()
+            || envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+        {
+            return Err(Error::Protocol(
+                "MLS state is not the exact own pending Commit".into(),
+            ));
         }
-
-        let message =
-            MlsMessageIn::tls_deserialize_exact(proposal_bytes.as_slice()).map_err(mls_error)?;
-        let protocol_message = message
+        let bytes = decode(&envelope.commit)?;
+        if canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str() {
+            return Err(Error::Protocol("MLS Commit hash mismatch".into()));
+        }
+        let protocol = MlsMessageIn::tls_deserialize_exact(bytes.as_slice())
+            .map_err(mls_error)?
             .try_into_protocol_message()
-            .map_err(|_| Error::Protocol("MLS Proposal is not a protocol message".to_owned()))?;
+            .map_err(|_| Error::Protocol("MLS Commit is not a protocol message".into()))?;
+        self.scope.requires_public_mls_handshake()?;
+        if protocol.group_id() != self.group.group_id()
+            || protocol.epoch().as_u64() != self.epoch()
+            || protocol.content_type() != ContentType::Commit
+            || protocol.wire_format() != WireFormat::PublicMessage
+        {
+            return Err(Error::Protocol(
+                "own MLS Commit has another framing or handshake policy".into(),
+            ));
+        }
         let processed = self
             .group
-            .process_message(&self.identity.provider, protocol_message)
+            .process_message(&self.identity.provider, protocol)
             .map_err(mls_error)?;
-
-        match processed.into_content() {
-            ProcessedMessageContent::ProposalMessage(proposal) => {
-                self.group
-                    .store_pending_proposal(self.identity.provider.storage(), *proposal)
-                    .map_err(mls_error)?;
-                Ok(())
-            }
-            _ => Err(Error::Protocol("expected MLS Proposal".to_owned())),
+        if !matches!(
+            processed.into_content(),
+            ProcessedMessageContent::OwnPendingCommit
+        ) {
+            return Err(Error::Protocol(
+                "MLS state is not the exact own pending Commit".into(),
+            ));
         }
+        Ok(())
     }
 
-    /// Apply one strictly-next Commit and immediately retain the entered
-    /// epoch's history secret before the caller exports a durable snapshot.
-    ///
-    /// Callers MUST persist the resulting group snapshot and retention marker
-    /// as one recovery unit. This method deliberately takes the Realm context
-    /// explicitly so Circle and Sidecar group identifiers are never mistaken
-    /// for the MLS exporter context.
-    pub fn apply_commit_and_retain_history_secret(
+    fn merge_verified_pending_commit(
         &mut self,
         envelope: &MlsCommitEnvelope,
-        realm_id: &str,
+        _verified: VerifiedMlsGovernanceBinding,
     ) -> Result<u64> {
-        let epoch = self.apply_commit(envelope)?;
-        self.derive_and_retain_history_secret(realm_id)?;
-        Ok(epoch)
+        // The original staged wire identity and pending GroupContext have
+        // been verified. Authority acceptance is required before this mutation.
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
+        let applied_epoch = self.epoch();
+        if applied_epoch != envelope.epoch {
+            return Err(Error::Protocol(
+                "pending MLS Commit epoch mismatch".to_owned(),
+            ));
+        }
+        self.leaf_bindings.clear();
+        self.own_pending_commit_digest = None;
+        Ok(applied_epoch)
+    }
+
+    fn merge_verified_staged_commit(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        commit: StagedCommit,
+        _verified: VerifiedMlsGovernanceBinding,
+    ) -> Result<u64> {
+        self.group
+            .merge_staged_commit(&self.identity.provider, commit)
+            .map_err(mls_error)?;
+        let applied_epoch = self.epoch();
+        if applied_epoch != envelope.epoch {
+            return Err(Error::Protocol(format!(
+                "MLS Commit entered epoch {applied_epoch}, envelope declared {}",
+                envelope.epoch
+            )));
+        }
+        // A transition may add, remove, or replace occupied leaves. The old
+        // map is never a valid compatibility fallback; the caller must install
+        // the every-and-only accepted-transition binding before roster access.
+        self.leaf_bindings.clear();
+        self.own_pending_commit_digest = None;
+        Ok(applied_epoch)
     }
 }
 
-/// Derive the registered reaction routing tag from a replay-verified epoch
-/// routing root. This is the group-free counterpart used by KAT runners and
-/// history receivers that already verified the exact epoch state.
-pub fn reaction_routing_tag_from_root(
-    routing_root: &[u8],
-    effective_scope: &ScopeRef,
-    target_ref: &EventId,
-    routing_window: u64,
-    canonical_emoji: &str,
-) -> Result<String> {
-    #[derive(Serialize)]
-    struct RoutingContext<'a> {
-        effective_scope: &'a ScopeRef,
-        target_ref: &'a EventId,
-        routing_window: u64,
+// The pinned OpenMLS MessageSecretsStore has one current secret tree and a
+// list of past trees. Only ratchets may change while the public epoch is fixed.
+fn strip_message_ratchets(store: &mut serde_json::Value) -> Result<()> {
+    fn strip(secrets: &mut serde_json::Value) -> Result<()> {
+        secrets
+            .as_object_mut()
+            .and_then(|value| value.remove("secret_tree"))
+            .ok_or_else(|| Error::Protocol("unsupported OpenMLS message-secret shape".into()))?;
+        Ok(())
     }
-
-    let normalized: String = canonical_emoji.nfc().collect();
-    if normalized.is_empty() {
-        return Err(Error::Protocol(
-            "reaction routing emoji must not be empty".to_owned(),
-        ));
-    }
-    let context = canonical::canonical_json_bytes(&RoutingContext {
-        effective_scope,
-        target_ref,
-        routing_window,
-    })?;
-    let routing_key = arkret_crypto::mls_exporter::mls_expand_with_label(
-        routing_root,
-        REACTION_ROUTING_LABEL,
-        &context,
-        32,
-    )
-    .map_err(|error| Error::Crypto(error.to_string()))?;
-    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&routing_key)
-        .map_err(|_| Error::Crypto("reaction routing HMAC key is invalid".to_owned()))?;
-    mac.update(normalized.as_bytes());
-    Ok(base64url_encode(mac.finalize().into_bytes()))
-}
-
-/// Standalone (group-free) variant of
-/// [`ArkretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
-/// granted `history_secret` but has **no** local MLS group snapshot for the
-/// Realm (e.g. a member granted history before processing its own Welcome) can
-/// decrypt `mls_exporter_aead_v1` content with this. `header` MUST be
-/// reconstructed from the verified outer Event and exact winning group state.
-///
-/// `aead_profile` is a parameter here because this path has no group to ask.
-/// It MUST come from the exact verified historical group state; the minimal
-/// encrypted-envelope wire does not carry an algorithm selector.
-pub fn decrypt_content_exporter_aead_standalone(
-    history_secret: &[u8],
-    verified_sender_domain: &[u8],
-    header: &EventContentPreEncryptionHeader,
-    aead_profile: &str,
-    ciphertext: &[u8],
-) -> Result<Vec<u8>> {
-    header.validate()?;
-    if header.scheme != EncryptedPayloadScheme::MlsExporterAeadV1
-        || header.sender_domain.as_bytes() != verified_sender_domain
-    {
-        return Err(Error::Protocol(
-            "exporter content header does not match the verified sender domain".to_owned(),
-        ));
-    }
-    let suite = ExporterAeadSuite::resolve(aead_profile)?;
-    if ciphertext.is_empty() {
-        return Err(Error::Protocol(
-            "exporter-aead ciphertext must not be empty".to_owned(),
-        ));
-    }
-    let counter = header.counter.ok_or_else(|| {
-        Error::Protocol("exporter content header is missing its counter".to_owned())
-    })?;
-    let nonce = arkret_crypto::aead_nonce::compose_aead_nonce(counter, suite.nonce_len())
-        .map_err(|error| Error::Crypto(error.to_string()))?;
-    if verified_sender_domain.is_empty() {
-        return Err(Error::Protocol(
-            "verified sender domain must not be empty".to_owned(),
-        ));
-    }
-    let content_key = derive_content_key_from_history_secret(
-        history_secret,
-        verified_sender_domain,
-        suite.key_len(),
+    strip(
+        store
+            .get_mut("message_secrets")
+            .ok_or_else(|| Error::Protocol("missing OpenMLS current message secrets".into()))?,
     )?;
-    let aead_aad = header.canonical_bytes()?;
-    suite.open(&content_key, &nonce, &aead_aad, ciphertext)
-}
-
-/// What trying one exact received candidate against one exact accepted Event
-/// established.
-///
-/// The AEAD result has exactly two carriers and no third one: a single
-/// `EventCandidateBinding` row, and — only on success — the plaintext. Nothing
-/// here promotes the candidate or the epoch, and the type deliberately has no
-/// field that could
-/// (`history-visibility.md:140`, `:437-440`).
-#[derive(Clone, Debug)]
-#[must_use = "the binding must be recorded whether the attempt succeeded or failed"]
-pub struct EventCandidateAttempt {
-    pub binding: EventCandidateBinding,
-    pub plaintext: Option<Vec<u8>>,
-}
-
-/// Try one received history-secret candidate against one exact accepted Event
-/// and return the Event→candidate binding it establishes.
-///
-/// This is the only place the `mls_exporter_aead_v1` open result is turned into
-/// a store decision. `history-visibility.md:436-440` requires the caller to
-/// have verified the outer Event proof, the scope/group/epoch, the sender
-/// domain and the reconstructed AAD before a candidate is tried; the
-/// consistency half of that (candidate coordinates, binding key and
-/// pre-encryption header all naming the same scope/group/epoch/sender) is
-/// enforced here so no caller can bind a plaintext to the wrong Event.
-///
-/// `mls_ciphersuite` MUST come from the exact verified historical group state,
-/// not from the envelope: an unregistered suite is a hard error rather than a
-/// failure binding, because it would otherwise turn a configuration fault into
-/// "every candidate failed".
-pub fn bind_event_candidate(
-    candidate: &HistoryCandidateMaterialRecord,
-    event_binding_key: &EventCandidateBindingKey,
-    header: &EventContentPreEncryptionHeader,
-    mls_ciphersuite: &str,
-    ciphertext: &[u8],
-    first_observed_at: chrono::DateTime<Utc>,
-) -> Result<EventCandidateAttempt> {
-    candidate.validate()?;
-    event_binding_key.validate()?;
-    header.validate()?;
-    let _ = ExporterAeadSuite::resolve(mls_ciphersuite)?;
-    if candidate.material_key.effective_scope != event_binding_key.effective_scope
-        || candidate.material_key.mls_group_id != event_binding_key.mls_group_id
-        || candidate.material_key.epoch != event_binding_key.epoch
-    {
-        return Err(Error::Protocol(
-            "history candidate coordinates differ from the Event binding key".to_owned(),
-        ));
+    let past = store
+        .get_mut("past_epoch_trees")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| Error::Protocol("missing OpenMLS past message secrets".into()))?;
+    for epoch in past {
+        strip(
+            epoch
+                .get_mut("message_secrets")
+                .ok_or_else(|| Error::Protocol("missing OpenMLS past epoch secrets".into()))?,
+        )?;
     }
-    if header.mls_group_id != event_binding_key.mls_group_id
-        || header.epoch != event_binding_key.epoch
-        || header.sender_domain != event_binding_key.verified_sender_domain
-        || header.effective_scope != ScopeRef::from(event_binding_key.effective_scope.clone())
-    {
-        return Err(Error::Protocol(
-            "exporter content header differs from the Event binding key".to_owned(),
-        ));
-    }
-    let secret = base64url_decode(candidate.secret_b64u.as_bytes())
-        .map_err(|error| Error::Protocol(format!("invalid history candidate bytes: {error}")))?;
-    let plaintext = decrypt_content_exporter_aead_standalone(
-        &secret,
-        event_binding_key.verified_sender_domain.as_bytes(),
-        header,
-        mls_ciphersuite,
-        ciphertext,
-    )
-    .ok();
-    let outcome = if plaintext.is_some() {
-        EventCandidateBindingOutcome::Success
-    } else {
-        EventCandidateBindingOutcome::Failure
-    };
-    Ok(EventCandidateAttempt {
-        binding: EventCandidateBinding::new(
-            event_binding_key.clone(),
-            candidate.material_key.candidate_digest.clone(),
-            outcome,
-            first_observed_at,
-        )?,
-        plaintext,
-    })
-}
-
-/// `K_content[N,S] = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)`
-/// (§2.10.1), where `S` is the already-verified sender domain. For the ordinary
-/// profile it is the canonical `device_id` UTF-8 bytes; for minimal metadata it
-/// is the exact active LeafNode credential identity bytes. Callers MUST verify
-/// that identity before invoking this function.
-///
-/// `key_len` is the negotiated suite's `AEAD.Nk` and is encoded into
-/// the `ExpandWithLabel` info, so two suites never derive a shared prefix.
-///
-/// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
-/// already has full entropy, which is what `ExpandWithLabel` assumes of its
-/// Secret input.
-pub fn derive_content_key_from_history_secret(
-    history_secret: &[u8],
-    verified_sender_domain: &[u8],
-    key_len: usize,
-) -> Result<Zeroizing<Vec<u8>>> {
-    if verified_sender_domain.is_empty() {
-        return Err(Error::Protocol(
-            "verified sender domain must not be empty".to_owned(),
-        ));
-    }
-    if key_len == 0 {
-        return Err(Error::Protocol(
-            "content key length must be the positive AEAD.Nk of the active ciphersuite".to_owned(),
-        ));
-    }
-    let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
-        .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let info = mls_kdf_label(key_len, CONTENT_KEY_LABEL, verified_sender_domain)?;
-    let mut key = Zeroizing::new(vec![0u8; key_len]);
-    hkdf.expand(&info, key.as_mut())
-        .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
-    Ok(key)
-}
-
-/// RFC 9420 §8.1 `KDFLabel` encoding used by `ExpandWithLabel`. Shared with
-/// the Signal domain ([`crate::signal`]), which derives its per-epoch key from
-/// the same `history_secret` under a different registered label.
-pub(crate) fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
-    arkret_crypto::mls_exporter::mls_kdf_label(length, label, context)
-        .map_err(|error| Error::Crypto(error.to_string()))
+    Ok(())
 }
 
 pub(super) fn snapshot_provider_storage(
@@ -2318,16 +2236,34 @@ pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
     Ok(base64url_decode(value)?)
 }
 
-pub(super) fn governance_binding_openmls_extension(
-    binding: &MlsGovernanceBindingPayload,
-) -> Result<Extension> {
-    Ok(Extension::Unknown(
-        MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-        UnknownExtension(binding.to_deterministic_cbor()?),
-    ))
+fn verify_group_context_governance_binding(
+    context: &GroupContext,
+    public_state: &MlsGovernanceBindingPublicState,
+    event_payload_binding: &MlsGovernanceBindingPayload,
+) -> Result<VerifiedMlsGovernanceBinding> {
+    let binding = decode_group_context_governance_binding(context)?;
+    crate::verify_governance_binding_against_public_state_and_payload(
+        &binding,
+        public_state,
+        event_payload_binding,
+    )
+    .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))
 }
 
-pub(super) fn governance_binding_required_capabilities_extension() -> Extension {
+pub(crate) fn decode_group_context_governance_binding(
+    context: &GroupContext,
+) -> Result<MlsGovernanceBindingPayload> {
+    let extension = context
+        .extensions()
+        .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+        .ok_or_else(|| {
+            Error::Protocol("MLS governance binding GroupContext extension is missing".to_owned())
+        })?;
+    MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+        .map_err(|error| Error::Protocol(error.to_string()))
+}
+
+pub(super) fn arkret_required_capabilities_extension() -> Extension {
     Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
         &[
             ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
@@ -2339,7 +2275,7 @@ pub(super) fn governance_binding_required_capabilities_extension() -> Extension 
     ))
 }
 
-pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
+pub(super) fn arkret_openmls_capabilities() -> Capabilities {
     Capabilities::builder()
         .extensions(vec![
             ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
@@ -2370,17 +2306,26 @@ fn required_keypackage_capabilities_group_context_extension() -> Result<Extensio
     ))
 }
 
-pub(super) fn governance_binding_group_context_extensions(
-    binding: Option<&MlsGovernanceBindingPayload>,
+pub(super) fn arkret_group_context_extensions(
+    governance_binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<Extensions<GroupContext>> {
     let mut extensions = vec![
-        governance_binding_required_capabilities_extension(),
+        arkret_required_capabilities_extension(),
         required_keypackage_capabilities_group_context_extension()?,
     ];
-    if let Some(binding) = binding {
-        extensions.push(governance_binding_openmls_extension(binding)?);
+    if let Some(binding) = governance_binding {
+        extensions.push(Extension::Unknown(
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+            UnknownExtension(binding.to_deterministic_cbor()?),
+        ));
     }
     Extensions::from_vec(extensions).map_err(mls_error)
+}
+
+fn group_context_extensions_for_verified_binding(
+    verified: VerifiedMlsGovernanceBinding,
+) -> Result<Extensions<GroupContext>> {
+    arkret_group_context_extensions(Some(verified.binding()))
 }
 
 fn validate_keypackage_capability_binding(
@@ -2431,7 +2376,7 @@ fn validate_group_capability_floor(group: &MlsGroup, required: &[String]) -> Res
 fn validate_staged_commit_capability_floor(
     current_group: &MlsGroup,
     provider: &OpenMlsRustCrypto,
-    staged: &openmls::prelude::StagedCommit,
+    staged: &StagedCommit,
 ) -> Result<()> {
     let extension = staged
         .group_context()
@@ -2444,6 +2389,12 @@ fn validate_staged_commit_capability_floor(
         })?;
     let required = decode_keypackage_capability_extension(&extension.0)
         .map_err(|error| Error::Protocol(error.to_string()))?;
+    // OpenMLS keeps only public state when this authenticated Commit removes
+    // the local member. There is no prospective member tree to inspect; merge
+    // the removal so subsequent content operations observe an inactive group.
+    if staged.self_removed() {
+        return Ok(());
+    }
     let original_tree = current_group.export_ratchet_tree();
     let prospective_tree = staged
         .export_ratchet_tree(provider.crypto(), original_tree)
@@ -2476,273 +2427,1368 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
 }
 
 #[cfg(test)]
-mod content_scheme_anchor_tests {
-    use arkret_crypto::compose_aead_nonce;
-    use arkret_wire::DeviceId;
+mod tests {
+    use arkret_wire::{DeviceId, RealmId};
 
     use super::*;
-    use crate::identity::ArkretMlsIdentity;
 
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    }
-
-    const REALM: &str = "ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0";
-    const DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000007";
-
-    fn founder() -> ArkretMlsGroup {
+    fn identity() -> ArkretMlsIdentity {
         ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
-            DeviceId::new(DEVICE.to_owned()).unwrap(),
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000071").unwrap(),
         )
         .unwrap()
-        .create_group(REALM.as_bytes())
+    }
+
+    fn realm_scope() -> ScopeRef {
+        ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+                .unwrap(),
+        }
+    }
+
+    fn second_identity() -> ArkretMlsIdentity {
+        ArkretMlsIdentity::new_test_human_device(
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls-member.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000072").unwrap(),
+        )
         .unwrap()
     }
 
-    /// Every wire-breaking AEAD parameter of the content scheme, checked
-    /// against the registry rather than against this module.
-    ///
-    /// `encryption-and-audit.md` §2.10.2 makes `aead_profile` the active
-    /// ciphersuite `canonical_id` of the group at `key_ref.group_state_ref`,
-    /// from `mls-ciphersuite-registry.json`, and forbids an HPKE suite name or
-    /// any local alias; §2.10.1 then takes `AEAD.Nk` and the nonce length from
-    /// that suite. The registry's only active row is AES-128-GCM, so the
-    /// content scheme is 16-byte keys and 12-byte nonces — no registered MLS
-    /// ciphersuite uses XChaCha20-Poly1305 at all.
+    fn event(byte: u8) -> EventId {
+        EventId::from_event_digest(&Hash::new(canonical::sha256_digest([byte])).unwrap()).unwrap()
+    }
+
+    fn genesis_binding(scope: &ScopeRef) -> MlsGovernanceBindingPayload {
+        let ScopeRef::Realm { realm_id } = scope else {
+            panic!("test scope is Realm")
+        };
+        MlsGovernanceBindingPayload::realm(realm_id.clone(), None, 0, 0, 0).unwrap()
+    }
+
+    fn transition_binding(
+        scope: &ScopeRef,
+        base: EventId,
+        revision: u64,
+    ) -> MlsGovernanceBindingPayload {
+        binding_for_epochs(scope, base, 0, 1, revision)
+    }
+
+    fn binding_for_epochs(
+        scope: &ScopeRef,
+        base: EventId,
+        previous_epoch: u64,
+        next_epoch: u64,
+        revision: u64,
+    ) -> MlsGovernanceBindingPayload {
+        let ScopeRef::Realm { realm_id } = scope else {
+            panic!("test scope is Realm")
+        };
+        MlsGovernanceBindingPayload::realm(
+            realm_id.clone(),
+            Some(base),
+            previous_epoch,
+            next_epoch,
+            revision,
+        )
+        .unwrap()
+    }
+
+    fn claimed_keypackage(identity: &ArkretMlsIdentity) -> MlsKeyPackageRecord {
+        let mut record = identity.key_package_record().unwrap();
+        record.state = arkret_models_crypto::MlsKeyPackageState::Claimed;
+        record.claim_id =
+            Some("ak:keypackage_claim:01904100-0000-7000-8000-000000000073".to_owned());
+        record
+    }
+
     #[test]
-    fn content_aead_parameters_come_from_the_mls_ciphersuite_registry() {
-        let group = founder();
-        let profile = group.group_ciphersuite_canonical_id().unwrap();
-        assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
-        let MlsEndpointIdentity::HumanDevice { device_id, .. } = &group.identity.endpoint else {
-            panic!("test founder is a human device");
+    fn keypackage_fixture_credentials_decode_to_the_exact_actor() {
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/mls-keypackage-endpoint-kat-fixture.json",
+        )
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let keypackage =
+                base64url_decode(case["keypackage"].as_str().unwrap().as_bytes()).unwrap();
+            let leaf = crate::identity::author_leaf_from_key_package_bytes(&keypackage, 0).unwrap();
+            let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
+                panic!("fixture KeyPackage must carry BasicCredential");
+            };
+            let actor: ActorId =
+                serde_json::from_value(case["endpoint"]["actor_id"].clone()).unwrap();
+            assert_eq!(
+                arkret_models_crypto::decode_mls_basic_credential_identity(&identity).unwrap(),
+                actor
+            );
+            assert_eq!(
+                identity,
+                base64url_decode(case["leaf_credential"].as_str().unwrap().as_bytes()).unwrap()
+            );
+            assert_eq!(
+                std::str::from_utf8(&identity).unwrap(),
+                case["leaf_credential_jcs"].as_str().unwrap()
+            );
+        }
+    }
+
+    /// Only the active registry suite has a wire identity: a KeyPackage the
+    /// MLS library can build under a reserved suite fails closed instead of
+    /// being mapped onto the active one.
+    #[test]
+    fn keypackage_ciphersuite_maps_only_the_active_registry_row() {
+        let identity = identity();
+        let active =
+            base64url_decode(identity.key_package_record().unwrap().keypackage.as_bytes()).unwrap();
+        assert_eq!(
+            crate::identity::keypackage_ciphersuite_canonical_id(&active).unwrap(),
+            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
+        );
+
+        let reserved =
+            openmls::prelude::Ciphersuite::MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519;
+        let signer = SignatureKeyPair::new(reserved.signature_algorithm()).unwrap();
+        let credential = CredentialWithKey {
+            credential: BasicCredential::new(
+                arkret_models_crypto::mls_basic_credential_identity(&identity.actor_id).unwrap(),
+            )
+            .into(),
+            signature_key: signer.public().into(),
+        };
+        let provider = OpenMlsRustCrypto::default();
+        let bundle = openmls::prelude::KeyPackage::builder()
+            .build(reserved, &provider, &signer, credential)
+            .unwrap();
+        let reserved_bytes = bundle.key_package().tls_serialize_detached().unwrap();
+        let error =
+            crate::identity::keypackage_ciphersuite_canonical_id(&reserved_bytes).unwrap_err();
+        assert!(
+            error.to_string().contains("unsupported_ciphersuite"),
+            "unexpected error: {error}"
+        );
+        assert!(
+            crate::identity::author_leaf_from_key_package_bytes(&reserved_bytes, 0)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+        assert!(
+            crate::identity::keypackage_capabilities_from_key_package_bytes(&reserved_bytes)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+        let mut reserved_record = identity.key_package_record().unwrap();
+        reserved_record.keypackage = base64url_encode(&reserved_bytes);
+        reserved_record.keypackage_ref =
+            Hash::new(canonical::sha256_digest(&reserved_bytes)).unwrap();
+        reserved_record.cipher_suites = vec![format!("{reserved:?}")];
+        assert!(identity.key_package_upload_entry(&reserved_record).is_err());
+        assert!(
+            decode_key_package(&identity.provider, &reserved_record)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+
+        let mut wrong_outer_suite = identity.key_package_record().unwrap();
+        wrong_outer_suite.cipher_suites = vec![format!("{reserved:?}")];
+        assert!(
+            identity
+                .key_package_upload_entry(&wrong_outer_suite)
+                .is_err()
+        );
+        assert!(
+            decode_key_package(&identity.provider, &wrong_outer_suite)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_ciphersuite")
+        );
+
+        let mut wrong_actor = identity.key_package_record().unwrap();
+        wrong_actor.actor_id = second_identity().actor_id;
+        assert!(identity.key_package_upload_entry(&wrong_actor).is_err());
+        assert!(decode_key_package(&identity.provider, &wrong_actor).is_err());
+        assert!(crate::identity::keypackage_ciphersuite_canonical_id(b"not a keypackage").is_err());
+    }
+
+    /// The policy follows the scope kind, which is what the group is created
+    /// and restored with. It is no longer recoverable from the `group_id`, and
+    /// the point of this test is that nothing tries.
+    #[test]
+    fn all_effective_scopes_use_station_verifiable_handshakes() {
+        let realm_id =
+            RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV").unwrap();
+        for scope in [
+            realm_scope(),
+            ScopeRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id: arkret_wire::CircleId::new(
+                    "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+                )
+                .unwrap(),
+            },
+        ] {
+            assert_eq!(
+                handshake_policy(&scope).unwrap(),
+                openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
+            );
+        }
+
+        let sidecar = ScopeRef::Sidecar {
+            realm_id,
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            )
+            .unwrap(),
         };
         assert_eq!(
-            group
-                .content_nonce_context(device_id.as_str().as_bytes(), 3)
-                .unwrap()
-                .mls_group_id,
-            group.group_id()
+            handshake_policy(&sidecar).unwrap(),
+            openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
         );
-
-        let suite = group.content_suite().unwrap();
-        assert_eq!(suite, ExporterAeadSuite::Aes128Gcm);
-        assert_eq!(suite.key_len(), 16);
-        assert_eq!(suite.nonce_len(), 12);
-
-        // The pre-fix local aliases are not registered MLS ciphersuites and
-        // MUST fail closed rather than select an algorithm.
-        for alias in [
-            "mls_exporter_aead_xchacha20poly1305",
-            "mls_exporter_aead_aes_256_gcm",
-            "ak.hpke_x25519_aead_chacha20poly1305.v1",
-            "",
-        ] {
-            let error = ExporterAeadSuite::resolve(alias).unwrap_err().to_string();
-            assert!(error.contains("unsupported_aead_profile"), "{error}");
-        }
-        // A registered-but-reserved row is equally forbidden on the wire.
-        let error =
-            ExporterAeadSuite::resolve("MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519")
-                .unwrap_err()
-                .to_string();
-        assert!(error.contains("reserved"), "{error}");
+        assert!(handshake_policy(&ScopeRef::RealmGenesis).is_err());
     }
 
-    /// Pins the byte-exact `mls_exporter_aead_v1` content-scheme chain from a
-    /// fixed history_secret — RFC 9420 ExpandWithLabel content key, canonical
-    /// AAD construction, and the AEAD ciphertext itself. Any silent change to
-    /// a label, key length, AAD shape or nonce composition breaks these bytes.
-    /// The sender nonce prefix is not anchored here: it comes from a live MLS
-    /// exporter, which has no fixed value outside a group (see
-    /// `content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone`).
+    /// The group is seeded with the scope's digest, never with scope bytes, so
+    /// the 43-character wire id is what `group_id()` reports.
     #[test]
-    fn exporter_aead_content_scheme_regression_anchor() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = fixture["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str()
-                    == Some("ak.vector.mls_exporter_aead.seal_open_transcript.v1")
-            })
+    fn group_is_created_under_the_scope_derived_group_id() {
+        let scope = realm_scope();
+        let group = identity().create_group(&scope).unwrap();
+        assert_eq!(group.group_id(), scope.canonical_mls_group_id().unwrap());
+        assert_eq!(group.group_id().as_str().len(), 43);
+        assert_eq!(group.scope(), &scope);
+    }
+
+    #[test]
+    fn governed_group_authenticates_the_genesis_binding_extension() {
+        let scope = realm_scope();
+        let binding = genesis_binding(&scope);
+        let group = identity()
+            .create_group_with_governance_binding(&scope, &binding)
             .unwrap();
-        let history_secret =
-            hex::decode(case["input"]["history_secret_hex"].as_str().unwrap()).unwrap();
-        let verified_sender_domain = case["input"]["verified_sender_domain"]
-            .as_str()
-            .unwrap()
-            .as_bytes();
-        let suite = ExporterAeadSuite::Aes128Gcm;
-        let profile = ARKRET_MLS_CIPHERSUITE_CANONICAL_ID;
-        let content_key = derive_content_key_from_history_secret(
-            &history_secret,
-            verified_sender_domain,
-            suite.key_len(),
-        )
-        .unwrap();
-        let other_sender_key = derive_content_key_from_history_secret(
-            &history_secret,
-            b"ak:device:01904100-0000-7000-8000-000000000008",
-            suite.key_len(),
-        )
-        .unwrap();
-        assert_ne!(content_key.as_slice(), other_sender_key.as_slice());
-
-        let nonce = compose_aead_nonce(7, suite.nonce_len()).unwrap();
-        assert_eq!(nonce.len(), suite.nonce_len());
-        assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
-
-        let header: EventContentPreEncryptionHeader =
-            serde_json::from_value(case["expected"]["reconstructed_pre_encryption_header"].clone())
-                .unwrap();
-        let aad = header.canonical_bytes().unwrap();
+        let extension = group
+            .group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .expect("governed group has the registered binding extension");
         assert_eq!(
-            std::str::from_utf8(&aad).unwrap(),
-            case["expected"]["aead_aad_canonical_json"]
-                .as_str()
-                .unwrap(),
-            "canonical content AAD drifted"
+            MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0).unwrap(),
+            binding
         );
+    }
 
-        let plaintext = hex::decode(case["input"]["plaintext_hex"].as_str().unwrap()).unwrap();
-        let ciphertext = suite.seal(&content_key, &nonce, &aad, &plaintext).unwrap();
-        assert_eq!(
-            hex(&ciphertext),
-            case["expected"]["ciphertext_with_tag_hex"]
-                .as_str()
+    #[test]
+    fn rejected_binding_does_not_queue_add_proposals() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let record = claimed_keypackage(&second_identity());
+        let wrong_scope = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FW")
                 .unwrap(),
-            "exporter-aead ciphertext drifted"
-        );
+        };
+        let wrong_binding = transition_binding(&wrong_scope, event(1), 1);
+        let storage_before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        let proposals_before = group.group.pending_proposals().count();
 
-        let recovered = decrypt_content_exporter_aead_standalone(
-            &history_secret,
-            verified_sender_domain,
-            &header,
-            profile,
-            &ciphertext,
-        )
-        .unwrap();
-        assert_eq!(recovered, plaintext);
-
-        // Tamper negative: a flipped ciphertext byte must fail the tag check.
-        let mut tampered = ciphertext;
-        let last = tampered.len() - 1;
-        tampered[last] ^= 0x01;
         assert!(
-            decrypt_content_exporter_aead_standalone(
-                &history_secret,
-                verified_sender_domain,
-                &header,
-                profile,
-                &tampered,
+            group
+                .add_member_with_governance_binding(&record, &wrong_binding)
+                .is_err()
+        );
+        assert_eq!(group.group.pending_proposals().count(), proposals_before);
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            storage_before
+        );
+        assert_eq!(group.epoch(), 0);
+    }
+
+    #[test]
+    fn rejected_binding_does_not_queue_remove_proposals() {
+        let scope = realm_scope();
+        let base = event(1);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let member = second_identity();
+        let add = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
+            .unwrap();
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 1);
+        group
+            .merge_accepted_commit_envelope(&add.commit, &public_state, &binding)
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                member.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let wrong_scope = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FW")
+                .unwrap(),
+        };
+        let wrong_binding = binding_for_epochs(&wrong_scope, event(2), 1, 2, 2);
+        let storage_before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        let snapshot_before = group.export_state_record().unwrap().serialized_state;
+        let proposals_before = group.group.pending_proposals().count();
+
+        assert!(
+            group
+                .remove_members_by_actor_with_governance_binding(
+                    std::slice::from_ref(&member.actor_id),
+                    &wrong_binding,
+                )
+                .is_err()
+        );
+        assert_eq!(group.group.pending_proposals().count(), proposals_before);
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            storage_before
+        );
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            snapshot_before
+        );
+        assert_eq!(group.epoch(), 1);
+    }
+
+    #[test]
+    fn missing_or_mismatched_authenticated_binding_never_advances_epoch() {
+        let scope = realm_scope();
+        let base = event(1);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let public_state =
+            MlsGovernanceBindingPublicState::new(scope.clone(), Some(base.clone()), 0, 1);
+
+        let mut unbound = identity().create_group(&scope).unwrap();
+        let unbound_commit = unbound.self_update_commit().unwrap();
+        let unbound_storage_before = snapshot_provider_storage(&unbound.identity.provider).unwrap();
+        let unbound_snapshot_before = unbound.export_state_record().unwrap().serialized_state;
+        assert!(
+            unbound
+                .merge_accepted_commit_envelope(&unbound_commit, &public_state, &binding)
+                .is_err()
+        );
+        assert_eq!(unbound.epoch(), 0);
+        assert_eq!(
+            snapshot_provider_storage(&unbound.identity.provider).unwrap(),
+            unbound_storage_before
+        );
+        assert_eq!(
+            unbound.export_state_record().unwrap().serialized_state,
+            unbound_snapshot_before
+        );
+
+        let mut governed = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let add = governed
+            .add_member_with_governance_binding(&claimed_keypackage(&second_identity()), &binding)
+            .unwrap();
+        let mismatched = transition_binding(&scope, base.clone(), 2);
+        let mismatched_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 2);
+        let governed_storage_before =
+            snapshot_provider_storage(&governed.identity.provider).unwrap();
+        let governed_snapshot_before = governed.export_state_record().unwrap().serialized_state;
+        assert!(
+            governed
+                .merge_accepted_commit_envelope(&add.commit, &mismatched_state, &mismatched)
+                .is_err()
+        );
+        assert_eq!(governed.epoch(), 0);
+        assert_eq!(
+            snapshot_provider_storage(&governed.identity.provider).unwrap(),
+            governed_storage_before
+        );
+        assert_eq!(
+            governed.export_state_record().unwrap().serialized_state,
+            governed_snapshot_before
+        );
+    }
+
+    #[test]
+    fn definitively_rejected_own_commit_releases_only_the_exact_candidate() {
+        let scope = realm_scope();
+        let binding = transition_binding(&scope, event(1), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let record = group.export_state_record().unwrap();
+        let mut wrong = commit.clone();
+        wrong.commit_digest = Hash::new(canonical::sha256_digest(b"another commit")).unwrap();
+        assert!(!group.discard_rejected_own_commit(&wrong).unwrap());
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            record.serialized_state
+        );
+        let mut tampered = commit.clone();
+        tampered.commit = commit.commit.clone() + "invalid";
+        assert!(group.discard_rejected_own_commit(&tampered).is_err());
+        assert!(group.has_pending_commit());
+        assert!(group.discard_rejected_own_commit(&commit).unwrap());
+        assert_eq!(group.epoch(), 0);
+        assert!(!group.has_pending_commit());
+        let before: OpenMlsStateSnapshot =
+            serde_json::from_slice(&record.serialized_state).unwrap();
+        let after: OpenMlsStateSnapshot =
+            serde_json::from_slice(&group.export_state_record().unwrap().serialized_state).unwrap();
+        assert_eq!(before.signal_nonce_counter, after.signal_nonce_counter);
+        assert_eq!(before.context, after.context);
+        for (key, value) in &before.storage_entries {
+            if !decode(key).unwrap().starts_with(b"GroupState") {
+                assert_eq!(after.storage_entries.get(key), Some(value));
+            }
+        }
+        let mut restored =
+            ArkretMlsGroup::restore_from_state_record(&group.export_state_record().unwrap())
+                .unwrap();
+        assert!(!restored.has_pending_commit());
+        assert!(!restored.discard_rejected_own_commit(&commit).unwrap());
+        assert!(
+            restored
+                .self_update_commit_with_governance_binding(&binding)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn self_update_authenticates_the_next_governance_binding_before_installation() {
+        let scope = realm_scope();
+        let base = event(1);
+        let genesis = genesis_binding(&scope);
+        let binding = transition_binding(&scope, base.clone(), 1);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        assert_eq!(group.epoch(), 0);
+        let snapshot = group.export_state_record().unwrap();
+        assert!(
+            group
+                .self_update_commit_with_governance_binding(&binding)
+                .is_err()
+        );
+        assert_eq!(
+            group.export_state_record().unwrap().serialized_state,
+            snapshot.serialized_state
+        );
+        let mut restored = ArkretMlsGroup::restore_from_state_record(&snapshot).unwrap();
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 1);
+        restored
+            .merge_accepted_commit_envelope(&commit, &public_state, &binding)
+            .unwrap();
+        assert_eq!(restored.epoch(), 1);
+        let (info, tree) = restored.public_group_state_bytes().unwrap();
+        let tracker = crate::MlsPublicGroupTracker::from_external(
+            &info,
+            &tree,
+            restored.group_id().as_str(),
+            1,
+        )
+        .unwrap();
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+    }
+
+    #[test]
+    fn frozen_commit_recovery_preserves_live_ratchets_and_rejects_another_private_base() {
+        let scope = realm_scope();
+        let binding = transition_binding(&scope, event(1), 1);
+        let base = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let base_record = base.export_state_record().unwrap();
+        let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let accepted = original
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let frozen = original.export_state_record().unwrap();
+        let mut live = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        live.group
+            .create_message(
+                &live.identity.provider,
+                &live.identity.signer,
+                b"one base-epoch application message",
+            )
+            .unwrap();
+        live.signal_nonce_counter = 7;
+        let competing = live
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let before = live.export_state_record().unwrap();
+        let mut resumed = live
+            .resume_frozen_pending_commit(&frozen, &accepted, &binding)
+            .unwrap();
+        assert_eq!(resumed.signal_nonce_counter, 7);
+        let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
+        let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
+        let frozen_snapshot: OpenMlsStateSnapshot =
+            serde_json::from_slice(&frozen.serialized_state).unwrap();
+        let mut saw_advanced_ratchet = false;
+        for (key, value) in &live_storage {
+            if decode(key).unwrap().starts_with(b"MessageSecrets") {
+                assert_eq!(resumed_storage.get(key), Some(value));
+                saw_advanced_ratchet |= frozen_snapshot.storage_entries.get(key) != Some(value);
+            }
+        }
+        assert!(saw_advanced_ratchet);
+        assert!(
+            live.resume_frozen_pending_commit(&frozen, &competing, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+        let mut wrong_base: OpenMlsStateSnapshot = frozen_snapshot;
+        let key = wrong_base
+            .storage_entries
+            .keys()
+            .find(|key| decode(key).unwrap().starts_with(b"EpochSecrets"))
+            .unwrap()
+            .clone();
+        wrong_base
+            .storage_entries
+            .insert(key, encode(b"another epoch secret"));
+        let mut wrong_record = frozen;
+        wrong_record.serialized_state = serde_json::to_vec(&wrong_base).unwrap();
+        assert!(
+            live.resume_frozen_pending_commit(&wrong_record, &accepted, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+        resumed
+            .merge_accepted_commit_envelope(
+                &accepted,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(1)), 0, 1),
+                &binding,
+            )
+            .unwrap();
+        assert_eq!(resumed.epoch(), 1);
+        assert!(!resumed.has_pending_commit());
+    }
+
+    #[test]
+    fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets() {
+        let realm_id = realm_scope().realm_id_opt().unwrap().clone();
+        let sidecar_id =
+            arkret_wire::SidecarId::new("ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+                .unwrap();
+        let scope = ScopeRef::Sidecar {
+            realm_id: realm_id.clone(),
+            sidecar_id: sidecar_id.clone(),
+        };
+        let binding_for = |base, previous, next, revision| {
+            MlsGovernanceBindingPayload::sidecar(
+                realm_id.clone(),
+                sidecar_id.clone(),
+                base,
+                previous,
+                next,
+                revision,
+                Hash::new(canonical::sha256_digest([4])).unwrap(),
+                vec![event(5)],
+            )
+            .unwrap()
+        };
+        let genesis = binding_for(None, 0, 0, 0);
+        let binding = binding_for(Some(event(1)), 0, 1, 1);
+        let agent = ArkretMlsIdentity::new_agent(
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls-agent.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
+            arkret_wire::DidUrl::new("did:web:mls-agent.example#runtime-31").unwrap(),
+            event(31),
+            crate::ArkretMlsSigner::from_ed25519_signing_key(
+                ed25519_dalek::SigningKey::from_bytes(&[31; 32]),
+            ),
+        )
+        .unwrap();
+        let base = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = base.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            base.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let public_base = tracker.export_state().unwrap();
+        let base_record = base.export_state_record().unwrap();
+        let mut private = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let config = MlsGroupJoinConfig::builder()
+            .wire_format_policy(openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY)
+            .use_ratchet_tree_extension(true)
+            .build();
+        private
+            .group
+            .set_configuration(private.identity.provider.storage(), &config)
+            .unwrap();
+        let private_commit = private
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        assert!(
+            tracker
+                .process_public_handshake(&decode(&private_commit.commit).unwrap())
+                .is_err()
+        );
+        assert_eq!(tracker.export_state().unwrap(), public_base);
+        let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        let add = original
+            .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
+            .unwrap();
+        let frozen = original.export_state_record().unwrap();
+        let bytes = decode(&add.commit.commit).unwrap();
+        let transition = tracker.process_public_handshake(&bytes).unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("expected an Add Commit");
+        };
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(added_leaves[0].actor_id, agent.actor_id);
+        assert!(consumed_proposals.iter().any(|p| {
+            p.target_after
+                .as_ref()
+                .is_some_and(|l| l.actor_id == agent.actor_id)
+        }));
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+        assert_eq!(original.epoch(), 0);
+        let protocol = MlsMessageIn::tls_deserialize_exact(bytes.as_slice())
+            .unwrap()
+            .try_into_protocol_message()
+            .unwrap();
+        assert_eq!(protocol.wire_format(), WireFormat::PublicMessage);
+        let mut echoed = ArkretMlsGroup::restore_from_state_record(&frozen).unwrap();
+        assert!(matches!(
+            echoed
+                .group
+                .process_message(&echoed.identity.provider, protocol)
+                .unwrap()
+                .into_content(),
+            ProcessedMessageContent::OwnPendingCommit,
+        ));
+
+        let mut live = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
+        live.group
+            .create_message(
+                &live.identity.provider,
+                &live.identity.signer,
+                b"later application",
+            )
+            .unwrap();
+        live.signal_nonce_counter = 7;
+        let competing = live
+            .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
+            .unwrap();
+        let before = live.export_state_record().unwrap();
+        let mut tampered = add.commit.clone();
+        let mut tampered_bytes = bytes;
+        *tampered_bytes.last_mut().unwrap() ^= 1;
+        tampered.commit = encode(&tampered_bytes);
+        tampered.commit_digest = Hash::new(canonical::sha256_digest(&tampered_bytes)).unwrap();
+        for candidate in [&competing.commit, &tampered] {
+            assert!(
+                live.resume_frozen_pending_commit(&frozen, candidate, &binding)
+                    .is_err()
+            );
+        }
+        let wrong_binding = binding_for(Some(event(2)), 0, 1, 1);
+        assert!(
+            live.resume_frozen_pending_commit(&frozen, &add.commit, &wrong_binding)
+                .is_err()
+        );
+        let mut wrong: OpenMlsStateSnapshot =
+            serde_json::from_slice(&frozen.serialized_state).unwrap();
+        wrong.own_pending_commit_digest = None;
+        let mut unbound = frozen.clone();
+        unbound.serialized_state = serde_json::to_vec(&wrong).unwrap();
+        assert!(ArkretMlsGroup::restore_from_state_record(&unbound).is_err());
+        assert!(
+            live.resume_frozen_pending_commit(&unbound, &add.commit, &binding)
+                .is_err()
+        );
+        assert_eq!(
+            live.export_state_record().unwrap().serialized_state,
+            before.serialized_state
+        );
+
+        let mut resumed = live
+            .resume_frozen_pending_commit(&frozen, &add.commit, &binding)
+            .unwrap();
+        assert_eq!(resumed.epoch(), 0);
+        assert!(resumed.has_pending_commit());
+        assert_eq!(resumed.signal_nonce_counter, 7);
+        let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
+        let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
+        for (key, value) in &live_storage {
+            if decode(key).unwrap().starts_with(b"MessageSecrets") {
+                assert_eq!(resumed_storage.get(key), Some(value));
+            }
+        }
+        resumed
+            .merge_accepted_commit_envelope(
+                &add.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(1)), 0, 1),
+                &binding,
+            )
+            .unwrap();
+        assert_eq!(resumed.epoch(), 1);
+        assert!(!resumed.has_pending_commit());
+        assert!(resumed.own_pending_commit_digest.is_none());
+        resumed
+            .install_test_leaf_bindings(vec![
+                resumed.identity.endpoint.clone(),
+                agent.endpoint.clone(),
+            ])
+            .unwrap();
+
+        // Self updates and Removes retain the exact signed transition binding.
+        let rotation_binding = binding_for(Some(event(6)), 1, 2, 1);
+        let rotation = resumed
+            .self_update_commit_with_governance_binding(&rotation_binding)
+            .unwrap();
+        let rotation_record = resumed.export_state_record().unwrap();
+        let mut rotated = ArkretMlsGroup::restore_from_state_record(&rotation_record).unwrap();
+        rotated
+            .merge_accepted_commit_envelope(
+                &rotation,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(6)), 1, 1),
+                &rotation_binding,
+            )
+            .unwrap();
+        rotated
+            .install_test_leaf_bindings(vec![
+                rotated.identity.endpoint.clone(),
+                agent.endpoint.clone(),
+            ])
+            .unwrap();
+        let removal_binding = binding_for(Some(event(7)), 2, 3, 2);
+        let removal = rotated
+            .remove_members_by_actor_with_governance_binding(
+                std::slice::from_ref(&agent.actor_id),
+                &removal_binding,
+            )
+            .unwrap();
+        let removal_record = rotated.export_state_record().unwrap();
+        let mut removed = ArkretMlsGroup::restore_from_state_record(&removal_record).unwrap();
+        removed
+            .merge_accepted_commit_envelope(
+                &removal.commit,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(7)), 2, 2),
+                &removal_binding,
+            )
+            .unwrap();
+        assert_eq!(removed.epoch(), 3);
+        assert!(removed.own_pending_commit_digest.is_none());
+        assert_eq!(removed.group.members().count(), 1);
+    }
+
+    #[test]
+    fn governed_self_update_survives_restart_and_advances_the_public_binding() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let base = event(9);
+        let binding = transition_binding(&scope, base.clone(), 3);
+        let commit = group
+            .self_update_commit_with_governance_binding(&binding)
+            .unwrap();
+        let mut restarted =
+            ArkretMlsGroup::restore_from_state_record(&group.export_state_record().unwrap())
+                .unwrap();
+        assert_eq!(group.epoch(), 0);
+        assert_eq!(restarted.epoch(), 0);
+        let transition = tracker
+            .process_public_handshake(&decode(&commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            previous_epoch,
+            epoch,
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("a governed self-update must be a public Commit")
+        };
+        assert_eq!((previous_epoch, epoch), (0, 1));
+        assert!(added_leaves.is_empty());
+        assert_eq!(tracker.leaves().unwrap().len(), 1);
+        assert_eq!(consumed_proposals.len(), 1);
+        assert_eq!(consumed_proposals[0].proposal_type, 7);
+        let public_state = MlsGovernanceBindingPublicState::new(scope, Some(base), 0, 3);
+        let authenticated = tracker.governance_binding().unwrap();
+        assert_eq!(authenticated, binding);
+        crate::verify_governance_binding_against_public_state_and_payload(
+            &authenticated,
+            &public_state,
+            &binding,
+        )
+        .unwrap();
+        for holder in [&mut group, &mut restarted] {
+            holder
+                .merge_accepted_commit_envelope(&commit, &public_state, &binding)
+                .unwrap();
+            assert_eq!(holder.epoch(), 1);
+            assert!(holder.group.pending_commit().is_none());
+        }
+    }
+
+    #[test]
+    fn rejected_self_update_binding_does_not_stage_or_write_a_commit() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let wrong_binding = binding_for_epochs(&scope, event(2), 1, 2, 2);
+        let before = snapshot_provider_storage(&group.identity.provider).unwrap();
+        assert!(
+            group
+                .self_update_commit_with_governance_binding(&wrong_binding)
+                .is_err()
+        );
+        assert!(group.group.pending_commit().is_none());
+        assert_eq!(
+            snapshot_provider_storage(&group.identity.provider).unwrap(),
+            before
+        );
+        assert_eq!(group.epoch(), 0);
+    }
+
+    #[test]
+    fn public_tracker_follows_the_governed_add_commit_binding() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        assert_eq!(tracker.governance_binding().unwrap(), genesis);
+        assert_eq!(
+            tracker.ciphersuite_canonical_id().unwrap(),
+            group.group_ciphersuite_canonical_id().unwrap()
+        );
+
+        let member = second_identity();
+        let binding = transition_binding(&scope, event(9), 1);
+        let added = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&added.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            previous_epoch,
+            epoch,
+            added_leaves,
+            sender_leaf,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("an Add Commit is a public Commit transition")
+        };
+        assert_eq!((previous_epoch, epoch), (0, 1));
+        assert_eq!(tracker.governance_binding().unwrap(), binding);
+        assert_eq!(
+            sender_leaf
+                .unwrap()
+                .actor_id
+                .signing_principal_id()
+                .as_str(),
+            "ak:did_core:web:mls.example"
+        );
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(consumed_proposals.len(), 2);
+        assert_eq!(consumed_proposals[0].ordinal, 0);
+        assert_eq!(consumed_proposals[0].proposal_type, 1);
+        assert_eq!(consumed_proposals[1].ordinal, 1);
+        assert_eq!(consumed_proposals[1].proposal_type, 7);
+        let parsed_add =
+            crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(parsed_add.actor_id, member.actor_id);
+        let accepted_adds = crate::verify_adds_from_accepted_public_commit(
+            &decode(&added.commit.commit).unwrap(),
+            group.group_id().as_str(),
+            previous_epoch,
+        )
+        .unwrap();
+        assert_eq!(accepted_adds, vec![parsed_add.clone()]);
+        let mut trailing = decode(&added.commit.commit).unwrap();
+        trailing.push(0);
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &trailing,
+                group.group_id().as_str(),
+                previous_epoch
             )
             .is_err()
         );
-    }
-
-    /// Reproduces the registered vector
-    /// `ak.vector.mls_exporter_aead.content_key_derivation.v1` verbatim.
-    ///
-    /// The vector used to declare `aead_nk: 32` under the case name
-    /// `..._sha256_aes256gcm`, which no registered MLS ciphersuite provides —
-    /// §2.10.1 takes the content key length from the negotiated suite's
-    /// `AEAD.Nk` and §2.10.2 forces `aead_profile` to an active
-    /// `mls-ciphersuite-registry.json` row, whose only active entry is
-    /// AES-128-GCM. arkret-spec `cb637541` moved the vector to that suite, so
-    /// the live path and the vector now agree and this asserts equality rather
-    /// than recording a disagreement.
-    ///
-    /// The length is bound into the `ExpandWithLabel` info, so this is a real
-    /// check: a key derived at any other length is not a prefix of this one.
-    #[test]
-    fn content_key_matches_registered_spec_vector() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = &fixture["cases"][0];
-        let history_secret =
-            hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
-        let vector_key_len = usize::try_from(case["input"]["aead_nk"].as_u64().unwrap()).unwrap();
-
-        // The vector's declared length must be the one the live path derives,
-        // not merely a length the derivation happens to accept.
-        assert_eq!(vector_key_len, ExporterAeadSuite::Aes128Gcm.key_len());
-        assert_eq!(
-            case["input"]["aead_profile"].as_str().unwrap(),
-            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
-        );
-
-        let sender_domain = case["input"]["verified_sender_domain_utf8"]
-            .as_str()
-            .expect("content key vector must bind a verified sender domain")
-            .as_bytes();
-        assert_eq!(
-            hex(&mls_kdf_label(
-                vector_key_len,
-                arkret_wire::ExporterLabelId::CONTENT_V1,
-                sender_domain
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &decode(&added.commit.commit).unwrap(),
+                &base64url_encode([0; 32]),
+                previous_epoch
             )
-            .unwrap()),
-            case["expected"]["content_expand_with_label_info_hex"]
-                .as_str()
-                .unwrap()
+            .is_err()
         );
-        assert_eq!(
-            hex(derive_content_key_from_history_secret(
-                &history_secret,
-                sender_domain,
-                vector_key_len
+        assert!(
+            crate::verify_adds_from_accepted_public_commit(
+                &decode(&added.commit.commit).unwrap(),
+                group.group_id().as_str(),
+                epoch,
             )
-            .unwrap()
-            .as_ref()),
-            case["expected"]["content_key_hex"].as_str().unwrap()
+            .is_err()
         );
-    }
-
-    #[test]
-    fn reaction_routing_tag_matches_registered_spec_vector() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = fixture["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str() == Some("ak.vector.reaction.routing_hmac_kat.v1")
-            })
-            .unwrap();
-        let routing_root = hex::decode(case["input"]["routing_root_hex"].as_str().unwrap())
-            .expect("routing root hex");
-        let effective_scope: ScopeRef =
-            serde_json::from_value(case["input"]["effective_scope"].clone()).unwrap();
-        let target_ref =
-            EventId::new(case["input"]["target_ref"].as_str().unwrap().to_owned()).unwrap();
-        let routing_window = case["input"]["routing_window"].as_u64().unwrap();
-        let emoji = ["e\u{301}", "é", "👍🏽"];
-        let expected = case["expected"]["tags_hex"].as_array().unwrap();
-
-        for (emoji, expected) in emoji.into_iter().zip(expected) {
-            let tag = reaction_routing_tag_from_root(
-                &routing_root,
-                &effective_scope,
-                &target_ref,
-                routing_window,
-                emoji,
-            )
-            .unwrap();
-            assert_eq!(
-                hex(&base64url_decode(tag.as_bytes()).unwrap()),
-                expected.as_str().unwrap()
-            );
+        assert_eq!(parsed_add.leaf_signature_key, added_leaves[0].signature_key);
+        assert!(crate::verify_add_proposal_leaf(&consumed_proposals[1].proposal_wire).is_err());
+        for malformed in [
+            &consumed_proposals[0].proposal_wire[..1],
+            &consumed_proposals[0].proposal_wire[..consumed_proposals[0].proposal_wire.len() - 1],
+        ] {
+            assert!(crate::verify_add_proposal_leaf(malformed).is_err());
         }
+        let mut trailing = consumed_proposals[0].proposal_wire.clone();
+        trailing.push(0);
+        assert!(crate::verify_add_proposal_leaf(&trailing).is_err());
+        let mut wrong_signature = consumed_proposals[0].proposal_wire.clone();
+        *wrong_signature.last_mut().unwrap() ^= 1;
+        assert!(crate::verify_add_proposal_leaf(&wrong_signature).is_err());
+        assert!(
+            consumed_proposals
+                .iter()
+                .all(|proposal| !proposal.proposal_wire.is_empty())
+        );
+        assert_eq!(
+            consumed_proposals[0].target_after.as_ref(),
+            added_leaves.first()
+        );
+        assert_eq!(
+            added_leaves[0].actor_id.signing_principal_id().as_str(),
+            "ak:did_core:web:mls-member.example"
+        );
+    }
+
+    #[test]
+    fn agent_runtime_repair_replaces_retired_authorization_in_one_same_group_commit() {
+        assert_agent_runtime_repair(false);
+    }
+
+    #[test]
+    fn agent_same_key_reauthorization_replaces_the_endpoint_without_membership_revision() {
+        assert_agent_runtime_repair(true);
+    }
+
+    fn assert_agent_runtime_repair(same_signing_key: bool) {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:mls-agent.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+        ));
+        let runtime = |number: u8, key_number: u8| {
+            ArkretMlsIdentity::new_agent(
+                actor.clone(),
+                arkret_wire::DidUrl::new(format!("did:web:mls-agent.example#runtime-{key_number}"))
+                    .unwrap(),
+                event(number),
+                crate::ArkretMlsSigner::from_ed25519_signing_key(
+                    ed25519_dalek::SigningKey::from_bytes(&[key_number; 32]),
+                ),
+            )
+            .unwrap()
+        };
+        let old = runtime(31, 31);
+        let first_binding = transition_binding(&scope, event(9), 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&old), &first_binding)
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone(), old.endpoint.clone()])
+            .unwrap();
+        let (info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker =
+            crate::MlsPublicGroupTracker::from_external(&info, &tree, group.group_id().as_str(), 1)
+                .unwrap();
+        let new = runtime(32, if same_signing_key { 31 } else { 32 });
+        let package = claimed_keypackage(&new);
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(&new.endpoint, &actor)
+                .unwrap(),
+            Some(actor.clone())
+        );
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(&new.endpoint, &group.identity.actor_id)
+                .unwrap(),
+            None
+        );
+        let second_device = ArkretMlsIdentity::new_test_human_device(
+            group.identity.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000074").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            group
+                .member_endpoint_replacement_actor(
+                    &second_device.endpoint,
+                    &group.identity.actor_id
+                )
+                .unwrap(),
+            None
+        );
+        let group_id = group.group_id();
+        let second_binding = binding_for_epochs(&scope, event(10), 1, 2, 1);
+        let replacement = group
+            .replace_member_endpoint(&package, &actor, Some(&second_binding))
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            consumed_proposals,
+            added_leaves,
+            ..
+        } = tracker
+            .process_public_handshake(&decode(&replacement.commit.commit).unwrap())
+            .unwrap()
+        else {
+            panic!("runtime replacement must be a signed Commit")
+        };
+        assert_eq!(added_leaves.len(), 1);
+        assert_eq!(added_leaves[0].actor_id, actor);
+        let removed = consumed_proposals
+            .iter()
+            .find_map(|proposal| proposal.target_before.as_ref())
+            .unwrap();
+        assert_eq!(removed.actor_id, actor);
+        assert_eq!(
+            removed.signature_key == added_leaves[0].signature_key,
+            same_signing_key
+        );
+        assert_eq!(
+            consumed_proposals
+                .iter()
+                .filter(|proposal| proposal.proposal_type == 3)
+                .count(),
+            1
+        );
+        group
+            .merge_accepted_commit_envelope(
+                &replacement.commit,
+                &MlsGovernanceBindingPublicState::new(scope, Some(event(10)), 1, 1),
+                &second_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone(), new.endpoint.clone()])
+            .unwrap();
+        assert_eq!(group.group_id(), group_id);
+        assert_eq!(group.epoch(), 2);
+        let leaves = group.verified_leaf_bindings().unwrap();
+        assert_eq!(leaves.len(), 2);
+        assert!(leaves.iter().any(|leaf| leaf.endpoint == new.endpoint));
+        assert!(!leaves.iter().any(|leaf| leaf.endpoint == old.endpoint));
+        assert!(!replacement.welcome.ciphertext_b64.as_str().is_empty());
+    }
+
+    #[test]
+    fn public_tracker_freezes_add_context_remove_from_one_signed_commit_in_wire_order() {
+        let scope = realm_scope();
+        let genesis = genesis_binding(&scope);
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis)
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let member = second_identity();
+        let first_binding = transition_binding(&scope, event(9), 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&member), &first_binding)
+            .unwrap();
+        tracker
+            .process_public_handshake(&decode(&first.commit.commit).unwrap())
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                member.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let replacement = group
+            .replace_member_endpoint(
+                &claimed_keypackage(&member),
+                &member.actor_id,
+                Some(&binding_for_epochs(&scope, event(10), 1, 2, 2)),
+            )
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&replacement.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            consumed_proposals,
+            added_leaves,
+            ..
+        } = transition
+        else {
+            panic!("replacement is one signed public Commit")
+        };
+        assert_eq!(consumed_proposals.len(), 3);
+        assert_eq!(consumed_proposals[0].ordinal, 0);
+        assert_eq!(consumed_proposals[0].proposal_type, 1);
+        assert_eq!(consumed_proposals[1].ordinal, 1);
+        assert_eq!(consumed_proposals[1].proposal_type, 7);
+        assert_eq!(consumed_proposals[2].ordinal, 2);
+        assert_eq!(consumed_proposals[2].proposal_type, 3);
+        assert!(consumed_proposals.iter().all(|proposal| {
+            proposal.sender_leaf.actor_id == group.identity.actor_id
+                && !proposal.proposal_wire.is_empty()
+        }));
+        let removed = consumed_proposals[2].target_before.as_ref().unwrap();
+        let added = consumed_proposals[0].target_after.as_ref().unwrap();
+        assert_eq!(removed.actor_id, member.actor_id);
+        assert_eq!(added.actor_id, member.actor_id);
+        let parsed = crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(parsed.actor_id, member.actor_id);
+        assert_eq!(parsed.leaf_signature_key, added.signature_key);
+        assert_eq!(added_leaves, vec![added.clone()]);
+        assert!(consumed_proposals[2].target_after.is_none());
+        assert!(consumed_proposals[0].target_before.is_none());
+    }
+
+    #[test]
+    fn add_proposal_parser_does_not_bind_reused_leaf_index_to_old_device() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let first_device = second_identity();
+        let first_binding = binding_for_epochs(&scope, event(9), 0, 1, 1);
+        let first = group
+            .add_member_with_governance_binding(&claimed_keypackage(&first_device), &first_binding)
+            .unwrap();
+        let first_transition = tracker
+            .process_public_handshake(&decode(&first.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves: first_leaves,
+            consumed_proposals: first_proposals,
+            ..
+        } = first_transition
+        else {
+            panic!("first Add must be a Commit")
+        };
+        let first_parsed =
+            crate::verify_add_proposal_leaf(&first_proposals[0].proposal_wire).unwrap();
+        assert_eq!(
+            first_parsed.leaf_signature_key,
+            first_leaves[0].signature_key
+        );
+        group
+            .merge_accepted_commit_envelope(
+                &first.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(9)), 0, 1),
+                &first_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![
+                group.identity.endpoint.clone(),
+                first_device.endpoint.clone(),
+            ])
+            .unwrap();
+
+        let remove_binding = binding_for_epochs(&scope, event(10), 1, 2, 2);
+        let removed = group
+            .remove_members_by_actor_with_governance_binding(
+                std::slice::from_ref(&first_device.actor_id),
+                &remove_binding,
+            )
+            .unwrap();
+        tracker
+            .process_public_handshake(&decode(&removed.commit.commit).unwrap())
+            .unwrap();
+        group
+            .merge_accepted_commit_envelope(
+                &removed.commit,
+                &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(10)), 1, 2),
+                &remove_binding,
+            )
+            .unwrap();
+        group
+            .install_test_leaf_bindings(vec![group.identity.endpoint.clone()])
+            .unwrap();
+
+        let new_device = ArkretMlsIdentity::new_test_human_device(
+            first_device.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000075").unwrap(),
+        )
+        .unwrap();
+        let readd_binding = binding_for_epochs(&scope, event(11), 2, 3, 3);
+        let readd = group
+            .add_member_with_governance_binding(&claimed_keypackage(&new_device), &readd_binding)
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&readd.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("second Add must be a Commit")
+        };
+        assert_eq!(added_leaves[0].leaf_index, first_leaves[0].leaf_index);
+        let readd_parsed =
+            crate::verify_add_proposal_leaf(&consumed_proposals[0].proposal_wire).unwrap();
+        assert_eq!(readd_parsed.actor_id, first_parsed.actor_id);
+        assert_eq!(
+            readd_parsed.leaf_signature_key,
+            added_leaves[0].signature_key
+        );
+        assert_ne!(
+            readd_parsed.leaf_signature_key,
+            first_parsed.leaf_signature_key
+        );
+    }
+
+    #[test]
+    fn add_proposal_parser_distinguishes_simultaneous_devices_of_one_actor() {
+        let scope = realm_scope();
+        let mut group = identity()
+            .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+            .unwrap();
+        let (group_info, tree) = group.public_group_state_bytes().unwrap();
+        let mut tracker = crate::MlsPublicGroupTracker::from_external(
+            &group_info,
+            &tree,
+            group.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        let first = second_identity();
+        let second = ArkretMlsIdentity::new_test_human_device(
+            first.actor_id.clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000076").unwrap(),
+        )
+        .unwrap();
+        let binding = transition_binding(&scope, event(9), 1);
+        let committed = group
+            .add_members_with_optional_governance_binding(
+                &[claimed_keypackage(&first), claimed_keypackage(&second)],
+                Some(&binding),
+                &[],
+            )
+            .unwrap();
+        let transition = tracker
+            .process_public_handshake(&decode(&committed.commit.commit).unwrap())
+            .unwrap();
+        let crate::MlsPublicHandshakeTransition::Commit {
+            added_leaves,
+            consumed_proposals,
+            ..
+        } = transition
+        else {
+            panic!("two Add Proposals must be one Commit")
+        };
+        let parsed = consumed_proposals
+            .iter()
+            .filter(|proposal| proposal.proposal_type == 1)
+            .map(|proposal| crate::verify_add_proposal_leaf(&proposal.proposal_wire).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].actor_id, parsed[1].actor_id);
+        assert_ne!(parsed[0].leaf_signature_key, parsed[1].leaf_signature_key);
+        assert_eq!(added_leaves.len(), 2);
+        assert_ne!(added_leaves[0].leaf_index, added_leaves[1].leaf_index);
+        for leaf in added_leaves {
+            assert!(parsed.iter().any(|add| {
+                add.actor_id == leaf.actor_id && add.leaf_signature_key == leaf.signature_key
+            }));
+        }
+    }
+
+    #[test]
+    fn outbound_commit_stays_pending_until_authority_acceptance() {
+        let mut group = identity().create_group(&realm_scope()).unwrap();
+        let base_epoch = group.epoch();
+
+        let commit = group.self_update_commit().unwrap();
+
+        assert_eq!(group.epoch(), base_epoch);
+        assert_eq!(commit.epoch, base_epoch + 1);
     }
 }

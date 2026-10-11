@@ -11,7 +11,7 @@
 //! 3. Computing and verifying the RFC 9530 `Content-Digest` for the request body.
 //! 4. Ed25519 sign / verify on the canonical message bytes.
 //!
-//! Wire shape (matches floria's verifier and soland's fanout signer):
+//! Wire shape (matches floria's verifier and coland's fanout signer):
 //!
 //! ```text
 //! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
@@ -40,6 +40,13 @@ use std::collections::BTreeSet;
 use arkret_canonical::{base64_standard_decode, base64_standard_encode};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use thiserror::Error;
+
+pub use crate::generated::http_signature_contract::{
+    HTTP_SIGNATURE_COMMON_COVERED_COMPONENTS, HTTP_SIGNATURE_CREATED_SKEW_SECONDS,
+    HTTP_SIGNATURE_FRESHNESS_PROFILE_ID, HTTP_SIGNATURE_MAX_LIFETIME_SECONDS,
+    HTTP_SIGNATURE_REQUIRED_PARAMETERS, HTTP_SIGNATURE_SCENARIOS, HttpSignatureScenario,
+    HttpSignatureScenarioDescriptor, http_signature_scenario_descriptor,
+};
 
 /// Errors emitted by the RFC 9421 helpers.
 ///
@@ -111,6 +118,10 @@ pub enum SignatureError {
 /// digest presence and accepted `created` / `expires` window.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum SignaturePolicyError {
+    /// A caller tried to activate a conditional component that the selected
+    /// canonical scenario does not register.
+    #[error("component `{0}` is not conditional in the selected HTTP signature scenario")]
+    UnregisteredConditionalComponent(String),
     /// The signature did not cover every component required by the caller.
     #[error("signature input does not cover every required component")]
     MissingRequiredCoveredComponent,
@@ -173,6 +184,28 @@ pub struct VerifiedHttpMessageSignature {
     pub canonical_message: Vec<u8>,
 }
 
+/// Headers and canonical bytes produced by the canonical HTTP-message signer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedHttpMessage {
+    /// Complete RFC 9421 `Signature-Input` header value.
+    pub signature_input_header: String,
+    /// Complete RFC 9421 `Signature` header value.
+    pub signature_header: String,
+    /// Exact bytes covered by the Ed25519 signature.
+    pub canonical_message: Vec<u8>,
+}
+
+/// Failure while constructing a canonical signed HTTP message.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum HttpMessageSigningError {
+    /// Scenario/component policy could not be constructed or validated.
+    #[error(transparent)]
+    Policy(#[from] SignaturePolicyError),
+    /// RFC 9421 formatting or canonicalization failed.
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
+}
+
 // =====================================================================
 // SignatureInput — parsed `Signature-Input` header
 // =====================================================================
@@ -191,7 +224,7 @@ pub enum Component {
     /// `@authority` — request authority (host + optional port) per
     /// RFC 9421 §2.2.3.
     Authority,
-    /// `@path` — request path per RFC 9421 §2.2.5. Used by soland's
+    /// `@path` — request path per RFC 9421 §2.2.5. Used by coland's
     /// fanout signer.
     Path,
     /// Named lowercase header. Re-emitted as `"name": value` in the
@@ -277,7 +310,7 @@ impl SignatureInput {
 }
 
 /// HTTP Message Signature profile policy shared by services such as floria and
-/// teabay.
+/// flagon.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignatureVerificationPolicy {
     required_components: Vec<Component>,
@@ -292,9 +325,33 @@ impl SignatureVerificationPolicy {
         Self {
             required_components: required_components.into(),
             require_content_digest: true,
-            max_clock_skew_seconds: 30,
-            max_validity_window_seconds: 300,
+            max_clock_skew_seconds: HTTP_SIGNATURE_CREATED_SKEW_SECONDS,
+            max_validity_window_seconds: HTTP_SIGNATURE_MAX_LIFETIME_SECONDS,
         }
+    }
+
+    /// Build the policy registered for one canonical HTTP-signature scenario.
+    ///
+    /// `applicable_conditional_components` names only the conditions that are
+    /// true for this concrete request (for example `content-digest` when it has
+    /// a body). The common contract, inherited scenario components, freshness
+    /// values, and unconditional scenario components are generated from the
+    /// canonical contract registry.
+    pub fn for_scenario(
+        scenario: HttpSignatureScenario,
+        applicable_conditional_components: &[&str],
+    ) -> Result<Self, SignaturePolicyError> {
+        let required =
+            http_signature_scenario_components(scenario, applicable_conditional_components)?;
+        let require_content_digest = required
+            .iter()
+            .any(|component| component.canonical_name() == "content-digest");
+        Ok(Self {
+            required_components: required,
+            require_content_digest,
+            max_clock_skew_seconds: HTTP_SIGNATURE_CREATED_SKEW_SECONDS,
+            max_validity_window_seconds: HTTP_SIGNATURE_MAX_LIFETIME_SECONDS,
+        })
     }
 
     /// Minimal Arkret service-ingest policy: method, absolute target URI,
@@ -346,7 +403,7 @@ impl SignatureVerificationPolicy {
         {
             return Err(SignaturePolicyError::MissingContentDigest);
         }
-        if signature_input.expires < signature_input.created {
+        if signature_input.expires <= signature_input.created {
             return Err(SignaturePolicyError::InvalidValidityWindow);
         }
         if signature_input
@@ -360,7 +417,7 @@ impl SignatureVerificationPolicy {
         if signature_input.created > now_unix_seconds.saturating_add(skew) {
             return Err(SignaturePolicyError::CreatedInFuture);
         }
-        if signature_input.expires < now_unix_seconds {
+        if signature_input.expires <= now_unix_seconds {
             return Err(SignaturePolicyError::Expired);
         }
         if signature_input.created < now_unix_seconds.saturating_sub(skew) {
@@ -370,8 +427,108 @@ impl SignatureVerificationPolicy {
     }
 }
 
+/// Resolve the generated minimum covered-component set for a concrete request.
+///
+/// The returned order is deterministic for signing, but the canonical contract
+/// treats the set as a minimum and assigns no semantic meaning to its order.
+pub fn http_signature_scenario_components(
+    scenario: HttpSignatureScenario,
+    applicable_conditional_components: &[&str],
+) -> Result<Vec<Component>, SignaturePolicyError> {
+    let mut required = HTTP_SIGNATURE_COMMON_COVERED_COMPONENTS
+        .iter()
+        .map(|component| Component::parse(component))
+        .collect::<Vec<_>>();
+    let mut registered_conditionals = BTreeSet::new();
+    let mut current = Some(scenario);
+    let mut visited = Vec::new();
+    while let Some(value) = current {
+        if visited.contains(&value) {
+            break;
+        }
+        visited.push(value);
+        let descriptor = http_signature_scenario_descriptor(value);
+        required.extend(
+            descriptor
+                .additional_covered_components
+                .iter()
+                .map(|component| Component::parse(component)),
+        );
+        registered_conditionals.extend(
+            descriptor
+                .conditional_covered_components
+                .iter()
+                .map(|conditional| conditional.component),
+        );
+        current = descriptor.extends;
+    }
+    for component in applicable_conditional_components {
+        if !registered_conditionals.contains(component) {
+            return Err(SignaturePolicyError::UnregisteredConditionalComponent(
+                (*component).to_owned(),
+            ));
+        }
+        required.push(Component::parse(component));
+    }
+    let mut seen = BTreeSet::new();
+    required.retain(|component| seen.insert(component.canonical_name()));
+    Ok(required)
+}
+
+/// Sign one HTTP request under a generated Arkret HTTP-signature scenario.
+///
+/// This is the production authoring counterpart to
+/// [`verify_signed_http_message`]. It owns the generated component set, the
+/// registered validity-window ceiling, the exact `Signature-Input` formatting,
+/// RFC 9421 canonicalization, Ed25519 signing, and the `Signature` envelope.
+/// Framework adapters only provide [`SignedRequestParts`] and copy the two
+/// returned headers onto the request.
+#[allow(clippy::too_many_arguments)]
+pub fn sign_http_message_for_scenario(
+    request: &SignedRequestParts,
+    scenario: HttpSignatureScenario,
+    applicable_conditional_components: &[&str],
+    label: &str,
+    key_id: &str,
+    created: i64,
+    signing_key: &SigningKey,
+) -> Result<SignedHttpMessage, HttpMessageSigningError> {
+    let covered = http_signature_scenario_components(scenario, applicable_conditional_components)?;
+    if !is_valid_signature_label(label) {
+        return Err(SignatureError::MalformedSignatureInput.into());
+    }
+    let key_id = key_id.trim();
+    if key_id.is_empty()
+        || !key_id
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && !matches!(byte, b'"' | b'\\' | b';'))
+    {
+        return Err(SignatureError::InvalidSignatureInputParameter("keyid").into());
+    }
+    let expires = created.saturating_add(HTTP_SIGNATURE_MAX_LIFETIME_SECONDS);
+    let covered_wire = covered
+        .iter()
+        .map(|component| format!("\"{}\"", component.canonical_name()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let signature_input_header = format!(
+        "{label}=({covered_wire});created={created};expires={expires};keyid=\"{key_id}\";alg=\"ed25519\""
+    );
+    let signature_input = parse_signature_input(&signature_input_header)?;
+    SignatureVerificationPolicy::for_scenario(scenario, applicable_conditional_components)?
+        .validate(&signature_input, request.body_digest.as_deref(), created)?;
+    let canonical_message = canonical_message(request, &signature_input)?;
+    let signature = sign_message(&canonical_message, signing_key);
+    let signature_header = format_signature_header(label, &signature)?;
+    Ok(SignedHttpMessage {
+        signature_input_header,
+        signature_header,
+        canonical_message,
+    })
+}
+
 /// Parse a `Signature-Input` header value. Accepts the format emitted
-/// by floria, chime, and soland:
+/// by floria, chime, and coland:
 ///
 /// ```text
 /// label=("@method" "@target-uri" ...);created=...;expires=...;keyid="...";alg="ed25519"
@@ -640,7 +797,7 @@ impl ContentDigest {
     }
 
     /// Parse a `Content-Digest` header value. Accepts the simple
-    /// `alg=:base64:` form emitted by floria, chime, and soland.
+    /// `alg=:base64:` form emitted by floria, chime, and coland.
     pub fn parse(value: &str) -> Result<ContentDigest, SignatureError> {
         let trimmed = value.trim();
         // Find the first `=` (algorithm name boundary).
@@ -1040,7 +1197,7 @@ mod tests {
                 now,
             )
             .expect("valid policy input passes");
-        let too_old = parse_signature_input(&floria_signature_input(now - 300, now)).unwrap();
+        let too_old = parse_signature_input(&floria_signature_input(now - 31, now + 1)).unwrap();
         assert_eq!(
             policy.validate(&too_old, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::CreatedTooOld)
@@ -1075,10 +1232,50 @@ mod tests {
             policy.validate(&just_expired, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::Expired)
         );
+        let at_expiry = parse_signature_input(&floria_signature_input(now - 30, now)).unwrap();
+        assert_eq!(
+            policy.validate(&at_expiry, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::Expired)
+        );
+        let zero_lifetime = parse_signature_input(&floria_signature_input(now, now)).unwrap();
+        assert_eq!(
+            policy.validate(&zero_lifetime, Some("sha-256=:x=:"), now - 1),
+            Err(SignaturePolicyError::InvalidValidityWindow)
+        );
         let too_long = parse_signature_input(&floria_signature_input(now - 1, now + 301)).unwrap();
         assert_eq!(
             policy.validate(&too_long, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::InvalidValidityWindow)
+        );
+    }
+
+    #[test]
+    fn generated_service_scenario_owns_components_and_freshness() {
+        let policy = SignatureVerificationPolicy::for_scenario(
+            HttpSignatureScenario::ServiceToServiceV1,
+            &[
+                "content-digest",
+                "source-trust-domain",
+                "destination-trust-domain",
+            ],
+        )
+        .unwrap();
+        let now = 1_715_990_010;
+        let input = parse_signature_input(
+            "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"arkret-operation\" \"source-service-id\" \"destination-service-id\" \"source-trust-domain\" \"destination-trust-domain\" \"content-digest\");created=1715990010;expires=1715990310;keyid=\"did:web:source.example#key\";alg=\"ed25519\"",
+        )
+        .unwrap();
+        policy
+            .validate(&input, Some("sha-256=:x=:"), now)
+            .expect("generated service scenario accepts its registered boundary");
+        assert_eq!(
+            SignatureVerificationPolicy::for_scenario(
+                HttpSignatureScenario::ServiceToServiceV1,
+                &["x-unregistered"],
+            ),
+            Err(SignaturePolicyError::UnregisteredConditionalComponent(
+                "x-unregistered".to_owned()
+            ))
         );
     }
 
@@ -1220,6 +1417,103 @@ mod tests {
         // And the body digest re-verifies against the body.
         let parsed_digest = ContentDigest::parse(&digest.wire_value).unwrap();
         verify_content_digest(&parsed_digest, body).expect("digest matches");
+    }
+
+    #[test]
+    fn scenario_signer_owns_headers_and_rejects_body_tampering() {
+        let signing_key = signing_key_from_seed(&TEST_SEED);
+        let body = br#"{"op":"peer"}"#;
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+        let request = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "https://station.example/_arkret/peer/invites".to_owned(),
+            authority: "station.example".to_owned(),
+            path: "/_arkret/peer/invites".to_owned(),
+            headers: vec![
+                ("source-service-id".to_owned(), "source".to_owned()),
+                (
+                    "destination-service-id".to_owned(),
+                    "destination".to_owned(),
+                ),
+                (
+                    "source-trust-domain".to_owned(),
+                    "ak:trust_domain:source.example".to_owned(),
+                ),
+                (
+                    "destination-trust-domain".to_owned(),
+                    "ak:trust_domain:destination.example".to_owned(),
+                ),
+                (
+                    "arkret-operation".to_owned(),
+                    "ak.peer.invites.command.submit.v1".to_owned(),
+                ),
+            ],
+            body_digest: Some(digest.wire_value.clone()),
+        };
+        let created = 1_715_990_000;
+        let signed = sign_http_message_for_scenario(
+            &request,
+            HttpSignatureScenario::ServiceToServiceV1,
+            &[
+                "content-digest",
+                "source-trust-domain",
+                "destination-trust-domain",
+            ],
+            "sig1",
+            "did:web:auth.example#account-authority",
+            created,
+            &signing_key,
+        )
+        .unwrap();
+        let headers = vec![
+            ("Signature-Input", signed.signature_input_header.as_str()),
+            ("Signature", signed.signature_header.as_str()),
+            ("Content-Digest", digest.wire_value.as_str()),
+            ("Source-Service-ID", "source"),
+            ("Destination-Service-ID", "destination"),
+            ("Source-Trust-Domain", "ak:trust_domain:source.example"),
+            (
+                "Destination-Trust-Domain",
+                "ak:trust_domain:destination.example",
+            ),
+            ("Arkret-Operation", "ak.peer.invites.command.submit.v1"),
+        ];
+        let policy = SignatureVerificationPolicy::for_scenario(
+            HttpSignatureScenario::ServiceToServiceV1,
+            &[
+                "content-digest",
+                "source-trust-domain",
+                "destination-trust-domain",
+            ],
+        )
+        .unwrap();
+        let verified = verify_signed_http_message(
+            "POST",
+            &request.target_uri,
+            &request.authority,
+            &request.path,
+            headers.clone(),
+            body,
+            &signing_key.verifying_key(),
+            &policy,
+            created,
+        )
+        .unwrap();
+        assert_eq!(verified.canonical_message, signed.canonical_message);
+        assert!(
+            verify_signed_http_message(
+                "POST",
+                &request.target_uri,
+                &request.authority,
+                &request.path,
+                headers,
+                br#"{"op":"tampered"}"#,
+                &signing_key.verifying_key(),
+                &policy,
+                created,
+            )
+            .is_err()
+        );
     }
 
     #[test]

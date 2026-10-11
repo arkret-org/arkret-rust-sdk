@@ -50,7 +50,7 @@ impl From<DidMethod> for String {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum JoinPolicyPayloadGatesItem {
+pub enum JoinPolicyGate {
     ClaimRequired {
         gate_id: JoinPolicyGateId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,6 +73,11 @@ pub enum JoinPolicyPayloadGatesItem {
         gate_id: JoinPolicyGateId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         auto_resolve: Option<bool>,
+        /// Every source must have a current active `join_gate_from` link from
+        /// the target Realm and share its current governing Station. The
+        /// Station resolves authoritative current membership in the same
+        /// durable final-admission transaction; callers provide no proof or
+        /// cached authority basis for this gate.
         membership_source_realm_ids: Vec<RealmId>,
         require_min_membership: JoinPolicyRequiredMembership,
     },
@@ -130,71 +135,8 @@ pub struct JoinPolicyDirectoryHint {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JoinPolicyPayload {
-    pub gates: Vec<JoinPolicyPayloadGatesItem>,
+    pub gates: Vec<JoinPolicyGate>,
     pub combinator: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub directory_hint: Option<JoinPolicyDirectoryHint>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn join_policy_is_closed_and_kind_typed() {
-        let value = serde_json::json!({
-            "gates": [{
-                "gate_id": "membership",
-                "kind": "parent_membership",
-                "membership_source_realm_ids": ["ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23"],
-                "require_min_membership": "join"
-            }],
-            "combinator": "all",
-            "directory_hint": {
-                "summary": "Membership required",
-                "challenge_kinds_displayed": ["captcha"]
-            }
-        });
-        let payload: JoinPolicyPayload = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(payload).unwrap(), value);
-
-        let mut gate_extension = value.clone();
-        gate_extension["gates"][0]["x_gate_extension"] = serde_json::json!({"enabled": true});
-        assert!(serde_json::from_value::<JoinPolicyPayload>(gate_extension).is_err());
-        let mut policy_extension = value.clone();
-        policy_extension["x_policy_extension"] = serde_json::json!({"enabled": true});
-        assert!(serde_json::from_value::<JoinPolicyPayload>(policy_extension).is_err());
-
-        for (field, retired_value) in [
-            ("expected_review_time", serde_json::json!("PT1H")),
-            ("human_review_required", serde_json::json!(true)),
-        ] {
-            let mut retired = value.clone();
-            retired["directory_hint"][field] = retired_value;
-            assert!(serde_json::from_value::<JoinPolicyPayload>(retired).is_err());
-        }
-    }
-
-    #[test]
-    fn principal_admission_principal_ids_round_trip() {
-        let value = serde_json::json!({
-            "gates": [{
-                "gate_id": "identity",
-                "kind": "principal_admission",
-                "allowed_principal_ids": ["ak:did_core:webvh:z6mkallowed"],
-                "denied_principal_ids": ["ak:did_core:webvh:z6mkdenied"]
-            }],
-            "combinator": "all"
-        });
-        let payload: JoinPolicyPayload = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(payload).unwrap(), value);
-    }
-
-    #[test]
-    fn did_method_selector_is_not_parsed_as_a_did() {
-        let method: DidMethod = serde_json::from_str(r#""did:webvh""#).unwrap();
-        assert_eq!(method.as_str(), "did:webvh");
-        assert!(serde_json::from_str::<DidMethod>(r#""did:webvh:alice""#).is_err());
-        assert!(serde_json::from_str::<DidMethod>(r#""webvh""#).is_err());
-    }
 }

@@ -3,10 +3,45 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.schema_struct_gate import validate
+from tools.schema_struct_gate import schema_property_names, validate
+from tools.wire_value_audit import SchemaResolver
 
 
 class SchemaStructGateTests(unittest.TestCase):
+    def property_names(self, node: dict) -> set[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema = root / "example.schema.json"
+            schema.write_text(json.dumps({"$defs": {"payload": node}}), encoding="utf-8")
+            return schema_property_names(SchemaResolver(root), schema, {"$ref": "#/$defs/payload"}, accepted=True)
+
+    def test_member_forbidden_in_every_branch_is_not_a_wire_field(self) -> None:
+        self.assertEqual(self.property_names({
+            "properties": {"device": {}, "agent": {}, "retired": {}},
+            "oneOf": [
+                {"not": {"anyOf": [{"required": ["agent"]}, {"required": ["retired"]}]}},
+                {"not": {"anyOf": [{"required": ["device"]}, {"required": ["retired"]}]}},
+            ],
+        }), {"device", "agent"})
+
+    def test_member_allowed_by_one_branch_is_retained(self) -> None:
+        self.assertEqual(self.property_names({
+            "properties": {"member": {}},
+            "anyOf": [{"not": {"required": ["member"]}}, {}],
+        }), {"member"})
+
+    def test_negated_joint_presence_does_not_forbid_individual_members(self) -> None:
+        self.assertEqual(self.property_names({
+            "properties": {"first": {}, "second": {}},
+            "allOf": [{"not": {"required": ["first", "second"]}}],
+        }), {"first", "second"})
+
+    def test_ref_and_all_of_preserve_global_presence_exclusion(self) -> None:
+        self.assertEqual(self.property_names({
+            "properties": {"active": {}, "retired": {}},
+            "allOf": [{"not": {"required": ["retired"]}}],
+        }), {"active"})
+
     def fixture(
         self,
         rust_field: str = "recovery_keys",

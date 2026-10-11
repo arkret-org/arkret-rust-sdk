@@ -21,10 +21,11 @@ these gates pass:
 - `cargo deny check --config .deny.toml`
 - `cargo audit --deny warnings --ignore RUSTSEC-2026-0124`
 - `cargo run -p arkret-schema --example spec_drift_report`
-- `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` is a
-  blocking CI gate for release-candidate API compatibility evidence. During
-  pre-commit local validation, use `--baseline-rev HEAD` to compare the dirty
-  working tree against the last committed local baseline.
+- Public Rust API changes follow the current Spec during unpublished
+  development. Adjacent commits are not a release compatibility baseline.
+  Coordinated consumer compatibility requires an explicitly dispatched exact
+  manifest gate; a future release cut must use its actual published release
+  as the semver baseline.
 - `cargo tarpaulin --config tarpaulin.toml --out Xml` uploads coverage to
   Codecov without a hard threshold.
 - README and crate docs clearly state the local security-review packet and
@@ -32,8 +33,8 @@ these gates pass:
 - Local encryption helpers use authenticated encryption and no insecure placeholder encryption remains.
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.
-- Basic interoperability smoke is recorded under `docs/` for `soland`,
-  `starid`, `floria`, `chime`, and federation endpoints.
+- Basic interoperability smoke is recorded under `docs/` for `coland`,
+  `floria`, `chime`, and federation endpoints.
 - The `cargo audit` ignore is a tracked upstream-dependency exception:
   `libcrux-chacha20poly1305` is present only through hpke-rs's optional
   libcrux backend while the SDK enables the RustCrypto HPKE backend.

@@ -225,11 +225,8 @@ def main() -> int:
         "counts": dict(sorted(counts.items())),
         "sites": [asdict(site) for site in sites],
     }
-    args.output.write_text(
-        json.dumps(inventory, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    with args.output.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(json.dumps(inventory, indent=2, ensure_ascii=False) + "\n")
     print(f"total sites: {len(sites)}")
     for classification, count in sorted(counts.items()):
         print(f"  {classification}: {count}")

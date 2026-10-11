@@ -1,25 +1,16 @@
 //! Call-state and call-participant payloads.
 
-use arkret_wire::{ActorId, DidCoreId, ExporterLabelId, SchemaId};
+use arkret_wire::{ActorId, CurrentRevision, DidCoreId, ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::internal_prelude::*;
-use crate::serde_absence::deserialize_present_nullable;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ParticipantBinding {
-    pub scheme: String,
-    pub realm_id: RealmId,
-    pub call_id: String,
-    pub focus_id: String,
-    pub actor_id: ActorId,
-    pub device_id: String,
-    pub participant_id: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
@@ -43,7 +34,7 @@ pub struct CallParticipantMedia {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "CallParticipantWire")]
 pub struct CallParticipant {
     pub actor_id: ActorId,
     pub device_id: String,
@@ -52,10 +43,78 @@ pub struct CallParticipant {
     pub joined_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foci_preferred: Option<Vec<String>>,
-    pub participant_id: String,
-    pub participant_binding: ParticipantBinding,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_binding: Option<ParticipantBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media: Option<CallParticipantMedia>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CallParticipantWire {
+    actor_id: ActorId,
+    device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    joined_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    foci_preferred: Option<Vec<String>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    participant_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    participant_binding: Option<ParticipantBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    media: Option<CallParticipantMedia>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    focus_id: Option<String>,
+}
+
+impl TryFrom<CallParticipantWire> for CallParticipant {
+    type Error = &'static str;
+
+    fn try_from(value: CallParticipantWire) -> std::result::Result<Self, Self::Error> {
+        let participant = Self {
+            actor_id: value.actor_id,
+            device_id: value.device_id,
+            joined_at: value.joined_at,
+            foci_preferred: value.foci_preferred,
+            participant_id: value.participant_id,
+            participant_binding: value.participant_binding,
+            media: value.media,
+            focus_id: value.focus_id,
+        };
+        participant.validate_binding_carrier()?;
+        Ok(participant)
+    }
+}
+
+impl CallParticipant {
+    pub fn validate_binding_carrier(&self) -> std::result::Result<(), &'static str> {
+        let present = [
+            self.participant_id.is_some(),
+            self.participant_binding.is_some(),
+            self.focus_id.is_some(),
+        ];
+        if present.iter().any(|present| *present) && !present.iter().all(|present| *present) {
+            return Err(
+                "SFU roster entry requires participant_id, participant_binding and focus_id together",
+            );
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,9 +146,11 @@ pub enum CallRosterDelta {
         participant: CallParticipant,
     },
     Leave {
-        observed_tag: EventId,
         actor_id: DidCoreId,
         device_id: String,
+        /// Typed revision of the roster value the producer read. The compare is
+        /// field-for-field, not a bare Commit ID and not a counter.
+        expected_revision: CurrentRevision,
     },
 }
 
@@ -100,11 +161,13 @@ pub enum CallModerationDelta {
         removal: CallParticipantRemoval,
     },
     RestoreParticipant {
-        observed_tag: EventId,
         actor_id: DidCoreId,
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
+        /// Typed revision of this participant's moderation value the producer
+        /// read. The compare is field-for-field.
+        expected_revision: CurrentRevision,
     },
 }
 
@@ -271,16 +334,16 @@ pub struct CallRecordingStartPayload {
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
     pub visible_notice: VisibleCaptureNotice,
-    pub result: RecordingStartResult,
+    pub result: RecordingStartOutcome,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecordingStartResult {
+pub struct RecordingStartOutcome {
     pub retention: CallRecordingRetention,
 }
 
-impl<'de> Deserialize<'de> for RecordingStartResult {
+impl<'de> Deserialize<'de> for RecordingStartOutcome {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -618,7 +681,7 @@ impl CallCreatePayload {
         ) {
             Ok(())
         } else {
-            Err(ErrorCode::SCHEMA_VIOLATION)
+            Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
         }
     }
 }
@@ -628,6 +691,42 @@ impl CallCreatePayload {
 pub struct CallStateTransition {
     pub from: CallLifecycleState,
     pub to: CallLifecycleState,
+}
+
+/// The lifecycle current includes the accepted creation's null predecessor;
+/// subsequent Event deltas still require a non-null `from` state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallStateCurrentValue {
+    #[serde(deserialize_with = "deserialize_call_current_from")]
+    pub from: Option<CallLifecycleState>,
+    pub to: CallLifecycleState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
+}
+
+fn deserialize_call_current_from<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<CallLifecycleState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<CallLifecycleState>::deserialize(deserializer)
+}
+
+impl CallStateCurrentValue {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.from.is_none() {
+            CallCreatePayload {
+                initial_state: self.to,
+            }
+            .validate()?;
+        }
+        if (self.to == CallLifecycleState::Failed) != self.failure_reason_code.is_some() {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -675,154 +774,6 @@ pub enum CallTranscriptState {
     Failed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CallSummaryFinalState {
-    Ended,
-    Missed,
-    Failed,
-    Cancelled,
-}
-
-fn deserialize_present_nullable_canonical_timestamp<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    arkret_canonical::serde_helpers::optional_canonical_timestamp::deserialize(deserializer)
-        .map(Some)
-}
-
-fn serialize_optional_nullable_canonical_timestamp<S>(
-    value: &Option<Option<DateTime<Utc>>>,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    match value {
-        Some(inner) => arkret_canonical::serde_helpers::optional_canonical_timestamp::serialize(
-            inner, serializer,
-        ),
-        None => serializer.serialize_none(),
-    }
-}
-
-/// Counterpart for `event-payload.schema.json#/$defs/call_summary_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct CallSummaryPayload {
-    pub call_id: CallId,
-    pub final_state: CallSummaryFinalState,
-    pub mode: CallMode,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_nullable_canonical_timestamp"
-    )]
-    pub started_at: Option<Option<DateTime<Utc>>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_nullable_canonical_timestamp"
-    )]
-    pub ended_at: Option<Option<DateTime<Utc>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<Option<u64>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peak_participant_count: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub distinct_participant_count: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recording_state: Option<CallRecordingState>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transcript_state: Option<CallTranscriptState>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CallSummaryPayloadWire {
-    call_id: CallId,
-    final_state: CallSummaryFinalState,
-    mode: CallMode,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_present_nullable_canonical_timestamp"
-    )]
-    started_at: Option<Option<DateTime<Utc>>>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_present_nullable_canonical_timestamp"
-    )]
-    ended_at: Option<Option<DateTime<Utc>>>,
-    #[serde(default, deserialize_with = "deserialize_present_nullable")]
-    duration_ms: Option<Option<u64>>,
-    peak_participant_count: Option<u64>,
-    distinct_participant_count: Option<u64>,
-    recording_state: Option<CallRecordingState>,
-    transcript_state: Option<CallTranscriptState>,
-}
-
-impl CallSummaryPayload {
-    pub fn validate(&self) -> std::result::Result<(), &'static str> {
-        if self.final_state != CallSummaryFinalState::Ended
-            && matches!(self.ended_at, Some(Some(_)))
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if matches!(
-            self.final_state,
-            CallSummaryFinalState::Missed | CallSummaryFinalState::Cancelled
-        ) && matches!(self.started_at, Some(Some(_)))
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        match (&self.started_at, &self.ended_at, self.duration_ms) {
-            (Some(Some(started_at)), Some(Some(ended_at)), Some(Some(duration_ms))) => {
-                let elapsed_ms = ended_at
-                    .signed_duration_since(started_at.to_owned())
-                    .num_milliseconds();
-                if elapsed_ms < 0 || u64::try_from(elapsed_ms).ok() != Some(duration_ms) {
-                    return Err(ErrorCode::SCHEMA_VIOLATION);
-                }
-            }
-            (Some(Some(_)), Some(Some(_)), None | Some(None)) => {}
-            (_, _, Some(Some(_))) => return Err(ErrorCode::SCHEMA_VIOLATION),
-            _ => {}
-        }
-        let peak_participant_count = self.peak_participant_count.unwrap_or(0);
-        let distinct_participant_count = self.distinct_participant_count.unwrap_or(0);
-        if peak_participant_count > 1_000 || distinct_participant_count < peak_participant_count {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        Ok(())
-    }
-}
-
-impl<'de> Deserialize<'de> for CallSummaryPayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = CallSummaryPayloadWire::deserialize(deserializer)?;
-        let payload = Self {
-            call_id: wire.call_id,
-            final_state: wire.final_state,
-            mode: wire.mode,
-            started_at: wire.started_at,
-            ended_at: wire.ended_at,
-            duration_ms: wire.duration_ms,
-            peak_participant_count: wire.peak_participant_count,
-            distinct_participant_count: wire.distinct_participant_count,
-            recording_state: wire.recording_state,
-            transcript_state: wire.transcript_state,
-        };
-        payload.validate().map_err(serde::de::Error::custom)?;
-        Ok(payload)
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallTranscriptTransition {
@@ -856,20 +807,18 @@ pub struct CallStatePayload {
 
 impl CallStatePayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        // v1 has no per-leg current selector or CAS carrier for moderator mute.
+        if self.mute_override.is_some() {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         if self.state_transition.is_none()
             && self.focus.is_none()
             && self.recording_transition.is_none()
             && self.transcript_transition.is_none()
             && self.roster_delta.is_none()
             && self.moderation_delta.is_none()
-            && self.mute_override.is_none()
         {
             return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if let Some(mute_override) = &self.mute_override {
-            mute_override
-                .validate()
-                .map_err(|_| ErrorCode::SCHEMA_VIOLATION)?;
         }
         if let Some(CallModerationDelta::RemoveParticipant { removal }) = &self.moderation_delta {
             let valid_subject = match removal.action {
@@ -879,6 +828,9 @@ impl CallStatePayload {
             if !valid_subject {
                 return Err(ErrorCode::SCHEMA_VIOLATION);
             }
+        }
+        if let Some(CallRosterDelta::Join { participant }) = &self.roster_delta {
+            participant.validate_binding_carrier()?;
         }
         self.validate_recording_result_artifact()?;
         self.validate_transcript_result_storage()
@@ -1026,204 +978,44 @@ fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()
 }
 
 #[cfg(test)]
-mod tests {
+mod call_current_tests {
     use serde_json::json;
 
     use super::*;
 
     #[test]
-    fn recording_start_requires_pre_capture_consent_without_event_identity_cycle() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "recording_id": "capture-1",
-            "recording_agent_id": "ak:did_core:webvh:z6mkfixture",
-            "capture_kind": "recording",
-            "mode": "audio_video",
-            "visible_notice": true,
-            "result": {
-                "retention": {"consent_confirmed": true}
-            }
-        });
-        let payload: CallRecordingStartPayload = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(payload.mode, RecordingMode::AudioVideo);
-        payload.validate().unwrap();
-
-        let mut missing_result = value.clone();
-        missing_result.as_object_mut().unwrap().remove("result");
-        assert!(serde_json::from_value::<CallRecordingStartPayload>(missing_result).is_err());
-
-        let mut invalid_id = value.clone();
-        invalid_id["recording_id"] = json!("capture id");
-        assert!(serde_json::from_value::<CallRecordingStartPayload>(invalid_id).is_err());
-
-        let mut missing_consent = value;
-        missing_consent["result"]["retention"]["consent_confirmed"] = json!(false);
-        assert!(serde_json::from_value::<CallRecordingStartPayload>(missing_consent).is_err());
-
-        let cyclic_identity = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "recording_id": "capture-1",
-            "recording_agent_id": "ak:did_core:webvh:z6mkfixture",
-            "capture_kind": "recording",
-            "mode": "audio_video",
-            "visible_notice": true,
-            "result": {
-                "recording_start_event_id": "ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX",
-                "retention": {"consent_confirmed": true}
-            }
-        });
-        assert!(serde_json::from_value::<CallRecordingStartPayload>(cyclic_identity).is_err());
-    }
-
-    #[test]
-    fn call_capture_failure_reason_is_closed_with_x_extension() {
-        let registered =
-            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("backend_unavailable"))
-                .unwrap();
-        assert_eq!(registered.reason_code(), &ReasonCode::BackendUnavailable);
+    fn call_current_creation_has_a_required_null_predecessor_only_for_initial_states() {
+        for state in ["scheduled", "ringing", "connecting"] {
+            let wire = json!({"from":null,"to":state});
+            let current: CallStateCurrentValue = serde_json::from_value(wire.clone()).unwrap();
+            current.validate().unwrap();
+            assert_eq!(serde_json::to_value(current).unwrap(), wire);
+        }
+        for state in ["active", "ended", "missed", "failed", "cancelled"] {
+            let current: CallStateCurrentValue =
+                serde_json::from_value(json!({"from":null,"to":state})).unwrap();
+            assert_eq!(
+                current.validate(),
+                Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
+            );
+            assert_eq!(
+                CallCreatePayload {
+                    initial_state: current.to
+                }
+                .validate(),
+                Err(ReasonCode::CALL_STATE_TRANSITION_INVALID)
+            );
+        }
+        assert!(serde_json::from_value::<CallStateCurrentValue>(json!({"to":"ringing"})).is_err());
         assert!(
-            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("x_vendor_timeout"))
-                .is_ok()
-        );
-        assert!(
-            serde_json::from_value::<CallCaptureFailureReasonCode>(json!("call_state_terminal"))
+            serde_json::from_value::<CallStateTransition>(json!({"from":null,"to":"ringing"}))
                 .is_err()
         );
-        assert!(serde_json::from_value::<CallCaptureFailureReasonCode>(json!("x_UPPER")).is_err());
-    }
-
-    #[test]
-    fn call_state_transcript_result_round_trips_and_validates() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "transcript_transition": {
-                "recording_id": "capture-1",
-                "from": "transcribing",
-                "to": "failed",
-                "result": {
-                    "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    "media_type": "text/vtt",
-                    "language": "en-US",
-                    "retention_policy_id": "ak:policy:019a7360-0000-7000-8000-000000000005",
-                    "retention": {
-                        "consent_confirmed": true
-                    },
-                    "transcript_start_event_id": "ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX",
-                    "failure_reason_code": "storage_failed"
-                }
-            }
-        });
-        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
-
-        payload.validate().unwrap();
-        let encoded = serde_json::to_value(payload).unwrap();
-        assert_eq!(
-            encoded["transcript_transition"]["result"]["media_type"],
-            "text/vtt"
+        assert!(
+            serde_json::from_value::<CallStateCurrentValue>(
+                json!({"from":null,"to":"ringing","call_id":"extra"})
+            )
+            .is_err()
         );
-        assert_eq!(
-            encoded["transcript_transition"]["result"]["transcript_start_event_id"],
-            "ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX"
-        );
-    }
-
-    #[test]
-    fn call_state_moderation_delta_round_trips() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "moderation_delta": {
-                "op": "remove_participant",
-                "removal": {
-                    "actor_id": {"kind": "account", "account_id": {
-                        "principal_id": "ak:did_core:webvh:z6mkfixture",
-                        "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                    }},
-                    "action": "ban",
-                    "removed_by": "ak:did_core:webvh:z6mkfixture",
-                    "removed_at": "2026-06-22T00:00:00.000Z"
-                }
-            }
-        });
-        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
-        payload.validate().unwrap();
-        let encoded = serde_json::to_value(payload).unwrap();
-        assert_eq!(
-            encoded["moderation_delta"]["removal"]["actor_id"]["account_id"]["principal_id"],
-            "ak:did_core:webvh:z6mkfixture"
-        );
-    }
-
-    #[test]
-    fn call_state_mute_override_enforces_status_shape() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "mute_override": {
-                "status": "active",
-                "actor_id": {"kind": "account", "account_id": {
-                    "principal_id": "ak:did_core:webvh:z6mkfixture",
-                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                }},
-                "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
-                "audio_muted": true,
-                "video_muted": false,
-                "changed_by": "ak:did_core:webvh:z6mkfixture",
-                "changed_at": "2026-06-22T00:00:00.000Z",
-                "reason": "moderation"
-            }
-        });
-        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
-        payload.validate().unwrap();
-
-        let invalid: CallStatePayload = serde_json::from_value(json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "mute_override": {
-                "status": "cleared",
-                "actor_id": {"kind": "account", "account_id": {
-                    "principal_id": "ak:did_core:webvh:z6mkfixture",
-                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                }},
-                "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
-                "audio_muted": true,
-                "video_muted": false,
-                "changed_by": "ak:did_core:webvh:z6mkfixture",
-                "changed_at": "2026-06-22T00:00:00.000Z"
-            }
-        }))
-        .unwrap();
-        assert_eq!(invalid.validate(), Err(ErrorCode::SCHEMA_VIOLATION));
-    }
-
-    #[test]
-    fn call_state_transcript_result_rejects_direct_backend_refs() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "transcript_transition": {
-                "recording_id": "capture-1",
-                "from": "transcribing",
-                "to": "ready",
-                "result": {
-                    "transcript_start_event_id": "ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX",
-                    "retention": {"consent_confirmed": true},
-                    "transcript_artifact_url": "https://backend.example/transcript.vtt"
-                }
-            }
-        });
-
-        assert!(serde_json::from_value::<CallStatePayload>(value).is_err());
-    }
-
-    #[test]
-    fn call_state_rejects_capture_reentry_without_start() {
-        let value = json!({
-            "call_id": "ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7",
-            "transcript_transition": {
-                "recording_id": "capture-1",
-                "from": "stopped",
-                "to": "transcribing"
-            }
-        });
-        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
-
-        assert_eq!(payload.validate(), Err(ErrorCode::SCHEMA_VIOLATION));
     }
 }

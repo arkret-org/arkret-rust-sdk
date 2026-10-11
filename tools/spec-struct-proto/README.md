@@ -2,8 +2,10 @@
 
 Feasibility prototype for generating SDK wire types from the Spec `$defs`
 instead of hand-writing them. **Nothing under `crates/` reads anything here**,
-no build step invokes it, and it is not wired into any gate. It exists to
-answer one question with measurements rather than estimates:
+no crate build step imports its generated output. The `--check` mode is invoked
+by `tools/deny_unknown_audit.py --check` as a forward schema/serde-shape gate.
+The experiment and its generated snapshot remain tooling, not production DTOs.
+It measures the following question:
 
 > If we generated `crates/models-discovery` from `arkret-spec`, how much of the
 > hand-written crate would the generator reproduce, and what would be left?
@@ -13,7 +15,7 @@ Run it:
 ```sh
 python tools/spec-struct-proto/run_feasibility.py --crate models-discovery
 python tools/spec-struct-proto/compile_check.py        # rustc-checks the output
-python -m pytest tools/spec-struct-proto/test_spec_struct_proto.py
+python tools/spec-struct-proto/test_spec_struct_proto.py
 ```
 
 `run_feasibility.py` writes to `out/`:

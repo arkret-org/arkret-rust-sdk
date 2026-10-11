@@ -1,8 +1,16 @@
+//! Principal Control Realm genesis admission semantics.
+//!
+//! This module defines the domain input and result used by a deployment-private
+//! same-TCB admission path. It deliberately carries no canonical service
+//! operation identity. Content authorization is exclusively the frozen
+//! registration anchor, the identity-root control proof and the two Event
+//! proofs carried by the atomic genesis unit.
+
 use arkret_models_identity::{
-    DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
+    IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS, PrincipalRegistrationAnchor,
 };
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
+    DeviceId, Did, DidCoreId, Hash, IdempotencyKey, PcrGenesisUnit, RealmCommit, RealmId,
     RegistrationDidEvidence, Result, WireError, canonical, project_did_to_core_id,
 };
 use serde::{Deserialize, Serialize};
@@ -14,29 +22,27 @@ use crate::events_payloads::{
     validate_root_anchored_authorize_payload_digest,
 };
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrGenesisSubmitRequestBody {
+pub struct PcrGenesisAdmissionInput {
     pub account_authority_id: DidCoreId,
     pub principal_id: DidCoreId,
     pub did: Did,
     pub pcr_realm_id: RealmId,
+    pub did_version_id: String,
+    pub control_key_digest: Hash,
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
-    pub did_version_id: String,
-    pub log_head_digest: Hash,
-    pub control_key_digest: Hash,
-    pub registration_did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence: RegistrationDidEvidence,
     pub identity_creation_control_proof: IdentityCreationControlProof,
     pub genesis_unit: PcrGenesisUnit,
 }
 
-impl PcrGenesisSubmitRequestBody {
+impl PcrGenesisAdmissionInput {
     pub fn validate(&self) -> Result<()> {
         self.identity_creation_control_proof.validate_shape()?;
-        self.registration_did_operation.validate()?;
+        self.principal_registration_anchor.validate()?;
         self.registration_did_evidence.validate_shape()?;
         self.genesis_unit.validate_ordered_envelopes()?;
 
@@ -50,16 +56,20 @@ impl PcrGenesisSubmitRequestBody {
             || project_did_to_core_id(&self.did)? != self.principal_id
             || self.pcr_realm_id != proof.pcr_realm_id
             || self.did_version_id != proof.did_version_id
-            || self.log_head_digest != proof.log_head_digest
             || self.control_key_digest != proof.control_key_digest
-            || self.registration_did_operation.did != self.did
-            || Hash::new(canonical::canonical_sha256(
-                &self.registration_did_operation,
-            )?)? != proof.operation_digest
+            || self.principal_registration_anchor.did() != &self.did
+            || proof.proof_kind.registration_anchor_kind()
+                != self.principal_registration_anchor.anchor_kind()
+            || self.principal_registration_anchor.canonical_digest()?
+                != proof.registration_anchor_digest
             || self.registration_did_evidence.principal_id != self.principal_id
             || self.registration_did_evidence.did != self.did
             || self.registration_did_evidence.version_id != self.did_version_id
-            || self.registration_did_evidence.method_history_head != self.log_head_digest.as_str()
+            || self.registration_did_evidence.method_history_head
+                != self
+                    .principal_registration_anchor
+                    .declared_method_history_head()?
+                    .as_str()
             || self.registration_did_evidence.control_key_digest != self.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
             || create.actor_id.signing_principal_id() != &self.principal_id
@@ -118,6 +128,8 @@ impl PcrGenesisSubmitRequestBody {
             DeviceOrPrincipalRef::Principal(principal_id)
                 if principal_id == &proof.principal_id
         );
+        let create_proof = create.producer_proof.as_ref();
+        let authorize_proof = authorize.producer_proof.as_ref();
         if authorize_payload.authorization_binding_kind
             != DeviceAuthorizationBindingKind::RegistrationAnchor
             || !authorized_by_root
@@ -125,12 +137,8 @@ impl PcrGenesisSubmitRequestBody {
             || descriptor.device_public_key_did != authorize_payload.device_public_key_did
             || descriptor.hpke_key != authorize_payload.hpke_key
             || descriptor.algorithms != authorize_payload.algorithms
-            || create.proofs.len() != 1
-            || !create.proofs[0]
-                .as_producer()
-                .is_some_and(|proof| proof.verification_method.starts_with("did:key:"))
-            || authorize.proofs.len() != 1
-            || authorize.proofs[0].as_producer().is_none_or(|proof| {
+            || create_proof.is_none_or(|proof| !proof.verification_method.starts_with("did:key:"))
+            || authorize_proof.is_none_or(|proof| {
                 proof.verification_method.as_str() != expected_authorize_verification_method
             })
         {
@@ -147,20 +155,19 @@ impl PcrGenesisSubmitRequestBody {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrGenesisSubmitOutcome {
+pub struct PcrGenesisAdmissionOutcome {
     pub principal_id: DidCoreId,
     pub pcr_realm_id: RealmId,
     pub accepted_device_id: DeviceId,
-    pub receipt: EventBatchReceipt,
+    pub resolution: arkret_models_identity::PrincipalResolutionProjection,
+    pub commits: [RealmCommit; 2],
 }
 
-impl PcrGenesisSubmitOutcome {
-    pub fn validate_against(&self, request: &PcrGenesisSubmitRequestBody) -> Result<()> {
+impl PcrGenesisAdmissionOutcome {
+    pub fn validate_against(&self, request: &PcrGenesisAdmissionInput) -> Result<()> {
         request.validate()?;
-        let scope = self.receipt.pcr_genesis_scope()?;
         let create_payload: RealmCreatePayload =
             decode_payload_after_kind_validation(request.genesis_unit.create())?;
         let descriptor = create_payload
@@ -169,36 +176,66 @@ impl PcrGenesisSubmitOutcome {
             .ok_or_else(|| {
                 WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
             })?;
-        let receipt_event_id = |kind: &str| {
-            self.receipt
-                .events
-                .iter()
-                .find(|item| item.kind.as_str() == kind)
-                .map(|item| &item.event_id)
-        };
+        let [create_commit, authorize_commit] = &self.commits;
+        create_commit.validate_shape()?;
+        authorize_commit.validate_successor_of(create_commit)?;
         if self.principal_id != request.principal_id
             || self.pcr_realm_id != request.pcr_realm_id
             || self.accepted_device_id != descriptor.device_id
-            || scope.principal_id != request.principal_id
-            || scope.realm_id != request.pcr_realm_id
-            || scope.audience_id.as_core_id() != request.account_authority_id.as_core_id()
-            || scope.did_version_id != request.did_version_id
-            || scope.log_head_digest != request.log_head_digest
-            || scope.control_key_digest != request.control_key_digest
-            || scope.registration_evidence_digest
-                != request.registration_did_evidence.canonical_digest()?
-            || scope.accepted_device_id != descriptor.device_id
-            || scope.device_key_digest != descriptor.device_key_digest()?
-            || scope.hpke_key_digest != descriptor.hpke_key_digest()?
-            || receipt_event_id(arkret_wire::event_kind_str::REALM_CREATE)
-                != Some(&request.genesis_unit.create().event_id)
-            || receipt_event_id(arkret_wire::event_kind_str::DEVICE_AUTHORIZE)
-                != Some(&request.genesis_unit.founding_authorize().event_id)
+            || create_commit.realm_id != request.pcr_realm_id
+            || authorize_commit.realm_id != request.pcr_realm_id
+            || create_commit.event_ref != request.genesis_unit.create().event_id
+            || authorize_commit.event_ref != request.genesis_unit.founding_authorize().event_id
         {
             return Err(WireError::Protocol(
-                "PCR genesis accepted receipt does not match the submitted unit".to_owned(),
+                "PCR genesis commits do not match the submitted unit".to_owned(),
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn pcr_genesis_admission_input_is_closed() {
+        assert!(
+            serde_json::from_value::<PcrGenesisAdmissionInput>(json!({})).is_err(),
+            "every relay member is required"
+        );
+        assert!(
+            serde_json::from_value::<PcrGenesisAdmissionInput>(json!({
+                "account_authority_id": "ak:did_core:web:authority.example",
+                "unexpected_member": true
+            }))
+            .is_err(),
+            "the relay body is a closed object"
+        );
+    }
+
+    #[test]
+    fn pcr_genesis_admission_result_requires_the_resolution_projection() {
+        assert!(
+            serde_json::from_value::<PcrGenesisAdmissionOutcome>(json!({
+                "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
+                "pcr_realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
+                "accepted_device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",
+                "commits": []
+            }))
+            .is_err(),
+            "resolution must not become optional"
+        );
+    }
+
+    #[test]
+    fn pcr_genesis_unit_kinds_are_the_closed_ordered_pair() {
+        assert_eq!(
+            serde_json::to_value(PCR_GENESIS_UNIT_KINDS).unwrap(),
+            json!(["ak.realm.create", "ak.device.authorize"])
+        );
     }
 }

@@ -11,8 +11,9 @@ pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
-use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
+use arkret_models_collaboration::sync_frames::account_subscribe::{
+    AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
+};
 
 use crate::{Error, Result};
 
@@ -24,7 +25,9 @@ fn clamp_reconnect_after_ms(raw: Option<u64>) -> u64 {
 pub struct AccountSubscribeFolder {
     frames: Vec<AccountSubscribeFrame>,
     done: Option<AccountSubscribeSnapshotResult>,
+    failed: bool,
     trace: StreamTraceValidator,
+    round_budget: AccountSyncRoundBudget,
 }
 
 impl AccountSubscribeFolder {
@@ -33,6 +36,8 @@ impl AccountSubscribeFolder {
         Self {
             frames: Vec::new(),
             done: None,
+            failed: false,
+            round_budget: Default::default(),
             trace: StreamTraceValidator::new(
                 request.catchup.unwrap_or(false),
                 request.after.clone(),
@@ -41,12 +46,16 @@ impl AccountSubscribeFolder {
     }
 
     pub fn push(&mut self, frame: AccountSubscribeFrame) -> Result<bool> {
-        if self.done.is_some() {
+        if self.failed || self.done.is_some() {
             return Err(Error::Protocol(
                 "account subscribe frame arrived after a terminal frame".to_owned(),
             ));
         }
+        self.failed = true;
+        self.round_budget
+            .observe(arkret_canonical::canonical_json_bytes(&frame)?.len())?;
         self.trace.push(&frame)?;
+        self.failed = false;
         match frame.kind {
             AccountSubscribeFrameKind::ResyncRequired | AccountSubscribeFrameKind::Unauthorized => {
                 self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
@@ -76,6 +85,11 @@ impl AccountSubscribeFolder {
     }
 
     pub fn finish(mut self) -> Result<AccountSubscribeSnapshotResult> {
+        if self.failed {
+            return Err(Error::Protocol(
+                "account subscribe folder was rejected".to_owned(),
+            ));
+        }
         self.trace.finish()?;
         if let Some(done) = self.done {
             return Ok(done);
@@ -100,7 +114,7 @@ impl AccountSubscribeFolder {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::account_sync::NotificationDeltaAction;
+    use arkret_models_collaboration::sync_frames::account_subscribe::NotificationDeltaAction;
     use serde_json::Value;
 
     use super::*;
@@ -110,7 +124,9 @@ mod tests {
             after: after.map(ToOwned::to_owned),
             catchup: Some(catchup),
             filter: None,
-            subscriptions: None,
+
+            realm_list: None,
+            replace_filter: None,
         }
     }
 
@@ -186,13 +202,13 @@ mod tests {
     }
 
     #[test]
-    fn folder_accepts_frontier_only_bounded_long_poll_timeout() {
+    fn folder_accepts_checkpoint_only_bounded_long_poll_timeout() {
         let mut folder =
             AccountSubscribeFolder::for_request(&request(true, Some("ak:cursor:saved")));
         assert!(
             !folder
                 .push(frame(serde_json::json!({
-                    "kind": "frontier",
+                    "kind": "checkpoint",
                     "cursor": "ak:cursor:idle",
                 })))
                 .unwrap()

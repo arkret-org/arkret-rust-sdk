@@ -52,8 +52,6 @@ openmls = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
 arkret-schema-conformance = { workspace = true }
-# secret_share HPKE seal/open is exercised only by the history-sharing test.
-arkret-crypto = { workspace = true, features = ["aead", "secret-share"] }
 # Spec fixture tests load the private-kdf artifact from the explicit spec checkout.
 arkret-schema = { workspace = true }
 hex = { workspace = true }

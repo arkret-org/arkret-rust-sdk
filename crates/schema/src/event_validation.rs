@@ -39,7 +39,7 @@ impl EventSchemaExt for Event {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, EnvelopeActorKind, Hlc, RealmId, ReasonCode, ScopeRef};
+    use arkret_wire::{DidCoreId, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -53,8 +53,6 @@ mod tests {
             },
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"content": {"kind": "ak.content.text", "body": "missing strand"}}),
         )
         .unwrap()
@@ -69,15 +67,8 @@ mod tests {
     }
 
     #[test]
-    fn submit_gate_runs_structural_validation_before_schema_validation() {
-        // `actor_kind` is the reducer-stamped envelope field. A producer that
-        // supplies one is rejected structurally, before the payload ever
-        // reaches the registered schema.
-        let mut event = event();
-        event.actor_kind = Some(EnvelopeActorKind::User);
-
-        let error = event.validate_for_submit().unwrap_err().to_string();
-
-        assert!(error.contains(ReasonCode::ACTOR_KIND_REDUCER_MANAGED));
+    fn submit_gate_requires_exactly_one_producer_proof() {
+        let error = event().validate_for_submit().unwrap_err().to_string();
+        assert!(error.contains("Event must carry producer_proof"));
     }
 }

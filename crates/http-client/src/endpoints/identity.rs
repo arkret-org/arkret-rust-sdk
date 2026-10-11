@@ -1,16 +1,11 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
-use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
-    DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
-    DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
-    DirectoryOrganizationSearchOutcome, DirectoryRealmResolutionOutcome,
-    DirectoryRealmSearchOutcome, DirectoryResolveAgentSelectorRequestBody,
-    DirectoryResolveHandleRequestBody, DirectoryResolveRealmRequestBody,
-    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
-    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
-    DirectorySubjectHandleList, DirectoryTargetResolutionOutcome, ServiceDescribe,
-    ServiceRequirements,
+    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody,
+    DirectorySearchRealmsRequestBody, ServiceDescribe, ServiceRequirements,
+};
+use arkret_models_identity::actor_profile_operations::{
+    ActorProfileResolveOutcome, ActorProfileResolveRequest,
 };
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
@@ -28,6 +23,39 @@ use reqwest::Method;
 use crate::{Client, Error, Result};
 
 impl Client {
+    /// Read this authenticated Account's current principal projection and unique PCR.
+    pub async fn current_principal(
+        &self,
+        request: &arkret_models_identity::CurrentPrincipalRequestBody,
+    ) -> Result<arkret_models_identity::CurrentPrincipalOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_identity::CurrentPrincipalOutcome = self
+            .post("/_arkret/self/account/current-principal", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Read the own-Station verified route and signing keys of the media
+    /// service anchored by one joined Realm
+    /// (`sync/server-trusted-results.md` §5.9).
+    ///
+    /// `accepted_service_id` is the `service_id` the caller already installed
+    /// from the Realm's accepted `ak.realm.media_service` cell. A route that
+    /// does not match it is rejected here rather than adopted.
+    pub async fn media_service_binding(
+        &self,
+        request: &arkret_models_identity::MediaServiceBindingRequestBody,
+        accepted_service_id: &DidCoreId,
+    ) -> Result<arkret_models_identity::MediaServiceBindingOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_identity::MediaServiceBindingOutcome = self
+            .post("/_arkret/self/media-service-bindings/query", request)
+            .await?;
+        outcome.validate_for_request(request, accepted_service_id)?;
+        Ok(outcome)
+    }
+
     /// Read the authenticated account's exact Principal Control Realm lineage.
     ///
     /// The authority pair is an explicit selector: the server must not choose
@@ -42,6 +70,36 @@ impl Client {
             .await?;
         evidence.validate_history_continuation()?;
         Ok(evidence)
+    }
+
+    /// Resolve co-member global Actor Profiles through the only outward
+    /// carrier for PCR-resident profile state.
+    ///
+    /// `realm_id` is the authorization basis: the caller and every returned
+    /// actor must be current effective joined members of it, and it must not be
+    /// a Principal Control Realm. Every requested actor comes back exactly once
+    /// across `profiles` and `failures`, and every per-actor failure is the
+    /// single `profile_unavailable` value, so the response cannot be used to
+    /// probe membership or account existence.
+    ///
+    /// Only that batch-wide invariant is enforced here. Whether an individual
+    /// row's Event, projection and actor agree is a per-row fact, so it is left
+    /// to the consumer through
+    /// [`validate_resolved_actor_profile`](arkret_models_collaboration::actor_profile_resolution::validate_resolved_actor_profile):
+    /// a caller degrades that one actor to unavailable rather than losing the
+    /// rows that were fine, which is what the single-valued per-actor failure
+    /// vocabulary is for. The returned profile projection is already bound to
+    /// an accepted authority commit reference.
+    pub async fn actor_profile_resolve(
+        &self,
+        request: &ActorProfileResolveRequest,
+    ) -> Result<ActorProfileResolveOutcome> {
+        request.validate()?;
+        let outcome: ActorProfileResolveOutcome = self
+            .post("/_arkret/self/actor-profiles/query", request)
+            .await?;
+        outcome.validate_covers(&request.actor_ids)?;
+        Ok(outcome)
     }
 
     /// Fetch the current public principal resolution projection without
@@ -73,7 +131,7 @@ impl Client {
     /// Unlike `ServiceDescribe`, this response retains the signed route record,
     /// method-native history evidence, and normalized DID document together.
     /// The returned shape is not trusted until
-    /// [`Client::open_service_signer_evidence`] verifies it.
+    /// [`arkret_identity::verify_current_service_resolution`] verifies it.
     pub async fn open_service_resolution(
         &self,
         service_id: &DidCoreId,
@@ -163,29 +221,11 @@ impl Client {
         &self,
         request: &DidOperationSubmitRequestBody,
     ) -> Result<DidOperationSubmitOutcome> {
-        self.post("/_arkret/root/identity/submit-did-operation", request)
-            .await
-    }
-
-    /// Publish a typed recovery-policy control Event using canonical JSON.
-    pub async fn identity_recovery_policy_publish(
-        &self,
-        request: &RecoveryPolicyPublishRequest,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<RecoveryPolicyPublishOutcome> {
-        request.validate_structural(digest_suite)?;
-        let payload = request.policy_payload()?;
-        let outcome: RecoveryPolicyPublishOutcome = self
-            .post("/_arkret/root/identity/recovery-policy", request)
+        request.validate()?;
+        let outcome: DidOperationSubmitOutcome = self
+            .post("/_arkret/root/identity/submit-did-operation", request)
             .await?;
-        if outcome.policy_id != payload.policy_id
-            || outcome.account_id != payload.value.account_id
-            || outcome.version != payload.value.version
-        {
-            return Err(Error::Protocol(
-                "recovery-policy publish response changed policy binding".to_owned(),
-            ));
-        }
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -258,70 +298,5 @@ impl Client {
     ) -> Result<DirectoryRealmResolutionOutcome> {
         self.post("/_arkret/find/directory/resolve-realm", request)
             .await
-    }
-
-    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.read.resolve_target.v1`.
-    /// Resolve a client-agnostic shareable object address (Realm / Strand /
-    /// Message) to a preview. The `address` and any `token` should be derived
-    /// from [`arkret_wire::parse_address`]; invite and preview tokens
-    /// MUST be bound to the resolved object server-side via
-    /// [`arkret_wire::verify_token_target`].
-    pub async fn directory_resolve_target(
-        &self,
-        request: &DirectoryResolveTargetRequestBody,
-    ) -> Result<DirectoryTargetResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-target", request)
-            .await
-    }
-
-    pub async fn directory_search_organizations(
-        &self,
-        request: &DirectorySearchOrganizationsRequestBody,
-    ) -> Result<DirectoryOrganizationSearchOutcome> {
-        self.post("/_arkret/find/directory/search-organizations", request)
-            .await
-    }
-
-    pub async fn directory_search_actors(
-        &self,
-        request: &DirectorySearchActorsRequestBody,
-    ) -> Result<DirectoryActorSearchOutcome> {
-        self.post("/_arkret/find/directory/search-actors", request)
-            .await
-    }
-
-    pub async fn directory_resolve_handle(
-        &self,
-        request: &DirectoryResolveHandleRequestBody,
-    ) -> Result<DirectoryHandleResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-handle", request)
-            .await
-    }
-
-    /// Resolve a controller-scoped Agent selector exactly.
-    pub async fn directory_resolve_agent_selector(
-        &self,
-        request: &DirectoryResolveAgentSelectorRequestBody,
-    ) -> Result<DirectoryAgentSelectorResolutionOutcome> {
-        let body: DirectoryAgentSelectorResolutionOutcome = self
-            .post("/_arkret/find/directory/resolve-agent-selector", request)
-            .await?;
-        body.validate()?;
-        Ok(body)
-    }
-
-    /// R3.2 (arkret-spec @ b56cab1) — `ak.find.directory.read.list_handles_for_subject.v1`.
-    /// Known holder/principal DID → current visible handle claims. The
-    /// response invariant `claims[].subject == subject` is enforced via
-    /// [`DirectorySubjectHandleList::validate`] before returning.
-    pub async fn directory_list_handles_for_subject(
-        &self,
-        request: &DirectoryListHandlesForSubjectRequestBody,
-    ) -> Result<DirectorySubjectHandleList> {
-        let body: DirectorySubjectHandleList = self
-            .post("/_arkret/find/directory/list-handles-for-subject", request)
-            .await?;
-        body.validate()?;
-        Ok(body)
     }
 }

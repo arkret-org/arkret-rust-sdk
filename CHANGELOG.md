@@ -9,6 +9,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Adopted the formal Applet managed governance contract: installation accepts
+  a Service only, independent Bot/Ghost provision uses signed four-Event units,
+  and package/registration/epoch carriers contain no default Bot identity.
+  HTTPS management URLs remain mandatory; content is supplied to concrete
+  accepted Devices through native Station operations.
+- Added Applet Policy evaluation, Agent publish/serve operations, management
+  review DTOs and exact approval binding helpers, managed terminal child role
+  constraints, and management Policy CAS/exact-current supply.
+- Added strict managed Device metadata and generated RFC9421 operation
+  allowlists; typed HTTP clients can use independent Service or Device
+  signatures without inheriting account sessions. Retired Applet self-actor
+  client-pull operation IDs and Applet disclosure/result detached-signature domains.
+- Preserved exact current-result cuts in Applet authority material and unified
+  the Applet committed Event carrier with its required regular Account Device
+  evidence. Browser Device nonces use the `getrandom` Web Crypto backend.
+
+- Removed the device-level SAS verification surface. `arkret-crypto`'s
+  `key_verification` module and its `key-verification` feature, the
+  `KeyVerificationContent` wire type with its purpose / cancellation enums,
+  the eight `ak.key.verification.*` kind constants, the
+  `DeviceMessageContent::KeyVerification` branch and the eight typed
+  `device_message_spec` markers are gone. `arkret-spec` retired the message
+  family with `device-lifecycle.md` §10; device trust now comes from the
+  closed verification checkpoint (§10.1) and secret sharing requires a
+  current checkpoint bound to the exact device and key.
+- Removed `ak.profile.matrix_compat.v1` from the generated profile surfaces.
+  `ProfileId` and the baked requirement table now carry 89 profiles;
+  `ak.profile.push_gateway.matrix_passthrough.v1` no longer depends on it.
+- Removed the reducer-stamped `Event.actor_kind` wire field. Authoritative
+  attribution now comes from the signed `actor_id`, optional `executed_by`, and
+  immutable historical provenance; Actor Profile `actor_kind` remains display
+  metadata only.
+- `Event.refs` and `Event.causal_refs` are now omitted when empty and explicit
+  empty arrays are rejected during decoding. `prev_refs` remains required and
+  may be empty.
+- Removed the Realm-configured ordinary Event revocation grace window and its stale-Seal error,
+  and Seal-distance grace handling. Origin admission freezes its validated
+  proof atomically; later revocation blocks new admissions without invalidating
+  events already admitted.
 - Renamed `ServiceRegistrationReceipt.receipt_id` to the spec-defined
   `registration_receipt_id` and changed it to `ServiceRegistrationReceiptId`;
   `AppletInstallPlan.plan_id` now uses `PlanId`.

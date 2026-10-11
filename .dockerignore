@@ -1,0 +1,16 @@
+# Named source contexts retain manifests, fixtures and SDK resources.
+**/target/
+**/.shared-target/
+**/node_modules/
+**/.git/
+**/.local/
+**/.codex-tmp/
+**/.ssh/
+**/.gnupg/
+**/.secrets/
+**/.env
+**/.env.*
+**/*.log
+
+# Credential mounts at the repository root are not Rust source modules.
+secrets/

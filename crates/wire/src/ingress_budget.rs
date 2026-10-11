@@ -18,7 +18,6 @@ use serde_json::Value;
 use crate::error::{Result, WireError};
 use crate::event_envelope::{
     MAX_EVENT_ENVELOPE_BYTES, MAX_HTTP_MESSAGE_CONTENT_BYTES, MAX_OPERATION_CANONICAL_BODY_BYTES,
-    MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES,
 };
 
 /// The inbound JSON body classes that carry distinct canonical byte bounds.
@@ -32,9 +31,6 @@ pub enum WireBodyClass {
     NonStreamingJsonOperation {
         max_canonical_body_bytes: Option<usize>,
     },
-    /// The service-added read-view `unsigned` object of a single Event
-    /// (§2.1.1). Submit paths reject `unsigned` outright and never use this.
-    ReadViewUnsigned,
 }
 
 impl WireBodyClass {
@@ -52,7 +48,6 @@ impl WireBodyClass {
             } => max_canonical_body_bytes
                 .unwrap_or(MAX_OPERATION_CANONICAL_BODY_BYTES)
                 .min(MAX_OPERATION_CANONICAL_BODY_BYTES),
-            Self::ReadViewUnsigned => MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES,
         }
     }
 
@@ -92,7 +87,6 @@ impl WireBodyClass {
         match self {
             Self::EventEnvelope => "event envelope",
             Self::NonStreamingJsonOperation { .. } => "non-streaming JSON operation",
-            Self::ReadViewUnsigned => "read-view unsigned",
         }
     }
 }
@@ -127,7 +121,6 @@ mod tests {
             WireBodyClass::NonStreamingJsonOperation {
                 max_canonical_body_bytes: None,
             },
-            WireBodyClass::ReadViewUnsigned,
         ] {
             let limit = class.canonical_byte_limit();
             let at_limit = canonical_object_of_len(limit);

@@ -2,7 +2,7 @@
 
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
-use arkret_wire::{AccountId, AuditReasonText, DidCoreId};
+use arkret_wire::{AccountId, AuditReasonText, DeviceId, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,108 @@ impl AgentProvisionPayload {
         }
         Ok(())
     }
+
+    /// The registered admission checks of `ak.agent.provision` that bind this
+    /// payload to its carrying envelope: the controller authors it as its own
+    /// account (an `authorization_ref`, when present, is exactly the signed
+    /// controller delegation), `controller_principal_id` is that account's
+    /// principal, and `created_at` equals the envelope time byte for byte.
+    pub fn validate_envelope(&self, event: &Event) -> Result<()> {
+        let controller = event.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
+        })?;
+        if controller.principal_id != self.controller_principal_id {
+            return Err(WireError::Protocol(
+                "ak.agent.provision controller_principal_id must equal the actor principal"
+                    .to_owned(),
+            ));
+        }
+        if event.executed_by.is_some()
+            || event
+                .authorization_ref
+                .as_deref()
+                .is_some_and(|reference| reference != self.controller_authorization_ref.as_str())
+        {
+            return Err(WireError::Protocol(
+                "ak.agent.provision is authored by the controller itself, under at most its own \
+                 controller delegation"
+                    .to_owned(),
+            ));
+        }
+        if canonical::format_timestamp_canonical(self.created_at)
+            != canonical::format_timestamp_canonical(event.created_at)
+        {
+            return Err(WireError::Protocol(
+                "ak.agent.provision payload.created_at must equal envelope.created_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// The `agent_provisioning` value projection.
+    #[must_use]
+    pub fn provisioning_value(&self) -> AgentProvisioningValue {
+        AgentProvisioningValue {
+            controller_principal_id: self.controller_principal_id.clone(),
+            principal_control_realm_id: self.principal_control_realm_id.clone(),
+            controller_authorization_ref: self.controller_authorization_ref.clone(),
+            requested_scope_digest: self.requested_scope_digest.clone(),
+        }
+    }
+
+    /// The `agent_pcr_genesis_declaration` value projection.
+    #[must_use]
+    pub fn genesis_declaration_value(&self) -> AgentPcrGenesisDeclarationValue {
+        AgentPcrGenesisDeclarationValue {
+            agent_id: self.agent_id.clone(),
+        }
+    }
+
+    /// The Agent account named by the registered derivation
+    /// `agent_account_id_from_provision`: the principal is the signed
+    /// `agent_id`, the Station is the carrying envelope actor's Station.
+    pub fn agent_account_id(&self, event: &Event) -> Result<AccountId> {
+        let controller = event.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
+        })?;
+        Ok(AccountId::new(
+            self.agent_id.clone(),
+            controller.station_id.clone(),
+        ))
+    }
+
+    /// The `agent_selector_claim` value projection.
+    pub fn selector_claim_value(
+        &self,
+        event: &Event,
+    ) -> Result<arkret_models_identity::AgentSelectorClaimValue> {
+        Ok(arkret_models_identity::AgentSelectorClaimValue {
+            subject_account_id: self.agent_account_id(event)?,
+            visibility: self.selector_visibility,
+            audience: self.selector_audience.clone(),
+        })
+    }
+}
+
+/// Value of the `agent_provisioning` typed current result
+/// (`typed-current-result.schema.json#/$defs/agent_provisioning_value`): the
+/// create-locked members a reader holding only the Agent DID needs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisioningValue {
+    pub controller_principal_id: DidCoreId,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: DidUrl,
+    pub requested_scope_digest: Hash,
+}
+
+/// Value of the `agent_pcr_genesis_declaration` typed current result
+/// (`typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value`):
+/// the index from a forward-declared Agent PCR id to its Agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentPcrGenesisDeclarationValue {
+    pub agent_id: DidCoreId,
 }
 
 /// Why an Event does not carry the registered Agent provision payload.
@@ -135,26 +237,36 @@ pub struct AgentActionApprovePayload {
     pub agent_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
-    pub approved_payload_digest: Hash,
+    pub approved_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_content_digest: Option<Hash>,
     pub approval_nonce: String,
     #[serde(with = "canonical_timestamp")]
-    pub approved_at: DateTime<Utc>,
-    #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+}
+
+impl AgentActionApprovePayload {
+    /// Whether an Event covered by a RealmCommit with `committed_at` falls
+    /// inside this approval window.
+    ///
+    /// The governing Station's signed `committed_at` is the only clock: both
+    /// the approval Event and the approved Event are admitted exactly when
+    /// their covering `committed_at <= expires_at`, inclusive and with zero
+    /// tolerance. Envelope `created_at` and the current time never participate.
+    pub fn admits_commit_at(&self, committed_at: DateTime<Utc>) -> bool {
+        committed_at <= self.expires_at
+    }
 }
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_action_reject_payload`.
+/// The only rejection target is one action request; a draft's workflow
+/// state is controller-encrypted Account Data, never a Station target.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionRejectPayload {
     pub rejection_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub draft_id: Option<String>,
+    pub request_id: String,
     pub agent_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
@@ -197,6 +309,33 @@ pub struct AgentActionTarget {
     pub account_data_key: Option<String>,
 }
 
+/// One accepted controller device's HPKE delivery of an Agent draft body.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftContentHandoffRecipient {
+    pub recipient_device_id: DeviceId,
+    pub recipient_hpke_key_digest: Hash,
+    pub enc: String,
+    pub ciphertext: String,
+    pub ciphertext_digest: Hash,
+}
+
+/// Closed HPKE handoff carried by `ak.agent.draft.propose`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftContentHandoff {
+    pub scheme: AgentDraftContentHandoffScheme,
+    pub recipients: Vec<AgentDraftContentHandoffRecipient>,
+}
+
+/// The sole v1 HPKE suite permitted for Agent draft handoff.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentDraftContentHandoffScheme {
+    #[default]
+    #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
+    V1,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_deactivate_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -221,14 +360,13 @@ pub struct AgentDraftProposePayload {
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub content_digest: Hash,
+    pub content_handoff: AgentDraftContentHandoff,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub account_data_key: Option<String>,
 }
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_approval_evidence`
@@ -337,9 +475,9 @@ pub enum AgentKeyRuntimeAttestationKind {
     SelfAsserted,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`
-/// `runtime_attestation` object.
+/// Closed runtime attestation carried by an Agent key authorize Event.
+///
+/// `event-payload.schema.json#/$defs/agent_key_authorize_payload/properties/runtime_attestation`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -371,8 +509,7 @@ pub struct AgentKeyAuthorizePayload {
     pub key_id: NonEmptyString,
     /// DID URL for the runtime signing key, including its key fragment.
     pub verification_method: DidUrl,
-    pub public_key_digest: Hash,
-    pub signing_key_binding_digest: Hash,
+    pub public_key: crate::governance::agent_artifacts::PublicKey,
     pub accountable_principal_id: DidCoreId,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
@@ -421,7 +558,7 @@ impl std::error::Error for AgentKeyAuthorizePayloadError {}
 
 /// Read the closed authorize payload out of a signed Event envelope.
 ///
-/// Consumers (Coauth's runtime pairing gate, Soland's admission path) validate
+/// Consumers (Coauth's runtime pairing gate, Coland's admission path) validate
 /// business fields against this type rather than re-reading string keys off a
 /// `serde_json::Value`, so a payload field rename is a compile error at every
 /// call site instead of a silently absent check.
@@ -501,90 +638,135 @@ pub struct AgentResumePayload {
 }
 
 #[cfg(test)]
-mod agent_key_authorize_payload_tests {
+mod tests {
+    use chrono::Duration;
     use serde_json::json;
 
-    use super::{AgentKeyAuthorizePayload, AgentKeyAuthorizePayloadError};
+    use super::*;
 
-    fn authorize_event(kind: &str, payload_overrides: serde_json::Value) -> arkret_wire::Event {
+    fn approve_value() -> Value {
+        json!({
+            "approval_id": "approval-1",
+            "agent_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+            "proposed_action": "publish",
+            "target": { "kind": "event" },
+            "approved_event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
+            "approval_nonce": "AAAAAAAAAAAAAAAAAAAAAA",
+            "expires_at": "2026-09-24T08:00:00.000Z"
+        })
+    }
+
+    #[test]
+    fn action_approve_carries_only_expires_at() {
+        let payload: AgentActionApprovePayload = serde_json::from_value(approve_value()).unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), approve_value());
+        let mut retired = approve_value();
+        retired["approved_at"] = json!("2026-09-24T07:00:00.000Z");
+        assert!(serde_json::from_value::<AgentActionApprovePayload>(retired).is_err());
+    }
+
+    fn provision_event(created_at: &str, selector: Value) -> (AgentProvisionPayload, Event) {
+        let controller = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
         let mut payload = json!({
-            "agent_id": "ak:did_core:web:agent.example",
-            "key_id": "runtime-key-1",
-            "verification_method": "did:web:agent.example#runtime-key-1",
-            "public_key_digest":
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "signing_key_binding_digest":
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "accountable_principal_id": "ak:did_core:web:controller.example",
-            "agent_key_scope": { "actions": ["ak.event.read"], "resources": [] },
-            "audience": ["did:web:soland.local"],
-            "issued_at": "2026-07-06T00:00:00.000Z",
-            "approval_evidence": {
-                "kind": "pairing_request",
-                "pairing_request_id":
-                    "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
-                "request_canonical_digest":
-                    "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-                "approved_by": "ak:did_core:web:controller.example"
-            }
+            "schema": "ak.schema.agent_provision.v1",
+            "agent_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+            "controller_principal_id": controller,
+            "principal_control_realm_id": "ak:realm:AfnUfJvZuZpWOPXnnKIwf1dg2Dee77NZ0MxYh1uFxCLF",
+            "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+            "agent_slug": "summary",
+            "accountability_scope": "agent_operator",
+            "requested_scope_digest": format!("sha256:{}", "a".repeat(64)),
+            "created_at": created_at
         });
-        if let (Some(payload), Some(overrides)) =
-            (payload.as_object_mut(), payload_overrides.as_object())
-        {
-            for (key, value) in overrides {
-                payload.insert(key.clone(), value.clone());
-            }
-        }
-        serde_json::from_value(json!({
-            "event_id": "ak:event:AaWlxNyGs0FzlOCJpyhjSRcmOcoYvk0qQ4X91NlGuKSZ",
-            "kind": kind,
-            "realm_id": "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm",
-            "scope_ref": {
-                "kind": "realm",
-                "realm_id": "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm"
+        payload
+            .as_object_mut()
+            .unwrap()
+            .extend(selector.as_object().unwrap().clone());
+        let event = test_support::raw_event_at(
+            EventKind::AgentProvision.as_str(),
+            ScopeRef::Realm {
+                realm_id: RealmId::new(
+                    "ak:realm:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-".to_owned(),
+                )
+                .unwrap(),
             },
-            "actor_id": {"kind": "service", "service_id": "ak:did_core:web:agent.example"},
-            "executed_by": {"kind": "account", "account_id": {
-                "principal_id": "ak:did_core:web:controller.example",
-                "station_id": "ak:did_core:web:ps.example"
-            }},
-            "actor_seq": 1,
-            "created_at": "2026-07-06T00:00:00.000Z",
-            "prev_refs": [],
-            "payload": payload,
-            "proofs": []
-        }))
-        .expect("fixture is a wire Event")
+            controller,
+            station,
+            payload,
+            canonical::parse_timestamp_canonical("2026-09-26T08:00:00.000Z").unwrap(),
+        )
+        .unwrap();
+        (AgentProvisionPayload::try_from(&event).unwrap(), event)
     }
 
     #[test]
-    fn reads_the_closed_payload_from_a_matching_event() {
-        let event = authorize_event("ak.agent.key.authorize", json!({}));
-        let payload = AgentKeyAuthorizePayload::try_from(&event).expect("payload parses");
-        assert_eq!(payload.key_id.as_str(), "runtime-key-1");
-        assert_eq!(payload.audience, vec!["did:web:soland.local".to_owned()]);
-        assert!(payload.expires_at.is_none());
-        assert!(payload.supersedes.is_empty());
-    }
-
-    #[test]
-    fn rejects_an_event_of_another_kind() {
-        let event = authorize_event("ak.agent.key.revoke", json!({}));
-        assert!(matches!(
-            AgentKeyAuthorizePayload::try_from(&event),
-            Err(AgentKeyAuthorizePayloadError::UnexpectedKind(kind)) if kind == "ak.agent.key.revoke"
-        ));
-    }
-
-    #[test]
-    fn rejects_an_unregistered_payload_field() {
-        let event = authorize_event(
-            "ak.agent.key.authorize",
-            json!({ "unregistered_field": true }),
+    fn provision_projects_the_three_provision_owned_values() {
+        let (payload, event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "restricted", "selector_audience": "team"}),
         );
-        assert!(matches!(
-            AgentKeyAuthorizePayload::try_from(&event),
-            Err(AgentKeyAuthorizePayloadError::InvalidPayload(_))
-        ));
+        payload.validate_envelope(&event).unwrap();
+        assert_eq!(
+            serde_json::to_value(payload.provisioning_value()).unwrap(),
+            json!({
+                "controller_principal_id": "ak:did_core:web:alice.example",
+                "principal_control_realm_id": "ak:realm:AfnUfJvZuZpWOPXnnKIwf1dg2Dee77NZ0MxYh1uFxCLF",
+                "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+                "requested_scope_digest": format!("sha256:{}", "a".repeat(64))
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(payload.genesis_declaration_value()).unwrap(),
+            json!({"agent_id": "ak:did_core:webvh:z6mkfixture:agent.example"})
+        );
+        let selector = serde_json::to_value(payload.selector_claim_value(&event).unwrap()).unwrap();
+        assert_eq!(
+            selector["subject_account_id"],
+            json!({
+                "principal_id": "ak:did_core:webvh:z6mkfixture:agent.example",
+                "station_id": "ak:did_core:web:station.example"
+            })
+        );
+        assert_eq!(selector["visibility"], "restricted");
+        assert_eq!(selector["audience"], "team");
+        assert!(
+            serde_json::from_value::<AgentProvisioningValue>(json!({"agent_id": "x"})).is_err()
+        );
+    }
+
+    #[test]
+    fn provision_envelope_binds_the_controller_and_the_signed_time() {
+        let (payload, event) = provision_event(
+            "2026-09-26T08:00:00.001Z",
+            json!({"selector_visibility": "private"}),
+        );
+        assert!(payload.validate_envelope(&event).is_err());
+        let (mut payload, event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "public"}),
+        );
+        payload.controller_principal_id = DidCoreId::new("ak:did_core:web:bob.example").unwrap();
+        assert!(payload.validate_envelope(&event).is_err());
+        let (payload, mut event) = provision_event(
+            "2026-09-26T08:00:00.000Z",
+            json!({"selector_visibility": "public"}),
+        );
+        event.authorization_ref =
+            Some(AuthorizationRef::new(payload.controller_authorization_ref.as_str()).unwrap());
+        payload.validate_envelope(&event).unwrap();
+        event.authorization_ref = Some(
+            AuthorizationRef::new("did:webvh:z6mkfixture:other.example#managed-controller")
+                .unwrap(),
+        );
+        assert!(payload.validate_envelope(&event).is_err());
+    }
+
+    #[test]
+    fn action_approve_window_is_inclusive_on_covering_commit_time() {
+        let payload: AgentActionApprovePayload = serde_json::from_value(approve_value()).unwrap();
+        assert!(payload.admits_commit_at(payload.expires_at));
+        assert!(payload.admits_commit_at(payload.expires_at - Duration::milliseconds(1)));
+        assert!(!payload.admits_commit_at(payload.expires_at + Duration::milliseconds(1)));
     }
 }

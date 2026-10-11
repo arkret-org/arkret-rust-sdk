@@ -38,8 +38,8 @@ Plus one category for non-production code:
     leaks into a shared helper becomes a production defect.
 
 Usage:
-    python tools/lint-event-derived-id-minting.py --root ../soland
-    python tools/lint-event-derived-id-minting.py --root ../soland --report
+    python tools/lint-event-derived-id-minting.py --root ../coland
+    python tools/lint-event-derived-id-minting.py --root ../coland --report
 """
 
 from __future__ import annotations

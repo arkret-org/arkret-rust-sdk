@@ -2,11 +2,13 @@
 //!
 //! ## Feature flags
 //!
-//! * `backup` — pulls in the [`backup`] module, which provides client-side Argon2id KDF,
-//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed
-//!   [`arkret_models_crypto::key_backup::KeyBackup`] envelope builder (spec:
-//!   `crypto-media/key-management.md` §7). When the feature is off, the bare types crate stays free
-//!   of heavyweight crypto deps.
+//! * `backup` — pulls in the [`backup`] module: the client-side Argon2id KDF, XChaCha20-Poly1305
+//!   AEAD, recovery-key codec, **and** the `ak.schema.key_backup.v1` envelope assembly, its sole
+//!   AAD construction and its producer signature. The envelope belongs here rather than with each
+//!   calling protocol layer because `key-management.md` §7.2 fixes one AAD construction and one
+//!   signing transcript that sealer and opener MUST both run byte-for-byte; a host that assembled
+//!   its own envelope would re-derive those byte rules and drift at the first optional member.
+//!   Authorization — who may seal or open — does remain with the caller.
 
 #[cfg(feature = "account-data")]
 pub mod account_data_crypto;
@@ -18,10 +20,10 @@ pub mod backup;
 pub mod blob_aead;
 #[cfg(feature = "blob-aead")]
 pub mod file_transfer_aead;
+#[cfg(feature = "hpke")]
+pub mod hpke;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
-#[cfg(feature = "key-verification")]
-pub mod key_verification;
 #[cfg(feature = "aead")]
 pub mod mls_exporter;
 #[cfg(feature = "secret-share")]

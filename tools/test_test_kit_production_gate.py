@@ -14,6 +14,24 @@ def write(path: Path, text: str) -> None:
 
 
 class TestKitProductionGateTests(unittest.TestCase):
+    def test_fixture_derivation_cannot_return_to_signatures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "sdk/signatures/Cargo.toml", '[package]\nname = "arkret-signatures"\n')
+            write(root / "sdk/signatures/src/lib.rs", 'pub use helper::development_signing_key;\n')
+            errors = audit(root, root / "absent.json")
+            self.assertTrue(any("belongs to arkret-test-kit" in error for error in errors))
+            write(root / "sdk/signatures/src/lib.rs", 'pub fn from_seed() {}\n')
+            self.assertEqual(audit(root, root / "absent.json"), [])
+            write(root / "sdk/signatures/src/helper.rs", 'pub fn development_signing_key_seed() {}\n')
+            self.assertTrue(audit(root, root / "absent.json"))
+
+    def test_signatures_source_scan_cannot_be_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root / "sdk/signatures/Cargo.toml", '[package]\nname = "arkret-signatures"\n')
+            self.assertTrue(any("scan is empty" in error for error in audit(root, root / "absent.json")))
+
     def test_a_production_dependency_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -42,6 +60,22 @@ class TestKitProductionGateTests(unittest.TestCase):
                 '[package]\nname = "service"\n\n[dependencies]\n'
                 'arkret-test-kit = { path = "../x", optional = true }\n',
             )
+            self.assertEqual(audit(root, root / "absent.json"), [])
+
+    def test_default_features_cannot_activate_optional_test_kit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "service/Cargo.toml"
+            for edge in ('dep:arkret-test-kit', 'arkret-test-kit', 'arkret-test-kit/fixture'):
+                write(manifest, '[package]\nname = "service"\n[dependencies]\n'
+                      'arkret-test-kit = { path = "../x", optional = true }\n'
+                      '[features]\ndefault = ["nested"]\nnested = ["test-support"]\n'
+                      f'test-support = ["{edge}"]\n')
+                self.assertTrue(audit(root, root / "absent.json"))
+            write(manifest, '[package]\nname = "service"\n[dependencies]\n'
+                  'arkret-test-kit = { path = "../x", optional = true }\n'
+                  '[features]\ndefault = ["arkret-test-kit?/fixture"]\n'
+                  'test-support = ["dep:arkret-test-kit"]\n')
             self.assertEqual(audit(root, root / "absent.json"), [])
 
     def test_a_workspace_dependency_table_alone_links_nothing(self) -> None:

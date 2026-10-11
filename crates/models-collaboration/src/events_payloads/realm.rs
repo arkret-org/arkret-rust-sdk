@@ -8,15 +8,18 @@ use arkret_wire::{ActorId, DidCoreId, DomainSeparationId};
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::internal_prelude::*;
+use crate::objects::media::MediaBackendKind;
+use crate::serde_absence::deserialize_non_null_optional;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum InheritancePolicyStatus {
-    Active,
-    Tombstoned,
+/// `ak.realm.governance_station.change` payload. The accepted change Event is
+/// committed in the Realm stream before the dual-signed authority handoff is
+/// usable by any other stream.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmGovernanceStationChangePayload {
+    pub expected_governance_generation: u64,
+    pub expected_realm_stream_commit_id: RealmCommitId,
+    pub new_governance_station_id: DidCoreId,
 }
 
 /// Patch carried by `ak.realm.owner.transfer`.
@@ -54,7 +57,6 @@ impl RealmOwnerTransferPayload {
 pub struct RealmAuthorityResetPayload {
     pub realm_id: RealmId,
     pub expected_state_digest: Hash,
-    pub destructive_confirmation: String,
 }
 
 impl RealmAuthorityResetPayload {
@@ -67,18 +69,6 @@ impl RealmAuthorityResetPayload {
                 WireError::Protocol("Realm authority_generation is exhausted".to_owned())
             })
     }
-}
-
-/// `mls_send_pause` value of [`RealmPolicyBundlePayload`].
-///
-/// A closed one-value enum rather than a `bool`: `advisory` downgrades the MLS
-/// send pause from MUST to SHOULD and is only accepted when the Realm declares
-/// `ak.profile.e2ee_relaxed.v1`; omitting the field in a later revision reverts
-/// to the strict default, which has no token of its own.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MlsSendPause {
-    Advisory,
 }
 
 /// `account_deactivation.member_action` of [`RealmPolicyBundlePayload`].
@@ -109,47 +99,30 @@ pub struct RealmAccountDeactivationPolicy {
 pub struct RealmPreauthPolicy {
     /// When true, every invite into this Realm MUST pass the holder consent
     /// admission gate in `identity/consent-model.md` §6.1 before the invite
-    /// Control Move is submitted. It MUST NOT be read as permission for a
-    /// cross-Realm CBA precondition.
+    /// Event is submitted. It MUST NOT be read as permission for a
+    /// cross-Realm authority-commit condition.
     pub consent_required: bool,
 }
-
-/// Absolute ceiling on `relaxed_window_max_ms`
-/// (`crypto-media/encryption-and-audit.md` §2.4.1).
-///
-/// Deliberately **not** enforced by the wire type: the schema leaves the field
-/// unbounded above so an over-ceiling value reaches the reducer and surfaces as
-/// `relaxed_window_exceeds_ceiling`. A type that clamped or rejected here would
-/// turn that into `schema_violation`, or worse, into a silent truncation.
-pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
 ///
 /// Payload of `ak.realm.policy_bundle`: the payload **is** this flat closed
 /// object, not a `state_payload` wrapper. Every revision restates the complete
-/// enabled component set, because the bundle is written wholesale into the
-/// `ak.component.realm.policy_bundle.v1` `cas_register` cell and the Realm
-/// object's derived policy fields re-derive from the latest accepted bundle.
+/// enabled component set. The governance Station commits each replacement as
+/// one Realm-stream Event and projections use the latest committed revision.
 ///
 /// The closed property set is exactly the Realm policy components that have
 /// **no** independent facet Event kind. Components that own their own kind and
 /// cell (`ak.realm.join_rule`, `ak.realm.history_access`,
 /// `ak.realm.read_receipt_policy`, `ak.realm.media_service`, …) are written by
-/// those events and already reach `policy_root` through the
-/// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
-/// second, drifting truth.
+/// those events and reach the accepted policy projection through their own
+/// typed current result; echoing them here would create a second, drifting
+/// truth.
 ///
-/// `content_scheme` and `durability_policy` are **not** members: both are
-/// frozen by the accepted MLS group Genesis and are read from that exact group
-/// state (`models/realm-and-space.md` sections 2.3 and 2.3.1). The closed
-/// schema omits them, so a bundle that restated either value would create a
-/// second, mutable truth for a create-locked field.
-///
-/// `policy_revision` is strictly monotonic and is what gives this cell family a
-/// generation dimension inside its value — `cas_register` supersession binds by
-/// value, so a family that can otherwise repeat a value needs one
-/// (`event-auth-state-resolution.md` §9.3.1).
+/// `policy_revision` is strictly monotonic: the governance Station rejects a
+/// rollback or a gap, so a later revision always supersedes an earlier one even
+/// when the restated component set repeats a value.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 // Field declaration order is byte-for-byte the `properties` order of
@@ -157,21 +130,7 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 pub struct RealmPolicyBundlePayload {
     pub policy_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_send_pause: Option<MlsSendPause>,
-    /// Declared `ak.profile.e2ee_relaxed.v1` removed-member decryption window.
-    /// Absent means the spec default of 30000 ms.
-    ///
-    /// A value above [`RELAXED_WINDOW_MAX_MS_CEILING`] is representable on
-    /// purpose: the reducer and every receiver reject it with
-    /// `relaxed_window_exceeds_ceiling`, and MUST NOT silently clamp it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relaxed_window_max_ms: Option<u64>,
     /// Whether a media service listed in `plaintext_visible_services` may
     /// decrypt call media. Absent means `false`. One of three conditions that
     /// MUST all hold (`crypto-media/media-service-binding.md` §8.2).
@@ -186,30 +145,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_deactivation: Option<RealmAccountDeactivationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub availability_policy: Option<RealmAvailabilityPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit_policy: Option<RealmAuditPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_freshness_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_witness_freshness_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_intake_sla_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_decision_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_absolute_deadline_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_proposal_defers: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_compaction_max_interval_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_authority_lifetime_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bottom_escalation_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cell_lattices: Option<Vec<CellLatticeDeclaration>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_third_party_invite_verification_ids: Option<Vec<DidCoreId>>,
@@ -219,35 +154,19 @@ impl RealmPolicyBundlePayload {
     /// A bundle revision carrying one component set.
     ///
     /// Every component starts absent, and absent means **disabled**: the cell
-    /// is a `cas_register`, so a revision restates the complete enabled set and
+    /// is sequenced state, so a revision restates the complete enabled set and
     /// anything not written here is cleared. Authors building the next revision
     /// start from the currently accepted bundle
     /// ([`Self::restate`]) rather than from this constructor.
     pub fn new(policy_revision: u64) -> Self {
         Self {
             policy_revision,
-            content_encryption_floor: None,
-            metadata_encryption_floor: None,
             federation_policy: None,
-            mls_send_pause: None,
-            relaxed_window_max_ms: None,
             media_service_decrypts: None,
             join_policy: None,
             handle_issuer_policies: None,
             agent_participation: None,
             account_deactivation: None,
-            availability_policy: None,
-            audit_policy: None,
-            revocation_freshness_window_ms: None,
-            recovery_witness_freshness_window_ms: None,
-            proposal_intake_sla_ms: None,
-            proposal_decision_window_ms: None,
-            proposal_absolute_deadline_ms: None,
-            max_proposal_defers: None,
-            seal_compaction_max_interval_ms: None,
-            max_authority_lifetime_ms: None,
-            bottom_escalation_after_ms: None,
-            cell_lattices: None,
             preauth: None,
             allowed_third_party_invite_verification_ids: None,
         }
@@ -257,22 +176,13 @@ impl RealmPolicyBundlePayload {
     /// forward.
     ///
     /// This is the only safe way to author a follow-up revision. Because
-    /// `ak.component.realm.policy_bundle.v1` is a `cas_register`, a revision
+    /// `ak.component.realm.policy_bundle.v1` is sequenced state, a revision
     /// that writes only the components it means to change **clears** the rest.
     pub fn restate(&self, policy_revision: u64) -> Self {
         Self {
             policy_revision,
             ..self.clone()
         }
-    }
-
-    /// Whether `relaxed_window_max_ms` is above the absolute ceiling.
-    ///
-    /// Callers reject with `relaxed_window_exceeds_ceiling`; they MUST NOT
-    /// truncate to the ceiling and continue.
-    pub fn relaxed_window_exceeds_ceiling(&self) -> bool {
-        self.relaxed_window_max_ms
-            .is_some_and(|value| value > RELAXED_WINDOW_MAX_MS_CEILING)
     }
 
     pub fn media_service_decrypts(&self) -> bool {
@@ -310,43 +220,7 @@ impl RealmPolicyBundlePayload {
                 ));
             }
         }
-        self.control_proposal_decision_policy()?;
         Ok(())
-    }
-
-    /// Resolve the Control Proposal timing policy carried by this complete
-    /// policy-bundle revision, applying the protocol defaults for omitted
-    /// fields.
-    pub fn control_proposal_decision_policy(&self) -> Result<ControlProposalDecisionPolicy> {
-        let defaults = ControlProposalDecisionPolicy::default();
-        let duration_ms =
-            |value: Option<u64>, fallback: chrono::Duration| -> Result<chrono::Duration> {
-                let millis = value.unwrap_or_else(|| fallback.num_milliseconds() as u64);
-                let millis = i64::try_from(millis).map_err(|_| {
-                    WireError::Protocol(
-                    "Realm proposal decision duration exceeds i64 milliseconds (schema_violation)"
-                        .to_owned(),
-                )
-                })?;
-                Ok(chrono::Duration::milliseconds(millis))
-            };
-        let policy = ControlProposalDecisionPolicy {
-            proposal_intake_sla: duration_ms(
-                self.proposal_intake_sla_ms,
-                defaults.proposal_intake_sla,
-            )?,
-            decision_window: duration_ms(
-                self.proposal_decision_window_ms,
-                defaults.decision_window,
-            )?,
-            absolute_horizon: duration_ms(
-                self.proposal_absolute_deadline_ms,
-                defaults.absolute_horizon,
-            )?,
-            max_defers: self.max_proposal_defers.unwrap_or(defaults.max_defers),
-        };
-        policy.validate()?;
-        Ok(policy)
     }
 
     /// Components declared beside `policy_revision`.
@@ -478,8 +352,7 @@ impl FoundingDeviceDescriptor {
     }
 }
 
-/// Minimal immutable identity and security interpretation root carried by
-/// `ak.realm.create`.
+/// Minimal immutable identity and authority root carried by `ak.realm.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmGenesis {
@@ -491,159 +364,55 @@ pub struct RealmGenesis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
     pub trust_domain: TrustDomainId,
-    pub schema_refs: Vec<String>,
-    pub reducer_profile: String,
-    pub digest_algorithm: canonical::DigestSuite,
     pub security_class: SecurityClass,
-    pub encryption_profile: EncryptionProfile,
-    pub notary: NotaryValue,
+    pub governance_station_id: DidCoreId,
+    pub initial_join_rule: JoinRule,
+    pub initial_history_access: HistoryAccess,
+    pub initial_discoverability: Discoverability,
 }
 
 impl RealmGenesis {
     #[allow(clippy::too_many_arguments)]
-    pub fn event_derived(
+    pub fn new(
         purpose: RealmPurpose,
         genesis_salt: GenesisSalt,
         trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
         security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
+        governance_station_id: DidCoreId,
+        initial_join_rule: JoinRule,
+        initial_history_access: HistoryAccess,
+        initial_discoverability: Discoverability,
+        founding_device_descriptor: Option<FoundingDeviceDescriptor>,
+        initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose,
             genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: None,
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn principal_control(
-        genesis_salt: GenesisSalt,
-        founding_device_descriptor: Option<FoundingDeviceDescriptor>,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::PrincipalControl,
-            genesis_salt,
             founding_device_descriptor,
-            initial_resolution: Some(initial_resolution),
+            initial_resolution,
             trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
             security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn agent_control(
-        genesis_salt: GenesisSalt,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::AgentControl,
-            genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: Some(initial_resolution),
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn applet_managed_control(
-        genesis_salt: GenesisSalt,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::AppletManagedControl,
-            genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: Some(initial_resolution),
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
+            governance_station_id,
+            initial_join_rule,
+            initial_history_access,
+            initial_discoverability,
         };
         value.validate()?;
         Ok(value)
     }
 
     pub fn validate(&self) -> Result<()> {
+        let identity_control = matches!(
+            self.purpose,
+            RealmPurpose::PrincipalControl
+                | RealmPurpose::AgentControl
+                | RealmPurpose::AppletManagedControl
+        );
         if self.schema != SchemaId::REALM_GENESIS_V1
-            || self.schema_refs.is_empty()
-            || self.reducer_profile.is_empty()
-            || (!matches!(self.purpose, RealmPurpose::PrincipalControl)
-                && self.founding_device_descriptor.is_some())
-            || (self.purpose == RealmPurpose::PrincipalControl && self.initial_resolution.is_none())
-            || (!matches!(
-                self.purpose,
-                RealmPurpose::PrincipalControl
-                    | RealmPurpose::AgentControl
-                    | RealmPurpose::AppletManagedControl
-            ) && self.initial_resolution.is_some())
-            || (matches!(
-                self.purpose,
-                RealmPurpose::AgentControl | RealmPurpose::AppletManagedControl
-            ) && self.founding_device_descriptor.is_some())
-            || (matches!(
-                self.purpose,
-                RealmPurpose::PrincipalControl
-                    | RealmPurpose::AgentControl
-                    | RealmPurpose::AppletManagedControl
-            ) != self.initial_resolution.is_some())
+            || identity_control != self.initial_resolution.is_some()
+            || (self.purpose == RealmPurpose::PrincipalControl)
+                != self.founding_device_descriptor.is_some()
         {
             return Err(WireError::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
@@ -661,11 +430,9 @@ impl RealmGenesis {
                 "schema_violation: invalid initial identity resolution".to_owned(),
             ));
         }
-        self.notary.validate()?;
         Ok(())
     }
 }
-
 /// Complete value of the Realm display-profile singleton cell.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -705,57 +472,6 @@ impl RealmProfile {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_notary_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmNotaryPayload {
-    pub realm_id: RealmId,
-    pub notary: NotaryValue,
-}
-
-impl RealmNotaryPayload {
-    pub fn validate(&self) -> Result<()> {
-        self.notary.validate()
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// realm_digest_suite_transition_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDigestSuiteTransitionPayload {
-    pub from_digest_algorithm: canonical::DigestSuite,
-    pub to_digest_algorithm: canonical::DigestSuite,
-    pub transition_realm_state_snapshot_ref: RealmStateSnapshotId,
-    pub realm_state_snapshot_commitment: Hash,
-}
-
-impl RealmDigestSuiteTransitionPayload {
-    pub fn validate(&self) -> Result<()> {
-        if self.from_digest_algorithm == self.to_digest_algorithm {
-            return Err(WireError::Protocol(
-                "realm digest suite transition must change digest_algorithm (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if matches!(
-            (&self.from_digest_algorithm, &self.to_digest_algorithm),
-            (
-                canonical::DigestSuite::Blake3,
-                canonical::DigestSuite::Sha256
-            )
-        ) {
-            return Err(WireError::Protocol(
-                "realm digest suite transition must not downgrade hash strength (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 // `realm_destroy_payload` uses `models::operation_payloads::RealmDestroyPayload`.
 
 /// Counterpart for
@@ -764,25 +480,19 @@ impl RealmDigestSuiteTransitionPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmFreezePayload {
-    pub frozen: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub effective_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub freeze_expires_at: Option<DateTime<Utc>>,
+}
+
+impl Default for RealmFreezePayload {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RealmFreezePayload {
-    pub fn new(frozen: bool) -> Self {
-        Self {
-            frozen,
-            reason: None,
-            effective_at: None,
-            freeze_expires_at: None,
-        }
+    pub fn new() -> Self {
+        Self { reason: None }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -799,60 +509,8 @@ impl RealmFreezePayload {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_inheritance_policy_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmInheritancePolicyPayloadInherits {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_bundles: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_rules: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notification_defaults: Option<bool>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmInheritancePolicyPayload {
-    pub source_realm_id: RealmId,
-    pub inherits: RealmInheritancePolicyPayloadInherits,
-    pub mode: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_depth: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<InheritancePolicyStatus>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-#[cfg(test)]
-mod inheritance_policy_status_tests {
-    use super::InheritancePolicyStatus;
-
-    #[test]
-    fn status_is_the_closed_schema_enum() {
-        assert_eq!(
-            serde_json::to_value(InheritancePolicyStatus::Active).unwrap(),
-            "active"
-        );
-        assert!(serde_json::from_str::<InheritancePolicyStatus>(r#""retired""#).is_err());
-    }
-}
-
-/// `relationship` discriminator for [`RealmOrganizationPayload`]
-/// (event-payload.schema.json `#/$defs/realm_organization_payload`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RealmOrganizationRelationship {
-    Owner,
-    Governance,
-    Sponsor,
-    DirectoryCertifier,
-}
+/// Shared discriminator used by the payload and its typed-current selector.
+pub use arkret_wire::RealmOrganizationRelationship;
 
 /// `status` discriminator for [`RealmOrganizationPayload`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -865,15 +523,15 @@ pub enum RealmOrganizationStatus {
 
 /// `control_scopes[]` item enum for [`RealmOrganizationPayload`]. A scope is an
 /// endorsement boundary only; actual Realm control still requires the matching
-/// Realm policy / notary / capability / service-binding event.
+/// Realm policy, governance-Station authority, capability or service-binding
+/// Event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationControlScope {
     OfficialBadge,
     RealmAdmin,
-    NotaryControl,
-    DurabilityPolicy,
+    RealmAuthority,
     ModerationPolicy,
     RetentionPolicy,
     DirectoryListing,
@@ -917,10 +575,10 @@ pub struct RealmOrganizationAuthorization {
     /// `account_authority`; MUST resolve to a live organization DID delegation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation_ref: Option<ObjectRef>,
-    /// Optional human admin / service principal that initiated the decision.
-    /// Does not become the organization principal.
+    /// Optional exact ActorId of the human administrator or service actor
+    /// that initiated the decision. Does not become the organization principal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<DidCoreId>,
+    pub executed_by: Option<ActorId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub signed_at: DateTime<Utc>,
     /// Signature, threshold transcript, or governance-service attestation over
@@ -965,9 +623,9 @@ pub struct RealmOrganizationPayload {
     /// REQUIRED when `status == revoked`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revokes_statement_id: Option<String>,
-    /// Optional digest of the Realm control frontier the organization evaluated.
+    /// Optional authority commit the organization evaluated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_frontier_digest: Option<Hash>,
+    pub realm_commit_ref: Option<RealmCommitId>,
     /// Optional DID-document delegation URL / policy object / governance
     /// decision / attestation reference.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1056,7 +714,7 @@ struct OrganizationStatementTranscript<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     revokes_statement_id: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    realm_frontier_digest: Option<&'a Hash>,
+    realm_commit_ref: Option<&'a RealmCommitId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     organization_policy_ref: Option<&'a ObjectRef>,
     issuer: &'a DidCoreId,
@@ -1064,12 +722,12 @@ struct OrganizationStatementTranscript<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     delegation_ref: Option<&'a ObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    executed_by: Option<&'a DidCoreId>,
+    executed_by: Option<&'a ActorId>,
 }
 
 /// Canonical bytes the organization-side `authorization.proof` signs over.
 ///
-/// Both the issuing side (coauth) and the verifying side (soland) MUST derive
+/// Both the issuing side (coauth) and the verifying side (coland) MUST derive
 /// the signing input from this one function so the bytes are byte-identical.
 /// The transcript binds every semantic field of the statement except the proof
 /// itself, so a detached signature over these bytes authenticates the whole
@@ -1093,7 +751,7 @@ pub fn realm_organization_statement_signing_bytes(
         expires_at: payload.expires_at,
         supersedes_statement_id: payload.supersedes_statement_id.as_ref(),
         revokes_statement_id: payload.revokes_statement_id.as_ref(),
-        realm_frontier_digest: payload.realm_frontier_digest.as_ref(),
+        realm_commit_ref: payload.realm_commit_ref.as_ref(),
         organization_policy_ref: payload.organization_policy_ref.as_ref(),
         issuer: &authorization.issuer_id,
         issuer_role: &authorization.issuer_role,
@@ -1102,219 +760,359 @@ pub fn realm_organization_statement_signing_bytes(
     };
     Ok(canonical::canonical_json_bytes(&transcript)?)
 }
-#[cfg(test)]
-mod realm_control_payload_tests {
-    use serde_json::json;
 
-    use super::*;
+/// Deployment roles supported by one Realm media service.
+///
+/// Mirrors the closed `modes[]` enum of
+/// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaServiceMode {
+    Turn,
+    Sfu,
+    Mcu,
+}
 
-    #[test]
-    fn realm_notary_payload_is_closed_and_validated() {
-        let value = json!({
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "notary": {
-                "kind": "single_signer",
-                "signer": {
-                    "actor_id": {
-                        "kind": "service",
-                        "service_id": "ak:did_core:web:notary.example"
-                    },
-                    "verification_method": "did:web:notary.example#key-1",
-                    "key_kind": "ed25519_raw32",
-                    "jose_algorithm": "Ed25519",
-                    "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                    "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
-                }
-            }
-        });
-        let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();
-        payload.validate().unwrap();
+/// Call topologies a Realm media service may default to or allow.
+///
+/// Mirrors the closed `default_call_mode` / `allowed_call_modes[]` enum of
+/// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaCallMode {
+    P2p,
+    Sfu,
+    Mcu,
+}
 
-        let mut unknown = value;
-        unknown["notary"]["endpoint"] = json!("https://notary.example");
-        assert!(serde_json::from_value::<RealmNotaryPayload>(unknown).is_err());
-    }
+/// One backend focus of the Realm media service descriptor.
+///
+/// `focus_kind` is the closed backend registry ([`MediaBackendKind`]); an
+/// unknown label fails to deserialize instead of surviving as a catch-all, so a
+/// receiver fails closed with
+/// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE)
+/// rather than handing `backend_token` to an arbitrary SDK. `token_endpoint`
+/// and `connect_url` are required because a focus a client can neither exchange
+/// a token at nor connect to is not a usable focus. See
+/// `crypto-media/media-service-binding.md` section 2.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/media_service_focus`.
+pub struct MediaServiceFocus {
+    pub focus_id: NonEmptyString,
+    pub focus_kind: MediaBackendKind,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub region: Option<NonEmptyString>,
+    pub token_endpoint: String,
+    pub connect_url: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<NonEmptyString>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub health_endpoint: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cascade_group: Option<NonEmptyString>,
+}
 
-    #[test]
-    fn digest_suite_transition_rejects_noop_and_downgrade() {
-        let value = json!({
-            "from_digest_algorithm": "sha256",
-            "to_digest_algorithm": "blake3",
-            "transition_realm_state_snapshot_ref": "ak:realm_state_snapshot:01904100-0000-7000-8000-000000000002",
-            "realm_state_snapshot_commitment": format!("sha256:{}", "a".repeat(64))
-        });
-        let payload: RealmDigestSuiteTransitionPayload =
-            serde_json::from_value(value.clone()).unwrap();
-        payload.validate().unwrap();
-
-        let mut noop = value.clone();
-        noop["to_digest_algorithm"] = json!("sha256");
-        let noop: RealmDigestSuiteTransitionPayload = serde_json::from_value(noop).unwrap();
-        assert!(noop.validate().is_err());
-
-        let mut downgrade = value;
-        downgrade["from_digest_algorithm"] = json!("blake3");
-        downgrade["to_digest_algorithm"] = json!("sha256");
-        let downgrade: RealmDigestSuiteTransitionPayload =
-            serde_json::from_value(downgrade).unwrap();
-        assert!(downgrade.validate().is_err());
+impl MediaServiceFocus {
+    /// Enforces the profile constraints the derived `Deserialize` cannot carry:
+    /// the `non_typed_identifier_floor` on `focus_id` and the URL scheme
+    /// patterns on the three endpoint fields.
+    pub fn validate(&self) -> Result<()> {
+        if self.focus_id.as_str().starts_with("ak:") {
+            return media_schema_violation("media service focus_id must not use the ak: namespace");
+        }
+        if !is_url_with_scheme(&self.token_endpoint, "https://") {
+            return media_schema_violation("media service token_endpoint must be an https URL");
+        }
+        if !is_url_with_allowed_schemes(&self.connect_url, &["https://", "wss://"]) {
+            return media_schema_violation("media service connect_url must be an https or wss URL");
+        }
+        if self
+            .health_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return media_schema_violation("media service health_endpoint must be an https URL");
+        }
+        if contains_duplicate(&self.capabilities) {
+            return media_schema_violation("media service focus capabilities must be unique");
+        }
+        Ok(())
     }
 }
-#[cfg(test)]
-mod realm_organization_tests {
-    use serde_json::json;
 
+/// Closed media service descriptor carried under
+/// [`RealmMediaServicePayload::value`].
+///
+/// The descriptor is the trust root for media token issuance, so it is closed
+/// on purpose: issuer configuration (signing key ids, audiences, TTLs, backend
+/// credentials) is deployment configuration of the service named by
+/// `foci[].token_endpoint` and MUST NOT be carried here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/realm_media_service_payload` `value`.
+pub struct RealmMediaServiceValue {
+    pub service_id: DidCoreId,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub modes: Option<Vec<RealmMediaServiceMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ice_config_endpoint: Option<String>,
+    pub foci: Vec<MediaServiceFocus>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_call_mode: Option<RealmMediaCallMode>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allowed_call_modes: Option<Vec<RealmMediaCallMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub recording_supported: Option<bool>,
+}
+
+impl RealmMediaServiceValue {
+    /// A descriptor with a single flat endpoint, or with no foci at all, fails
+    /// closed with [`ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED`]; the realtime
+    /// path MUST NOT normalize or infer one.
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return media_schema_violation("media service modes must be non-empty and unique");
+        }
+        if self
+            .ice_config_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return media_schema_violation(
+                "media service ice_config_endpoint must be an https URL",
+            );
+        }
+        if self.foci.is_empty() || contains_duplicate(&self.foci) {
+            return Err(WireError::Protocol(format!(
+                "{}: media service foci must be non-empty and unique",
+                ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED
+            )));
+        }
+        for focus in &self.foci {
+            focus.validate()?;
+        }
+        if self
+            .allowed_call_modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return media_schema_violation(
+                "media service allowed_call_modes must be non-empty and unique",
+            );
+        }
+        Ok(())
+    }
+}
+
+/// `ak.realm.media_service` payload.
+///
+/// The descriptor lives under `payload.value` and is never flattened onto
+/// `payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+pub struct RealmMediaServicePayload {
+    pub value: RealmMediaServiceValue,
+}
+
+impl RealmMediaServicePayload {
+    pub fn validate(&self) -> Result<()> {
+        self.value.validate()
+    }
+}
+
+fn media_schema_violation<T>(message: &str) -> Result<T> {
+    Err(WireError::Protocol(format!("schema_violation: {message}")))
+}
+
+fn contains_duplicate<T: PartialEq>(values: &[T]) -> bool {
+    values
+        .iter()
+        .enumerate()
+        .any(|(index, value)| values[..index].contains(value))
+}
+
+fn is_url_with_allowed_schemes(value: &str, schemes: &[&str]) -> bool {
+    schemes
+        .iter()
+        .any(|scheme| is_url_with_scheme(value, scheme))
+}
+
+fn is_url_with_scheme(value: &str, scheme: &str) -> bool {
+    value
+        .strip_prefix(scheme)
+        .is_some_and(|rest| !rest.is_empty() && !rest.chars().any(char::is_whitespace))
+}
+
+#[cfg(test)]
+mod media_service_tests {
     use super::*;
 
-    fn active_value() -> Value {
-        json!({
-            "statement_id": "org-stmt-1",
-            "realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
-            "organization_id": "ak:did_core:webvh:example.test",
-            "relationship": "owner",
-            "status": "active",
-            "control_scopes": ["official_badge", "realm_admin"],
-            "issued_at": "2026-06-25T00:00:00.000Z",
-            "authorization": {
-                "issuer_id": "ak:did_core:webvh:example.test",
-                "issuer_role": "organization",
-                "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
-                "signed_at": "2026-06-25T00:00:00.000Z",
-                "proof": "c2ln"
-            }
+    fn focus_json() -> Value {
+        serde_json::json!({
+            "focus_id": "focus-eu-1",
+            "focus_kind": "livekit",
+            "region": "eu-west",
+            "token_endpoint": "https://media.example/token",
+            "connect_url": "wss://media.example/rtc",
+            "capabilities": ["simulcast", "svc"],
+            "health_endpoint": "https://media.example/health",
+            "cascade_group": "eu"
         })
     }
 
     #[test]
-    fn active_payload_round_trips_and_enum_renames_match_spec() {
-        let value = active_value();
-        let payload: RealmOrganizationPayload = serde_json::from_value(value).unwrap();
-        assert!(payload.is_active_status());
-        assert_eq!(payload.relationship, RealmOrganizationRelationship::Owner);
-        assert_eq!(
-            payload.control_scopes,
-            vec![
-                RealmOrganizationControlScope::OfficialBadge,
-                RealmOrganizationControlScope::RealmAdmin
-            ]
-        );
-        let reserialized = serde_json::to_value(&payload).unwrap();
-        assert_eq!(reserialized["status"], json!("active"));
-        assert_eq!(reserialized["relationship"], json!("owner"));
-        assert_eq!(
-            reserialized["authorization"]["issuer_role"],
-            json!("organization")
-        );
-        // Optional/absent fields must not be emitted.
-        assert!(reserialized.get("expires_at").is_none());
-        assert!(reserialized.get("revokes_statement_id").is_none());
+    fn media_service_focus_round_trips_every_property() {
+        let json = focus_json();
+        let focus: MediaServiceFocus = serde_json::from_value(json.clone()).unwrap();
+        focus.validate().unwrap();
+        assert_eq!(focus.focus_kind, MediaBackendKind::Livekit);
+        assert_eq!(serde_json::to_value(&focus).unwrap(), json);
     }
 
     #[test]
-    fn validity_window_helpers() {
-        let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00.000Z")
+    fn media_service_focus_omits_absent_optional_members() {
+        let focus: MediaServiceFocus = serde_json::from_value(serde_json::json!({
+            "focus_id": "focus-1",
+            "focus_kind": "arkret_native",
+            "token_endpoint": "https://media.example/token",
+            "connect_url": "https://media.example/rtc"
+        }))
+        .unwrap();
+        focus.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&focus).unwrap(),
+            serde_json::json!({
+                "focus_id": "focus-1",
+                "focus_kind": "arkret_native",
+                "token_endpoint": "https://media.example/token",
+                "connect_url": "https://media.example/rtc"
+            })
+        );
+    }
+
+    #[test]
+    fn media_service_focus_rejects_unknown_member() {
+        let mut json = focus_json();
+        json["sfu_endpoint"] = serde_json::json!("https://media.example/sfu");
+        serde_json::from_value::<MediaServiceFocus>(json).unwrap_err();
+    }
+
+    #[test]
+    fn media_service_focus_rejects_missing_required_member() {
+        for required in ["focus_id", "focus_kind", "token_endpoint", "connect_url"] {
+            let mut json = focus_json();
+            json.as_object_mut().unwrap().remove(required);
+            serde_json::from_value::<MediaServiceFocus>(json)
+                .expect_err("required member omission must be rejected");
+        }
+    }
+
+    #[test]
+    fn media_service_focus_kind_registry_is_closed() {
+        for known in [
+            "livekit",
+            "mediasoup",
+            "janus",
+            "arkret_native",
+            "moq_relay",
+        ] {
+            let mut json = focus_json();
+            json["focus_kind"] = serde_json::json!(known);
+            serde_json::from_value::<MediaServiceFocus>(json).unwrap();
+        }
+        let mut json = focus_json();
+        json["focus_kind"] = serde_json::json!("whip");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .expect_err("unknown focus_kind must fail closed");
+    }
+
+    #[test]
+    fn media_service_focus_validate_rejects_bad_profiles() {
+        let mut json = focus_json();
+        json["focus_id"] = serde_json::json!("ak:focus");
+        serde_json::from_value::<MediaServiceFocus>(json)
             .unwrap()
-            .with_timezone(&Utc);
-        let mut payload: RealmOrganizationPayload = serde_json::from_value(active_value()).unwrap();
-        assert!(payload.is_effective_active(now));
-
-        payload.not_before = Some(
-            DateTime::parse_from_rfc3339("2026-06-26T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        assert!(payload.is_not_yet_valid(now));
-        assert!(!payload.is_effective_active(now));
-
-        payload.not_before = None;
-        payload.expires_at = Some(
-            DateTime::parse_from_rfc3339("2026-06-25T06:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        assert!(payload.is_expired(now));
-        assert!(!payload.is_effective_active(now));
-    }
-
-    #[test]
-    fn issuer_role_delegation_requirement() {
-        assert!(RealmOrganizationIssuerRole::GovernanceService.requires_delegation_ref());
-        assert!(RealmOrganizationIssuerRole::AccountAuthority.requires_delegation_ref());
-        assert!(!RealmOrganizationIssuerRole::Organization.requires_delegation_ref());
-        assert!(!RealmOrganizationIssuerRole::ThresholdQuorum.requires_delegation_ref());
-    }
-}
-
-#[cfg(test)]
-mod realm_policy_bundle_tests {
-    use super::*;
-
-    fn declared_bundle() -> RealmPolicyBundlePayload {
-        let mut bundle = RealmPolicyBundlePayload::new(3);
-        bundle.media_service_decrypts = Some(true);
-        bundle
-    }
-
-    #[test]
-    fn restating_a_revision_carries_every_component_forward() {
-        // The cas_register hazard: a next revision that only writes what it
-        // changes clears everything else. `restate` is the safe author path.
-        let accepted = declared_bundle();
-        let next = accepted.restate(4);
-        assert_eq!(next.policy_revision, 4);
-        assert!(next.media_service_decrypts());
-    }
-
-    #[test]
-    fn an_over_ceiling_relaxed_window_survives_the_type_and_is_flagged() {
-        // 300001 MUST reach the reducer as relaxed_window_exceeds_ceiling, so
-        // the type neither rejects nor clamps it.
-        let mut bundle = RealmPolicyBundlePayload::new(2);
-        bundle.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING + 1);
-        bundle
             .validate()
-            .expect("an over-ceiling window is not a schema_violation");
-        assert_eq!(
-            bundle.relaxed_window_max_ms,
-            Some(RELAXED_WINDOW_MAX_MS_CEILING + 1),
-            "the value must not be truncated to the ceiling"
-        );
-        assert!(bundle.relaxed_window_exceeds_ceiling());
+            .unwrap_err();
 
-        let mut at_ceiling = RealmPolicyBundlePayload::new(2);
-        at_ceiling.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING);
-        assert!(!at_ceiling.relaxed_window_exceeds_ceiling());
+        let mut json = focus_json();
+        json["token_endpoint"] = serde_json::json!("http://media.example/token");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+
+        let mut json = focus_json();
+        json["connect_url"] = serde_json::json!("ws://media.example/rtc");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .unwrap()
+            .validate()
+            .unwrap_err();
     }
 
     #[test]
-    fn a_revision_that_enables_nothing_is_a_schema_violation() {
-        assert!(RealmPolicyBundlePayload::new(1).validate().is_err());
-        assert!(RealmPolicyBundlePayload::new(0).validate().is_err());
-        // The min-properties count is derived from the serialized object, so a
-        // component added later is counted without editing `validate`.
-        let mut only_preauth = RealmPolicyBundlePayload::new(1);
-        only_preauth.preauth = Some(RealmPreauthPolicy {
-            consent_required: true,
+    fn realm_media_service_payload_round_trips_and_requires_foci() {
+        let json = serde_json::json!({
+            "value": {
+                "service_id": "ak:did_core:web:media.example",
+                "modes": ["sfu"],
+                "ice_config_endpoint": "https://media.example/ice",
+                "foci": [focus_json()],
+                "default_call_mode": "sfu",
+                "allowed_call_modes": ["p2p", "sfu"],
+                "recording_supported": false
+            }
         });
-        only_preauth.validate().unwrap();
-    }
+        let payload: RealmMediaServicePayload = serde_json::from_value(json.clone()).unwrap();
+        payload.validate().unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), json);
 
-    #[test]
-    fn governance_timing_fields_have_one_typed_policy_bundle_carrier() {
-        let mut bundle = RealmPolicyBundlePayload::new(1);
-        bundle.proposal_intake_sla_ms = Some(5_000);
-        bundle.proposal_decision_window_ms = Some(30_000);
-        bundle.proposal_absolute_deadline_ms = Some(90_000);
-        bundle.max_proposal_defers = Some(2);
-        bundle.revocation_freshness_window_ms = Some(60_000);
-        bundle.max_authority_lifetime_ms = Some(120_000);
-        let value = bundle.to_value().unwrap();
-        assert_eq!(value["proposal_decision_window_ms"], Value::from(30_000));
-        assert_eq!(value["max_authority_lifetime_ms"], Value::from(120_000));
-
-        bundle.proposal_decision_window_ms = Some(90_000);
-        bundle.proposal_absolute_deadline_ms = Some(90_000);
-        bundle.max_proposal_defers = Some(1);
-        assert!(bundle.validate().is_err());
+        let mut empty = json;
+        empty["value"]["foci"] = serde_json::json!([]);
+        let payload: RealmMediaServicePayload = serde_json::from_value(empty).unwrap();
+        let message = payload.validate().unwrap_err().to_string();
+        assert!(message.contains(ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED));
     }
 }

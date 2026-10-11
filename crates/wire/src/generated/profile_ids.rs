@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-07.2;
-//! sha256=a4e66c57c6cdfb426e61c0cfbb54ecf421d8912d520f028618c76b1d4c51acc1 Entries: profile_ids=96
+//! Input: profiles/conformance-profiles.json; version=2026-10-11.1;
+//! sha256=de3e6cff1cf3b770093cebc5bb9e3ebd499d7aa0f2cf46cfbb18bce144b4b54a Entries: profile_ids=78
 
 use serde::{Deserialize, Serialize};
 
@@ -22,39 +22,30 @@ pub enum ProfileId {
     AppletE2eeJoinV1,
     AppletServiceV1,
     AppletWidgetV1,
-    AttestedAuditE2eeV1,
     BindingWebsocketV1,
     BlobNodeV1,
     CalendarEventV1,
     CalendarNotificationDispatchV1,
     ChatMvpV1,
     CircleConformanceV1,
-    CircleSealCadenceFixed5mV1,
     ConstraintApprovalWorkflowV1,
     ConstraintClaimBasedV1,
     ConstraintEncryptionRequirementV1,
     ConstraintResourceLimitV1,
     ConstraintVisibilityControlV1,
     CoreEventStoreV1,
-    CrdtTextV1,
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
-    DisclosedAuditE2eeV1,
     DraftSyncV1,
     E2eeClientV1,
-    E2eeRelaxedV1,
     EncodingCborV1,
-    EncodingMultihashV1,
     EnterpriseClientV1,
-    EphemeralPairwisePrincipalV1,
-    FederationHighAssuranceV1,
     FederationMinimalV1,
     FileTransferV1,
     FrankingV1,
     FullClientV1,
     HashBlake3V1,
-    HashTransitionV1,
     HighSecurityOrganizationV1,
     HpkeP256V1,
     IdentityRegistryV1,
@@ -63,21 +54,14 @@ pub enum ProfileId {
     KemHybridXwingV1,
     KeyBackupMemoryHardV1,
     KeyTransparencyV1,
-    MatrixCompatV1,
     MediaServiceBindingArkretNativeV1,
     MediaServiceBindingLivekitV1,
     MediaServiceBindingV1,
     MembershipJoinCompensationV1,
     MimiInteropV1,
     MinimalClientV1,
-    MlsMinimalMetadataRealmV1,
     MlsCiphersuiteChacha20poly1305V1,
     MlsCiphersuitePqAuthV1,
-    MlsGovernanceBindingFullV1,
-    NotaryMixedRecoveryV1,
-    NotaryOpenSetV1,
-    NotarySingleSignerV1,
-    NotaryThresholdV1,
     OrganizationV1,
     OrganizationHighAssuranceIdentityV1,
     PersonalNodeV1,
@@ -92,7 +76,6 @@ pub enum ProfileId {
     SearchBlindIndexV1,
     SearchClientIndexV1,
     SearchForwardPrivateV1,
-    ServiceResolutionMirrorV1,
     SignalMessageStreamV1,
     SignalPeerRelayV1,
     SignatureEcdsaP256V1,
@@ -104,7 +87,6 @@ pub enum ProfileId {
     StationV1,
     StationEventsApiV1,
     TrafficMetadataHardenedV1,
-    UcanInteropV1,
     WebrtcMediaV1,
 }
 
@@ -160,39 +142,30 @@ impl ProfileId {
         Self::AppletE2eeJoinV1,
         Self::AppletServiceV1,
         Self::AppletWidgetV1,
-        Self::AttestedAuditE2eeV1,
         Self::BindingWebsocketV1,
         Self::BlobNodeV1,
         Self::CalendarEventV1,
         Self::CalendarNotificationDispatchV1,
         Self::ChatMvpV1,
         Self::CircleConformanceV1,
-        Self::CircleSealCadenceFixed5mV1,
         Self::ConstraintApprovalWorkflowV1,
         Self::ConstraintClaimBasedV1,
         Self::ConstraintEncryptionRequirementV1,
         Self::ConstraintResourceLimitV1,
         Self::ConstraintVisibilityControlV1,
         Self::CoreEventStoreV1,
-        Self::CrdtTextV1,
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
-        Self::DisclosedAuditE2eeV1,
         Self::DraftSyncV1,
         Self::E2eeClientV1,
-        Self::E2eeRelaxedV1,
         Self::EncodingCborV1,
-        Self::EncodingMultihashV1,
         Self::EnterpriseClientV1,
-        Self::EphemeralPairwisePrincipalV1,
-        Self::FederationHighAssuranceV1,
         Self::FederationMinimalV1,
         Self::FileTransferV1,
         Self::FrankingV1,
         Self::FullClientV1,
         Self::HashBlake3V1,
-        Self::HashTransitionV1,
         Self::HighSecurityOrganizationV1,
         Self::HpkeP256V1,
         Self::IdentityRegistryV1,
@@ -201,21 +174,14 @@ impl ProfileId {
         Self::KemHybridXwingV1,
         Self::KeyBackupMemoryHardV1,
         Self::KeyTransparencyV1,
-        Self::MatrixCompatV1,
         Self::MediaServiceBindingArkretNativeV1,
         Self::MediaServiceBindingLivekitV1,
         Self::MediaServiceBindingV1,
         Self::MembershipJoinCompensationV1,
         Self::MimiInteropV1,
         Self::MinimalClientV1,
-        Self::MlsMinimalMetadataRealmV1,
         Self::MlsCiphersuiteChacha20poly1305V1,
         Self::MlsCiphersuitePqAuthV1,
-        Self::MlsGovernanceBindingFullV1,
-        Self::NotaryMixedRecoveryV1,
-        Self::NotaryOpenSetV1,
-        Self::NotarySingleSignerV1,
-        Self::NotaryThresholdV1,
         Self::OrganizationV1,
         Self::OrganizationHighAssuranceIdentityV1,
         Self::PersonalNodeV1,
@@ -230,7 +196,6 @@ impl ProfileId {
         Self::SearchBlindIndexV1,
         Self::SearchClientIndexV1,
         Self::SearchForwardPrivateV1,
-        Self::ServiceResolutionMirrorV1,
         Self::SignalMessageStreamV1,
         Self::SignalPeerRelayV1,
         Self::SignatureEcdsaP256V1,
@@ -242,7 +207,6 @@ impl ProfileId {
         Self::StationV1,
         Self::StationEventsApiV1,
         Self::TrafficMetadataHardenedV1,
-        Self::UcanInteropV1,
         Self::WebrtcMediaV1,
     ];
 
@@ -259,7 +223,6 @@ impl ProfileId {
     pub const APPLET_E2EE_JOIN_V1: &'static str = "ak.profile.applet_e2ee_join.v1";
     pub const APPLET_SERVICE_V1: &'static str = "ak.profile.applet_service.v1";
     pub const APPLET_WIDGET_V1: &'static str = "ak.profile.applet_widget.v1";
-    pub const ATTESTED_AUDIT_E2EE_V1: &'static str = "ak.profile.attested_audit.e2ee.v1";
     pub const BINDING_WEBSOCKET_V1: &'static str = "ak.profile.binding.websocket.v1";
     pub const BLOB_NODE_V1: &'static str = "ak.profile.blob_node.v1";
     pub const CALENDAR_EVENT_V1: &'static str = "ak.profile.calendar_event.v1";
@@ -267,8 +230,6 @@ impl ProfileId {
         "ak.profile.calendar_notification_dispatch.v1";
     pub const CHAT_MVP_V1: &'static str = "ak.profile.chat_mvp.v1";
     pub const CIRCLE_CONFORMANCE_V1: &'static str = "ak.profile.circle_conformance.v1";
-    pub const CIRCLE_SEAL_CADENCE_FIXED_5M_V1: &'static str =
-        "ak.profile.circle_seal_cadence.fixed_5m.v1";
     pub const CONSTRAINT_APPROVAL_WORKFLOW_V1: &'static str =
         "ak.profile.constraint.approval_workflow.v1";
     pub const CONSTRAINT_CLAIM_BASED_V1: &'static str = "ak.profile.constraint.claim_based.v1";
@@ -279,29 +240,20 @@ impl ProfileId {
     pub const CONSTRAINT_VISIBILITY_CONTROL_V1: &'static str =
         "ak.profile.constraint.visibility_control.v1";
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
-    pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
     pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
         "ak.profile.direct_conversation_realm.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
         "ak.profile.direct_conversation_repair.v1";
     pub const DIRECTORY_SERVICE_V1: &'static str = "ak.profile.directory_service.v1";
-    pub const DISCLOSED_AUDIT_E2EE_V1: &'static str = "ak.profile.disclosed_audit.e2ee.v1";
     pub const DRAFT_SYNC_V1: &'static str = "ak.profile.draft_sync.v1";
     pub const E2EE_CLIENT_V1: &'static str = "ak.profile.e2ee_client.v1";
-    pub const E2EE_RELAXED_V1: &'static str = "ak.profile.e2ee_relaxed.v1";
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
-    pub const ENCODING_MULTIHASH_V1: &'static str = "ak.profile.encoding.multihash.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
-    pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
-        "ak.profile.ephemeral_pairwise_principal.v1";
-    pub const FEDERATION_HIGH_ASSURANCE_V1: &'static str =
-        "ak.profile.federation.high_assurance.v1";
     pub const FEDERATION_MINIMAL_V1: &'static str = "ak.profile.federation_minimal.v1";
     pub const FILE_TRANSFER_V1: &'static str = "ak.profile.file_transfer.v1";
     pub const FRANKING_V1: &'static str = "ak.profile.franking.v1";
     pub const FULL_CLIENT_V1: &'static str = "ak.profile.full_client.v1";
     pub const HASH_BLAKE3_V1: &'static str = "ak.profile.hash.blake3.v1";
-    pub const HASH_TRANSITION_V1: &'static str = "ak.profile.hash_transition.v1";
     pub const HIGH_SECURITY_ORGANIZATION_V1: &'static str =
         "ak.profile.high_security_organization.v1";
     pub const HPKE_P256_V1: &'static str = "ak.profile.hpke.p256.v1";
@@ -312,7 +264,6 @@ impl ProfileId {
     pub const KEM_HYBRID_XWING_V1: &'static str = "ak.profile.kem.hybrid_xwing.v1";
     pub const KEY_BACKUP_MEMORY_HARD_V1: &'static str = "ak.profile.key_backup.memory_hard.v1";
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.profile.key_transparency.v1";
-    pub const MATRIX_COMPAT_V1: &'static str = "ak.profile.matrix_compat.v1";
     pub const MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1: &'static str =
         "ak.profile.media_service_binding.arkret_native.v1";
     pub const MEDIA_SERVICE_BINDING_LIVEKIT_V1: &'static str =
@@ -322,17 +273,9 @@ impl ProfileId {
         "ak.profile.membership_join_compensation.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.profile.mimi_interop.v1";
     pub const MINIMAL_CLIENT_V1: &'static str = "ak.profile.minimal_client.v1";
-    pub const MLS_MINIMAL_METADATA_REALM_V1: &'static str =
-        "ak.profile.mls.minimal_metadata_realm.v1";
     pub const MLS_CIPHERSUITE_CHACHA20POLY1305_V1: &'static str =
         "ak.profile.mls_ciphersuite.chacha20poly1305.v1";
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
-    pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str =
-        "ak.profile.mls_governance_binding.full.v1";
-    pub const NOTARY_MIXED_RECOVERY_V1: &'static str = "ak.profile.notary.mixed_recovery.v1";
-    pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
-    pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
-    pub const NOTARY_THRESHOLD_V1: &'static str = "ak.profile.notary.threshold.v1";
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
     pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
         "ak.profile.organization_high_assurance_identity.v1";
@@ -351,8 +294,6 @@ impl ProfileId {
     pub const SEARCH_BLIND_INDEX_V1: &'static str = "ak.profile.search.blind_index.v1";
     pub const SEARCH_CLIENT_INDEX_V1: &'static str = "ak.profile.search.client_index.v1";
     pub const SEARCH_FORWARD_PRIVATE_V1: &'static str = "ak.profile.search.forward_private.v1";
-    pub const SERVICE_RESOLUTION_MIRROR_V1: &'static str =
-        "ak.profile.service_resolution_mirror.v1";
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.profile.signal_message_stream.v1";
     pub const SIGNAL_PEER_RELAY_V1: &'static str = "ak.profile.signal_peer_relay.v1";
     pub const SIGNATURE_ECDSA_P256_V1: &'static str = "ak.profile.signature.ecdsa_p256.v1";
@@ -365,7 +306,6 @@ impl ProfileId {
     pub const STATION_EVENTS_API_V1: &'static str = "ak.profile.station_events_api.v1";
     pub const TRAFFIC_METADATA_HARDENED_V1: &'static str =
         "ak.profile.traffic_metadata_hardened.v1";
-    pub const UCAN_INTEROP_V1: &'static str = "ak.profile.ucan_interop.v1";
     pub const WEBRTC_MEDIA_V1: &'static str = "ak.profile.webrtc_media.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -382,39 +322,30 @@ impl ProfileId {
             Self::AppletE2eeJoinV1 => Self::APPLET_E2EE_JOIN_V1,
             Self::AppletServiceV1 => Self::APPLET_SERVICE_V1,
             Self::AppletWidgetV1 => Self::APPLET_WIDGET_V1,
-            Self::AttestedAuditE2eeV1 => Self::ATTESTED_AUDIT_E2EE_V1,
             Self::BindingWebsocketV1 => Self::BINDING_WEBSOCKET_V1,
             Self::BlobNodeV1 => Self::BLOB_NODE_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
             Self::CalendarNotificationDispatchV1 => Self::CALENDAR_NOTIFICATION_DISPATCH_V1,
             Self::ChatMvpV1 => Self::CHAT_MVP_V1,
             Self::CircleConformanceV1 => Self::CIRCLE_CONFORMANCE_V1,
-            Self::CircleSealCadenceFixed5mV1 => Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1,
             Self::ConstraintApprovalWorkflowV1 => Self::CONSTRAINT_APPROVAL_WORKFLOW_V1,
             Self::ConstraintClaimBasedV1 => Self::CONSTRAINT_CLAIM_BASED_V1,
             Self::ConstraintEncryptionRequirementV1 => Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1,
             Self::ConstraintResourceLimitV1 => Self::CONSTRAINT_RESOURCE_LIMIT_V1,
             Self::ConstraintVisibilityControlV1 => Self::CONSTRAINT_VISIBILITY_CONTROL_V1,
             Self::CoreEventStoreV1 => Self::CORE_EVENT_STORE_V1,
-            Self::CrdtTextV1 => Self::CRDT_TEXT_V1,
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
-            Self::DisclosedAuditE2eeV1 => Self::DISCLOSED_AUDIT_E2EE_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::E2eeClientV1 => Self::E2EE_CLIENT_V1,
-            Self::E2eeRelaxedV1 => Self::E2EE_RELAXED_V1,
             Self::EncodingCborV1 => Self::ENCODING_CBOR_V1,
-            Self::EncodingMultihashV1 => Self::ENCODING_MULTIHASH_V1,
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
-            Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
-            Self::FederationHighAssuranceV1 => Self::FEDERATION_HIGH_ASSURANCE_V1,
             Self::FederationMinimalV1 => Self::FEDERATION_MINIMAL_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::FrankingV1 => Self::FRANKING_V1,
             Self::FullClientV1 => Self::FULL_CLIENT_V1,
             Self::HashBlake3V1 => Self::HASH_BLAKE3_V1,
-            Self::HashTransitionV1 => Self::HASH_TRANSITION_V1,
             Self::HighSecurityOrganizationV1 => Self::HIGH_SECURITY_ORGANIZATION_V1,
             Self::HpkeP256V1 => Self::HPKE_P256_V1,
             Self::IdentityRegistryV1 => Self::IDENTITY_REGISTRY_V1,
@@ -423,21 +354,14 @@ impl ProfileId {
             Self::KemHybridXwingV1 => Self::KEM_HYBRID_XWING_V1,
             Self::KeyBackupMemoryHardV1 => Self::KEY_BACKUP_MEMORY_HARD_V1,
             Self::KeyTransparencyV1 => Self::KEY_TRANSPARENCY_V1,
-            Self::MatrixCompatV1 => Self::MATRIX_COMPAT_V1,
             Self::MediaServiceBindingArkretNativeV1 => Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1,
             Self::MediaServiceBindingLivekitV1 => Self::MEDIA_SERVICE_BINDING_LIVEKIT_V1,
             Self::MediaServiceBindingV1 => Self::MEDIA_SERVICE_BINDING_V1,
             Self::MembershipJoinCompensationV1 => Self::MEMBERSHIP_JOIN_COMPENSATION_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MinimalClientV1 => Self::MINIMAL_CLIENT_V1,
-            Self::MlsMinimalMetadataRealmV1 => Self::MLS_MINIMAL_METADATA_REALM_V1,
             Self::MlsCiphersuiteChacha20poly1305V1 => Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1,
             Self::MlsCiphersuitePqAuthV1 => Self::MLS_CIPHERSUITE_PQ_AUTH_V1,
-            Self::MlsGovernanceBindingFullV1 => Self::MLS_GOVERNANCE_BINDING_FULL_V1,
-            Self::NotaryMixedRecoveryV1 => Self::NOTARY_MIXED_RECOVERY_V1,
-            Self::NotaryOpenSetV1 => Self::NOTARY_OPEN_SET_V1,
-            Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
-            Self::NotaryThresholdV1 => Self::NOTARY_THRESHOLD_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
             Self::OrganizationHighAssuranceIdentityV1 => {
                 Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
@@ -454,7 +378,6 @@ impl ProfileId {
             Self::SearchBlindIndexV1 => Self::SEARCH_BLIND_INDEX_V1,
             Self::SearchClientIndexV1 => Self::SEARCH_CLIENT_INDEX_V1,
             Self::SearchForwardPrivateV1 => Self::SEARCH_FORWARD_PRIVATE_V1,
-            Self::ServiceResolutionMirrorV1 => Self::SERVICE_RESOLUTION_MIRROR_V1,
             Self::SignalMessageStreamV1 => Self::SIGNAL_MESSAGE_STREAM_V1,
             Self::SignalPeerRelayV1 => Self::SIGNAL_PEER_RELAY_V1,
             Self::SignatureEcdsaP256V1 => Self::SIGNATURE_ECDSA_P256_V1,
@@ -466,7 +389,6 @@ impl ProfileId {
             Self::StationV1 => Self::STATION_V1,
             Self::StationEventsApiV1 => Self::STATION_EVENTS_API_V1,
             Self::TrafficMetadataHardenedV1 => Self::TRAFFIC_METADATA_HARDENED_V1,
-            Self::UcanInteropV1 => Self::UCAN_INTEROP_V1,
             Self::WebrtcMediaV1 => Self::WEBRTC_MEDIA_V1,
         }
     }
@@ -485,39 +407,30 @@ impl ProfileId {
             Self::AppletE2eeJoinV1 => ProfileRole::Server,
             Self::AppletServiceV1 => ProfileRole::Server,
             Self::AppletWidgetV1 => ProfileRole::Server,
-            Self::AttestedAuditE2eeV1 => ProfileRole::Admin,
             Self::BindingWebsocketV1 => ProfileRole::Interop,
             Self::BlobNodeV1 => ProfileRole::Gateway,
             Self::CalendarEventV1 => ProfileRole::Client,
             Self::CalendarNotificationDispatchV1 => ProfileRole::Server,
             Self::ChatMvpV1 => ProfileRole::Client,
             Self::CircleConformanceV1 => ProfileRole::Interop,
-            Self::CircleSealCadenceFixed5mV1 => ProfileRole::Admin,
             Self::ConstraintApprovalWorkflowV1 => ProfileRole::Admin,
             Self::ConstraintClaimBasedV1 => ProfileRole::Admin,
             Self::ConstraintEncryptionRequirementV1 => ProfileRole::Admin,
             Self::ConstraintResourceLimitV1 => ProfileRole::Admin,
             Self::ConstraintVisibilityControlV1 => ProfileRole::Admin,
             Self::CoreEventStoreV1 => ProfileRole::Server,
-            Self::CrdtTextV1 => ProfileRole::Interop,
             Self::DirectConversationRealmV1 => ProfileRole::Admin,
             Self::DirectConversationRepairV1 => ProfileRole::Server,
             Self::DirectoryServiceV1 => ProfileRole::Directory,
-            Self::DisclosedAuditE2eeV1 => ProfileRole::Admin,
             Self::DraftSyncV1 => ProfileRole::Client,
             Self::E2eeClientV1 => ProfileRole::Client,
-            Self::E2eeRelaxedV1 => ProfileRole::Client,
             Self::EncodingCborV1 => ProfileRole::Interop,
-            Self::EncodingMultihashV1 => ProfileRole::Interop,
             Self::EnterpriseClientV1 => ProfileRole::Client,
-            Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
-            Self::FederationHighAssuranceV1 => ProfileRole::Server,
             Self::FederationMinimalV1 => ProfileRole::Server,
             Self::FileTransferV1 => ProfileRole::Client,
             Self::FrankingV1 => ProfileRole::Server,
             Self::FullClientV1 => ProfileRole::Client,
             Self::HashBlake3V1 => ProfileRole::Interop,
-            Self::HashTransitionV1 => ProfileRole::Interop,
             Self::HighSecurityOrganizationV1 => ProfileRole::Admin,
             Self::HpkeP256V1 => ProfileRole::Admin,
             Self::IdentityRegistryV1 => ProfileRole::Directory,
@@ -526,21 +439,14 @@ impl ProfileId {
             Self::KemHybridXwingV1 => ProfileRole::Admin,
             Self::KeyBackupMemoryHardV1 => ProfileRole::Admin,
             Self::KeyTransparencyV1 => ProfileRole::Directory,
-            Self::MatrixCompatV1 => ProfileRole::Interop,
             Self::MediaServiceBindingArkretNativeV1 => ProfileRole::Server,
             Self::MediaServiceBindingLivekitV1 => ProfileRole::Server,
             Self::MediaServiceBindingV1 => ProfileRole::Server,
             Self::MembershipJoinCompensationV1 => ProfileRole::Server,
             Self::MimiInteropV1 => ProfileRole::Interop,
             Self::MinimalClientV1 => ProfileRole::Client,
-            Self::MlsMinimalMetadataRealmV1 => ProfileRole::Admin,
             Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
             Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
-            Self::MlsGovernanceBindingFullV1 => ProfileRole::Admin,
-            Self::NotaryMixedRecoveryV1 => ProfileRole::Admin,
-            Self::NotaryOpenSetV1 => ProfileRole::Admin,
-            Self::NotarySingleSignerV1 => ProfileRole::Admin,
-            Self::NotaryThresholdV1 => ProfileRole::Admin,
             Self::OrganizationV1 => ProfileRole::Admin,
             Self::OrganizationHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::PersonalNodeV1 => ProfileRole::Admin,
@@ -555,7 +461,6 @@ impl ProfileId {
             Self::SearchBlindIndexV1 => ProfileRole::Server,
             Self::SearchClientIndexV1 => ProfileRole::Client,
             Self::SearchForwardPrivateV1 => ProfileRole::Server,
-            Self::ServiceResolutionMirrorV1 => ProfileRole::Server,
             Self::SignalMessageStreamV1 => ProfileRole::Client,
             Self::SignalPeerRelayV1 => ProfileRole::Server,
             Self::SignatureEcdsaP256V1 => ProfileRole::Admin,
@@ -567,7 +472,6 @@ impl ProfileId {
             Self::StationV1 => ProfileRole::Server,
             Self::StationEventsApiV1 => ProfileRole::Server,
             Self::TrafficMetadataHardenedV1 => ProfileRole::Admin,
-            Self::UcanInteropV1 => ProfileRole::Interop,
             Self::WebrtcMediaV1 => ProfileRole::Gateway,
         }
     }
@@ -593,14 +497,12 @@ impl ProfileId {
             Self::APPLET_E2EE_JOIN_V1 => Some(Self::AppletE2eeJoinV1),
             Self::APPLET_SERVICE_V1 => Some(Self::AppletServiceV1),
             Self::APPLET_WIDGET_V1 => Some(Self::AppletWidgetV1),
-            Self::ATTESTED_AUDIT_E2EE_V1 => Some(Self::AttestedAuditE2eeV1),
             Self::BINDING_WEBSOCKET_V1 => Some(Self::BindingWebsocketV1),
             Self::BLOB_NODE_V1 => Some(Self::BlobNodeV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
             Self::CALENDAR_NOTIFICATION_DISPATCH_V1 => Some(Self::CalendarNotificationDispatchV1),
             Self::CHAT_MVP_V1 => Some(Self::ChatMvpV1),
             Self::CIRCLE_CONFORMANCE_V1 => Some(Self::CircleConformanceV1),
-            Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1 => Some(Self::CircleSealCadenceFixed5mV1),
             Self::CONSTRAINT_APPROVAL_WORKFLOW_V1 => Some(Self::ConstraintApprovalWorkflowV1),
             Self::CONSTRAINT_CLAIM_BASED_V1 => Some(Self::ConstraintClaimBasedV1),
             Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1 => {
@@ -609,25 +511,18 @@ impl ProfileId {
             Self::CONSTRAINT_RESOURCE_LIMIT_V1 => Some(Self::ConstraintResourceLimitV1),
             Self::CONSTRAINT_VISIBILITY_CONTROL_V1 => Some(Self::ConstraintVisibilityControlV1),
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
-            Self::CRDT_TEXT_V1 => Some(Self::CrdtTextV1),
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),
-            Self::DISCLOSED_AUDIT_E2EE_V1 => Some(Self::DisclosedAuditE2eeV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::E2EE_CLIENT_V1 => Some(Self::E2eeClientV1),
-            Self::E2EE_RELAXED_V1 => Some(Self::E2eeRelaxedV1),
             Self::ENCODING_CBOR_V1 => Some(Self::EncodingCborV1),
-            Self::ENCODING_MULTIHASH_V1 => Some(Self::EncodingMultihashV1),
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
-            Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
-            Self::FEDERATION_HIGH_ASSURANCE_V1 => Some(Self::FederationHighAssuranceV1),
             Self::FEDERATION_MINIMAL_V1 => Some(Self::FederationMinimalV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::FRANKING_V1 => Some(Self::FrankingV1),
             Self::FULL_CLIENT_V1 => Some(Self::FullClientV1),
             Self::HASH_BLAKE3_V1 => Some(Self::HashBlake3V1),
-            Self::HASH_TRANSITION_V1 => Some(Self::HashTransitionV1),
             Self::HIGH_SECURITY_ORGANIZATION_V1 => Some(Self::HighSecurityOrganizationV1),
             Self::HPKE_P256_V1 => Some(Self::HpkeP256V1),
             Self::IDENTITY_REGISTRY_V1 => Some(Self::IdentityRegistryV1),
@@ -636,7 +531,6 @@ impl ProfileId {
             Self::KEM_HYBRID_XWING_V1 => Some(Self::KemHybridXwingV1),
             Self::KEY_BACKUP_MEMORY_HARD_V1 => Some(Self::KeyBackupMemoryHardV1),
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
-            Self::MATRIX_COMPAT_V1 => Some(Self::MatrixCompatV1),
             Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1 => {
                 Some(Self::MediaServiceBindingArkretNativeV1)
             }
@@ -645,16 +539,10 @@ impl ProfileId {
             Self::MEMBERSHIP_JOIN_COMPENSATION_V1 => Some(Self::MembershipJoinCompensationV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MINIMAL_CLIENT_V1 => Some(Self::MinimalClientV1),
-            Self::MLS_MINIMAL_METADATA_REALM_V1 => Some(Self::MlsMinimalMetadataRealmV1),
             Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1 => {
                 Some(Self::MlsCiphersuiteChacha20poly1305V1)
             }
             Self::MLS_CIPHERSUITE_PQ_AUTH_V1 => Some(Self::MlsCiphersuitePqAuthV1),
-            Self::MLS_GOVERNANCE_BINDING_FULL_V1 => Some(Self::MlsGovernanceBindingFullV1),
-            Self::NOTARY_MIXED_RECOVERY_V1 => Some(Self::NotaryMixedRecoveryV1),
-            Self::NOTARY_OPEN_SET_V1 => Some(Self::NotaryOpenSetV1),
-            Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),
-            Self::NOTARY_THRESHOLD_V1 => Some(Self::NotaryThresholdV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),
             Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
                 Some(Self::OrganizationHighAssuranceIdentityV1)
@@ -673,7 +561,6 @@ impl ProfileId {
             Self::SEARCH_BLIND_INDEX_V1 => Some(Self::SearchBlindIndexV1),
             Self::SEARCH_CLIENT_INDEX_V1 => Some(Self::SearchClientIndexV1),
             Self::SEARCH_FORWARD_PRIVATE_V1 => Some(Self::SearchForwardPrivateV1),
-            Self::SERVICE_RESOLUTION_MIRROR_V1 => Some(Self::ServiceResolutionMirrorV1),
             Self::SIGNAL_MESSAGE_STREAM_V1 => Some(Self::SignalMessageStreamV1),
             Self::SIGNAL_PEER_RELAY_V1 => Some(Self::SignalPeerRelayV1),
             Self::SIGNATURE_ECDSA_P256_V1 => Some(Self::SignatureEcdsaP256V1),
@@ -685,7 +572,6 @@ impl ProfileId {
             Self::STATION_V1 => Some(Self::StationV1),
             Self::STATION_EVENTS_API_V1 => Some(Self::StationEventsApiV1),
             Self::TRAFFIC_METADATA_HARDENED_V1 => Some(Self::TrafficMetadataHardenedV1),
-            Self::UCAN_INTEROP_V1 => Some(Self::UcanInteropV1),
             Self::WEBRTC_MEDIA_V1 => Some(Self::WebrtcMediaV1),
             _ => None,
         }

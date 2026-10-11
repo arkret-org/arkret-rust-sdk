@@ -6,9 +6,9 @@
 //! they are not part of the public API.
 
 use arkret_signatures::http_signature::{
-    Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
-    format_signature_header, format_signature_input_component_list, parse_signature_input,
-    sign_message,
+    Component, ContentDigest, ContentDigestAlgorithm, HttpSignatureScenario, SignedRequestParts,
+    canonical_message, format_signature_header, format_signature_input_component_list,
+    parse_signature_input, sign_http_message_for_scenario, sign_message,
 };
 use arkret_wire::{Problem, ServiceOperationId};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
@@ -28,7 +28,15 @@ use crate::{
 /// the crate boundary. The wire-model layer carries no reqwest dependency, so
 /// the conversion is explicit here instead of a `#[from]` impl.
 pub(crate) fn transport_error(error: reqwest::Error) -> Error {
-    Error::Http(error.to_string())
+    use std::error::Error as _;
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    Error::Http(message)
 }
 
 pub(crate) fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
@@ -52,6 +60,19 @@ impl Client {
 
     pub fn base_url(&self) -> &Url {
         &self.base_url
+    }
+
+    /// Clone this authenticated transport for another trusted service base URL.
+    ///
+    /// The caller must establish that the target is the intended authority
+    /// before forwarding credentials (for example through ServiceDescribe).
+    /// DPoP proofs are generated for the new request URL; the grant, signer,
+    /// refresh reader, and transport settings are retained.
+    pub fn with_base_url(&self, base_url: Url) -> Result<Self> {
+        validate_base_url(&base_url, self.allow_insecure_localhost)?;
+        let mut client = self.clone();
+        client.base_url = base_url;
+        Ok(client)
     }
 
     pub fn retry_config(&self) -> &RetryConfig {
@@ -87,6 +108,21 @@ impl Client {
     /// keeps browser GETs CORS-simple instead of introducing a DPoP-triggered
     /// preflight for an endpoint that requires no proof.
     pub(crate) fn public_request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        self.request_without_configured_auth(method, path)
+    }
+
+    /// Build a service-authenticated request without forwarding the client's
+    /// account/device authorization. The endpoint supplies its independent
+    /// service signature at execution time.
+    pub(crate) fn service_request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        self.request_without_configured_auth(method, path)
+    }
+
+    fn request_without_configured_auth(
+        &self,
+        method: Method,
+        path: &str,
+    ) -> Result<RequestBuilder> {
         let builder = self.request_unbounded_inner(method, path, false)?;
         #[cfg(not(target_arch = "wasm32"))]
         let builder = match self.default_timeout {
@@ -141,6 +177,33 @@ impl Client {
             builder = builder.header(USER_AGENT, user_agent);
         }
         if include_auth {
+            if let Some((source, destination)) = &self.service_signature_identity {
+                return Ok(builder
+                    .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+                    .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
+            }
+            if let Some((metadata, destination)) = &self.managed_device_signature_identity {
+                let scenario =
+                    arkret_signatures::http_signature::http_signature_scenario_descriptor(
+                        HttpSignatureScenario::AppletManagedDeviceV1,
+                    );
+                if !scenario.operations.contains(&operation.as_str()) {
+                    return Err(Error::Protocol(
+                        "operation is not eligible for managed Device authentication".into(),
+                    ));
+                }
+                let mut metadata = metadata.clone();
+                let mut nonce = [0u8; 16];
+                getrandom::fill(&mut nonce)
+                    .map_err(|e| Error::Protocol(format!("Device nonce entropy: {e}")))?;
+                metadata.nonce = arkret_canonical::base64url_encode(nonce);
+                return Ok(builder
+                    .header(
+                        arkret_models_integration::AppletManagedDeviceMetadata::HEADER,
+                        metadata.to_header_value()?,
+                    )
+                    .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
+            }
             self.apply_auth(builder, &method_for_auth, &url_for_auth)
         } else {
             Ok(builder)
@@ -194,6 +257,28 @@ impl Client {
         }
         if let Some(wait_for) = &options.wait_for {
             validate_header_value(HEADER_WAIT_FOR, wait_for)?;
+            arkret_wire::Cursor::new(wait_for.clone())
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            let request = builder
+                .try_clone()
+                .ok_or_else(|| Error::Protocol("wait-for requires a replayable request".into()))?
+                .build()
+                .map_err(transport_error)?;
+            let operation = request
+                .headers()
+                .get(HEADER_OPERATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(ServiceOperationId::from_wire);
+            if operation.and_then(|operation| operation.wait_for_carrier("http_json"))
+                != Some(("header", "X-Arkret-Wait-For"))
+            {
+                return Err(Error::Protocol(
+                    "operation does not register an HTTP wait-for header".into(),
+                ));
+            }
+            if request.headers().contains_key(HEADER_WAIT_FOR) {
+                return Err(Error::Protocol("duplicate wait-for header".into()));
+            }
             builder = builder.header(HEADER_WAIT_FOR, wait_for);
         }
         Ok(builder)
@@ -213,7 +298,9 @@ impl Client {
         builder: RequestBuilder,
         limit: usize,
     ) -> Result<T> {
-        let response = self.execute_with_replay_policy(builder, false).await?;
+        let response = self
+            .execute_with_replay_policy(builder, false, None)
+            .await?;
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
@@ -239,13 +326,36 @@ impl Client {
             .map(|(body, _headers)| body)
     }
 
+    /// Send an exact-replay operation under one generated HTTP-signature
+    /// scenario. Kept crate-private so endpoint owners, rather than arbitrary
+    /// callers, select which protocol operations qualify.
+    pub(crate) async fn send_json_protocol_replay_safe_for_scenario<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+        scenario: HttpSignatureScenario,
+    ) -> Result<T> {
+        self.send_json_with_headers_replay_policy_and_scenario(builder, true, Some(scenario))
+            .await
+            .map(|(body, _headers)| body)
+    }
+
     async fn send_json_with_headers_and_replay_policy<T: DeserializeOwned>(
         &self,
         builder: RequestBuilder,
         protocol_replay_safe: bool,
     ) -> Result<(T, HeaderMap)> {
+        self.send_json_with_headers_replay_policy_and_scenario(builder, protocol_replay_safe, None)
+            .await
+    }
+
+    async fn send_json_with_headers_replay_policy_and_scenario<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+        protocol_replay_safe: bool,
+        signature_scenario: Option<HttpSignatureScenario>,
+    ) -> Result<(T, HeaderMap)> {
         let response = self
-            .execute_with_replay_policy(builder, protocol_replay_safe)
+            .execute_with_replay_policy(builder, protocol_replay_safe, signature_scenario)
             .await?;
         let status = response.status();
         if !status.is_success() {
@@ -378,7 +488,93 @@ impl Client {
         Ok(request)
     }
 
-    fn build_signed_request(&self, builder: RequestBuilder) -> Result<reqwest::Request> {
+    fn sign_http_message_for_registered_scenario(
+        &self,
+        mut request: reqwest::Request,
+        scenario: HttpSignatureScenario,
+    ) -> Result<reqwest::Request> {
+        let signer = self.http_message_signer.as_ref().ok_or_else(|| {
+            Error::Protocol(
+                "registered HTTP-signature scenario requires an HttpMessageSigner".to_owned(),
+            )
+        })?;
+        let body_digest = match request.body() {
+            Some(body) => {
+                let bytes = body.as_bytes().ok_or_else(|| {
+                    Error::Protocol(
+                        "HTTP message signing requires a buffered request body".to_owned(),
+                    )
+                })?;
+                (!bytes.is_empty())
+                    .then(|| ContentDigest::compute(bytes, ContentDigestAlgorithm::Sha256))
+            }
+            None => None,
+        };
+        if let Some(digest) = &body_digest {
+            request.headers_mut().insert(
+                "Content-Digest",
+                HeaderValue::from_str(&digest.wire_value)
+                    .map_err(|error| Error::Protocol(format!("content-digest header: {error}")))?,
+            );
+        }
+        let mut applicable_conditionals = Vec::new();
+        if body_digest.is_some() {
+            applicable_conditionals.push("content-digest");
+        }
+        if request.headers().contains_key(HEADER_IDEMPOTENCY_KEY) {
+            applicable_conditionals.push("idempotency-key");
+        }
+        let url = request.url();
+        let parts = SignedRequestParts {
+            method: request.method().as_str().to_owned(),
+            target_uri: url.as_str().to_owned(),
+            authority: request_authority(url)?,
+            path: url.path().to_owned(),
+            headers: request
+                .headers()
+                .iter()
+                .map(|(name, value)| {
+                    value
+                        .to_str()
+                        .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                        .map_err(|_| {
+                            Error::Protocol(format!(
+                                "{} must be visible ASCII for HTTP message signing",
+                                name.as_str()
+                            ))
+                        })
+                })
+                .collect::<Result<Vec<_>>>()?,
+            body_digest: body_digest.as_ref().map(|digest| digest.wire_value.clone()),
+        };
+        let signed = sign_http_message_for_scenario(
+            &parts,
+            scenario,
+            &applicable_conditionals,
+            "sig1",
+            signer.key_id(),
+            chrono::Utc::now().timestamp(),
+            signer.signing_key(),
+        )
+        .map_err(|error| Error::Protocol(format!("HTTP message signature: {error}")))?;
+        request.headers_mut().insert(
+            "Signature-Input",
+            HeaderValue::from_str(&signed.signature_input_header)
+                .map_err(|error| Error::Protocol(format!("signature-input header: {error}")))?,
+        );
+        request.headers_mut().insert(
+            "Signature",
+            HeaderValue::from_str(&signed.signature_header)
+                .map_err(|error| Error::Protocol(format!("signature header: {error}")))?,
+        );
+        Ok(request)
+    }
+
+    fn build_signed_request(
+        &self,
+        builder: RequestBuilder,
+        signature_scenario: Option<HttpSignatureScenario>,
+    ) -> Result<reqwest::Request> {
         let mut request = builder.build().map_err(transport_error)?;
         // The inner operation proof and canonical body remain immutable across
         // exact replay. DPoP is an outer per-HTTP-attempt proof and may carry a
@@ -394,17 +590,41 @@ impl Client {
                     .map_err(|error| Error::Protocol(format!("DPoP proof: {error}")))?,
             );
         }
-        self.sign_http_message(request)
+        let signature_scenario = signature_scenario.or_else(|| {
+            if request
+                .headers()
+                .contains_key(arkret_models_integration::AppletManagedDeviceMetadata::HEADER)
+                && self.managed_device_signature_identity.is_some()
+            {
+                Some(HttpSignatureScenario::AppletManagedDeviceV1)
+            } else if request
+                .headers()
+                .contains_key(crate::HEADER_SOURCE_SERVICE_ID)
+                && self.service_signature_identity.is_some()
+            {
+                Some(HttpSignatureScenario::ServiceToServiceV1)
+            } else {
+                None
+            }
+        });
+        match signature_scenario {
+            Some(scenario) => self.sign_http_message_for_registered_scenario(request, scenario),
+            None => self.sign_http_message(request),
+        }
     }
 
-    async fn send_request_builder(&self, builder: RequestBuilder) -> Result<Response> {
-        let request = self.build_signed_request(builder)?;
+    async fn send_request_builder(
+        &self,
+        builder: RequestBuilder,
+        signature_scenario: Option<HttpSignatureScenario>,
+    ) -> Result<Response> {
+        let request = self.build_signed_request(builder, signature_scenario)?;
         self.http.execute(request).await.map_err(transport_error)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
-        self.execute_with_replay_policy(builder, false).await
+        self.execute_with_replay_policy(builder, false, None).await
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -412,15 +632,20 @@ impl Client {
         &self,
         builder: RequestBuilder,
         protocol_replay_safe: bool,
+        signature_scenario: Option<HttpSignatureScenario>,
     ) -> Result<Response> {
         validate_request_builder(&builder)?;
         if self.retry.max_retries == 0 {
-            let response = self.send_request_builder(builder).await?;
+            let response = self
+                .send_request_builder(builder, signature_scenario)
+                .await?;
             return Ok(response);
         }
 
         let Some(template) = builder.try_clone() else {
-            let response = self.send_request_builder(builder).await?;
+            let response = self
+                .send_request_builder(builder, signature_scenario)
+                .await?;
             return Ok(response);
         };
 
@@ -454,7 +679,7 @@ impl Client {
             let attempt_builder = template.try_clone().ok_or_else(|| {
                 Error::Protocol("retryable request could not be cloned".to_owned())
             })?;
-            let attempt_request = self.build_signed_request(attempt_builder)?;
+            let attempt_request = self.build_signed_request(attempt_builder, signature_scenario)?;
             match self.http.execute(attempt_request).await {
                 Ok(response)
                     if retry_safe
@@ -500,7 +725,7 @@ impl Client {
     /// retry on top via `wasm-bindgen-futures` if they need it.
     #[cfg(target_arch = "wasm32")]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
-        self.execute_with_replay_policy(builder, false).await
+        self.execute_with_replay_policy(builder, false, None).await
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -508,12 +733,15 @@ impl Client {
         &self,
         builder: RequestBuilder,
         _protocol_replay_safe: bool,
+        signature_scenario: Option<HttpSignatureScenario>,
     ) -> Result<Response> {
         validate_request_builder(&builder)?;
         // Retry is not implemented on wasm32: execute() sends exactly once and
         // the caller's RetryConfig is ignored (see `ClientBuilder::retry` /
         // `RetryConfig` docs). Callers layer retry above the client if needed.
-        let response = self.send_request_builder(builder).await?;
+        let response = self
+            .send_request_builder(builder, signature_scenario)
+            .await?;
         Ok(response)
     }
 }

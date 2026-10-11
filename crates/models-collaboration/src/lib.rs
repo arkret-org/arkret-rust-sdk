@@ -9,36 +9,50 @@
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 
 pub mod account_lifecycle;
+pub mod account_operations;
+pub mod account_status;
+pub mod account_subscribe_projections;
+pub mod actor_profile_resolution;
+pub mod agent_interaction;
 pub mod agent_operations;
-pub use arkret_models_identity::agent_signer_evidence;
+pub mod agent_scope;
+pub mod agent_sidecar;
+pub mod applet_installation_authority;
+pub mod authority_commit;
 pub mod call_signal;
+pub mod consent_operations;
 pub mod contact_operations;
-pub mod current_signer_evidence;
-pub mod direct_conversation_ops;
+pub mod device_messages;
+pub mod device_pairing;
+pub mod direct_conversation;
 pub mod event_query;
 pub mod event_sync;
 pub mod events_payloads;
+pub mod exact_current_results;
 pub mod governance;
-pub mod governance_dependencies;
 pub mod governance_payloads;
-pub mod history_key;
-pub mod http_bodies;
 mod internal_prelude;
+pub mod mention_composer;
+pub mod message_authoring;
+pub mod mimi_operations;
+pub mod mls_creator_bootstrap;
 pub mod mls_group_state_material;
+pub mod mls_roster_authority;
 pub mod object_lifecycle;
 pub mod objects;
+pub mod poll;
 pub mod prepared_event_draft;
 pub mod principal_operations;
-pub mod resolved_state;
-pub mod seal_transparency;
 mod serde_absence;
 pub mod session_grant_bodies;
+pub mod session_grants;
 pub mod sidecar_operations;
 pub mod signal_message_stream;
+pub mod signal_operations;
 pub mod signal_plaintext;
+pub mod strand_watch_operations;
 pub mod sync_frames;
 
-pub use current_signer_evidence::*;
 pub use events_payloads::{
     RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
     RealmOrganizationPayload, RealmOrganizationRelationship, RealmOrganizationStatus,
@@ -46,7 +60,6 @@ pub use events_payloads::{
 };
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use prepared_event_draft::PreparedEventDraft;
-pub use resolved_state::ResolvedStateEvent;
 
 macro_rules! string_marker {
     ($name:ident, $variant:ident, $wire:literal) => {

@@ -1,10 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use regex_lite::Regex;
 use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 
 use crate::model::LoadedArtifact;
 use crate::render::{associated_name, header, option_string, rust_string, string_slice, variant};
@@ -33,6 +34,49 @@ impl Artifact {
                 })
             })
             .collect()
+    }
+
+    fn section_array(&self, section: &str, key: &str) -> Result<Vec<&Map<String, Value>>> {
+        self.value
+            .get(section)
+            .and_then(Value::as_object)
+            .with_context(|| format!("{} missing {section} object", self.source.relative_path))?
+            .get(key)
+            .and_then(Value::as_array)
+            .with_context(|| {
+                format!(
+                    "{} missing {section}.{key} array",
+                    self.source.relative_path
+                )
+            })?
+            .iter()
+            .map(|value| {
+                value.as_object().with_context(|| {
+                    format!(
+                        "{} {section}.{key} entry is not an object",
+                        self.source.relative_path
+                    )
+                })
+            })
+            .collect()
+    }
+
+    fn with_section_version(mut self, section: &str) -> Result<Self> {
+        self.source.version = self
+            .value
+            .get(section)
+            .and_then(Value::as_object)
+            .with_context(|| format!("{} missing {section} object", self.source.relative_path))?
+            .get("version")
+            .and_then(Value::as_str)
+            .with_context(|| {
+                format!(
+                    "{} missing {section}.version string",
+                    self.source.relative_path
+                )
+            })?
+            .to_owned();
+        Ok(self)
     }
 }
 
@@ -83,11 +127,60 @@ fn validate_unique(rows: &[&Map<String, Value>], key: &str, prefixes: &[&str]) -
     Ok(())
 }
 
+fn validate_operation_transport_bindings(rows: &[&Map<String, Value>]) -> Result<()> {
+    let mut grpc_bindings = BTreeMap::new();
+    let mut mq_topics = BTreeMap::new();
+
+    for row in rows {
+        let operation_id = string(row, "operation_id")?;
+        let http_only = match row.get("http_only_variant") {
+            None => false,
+            Some(Value::Bool(value)) => *value,
+            Some(_) => bail!("{operation_id} http_only_variant is not a boolean"),
+        };
+        let grpc = match row.get("grpc") {
+            None => None,
+            Some(Value::String(value)) if !value.is_empty() => Some(value.as_str()),
+            Some(Value::String(_)) => bail!("{operation_id} has an empty grpc binding"),
+            Some(_) => bail!("{operation_id} grpc binding is not a string"),
+        };
+        let mq = match row.get("mq") {
+            None => None,
+            Some(Value::String(value)) if !value.is_empty() => Some(value.as_str()),
+            Some(Value::String(_)) => bail!("{operation_id} has an empty mq topic"),
+            Some(_) => bail!("{operation_id} mq topic is not a string"),
+        };
+
+        if http_only {
+            if grpc.is_some() || mq.is_some() {
+                bail!("{operation_id} is http-only and must not declare grpc/mq bindings");
+            }
+            continue;
+        }
+        let grpc = grpc.with_context(|| format!("{operation_id} is missing grpc binding"))?;
+        let mq = mq.with_context(|| format!("{operation_id} is missing mq topic"))?;
+        let (service, method) = grpc
+            .split_once('/')
+            .with_context(|| format!("{operation_id} grpc binding lacks Service/Method"))?;
+        if service.is_empty() || method.is_empty() || method.contains('/') {
+            bail!("{operation_id} grpc binding must be exactly non-empty Service/Method");
+        }
+        if grpc_bindings.insert(grpc, operation_id).is_some() {
+            bail!("duplicate grpc binding {grpc}");
+        }
+        if mq_topics.insert(mq, operation_id).is_some() {
+            bail!("duplicate mq topic {mq}");
+        }
+    }
+    Ok(())
+}
+
 pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
     Ok(vec![
         generate_digest_suite_codes(artifacts_dir)?,
         generate_error_codes(artifacts_dir)?,
         generate_reason_codes(artifacts_dir)?,
+        generate_operation_errors(artifacts_dir)?,
         generate_capability_discovery(artifacts_dir)?,
         generate_security_strings(artifacts_dir)?,
         generate_operations(artifacts_dir)?,
@@ -96,7 +189,6 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_capability_actions(artifacts_dir)?,
         generate_schema_ids(artifacts_dir)?,
         generate_profile_ids(artifacts_dir)?,
-        generate_reducer_profiles(artifacts_dir)?,
         generate_did_freshness_profiles(artifacts_dir)?,
         generate_did_method_adapters(artifacts_dir)?,
         generate_authority_sources(artifacts_dir)?,
@@ -105,11 +197,354 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_service_contract_ids(artifacts_dir)?,
         generate_device_message_kinds(artifacts_dir)?,
         generate_authority_set_ids(artifacts_dir)?,
-        generate_history_store_limits(artifacts_dir)?,
         generate_redactable_fields(artifacts_dir)?,
-        generate_reducer_managed_paths(artifacts_dir)?,
+        generate_reducer_managed_patch_paths(artifacts_dir)?,
         generate_forbidden_wire_fields(artifacts_dir)?,
+        generate_mls_creator_bootstrap(artifacts_dir)?,
+        generate_preimage_commitments(artifacts_dir)?,
     ])
+}
+
+const PREIMAGE_COMMITMENT_KEYWORD: &str = "x-arkret-preimage-commitment";
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PreimageCommitmentEntry {
+    schema_file: String,
+    json_pointer: String,
+    commitment: String,
+}
+
+#[derive(Default)]
+struct SchemaRepository {
+    documents: BTreeMap<String, Value>,
+    bytes: BTreeMap<String, Vec<u8>>,
+}
+
+impl SchemaRepository {
+    fn load_document(&mut self, artifacts_dir: &Path, file: &str) -> Result<&Value> {
+        if !self.documents.contains_key(file) {
+            let path = artifacts_dir.join(file);
+            let bytes = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+            let document = serde_json::from_slice(&bytes)
+                .with_context(|| format!("parse {}", path.display()))?;
+            self.bytes.insert(file.to_owned(), bytes);
+            self.documents.insert(file.to_owned(), document);
+        }
+        Ok(self.documents.get(file).expect("document was inserted"))
+    }
+
+    fn load_node(&mut self, artifacts_dir: &Path, file: &str, pointer: &str) -> Result<Value> {
+        let document = self.load_document(artifacts_dir, file)?;
+        if pointer.is_empty() {
+            return Ok(document.clone());
+        }
+        document
+            .pointer(pointer)
+            .cloned()
+            .with_context(|| format!("{file} has no JSON Pointer #{pointer}"))
+    }
+
+    fn aggregate_source(&self) -> LoadedArtifact {
+        let mut digest = Sha256::new();
+        for (path, bytes) in &self.bytes {
+            digest.update(path.as_bytes());
+            digest.update([0]);
+            digest.update(bytes);
+            digest.update([0]);
+        }
+        LoadedArtifact {
+            relative_path: "reachable event schema closure",
+            version: "aggregate".to_owned(),
+            digest: hex::encode(digest.finalize()),
+        }
+    }
+}
+
+fn normalize_schema_file(base_file: Option<&str>, raw_file: &str) -> Result<String> {
+    let raw_file = raw_file
+        .strip_prefix("https://arkret.org/v1/")
+        .unwrap_or(raw_file);
+    let joined = if raw_file.is_empty() {
+        PathBuf::from(base_file.context("a fragment-only $ref has no base schema")?)
+    } else if raw_file.starts_with("schemas/") {
+        PathBuf::from(raw_file)
+    } else {
+        let base = base_file.context("a relative $ref has no base schema")?;
+        Path::new(base)
+            .parent()
+            .context("base schema has no parent")?
+            .join(raw_file)
+    };
+    let mut normalized = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(part) => normalized.push(part),
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    bail!("schema reference escapes the artifact root: {raw_file}");
+                }
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                bail!("schema reference must stay relative to the artifact root: {raw_file}")
+            }
+        }
+    }
+    Ok(normalized.to_string_lossy().replace('\\', "/"))
+}
+
+fn parse_schema_ref(base_file: Option<&str>, schema_ref: &str) -> Result<(String, String)> {
+    let (raw_file, fragment) = schema_ref.split_once('#').unwrap_or((schema_ref, ""));
+    let file = normalize_schema_file(base_file, raw_file)?;
+    let pointer = match fragment {
+        "" => String::new(),
+        value if value.starts_with('/') => value.to_owned(),
+        _ => bail!("schema reference fragment must be an RFC 6901 JSON Pointer: {schema_ref}"),
+    };
+    Ok((file, pointer))
+}
+
+fn visit_preimage_schema(
+    artifacts_dir: &Path,
+    repository: &mut SchemaRepository,
+    file: &str,
+    pointer: &str,
+    node: Value,
+    seen: &mut BTreeSet<(String, String)>,
+    found: &mut BTreeSet<(String, String, String)>,
+) -> Result<()> {
+    if !seen.insert((file.to_owned(), pointer.to_owned())) {
+        return Ok(());
+    }
+    let Some(object) = node.as_object() else {
+        return Ok(());
+    };
+    if let Some(commitment) = object.get(PREIMAGE_COMMITMENT_KEYWORD) {
+        let commitment = commitment.as_str().with_context(|| {
+            format!("{file}#{pointer} {PREIMAGE_COMMITMENT_KEYWORD} is not a string")
+        })?;
+        if !matches!(
+            commitment,
+            "envelope_omission"
+                | "fixed_event"
+                | "later_submission"
+                | "no_event_identity"
+                | "same_unit_sibling"
+                | "self_identity"
+        ) {
+            bail!("{file}#{pointer} has unknown preimage commitment {commitment:?}");
+        }
+        found.insert((file.to_owned(), pointer.to_owned(), commitment.to_owned()));
+    }
+    if let Some(reference) = object.get("$ref") {
+        let reference = reference
+            .as_str()
+            .with_context(|| format!("{file}#{pointer} $ref is not a string"))?;
+        let (target_file, target_pointer) = parse_schema_ref(Some(file), reference)?;
+        let target = repository.load_node(artifacts_dir, &target_file, &target_pointer)?;
+        visit_preimage_schema(
+            artifacts_dir,
+            repository,
+            &target_file,
+            &target_pointer,
+            target,
+            seen,
+            found,
+        )?;
+    }
+
+    for keyword in [
+        "items",
+        "contains",
+        "additionalProperties",
+        "propertyNames",
+        "not",
+        "if",
+        "then",
+        "else",
+        "unevaluatedProperties",
+    ] {
+        if let Some(child) = object.get(keyword).filter(|value| value.is_object()) {
+            let child_pointer = format!("{pointer}/{keyword}");
+            visit_preimage_schema(
+                artifacts_dir,
+                repository,
+                file,
+                &child_pointer,
+                child.clone(),
+                seen,
+                found,
+            )?;
+        }
+    }
+    for keyword in ["allOf", "anyOf", "oneOf", "prefixItems"] {
+        if let Some(children) = object.get(keyword).and_then(Value::as_array) {
+            for (index, child) in children.iter().enumerate() {
+                let child_pointer = format!("{pointer}/{keyword}/{index}");
+                visit_preimage_schema(
+                    artifacts_dir,
+                    repository,
+                    file,
+                    &child_pointer,
+                    child.clone(),
+                    seen,
+                    found,
+                )?;
+            }
+        }
+    }
+    for keyword in ["properties", "patternProperties", "dependentSchemas"] {
+        if let Some(children) = object.get(keyword).and_then(Value::as_object) {
+            for (name, child) in children {
+                let escaped = name.replace('~', "~0").replace('/', "~1");
+                let child_pointer = format!("{pointer}/{keyword}/{escaped}");
+                visit_preimage_schema(
+                    artifacts_dir,
+                    repository,
+                    file,
+                    &child_pointer,
+                    child.clone(),
+                    seen,
+                    found,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_preimage_commitments(
+    artifacts_dir: &Path,
+    repository: &mut SchemaRepository,
+    root_schema_ref: &str,
+) -> Result<BTreeSet<(String, String, String)>> {
+    let (file, pointer) = parse_schema_ref(None, root_schema_ref)?;
+    let root = repository.load_node(artifacts_dir, &file, &pointer)?;
+    let mut found = BTreeSet::new();
+    visit_preimage_schema(
+        artifacts_dir,
+        repository,
+        &file,
+        &pointer,
+        root,
+        &mut BTreeSet::new(),
+        &mut found,
+    )?;
+    Ok(found)
+}
+
+fn generate_preimage_commitments(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let event_kinds = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
+        .with_section_version("event_kind_registry")?;
+    let mut repository = SchemaRepository::default();
+    let mut roots = BTreeSet::from(["schemas/event-envelope.schema.json".to_owned()]);
+    for row in event_kinds.section_array("event_kind_registry", "event_kinds")? {
+        roots.insert(string(row, "payload_schema_ref")?.to_owned());
+    }
+    let mut found = BTreeSet::new();
+    for root in roots {
+        found.extend(collect_preimage_commitments(
+            artifacts_dir,
+            &mut repository,
+            &root,
+        )?);
+    }
+    let entries = found
+        .into_iter()
+        .map(
+            |(schema_file, json_pointer, commitment)| PreimageCommitmentEntry {
+                schema_file,
+                json_pointer,
+                commitment,
+            },
+        )
+        .collect::<BTreeSet<_>>();
+    let schema_source = repository.aggregate_source();
+    let mut output = header(
+        &[&event_kinds.source, &schema_source],
+        &format!("preimage_commitments={}", entries.len()),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub enum PreimageCommitment {\n\
+    EnvelopeOmission,\n\
+    FixedEvent,\n\
+    LaterSubmission,\n\
+    NoEventIdentity,\n\
+    SameUnitSibling,\n\
+    SelfIdentity,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct PreimageCommitmentField {\n\
+    pub schema_file: &'static str,\n\
+    pub json_pointer: &'static str,\n\
+    pub commitment: PreimageCommitment,\n\
+}\n\n\
+pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[\n",
+    );
+    for entry in entries {
+        let variant = match entry.commitment.as_str() {
+            "envelope_omission" => "EnvelopeOmission",
+            "fixed_event" => "FixedEvent",
+            "later_submission" => "LaterSubmission",
+            "no_event_identity" => "NoEventIdentity",
+            "same_unit_sibling" => "SameUnitSibling",
+            "self_identity" => "SelfIdentity",
+            _ => unreachable!("commitments were validated while traversing"),
+        };
+        writeln!(
+            output,
+            "    PreimageCommitmentField {{ schema_file: {}, json_pointer: {}, commitment: PreimageCommitment::{variant} }},",
+            rust_string(&entry.schema_file),
+            rust_string(&entry.json_pointer),
+        )?;
+    }
+    output.push_str(
+        "];\n\n\
+pub fn preimage_commitment_at(\n\
+    schema_file: &str,\n\
+    json_pointer: &str,\n\
+) -> Option<PreimageCommitment> {\n\
+    PREIMAGE_COMMITMENT_FIELDS.iter().find(|field| {\n\
+        field.schema_file == schema_file && field.json_pointer == json_pointer\n\
+    }).map(|field| field.commitment)\n\
+}\n\n\
+#[cfg(test)]\n\
+mod tests {\n\
+    use super::*;\n\n\
+    #[test]\n\
+    fn generated_commitments_are_unique_and_queryable_by_exact_pointer() {\n\
+        for (index, field) in PREIMAGE_COMMITMENT_FIELDS.iter().enumerate() {\n\
+            assert_eq!(\n\
+                preimage_commitment_at(field.schema_file, field.json_pointer),\n\
+                Some(field.commitment)\n\
+            );\n\
+            assert!(!PREIMAGE_COMMITMENT_FIELDS[..index].iter().any(|earlier| {\n\
+                earlier.schema_file == field.schema_file\n\
+                    && earlier.json_pointer == field.json_pointer\n\
+            }));\n\
+        }\n\
+        assert_eq!(\n\
+            preimage_commitment_at(\n\
+                \"schemas/event-envelope.schema.json\",\n\
+                \"/properties/event_id\"\n\
+            ),\n\
+            Some(PreimageCommitment::EnvelopeOmission)\n\
+        );\n\
+        assert_eq!(\n\
+            preimage_commitment_at(\n\
+                \"schemas/agent-provision.schema.json\",\n\
+                \"/properties/principal_control_realm_id\"\n\
+            ),\n\
+            Some(PreimageCommitment::LaterSubmission)\n\
+        );\n\
+    }\n\
+}\n",
+    );
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/preimage_commitments.rs".into(),
+        contents: output,
+    })
 }
 
 fn option_usize(value: Option<&Value>, label: &str) -> Result<String> {
@@ -223,9 +658,14 @@ fn durable_effect(row: &Map<String, Value>) -> Result<String> {
 }
 
 fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/operation-registry.json")?;
-    let rows = sorted_rows(artifact.array("operations")?, "operation_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
+        .with_section_version("operation_registry")?;
+    let rows = sorted_rows(
+        artifact.section_array("operation_registry", "operations")?,
+        "operation_id",
+    )?;
     validate_unique(&rows, "operation_id", &["ak."])?;
+    validate_operation_transport_bindings(&rows)?;
     let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));
     output.push_str("use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\n#[repr(usize)]\npub enum ServiceOperationId {\n");
     for row in &rows {
@@ -282,8 +722,8 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(id, &["ak."])
         )?;
     }
-    output.push_str("        _ => None,\n    } }\n\n    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {\n        let specificity = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)).map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count()).min()?;\n        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity);\n        let selected = matches.next()?.id;\n        matches.next().is_none().then_some(selected)\n    }\n\n    pub fn matches_http_request(self, method: &str, path: &str) -> bool { let descriptor = self.descriptor(); descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) }\n    pub fn descriptor(self) -> &'static ServiceOperationDescriptor { &SERVICE_OPERATION_DESCRIPTORS[self as usize] }\n}\n\nimpl std::fmt::Display for ServiceOperationId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ServiceOperationId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ServiceOperationId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown service operation id: {raw}\"))) } }\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ServiceOperationId {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).enum_values(Self::ALL.iter().map(|value| value.as_str())).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ServiceOperationId {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[\n");
-    for row in rows {
+    output.push_str("        _ => None,\n    } }\n\n    pub fn from_grpc(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.grpc == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_mq_topic(value: &str) -> Option<Self> {\n        SERVICE_OPERATION_DESCRIPTORS.iter().find(|descriptor| descriptor.mq == Some(value)).map(|descriptor| descriptor.id)\n    }\n\n    pub fn from_http_request(method: &str, path: &str) -> Option<Self> {\n        let specificity = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path)).map(|descriptor| descriptor.http_path.bytes().filter(|byte| *byte == b'{').count()).min()?;\n        let mut matches = SERVICE_OPERATION_DESCRIPTORS.iter().filter(|descriptor| descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) && descriptor.http_path.bytes().filter(|byte| *byte == b'{').count() == specificity);\n        let selected = matches.next()?.id;\n        matches.next().is_none().then_some(selected)\n    }\n\n    pub fn matches_http_request(self, method: &str, path: &str) -> bool { let descriptor = self.descriptor(); descriptor.http_method == method && http_path_template_matches(descriptor.http_path, path) }\n    pub fn descriptor(self) -> &'static ServiceOperationDescriptor { &SERVICE_OPERATION_DESCRIPTORS[self as usize] }\n}\n\nimpl std::fmt::Display for ServiceOperationId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ServiceOperationId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ServiceOperationId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown service operation id: {raw}\"))) } }\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ServiceOperationId {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).enum_values(Self::ALL.iter().map(|value| value.as_str())).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ServiceOperationId {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[\n");
+    for row in &rows {
         let http = string(row, "http")?;
         let (method, path) = http
             .split_once(' ')
@@ -319,8 +759,108 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         )?;
     }
     output.push_str("];\n\nfn http_path_template_matches(template: &str, path: &str) -> bool {\n    let mut template_segments = template.split('/');\n    let mut path_segments = path.split('/');\n    loop { match (template_segments.next(), path_segments.next()) {\n        (None, None) => return true,\n        (Some(expected), Some(actual)) => { let placeholder = expected.starts_with('{') && expected.ends_with('}') && expected.len() > 2; if (placeholder && actual.is_empty()) || (!placeholder && expected != actual) { return false; } },\n        _ => return false,\n    } }\n}\n");
+    output.push_str("impl ServiceOperationId {\n    pub fn wait_for_carrier(self, binding: &str) -> Option<(&'static str, &'static str)> {\n        match (self, binding) {\n");
+    let waits = artifact.section_array("operation_registry", "wait_for_bindings")?;
+    let mut seen = BTreeSet::new();
+    for wait in waits {
+        let operation = string(wait, "operation_id")?;
+        let binding = string(wait, "binding_kind")?;
+        if !seen.insert((operation, binding)) {
+            bail!("duplicate wait-for operation/binding {operation} {binding}");
+        }
+        if !rows.iter().any(|row| row.get("operation_id").and_then(Value::as_str) == Some(operation)) {
+            bail!("unregistered wait-for operation {operation}");
+        }
+        writeln!(output, "            (Self::{}, {}) => Some(({}, {})),",
+            variant(operation, &["ak."]), rust_string(binding),
+            rust_string(string(wait, "carrier")?), rust_string(string(wait, "field")?))?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/operation_ids.rs".into(),
+        contents: output,
+    })
+}
+
+fn generate_operation_errors(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let mapping = Artifact::load(artifacts_dir, "registry/operations-error-mapping.json")?;
+    let operations = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let errors = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
+    let operation_rows = sorted_rows(
+        operations.section_array("operation_registry", "operations")?,
+        "operation_id",
+    )?;
+    let mapping_rows = sorted_rows(mapping.array("operations")?, "operation_id")?;
+    validate_unique(&mapping_rows, "operation_id", &["ak."])?;
+    let operation_ids = operation_rows
+        .iter()
+        .map(|row| string(row, "operation_id").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let mapped_ids = mapping_rows
+        .iter()
+        .map(|row| string(row, "operation_id").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    if operation_ids != mapped_ids {
+        bail!("operations-error-mapping operation set differs from operation registry");
+    }
+    let operation_http = operation_rows
+        .iter()
+        .map(|row| Ok((string(row, "operation_id")?, string(row, "http")?)))
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    let top_level = active_error_rows(&sorted_rows(errors.array("codes")?, "code")?, "error code")?
+        .iter()
+        .map(|row| string(row, "code").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let reasons = active_error_rows(
+        &sorted_rows(errors.array("reason_codes")?, "code")?,
+        "reason code",
+    )?
+    .iter()
+    .map(|row| string(row, "code").map(str::to_owned))
+    .collect::<Result<BTreeSet<_>>>()?;
+    let mut output = header(
+        &[&mapping.source, &operations.source, &errors.source],
+        &format!("operations={}", mapping_rows.len()),
+    );
+    output.push_str("use crate::{ErrorCode, ReasonCode, ServiceOperationId};\n\n#[derive(Clone, Debug, PartialEq, Eq)]\npub enum OperationSpecificError {\n    Code(ErrorCode),\n    Reason(ReasonCode),\n}\n\nimpl ServiceOperationId {\n    pub fn operation_specific_errors(self) -> &'static [OperationSpecificError] {\n        OPERATION_SPECIFIC_ERRORS[self as usize]\n    }\n}\n\npub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[\n");
+    for row in &mapping_rows {
+        let operation_id = string(row, "operation_id")?;
+        if string(row, "http_alias")? != operation_http[operation_id] {
+            bail!("{operation_id} error mapping HTTP alias differs from operation registry");
+        }
+        let entries = field(row, "operation_specific")?
+            .as_array()
+            .with_context(|| format!("{operation_id} operation_specific is not an array"))?;
+        let mut seen = BTreeSet::new();
+        output.push_str("    &[\n");
+        for entry in entries {
+            let code = entry
+                .as_str()
+                .with_context(|| format!("{operation_id} has a non-string error entry"))?;
+            if !seen.insert(code) {
+                bail!("{operation_id} repeats operation-specific error {code}");
+            }
+            if top_level.contains(code) {
+                writeln!(
+                    output,
+                    "        OperationSpecificError::Code(ErrorCode::{}),",
+                    variant(code, &[])
+                )?;
+            } else if reasons.contains(code) {
+                writeln!(
+                    output,
+                    "        OperationSpecificError::Reason(ReasonCode::{}),",
+                    variant(code, &[])
+                )?;
+            } else {
+                bail!("{operation_id} references unregistered or inactive error {code}");
+            }
+        }
+        output.push_str("    ],\n");
+    }
+    output.push_str("];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn every_operation_has_a_typed_error_mapping() {\n        assert_eq!(ServiceOperationId::ALL.len(), OPERATION_SPECIFIC_ERRORS.len());\n        for (index, operation) in ServiceOperationId::ALL.iter().copied().enumerate() {\n            assert_eq!(operation as usize, index);\n            for error in operation.operation_specific_errors() {\n                match error {\n                    OperationSpecificError::Code(code) => assert!(ErrorCode::is_registered(code.as_str())),\n                    OperationSpecificError::Reason(reason) => assert!(ReasonCode::is_registered(reason.as_str())),\n                }\n            }\n        }\n    }\n}\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/operation_errors.rs".into(),
         contents: output,
     })
 }
@@ -472,7 +1012,7 @@ fn generate_security_strings(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     )?;
 
     output.push_str(
-        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ProofContextDescriptor {\n    pub id: ProofContextId,\n    pub context: &'static str,\n    pub object_family: &'static str,\n    pub consumer_operation: Option<&'static str>,\n    pub binding_fields: &'static [&'static str],\n    pub schema_ref: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ExporterLabelDescriptor {\n    pub id: ExporterLabelId,\n    pub label: &'static str,\n    pub primitive: Option<&'static str>,\n    pub context_fields: &'static [&'static str],\n    pub output_bytes: &'static str,\n    pub empty_context_forbidden: bool,\n    pub forbid_reuse_with: &'static [&'static str],\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct AlgorithmSuiteDescriptor {\n    pub canonical_id: &'static str,\n    pub status: &'static str,\n    pub role: &'static str,\n    pub profile_gate: Option<&'static str>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsExtensionDescriptor {\n    pub name: &'static str,\n    pub codepoint: &'static str,\n    pub status: &'static str,\n    pub profile_id: &'static str,\n}\n\npub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[\n",
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ProofContextDescriptor {\n    pub id: ProofContextId,\n    pub context: &'static str,\n    pub object_family: &'static str,\n    pub consumer_operation: Option<&'static str>,\n    pub binding_fields: &'static [&'static str],\n    pub schema_ref: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ExporterLabelDescriptor {\n    pub id: ExporterLabelId,\n    pub label: &'static str,\n    pub primitive: Option<&'static str>,\n    pub context_fields: &'static [&'static str],\n    pub output_bytes: &'static str,\n    pub empty_context_forbidden: bool,\n    pub forbid_reuse_with: &'static [&'static str],\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct AlgorithmSuiteDescriptor {\n    pub canonical_id: &'static str,\n    pub status: &'static str,\n    pub role: &'static str,\n    pub profile_gate: Option<&'static str>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsExtensionDescriptor {\n    pub name: &'static str,\n    pub codepoint: &'static str,\n    pub status: &'static str,\n    pub profile_id: Option<&'static str>,\n    pub rejection_error: Option<&'static str>,\n}\n\npub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[\n",
     );
     for row in &proof {
         let binding_fields = strings(row, "binding_fields")?;
@@ -517,11 +1057,12 @@ fn generate_security_strings(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     for row in mls_extensions {
         writeln!(
             output,
-            "    MlsExtensionDescriptor {{\n        name: {},\n        codepoint: {},\n        status: {},\n        profile_id: {},\n    }},",
+            "    MlsExtensionDescriptor {{\n        name: {},\n        codepoint: {},\n        status: {},\n        profile_id: {},\n        rejection_error: {},\n    }},",
             rust_string(string(row, "name")?),
             rust_string(&value_as_string(field(row, "codepoint")?, "codepoint")?),
             rust_string(string(row, "status")?),
-            rust_string(string(row, "profile_id")?)
+            option_string(row.get("profile_id").and_then(Value::as_str)),
+            option_string(row.get("rejection_error").and_then(Value::as_str))
         )?;
     }
     output.push_str("];\n\npub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {\n    ProofContextId::from_wire(value).map(proof_context_descriptor)\n}\n\npub const fn proof_context_descriptor(id: ProofContextId) -> &'static ProofContextDescriptor {\n    &PROOF_CONTEXTS[id as usize]\n}\n\npub fn exporter_label(value: &str) -> Option<&'static ExporterLabelDescriptor> {\n    ExporterLabelId::from_wire(value).map(exporter_label_descriptor)\n}\n\npub const fn exporter_label_descriptor(id: ExporterLabelId) -> &'static ExporterLabelDescriptor {\n    &EXPORTER_LABELS[id as usize]\n}\n");
@@ -783,74 +1324,6 @@ fn generate_profile_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
-fn generate_reducer_profiles(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/reducer-profile-registry.json")?;
-    let rows = sorted_rows(
-        artifact
-            .array("profiles")?
-            .into_iter()
-            .filter(|row| string(row, "status").is_ok_and(|value| value == "active"))
-            .collect(),
-        "profile_id",
-    )?;
-    validate_unique(&rows, "profile_id", &["ak.reducer."])?;
-    let active = rows
-        .iter()
-        .map(|row| string(row, "profile_id").map(str::to_owned))
-        .collect::<Result<BTreeSet<_>>>()?;
-    let mut edges = Vec::new();
-    for row in &rows {
-        for target in row
-            .get("upgrade_edges")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            let target = target.as_str().context("upgrade edge is not string")?;
-            if !active.contains(target) {
-                bail!(
-                    "reducer profile {} has edge to inactive {target}",
-                    string(row, "profile_id")?
-                );
-            }
-            edges.push((string(row, "profile_id")?.to_owned(), target.to_owned()));
-        }
-    }
-    edges.sort();
-    let mut output = simple_string_enum(
-        &artifact,
-        &rows,
-        "profile_id",
-        &["ak.reducer."],
-        "ReducerProfileId",
-        &format!(
-            "reducer_profiles={}, upgrade_edges={}",
-            rows.len(),
-            edges.len()
-        ),
-        false,
-    )?;
-    output = output.replacen("#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", "/// Active Realm reducer profiles. A Realm selects exactly one through\n/// its reducer-profile singleton control cell; ordinary Events and\n/// federation service bindings do not declare one.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", 1);
-    let close = output
-        .rfind('}')
-        .context("generated reducer enum has no closing brace")?;
-    output.insert_str(close, "\n    /// Whether this profile registers a direct upgrade to `target`.\n    pub fn can_upgrade_to(self, target: Self) -> bool { REDUCER_PROFILE_UPGRADE_EDGES.contains(&(self, target)) }\n");
-    output.push_str("\n/// Directed reducer-profile upgrades registered by the source profile.\npub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[\n");
-    for (source, target) in edges {
-        writeln!(
-            output,
-            "    (ReducerProfileId::{}, ReducerProfileId::{}),",
-            variant(&source, &["ak.reducer."]),
-            variant(&target, &["ak.reducer."])
-        )?;
-    }
-    output.push_str("];\n\npub fn is_reducer_profile_id(value: &str) -> bool { ReducerProfileId::from_wire(value).is_some() }\n\npub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {\n    match (ReducerProfileId::from_wire(source), ReducerProfileId::from_wire(target)) {\n        (Some(source), Some(target)) => source.can_upgrade_to(target),\n        _ => false,\n    }\n}\n");
-    Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/reducer_profiles.rs".into(),
-        contents: output,
-    })
-}
-
 fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(
         artifacts_dir,
@@ -867,7 +1340,7 @@ fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutp
             variant(string(row, "freshness_profile_id")?, &["ak.did_freshness."])
         )?;
     }
-    output.push_str("}\n\n/// Registered risk tier of a freshness profile. Fixed by registration:\n/// a deployment declares only the numeric windows.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum DidFreshnessRiskTier { Low, Medium, High }\n\nimpl DidFreshnessProfileId {\n    pub const ALL: &'static [Self] = &[\n");
+    output.push_str("}\n\n/// Registered risk tier of a freshness profile. Fixed by registration:\n/// a deployment declares only the numeric windows.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]\n#[serde(rename_all = \"snake_case\")]\npub enum DidFreshnessRiskTier { Low, Medium, High }\n\nimpl DidFreshnessProfileId {\n    pub const ALL: &'static [Self] = &[\n");
     for row in &rows {
         writeln!(
             output,
@@ -930,8 +1403,11 @@ fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutp
 }
 
 fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/did-method-adapter-registry.json")?;
-    let rows = sorted_rows(artifact.array("adapters")?, "method_evidence_kind")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("did_method_adapter_registry", "adapters")?,
+        "method_evidence_kind",
+    )?;
     validate_unique(&rows, "method_evidence_kind", &[])?;
     let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));
     output.push_str(
@@ -1019,8 +1495,11 @@ fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput>
 }
 
 fn generate_authority_sources(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/authority-source-registry.json")?;
-    let rows = sorted_rows(artifact.array("sources")?, "authority_source_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("authority_source_registry", "sources")?,
+        "authority_source_id",
+    )?;
     let mut output = simple_string_enum(
         &artifact,
         &rows,
@@ -1039,8 +1518,11 @@ fn generate_authority_sources(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 }
 
 fn generate_schema_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/schema-registry.json")?;
-    let rows = sorted_rows(artifact.array("schemas")?, "schema_id")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("schema_registry", "schemas")?,
+        "schema_id",
+    )?;
     validate_unique(&rows, "schema_id", &["ak.schema.", "ak."])?;
     let active = rows
         .iter()
@@ -1214,10 +1696,58 @@ fn validate_digest_suite_rows(rows: &[&Map<String, Value>]) -> Result<()> {
     Ok(())
 }
 
+fn active_error_rows<'a>(
+    rows: &'a [&'a Map<String, Value>],
+    collection: &str,
+) -> Result<Vec<&'a Map<String, Value>>> {
+    let mut active = Vec::new();
+    for row in rows {
+        let code = string(row, "code")?;
+        match string(row, "status")? {
+            "active" => {
+                if row.contains_key("activation_condition") {
+                    bail!("{collection} {code} is active and must not retain activation_condition");
+                }
+                active.push(*row);
+            }
+            "reserved" => {
+                let condition = string(row, "activation_condition")?;
+                if condition.trim().is_empty() {
+                    bail!("{collection} {code} is reserved without an activation condition");
+                }
+                let applies_to = row
+                    .get("applies_to")
+                    .and_then(Value::as_array)
+                    .with_context(|| {
+                        format!("{collection} {code} is reserved without applies_to[]")
+                    })?;
+                if applies_to.is_empty() {
+                    bail!("{collection} {code} is reserved with empty applies_to[]");
+                }
+                let mut unique = BTreeSet::new();
+                for applies_to in applies_to {
+                    let applies_to = applies_to.as_str().with_context(|| {
+                        format!("{collection} {code} has a non-string applies_to entry")
+                    })?;
+                    if applies_to.trim().is_empty() {
+                        bail!("{collection} {code} has an empty applies_to entry");
+                    }
+                    if !unique.insert(applies_to) {
+                        bail!("{collection} {code} repeats applies_to {applies_to:?}");
+                    }
+                }
+            }
+            status => bail!("{collection} {code} has unknown status {status:?}"),
+        }
+    }
+    Ok(active)
+}
+
 fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
-    let rows = sorted_rows(artifact.array("codes")?, "code")?;
-    validate_unique(&rows, "code", &[])?;
+    let registered = sorted_rows(artifact.array("codes")?, "code")?;
+    validate_unique(&registered, "code", &[])?;
+    let rows = active_error_rows(&registered, "error code")?;
     let contexts = rows
         .iter()
         .filter_map(|row| row.get("http_status_by_context").and_then(Value::as_object))
@@ -1225,7 +1755,14 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
-    let mut output = header(&[&artifact.source], &format!("error_codes={}", rows.len()));
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "error_codes={}, reserved_not_emitted={}",
+            rows.len(),
+            registered.len() - rows.len()
+        ),
+    );
     output.push_str("use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]\n#[serde(rename_all = \"snake_case\")]\npub enum ErrorStatusContext {\n");
     for context in &contexts {
         writeln!(output, "    {},", variant(context, &[]))?;
@@ -1330,7 +1867,9 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             rust_string(string(row, "description")?)
         )?;
     }
-    output.push_str("];\n");
+    output.push_str(
+        "];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn enum_descriptor_and_wire_tables_are_bijective() {\n        assert_eq!(ErrorCode::ALL.len(), ERROR_CODE_DESCRIPTORS.len());\n        for (index, code) in ErrorCode::ALL.iter().copied().enumerate() {\n            let descriptor = &ERROR_CODE_DESCRIPTORS[index];\n            assert_eq!(descriptor.code, code);\n            assert_eq!(code.descriptor(), descriptor);\n            assert_eq!(ErrorCode::from_wire(code.as_str()), Some(code));\n            assert!(ErrorCode::is_registered(code.as_str()));\n        }\n        assert_eq!(ErrorCode::from_wire(\"reserved_or_unknown\"), None);\n        assert!(!ErrorCode::is_registered(\"reserved_or_unknown\"));\n    }\n}\n",
+    );
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/error_codes/error_code.rs".into(),
         contents: output,
@@ -1339,9 +1878,17 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 
 fn generate_reason_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/error-code-registry.json")?;
-    let rows = sorted_rows(artifact.array("reason_codes")?, "code")?;
-    validate_unique(&rows, "code", &[])?;
-    let mut output = header(&[&artifact.source], &format!("reason_codes={}", rows.len()));
+    let registered = sorted_rows(artifact.array("reason_codes")?, "code")?;
+    validate_unique(&registered, "code", &[])?;
+    let rows = active_error_rows(&registered, "reason code")?;
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "reason_codes={}, reserved_not_emitted={}",
+            rows.len(),
+            registered.len() - rows.len()
+        ),
+    );
     output.push_str("use serde::{Deserialize, Deserializer, Serialize, Serializer};\n\n#[derive(Clone, Debug, PartialEq, Eq, Hash)]\npub enum ReasonCode {\n");
     for row in &rows {
         writeln!(output, "    {},", variant(string(row, "code")?, &[]))?;
@@ -1397,7 +1944,9 @@ fn generate_reason_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             rust_string(string(row, "description")?)
         )?;
     }
-    output.push_str("];\n");
+    output.push_str(
+        "];\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn descriptor_and_wire_tables_are_bijective() {\n        for (index, descriptor) in REASON_CODE_DESCRIPTORS.iter().enumerate() {\n            assert!(index == 0 || REASON_CODE_DESCRIPTORS[index - 1].code < descriptor.code);\n            let parsed = ReasonCode::from_wire(descriptor.code);\n            assert_eq!(parsed.as_str(), descriptor.code);\n            assert!(ReasonCode::is_registered(descriptor.code));\n            assert_eq!(parsed.descriptor(), Some(descriptor));\n        }\n        let unknown = ReasonCode::from_wire(\"reserved_or_unknown\");\n        assert_eq!(unknown, ReasonCode::Unknown(\"reserved_or_unknown\".to_owned()));\n        assert!(!ReasonCode::is_registered(unknown.as_str()));\n        assert_eq!(unknown.descriptor(), None);\n    }\n}\n",
+    );
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/error_codes/reason_code.rs".into(),
         contents: output,
@@ -1474,7 +2023,7 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(string(row, "canonical_id")?, &[])
         )?;
     }
-    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
+    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub primary_conflict_domain: &'static str,\n    /// Primary conflict domain of the directly writable shape, if any.\n    pub direct_write_primary_conflict_domain: Option<&'static str>,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
     for row in &rows {
         writeln!(
             output,
@@ -1502,11 +2051,46 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     }
     output.push_str("            _ => Self::Custom(value.to_owned()),\n        }\n    }\n\n    pub fn descriptor(&self) -> Option<&'static RelationKindDescriptor> {\n        RELATION_KIND_DESCRIPTORS.iter().find(|row| row.canonical_id == self.as_str())\n    }\n\n    pub fn is_standard(&self) -> bool {\n        self.descriptor().is_some()\n    }\n\n    pub fn is_structural(&self) -> bool {\n        self.descriptor().is_some_and(|row| !row.weak_semantic)\n    }\n}\n\nimpl Serialize for RelationKind {\n    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for RelationKind {\n    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        Ok(Self::from_wire(&String::deserialize(deserializer)?))\n    }\n}\n\npub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[\n");
     for row in rows {
+        let direct_write_domain = match row.get("shapes") {
+            Some(shapes) => {
+                let direct = shapes
+                    .as_array()
+                    .context("relation kind shapes is not an array")?
+                    .iter()
+                    .filter(|shape| {
+                        shape.get("writability").and_then(Value::as_str) == Some("direct")
+                    })
+                    .collect::<Vec<_>>();
+                match direct.as_slice() {
+                    [] => None,
+                    [shape] => Some(string(
+                        shape
+                            .as_object()
+                            .context("relation kind shape is not an object")?,
+                        "primary_conflict_domain",
+                    )?),
+                    _ => bail!(
+                        "relation kind {} declares more than one directly writable shape",
+                        string(row, "canonical_id")?
+                    ),
+                }
+            }
+            None => Some(string(row, "primary_conflict_domain")?),
+        };
         writeln!(
             output,
-            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
+            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        primary_conflict_domain: {},\n        direct_write_primary_conflict_domain: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
             rust_string(string(row, "canonical_id")?),
             rust_string(string(row, "default_cardinality")?),
+            rust_string(if row.get("shapes").is_some() {
+                "shape_dependent"
+            } else {
+                string(row, "primary_conflict_domain")?
+            }),
+            match direct_write_domain {
+                Some(domain) => format!("Some({})", rust_string(domain)),
+                None => "None".to_owned(),
+            },
             variant(string(row, "truth_source_class")?, &[]),
             field(row, "weak_semantic")?
                 .as_bool()
@@ -1521,8 +2105,11 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 }
 
 fn generate_capability_actions(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/capability-action-registry.json")?;
-    let rows = sorted_rows(artifact.array("actions")?, "action")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let rows = sorted_rows(
+        artifact.section_array("capability_action_registry", "actions")?,
+        "action",
+    )?;
     validate_unique(&rows, "action", &["ak."])?;
     let mut output = simple_string_enum(
         &artifact,
@@ -1585,12 +2172,11 @@ fn emit_closed_enum(output: &mut String, type_name: &str, values: &[String]) -> 
 }
 
 fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let track = Artifact::load(artifacts_dir, "registry/track-name-registry.json")?;
-    let binding = Artifact::load(artifacts_dir, "registry/binding-kind-registry.json")?;
+    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
     let authority = Artifact::load(artifacts_dir, "registry/authority-set-policy-registry.json")?;
     let tracks = sorted_rows(
-        track
-            .array("track_names")?
+        contracts
+            .section_array("track_name_registry", "track_names")?
             .into_iter()
             .filter(|row| {
                 row.get("status")
@@ -1602,8 +2188,8 @@ fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutpu
         "track_name",
     )?;
     let bindings = sorted_rows(
-        binding
-            .array("entries")?
+        contracts
+            .section_array("binding_kind_registry", "entries")?
             .into_iter()
             .filter(|row| {
                 matches!(
@@ -1630,7 +2216,7 @@ fn generate_closed_registry_types(artifacts_dir: &Path) -> Result<GeneratedOutpu
     validate_unique(&tracks, "track_name", &[])?;
     validate_unique(&bindings, "kind", &[])?;
     let mut output = header(
-        &[&track.source, &binding.source, &authority.source],
+        &[&contracts.source, &authority.source],
         &format!(
             "track_names={}, binding_kinds={}, authority_policy_kinds={}, authority_source_kinds={}",
             tracks.len(),
@@ -1740,6 +2326,277 @@ fn generate_account_data_keys(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     output.push_str("            _ => None,\n        }\n    }\n\n    /// Resolve a concrete Account Data key to its registered namespace.\n    pub fn for_key(value: &str) -> Option<Self> {\n        Self::ALL.iter().copied().find(|key| key.matches(value))\n    }\n}\n\nimpl std::fmt::Display for AccountDataKey {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }\n}\n\nimpl Serialize for AccountDataKey {\n    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) }\n}\n\nimpl<'de> Deserialize<'de> for AccountDataKey {\n    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        let raw = String::deserialize(deserializer)?;\n        Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown account data key: {raw}\")))\n    }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/account_data_keys.rs".into(),
+        contents: output,
+    })
+}
+
+/// Closed client-local state machine of the creator MLS Genesis bootstrap
+/// transaction. The state and transition identifiers are wire-neutral durable
+/// labels, so every consumer resolves them through this one generated enum
+/// instead of re-spelling the registry.
+fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(
+        artifacts_dir,
+        "registry/mls-creator-bootstrap-transaction-registry.json",
+    )?;
+    let states = artifact.array("states")?;
+    let transitions = artifact.array("transitions")?;
+    validate_unique(&states, "state_id", &[])?;
+    validate_unique(&transitions, "transition_id", &[])?;
+    let state_ids = states
+        .iter()
+        .map(|row| string(row, "state_id"))
+        .collect::<Result<BTreeSet<_>>>()?;
+    for (index, row) in states.iter().enumerate() {
+        let ordinal = field(row, "ordinal")?
+            .as_u64()
+            .context("state ordinal is not an integer")?;
+        if ordinal != index as u64 + 1 {
+            bail!("creator bootstrap states must be listed in ordinal order");
+        }
+        for exit in strings(row, "allowed_exits")? {
+            if !state_ids.contains(exit.as_str()) {
+                bail!("creator bootstrap state names an unknown exit: {exit}");
+            }
+        }
+    }
+    let mut kinds = BTreeSet::new();
+    for row in &states {
+        kinds.insert(string(row, "kind")?);
+    }
+
+    let mut failure_dispositions = BTreeSet::new();
+    for row in &states {
+        failure_dispositions.insert(string(row, "failure_disposition")?);
+    }
+
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "states={}, transitions={}, state_kinds={}",
+            states.len(),
+            transitions.len(),
+            kinds.len()
+        ),
+    );
+    output.push_str("use serde::{Deserialize, Serialize};\n\n/// Registered disposition of a failed creator invariant.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapFailureDisposition {\n");
+    for value in &failure_dispositions {
+        writeln!(output, "    {},", variant(value, &[]))?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapFailureDisposition {\n    pub const ALL: &'static [Self] = &[\n");
+    for value in &failure_dispositions {
+        writeln!(output, "        Self::{},", variant(value, &[]))?;
+    }
+    output.push_str(
+        "    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n",
+    );
+    for value in &failure_dispositions {
+        writeln!(
+            output,
+            "            Self::{} => {},",
+            variant(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for value in &failure_dispositions {
+        writeln!(
+            output,
+            "            {} => Some(Self::{}),",
+            rust_string(value),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n\n");
+    output.push_str(
+        "/// Lifecycle class of one creator MLS Genesis bootstrap state.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapStateKind {\n",
+    );
+    for kind in &kinds {
+        writeln!(output, "    {},", variant(kind, &[]))?;
+    }
+    output.push_str(
+        "}\n\nimpl MlsCreatorBootstrapStateKind {\n    pub const ALL: &'static [Self] = &[\n",
+    );
+    for kind in &kinds {
+        writeln!(output, "        Self::{},", variant(kind, &[]))?;
+    }
+    output.push_str(
+        "    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n",
+    );
+    for kind in &kinds {
+        writeln!(
+            output,
+            "            Self::{} => {},",
+            variant(kind, &[]),
+            rust_string(kind)
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for kind in &kinds {
+        writeln!(
+            output,
+            "            {} => Some(Self::{}),",
+            rust_string(kind),
+            variant(kind, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n\n");
+
+    output.push_str(
+        "/// Durable state of the single client-local creator MLS Genesis bootstrap\n/// transaction, keyed by `(owner_actor_id, effective_scope, operation)`.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapState {\n",
+    );
+    for row in &states {
+        writeln!(output, "    {},", variant(string(row, "state_id")?, &[]))?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapState {\n    /// Registry order, which is the ordinal order of the state machine.\n    pub const ALL: &'static [Self] = &[\n");
+    for row in &states {
+        writeln!(
+            output,
+            "        Self::{},",
+            variant(string(row, "state_id")?, &[])
+        )?;
+    }
+    output.push_str("    ];\n\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "    pub const {}: &'static str = {};",
+            associated_name(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Self::{},",
+            variant(value, &[]),
+            associated_name(value, &[])
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Some(Self::{}),",
+            associated_name(value, &[]),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapStateDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_STATES[self as usize]\n    }\n\n    pub fn ordinal(self) -> u32 {\n        self.descriptor().ordinal\n    }\n\n    pub fn kind(self) -> MlsCreatorBootstrapStateKind {\n        self.descriptor().kind\n    }\n\n    pub fn failure_disposition(self) -> MlsCreatorBootstrapFailureDisposition {\n        self.descriptor().failure_disposition\n    }\n\n    /// States a recoverer may move to from here. A terminal state has none.\n    pub fn allowed_exits(self) -> &'static [MlsCreatorBootstrapState] {\n        self.descriptor().allowed_exits\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapStateDescriptor {\n    pub state: MlsCreatorBootstrapState,\n    pub ordinal: u32,\n    pub kind: MlsCreatorBootstrapStateKind,\n    pub failure_disposition: MlsCreatorBootstrapFailureDisposition,\n    pub allowed_exits: &'static [MlsCreatorBootstrapState],\n}\n\npub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = &[\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        let exits = strings(row, "allowed_exits")?
+            .iter()
+            .map(|exit| format!("MlsCreatorBootstrapState::{}", variant(exit, &[])))
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(
+            output,
+            "    MlsCreatorBootstrapStateDescriptor {{ state: MlsCreatorBootstrapState::{}, ordinal: {}, kind: MlsCreatorBootstrapStateKind::{}, failure_disposition: MlsCreatorBootstrapFailureDisposition::{}, allowed_exits: &[{}] }},",
+            variant(value, &[]),
+            field(row, "ordinal")?
+                .as_u64()
+                .context("state ordinal is not an integer")?,
+            variant(string(row, "kind")?, &[]),
+            variant(string(row, "failure_disposition")?, &[]),
+            exits
+        )?;
+    }
+    output.push_str("];\n\n");
+
+    output.push_str(
+        "/// The single arrows a recoverer may execute. `from_state` is `None` for\n/// the one arrow that creates the record.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapTransition {\n",
+    );
+    for row in &transitions {
+        writeln!(
+            output,
+            "    {},",
+            variant(string(row, "transition_id")?, &[])
+        )?;
+    }
+    output.push_str(
+        "}\n\nimpl MlsCreatorBootstrapTransition {\n    pub const ALL: &'static [Self] = &[\n",
+    );
+    for row in &transitions {
+        writeln!(
+            output,
+            "        Self::{},",
+            variant(string(row, "transition_id")?, &[])
+        )?;
+    }
+    output.push_str("    ];\n\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "    pub const {}: &'static str = {};",
+            associated_name(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Self::{},",
+            variant(value, &[]),
+            associated_name(value, &[])
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Some(Self::{}),",
+            associated_name(value, &[]),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapTransitionDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_TRANSITIONS[self as usize]\n    }\n\n    pub fn from_state(self) -> Option<MlsCreatorBootstrapState> {\n        self.descriptor().from_state\n    }\n\n    pub fn to_state(self) -> MlsCreatorBootstrapState {\n        self.descriptor().to_state\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapTransitionDescriptor {\n    pub transition: MlsCreatorBootstrapTransition,\n    pub from_state: Option<MlsCreatorBootstrapState>,\n    pub to_state: MlsCreatorBootstrapState,\n}\n\npub const MLS_CREATOR_BOOTSTRAP_TRANSITIONS: &[MlsCreatorBootstrapTransitionDescriptor] = &[\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        let from_state = match field(row, "from_state")? {
+            Value::Null => "None".to_owned(),
+            Value::String(state) => {
+                if !state_ids.contains(state.as_str()) {
+                    bail!("creator bootstrap transition names an unknown from_state: {state}");
+                }
+                format!("Some(MlsCreatorBootstrapState::{})", variant(state, &[]))
+            }
+            _ => bail!("creator bootstrap transition from_state must be a string or null"),
+        };
+        let to_state = string(row, "to_state")?;
+        if !state_ids.contains(to_state) {
+            bail!("creator bootstrap transition names an unknown to_state: {to_state}");
+        }
+        writeln!(
+            output,
+            "    MlsCreatorBootstrapTransitionDescriptor {{ transition: MlsCreatorBootstrapTransition::{}, from_state: {}, to_state: MlsCreatorBootstrapState::{} }},",
+            variant(value, &[]),
+            from_state,
+            variant(to_state, &[])
+        )?;
+    }
+    output.push_str("];\n\n");
+    for name in [
+        "MlsCreatorBootstrapFailureDisposition",
+        "MlsCreatorBootstrapStateKind",
+        "MlsCreatorBootstrapState",
+        "MlsCreatorBootstrapTransition",
+    ] {
+        writeln!(
+            output,
+            "impl std::fmt::Display for {name} {{ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{ f.write_str(self.as_str()) }} }}\nimpl Serialize for {name} {{ fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {{ serializer.serialize_str(self.as_str()) }} }}\nimpl<'de> Deserialize<'de> for {name} {{ fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {{ let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown {name} value: {{raw}}\"))) }} }}"
+        )?;
+    }
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/mls_creator_bootstrap.rs".into(),
         contents: output,
     })
 }
@@ -1888,84 +2745,6 @@ fn generate_authority_set_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
-fn generate_history_store_limits(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(
-        artifacts_dir,
-        "registry/history-recovery-scalability-registry.json",
-    )?;
-    let store = artifact
-        .value
-        .get("history_store")
-        .and_then(Value::as_object)
-        .context("history recovery registry missing history_store object")?;
-    let fields = store
-        .iter()
-        .filter_map(|(name, value)| value.as_i64().map(|value| (name, value)))
-        .collect::<Vec<_>>();
-    let mut output = header(
-        &[&artifact.source],
-        &format!("history_store_limits={}", fields.len()),
-    );
-    writeln!(
-        output,
-        "/// Machine-readable `history_store` section of\n/// `registry/history-recovery-scalability-registry.json`, the single source\n/// of truth for the device-local history-only store quotas.\n///"
-    )?;
-    for (label, key) in [
-        ("Material dedupe rule", "material_dedupe_rule"),
-        ("Material quota rule", "material_quota_rule"),
-        ("Material eviction rule", "material_eviction_rule"),
-        ("Origin attribution rule", "origin_attribution_rule"),
-        (
-            "Event candidate binding rule",
-            "event_candidate_binding_rule",
-        ),
-    ] {
-        writeln!(
-            output,
-            "/// {label}: {}\n///",
-            rustdoc(
-                store
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .with_context(|| format!("history_store missing {key}"))?
-            )
-        )?;
-    }
-    writeln!(
-        output,
-        "/// `candidate_digest` preimage: {}.\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct HistoryStoreLimits {{",
-        rustdoc(
-            store
-                .get("candidate_digest")
-                .and_then(Value::as_str)
-                .context("history_store missing candidate_digest")?
-        )
-    )?;
-    for (name, _) in &fields {
-        writeln!(
-            output,
-            "    pub {name}: {},",
-            if name.ends_with("_seconds") {
-                "i64"
-            } else {
-                "usize"
-            }
-        )?;
-    }
-    writeln!(
-        output,
-        "}}\n\n/// The registered `history_store` limits.\npub const HISTORY_STORE_LIMITS: HistoryStoreLimits = HistoryStoreLimits {{"
-    )?;
-    for (name, value) in fields {
-        writeln!(output, "    {name}: {value},")?;
-    }
-    writeln!(output, "}};")?;
-    Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/history_store_limits.rs".into(),
-        contents: output,
-    })
-}
-
 fn rustdoc(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -2018,113 +2797,137 @@ fn generate_redactable_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
-fn generate_reducer_managed_paths(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+/// Project `registry/reducer-managed-path-registry.json` (the declared source
+/// of truth for `event-and-patch.md` section 4.2.5) into the per-object
+/// effective forbidden set plus the object-agnostic universal minimum.
+///
+/// The registry's own rule decides the effective set: the universal paths an
+/// object's schema actually declares, minus that object's registered
+/// exemptions, plus its own bans. This generator resolves the schema
+/// restriction here so no consumer re-derives it, and the emitted table is the
+/// only copy any SDK, reducer or conformance runner reads.
+fn generate_reducer_managed_patch_paths(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/reducer-managed-path-registry.json")?;
-    let mut universal = artifact.array("universal_forbidden_patch_paths")?;
-    universal.sort_by_key(|row| string(row, "path").unwrap());
+    let universal = artifact.array("universal_forbidden_patch_paths")?;
     let mut objects = artifact.array("objects")?;
     objects.sort_by_key(|row| string(row, "object_kind").unwrap());
-    let mut any_paths = universal
-        .iter()
-        .map(|row| string(row, "path").map(str::to_owned))
-        .collect::<Result<BTreeSet<_>>>()?;
-    for row in &objects {
-        for entry in field(row, "forbidden_patch_paths")?
-            .as_array()
-            .context("forbidden_patch_paths is not an array")?
-        {
-            any_paths.insert(
-                entry
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .context("managed path missing path")?
-                    .to_owned(),
-            );
+
+    let mut rendered_objects = String::new();
+    let mut object_count = 0usize;
+    let mut path_count = 0usize;
+    for object in objects {
+        let object_kind = string(object, "object_kind")?;
+        let declared =
+            declared_object_properties(artifacts_dir, string(object, "object_schema_ref")?)?;
+        let exempt = artifact_paths(object, "universal_exemptions")?;
+        let mut rows: Vec<(String, String)> = Vec::new();
+        for row in &universal {
+            let path = string(row, "path")?;
+            if !declared.contains(path) || exempt.contains(path) {
+                continue;
+            }
+            rows.push((path.to_owned(), render_reducer_managed_path(row, "None")?));
         }
+        for row in artifact_rows(object, "forbidden_patch_paths")? {
+            let path = string(row, "path")?;
+            let schema_enforced = match field(row, "schema_enforced")?.as_bool() {
+                Some(value) => format!("Some({value})"),
+                None => bail!("{path} schema_enforced is not a boolean"),
+            };
+            rows.push((
+                path.to_owned(),
+                render_reducer_managed_path(row, &schema_enforced)?,
+            ));
+        }
+        rows.sort_by(|left, right| left.0.cmp(&right.0));
+        path_count += rows.len();
+        object_count += 1;
+        writeln!(
+            rendered_objects,
+            "    ReducerManagedPatchObject {{\n        object_kind: {},\n        forbidden_paths: &[",
+            rust_string(object_kind)
+        )?;
+        for (_, rendered) in rows {
+            rendered_objects.push_str(&rendered);
+        }
+        rendered_objects.push_str("        ],\n    },\n");
     }
+
+    let mut universal_paths = Vec::new();
+    for row in &universal {
+        universal_paths.push(string(row, "path")?.to_owned());
+    }
+    universal_paths.sort();
+
     let mut output = header(
         &[&artifact.source],
         &format!(
-            "universal_paths={}, object_kinds={}, any_object_paths={}",
-            universal.len(),
-            objects.len(),
-            any_paths.len()
+            "objects={object_count}, effective_paths={path_count}, universal_paths={}",
+            universal_paths.len()
         ),
     );
-    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPathDescriptor {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedObjectPathDescriptor {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n    pub schema_enforced: bool,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedObjectDescriptor {\n    pub object_kind: &'static str,\n    pub forbidden_paths: &'static [ReducerManagedObjectPathDescriptor],\n    pub universal_exemptions: &'static [&'static str],\n}\n\n/// General minimum set of `event-and-patch.md` section 4.2.5: the patch\n/// paths every patch-bearing object kind forbids unless it declares an\n/// explicit exemption.\npub const REDUCER_MANAGED_UNIVERSAL_PATHS: &[ReducerManagedPathDescriptor] = &[\n");
-    for row in universal {
-        writeln!(
-            output,
-            "    ReducerManagedPathDescriptor {{\n        path: {},\n        basis: {},\n        reason_code: {},\n    }},",
-            rust_string(string(row, "path")?),
-            rust_string(string(row, "basis")?),
-            rust_string(string(row, "reason_code")?)
-        )?;
-    }
-    output.push_str("];\n\n/// Per-object-kind additions and exemptions. An object kind absent from\n/// this table has no patch surface registered in the spec.\npub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[\n");
-    for row in objects {
-        writeln!(
-            output,
-            "    ReducerManagedObjectDescriptor {{\n        object_kind: {},",
-            rust_string(string(row, "object_kind")?)
-        )?;
-        let mut entries = field(row, "forbidden_patch_paths")?
-            .as_array()
-            .context("forbidden_patch_paths is not an array")?
-            .iter()
-            .map(|value| {
-                value
-                    .as_object()
-                    .context("managed path entry is not an object")
-            })
-            .collect::<Result<Vec<_>>>()?;
-        entries.sort_by_key(|entry| string(entry, "path").unwrap());
-        if entries.is_empty() {
-            output.push_str("        forbidden_paths: &[],\n");
-        } else {
-            output.push_str("        forbidden_paths: &[\n");
-            for entry in entries {
-                writeln!(
-                    output,
-                    "            ReducerManagedObjectPathDescriptor {{\n                path: {},\n                basis: {},\n                reason_code: {},\n                schema_enforced: {},\n            }},",
-                    rust_string(string(entry, "path")?),
-                    rust_string(string(entry, "basis")?),
-                    rust_string(string(entry, "reason_code")?),
-                    field(entry, "schema_enforced")?
-                        .as_bool()
-                        .context("schema_enforced is not boolean")?
-                )?;
-            }
-            output.push_str("        ],\n");
-        }
-        let mut exemptions = field(row, "universal_exemptions")?
-            .as_array()
-            .context("universal_exemptions is not an array")?
-            .iter()
-            .map(|entry| {
-                entry
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .context("universal exemption missing path")
-                    .map(str::to_owned)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        exemptions.sort();
-        writeln!(
-            output,
-            "        universal_exemptions: {},\n    }},",
-            string_slice(&exemptions)
-        )?;
-    }
-    output.push_str("];\n\n/// Conservative object-agnostic superset: every path forbidden on at\n/// least one object kind, with no exemption applied. Only for callers\n/// that cannot name the object kind; a caller that can name it MUST use\n/// the per-object table instead, because applying this superset to a\n/// View rejects the `state` patch that `views.md` section 3.1 requires.\npub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[\n");
-    for path in any_paths {
-        writeln!(output, "    {},", rust_string(&path))?;
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPatchPath {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n    pub owner_kind: &'static str,\n    /// `Some(true)` when the named update payload already rejects the path\n    /// through its own guard; `None` for a universal path, which no payload\n    /// guard enumerates.\n    pub schema_enforced: Option<bool>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPatchObject {\n    pub object_kind: &'static str,\n    /// Effective set: the universal paths this object's schema declares, minus\n    /// its registered exemptions, plus its own bans.\n    pub forbidden_paths: &'static [ReducerManagedPatchPath],\n}\n\n/// Every object kind whose update payload embeds the generic patch surface.\npub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[\n",
+    );
+    output.push_str(&rendered_objects);
+    output.push_str(
+        "];\n\n/// The general minimum set, unrestricted and with no exemption honoured.\n/// It applies whenever the object kind behind a patch is not proven.\npub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[\n",
+    );
+    for path in &universal_paths {
+        writeln!(output, "    {},", rust_string(path))?;
     }
     output.push_str("];\n");
     Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/reducer_managed_paths.rs".into(),
+        relative_path: "crates/wire/src/generated/reducer_managed_patch_paths.rs".into(),
         contents: output,
     })
+}
+
+fn render_reducer_managed_path(row: &Map<String, Value>, schema_enforced: &str) -> Result<String> {
+    Ok(format!(
+        "            ReducerManagedPatchPath {{\n                path: {},\n                basis: {},\n                reason_code: {},\n                owner_kind: {},\n                schema_enforced: {schema_enforced},\n            }},\n",
+        rust_string(string(row, "path")?),
+        rust_string(string(row, "basis")?),
+        rust_string(string(row, "reason_code")?),
+        rust_string(string(row, "owner_kind")?),
+    ))
+}
+
+fn artifact_rows<'a>(
+    row: &'a Map<String, Value>,
+    key: &str,
+) -> Result<Vec<&'a Map<String, Value>>> {
+    field(row, key)?
+        .as_array()
+        .with_context(|| format!("field {key} is not an array"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_object()
+                .with_context(|| format!("field {key} contains a non-object"))
+        })
+        .collect()
+}
+
+fn artifact_paths(row: &Map<String, Value>, key: &str) -> Result<BTreeSet<String>> {
+    artifact_rows(row, key)?
+        .into_iter()
+        .map(|entry| Ok(string(entry, "path")?.to_owned()))
+        .collect()
+}
+
+fn declared_object_properties(artifacts_dir: &Path, schema_ref: &str) -> Result<BTreeSet<String>> {
+    let path = artifacts_dir.join(schema_ref);
+    let bytes = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+    let schema: Value =
+        serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display()))?;
+    Ok(schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .with_context(|| format!("{schema_ref} declares no properties object"))?
+        .keys()
+        .cloned()
+        .collect())
 }
 
 fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
@@ -2140,14 +2943,51 @@ fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutpu
         &[&artifact.source],
         &format!("forbidden_wire_fields={}", entries.len()),
     );
-    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireFieldDescriptor {\n    pub id: &'static str,\n    pub context: &'static str,\n    pub rejection_level: &'static str,\n}\n\n/// Canonical projection of `registry/forbidden-wire-fields.json`: field\n/// names that MUST NOT appear on the current v1 wire in the listed context.\n/// Patch-context entries carry the registry's `patch:` prefix on their id\n/// (for example `patch:stage`). Consumers query this table through\n/// `arkret_wire::forbidden_wire` and never spell their own list.\npub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[\n");
+    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireSelector {\n    pub document_kind: &'static str,\n    pub schema_ref: &'static str,\n    pub instance_pointer: &'static str,\n    pub match_scope: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireFieldDescriptor {\n    pub id: &'static str,\n    pub context: &'static str,\n    pub rejection_level: &'static str,\n    pub selectors: &'static [ForbiddenWireSelector],\n    pub match_kind: &'static str,\n    pub match_values: &'static [&'static str],\n    pub value_pointer: &'static str,\n}\n\npub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[\n");
+    let definitions = artifact
+        .value
+        .get("context_definitions")
+        .and_then(Value::as_object)
+        .context("missing context_definitions")?;
     for row in entries {
+        let context = string(row, "context")?;
+        let selectors = definitions
+            .get(context)
+            .and_then(|v| v.get("selectors"))
+            .and_then(Value::as_array)
+            .with_context(|| format!("undefined context {context}"))?;
+        let matcher = field(row, "match")?
+            .as_object()
+            .context("missing matcher")?;
         writeln!(
             output,
-            "    ForbiddenWireFieldDescriptor {{\n        id: {},\n        context: {},\n        rejection_level: {},\n    }},",
+            "    ForbiddenWireFieldDescriptor {{ id: {}, context: {}, rejection_level: {}, selectors: &[",
             rust_string(string(row, "id")?),
-            rust_string(string(row, "context")?),
+            rust_string(context),
             rust_string(string(row, "rejection_level")?)
+        )?;
+        for selector in selectors {
+            let selector = selector.as_object().context("invalid selector")?;
+            writeln!(
+                output,
+                "        ForbiddenWireSelector {{ document_kind: {}, schema_ref: {}, instance_pointer: {}, match_scope: {} }},",
+                rust_string(string(selector, "document_kind")?),
+                rust_string(string(selector, "schema_ref")?),
+                rust_string(string(selector, "instance_pointer")?),
+                rust_string(string(selector, "match_scope")?)
+            )?;
+        }
+        writeln!(
+            output,
+            "    ], match_kind: {}, match_values: {}, value_pointer: {} }},",
+            rust_string(string(matcher, "kind")?),
+            string_slice(&strings(matcher, "values")?),
+            rust_string(
+                matcher
+                    .get("value_pointer")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+            )
         )?;
     }
     output.push_str("];\n");
@@ -2161,6 +3001,21 @@ fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutpu
 mod tests {
     use super::*;
 
+    fn operation_row(id: &str, grpc: &str, mq: &str) -> Map<String, Value> {
+        serde_json::json!({
+            "operation_id": id,
+            "grpc": grpc,
+            "mq": mq
+        })
+        .as_object()
+        .expect("operation row")
+        .clone()
+    }
+
+    fn transport_validation(rows: &[Map<String, Value>]) -> Result<()> {
+        validate_operation_transport_bindings(&rows.iter().collect::<Vec<_>>())
+    }
+
     fn spec_artifacts() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
     }
@@ -2168,10 +3023,14 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 24);
+        assert_eq!(outputs.len(), 25);
         for required in [
+            "crates/wire/src/generated/reducer_managed_patch_paths.rs",
+            "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
+            "crates/wire/src/generated/operation_errors.rs",
             "crates/wire/src/generated/security_strings.rs",
+            "crates/wire/src/generated/preimage_commitments.rs",
             "crates/wire/src/error_codes/error_code.rs",
             "crates/identifiers/src/generated/digest_suite_codes.rs",
         ] {
@@ -2186,6 +3045,226 @@ mod tests {
                 .contents
                 .contains("//! Generator: tools/spec-codegen")
         }));
+        assert!(outputs.iter().all(|output| {
+            output.relative_path != Path::new("crates/wire/src/generated/history_store_limits.rs")
+        }));
+    }
+
+    #[test]
+    fn operation_transport_bindings_are_closed_and_unique() {
+        let first = operation_row(
+            "ak.self.probe.command.one.v1",
+            "SelfProbe/One",
+            "self.probe.one",
+        );
+        let second = operation_row(
+            "ak.self.probe.command.two.v1",
+            "SelfProbe/Two",
+            "self.probe.two",
+        );
+        let http_only = serde_json::json!({
+            "operation_id": "ak.self.probe.command.http_only.v1",
+            "http_only_variant": true
+        })
+        .as_object()
+        .expect("http-only row")
+        .clone();
+        transport_validation(&[first.clone(), second.clone(), http_only.clone()])
+            .expect("closed transport bindings");
+
+        let mut missing = first.clone();
+        missing.remove("grpc");
+        assert!(
+            transport_validation(&[missing])
+                .unwrap_err()
+                .to_string()
+                .contains("missing grpc")
+        );
+
+        let duplicate_grpc = operation_row(
+            "ak.self.probe.command.three.v1",
+            "SelfProbe/One",
+            "self.probe.three",
+        );
+        assert!(
+            transport_validation(&[first.clone(), duplicate_grpc])
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate grpc")
+        );
+
+        let duplicate_mq = operation_row(
+            "ak.self.probe.command.three.v1",
+            "SelfProbe/Three",
+            "self.probe.one",
+        );
+        assert!(
+            transport_validation(&[first.clone(), duplicate_mq])
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate mq")
+        );
+
+        let empty_service = operation_row(
+            "ak.self.probe.command.three.v1",
+            "/Three",
+            "self.probe.three",
+        );
+        assert!(
+            transport_validation(&[empty_service])
+                .unwrap_err()
+                .to_string()
+                .contains("non-empty Service/Method")
+        );
+
+        let mut forbidden = http_only;
+        forbidden.insert("grpc".into(), Value::String("SelfProbe/HttpOnly".into()));
+        assert!(
+            transport_validation(&[forbidden])
+                .unwrap_err()
+                .to_string()
+                .contains("http-only")
+        );
+
+        let mut malformed = second;
+        malformed.insert("mq".into(), Value::Bool(true));
+        assert!(
+            transport_validation(&[malformed])
+                .unwrap_err()
+                .to_string()
+                .contains("mq topic is not a string")
+        );
+    }
+
+    #[test]
+    fn preimage_commitment_codegen_follows_refs_but_not_unreferenced_defs() {
+        let root = std::env::temp_dir().join(format!(
+            "arkret-preimage-codegen-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let schemas = root.join("schemas");
+        std::fs::create_dir_all(&schemas).expect("create fixture schemas");
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"$ref":"./shared.schema.json#/$defs/reachable","$defs":{"dead":{"x-arkret-preimage-commitment":"self_identity"}}}"#,
+        )
+        .expect("write root schema");
+        std::fs::write(
+            schemas.join("shared.schema.json"),
+            r#"{"$defs":{"reachable":{"$ref":"./leaf.schema.json#/$defs/annotated"},"dead":{"x-arkret-preimage-commitment":"same_unit_sibling"}}}"#,
+        )
+        .expect("write shared schema");
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"description text is not a rule","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"no_event_identity"}}}"#,
+        )
+        .expect("write leaf schema");
+
+        let mut repository = SchemaRepository::default();
+        let found =
+            collect_preimage_commitments(&root, &mut repository, "schemas/root.schema.json")
+                .expect("collect commitments");
+        assert_eq!(found.len(), 1);
+        assert!(found.contains(&(
+            "schemas/leaf.schema.json".to_owned(),
+            "/$defs/annotated/properties/source_event_id".to_owned(),
+            "fixed_event".to_owned(),
+        )));
+
+        // Human prose is not a protocol input: changing it must preserve the
+        // exact generated commitment tuple.
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"completely rewritten prose","x-arkret-preimage-commitment":"fixed_event"}}},"dead":{"x-arkret-preimage-commitment":"no_event_identity"}}}"#,
+        )
+        .expect("rewrite leaf description");
+        let rewritten = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect("collect commitments after prose rewrite");
+        assert_eq!(rewritten, found);
+
+        // Removing the annotation removes the generated rule. The generator
+        // must not infer it from the member name or its description.
+        std::fs::write(
+            schemas.join("leaf.schema.json"),
+            r#"{"$defs":{"annotated":{"type":"object","properties":{"source_event_id":{"type":"string","description":"fixed event commitment"}}}}}"#,
+        )
+        .expect("remove leaf annotation");
+        let without_annotation = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect("collect without annotation");
+        assert!(without_annotation.is_empty());
+        std::fs::remove_dir_all(root).expect("remove isolated fixture tree");
+    }
+
+    #[test]
+    fn preimage_commitment_codegen_rejects_bad_ref_pointer_and_annotation_value() {
+        let root = std::env::temp_dir().join(format!(
+            "arkret-preimage-mutation-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let schemas = root.join("schemas");
+        std::fs::create_dir_all(&schemas).expect("create fixture schemas");
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"$ref":"./shared.schema.json#/$defs/missing"}"#,
+        )
+        .expect("write bad pointer root");
+        std::fs::write(
+            schemas.join("shared.schema.json"),
+            r#"{"$defs":{"reachable":{"type":"string"}}}"#,
+        )
+        .expect("write shared schema");
+
+        let bad_pointer = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("unknown pointer must fail closed");
+        assert!(bad_pointer.to_string().contains("has no JSON Pointer"));
+
+        std::fs::write(
+            schemas.join("root.schema.json"),
+            r#"{"type":"string","x-arkret-preimage-commitment":"description_inferred"}"#,
+        )
+        .expect("write unknown annotation");
+        let bad_annotation = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("unknown annotation must fail closed");
+        assert!(
+            bad_annotation
+                .to_string()
+                .contains("unknown preimage commitment")
+        );
+
+        std::fs::write(schemas.join("root.schema.json"), r#"{"$ref":false}"#)
+            .expect("write non-string ref");
+        let bad_ref_type = collect_preimage_commitments(
+            &root,
+            &mut SchemaRepository::default(),
+            "schemas/root.schema.json",
+        )
+        .expect_err("non-string ref must fail closed");
+        assert!(bad_ref_type.to_string().contains("$ref is not a string"));
+        std::fs::remove_dir_all(root).expect("remove isolated fixture tree");
     }
 
     #[test]
@@ -2200,6 +3279,104 @@ mod tests {
         ]);
         let error = validate_digest_suite_rows(&[&invalid]).expect_err("high nibble must fail");
         assert!(error.to_string().contains("high nibble zero"));
+    }
+
+    #[test]
+    fn error_codegen_omits_reserved_rows_from_runtime_enums() {
+        let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
+        let error_codes = outputs
+            .iter()
+            .find(|output| {
+                output.relative_path == Path::new("crates/wire/src/error_codes/error_code.rs")
+            })
+            .expect("generated error codes");
+        assert!(error_codes.contents.contains("StateMismatch"));
+        assert!(!error_codes.contents.contains("AgentAuthorizationInactive"));
+        let reason_codes = outputs
+            .iter()
+            .find(|output| {
+                output.relative_path == Path::new("crates/wire/src/error_codes/reason_code.rs")
+            })
+            .expect("generated reason codes");
+        assert!(reason_codes.contents.contains("ApprovalRequired"));
+        assert!(!reason_codes.contents.contains("ProofBindingMissing"));
+    }
+
+    #[test]
+    fn reserved_error_rows_require_a_nonempty_activation_condition() {
+        let missing = Map::from_iter([
+            (
+                "code".to_owned(),
+                Value::String("reserved_probe".to_owned()),
+            ),
+            ("status".to_owned(), Value::String("reserved".to_owned())),
+        ]);
+        assert!(
+            active_error_rows(&[&missing], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("activation_condition")
+        );
+
+        let active_with_condition = Map::from_iter([
+            ("code".to_owned(), Value::String("active_probe".to_owned())),
+            ("status".to_owned(), Value::String("active".to_owned())),
+            (
+                "activation_condition".to_owned(),
+                Value::String("stale".to_owned()),
+            ),
+        ]);
+        assert!(
+            active_error_rows(&[&active_with_condition], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("must not retain")
+        );
+
+        let reserved = Map::from_iter([
+            (
+                "code".to_owned(),
+                Value::String("reserved_probe".to_owned()),
+            ),
+            ("status".to_owned(), Value::String("reserved".to_owned())),
+            (
+                "activation_condition".to_owned(),
+                Value::String("activate with a producer".to_owned()),
+            ),
+            (
+                "applies_to".to_owned(),
+                Value::Array(vec![Value::String("service_call".to_owned())]),
+            ),
+        ]);
+        assert!(
+            active_error_rows(&[&reserved], "error code")
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut missing_applies_to = reserved.clone();
+        missing_applies_to.remove("applies_to");
+        assert!(
+            active_error_rows(&[&missing_applies_to], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("without applies_to[]")
+        );
+
+        let mut duplicate_applies_to = reserved;
+        duplicate_applies_to.insert(
+            "applies_to".to_owned(),
+            Value::Array(vec![
+                Value::String("service_call".to_owned()),
+                Value::String("service_call".to_owned()),
+            ]),
+        );
+        assert!(
+            active_error_rows(&[&duplicate_applies_to], "error code")
+                .unwrap_err()
+                .to_string()
+                .contains("repeats applies_to")
+        );
     }
 
     #[test]

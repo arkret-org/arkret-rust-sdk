@@ -1,23 +1,28 @@
 //! Agent Realm-membership cascade wire contracts.
 //!
-//! Canonical Agent membership transitions remain caller-signed Events.  The
-//! registered cascade carrier only supplies the exact-set/atomic transaction
-//! boundary; it never authorizes a service or reducer to synthesize an Event.
+//! Canonical Agent membership transitions stay caller-signed Events. The
+//! registered cascade unit only supplies the exact-set and atomic transaction
+//! boundary; it never authorizes a service or a reducer to synthesize an Event
+//! on an Agent's behalf (`zh/models/actor.md`, `zh/identity/account-lifecycle.md`).
+//!
+//! Effective Agent membership is the AND of the Agent member typed current
+//! result, the exact controller membership generation, Agent lifecycle, and
+//! provision/accountability validity. A controller rejoin mints a new join
+//! Event id and can never revive an earlier binding.
 
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, CbaProofBundle, Event, EventFederationSubmission, EventId,
-    EventInitialSubmission, Hash, RealmId, Result, WireError,
+    AccountId, ActorId, Event, EventAdmissionSubmission, EventId, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::event_sync::FederationServiceBindingRef;
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
 
+/// `agent-membership-cascade.schema.json#/$defs/agent_cleanup_record`
+/// bounds both `expected_agent_ids` and `agent_transition_event_ids` at 256.
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS: usize = 256;
-pub const MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES: usize = 64;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -27,6 +32,12 @@ pub enum AgentMembershipCascadeUnitKind {
     AgentMembershipCascade,
 }
 
+/// Closed audit-only lifecycle cause.
+///
+/// It classifies a transition for auditors and never supplies authorization or
+/// proves reducer provenance: security provenance comes from the terminal
+/// Event, the exact controller binding, the actual signer, the terminal
+/// pre-state exact set and the atomic submission.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -37,9 +48,15 @@ pub enum MembershipLifecycleCause {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// Field declaration order is byte-for-byte the `properties` order of
+// `agent-membership-cascade.schema.json#/$defs/agent_controller_membership_binding`.
 pub struct AgentControllerMembershipBinding {
     pub controller_account_id: AccountId,
+    /// Exact controller `ak.member.state` join Event that establishes the bound
+    /// membership generation. A later rejoin has another Event id and never
+    /// revives this binding.
     pub controller_membership_generation_ref: EventId,
+    /// Present only on an explicit controller-membership-ended cleanup Event.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_terminal_event_ref: Option<EventId>,
 }
@@ -50,6 +67,9 @@ impl AgentControllerMembershipBinding {
     }
 }
 
+/// Computed cleanup view. The durable record never stores it: `completed_at`
+/// together with the complete `agent_transition_event_ids` means completed,
+/// and an incomplete record is overdue only against an observation time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentCleanupStatusView {
     Pending,
@@ -67,6 +87,8 @@ pub enum AgentMembershipCascadeSchema {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// Field declaration order is byte-for-byte the `properties` order of
+// `agent-membership-cascade.schema.json#/$defs/agent_cleanup_record`.
 pub struct AgentCleanupRecord {
     pub schema: AgentMembershipCascadeSchema,
     pub realm_id: RealmId,
@@ -74,6 +96,8 @@ pub struct AgentCleanupRecord {
     pub controller_membership_generation_ref: EventId,
     pub initiator_actor_id: ActorId,
     pub controller_terminal_event_id: EventId,
+    /// Exact set of active controlled Agent ActorIds frozen from the terminal
+    /// pre-state, sorted by the unsigned UTF-8 bytes of each RFC 8785 ActorId.
     #[serde(
         deserialize_with = "arkret_wire::deserialize_identity_entries",
         serialize_with = "arkret_wire::serialize_identity_entries"
@@ -82,6 +106,8 @@ pub struct AgentCleanupRecord {
     pub cleanup_intent_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
+    /// Governance alert deadline only. Crossing it changes pending to overdue
+    /// and never restores controller or Agent authority.
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub cleanup_due_at: DateTime<Utc>,
     #[serde(
@@ -105,6 +131,9 @@ impl AgentCleanupRecord {
         }
     }
 
+    /// sha256 of the RFC 8785 canonical record fields through
+    /// `expected_agent_ids`. It is the durable idempotency key for emergency
+    /// cleanup: the same intent replays, a different one is rejected.
     pub fn expected_cleanup_intent_digest(&self) -> Result<Hash> {
         #[derive(Serialize)]
         struct CleanupIntentPreimage<'a> {
@@ -158,10 +187,12 @@ impl AgentCleanupRecord {
                 }
             }
             (None, None) => {}
-            _ => return Err(WireError::Protocol(
-                "agent cleanup completion timestamp and transition Event ids must appear together"
-                    .to_owned(),
-            )),
+            _ => {
+                return Err(WireError::Protocol(
+                    "agent cleanup completion timestamp and transition Event ids must appear together"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -176,66 +207,27 @@ pub enum AgentMembershipCascadeMode {
     EmergencyCleanup,
 }
 
+/// One registered `agent_membership_cascade` unit.
+///
+/// Every Event inside it is an ordinary caller-signed shared durable Event
+/// submitted to the current governance Station as an [`EventAdmissionSubmission`].
+/// The unit adds only the exact-set and all-or-nothing boundary.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentMembershipCascadeSubmission {
     pub unit_kind: AgentMembershipCascadeUnitKind,
     pub cascade_mode: AgentMembershipCascadeMode,
-    pub controller_transition: EventInitialSubmission,
-    pub agent_transitions: Vec<EventInitialSubmission>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub controller_transition: EventAdmissionSubmission,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub agent_transitions: Vec<EventAdmissionSubmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cleanup_intent_digest: Option<Hash>,
 }
 
 impl AgentMembershipCascadeSubmission {
     pub fn validate(&self) -> Result<()> {
-        validate_cascade(
-            self.cascade_mode,
-            &self.controller_transition.event,
-            self.agent_transitions
-                .iter()
-                .map(|submission| &submission.event),
-            self.cleanup_intent_digest.as_ref(),
-        )
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentMembershipCascadeFederationSubmission {
-    pub unit_kind: AgentMembershipCascadeUnitKind,
-    pub cascade_mode: AgentMembershipCascadeMode,
-    pub service_binding_ref: FederationServiceBindingRef,
-    pub controller_transition: EventFederationSubmission,
-    pub agent_transitions: Vec<EventFederationSubmission>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cleanup_intent_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
-}
-
-impl AgentMembershipCascadeFederationSubmission {
-    pub fn validate(&self) -> Result<()> {
-        if self.cba_proof_bundles.len() > MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES {
-            return Err(WireError::Protocol(
-                "agent membership cascade exceeds 64 CBA proof bundles".to_owned(),
-            ));
-        }
-        for bundle in &self.cba_proof_bundles {
-            bundle.validate_structural()?;
-        }
-        if self.controller_transition.event.realm_id != self.service_binding_ref.realm_id
-            || self
-                .agent_transitions
-                .iter()
-                .any(|submission| submission.event.realm_id != self.service_binding_ref.realm_id)
-        {
-            return Err(WireError::Protocol(
-                "federated agent membership cascade must bind one Realm".to_owned(),
-            ));
-        }
         validate_cascade(
             self.cascade_mode,
             &self.controller_transition.event,
@@ -471,81 +463,43 @@ fn validate_unique_event_ids(event_ids: &[EventId]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use arkret_wire::DidCoreId;
+    use serde_json::json;
 
     use super::*;
-    use crate::governance::membership_invite::MembershipPayload;
 
-    fn event_id(seed: char) -> EventId {
-        EventId::new(format!("ak:event:A{}", seed.to_string().repeat(43))).unwrap()
+    fn event_id(seed: u8) -> EventId {
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [seed; 32])
     }
 
     fn hash(seed: char) -> Hash {
         Hash::new(format!("sha256:{}", seed.to_string().repeat(64))).unwrap()
     }
 
-    fn authority(principal: &str, server: &str) -> AccountId {
-        AccountId {
-            principal_id: DidCoreId::new(principal).unwrap(),
-            station_id: DidCoreId::new(server).unwrap(),
-        }
+    fn account(principal: &str) -> AccountId {
+        AccountId::new(
+            DidCoreId::new(principal).unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )
     }
 
-    #[test]
-    fn membership_cause_requires_leave_and_terminal_binding() {
-        let binding = AgentControllerMembershipBinding {
-            controller_account_id: authority(
-                "ak:did_core:web:alice.example",
-                "ak:did_core:web:principal.example",
-            ),
-            controller_membership_generation_ref: event_id('a'),
-            controller_terminal_event_ref: Some(event_id('b')),
-        };
-        let mut leave = MembershipPayload::transition(
-            MembershipPayloadState::Leave,
-            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
-            "controller membership ended",
-        );
-        leave.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
-        leave.agent_controller_binding = Some(binding.clone());
-        leave.to_value().unwrap();
-        let mut ban = MembershipPayload::transition(
-            MembershipPayloadState::Ban,
-            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
-            "controller membership ended",
-        );
-        ban.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
-        ban.agent_controller_binding = Some(binding);
-        assert!(ban.to_value().is_err());
+    fn realm_id() -> RealmId {
+        RealmId::from_event_id(&event_id(0x10))
     }
 
-    #[test]
-    fn cleanup_record_enforces_frozen_set_and_completion_shape() {
+    fn record() -> AgentCleanupRecord {
         let accepted_at = DateTime::parse_from_rfc3339("2026-08-15T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
         let mut record = AgentCleanupRecord {
             schema: AgentMembershipCascadeSchema::V1,
-            realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                .unwrap(),
-            controller_account_id: authority(
-                "ak:did_core:web:alice.example",
-                "ak:did_core:web:principal.example",
-            ),
-            controller_membership_generation_ref: event_id('a'),
-            initiator_actor_id: ActorId::account(authority(
-                "ak:did_core:web:bob.example",
-                "ak:did_core:web:principal.example",
-            )),
-            controller_terminal_event_id: event_id('b'),
+            realm_id: realm_id(),
+            controller_account_id: account("ak:did_core:web:alice.example"),
+            controller_membership_generation_ref: event_id(0xa1),
+            initiator_actor_id: ActorId::account(account("ak:did_core:web:bob.example")),
+            controller_terminal_event_id: event_id(0xb2),
             expected_agent_ids: vec![
-                ActorId::account(AccountId::new(
-                    DidCoreId::new("ak:did_core:web:agent-a.example").unwrap(),
-                    DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-                )),
-                ActorId::account(AccountId::new(
-                    DidCoreId::new("ak:did_core:web:agent-b.example").unwrap(),
-                    DidCoreId::new("ak:did_core:web:principal.example").unwrap(),
-                )),
+                ActorId::account(account("ak:did_core:web:agent-a.example")),
+                ActorId::account(account("ak:did_core:web:agent-b.example")),
             ],
             cleanup_intent_digest: hash('2'),
             accepted_at,
@@ -554,43 +508,167 @@ mod tests {
             agent_transition_event_ids: None,
         };
         record.cleanup_intent_digest = record.expected_cleanup_intent_digest().unwrap();
+        record
+    }
+
+    #[test]
+    fn cleanup_record_round_trips_through_canonical_json() {
+        let record = record();
         record.validate().unwrap();
         let value = serde_json::to_value(&record).unwrap();
-        assert!(value.get("controller_account_id").is_some());
-        assert!(value["initiator_actor_id"].is_object());
-        let mut other_station = record.clone();
-        other_station.initiator_actor_id = ActorId::account(authority(
-            "ak:did_core:web:bob.example",
-            "ak:did_core:web:other-station.example",
-        ));
-        assert!(other_station.validate().is_err());
+        assert_eq!(
+            value["schema"],
+            json!("ak.schema.agent_membership_cascade.v1")
+        );
+        assert!(value.get("completed_at").is_none());
+        assert!(value.get("agent_transition_event_ids").is_none());
+        let decoded: AgentCleanupRecord = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded, record);
+        decoded.validate().unwrap();
+    }
+
+    #[test]
+    fn cleanup_record_rejects_a_member_outside_the_closed_field_set() {
+        let mut value = serde_json::to_value(record()).unwrap();
+        value["cleanup_status"] = json!("pending");
+        assert!(serde_json::from_value::<AgentCleanupRecord>(value).is_err());
+    }
+
+    #[test]
+    fn cleanup_record_rejects_an_omitted_required_member() {
+        for member in [
+            "schema",
+            "realm_id",
+            "controller_account_id",
+            "controller_membership_generation_ref",
+            "initiator_actor_id",
+            "controller_terminal_event_id",
+            "expected_agent_ids",
+            "cleanup_intent_digest",
+            "accepted_at",
+            "cleanup_due_at",
+        ] {
+            let mut value = serde_json::to_value(record()).unwrap();
+            value.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<AgentCleanupRecord>(value).is_err(),
+                "{member} must be required"
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_record_binds_its_frozen_set_through_the_intent_digest() {
+        let record = record();
+        let mut other_initiator = record.clone();
+        other_initiator.initiator_actor_id =
+            ActorId::account(account("ak:did_core:web:carol.example"));
+        assert!(other_initiator.validate().is_err());
         assert_ne!(
-            other_station.expected_cleanup_intent_digest().unwrap(),
+            other_initiator.expected_cleanup_intent_digest().unwrap(),
             record.cleanup_intent_digest
         );
+    }
+
+    #[test]
+    fn cleanup_status_is_computed_never_stored() {
+        let mut record = record();
         assert_eq!(
-            record.cleanup_status(accepted_at + chrono::Duration::minutes(30)),
+            record.cleanup_status(record.accepted_at + chrono::Duration::minutes(30)),
             AgentCleanupStatusView::Pending
         );
         assert_eq!(
-            record.cleanup_status(accepted_at + chrono::Duration::hours(2)),
+            record.cleanup_status(record.accepted_at + chrono::Duration::hours(2)),
             AgentCleanupStatusView::Overdue
         );
-        record.completed_at = Some(accepted_at + chrono::Duration::minutes(1));
-        assert!(record.validate().is_err());
-        record.agent_transition_event_ids = Some(vec![event_id('c'), event_id('d')]);
+        record.completed_at = Some(record.accepted_at + chrono::Duration::minutes(1));
+        assert!(
+            record.validate().is_err(),
+            "completion without the transition Event ids is not a completed cleanup"
+        );
+        record.agent_transition_event_ids = Some(vec![event_id(0xc3), event_id(0xd4)]);
         record.validate().unwrap();
         assert_eq!(
-            record.cleanup_status(accepted_at + chrono::Duration::hours(2)),
+            record.cleanup_status(record.accepted_at + chrono::Duration::hours(2)),
             AgentCleanupStatusView::Completed
         );
+    }
+
+    #[test]
+    fn completed_cleanup_must_cover_the_whole_frozen_set() {
+        let mut record = record();
+        record.completed_at = Some(record.accepted_at + chrono::Duration::minutes(1));
+        record.agent_transition_event_ids = Some(vec![event_id(0xc3)]);
+        assert!(record.validate().is_err());
+    }
+
+    #[test]
+    fn controller_binding_round_trips_and_rejects_unknown_and_missing_members() {
+        let binding = AgentControllerMembershipBinding {
+            controller_account_id: account("ak:did_core:web:alice.example"),
+            controller_membership_generation_ref: event_id(0xa1),
+            controller_terminal_event_ref: Some(event_id(0xb2)),
+        };
+        binding.validate().unwrap();
+        let value = serde_json::to_value(&binding).unwrap();
+        assert_eq!(
+            serde_json::from_value::<AgentControllerMembershipBinding>(value.clone()).unwrap(),
+            binding
+        );
+
+        let mut unknown = value.clone();
+        unknown["controller_station_id"] = json!("ak:did_core:web:station.example");
+        assert!(serde_json::from_value::<AgentControllerMembershipBinding>(unknown).is_err());
+
+        let mut missing = value;
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("controller_membership_generation_ref");
+        assert!(serde_json::from_value::<AgentControllerMembershipBinding>(missing).is_err());
+    }
+
+    #[test]
+    fn membership_cause_requires_a_leave_bound_to_the_terminal_controller_event() {
+        let binding = AgentControllerMembershipBinding {
+            controller_account_id: account("ak:did_core:web:alice.example"),
+            controller_membership_generation_ref: event_id(0xa1),
+            controller_terminal_event_ref: Some(event_id(0xb2)),
+        };
+        let agent = ActorId::account(account("ak:did_core:web:agent-a.example"));
+
+        let mut leave = MembershipPayload::transition(
+            MembershipPayloadState::Leave,
+            agent.clone(),
+            "controller membership ended",
+        );
+        leave.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
+        leave.agent_controller_binding = Some(binding.clone());
+        leave.to_value().unwrap();
+
+        let mut ban = MembershipPayload::transition(
+            MembershipPayloadState::Ban,
+            agent.clone(),
+            "controller membership ended",
+        );
+        ban.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
+        ban.agent_controller_binding = Some(binding);
+        assert!(ban.to_value().is_err());
+
+        let mut unbound = MembershipPayload::transition(
+            MembershipPayloadState::Leave,
+            agent,
+            "controller membership ended",
+        );
+        unbound.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
+        assert!(unbound.to_value().is_err());
     }
 
     #[test]
     fn cascade_outcome_distinguishes_pending_from_completed() {
         let mut outcome = AgentMembershipCascadeOutcome {
             status: AgentMembershipCascadeOutcomeStatus::TerminalAppliedCleanupPending,
-            controller_transition_event_id: event_id('a'),
+            controller_transition_event_id: event_id(0xa1),
             agent_transition_event_ids: Vec::new(),
             cleanup_intent_digest: Some(hash('1')),
         };
@@ -598,7 +676,17 @@ mod tests {
         outcome.status = AgentMembershipCascadeOutcomeStatus::CleanupCompleted;
         assert!(outcome.validate().is_err());
         outcome.cleanup_intent_digest = None;
-        outcome.agent_transition_event_ids = vec![event_id('b')];
+        outcome.agent_transition_event_ids = vec![event_id(0xb2)];
         outcome.validate().unwrap();
+
+        let mut value = serde_json::to_value(&outcome).unwrap();
+        let decoded: AgentMembershipCascadeOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(decoded, outcome);
+        value["cleanup_status"] = json!("completed");
+        assert!(serde_json::from_value::<AgentMembershipCascadeOutcome>(value).is_err());
+
+        let mut missing = serde_json::to_value(&outcome).unwrap();
+        missing.as_object_mut().unwrap().remove("status");
+        assert!(serde_json::from_value::<AgentMembershipCascadeOutcome>(missing).is_err());
     }
 }

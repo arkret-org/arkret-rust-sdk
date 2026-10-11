@@ -1,16 +1,17 @@
 //! Applet endpoint methods on [`Client`].
 
-use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
-use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
     AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
     AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthorOutcome,
     AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
     AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
-    AppletRevokePreviewRequestBody, AppletTransactionOutcome, GhostActorProvisionOutcome,
-    GhostActorProvisionRequestBody, GhostPreviewOutcome, GhostPreviewRequestBody,
+    AppletRevokePreviewRequestBody, AppletRevokeRequestBody, AppletTransactionOutcome,
+    AppletTransactionRequestBody, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
+    GhostPreviewOutcome, GhostPreviewRequestBody,
 };
+use arkret_signatures::http_signature::HttpSignatureScenario;
+use arkret_wire::DidCoreId;
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;
 use url::Url;
@@ -19,6 +20,96 @@ use crate::client_internals::validate_base_url;
 use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
 
 impl Client {
+    pub async fn applet_authority_material(
+        &self,
+        applet_id: &str,
+        request: &arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialRequestBody,
+    ) -> Result<
+        arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome,
+    > {
+        reject_path_segment(applet_id)?;
+        self.post(
+            &format!("/_arkret/self/applets/{applet_id}/authority/material"),
+            request,
+        )
+        .await
+    }
+    /// Configure a Service transport carrier; native Event proofs remain independent.
+    pub fn with_service_http_signer(
+        mut self,
+        source: DidCoreId,
+        destination: DidCoreId,
+        signer: crate::HttpMessageSigner,
+    ) -> Self {
+        self.auth = None;
+        self.http_message_signer = Some(signer);
+        self.service_signature_identity = Some((source, destination));
+        self.managed_device_signature_identity = None;
+        self
+    }
+    /// Configure accepted Device transport. Every request receives a fresh random nonce.
+    pub fn with_managed_device_http_signer(
+        mut self,
+        metadata: arkret_models_integration::AppletManagedDeviceMetadata,
+        destination: DidCoreId,
+        signer: crate::HttpMessageSigner,
+    ) -> Result<Self> {
+        metadata.validate()?;
+        self.auth = None;
+        self.http_message_signer = Some(signer);
+        self.service_signature_identity = None;
+        self.managed_device_signature_identity = Some((metadata, destination));
+        Ok(self)
+    }
+    pub async fn applet_bot_preview(
+        &self,
+        applet_id: &str,
+        request: &arkret_models_integration::AppletBotPreviewRequestBody,
+    ) -> Result<arkret_models_integration::AppletBotPreviewOutcome> {
+        reject_path_segment(applet_id)?;
+        self.post(
+            &format!("/_arkret/self/applets/{applet_id}/bots/provision/preview"),
+            request,
+        )
+        .await
+    }
+    pub async fn applet_bot_provision(
+        &self,
+        applet_id: &str,
+        idempotency_key: &str,
+        request: &arkret_models_integration::AppletBotProvisionRequestBody,
+    ) -> Result<arkret_models_integration::AppletBotProvisionOutcome> {
+        reject_path_segment(applet_id)?;
+        self.post_with_options(
+            &format!("/_arkret/self/applets/{applet_id}/bots/provision"),
+            request,
+            &ClientRequestOptions::new().idempotency_key(idempotency_key),
+        )
+        .await
+    }
+    pub async fn management_review_request(
+        &self,
+        request: &arkret_models_integration::ManagementReviewRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/management-reviews/requests", request)
+            .await
+    }
+    pub async fn management_review_decide(
+        &self,
+        request: &arkret_models_integration::ManagementReviewDecisionRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/management-reviews/decisions", request)
+            .await
+    }
+    pub async fn management_review_status(
+        &self,
+        request: &arkret_models_integration::ManagementReviewLookupRequestBody,
+    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+        self.post("/_arkret/self/management-reviews/status", request)
+            .await
+    }
     pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
         self.get("/_arkret/edge/applet/ping").await
     }
@@ -100,6 +191,7 @@ impl Client {
         idempotency_key: &str,
         request: &GhostActorProvisionRequestBody,
     ) -> Result<GhostActorProvisionOutcome> {
+        request.validate()?;
         let path = ghost_actor_provision_path(applet_id)?;
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options(&path, request, &options).await
@@ -123,6 +215,39 @@ impl Client {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/edge/applet/transactions", request, &options)
             .await
+    }
+
+    /// Send the registered transaction with the exact two service identities
+    /// and the generated service-to-service RFC 9421 signature scenario.
+    pub async fn applet_transaction_from_service(
+        &self,
+        idempotency_key: &str,
+        request: &AppletTransactionRequestBody,
+        source_id: &DidCoreId,
+        destination_id: &DidCoreId,
+    ) -> Result<AppletTransactionOutcome> {
+        request.validate()?;
+        if request.source_id() != source_id {
+            return Err(crate::Error::Protocol(
+                "Applet body source differs from its authenticated service".to_owned(),
+            ));
+        }
+        let body = arkret_canonical::canonical::canonical_json_bytes(request)?;
+        let builder = self
+            .service_request(Method::POST, "/_arkret/edge/applet/transactions")?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source_id.as_str())
+            .header(
+                crate::HEADER_DESTINATION_SERVICE_ID,
+                destination_id.as_str(),
+            )
+            .header(crate::HEADER_IDEMPOTENCY_KEY, idempotency_key)
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
+        self.send_json_protocol_replay_safe_for_scenario(
+            builder,
+            HttpSignatureScenario::ServiceToServiceV1,
+        )
+        .await
     }
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {

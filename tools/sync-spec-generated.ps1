@@ -31,6 +31,11 @@ if ($duplicates.Count -ne 0) {
     throw "generation manifest declares duplicate outputs: $($duplicates.Name -join ', ')"
 }
 
+& python (Join-Path $PSScriptRoot 'check-spec-generation-inputs.py') --artifacts-dir $artifacts --manifest $manifestPath
+if ($LASTEXITCODE -ne 0) {
+    throw 'generation manifest includes an invalid or derived artifact input'
+}
+
 # Both modes generate into a scratch tree first. A generator that fails part
 # way through - an artifact the Rust codegen rejects, a rustfmt error, an
 # output a generator did not write - must not leave the checkout holding some
@@ -47,13 +52,9 @@ $targetRoot = $temporaryRoot
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/wire/src/generated/profile_requirements.rs'
-    $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
-    $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
         $eventOutput,
-        $requirementsOutput,
-        $latticeBindingsOutput
-        $mlsSecurityFrontierOutput
+        $requirementsOutput
     ) | ForEach-Object {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $_) | Out-Null
     }
@@ -63,16 +64,6 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'profile requirement generation failed'
     }
-    & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw 'lattice binding generation failed'
-    }
-
-    & python (Join-Path $PSScriptRoot 'generate-mls-security-frontier.py') --artifacts-dir $artifacts --output $mlsSecurityFrontierOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw 'MLS security-frontier generation failed'
-    }
-
     & cargo run --quiet --manifest-path (Join-Path $PSScriptRoot 'spec-codegen/Cargo.toml') -- --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
         throw 'Rust spec code generation failed'
@@ -112,11 +103,17 @@ try {
         foreach ($relative in $declaredOutputs) {
             $generated = Join-Path $targetRoot $relative
             $tracked = Join-Path $repoRoot $relative
+            $generatedBytes = [System.IO.File]::ReadAllBytes($generated)
+            if ((Test-Path -LiteralPath $tracked) -and
+                [System.Linq.Enumerable]::SequenceEqual(
+                    $generatedBytes,
+                    [System.IO.File]::ReadAllBytes($tracked)
+                )) {
+                # Keep unchanged output timestamps stable for downstream build gates.
+                continue
+            }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $tracked) | Out-Null
-            [System.IO.File]::WriteAllBytes(
-                $tracked,
-                [System.IO.File]::ReadAllBytes($generated)
-            )
+            [System.IO.File]::WriteAllBytes($tracked, $generatedBytes)
         }
     }
 
@@ -124,7 +121,7 @@ try {
         'crates/wire/src/generated',
         'crates/wire/src/error_codes',
         'crates/schema/src/generated',
-        'crates/lattice-registry/src/generated'
+        'crates/lattice-registry/src/generated',
         'crates/state/src/generated'
     )
     # Directories a generator actually writes into are derived from the manifest

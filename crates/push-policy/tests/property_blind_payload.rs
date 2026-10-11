@@ -228,7 +228,7 @@ fn ok_notification() -> Value {
     json!({
         "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
         "wakeup_kind": "message",
-        "timing_profile_hint": "default",
+
     })
 }
 
@@ -291,13 +291,12 @@ proptest! {
     }
 
     /// Property 3 — strict mode requires `push_target_id`,
-    /// `wakeup_kind`, and `timing_profile_hint`; dropping any of them
+    /// `wakeup_kind`; dropping any of them
     /// yields a `MissingRequiredField`.
     #[test]
     fn strict_mode_requires_required_keys(
         drop_target in any::<bool>(),
         drop_kind in any::<bool>(),
-        drop_timing in any::<bool>(),
     ) {
         let mut notif = Map::new();
         if !drop_target {
@@ -309,12 +308,9 @@ proptest! {
         if !drop_kind {
             notif.insert("wakeup_kind".into(), json!("message"));
         }
-        if !drop_timing {
-            notif.insert("timing_profile_hint".into(), json!("default"));
-        }
         let payload = json!({ "notification": Value::Object(notif) });
         let outcome = sanitize_blind_payload_strict(&payload);
-        if drop_target || drop_kind || drop_timing {
+        if drop_target || drop_kind {
             let err = outcome.expect_err("strict mode must reject missing required keys");
             prop_assert_eq!(err.reason_code, BlindPayloadReasonCode::MissingRequiredField);
         } else {

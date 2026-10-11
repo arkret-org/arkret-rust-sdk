@@ -1,6 +1,6 @@
 use arkret_wire::{
-    AccountId, ActorId, ControlProposalAck, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
-    ProtocolOperationId, ProtocolSignature, ReservationHandle,
+    AccountId, ActorId, BlobRef, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
+    ProtocolOperationId, ProtocolSignature, RealmId, ReservationHandle, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,6 +56,162 @@ pub enum ContactScope {
     Presence,
 }
 
+/// The exact producer key authenticated by an enclosing Contact source
+/// receipt or lineage. It has no reusable authorization or authority semantics.
+///
+/// `schemas/contact-operations.schema.json#/$defs/contact_producer_signer`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactProducerSigner {
+    Direct(ContactDirectProducerSigner),
+    Delegated(ContactDelegatedProducerSigner),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactDirectProducerSigner {
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(deserialize_with = "deserialize_contact_producer_key")]
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactDelegatedProducerSigner {
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(deserialize_with = "deserialize_contact_producer_key")]
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub delegated_actor_did: Did,
+}
+fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<arkret_wire::Base64UrlString, D::Error> {
+    let value = arkret_wire::Base64UrlString::deserialize(deserializer)?;
+    let bytes =
+        arkret_canonical::base64url_decode(value.as_str()).map_err(serde::de::Error::custom)?;
+    if bytes.len() != 32 || arkret_canonical::base64url_encode(&bytes) != value.as_str() {
+        return Err(serde::de::Error::custom(
+            "Contact producer key must be canonical Ed25519 raw32",
+        ));
+    }
+    Ok(value)
+}
+impl ContactProducerSigner {
+    pub fn direct(
+        verification_method: arkret_wire::DidUrl,
+        public_key_b64u: arkret_wire::Base64UrlString,
+    ) -> arkret_wire::Result<Self> {
+        let value = Self::Direct(ContactDirectProducerSigner {
+            verification_method,
+            public_key_b64u,
+        });
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn delegated(
+        verification_method: arkret_wire::DidUrl,
+        public_key_b64u: arkret_wire::Base64UrlString,
+        delegated_actor_did: Did,
+    ) -> arkret_wire::Result<Self> {
+        let value = Self::Delegated(ContactDelegatedProducerSigner {
+            verification_method,
+            public_key_b64u,
+            delegated_actor_did,
+        });
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn verification_method(&self) -> &arkret_wire::DidUrl {
+        match self {
+            Self::Direct(value) => &value.verification_method,
+            Self::Delegated(value) => &value.verification_method,
+        }
+    }
+
+    pub fn public_key_b64u(&self) -> &arkret_wire::Base64UrlString {
+        match self {
+            Self::Direct(value) => &value.public_key_b64u,
+            Self::Delegated(value) => &value.public_key_b64u,
+        }
+    }
+
+    pub fn delegated_actor_did(&self) -> Option<&Did> {
+        match self {
+            Self::Direct(_) => None,
+            Self::Delegated(value) => Some(&value.delegated_actor_did),
+        }
+    }
+
+    /// Check the standalone source object's holder constraint. The enclosing
+    /// carrier must also check the original Event's executor and exact actor.
+    pub fn validate_for_holder(&self, holder: &ContactPeer) -> arkret_wire::Result<()> {
+        self.validate()?;
+        if let Some(did) = self.delegated_actor_did()
+            && (!matches!(holder, ContactPeer::Agent { .. })
+                || arkret_wire::project_did_to_core_id(did)?
+                    != *holder.contact_actor_id().signing_principal_id())
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "delegated Contact producer does not bind the Agent holder".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Structural binding only: source signatures and the independently
+    /// authenticated Agent native identity are verified by the receiving gate.
+    pub fn validate_for_event(
+        &self,
+        event: &Event,
+        holder: &ContactPeer,
+    ) -> arkret_wire::Result<()> {
+        self.validate_for_holder(holder)?;
+        if event.actor_id != holder.contact_actor_id()
+            || event.actor_id.as_account_id().is_none()
+            || event.executed_by.is_some() != self.delegated_actor_did().is_some()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact producer branch differs from the exact Event actor/executor".into(),
+            ));
+        }
+        if let ContactPeer::Agent {
+            controller_account_id,
+            ..
+        } = holder
+            && (event.actor_id.route_service_id() != &controller_account_id.station_id
+                || event.executed_by.as_ref().is_some_and(|executor| {
+                    executor != &ActorId::account(controller_account_id.clone())
+                }))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact executor differs from the complete Agent controller account".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn public_key_bytes(&self) -> arkret_wire::Result<[u8; 32]> {
+        let bytes = arkret_canonical::base64url_decode(self.public_key_b64u().as_str())
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+        if arkret_canonical::base64url_encode(&bytes) != self.public_key_b64u().as_str() {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact producer key is not canonical unpadded base64url".into(),
+            ));
+        }
+        bytes.try_into().map_err(|_| {
+            arkret_wire::WireError::Protocol("Contact producer key must be Ed25519 raw32".into())
+        })
+    }
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.public_key_bytes().map(|_| ())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -68,6 +224,7 @@ pub struct RequestAcceptanceReceiptCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
     pub request_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub source_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -80,6 +237,7 @@ impl RequestAcceptanceReceiptCore {
     }
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.producer_signer.validate_for_holder(&self.holder)?;
         if self.slot_version == 0
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
             || self.holder.contact_actor_id() == self.peer.contact_actor_id()
@@ -101,12 +259,55 @@ pub struct RequestAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
+fn request_acceptance_core_digest(
+    core: &RequestAcceptanceReceiptCore,
+) -> arkret_wire::Result<Hash> {
+    Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+        arkret_wire::DomainSeparationId::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
+        core,
+    )?)
+    .map_err(Into::into)
+}
+
+#[derive(Serialize)]
+struct UnsignedRequestAcceptanceReceipt {
+    core: RequestAcceptanceReceiptCore,
+    receipt_digest: Hash,
+}
+
 impl RequestAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    pub fn sign_with(
+        core: RequestAcceptanceReceiptCore,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        core.validate()?;
+        let receipt_digest = request_acceptance_core_digest(&core)?;
+        let unsigned = UnsignedRequestAcceptanceReceipt {
+            core,
+            receipt_digest,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            core: unsigned.core,
+            receipt_digest: unsigned.receipt_digest,
+            signature,
+        })
+    }
+
+    /// Exact non-recursive transcript signed by the accepting source Station.
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        arkret_canonical::canonical_json_bytes(&UnsignedRequestAcceptanceReceipt {
+            core: self.core.clone(),
+            receipt_digest: self.receipt_digest.clone(),
+        })
+    }
+
     /// Digest of the closed receipt core covered by `signature`.
     pub fn computed_core_digest(&self) -> arkret_wire::Result<Hash> {
-        let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();
-        bytes.extend(arkret_canonical::canonical_json_bytes(&self.core)?);
-        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+        request_acceptance_core_digest(&self.core)
     }
 
     /// RFC 8785/JCS digest of the complete signed receipt used by Contact round
@@ -179,20 +380,81 @@ pub struct ContactCurrentProof {
     pub peer: ContactPeer,
     pub terminal: bool,
     pub head_event_ref: EventId,
-    pub accepted_frontier: Vec<EventId>,
+    pub accepted_commit_event_ids: Vec<EventId>,
     pub complete_through: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub fresh_until: DateTime<Utc>,
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedContactCurrentProof {
+    contact_round_id: Hash,
+    issuer_id: DidCoreId,
+    peer: ContactPeer,
+    terminal: bool,
+    head_event_ref: EventId,
+    accepted_commit_event_ids: Vec<EventId>,
+    complete_through: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    fresh_until: DateTime<Utc>,
+}
+
 impl ContactCurrentProof {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        issuer_id: DidCoreId,
+        peer: ContactPeer,
+        terminal: bool,
+        head_event_ref: EventId,
+        accepted_commit_event_ids: Vec<EventId>,
+        complete_through: u64,
+        fresh_until: DateTime<Utc>,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        let unsigned = UnsignedContactCurrentProof {
+            contact_round_id,
+            issuer_id,
+            peer,
+            terminal,
+            head_event_ref,
+            accepted_commit_event_ids,
+            complete_through,
+            fresh_until,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            issuer_id: unsigned.issuer_id,
+            peer: unsigned.peer,
+            terminal: unsigned.terminal,
+            head_event_ref: unsigned.head_event_ref,
+            accepted_commit_event_ids: unsigned.accepted_commit_event_ids,
+            complete_through: unsigned.complete_through,
+            fresh_until: unsigned.fresh_until,
+            signature,
+        })
+    }
+
     pub fn head_digest(&self) -> Hash {
         self.head_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedContactCurrentProof {
+            contact_round_id: self.contact_round_id.clone(),
+            issuer_id: self.issuer_id.clone(),
+            peer: self.peer.clone(),
+            terminal: self.terminal,
+            head_event_ref: self.head_event_ref.clone(),
+            accepted_commit_event_ids: self.accepted_commit_event_ids.clone(),
+            complete_through: self.complete_through,
+            fresh_until: self.fresh_until,
+        })
     }
 }
 
@@ -202,6 +464,11 @@ impl ContactCurrentProof {
 pub struct ContactRoundRequestRef {
     pub request_event_ref: EventId,
     pub request_acceptance_receipt_digest: Hash,
+}
+
+/// Compare complete EventId wire strings, never decoded digests or receipt hashes.
+pub fn compare_contact_request_event_refs(left: &EventId, right: &EventId) -> std::cmp::Ordering {
+    left.as_str().as_bytes().cmp(right.as_str().as_bytes())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,6 +486,90 @@ pub enum ContactRound {
     },
 }
 
+impl ContactRound {
+    /// Check the received core without changing its signed array order.
+    pub fn validate_canonical_order(&self) -> arkret_wire::Result<()> {
+        let participants = match self {
+            Self::Normal {
+                sorted_pair_member_ids,
+                ..
+            }
+            | Self::Glare {
+                sorted_pair_member_ids,
+                ..
+            } => sorted_pair_member_ids,
+        };
+        let first = arkret_canonical::canonical_json_bytes(&participants[0])?;
+        let second = arkret_canonical::canonical_json_bytes(&participants[1])?;
+        if first >= second {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact round participants must be distinct and strictly JCS-byte ordered"
+                    .to_owned(),
+            ));
+        }
+        if let Self::Glare { requests, .. } = self
+            && !compare_contact_request_event_refs(
+                &requests[0].request_event_ref,
+                &requests[1].request_event_ref,
+            )
+            .is_lt()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact glare request refs must be distinct and strictly wire-byte ordered"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Construct a local core from exact receipts. Signature/current-proof validation is separate.
+    /// Receiving verifiers must validate their received core before comparing it to this result.
+    pub fn glare_from_request_receipts(
+        receipts: &[RequestAcceptanceReceipt; 2],
+    ) -> arkret_wire::Result<Self> {
+        let mut participants = [
+            receipts[0].core.holder.contact_actor_id(),
+            receipts[1].core.holder.contact_actor_id(),
+        ];
+        if receipts[0].core.peer.contact_actor_id() != participants[1]
+            || receipts[1].core.peer.contact_actor_id() != participants[0]
+            || participants[0] == participants[1]
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact glare receipts must cover the exact reverse pair".to_owned(),
+            ));
+        }
+        if arkret_canonical::canonical_json_bytes(&participants[0])?
+            > arkret_canonical::canonical_json_bytes(&participants[1])?
+        {
+            participants.swap(0, 1);
+        }
+        let mut requests = [
+            ContactRoundRequestRef {
+                request_event_ref: receipts[0].core.request_event_ref.clone(),
+                request_acceptance_receipt_digest: Hash::new(arkret_canonical::canonical_sha256(
+                    &receipts[0],
+                )?)?,
+            },
+            ContactRoundRequestRef {
+                request_event_ref: receipts[1].core.request_event_ref.clone(),
+                request_acceptance_receipt_digest: Hash::new(arkret_canonical::canonical_sha256(
+                    &receipts[1],
+                )?)?,
+            },
+        ];
+        requests.sort_by(|left, right| {
+            compare_contact_request_event_refs(&left.request_event_ref, &right.request_event_ref)
+        });
+        let round = Self::Glare {
+            sorted_pair_member_ids: participants,
+            requests,
+        };
+        round.validate_canonical_order()?;
+        Ok(round)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -226,6 +577,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub contact_round_id: Hash,
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -233,13 +585,70 @@ pub struct NormalResponseAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedNormalResponseAcceptanceReceipt {
+    contact_round_id: Hash,
+    request_receipt: RequestAcceptanceReceipt,
+    response_event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    outgoing_slot_absence_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    accepted_at: DateTime<Utc>,
+    issuer_id: DidCoreId,
+}
+
 impl NormalResponseAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        request_receipt: RequestAcceptanceReceipt,
+        response_event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        outgoing_slot_absence_digest: Hash,
+        accepted_at: DateTime<Utc>,
+        issuer_id: DidCoreId,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
+        let unsigned = UnsignedNormalResponseAcceptanceReceipt {
+            contact_round_id,
+            request_receipt,
+            response_event_ref,
+            producer_signer,
+            outgoing_slot_absence_digest,
+            accepted_at,
+            issuer_id,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            request_receipt: unsigned.request_receipt,
+            response_event_ref: unsigned.response_event_ref,
+            producer_signer: unsigned.producer_signer,
+            outgoing_slot_absence_digest: unsigned.outgoing_slot_absence_digest,
+            accepted_at: unsigned.accepted_at,
+            issuer_id: unsigned.issuer_id,
+            signature,
+        })
+    }
+
     pub fn response_digest(&self) -> Hash {
         self.response_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedNormalResponseAcceptanceReceipt {
+            contact_round_id: self.contact_round_id.clone(),
+            request_receipt: self.request_receipt.clone(),
+            response_event_ref: self.response_event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            outgoing_slot_absence_digest: self.outgoing_slot_absence_digest.clone(),
+            accepted_at: self.accepted_at,
+            issuer_id: self.issuer_id.clone(),
+        })
     }
 }
 
@@ -263,7 +672,7 @@ pub struct OutgoingSlotAbsenceTranscript {
     pub contact_round_id: Hash,
     pub slot_predecessor: Option<Hash>,
     pub cas_sequence: u64,
-    pub cas_frontier: Vec<EventId>,
+    pub cas_revision: Vec<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub outgoing_request_state: OutgoingRequestState,
@@ -281,8 +690,8 @@ impl OutgoingSlotAbsenceTranscript {
                 .sorted_pair_member_ids
                 .contains(&self.request_slot_owner)
             || self.cas_sequence == 0
-            || self.cas_frontier.is_empty()
-            || !self.cas_frontier.windows(2).all(|pair| pair[0] < pair[1])
+            || self.cas_revision.is_empty()
+            || !self.cas_revision.windows(2).all(|pair| pair[0] < pair[1])
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid Contact outgoing-slot-absence transcript".to_owned(),
@@ -297,9 +706,12 @@ impl OutgoingSlotAbsenceTranscript {
     }
 
     pub fn digest(&self) -> arkret_wire::Result<Hash> {
-        let mut bytes = b"ak.contact.no_outgoing_slot.v1\n".to_vec();
-        bytes.extend(self.canonical_bytes()?);
-        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+        self.validate_shape()?;
+        Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+            arkret_wire::DomainSeparationId::CONTACT_NO_OUTGOING_SLOT_V1,
+            self,
+        )?)
+        .map_err(Into::into)
     }
 
     pub fn verify_digest(&self, expected: &Hash) -> arkret_wire::Result<()> {
@@ -318,19 +730,66 @@ impl OutgoingSlotAbsenceTranscript {
 pub struct RejectAcceptanceReceipt {
     pub request_receipt: RequestAcceptanceReceipt,
     pub reject_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer_id: DidCoreId,
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedRejectAcceptanceReceipt {
+    request_receipt: RequestAcceptanceReceipt,
+    reject_event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    accepted_at: DateTime<Utc>,
+    issuer_id: DidCoreId,
+}
+
 impl RejectAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    pub fn sign_with(
+        request_receipt: RequestAcceptanceReceipt,
+        reject_event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        accepted_at: DateTime<Utc>,
+        issuer_id: DidCoreId,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
+        let unsigned = UnsignedRejectAcceptanceReceipt {
+            request_receipt,
+            reject_event_ref,
+            producer_signer,
+            accepted_at,
+            issuer_id,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            request_receipt: unsigned.request_receipt,
+            reject_event_ref: unsigned.reject_event_ref,
+            producer_signer: unsigned.producer_signer,
+            accepted_at: unsigned.accepted_at,
+            issuer_id: unsigned.issuer_id,
+            signature,
+        })
+    }
+
     pub fn reject_digest(&self) -> Hash {
         self.reject_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedRejectAcceptanceReceipt {
+            request_receipt: self.request_receipt.clone(),
+            reject_event_ref: self.reject_event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            accepted_at: self.accepted_at,
+            issuer_id: self.issuer_id.clone(),
+        })
     }
 }
 
@@ -345,10 +804,85 @@ pub struct ContactLineage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub predecessor_event_ref: Option<EventId>,
     pub event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal: Option<bool>,
     pub signature: ProtocolSignature,
+}
+
+#[derive(Serialize)]
+struct UnsignedContactLineage {
+    contact_round_id: Hash,
+    issuer: ContactPeer,
+    peer: ContactPeer,
+    version: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    predecessor_event_ref: Option<EventId>,
+    event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terminal: Option<bool>,
+}
+
+impl ContactLineage {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        issuer: ContactPeer,
+        peer: ContactPeer,
+        version: u64,
+        predecessor_event_ref: Option<EventId>,
+        event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        granted_to_peer_scopes: Vec<ContactScope>,
+        terminal: Option<bool>,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate_for_holder(&issuer)?;
+        let unsigned = UnsignedContactLineage {
+            contact_round_id,
+            issuer,
+            peer,
+            version,
+            predecessor_event_ref,
+            event_ref,
+            producer_signer,
+            granted_to_peer_scopes,
+            terminal,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            issuer: unsigned.issuer,
+            peer: unsigned.peer,
+            version: unsigned.version,
+            predecessor_event_ref: unsigned.predecessor_event_ref,
+            event_ref: unsigned.event_ref,
+            producer_signer: unsigned.producer_signer,
+            granted_to_peer_scopes: unsigned.granted_to_peer_scopes,
+            terminal: unsigned.terminal,
+            signature,
+        })
+    }
+
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        arkret_canonical::canonical_json_bytes(&UnsignedContactLineage {
+            contact_round_id: self.contact_round_id.clone(),
+            issuer: self.issuer.clone(),
+            peer: self.peer.clone(),
+            version: self.version,
+            predecessor_event_ref: self.predecessor_event_ref.clone(),
+            event_ref: self.event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            granted_to_peer_scopes: self.granted_to_peer_scopes.clone(),
+            terminal: self.terminal,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -361,8 +895,6 @@ pub struct ContactCommitRequestBody {
     pub reservation_handle: ReservationHandle,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub signed_event: Event,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_proposal_ack: Option<ControlProposalAck>,
 }
 
 string_marker!(ContactCommitPhase, Commit, "commit");
@@ -380,8 +912,6 @@ pub struct ContactPrepareRequestBody {
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence: ContactIntroductionEvidence,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -657,33 +1187,6 @@ pub fn bilateral_continuity_root_basis_digest(
     Ok(Hash::new(arkret_canonical::sha256_digest(canonical))?)
 }
 
-#[cfg(test)]
-mod bilateral_checkpoint_shape_tests {
-    use super::*;
-
-    #[test]
-    fn root_basis_rejects_nested_checkpoint_before_recursive_decode() {
-        let mut deserializer =
-            serde_json::Deserializer::from_str(r#"{"continuity_checkpoint":{}}"#);
-        let error = deserialize_uncheckpointed_root_basis(&mut deserializer).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("must be an uncheckpointed Contact round")
-        );
-    }
-
-    #[test]
-    fn checkpoint_core_rejects_retired_root_basis_digest_member() {
-        let value = serde_json::json!({
-            "root_basis_digest":
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        });
-        let error = serde_json::from_value::<BilateralContinuityCheckpointCore>(value).unwrap_err();
-        assert!(error.to_string().contains("root_basis_digest"));
-    }
-}
-
 pub fn bilateral_prefix_accumulator(
     previous: Option<&Hash>,
     covered_basis_digests: &[Hash],
@@ -889,7 +1392,8 @@ pub struct ContactAcceptPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
-    pub request_receipt: RequestAcceptanceReceipt,
+    pub peer: ContactPeer,
+    pub request_event_ref: EventId,
     pub action: ContactAcceptAction,
     pub granted_to_peer_scopes: Vec<ContactScope>,
 }
@@ -915,7 +1419,8 @@ pub struct ContactRejectPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
-    pub request_receipt: RequestAcceptanceReceipt,
+    pub peer: ContactPeer,
+    pub request_event_ref: EventId,
     pub action: ContactRejectAction,
 }
 
@@ -1221,7 +1726,7 @@ pub struct GlareConcurrencyAttestation {
     pub issuer_id: DidCoreId,
     pub peer_id: ActorId,
     pub request_receipt_digests: [Hash; 2],
-    pub observed_frontier: Vec<EventId>,
+    pub observed_commit_event_ids: Vec<EventId>,
     pub complete_through: u64,
     pub unconsumed_slot_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1403,160 +1908,555 @@ impl PeerContactSubmitOutcome {
     }
 }
 
+/// `contact-operations.schema.json#/$defs/contact_state`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactState {
+    PendingOutgoing,
+    PendingIncoming,
+    Accepted,
+    Rejected,
+    Expired,
+    Tombstoned,
+}
+
+/// `contact-operations.schema.json#/$defs/direct_conversation_summary.state`.
+///
+/// Coordinates of a materialized Direct Conversation are immutable; this only
+/// says whether the same conversation is currently sendable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DirectConversationSummaryState {
+    Found,
+    Suspended,
+}
+
+/// `contact-operations.schema.json#/$defs/direct_conversation_summary`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DirectConversationSummary {
+    pub realm_id: RealmId,
+    pub main_strand_id: StrandId,
+    pub binding_event_ref: EventId,
+    pub state: DirectConversationSummaryState,
+}
+
+/// `contact-operations.schema.json#/$defs/contact_agent_projection`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactAgentProjection {
+    pub actor_id: ActorId,
+    pub controller_account_id: AccountId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+}
+
+/// Historical Contact producer selector, never current Device/MLS authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactPeerEndpoint {
+    pub contact_event_ref: EventId,
+    pub device_id: arkret_wire::DeviceId,
+}
+
+impl ContactPeerEndpoint {
+    /// Derive only from a verified source receipt's direct human producer.
+    pub fn from_verified_producer(
+        account: &AccountId,
+        contact_event_ref: EventId,
+        producer: &ContactProducerSigner,
+    ) -> arkret_wire::Result<Self> {
+        let ContactProducerSigner::Direct(producer) = producer else {
+            return Err(arkret_wire::WireError::Protocol(
+                "human endpoint requires a direct producer".into(),
+            ));
+        };
+        let method = producer.verification_method.as_str();
+        let (did, fragment) = method.split_once('#').ok_or_else(|| {
+            arkret_wire::WireError::Protocol("device method has no fragment".into())
+        })?;
+        let did = Did::new(did)?;
+        if arkret_wire::project_did_to_core_id(&did)? != account.principal_id {
+            return Err(arkret_wire::WireError::Protocol(
+                "device method belongs to another principal".into(),
+            ));
+        }
+        let device_id = arkret_wire::DeviceId::new(fragment)?;
+        Ok(Self {
+            contact_event_ref,
+            device_id,
+        })
+    }
+}
+
+/// `contact-operations.schema.json#/$defs/contact_list_row`.
+///
+/// The schema's conditional requirements (`next_prepare_input` exactly for
+/// `accepted`, `request_event_ref` for `pending_incoming`, `request_message`
+/// only there, `effective_scopes == bidirectional_scopes`) are enforced on
+/// deserialization through `ContactListRowWire`, so a row that reaches a
+/// caller has already been checked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(try_from = "ContactListRowWire")]
+pub struct ContactListRow {
+    pub peer: ContactPeer,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tombstone_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_prepare_input: Option<ContactNextPrepareInput>,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
+    pub granted_by_peer_scopes: Vec<ContactScope>,
+    pub bidirectional_scopes: Vec<ContactScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scopes: Option<Vec<ContactScope>>,
+    /// Portable checkpoint plus the exact remaining tail. Present only after
+    /// both participant Stations have committed the same checkpoint and the
+    /// caller explicitly exports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+    /// Active agents controlled by this contact that currently accept direct
+    /// messages from the authenticated actor. Viewer-specific and fail-closed;
+    /// clients must not infer it from public selector claims.
+    #[serde(
+        rename = "contact_agents",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub contact_agent_projections: Vec<ContactAgentProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_endpoint: Option<ContactPeerEndpoint>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContactListRowWire {
+    peer: ContactPeer,
+    state: ContactState,
+    #[serde(default)]
+    request_event_ref: Option<EventId>,
+    #[serde(default)]
+    request_message: Option<String>,
+    #[serde(default)]
+    response_event_ref: Option<EventId>,
+    #[serde(default)]
+    tombstone_event_ref: Option<EventId>,
+    #[serde(default)]
+    next_prepare_input: Option<ContactNextPrepareInput>,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    granted_by_peer_scopes: Vec<ContactScope>,
+    bidirectional_scopes: Vec<ContactScope>,
+    #[serde(default)]
+    effective_scopes: Option<Vec<ContactScope>>,
+    #[serde(default)]
+    continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default)]
+    direct_conversation: Option<DirectConversationSummary>,
+    #[serde(default)]
+    contact_agents: Vec<ContactAgentProjection>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    peer_endpoint: Option<ContactPeerEndpoint>,
+}
+
+impl TryFrom<ContactListRowWire> for ContactListRow {
+    type Error = arkret_wire::WireError;
+
+    fn try_from(wire: ContactListRowWire) -> arkret_wire::Result<Self> {
+        let row = Self {
+            peer: wire.peer,
+            state: wire.state,
+            request_event_ref: wire.request_event_ref,
+            request_message: wire.request_message,
+            response_event_ref: wire.response_event_ref,
+            tombstone_event_ref: wire.tombstone_event_ref,
+            next_prepare_input: wire.next_prepare_input,
+            granted_to_peer_scopes: wire.granted_to_peer_scopes,
+            granted_by_peer_scopes: wire.granted_by_peer_scopes,
+            bidirectional_scopes: wire.bidirectional_scopes,
+            effective_scopes: wire.effective_scopes,
+            continuity_evidence: wire.continuity_evidence,
+            direct_conversation: wire.direct_conversation,
+            contact_agent_projections: wire.contact_agents,
+            peer_endpoint: wire.peer_endpoint,
+        };
+        row.validate_shape()?;
+        Ok(row)
+    }
+}
+
+impl ContactListRow {
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if self.peer_endpoint.is_some()
+            && (self.state != ContactState::Accepted
+                || !matches!(self.peer, ContactPeer::Human { .. }))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "peer endpoint requires accepted human row".into(),
+            ));
+        }
+        if self.state == ContactState::PendingIncoming && self.request_event_ref.is_none() {
+            return Err(arkret_wire::WireError::Protocol(
+                "pending_incoming requires request_event_ref".to_owned(),
+            ));
+        }
+        if let Some(message) = &self.request_message
+            && (self.state != ContactState::PendingIncoming
+                || !(1..=2000).contains(&message.chars().count()))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "request_message requires pending_incoming and 1..2000 characters".to_owned(),
+            ));
+        }
+        if (self.state == ContactState::Accepted) != self.next_prepare_input.is_some() {
+            return Err(arkret_wire::WireError::Protocol(
+                "next_prepare_input must be present exactly for accepted Contact rows".to_owned(),
+            ));
+        }
+        if let Some(input) = &self.next_prepare_input {
+            input.validate_shape()?;
+        }
+        if self
+            .effective_scopes
+            .as_ref()
+            .is_some_and(|scopes| scopes != &self.bidirectional_scopes)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "effective_scopes must equal bidirectional_scopes when present".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Viewer-specific current Contact rows.
+/// `contact-operations.schema.json#/$defs/contact_list`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContactList {
+    pub contacts: Vec<ContactListRow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<arkret_wire::Cursor>,
+    pub has_more: bool,
+}
+
 #[cfg(test)]
-mod event_digest_derivation_tests {
-    use arkret_wire::{Base64UrlString, DidUrl};
-    use chrono::{DateTime, Utc};
+mod contact_list_projection_tests {
+    use serde_json::{Value, json};
 
     use super::*;
 
-    const EVENT_REF: &str = "ak:event:AWAIb405aEEenVBHYRG-ZfDs-f9_j3E67tWGI36uYxFJ";
-    const EVENT_DIGEST: &str =
-        "sha256:60086f8d3968411e9d50476111be65f0ecf9ff7f8f713aeed586237eae631149";
+    const REALM: &str = "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5";
+    const STRAND: &str = "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9";
+    const BINDING_EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const REQUEST_EVENT: &str = "ak:event:Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const RESPONSE_EVENT: &str = "ak:event:Accccccccccccccccccccccccccccccccccccccccccc";
+    const ROUND: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    const AVATAR: &str =
+        "ak:blob:sha256:2222222222222222222222222222222222222222222222222222222222222222";
 
-    fn hash(fill: char) -> Hash {
-        Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
+    fn human_peer() -> Value {
+        json!({
+            "kind": "human",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkpeerprincipal",
+                "station_id": "ak:did_core:webvh:z6mkpeerstation"
+            }
+        })
     }
 
-    fn timestamp() -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc)
+    fn direct_conversation() -> Value {
+        json!({
+            "realm_id": REALM,
+            "main_strand_id": STRAND,
+            "binding_event_ref": BINDING_EVENT,
+            "state": "found"
+        })
     }
 
-    fn signature() -> ProtocolSignature {
-        ProtocolSignature {
-            verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
-            created_at: timestamp(),
-            jws: Base64UrlString::new("AA").unwrap(),
-        }
-    }
-
-    fn account(principal: &str) -> AccountId {
-        AccountId::new(
-            DidCoreId::new(principal).unwrap(),
-            DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
-        )
-    }
-
-    fn account_actor(principal: &str) -> ActorId {
-        ActorId::account(account(principal))
-    }
-
-    fn request_receipt() -> RequestAcceptanceReceipt {
-        RequestAcceptanceReceipt {
-            core: RequestAcceptanceReceiptCore {
-                holder: ContactPeer::Human {
-                    account_id: account("ak:did_core:webvh:z6mkfixturealice"),
-                },
-                peer: ContactPeer::Human {
-                    account_id: account("ak:did_core:webvh:z6mkfixturebob"),
-                },
-                slot_version: 1,
-                slot_predecessor: None,
-                previous_terminal_contact_round_id: None,
-                request_event_ref: EventId::new(EVENT_REF).unwrap(),
-                source_checkpoint: hash('a'),
-                accepted_at: timestamp(),
-                issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+    /// The member order here is the schema `properties` order of
+    /// `contact_list_row`; the round-trip assertion below therefore fails if a
+    /// field is ever reordered or renamed in the Rust declaration.
+    fn accepted_row() -> Value {
+        json!({
+            "peer": human_peer(),
+            "state": "accepted",
+            "request_event_ref": REQUEST_EVENT,
+            "response_event_ref": RESPONSE_EVENT,
+            "next_prepare_input": {
+                "contact_round_id": ROUND,
+                "version": 2,
+                "predecessor_event_ref": RESPONSE_EVENT
             },
-            receipt_digest: hash('b'),
-            signature: signature(),
-        }
+            "granted_to_peer_scopes": ["invite", "direct_message"],
+            "granted_by_peer_scopes": ["direct_message"],
+            "bidirectional_scopes": ["direct_message"],
+            "effective_scopes": ["direct_message"],
+            "direct_conversation": direct_conversation(),
+            "contact_agents": [{
+                "actor_id": {
+                    "kind": "account",
+                    "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkagentprincipal",
+                        "station_id": "ak:did_core:webvh:z6mkpeerstation"
+                    }
+                },
+                "controller_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkpeerprincipal",
+                    "station_id": "ak:did_core:webvh:z6mkpeerstation"
+                },
+                "display_name": "Scheduler",
+                "agent_slug": "scheduler",
+                "avatar_blob_ref": AVATAR,
+                "direct_conversation": direct_conversation()
+            }]
+        })
     }
 
     #[test]
-    fn all_contact_event_digests_are_derived_from_complete_event_ids() {
-        let request = request_receipt();
-        assert_eq!(request.core.request_digest().as_str(), EVENT_DIGEST);
-
-        let proof = ContactCurrentProof {
-            contact_round_id: hash('c'),
-            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
-            peer: ContactPeer::Human {
-                account_id: account("ak:did_core:webvh:z6mkfixturebob"),
-            },
-            terminal: false,
-            head_event_ref: EventId::new(EVENT_REF).unwrap(),
-            accepted_frontier: vec![EventId::new(EVENT_REF).unwrap()],
-            complete_through: 1,
-            fresh_until: timestamp(),
-            signature: signature(),
-        };
-        assert_eq!(proof.head_digest().as_str(), EVENT_DIGEST);
-
-        let response = NormalResponseAcceptanceReceipt {
-            contact_round_id: hash('d'),
-            request_receipt: request.clone(),
-            response_event_ref: EventId::new(EVENT_REF).unwrap(),
-            outgoing_slot_absence_digest: hash('e'),
-            accepted_at: timestamp(),
-            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
-            signature: signature(),
-        };
-        assert_eq!(response.response_digest().as_str(), EVENT_DIGEST);
-
-        let reject = RejectAcceptanceReceipt {
-            request_receipt: request,
-            reject_event_ref: EventId::new(EVENT_REF).unwrap(),
-            accepted_at: timestamp(),
-            issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
-            signature: signature(),
-        };
-        assert_eq!(reject.reject_digest().as_str(), EVENT_DIGEST);
-
-        let mirror = PeerContactMirrorReceipt {
-            domain: PeerContactMirrorReceiptDomain::V1,
-            request_digest: hash('f'),
-            signed_event_ref: EventId::new(EVENT_REF).unwrap(),
-            outcome: PeerContactOutcome::Accepted,
-            recipient_id: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
-            received_at: timestamp(),
-            issuer_id: DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
-            signature: signature(),
-        };
-        assert_eq!(mirror.signed_event_digest().as_str(), EVENT_DIGEST);
-    }
-
-    #[test]
-    fn outgoing_slot_absence_transcript_matches_normative_kat() {
-        let alice = ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationa").unwrap(),
-        ));
-        let bob = ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationb").unwrap(),
-        ));
-        let transcript = OutgoingSlotAbsenceTranscript {
-            sorted_pair_member_ids: [alice, bob.clone()],
-            request_slot_owner: bob,
-            contact_round_id: Hash::new(
-                "sha256:0ceca65487c2143ddb4e4c4e7831fcd6e1e8e049bff470a30aa8c033b4c913ec",
-            )
-            .unwrap(),
-            slot_predecessor: None,
-            cas_sequence: 7,
-            cas_frontier: vec![
-                EventId::new("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD").unwrap(),
-                EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA").unwrap(),
-            ],
-            observed_at: DateTime::parse_from_rfc3339("2026-08-31T03:59:00.000Z")
+    fn endpoint_is_only_an_accepted_human_selector() {
+        let mut value = accepted_row();
+        value["peer_endpoint"] = json!({
+            "contact_event_ref": REQUEST_EVENT,
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000001"
+        });
+        let mut null = value.clone();
+        null["peer_endpoint"] = Value::Null;
+        assert!(serde_json::from_value::<ContactListRow>(null).is_err());
+        let parsed: ContactListRow = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        for state in [
+            "pending_outgoing",
+            "pending_incoming",
+            "rejected",
+            "expired",
+            "tombstoned",
+        ] {
+            let mut changed = value.clone();
+            changed["state"] = json!(state);
+            changed
+                .as_object_mut()
                 .unwrap()
-                .with_timezone(&Utc),
-            outgoing_request_state: OutgoingRequestState::Absent,
-        };
+                .remove("next_prepare_input");
+            assert!(serde_json::from_value::<ContactListRow>(changed).is_err());
+        }
+        let mut agent = value.clone();
+        agent["peer"] = json!({"kind":"agent", "actor_id": value["contact_agents"][0]["actor_id"],
+            "controller_account_id": value["contact_agents"][0]["controller_account_id"]});
+        assert!(serde_json::from_value::<ContactListRow>(agent).is_err());
+        let account =
+            serde_json::from_value::<AccountId>(human_peer()["account_id"].clone()).unwrap();
+        let method = "did:webvh:z6mkpeerprincipal:peer.example#ak:device:01964137-0000-7000-8000-000000000001";
+        let signer = ContactProducerSigner::direct(
+            arkret_wire::DidUrl::new(method).unwrap(),
+            arkret_wire::Base64UrlString::new("A".repeat(43)).unwrap(),
+        )
+        .unwrap();
+        let endpoint = ContactPeerEndpoint::from_verified_producer(
+            &account,
+            REQUEST_EVENT.parse().unwrap(),
+            &signer,
+        )
+        .unwrap();
         assert_eq!(
-            transcript.digest().unwrap().as_str(),
-            "sha256:07bf0692dbec6a4cef398e0f7de448dd2f970edf47fe10d48921bc67a57ecabe"
+            serde_json::to_value(endpoint).unwrap(),
+            value["peer_endpoint"]
         );
+        let mut wrong_account = account;
+        wrong_account.principal_id = "ak:did_core:web:wrong.example".parse().unwrap();
+        assert!(
+            ContactPeerEndpoint::from_verified_producer(
+                &wrong_account,
+                REQUEST_EVENT.parse().unwrap(),
+                &signer
+            )
+            .is_err()
+        );
+    }
 
-        let mut swapped = transcript.clone();
-        swapped.sorted_pair_member_ids.swap(0, 1);
-        assert!(swapped.validate_shape().is_err());
-        let mut duplicate_direction = transcript;
-        duplicate_direction.request_slot_owner =
-            account_actor("ak:did_core:webvh:z6mkfixtureoutside");
-        assert!(duplicate_direction.validate_shape().is_err());
+    #[test]
+    fn accepted_row_round_trips_byte_for_byte() {
+        let row: ContactListRow = serde_json::from_value(accepted_row()).unwrap();
+        assert_eq!(row.state, ContactState::Accepted);
+        assert_eq!(
+            row.direct_conversation.as_ref().unwrap().state,
+            DirectConversationSummaryState::Found
+        );
+        assert_eq!(row.contact_agent_projections.len(), 1);
+        assert_eq!(serde_json::to_value(&row).unwrap(), accepted_row());
+    }
+
+    #[test]
+    fn contact_list_carries_typed_rows() {
+        let list: ContactList = serde_json::from_value(json!({
+            "contacts": [accepted_row()],
+            "has_more": false
+        }))
+        .unwrap();
+        assert_eq!(list.contacts.len(), 1);
+        assert!(!list.has_more);
+        assert_eq!(list.contacts[0].state, ContactState::Accepted);
+    }
+
+    #[test]
+    fn every_contact_state_is_the_schema_enum() {
+        for (wire, expected) in [
+            ("pending_outgoing", ContactState::PendingOutgoing),
+            ("pending_incoming", ContactState::PendingIncoming),
+            ("accepted", ContactState::Accepted),
+            ("rejected", ContactState::Rejected),
+            ("expired", ContactState::Expired),
+            ("tombstoned", ContactState::Tombstoned),
+        ] {
+            let decoded: ContactState = serde_json::from_value(json!(wire)).unwrap();
+            assert_eq!(decoded, expected);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), json!(wire));
+        }
+        assert!(serde_json::from_value::<ContactState>(json!("blocked")).is_err());
+    }
+
+    #[test]
+    fn next_prepare_input_is_present_exactly_for_accepted() {
+        let mut without = accepted_row();
+        without
+            .as_object_mut()
+            .unwrap()
+            .remove("next_prepare_input");
+        assert!(serde_json::from_value::<ContactListRow>(without).is_err());
+
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("effective_scopes");
+        assert!(serde_json::from_value::<ContactListRow>(pending.clone()).is_err());
+
+        pending
+            .as_object_mut()
+            .unwrap()
+            .remove("next_prepare_input");
+        let row: ContactListRow = serde_json::from_value(pending).unwrap();
+        assert_eq!(row.state, ContactState::PendingIncoming);
+        assert!(row.next_prepare_input.is_none());
+    }
+
+    #[test]
+    fn pending_incoming_requires_its_request_event_ref() {
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("next_prepare_input");
+        object.remove("request_event_ref");
+        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+    }
+
+    #[test]
+    fn request_message_belongs_only_to_pending_incoming() {
+        let mut accepted = accepted_row();
+        accepted
+            .as_object_mut()
+            .unwrap()
+            .insert("request_message".to_owned(), json!("hello"));
+        assert!(serde_json::from_value::<ContactListRow>(accepted).is_err());
+
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("next_prepare_input");
+        object.insert("request_message".to_owned(), json!("hello"));
+        let row: ContactListRow = serde_json::from_value(pending.clone()).unwrap();
+        assert_eq!(row.request_message.as_deref(), Some("hello"));
+
+        pending
+            .as_object_mut()
+            .unwrap()
+            .insert("request_message".to_owned(), json!("x".repeat(2001)));
+        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+    }
+
+    #[test]
+    fn effective_scopes_must_equal_bidirectional_scopes() {
+        let mut row = accepted_row();
+        row.as_object_mut()
+            .unwrap()
+            .insert("effective_scopes".to_owned(), json!(["invite"]));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+    }
+
+    #[test]
+    fn rows_and_their_nested_projections_reject_unknown_members() {
+        let mut row = accepted_row();
+        row.as_object_mut()
+            .unwrap()
+            .insert("effective_scope".to_owned(), json!(["invite"]));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+
+        let mut summary = direct_conversation();
+        summary
+            .as_object_mut()
+            .unwrap()
+            .insert("strand_id".to_owned(), json!(STRAND));
+        assert!(serde_json::from_value::<DirectConversationSummary>(summary).is_err());
+
+        let mut projection = accepted_row()["contact_agents"][0].clone();
+        projection
+            .as_object_mut()
+            .unwrap()
+            .insert("avatar".to_owned(), json!("x"));
+        assert!(serde_json::from_value::<ContactAgentProjection>(projection).is_err());
+    }
+
+    #[test]
+    fn direct_conversation_summary_state_is_closed() {
+        for (wire, expected) in [
+            ("found", DirectConversationSummaryState::Found),
+            ("suspended", DirectConversationSummaryState::Suspended),
+        ] {
+            let mut summary = direct_conversation();
+            summary
+                .as_object_mut()
+                .unwrap()
+                .insert("state".to_owned(), json!(wire));
+            let decoded: DirectConversationSummary = serde_json::from_value(summary).unwrap();
+            assert_eq!(decoded.state, expected);
+        }
+        let mut summary = direct_conversation();
+        summary
+            .as_object_mut()
+            .unwrap()
+            .insert("state".to_owned(), json!("creating"));
+        assert!(serde_json::from_value::<DirectConversationSummary>(summary).is_err());
+    }
+
+    #[test]
+    fn a_stale_next_prepare_input_version_is_refused() {
+        let mut row = accepted_row();
+        row["next_prepare_input"]
+            .as_object_mut()
+            .unwrap()
+            .insert("version".to_owned(), json!(1));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
     }
 }

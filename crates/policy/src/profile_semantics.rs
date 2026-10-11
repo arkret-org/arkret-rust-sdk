@@ -18,8 +18,6 @@ pub struct ProfileSemanticSurface {
     pub fixtures: Vec<String>,
     pub capability_actions: Vec<String>,
     pub features: Vec<String>,
-    pub cell_namespaces: Vec<String>,
-    pub cells: Vec<String>,
     pub constraint_kinds: Vec<String>,
 }
 
@@ -35,8 +33,6 @@ pub struct ProfileSemanticRequirements {
     pub required_fixtures: Vec<String>,
     pub required_capability_actions: Vec<String>,
     pub required_features: Vec<String>,
-    pub required_cell_namespaces: Vec<String>,
-    pub required_cells: Vec<String>,
     pub required_constraint_kinds: Vec<String>,
 }
 
@@ -52,8 +48,6 @@ pub struct ProfileSemanticCoverageReport {
     pub missing_fixtures: Vec<String>,
     pub missing_capability_actions: Vec<String>,
     pub missing_features: Vec<String>,
-    pub missing_cell_namespaces: Vec<String>,
-    pub missing_cells: Vec<String>,
     pub missing_constraint_kinds: Vec<String>,
 }
 
@@ -66,8 +60,6 @@ impl ProfileSemanticCoverageReport {
             && self.missing_fixtures.is_empty()
             && self.missing_capability_actions.is_empty()
             && self.missing_features.is_empty()
-            && self.missing_cell_namespaces.is_empty()
-            && self.missing_cells.is_empty()
             && self.missing_constraint_kinds.is_empty()
     }
 }
@@ -109,7 +101,7 @@ impl std::fmt::Display for ProfileSemanticCoverageError {
             }
             Self::MissingRequirements { report } => write!(
                 f,
-                "profile semantic coverage missing requirements for {:?}: operation_requirements={:?} event_kinds={:?} schemas={:?} rejected_event_kinds_present={:?} fixtures={:?} capability_actions={:?} features={:?} cell_namespaces={:?} cells={:?} constraint_kinds={:?}",
+                "profile semantic coverage missing requirements for {:?}: operation_requirements={:?} event_kinds={:?} schemas={:?} rejected_event_kinds_present={:?} fixtures={:?} capability_actions={:?} features={:?} constraint_kinds={:?}",
                 report.requirements.profile_ids,
                 report.missing_operation_requirements,
                 report.missing_event_kinds,
@@ -118,8 +110,6 @@ impl std::fmt::Display for ProfileSemanticCoverageError {
                 report.missing_fixtures,
                 report.missing_capability_actions,
                 report.missing_features,
-                report.missing_cell_namespaces,
-                report.missing_cells,
                 report.missing_constraint_kinds
             ),
         }
@@ -151,8 +141,6 @@ pub fn profile_semantic_coverage_report(
     let implemented_fixtures = set(&surface.fixtures);
     let implemented_capability_actions = set(&surface.capability_actions);
     let advertised_features = set(&surface.features);
-    let implemented_cell_namespaces = set(&surface.cell_namespaces);
-    let implemented_cells = set(&surface.cells);
     let implemented_constraint_kinds = set(&surface.constraint_kinds);
 
     Ok(ProfileSemanticCoverageReport {
@@ -174,11 +162,6 @@ pub fn profile_semantic_coverage_report(
             &implemented_capability_actions,
         ),
         missing_features: missing(&requirements.required_features, &advertised_features),
-        missing_cell_namespaces: missing(
-            &requirements.required_cell_namespaces,
-            &implemented_cell_namespaces,
-        ),
-        missing_cells: missing(&requirements.required_cells, &implemented_cells),
         missing_constraint_kinds: missing(
             &requirements.required_constraint_kinds,
             &implemented_constraint_kinds,
@@ -223,8 +206,6 @@ struct RequirementsAccumulator {
     required_fixtures: BTreeSet<String>,
     required_capability_actions: BTreeSet<String>,
     required_features: BTreeSet<String>,
-    required_cell_namespaces: BTreeSet<String>,
-    required_cells: BTreeSet<String>,
     required_constraint_kinds: BTreeSet<String>,
 }
 
@@ -243,11 +224,6 @@ impl RequirementsAccumulator {
         );
         extend(&mut self.required_features, req.required_features);
         extend(
-            &mut self.required_cell_namespaces,
-            req.required_cell_namespaces,
-        );
-        extend(&mut self.required_cells, req.required_cells);
-        extend(
             &mut self.required_constraint_kinds,
             req.required_constraint_kinds,
         );
@@ -263,8 +239,6 @@ impl RequirementsAccumulator {
             required_fixtures: into_vec(self.required_fixtures),
             required_capability_actions: into_vec(self.required_capability_actions),
             required_features: into_vec(self.required_features),
-            required_cell_namespaces: into_vec(self.required_cell_namespaces),
-            required_cells: into_vec(self.required_cells),
             required_constraint_kinds: into_vec(self.required_constraint_kinds),
         }
     }

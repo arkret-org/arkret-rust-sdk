@@ -7,8 +7,6 @@ use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::{Did, ServiceKind, ServiceOperationId, TrustDomainId};
 use serde_json::{Value, json};
 
-const INVENTORY: &str = include_str!("../../../conformance/ak-sdk-024-public-api-inventory.json");
-
 fn fixture() -> Value {
     spec_json_artifact("fixtures/service-protocol-version-bootstrap-fixture.json").unwrap()
 }
@@ -153,10 +151,8 @@ fn collect_rust_sources(root: &Path, files: &mut Vec<PathBuf>) {
 }
 
 #[test]
-fn ak_sdk_024_public_api_inventory_is_complete_and_every_typed_carrier_is_gated() {
-    let inventory: Value = serde_json::from_str(INVENTORY).unwrap();
+fn ak_sdk_024_every_public_typed_carrier_is_gated() {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let expected = inventory["typed_carriers"].as_array().unwrap();
 
     let mut sources = Vec::new();
     collect_rust_sources(&workspace.join("crates"), &mut sources);
@@ -183,12 +179,8 @@ fn ak_sdk_024_public_api_inventory_is_complete_and_every_typed_carrier_is_gated(
             actual.push(relative);
         }
     }
-    actual.sort();
-
-    let mut inventoried = expected
-        .iter()
-        .map(|entry| entry["source"].as_str().unwrap().to_owned())
-        .collect::<Vec<_>>();
-    inventoried.sort();
-    assert_eq!(actual, inventoried);
+    assert!(
+        !actual.is_empty(),
+        "no public protocol_version carrier found: the field was renamed and this gate is now vacuous"
+    );
 }

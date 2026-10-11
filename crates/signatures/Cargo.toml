@@ -17,6 +17,7 @@ collaboration = [
     "dep:arkret-models-collaboration",
     "dep:arkret-models-identity",
     "dep:arkret-state",
+    "dep:arkret-schema",
 ]
 keypackages = ["dep:arkret-models-crypto"]
 service-identity = ["dep:arkret-models-identity"]
@@ -31,9 +32,10 @@ arkret-models-collaboration = { workspace = true, optional = true }
 arkret-models-crypto = { workspace = true, optional = true }
 arkret-models-identity = { workspace = true, optional = true }
 arkret-state = { workspace = true, optional = true }
+arkret-schema = { workspace = true, optional = true }
 arkret-wire = { workspace = true }
 # RFC 9421 HTTP Message Signatures + detached-JWS Ed25519 verify are always
-# available (the federation / push / teabay ingest verifiers need them
+# available (the federation / push / flagon ingest verifiers need them
 # unconditionally); the `signer` feature gates only the private-key signing
 # surface, not these crypto deps.
 base64 = { workspace = true }

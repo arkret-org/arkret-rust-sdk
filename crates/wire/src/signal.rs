@@ -1,7 +1,7 @@
 //! Signal Extension envelope (`zh/sync/signal.md`).
 //!
-//! A Signal is a peer of Event and Device Message, not a subtype: an Event is a
-//! durable signed fact that enters the reducer and federates, while a Signal is
+//! A Signal is a peer of Event, not a subtype: an Event is a
+//! durable signed fact committed by the governance Station, while a Signal is
 //! a momentary encrypted announcement with no durable effect.
 //!
 //! There is exactly one encrypted envelope and one live rail. There is no
@@ -13,8 +13,7 @@
 //! the sender sequence live inside `encrypted_payload` and are never
 //! reconstructible from the outer header.
 //!
-//! Device verification, secret distribution and history recovery do NOT
-//! belong here — they use `DeviceMessageEnvelope` and its reliable queue.
+//! Device verification and MLS Welcome delivery do not belong here.
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,8 +25,8 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
-    ActorId, DeviceId, Did, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
-    project_did_to_core_id,
+    AccountId, ActorId, Base64UrlString, DeviceId, Did, DidUrl, EventId, ExporterLabelId, Hash,
+    RealmCommitId, RealmId, canonical, project_did_to_core_id,
 };
 
 /// Construction identifier of the v1 Signal payload.
@@ -128,8 +127,6 @@ pub struct SignalEncryptedPayload {
     pub epoch: u64,
     pub nonce: String,
     pub ciphertext: String,
-    /// Digest of the immutable outer header bound into the AEAD AAD.
-    pub aad_digest: Hash,
 }
 
 /// MLS group state the Signal content key was exported from.
@@ -137,17 +134,16 @@ pub struct SignalEncryptedPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignalKeyRef {
-    pub algorithm: String,
     pub group_state_ref: String,
 }
 
 /// The Signal domain's **pre-encryption immutable header** (`encoding.md`
-/// §10.2). Its canonical bytes are the AEAD AAD, and its digest is what
-/// travels as [`SignalEncryptedPayload::aad_digest`].
+/// §10.2). Its canonical bytes are the AEAD AAD. Receivers reconstruct the
+/// bytes from the envelope; no redundant AAD digest travels on the wire.
 ///
-/// Every member is fixed before the AEAD seal runs, which is the whole point
-/// of §10.2: nothing that depends on the AEAD output (ciphertext digest, the
-/// `aad_digest` itself, `envelope_digest`, the proof) may enter the AAD, so a
+/// Every member is fixed before AEAD encryption runs, which is the whole point
+/// of §10.2: nothing that depends on the AEAD output (ciphertext digest,
+/// `envelope_digest`, the proof) may enter the AAD, so a
 /// sender can build the AAD without having encrypted anything yet. The one
 /// member a sender only learns *while* sealing is the nonce, so it is passed
 /// separately to [`Self::aad_bytes`] rather than stored here — that also lets
@@ -162,7 +158,11 @@ pub struct SignalAeadBinding<'a> {
     pub scope_ref: &'a ScopeRef,
     pub sender_actor_id: &'a ActorId,
     pub sender_device_id: Option<&'a DeviceId>,
-    pub seal_ref: &'a SealId,
+    /// Exact head of this scope's independent commit stream used for current
+    /// sender authorization.
+    pub authority_commit_id: &'a RealmCommitId,
+    /// Independent parent Realm cut, present exactly for Circle scope.
+    pub parent_realm_authority_commit_id: Option<&'a RealmCommitId>,
     pub signal_class: SignalClass,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -188,6 +188,16 @@ impl SignalAeadBinding<'_> {
             return Err(WireError::Protocol(
                 "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
+        }
+        match self.scope_ref {
+            ScopeRef::Circle { .. } if self.parent_realm_authority_commit_id.is_some() => {}
+            ScopeRef::Realm { .. } | ScopeRef::Sidecar { .. }
+                if self.parent_realm_authority_commit_id.is_none() => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "Signal parent Realm cut must be present exactly for Circle scope".to_owned(),
+                ));
+            }
         }
         if self.scheme != SIGNAL_AEAD_SCHEME {
             return Err(WireError::Protocol(format!(
@@ -251,9 +261,15 @@ impl SignalAeadBinding<'_> {
             );
         }
         object.insert(
-            "seal_ref".to_owned(),
-            Value::String(self.seal_ref.as_str().to_owned()),
+            "authority_commit_id".to_owned(),
+            Value::String(self.authority_commit_id.as_str().to_owned()),
         );
+        if let Some(parent) = self.parent_realm_authority_commit_id {
+            object.insert(
+                "parent_realm_authority_commit_id".to_owned(),
+                Value::String(parent.as_str().to_owned()),
+            );
+        }
         object.insert(
             "signal_class".to_owned(),
             serde_json::to_value(self.signal_class)?,
@@ -281,13 +297,6 @@ impl SignalAeadBinding<'_> {
         object.insert("nonce".to_owned(), Value::String(nonce.to_owned()));
         Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
     }
-
-    /// `H(aad_bytes)`. Carried on the wire so a receiver can report a
-    /// mismatch before attempting the AEAD open, never as a substitute for
-    /// recomputing the AAD (`encoding.md` §10.2).
-    pub fn aad_digest(&self, nonce: &str) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(self.aad_bytes(nonce)?))?)
-    }
 }
 
 /// Detached sender proof over the Signal envelope.
@@ -302,8 +311,6 @@ pub struct SignalProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub envelope_digest: Hash,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -321,8 +328,7 @@ pub struct SignalProof {
 
 /// Encrypted-only broadcast Signal envelope.
 ///
-/// It is never a durable Event: it advances no `actor_seq`, enters no Seal
-/// coverage or `state_root`, and produces no reducer state.
+/// It is never a durable Event and never enters an authority commit stream.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -336,7 +342,13 @@ pub struct SignalEnvelope {
         deserialize_with = "deserialize_present_proof_value"
     )]
     pub sender_device_id: Option<DeviceId>,
-    pub seal_ref: SealId,
+    pub authority_commit_id: RealmCommitId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_proof_value"
+    )]
+    pub parent_realm_authority_commit_id: Option<RealmCommitId>,
     pub signal_class: SignalClass,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -378,7 +390,7 @@ impl SignalEnvelope {
     /// `H(canonical_json(envelope_without_proof))`.
     ///
     /// Because `proof` is the only removal, the digest commits to the
-    /// ciphertext and to `aad_digest` as well as to the header.
+    /// ciphertext and the complete server-visible header.
     pub fn envelope_digest(&self) -> Result<Hash> {
         let json = canonical::unsigned_value(self, &["proof"])?;
         Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
@@ -395,7 +407,8 @@ impl SignalEnvelope {
             scope_ref: &self.scope_ref,
             sender_actor_id: &self.sender_actor_id,
             sender_device_id: self.sender_device_id.as_ref(),
-            seal_ref: &self.seal_ref,
+            authority_commit_id: &self.authority_commit_id,
+            parent_realm_authority_commit_id: self.parent_realm_authority_commit_id.as_ref(),
             signal_class: self.signal_class,
             sent_at: self.sent_at,
             expires_at: self.expires_at,
@@ -405,15 +418,6 @@ impl SignalEnvelope {
             aead_profile: &self.encrypted_payload.aead_profile,
             epoch: self.encrypted_payload.epoch,
         }
-    }
-
-    /// Recompute the AAD digest from the immutable server-visible header.
-    ///
-    /// Deliberately excludes `aad_digest` itself, the ciphertext and the
-    /// proof: the AEAD tag already binds ciphertext to AAD.
-    pub fn expected_aad_digest(&self) -> Result<Hash> {
-        self.aead_binding()
-            .aad_digest(&self.encrypted_payload.nonce)
     }
 
     /// Canonical bytes the sending device signs.
@@ -443,7 +447,7 @@ impl SignalEnvelope {
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.proof.created_at)),
+            Value::String(canonical::format_timestamp_canonical(self.sent_at)),
         );
         if let Some(domain) = &self.proof.domain {
             object.insert("domain".to_owned(), Value::String(domain.clone()));
@@ -476,8 +480,7 @@ impl SignalEnvelope {
         }
         if payload.scheme != SIGNAL_AEAD_SCHEME
             || payload.purpose != SIGNAL_AEAD_PURPOSE
-            || payload.key_ref.algorithm != "MLS-EXPORTER-AEAD"
-            || (crate::EventId::new(&payload.key_ref.group_state_ref).is_err()
+            || (EventId::new(&payload.key_ref.group_state_ref).is_err()
                 && Hash::new(&payload.key_ref.group_state_ref).is_err())
             || payload.nonce.len() != 16
             || !b64_chars(&payload.nonce)
@@ -500,12 +503,7 @@ impl SignalEnvelope {
         {
             return Err(invalid());
         }
-        let segments = self.proof.jws.split('.').collect::<Vec<_>>();
-        if segments.len() != 3
-            || segments[0].is_empty()
-            || segments[2].is_empty()
-            || segments.iter().any(|segment| !b64_chars(segment))
-        {
+        if !crate::is_compact_detached_jws(&self.proof.jws) {
             return Err(invalid());
         }
         if canonical::canonical_json_bytes(self)?.len() > MAX_SIGNAL_ENVELOPE_BYTES {
@@ -522,8 +520,8 @@ impl SignalEnvelope {
     /// Every check the sender, ingress, relay and receiver share, except the
     /// signature verification and the current-directory device authorization
     /// lookup, which need key material and accepted state. The two are separate
-    /// state domains: `seal_ref` selects the Realm/scope basis only, never the
-    /// device frontier (`signal.md` §1).
+    /// state domains: `authority_commit_id` selects the Realm/scope basis only, never the
+    /// device checkpoint (`signal.md` §1).
     ///
     /// Notably absent by design: any inspection of a product `signal_kind`,
     /// `call_id` or `strand_id`. Those do not exist on the outer envelope, and
@@ -559,19 +557,88 @@ impl SignalEnvelope {
                 "signal proof verification_method does not match the sender endpoint".to_owned(),
             ));
         }
-        if self.proof.created_at != self.sent_at {
-            return Err(WireError::Protocol(
-                "signal proof created_at must equal sent_at".to_owned(),
-            ));
-        }
         if self.proof.envelope_digest != self.envelope_digest()? {
             return Err(WireError::Protocol(
                 "signal proof envelope_digest does not match the envelope".to_owned(),
             ));
         }
-        if self.encrypted_payload.aad_digest != self.expected_aad_digest()? {
-            return Err(WireError::Protocol(
-                "signal aad_digest does not match the immutable outer header".to_owned(),
+        Ok(())
+    }
+}
+
+/// A signing key returned by the authenticated recipient's own Station.
+/// The key bytes may be cached; a current authorization result may not.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct StationSigningKey {
+    pub actor: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_b64u: Base64UrlString,
+    pub authorization_ref: EventId,
+}
+impl StationSigningKey {
+    pub fn validate(&self) -> Result<()> {
+        self.actor.validate()?;
+        let did = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(did, _)| did)
+            .ok_or_else(|| {
+                station_key_error(
+                    ErrorCode::SchemaViolation,
+                    "signing method requires a fragment",
+                )
+            })?;
+        let did = Did::new(did.to_owned())?;
+        if project_did_to_core_id(&did)? != *self.actor.signing_principal_id() {
+            return Err(station_key_error(
+                ErrorCode::SchemaViolation,
+                "signing method principal mismatch",
+            ));
+        }
+        let value = self.public_key_b64u.as_str();
+        if !matches!(self.actor, ActorId::Account { .. })
+            || value.len() != 43
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || !b"AEIMQUYcgkosw048".contains(&value.as_bytes()[42])
+        {
+            return Err(station_key_error(
+                ErrorCode::SchemaViolation,
+                "invalid Station signing key",
+            ));
+        }
+        Ok(())
+    }
+}
+fn station_key_error(code: ErrorCode, message: &str) -> WireError {
+    WireError::ProtocolCode {
+        code,
+        message: message.to_owned(),
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignalDeliveryAuthority {
+    pub recipient_account_id: AccountId,
+    pub key: StationSigningKey,
+}
+
+impl SignalDeliveryAuthority {
+    pub fn validate_for_envelope(&self, envelope: &SignalEnvelope) -> Result<()> {
+        self.recipient_account_id.validate()?;
+        self.key.validate()?;
+        if self.key.actor != envelope.sender_actor_id
+            || self.key.verification_method != envelope.proof.verification_method
+        {
+            return Err(station_key_error(
+                ErrorCode::SchemaViolation,
+                "Signal delivery authority does not bind the exact sender",
             ));
         }
         Ok(())
@@ -588,6 +655,7 @@ impl SignalEnvelope {
 pub enum SignalStreamFrame {
     Signal {
         envelope: SignalEnvelope,
+        delivery_authority: SignalDeliveryAuthority,
     },
     Heartbeat,
     Drain {
@@ -603,15 +671,24 @@ pub enum SignalStreamFrame {
 }
 
 impl SignalStreamFrame {
-    pub fn signal(envelope: SignalEnvelope) -> Self {
-        Self::Signal { envelope }
+    pub fn signal(envelope: SignalEnvelope, delivery_authority: SignalDeliveryAuthority) -> Self {
+        Self::Signal {
+            envelope,
+            delivery_authority,
+        }
     }
 
     pub const HEARTBEAT: Self = Self::Heartbeat;
 
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Signal { envelope } => envelope.validate_structural(),
+            Self::Signal {
+                envelope,
+                delivery_authority,
+            } => {
+                envelope.validate_structural()?;
+                delivery_authority.validate_for_envelope(envelope)
+            }
             Self::Heartbeat => Ok(()),
             Self::Drain {
                 reconnect_after_ms,
@@ -718,7 +795,7 @@ mod tests {
     }
 
     fn actor() -> ActorId {
-        ActorId::account(crate::AccountId::new(
+        ActorId::account(AccountId::new(
             crate::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             crate::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         ))
@@ -738,14 +815,14 @@ mod tests {
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             sender_actor_id: actor(),
             sender_device_id: Some(device()),
-            seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            authority_commit_id: RealmCommitId::from_digest([0xaa; 32]),
+            parent_realm_authority_commit_id: None,
             signal_class,
             sent_at: sent_at(),
             expires_at: sent_at() + Duration::seconds(ttl_seconds),
             encrypted_payload: SignalEncryptedPayload {
                 scheme: SIGNAL_AEAD_SCHEME.to_owned(),
                 key_ref: SignalKeyRef {
-                    algorithm: "MLS-EXPORTER-AEAD".to_owned(),
                     group_state_ref: "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
                         .to_owned(),
                 },
@@ -754,21 +831,71 @@ mod tests {
                 epoch: 7,
                 nonce: "AAAAAAAAAAAAAAAA".to_owned(),
                 ciphertext: "Q2lwaGVydGV4dFBsYWNlaG9sZGVy".to_owned(),
-                aad_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             },
             proof: SignalProof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{}#{}", actor_did(), device())).unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                created_at: sent_at(),
                 domain: None,
                 audience: None,
                 jws: "a..b".to_owned(),
             },
         };
-        envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
         envelope
+    }
+
+    #[test]
+    fn parent_realm_cut_is_circle_only_and_binds_aad_and_proof() {
+        let mut signal = envelope(SignalClass::Session, 30);
+        let parent = RealmCommitId::from_digest([0x41; 32]);
+        let mut null = serde_json::to_value(&signal).unwrap();
+        null["parent_realm_authority_commit_id"] = Value::Null;
+        assert!(serde_json::from_value::<SignalEnvelope>(null).is_err());
+        signal.parent_realm_authority_commit_id = Some(parent);
+        assert!(signal.aead_binding().validate().is_err());
+        signal.scope_ref = ScopeRef::Circle {
+            realm_id: signal.realm_id.clone(),
+            circle_id: crate::CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x42; 32],
+            )),
+        };
+        signal.aead_binding().validate().unwrap();
+        let aad = signal
+            .aead_binding()
+            .aad_bytes(&signal.encrypted_payload.nonce)
+            .unwrap();
+        let digest = signal.envelope_digest().unwrap();
+        signal.parent_realm_authority_commit_id = Some(RealmCommitId::from_digest([0x43; 32]));
+        assert_ne!(
+            aad,
+            signal
+                .aead_binding()
+                .aad_bytes(&signal.encrypted_payload.nonce)
+                .unwrap()
+        );
+        assert_ne!(digest, signal.envelope_digest().unwrap());
+        signal.parent_realm_authority_commit_id = None;
+        assert!(signal.aead_binding().validate().is_err());
+    }
+
+    #[test]
+    fn signal_proof_uses_outer_timestamp_and_rejects_a_duplicate_wire_timestamp() {
+        let original = envelope(SignalClass::Session, 30);
+        let mut wire = serde_json::to_value(&original).unwrap();
+        assert!(wire["proof"].get("created_at").is_none());
+        let binding: Value =
+            serde_json::from_slice(&original.proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(binding["created_at"], wire["sent_at"]);
+        wire["proof"]["created_at"] = wire["sent_at"].clone();
+        assert!(serde_json::from_value::<SignalEnvelope>(wire).is_err());
+        let mut changed = original;
+        changed.sent_at += Duration::seconds(1);
+        assert_ne!(
+            changed.proof_binding_bytes().unwrap(),
+            canonical::canonical_json_bytes(&binding).unwrap()
+        );
     }
 
     #[test]
@@ -793,8 +920,14 @@ mod tests {
             crate::DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
         moved.sender_actor_id = ActorId::account(account);
         assert_ne!(
-            moved.expected_aad_digest().unwrap(),
-            original.expected_aad_digest().unwrap()
+            moved
+                .aead_binding()
+                .aad_bytes(&moved.encrypted_payload.nonce)
+                .unwrap(),
+            original
+                .aead_binding()
+                .aad_bytes(&original.encrypted_payload.nonce)
+                .unwrap()
         );
         assert_ne!(
             moved.proof_binding_bytes().unwrap(),
@@ -808,7 +941,6 @@ mod tests {
         agent.sender_device_id = None;
         agent.proof.verification_method =
             DidUrl::new("did:webvh:z6mkfixture:alice.example#runtime-key").unwrap();
-        agent.encrypted_payload.aad_digest = agent.expected_aad_digest().unwrap();
         agent.proof.envelope_digest = agent.envelope_digest().unwrap();
         agent.validate_structural().unwrap();
         assert_eq!(agent.sender_endpoint(), SignalSenderEndpoint::Agent);
@@ -947,10 +1079,12 @@ mod tests {
     }
 
     #[test]
-    fn aad_digest_covers_every_immutable_header_member() {
-        // Re-derive the proof digest after each mutation so the envelope digest
-        // check passes and the AAD binding is the one actually under test.
-        // Without this the first check would mask the second.
+    fn aad_bytes_cover_every_immutable_header_member() {
+        let baseline = envelope(SignalClass::Session, 30);
+        let baseline_aad = baseline
+            .aead_binding()
+            .aad_bytes(&baseline.encrypted_payload.nonce)
+            .unwrap();
         let mutations: [fn(&mut SignalEnvelope); 5] = [
             |envelope: &mut SignalEnvelope| {
                 envelope.expires_at = sent_at() + Duration::seconds(20);
@@ -968,11 +1102,34 @@ mod tests {
         for mutate in mutations {
             let mut mutated = envelope(SignalClass::Session, 30);
             mutate(&mut mutated);
-            mutated.proof.envelope_digest = mutated.envelope_digest().unwrap();
-
-            let err = mutated.validate_structural().unwrap_err();
-            assert!(err.to_string().contains("aad_digest"), "{err}");
+            let mutated_aad = mutated
+                .aead_binding()
+                .aad_bytes(&mutated.encrypted_payload.nonce)
+                .unwrap();
+            assert_ne!(mutated_aad, baseline_aad);
         }
+    }
+
+    #[test]
+    fn wire_omits_redundant_aad_digest_and_key_algorithm() {
+        let original = envelope(SignalClass::Session, 30);
+        let wire = serde_json::to_value(&original).unwrap();
+        assert!(wire["encrypted_payload"].get("aad_digest").is_none());
+        assert!(
+            wire["encrypted_payload"]["key_ref"]
+                .get("algorithm")
+                .is_none()
+        );
+
+        let mut with_aad_digest = wire.clone();
+        with_aad_digest["encrypted_payload"]["aad_digest"] =
+            Value::String(format!("sha256:{}", "0".repeat(64)));
+        assert!(serde_json::from_value::<SignalEnvelope>(with_aad_digest).is_err());
+
+        let mut with_algorithm = wire;
+        with_algorithm["encrypted_payload"]["key_ref"]["algorithm"] =
+            Value::String("MLS-EXPORTER-AEAD".to_owned());
+        assert!(serde_json::from_value::<SignalEnvelope>(with_algorithm).is_err());
     }
 
     #[test]
@@ -1027,7 +1184,17 @@ mod tests {
 
     #[test]
     fn stream_frames_are_closed_and_bounded() {
-        let signal = SignalStreamFrame::signal(envelope(SignalClass::Session, 30));
+        let envelope = envelope(SignalClass::Session, 30);
+        let authority = SignalDeliveryAuthority {
+            recipient_account_id: envelope.sender_actor_id.as_account_id().unwrap().clone(),
+            key: StationSigningKey {
+                actor: envelope.sender_actor_id.clone(),
+                verification_method: envelope.proof.verification_method.clone(),
+                public_key_b64u: Base64UrlString::new("A".repeat(43)).unwrap(),
+                authorization_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
+            },
+        };
+        let signal = SignalStreamFrame::signal(envelope, authority);
         signal.validate().unwrap();
         assert_eq!(
             serde_json::to_value(signal).unwrap()["kind"],

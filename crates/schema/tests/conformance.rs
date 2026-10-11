@@ -1,9 +1,12 @@
-use arkret_canonical::canonical;
+use arkret_canonical::DigestSuite;
 use arkret_schema::*;
-use arkret_schema_conformance::spec_json_artifact;
+use arkret_schema_conformance::{
+    schema_registry_from_configured_spec_artifacts, spec_json_artifact,
+};
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_wire::{
-    ActorId, BUILT_IN_CONFORMANCE_FIXTURES_VERSION, DidUrl, Hash, ProducerEventProof, SchemaId,
+    AuthoredEvent, BUILT_IN_CONFORMANCE_FIXTURES_VERSION, DidCoreId, DidUrl, Hash,
+    ProducerEventProof, RealmId, SchemaId, ScopeRef,
 };
 use serde_json::json;
 
@@ -59,14 +62,10 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     let event_shape = registry.generated_object_shape(SchemaId::EVENT_V1).unwrap();
     for field in [
         "event_id",
-        "space_id",
-        "actor_id",
-        "actor_seq",
         "kind",
+        "scope_ref",
+        "actor_id",
         "created_at",
-        "hlc",
-        "prev_refs",
-        "refs",
         "payload",
         "proofs",
     ] {
@@ -81,20 +80,41 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
 }
 
 fn event_value() -> serde_json::Value {
-    json!({
-        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg",
-        "space_id": "ak:space:AX-N4k3nJ3KKtkbL-adKMKRyKUlTWlwhxQVvjmvEBEVB",
-        "actor_id": "ak:did_core:webvh:z6mkfixture",
-        "kind": "ak.message.create",
-        "actor_seq": 1,
-        "created_at": "2026-05-02T00:00:00.000Z",
-        "hlc": "01970e589d21-0000-a13f9c2e",
-        "prev_refs": [],
-        "refs": [],
-        "payload": {},
-        "proofs": [],
-        "unknown_future_field": true
-    })
+    let realm_id = RealmId::new("ak:realm:AS_LTHQu5UtXbAIUOgUFzEY5nFJzI1cgPvxODB_NnHSR").unwrap();
+    let created_at = "2026-05-02T00:00:00.000Z".parse().unwrap();
+    let event = arkret_wire::test_support::raw_event_at(
+        "ak.message.create",
+        ScopeRef::Realm { realm_id },
+        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+        DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+        json!({
+            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
+            "track_name": "discussion",
+            "content": {"kind": "ak.content.text", "body": "extension fixture"},
+        }),
+        created_at,
+    )
+    .unwrap();
+    let mut authored =
+        AuthoredEvent::finalize_with_digest_suite(event, DigestSuite::Sha256).unwrap();
+    let event_digest = Hash::new(
+        authored
+            .event()
+            .event_digest_with_digest_suite(DigestSuite::Sha256)
+            .unwrap(),
+    )
+    .unwrap();
+    authored.attach_proof(ProducerEventProof {
+        kind: "detached_jws".to_owned(),
+        verification_method: DidUrl::new("did:webvh:z6mkfixture#key-1").unwrap(),
+        event_digest: event_digest.clone(),
+        created_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
+        jws: arkret_wire::test_support::structural_only_detached_jws(&event_digest),
+    });
+    serde_json::to_value(authored.into_event()).unwrap()
 }
 
 #[test]
@@ -135,19 +155,31 @@ fn schema_registry_exposes_object_shape_metadata_and_uses_full_runtime_for_admis
 
 #[test]
 fn schema_registry_fails_closed_for_unknown_security_extensions() {
-    let mut registry = ProtocolSchemaRegistry::default();
-    let mut event = event_value();
+    let mut registry = schema_registry_from_configured_spec_artifacts().unwrap();
+    let base_event = event_value();
+    registry
+        .validate_value(SchemaId::EVENT_V1, &base_event)
+        .unwrap();
+
+    let mut event = base_event.clone();
     event["x-security-critical"] = json!({"unknown": true});
 
     assert!(registry.validate_value(SchemaId::EVENT_V1, &event).is_err());
     registry.trust_extension_prefix("x-security-critical");
-    registry.validate_value(SchemaId::EVENT_V1, &event).unwrap();
+    assert!(
+        registry.validate_value(SchemaId::EVENT_V1, &event).is_err(),
+        "a trusted prefix does not override the formal Event schema's closed envelope"
+    );
 
-    let mut ordinary = event_value();
+    let mut ordinary = base_event;
     ordinary["x-ui-hint"] = json!({"preserved": true});
-    ProtocolSchemaRegistry::default()
-        .validate_value(SchemaId::EVENT_V1, &ordinary)
-        .unwrap();
+    assert!(
+        schema_registry_from_configured_spec_artifacts()
+            .unwrap()
+            .validate_value(SchemaId::EVENT_V1, &ordinary)
+            .is_err(),
+        "the formal Event envelope rejects every undeclared top-level extension"
+    );
 }
 
 #[test]
@@ -220,69 +252,6 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     }))
     .unwrap();
     assert!(empty.validate().is_err());
-}
-
-#[test]
-fn federation_fixture_resolves_reducer_profile_from_cba() {
-    let fixture = spec_json_artifact("fixtures/federation-fixture.json").unwrap();
-    let case = fixture["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["name"].as_str() == Some("ordinary_event_uses_cba_reducer_profile_cell"))
-        .expect("federation CBA reducer-profile vector missing");
-    let profile_id = case["input"]["settled_reducer_profile"]
-        .as_str()
-        .expect("federation reducer-profile id missing");
-    let registry = spec_json_artifact("registry/reducer-profile-registry.json").unwrap();
-    let profile = registry["profiles"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|profile| profile["profile_id"].as_str() == Some(profile_id))
-        .expect("federation reducer profile missing from registry");
-
-    assert_eq!(profile["status"], "active");
-    assert_eq!(case["input"]["event_declares_reducer_profile"], false);
-    assert_eq!(
-        case["input"]["service_binding_declares_reducer_profile"],
-        false
-    );
-    assert_eq!(case["expected"], "accepted");
-}
-
-#[test]
-fn signature_binding_payload_matches_spec_encoding_vector() {
-    let fixture = spec_json_artifact("fixtures/encoding-fixture.json").unwrap();
-    let vector = fixture["vectors"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|vector| vector["vector_id"] == "ak.vector.encoding.signature_binding_payload.v1")
-        .unwrap();
-    let input = &vector["input"];
-    let actor: ActorId = serde_json::from_value(input["actor_id"].clone()).unwrap();
-    let proof = ProducerEventProof {
-        kind: "detached_jws".to_owned(),
-        verification_method: DidUrl::new(input["verification_method"].as_str().unwrap()).unwrap(),
-        event_digest: Hash::new(input["event_digest"].as_str().unwrap()).unwrap(),
-        signer_resolution_evidence_ref: None,
-        created_at: input["created_at"].as_str().unwrap().parse().unwrap(),
-        domain: None,
-        audience: None,
-        proof_purpose: None,
-        jws: String::new(),
-    };
-
-    let binding_bytes = proof.canonical_binding_bytes(&actor).unwrap();
-    assert_eq!(
-        std::str::from_utf8(&binding_bytes).unwrap(),
-        vector["expected_canonical_bytes_utf8"].as_str().unwrap()
-    );
-    assert_eq!(
-        canonical::sha256_digest(&binding_bytes),
-        vector["expected_digest"].as_str().unwrap()
-    );
 }
 
 #[test]

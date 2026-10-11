@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 67
+AUDITED_CLAIMABLE_PROFILES = 59
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -143,7 +143,10 @@ def short_evidence(references: list[str]) -> str:
 
 def generate(artifacts: Path, evidence_path_value: Path) -> str:
     profiles = load_json(artifacts / "profiles" / "conformance-profiles.json")
-    registry = load_json(artifacts / "registry" / "operation-registry.json")
+    contract_registry = load_json(artifacts / "registry" / "contract-registry.json")
+    registry = contract_registry.get("operation_registry")
+    if not isinstance(registry, dict):
+        raise ValueError("contract registry lacks operation_registry")
     operations = {
         entry["operation_id"]: entry
         for entry in registry.get("operations", [])
@@ -161,7 +164,14 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     # deleted ak.profile.disappearing.v1 along with Disappearing Messages, and
     # from 69 to 68 when the Spec deleted
     # ak.profile.morph.schema_migration_transformations.v1 (26ff6ab2); the
-    # guard is here so a silent catalog change cannot slip into the matrix, not
+    # service-resolution-mirror removal left 66. The authority-commit clean
+    # break then deleted the full/relaxed governance profiles, the audited-E2EE
+    # profile and the security-frontier profiles along with the mechanisms they
+    # claimed, leaving 60 claimable profiles. The committed-event protocol
+    # clean break then removed one more obsolete profile, leaving 59. Their
+    # former matrix rows named
+    # operations that no longer exist and must disappear with them.
+    # The guard is here so a silent catalog change cannot slip into the matrix, not
     # to pin a number forever, so it moves with a reviewed deletion.
     if len(claimable) != AUDITED_CLAIMABLE_PROFILES:
         raise ValueError(

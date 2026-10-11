@@ -13,10 +13,9 @@ pub fn sign_registration_receipt_proof(
     receipt: &ServiceRegistrationReceipt,
     signing_key: &SigningKey,
 ) -> Result<PayloadProof> {
-    receipt.validate_proof_binding()?;
-    let mut proof = receipt.proof.clone();
-    proof.jws = sign_ed25519_detached_jws(signing_key, &receipt.proof_binding_bytes()?)?;
-    Ok(proof)
+    receipt.validate_unsigned_proof_binding()?;
+    let jws = sign_ed25519_detached_jws(signing_key, &receipt.proof_binding_bytes()?)?;
+    receipt.proof.unsigned().finalize(jws).map_err(Into::into)
 }
 
 /// Verify a typed service-registration receipt against the resolved Provider

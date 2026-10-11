@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-07.1;
-//! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Entries: registered=162
+//! Input: registry/contract-registry.json; version=2026-10-11.2;
+//! sha256=d01a0c6e980572930e62d759eb1badac5872e5f67bb373483e7c322a5d91bc0e Entries: registered=150
 
 use serde::{Deserialize, Serialize};
 
@@ -12,31 +12,28 @@ pub enum CapabilityActionId {
     AgentActionReject,
     AgentActionRequest,
     AgentDraftPropose,
+    AgentJoin,
     AgentKeyAuthorize,
     AgentKeyRevoke,
-    AgentSelectorClaim,
+    AgentPublish,
     AgentSidecarExchangeControl,
     AgentSidecarPublish,
     AgentSidecarWrite,
+    AppletBotProvision,
     AppletBridgeError,
     AppletGhostProvision,
+    AppletJoin,
+    AppletPublish,
     ApprovalVote,
     AuditAccessed,
-    AuditAppletBinding,
     AuditExport,
     AuditQuery,
-    AuditRelease,
-    AuditSessionAuthorize,
-    AuditSessionClose,
-    AuditSessionNotice,
-    AuditSessionRequest,
     CallJoin,
     CallModerate,
     CallRecord,
     CallScreenShare,
     CallSignalSend,
     CallTranscribe,
-    CapabilityDerived,
     CapabilityGrant,
     CapabilityRelinquish,
     CapabilityRevoke,
@@ -46,14 +43,10 @@ pub enum CapabilityActionId {
     CircleMemberAdd,
     CircleMemberAddOthers,
     CircleMemberManage,
-    ConflictRecovery,
     ConsentGrant,
     ConsentRevoke,
     ContactScopeUpdate,
-    ContainerMoveItem,
-    ContainerRebalance,
     EventRead,
-    ForkResolution,
     InviteAccept,
     InviteCancel,
     InviteClaim,
@@ -73,10 +66,6 @@ pub enum CapabilityActionId {
     MessageStreamSend,
     MlsCommit,
     MlsGenesis,
-    MlsKeypackage,
-    MlsProposal,
-    MlsWelcome,
-    MlsWelcomeOwnDevice,
     ModerationDecision,
     ModerationDecisionLift,
     MorphArchive,
@@ -99,7 +88,6 @@ pub enum CapabilityActionId {
     PinReorder,
     PolicyAction,
     PolicyManage,
-    PolicyRule,
     PolicySet,
     PresenceBroadcast,
     ReactionAdd,
@@ -113,6 +101,7 @@ pub enum CapabilityActionId {
     RealmDestroy,
     RealmDiscover,
     RealmFreeze,
+    RealmGovernanceStationChange,
     RealmLink,
     RealmMediaService,
     RealmNotificationAudit,
@@ -124,7 +113,6 @@ pub enum CapabilityActionId {
     RealmSearchPolicy,
     RealmSetDefaultStrand,
     RealmTombstone,
-    RealmUpgrade,
     ReceiptBroadcast,
     RelationCreate,
     RelationTombstone,
@@ -144,9 +132,9 @@ pub enum CapabilityActionId {
     SelfBlobResourceGetV1,
     SelfBlobResourceHeadV1,
     SelfBlobUploadCreateV1,
-    SelfEventsReadScanV1,
-    SelfEventsStreamSubscribeV1,
-    SelfKeysBackupSeriesCommandEraseV1,
+    SelfCommittedEventReadScanV1,
+    SelfCommittedEventStreamSubscribeV1,
+    SelfRealmStateSnapshotReadByRefV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
     SpaceArchive,
     SpaceCreate,
@@ -178,31 +166,28 @@ impl CapabilityActionId {
         Self::AgentActionReject,
         Self::AgentActionRequest,
         Self::AgentDraftPropose,
+        Self::AgentJoin,
         Self::AgentKeyAuthorize,
         Self::AgentKeyRevoke,
-        Self::AgentSelectorClaim,
+        Self::AgentPublish,
         Self::AgentSidecarExchangeControl,
         Self::AgentSidecarPublish,
         Self::AgentSidecarWrite,
+        Self::AppletBotProvision,
         Self::AppletBridgeError,
         Self::AppletGhostProvision,
+        Self::AppletJoin,
+        Self::AppletPublish,
         Self::ApprovalVote,
         Self::AuditAccessed,
-        Self::AuditAppletBinding,
         Self::AuditExport,
         Self::AuditQuery,
-        Self::AuditRelease,
-        Self::AuditSessionAuthorize,
-        Self::AuditSessionClose,
-        Self::AuditSessionNotice,
-        Self::AuditSessionRequest,
         Self::CallJoin,
         Self::CallModerate,
         Self::CallRecord,
         Self::CallScreenShare,
         Self::CallSignalSend,
         Self::CallTranscribe,
-        Self::CapabilityDerived,
         Self::CapabilityGrant,
         Self::CapabilityRelinquish,
         Self::CapabilityRevoke,
@@ -212,14 +197,10 @@ impl CapabilityActionId {
         Self::CircleMemberAdd,
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
-        Self::ConflictRecovery,
         Self::ConsentGrant,
         Self::ConsentRevoke,
         Self::ContactScopeUpdate,
-        Self::ContainerMoveItem,
-        Self::ContainerRebalance,
         Self::EventRead,
-        Self::ForkResolution,
         Self::InviteAccept,
         Self::InviteCancel,
         Self::InviteClaim,
@@ -239,10 +220,6 @@ impl CapabilityActionId {
         Self::MessageStreamSend,
         Self::MlsCommit,
         Self::MlsGenesis,
-        Self::MlsKeypackage,
-        Self::MlsProposal,
-        Self::MlsWelcome,
-        Self::MlsWelcomeOwnDevice,
         Self::ModerationDecision,
         Self::ModerationDecisionLift,
         Self::MorphArchive,
@@ -265,7 +242,6 @@ impl CapabilityActionId {
         Self::PinReorder,
         Self::PolicyAction,
         Self::PolicyManage,
-        Self::PolicyRule,
         Self::PolicySet,
         Self::PresenceBroadcast,
         Self::ReactionAdd,
@@ -279,6 +255,7 @@ impl CapabilityActionId {
         Self::RealmDestroy,
         Self::RealmDiscover,
         Self::RealmFreeze,
+        Self::RealmGovernanceStationChange,
         Self::RealmLink,
         Self::RealmMediaService,
         Self::RealmNotificationAudit,
@@ -290,7 +267,6 @@ impl CapabilityActionId {
         Self::RealmSearchPolicy,
         Self::RealmSetDefaultStrand,
         Self::RealmTombstone,
-        Self::RealmUpgrade,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
         Self::RelationTombstone,
@@ -310,9 +286,9 @@ impl CapabilityActionId {
         Self::SelfBlobResourceGetV1,
         Self::SelfBlobResourceHeadV1,
         Self::SelfBlobUploadCreateV1,
-        Self::SelfEventsReadScanV1,
-        Self::SelfEventsStreamSubscribeV1,
-        Self::SelfKeysBackupSeriesCommandEraseV1,
+        Self::SelfCommittedEventReadScanV1,
+        Self::SelfCommittedEventStreamSubscribeV1,
+        Self::SelfRealmStateSnapshotReadByRefV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
         Self::SpaceCreate,
@@ -342,31 +318,28 @@ impl CapabilityActionId {
     pub const AGENT_ACTION_REJECT: &'static str = "ak.agent.action_reject";
     pub const AGENT_ACTION_REQUEST: &'static str = "ak.agent.action_request";
     pub const AGENT_DRAFT_PROPOSE: &'static str = "ak.agent.draft.propose";
+    pub const AGENT_JOIN: &'static str = "ak.agent.join";
     pub const AGENT_KEY_AUTHORIZE: &'static str = "ak.agent.key.authorize";
     pub const AGENT_KEY_REVOKE: &'static str = "ak.agent.key.revoke";
-    pub const AGENT_SELECTOR_CLAIM: &'static str = "ak.agent.selector_claim";
+    pub const AGENT_PUBLISH: &'static str = "ak.agent.publish";
     pub const AGENT_SIDECAR_EXCHANGE_CONTROL: &'static str = "ak.agent.sidecar.exchange.control";
     pub const AGENT_SIDECAR_PUBLISH: &'static str = "ak.agent.sidecar.publish";
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
+    pub const APPLET_BOT_PROVISION: &'static str = "ak.applet.bot.provision";
     pub const APPLET_BRIDGE_ERROR: &'static str = "ak.applet.bridge_error";
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
+    pub const APPLET_JOIN: &'static str = "ak.applet.join";
+    pub const APPLET_PUBLISH: &'static str = "ak.applet.publish";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
-    pub const AUDIT_APPLET_BINDING: &'static str = "ak.audit.applet_binding";
     pub const AUDIT_EXPORT: &'static str = "ak.audit.export";
     pub const AUDIT_QUERY: &'static str = "ak.audit.query";
-    pub const AUDIT_RELEASE: &'static str = "ak.audit.release";
-    pub const AUDIT_SESSION_AUTHORIZE: &'static str = "ak.audit.session.authorize";
-    pub const AUDIT_SESSION_CLOSE: &'static str = "ak.audit.session.close";
-    pub const AUDIT_SESSION_NOTICE: &'static str = "ak.audit.session.notice";
-    pub const AUDIT_SESSION_REQUEST: &'static str = "ak.audit.session.request";
     pub const CALL_JOIN: &'static str = "ak.call.join";
     pub const CALL_MODERATE: &'static str = "ak.call.moderate";
     pub const CALL_RECORD: &'static str = "ak.call.record";
     pub const CALL_SCREEN_SHARE: &'static str = "ak.call.screen_share";
     pub const CALL_SIGNAL_SEND: &'static str = "ak.call.signal.send";
     pub const CALL_TRANSCRIBE: &'static str = "ak.call.transcribe";
-    pub const CAPABILITY_DERIVED: &'static str = "ak.capability.derived";
     pub const CAPABILITY_GRANT: &'static str = "ak.capability.grant";
     pub const CAPABILITY_RELINQUISH: &'static str = "ak.capability.relinquish";
     pub const CAPABILITY_REVOKE: &'static str = "ak.capability.revoke";
@@ -376,14 +349,10 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
-    pub const CONFLICT_RECOVERY: &'static str = "ak.conflict.recovery";
     pub const CONSENT_GRANT: &'static str = "ak.consent.grant";
     pub const CONSENT_REVOKE: &'static str = "ak.consent.revoke";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
-    pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
-    pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
     pub const EVENT_READ: &'static str = "ak.event.read";
-    pub const FORK_RESOLUTION: &'static str = "ak.fork.resolution";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
     pub const INVITE_CLAIM: &'static str = "ak.invite.claim";
@@ -403,10 +372,6 @@ impl CapabilityActionId {
     pub const MESSAGE_STREAM_SEND: &'static str = "ak.message.stream.send";
     pub const MLS_COMMIT: &'static str = "ak.mls.commit";
     pub const MLS_GENESIS: &'static str = "ak.mls.genesis";
-    pub const MLS_KEYPACKAGE: &'static str = "ak.mls.keypackage";
-    pub const MLS_PROPOSAL: &'static str = "ak.mls.proposal";
-    pub const MLS_WELCOME: &'static str = "ak.mls.welcome";
-    pub const MLS_WELCOME_OWN_DEVICE: &'static str = "ak.mls.welcome.own_device";
     pub const MODERATION_DECISION: &'static str = "ak.moderation.decision";
     pub const MODERATION_DECISION_LIFT: &'static str = "ak.moderation.decision.lift";
     pub const MORPH_ARCHIVE: &'static str = "ak.morph.archive";
@@ -429,7 +394,6 @@ impl CapabilityActionId {
     pub const PIN_REORDER: &'static str = "ak.pin.reorder";
     pub const POLICY_ACTION: &'static str = "ak.policy.action";
     pub const POLICY_MANAGE: &'static str = "ak.policy.manage";
-    pub const POLICY_RULE: &'static str = "ak.policy.rule";
     pub const POLICY_SET: &'static str = "ak.policy.set";
     pub const PRESENCE_BROADCAST: &'static str = "ak.presence.broadcast";
     pub const REACTION_ADD: &'static str = "ak.reaction.add";
@@ -443,6 +407,7 @@ impl CapabilityActionId {
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
     pub const REALM_DISCOVER: &'static str = "ak.realm.discover";
     pub const REALM_FREEZE: &'static str = "ak.realm.freeze";
+    pub const REALM_GOVERNANCE_STATION_CHANGE: &'static str = "ak.realm.governance_station.change";
     pub const REALM_LINK: &'static str = "ak.realm.link";
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
@@ -455,7 +420,6 @@ impl CapabilityActionId {
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
-    pub const REALM_UPGRADE: &'static str = "ak.realm.upgrade";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
     pub const RELATION_TOMBSTONE: &'static str = "ak.relation.tombstone";
@@ -480,10 +444,12 @@ impl CapabilityActionId {
     pub const SELF_BLOB_RESOURCE_GET_V1: &'static str = "ak.self.blob.resource.get.v1";
     pub const SELF_BLOB_RESOURCE_HEAD_V1: &'static str = "ak.self.blob.resource.head.v1";
     pub const SELF_BLOB_UPLOAD_CREATE_V1: &'static str = "ak.self.blob.upload.create.v1";
-    pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
-    pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
-    pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
-        "ak.self.keys.backup_series.command.erase.v1";
+    pub const SELF_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
+        "ak.self.committed_event.read.scan.v1";
+    pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
+        "ak.self.committed_event.stream.subscribe.v1";
+    pub const SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1: &'static str =
+        "ak.self.realm_state_snapshot.read.by_ref.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
         "ak.self.realm_state_snapshot.read.manifest_head.v1";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
@@ -515,31 +481,28 @@ impl CapabilityActionId {
             Self::AgentActionReject => Self::AGENT_ACTION_REJECT,
             Self::AgentActionRequest => Self::AGENT_ACTION_REQUEST,
             Self::AgentDraftPropose => Self::AGENT_DRAFT_PROPOSE,
+            Self::AgentJoin => Self::AGENT_JOIN,
             Self::AgentKeyAuthorize => Self::AGENT_KEY_AUTHORIZE,
             Self::AgentKeyRevoke => Self::AGENT_KEY_REVOKE,
-            Self::AgentSelectorClaim => Self::AGENT_SELECTOR_CLAIM,
+            Self::AgentPublish => Self::AGENT_PUBLISH,
             Self::AgentSidecarExchangeControl => Self::AGENT_SIDECAR_EXCHANGE_CONTROL,
             Self::AgentSidecarPublish => Self::AGENT_SIDECAR_PUBLISH,
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
+            Self::AppletBotProvision => Self::APPLET_BOT_PROVISION,
             Self::AppletBridgeError => Self::APPLET_BRIDGE_ERROR,
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
+            Self::AppletJoin => Self::APPLET_JOIN,
+            Self::AppletPublish => Self::APPLET_PUBLISH,
             Self::ApprovalVote => Self::APPROVAL_VOTE,
             Self::AuditAccessed => Self::AUDIT_ACCESSED,
-            Self::AuditAppletBinding => Self::AUDIT_APPLET_BINDING,
             Self::AuditExport => Self::AUDIT_EXPORT,
             Self::AuditQuery => Self::AUDIT_QUERY,
-            Self::AuditRelease => Self::AUDIT_RELEASE,
-            Self::AuditSessionAuthorize => Self::AUDIT_SESSION_AUTHORIZE,
-            Self::AuditSessionClose => Self::AUDIT_SESSION_CLOSE,
-            Self::AuditSessionNotice => Self::AUDIT_SESSION_NOTICE,
-            Self::AuditSessionRequest => Self::AUDIT_SESSION_REQUEST,
             Self::CallJoin => Self::CALL_JOIN,
             Self::CallModerate => Self::CALL_MODERATE,
             Self::CallRecord => Self::CALL_RECORD,
             Self::CallScreenShare => Self::CALL_SCREEN_SHARE,
             Self::CallSignalSend => Self::CALL_SIGNAL_SEND,
             Self::CallTranscribe => Self::CALL_TRANSCRIBE,
-            Self::CapabilityDerived => Self::CAPABILITY_DERIVED,
             Self::CapabilityGrant => Self::CAPABILITY_GRANT,
             Self::CapabilityRelinquish => Self::CAPABILITY_RELINQUISH,
             Self::CapabilityRevoke => Self::CAPABILITY_REVOKE,
@@ -549,14 +512,10 @@ impl CapabilityActionId {
             Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
-            Self::ConflictRecovery => Self::CONFLICT_RECOVERY,
             Self::ConsentGrant => Self::CONSENT_GRANT,
             Self::ConsentRevoke => Self::CONSENT_REVOKE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
-            Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
-            Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
             Self::EventRead => Self::EVENT_READ,
-            Self::ForkResolution => Self::FORK_RESOLUTION,
             Self::InviteAccept => Self::INVITE_ACCEPT,
             Self::InviteCancel => Self::INVITE_CANCEL,
             Self::InviteClaim => Self::INVITE_CLAIM,
@@ -576,10 +535,6 @@ impl CapabilityActionId {
             Self::MessageStreamSend => Self::MESSAGE_STREAM_SEND,
             Self::MlsCommit => Self::MLS_COMMIT,
             Self::MlsGenesis => Self::MLS_GENESIS,
-            Self::MlsKeypackage => Self::MLS_KEYPACKAGE,
-            Self::MlsProposal => Self::MLS_PROPOSAL,
-            Self::MlsWelcome => Self::MLS_WELCOME,
-            Self::MlsWelcomeOwnDevice => Self::MLS_WELCOME_OWN_DEVICE,
             Self::ModerationDecision => Self::MODERATION_DECISION,
             Self::ModerationDecisionLift => Self::MODERATION_DECISION_LIFT,
             Self::MorphArchive => Self::MORPH_ARCHIVE,
@@ -602,7 +557,6 @@ impl CapabilityActionId {
             Self::PinReorder => Self::PIN_REORDER,
             Self::PolicyAction => Self::POLICY_ACTION,
             Self::PolicyManage => Self::POLICY_MANAGE,
-            Self::PolicyRule => Self::POLICY_RULE,
             Self::PolicySet => Self::POLICY_SET,
             Self::PresenceBroadcast => Self::PRESENCE_BROADCAST,
             Self::ReactionAdd => Self::REACTION_ADD,
@@ -616,6 +570,7 @@ impl CapabilityActionId {
             Self::RealmDestroy => Self::REALM_DESTROY,
             Self::RealmDiscover => Self::REALM_DISCOVER,
             Self::RealmFreeze => Self::REALM_FREEZE,
+            Self::RealmGovernanceStationChange => Self::REALM_GOVERNANCE_STATION_CHANGE,
             Self::RealmLink => Self::REALM_LINK,
             Self::RealmMediaService => Self::REALM_MEDIA_SERVICE,
             Self::RealmNotificationAudit => Self::REALM_NOTIFICATION_AUDIT,
@@ -627,7 +582,6 @@ impl CapabilityActionId {
             Self::RealmSearchPolicy => Self::REALM_SEARCH_POLICY,
             Self::RealmSetDefaultStrand => Self::REALM_SET_DEFAULT_STRAND,
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
-            Self::RealmUpgrade => Self::REALM_UPGRADE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
             Self::RelationCreate => Self::RELATION_CREATE,
             Self::RelationTombstone => Self::RELATION_TOMBSTONE,
@@ -649,10 +603,12 @@ impl CapabilityActionId {
             Self::SelfBlobResourceGetV1 => Self::SELF_BLOB_RESOURCE_GET_V1,
             Self::SelfBlobResourceHeadV1 => Self::SELF_BLOB_RESOURCE_HEAD_V1,
             Self::SelfBlobUploadCreateV1 => Self::SELF_BLOB_UPLOAD_CREATE_V1,
-            Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
-            Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
-            Self::SelfKeysBackupSeriesCommandEraseV1 => {
-                Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
+            Self::SelfCommittedEventReadScanV1 => Self::SELF_COMMITTED_EVENT_READ_SCAN_V1,
+            Self::SelfCommittedEventStreamSubscribeV1 => {
+                Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
+            }
+            Self::SelfRealmStateSnapshotReadByRefV1 => {
+                Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1
             }
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
@@ -688,31 +644,28 @@ impl CapabilityActionId {
             Self::AGENT_ACTION_REJECT => Some(Self::AgentActionReject),
             Self::AGENT_ACTION_REQUEST => Some(Self::AgentActionRequest),
             Self::AGENT_DRAFT_PROPOSE => Some(Self::AgentDraftPropose),
+            Self::AGENT_JOIN => Some(Self::AgentJoin),
             Self::AGENT_KEY_AUTHORIZE => Some(Self::AgentKeyAuthorize),
             Self::AGENT_KEY_REVOKE => Some(Self::AgentKeyRevoke),
-            Self::AGENT_SELECTOR_CLAIM => Some(Self::AgentSelectorClaim),
+            Self::AGENT_PUBLISH => Some(Self::AgentPublish),
             Self::AGENT_SIDECAR_EXCHANGE_CONTROL => Some(Self::AgentSidecarExchangeControl),
             Self::AGENT_SIDECAR_PUBLISH => Some(Self::AgentSidecarPublish),
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
+            Self::APPLET_BOT_PROVISION => Some(Self::AppletBotProvision),
             Self::APPLET_BRIDGE_ERROR => Some(Self::AppletBridgeError),
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
+            Self::APPLET_JOIN => Some(Self::AppletJoin),
+            Self::APPLET_PUBLISH => Some(Self::AppletPublish),
             Self::APPROVAL_VOTE => Some(Self::ApprovalVote),
             Self::AUDIT_ACCESSED => Some(Self::AuditAccessed),
-            Self::AUDIT_APPLET_BINDING => Some(Self::AuditAppletBinding),
             Self::AUDIT_EXPORT => Some(Self::AuditExport),
             Self::AUDIT_QUERY => Some(Self::AuditQuery),
-            Self::AUDIT_RELEASE => Some(Self::AuditRelease),
-            Self::AUDIT_SESSION_AUTHORIZE => Some(Self::AuditSessionAuthorize),
-            Self::AUDIT_SESSION_CLOSE => Some(Self::AuditSessionClose),
-            Self::AUDIT_SESSION_NOTICE => Some(Self::AuditSessionNotice),
-            Self::AUDIT_SESSION_REQUEST => Some(Self::AuditSessionRequest),
             Self::CALL_JOIN => Some(Self::CallJoin),
             Self::CALL_MODERATE => Some(Self::CallModerate),
             Self::CALL_RECORD => Some(Self::CallRecord),
             Self::CALL_SCREEN_SHARE => Some(Self::CallScreenShare),
             Self::CALL_SIGNAL_SEND => Some(Self::CallSignalSend),
             Self::CALL_TRANSCRIBE => Some(Self::CallTranscribe),
-            Self::CAPABILITY_DERIVED => Some(Self::CapabilityDerived),
             Self::CAPABILITY_GRANT => Some(Self::CapabilityGrant),
             Self::CAPABILITY_RELINQUISH => Some(Self::CapabilityRelinquish),
             Self::CAPABILITY_REVOKE => Some(Self::CapabilityRevoke),
@@ -722,14 +675,10 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
-            Self::CONFLICT_RECOVERY => Some(Self::ConflictRecovery),
             Self::CONSENT_GRANT => Some(Self::ConsentGrant),
             Self::CONSENT_REVOKE => Some(Self::ConsentRevoke),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
-            Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
-            Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
             Self::EVENT_READ => Some(Self::EventRead),
-            Self::FORK_RESOLUTION => Some(Self::ForkResolution),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),
             Self::INVITE_CANCEL => Some(Self::InviteCancel),
             Self::INVITE_CLAIM => Some(Self::InviteClaim),
@@ -749,10 +698,6 @@ impl CapabilityActionId {
             Self::MESSAGE_STREAM_SEND => Some(Self::MessageStreamSend),
             Self::MLS_COMMIT => Some(Self::MlsCommit),
             Self::MLS_GENESIS => Some(Self::MlsGenesis),
-            Self::MLS_KEYPACKAGE => Some(Self::MlsKeypackage),
-            Self::MLS_PROPOSAL => Some(Self::MlsProposal),
-            Self::MLS_WELCOME => Some(Self::MlsWelcome),
-            Self::MLS_WELCOME_OWN_DEVICE => Some(Self::MlsWelcomeOwnDevice),
             Self::MODERATION_DECISION => Some(Self::ModerationDecision),
             Self::MODERATION_DECISION_LIFT => Some(Self::ModerationDecisionLift),
             Self::MORPH_ARCHIVE => Some(Self::MorphArchive),
@@ -775,7 +720,6 @@ impl CapabilityActionId {
             Self::PIN_REORDER => Some(Self::PinReorder),
             Self::POLICY_ACTION => Some(Self::PolicyAction),
             Self::POLICY_MANAGE => Some(Self::PolicyManage),
-            Self::POLICY_RULE => Some(Self::PolicyRule),
             Self::POLICY_SET => Some(Self::PolicySet),
             Self::PRESENCE_BROADCAST => Some(Self::PresenceBroadcast),
             Self::REACTION_ADD => Some(Self::ReactionAdd),
@@ -789,6 +733,7 @@ impl CapabilityActionId {
             Self::REALM_DESTROY => Some(Self::RealmDestroy),
             Self::REALM_DISCOVER => Some(Self::RealmDiscover),
             Self::REALM_FREEZE => Some(Self::RealmFreeze),
+            Self::REALM_GOVERNANCE_STATION_CHANGE => Some(Self::RealmGovernanceStationChange),
             Self::REALM_LINK => Some(Self::RealmLink),
             Self::REALM_MEDIA_SERVICE => Some(Self::RealmMediaService),
             Self::REALM_NOTIFICATION_AUDIT => Some(Self::RealmNotificationAudit),
@@ -800,7 +745,6 @@ impl CapabilityActionId {
             Self::REALM_SEARCH_POLICY => Some(Self::RealmSearchPolicy),
             Self::REALM_SET_DEFAULT_STRAND => Some(Self::RealmSetDefaultStrand),
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
-            Self::REALM_UPGRADE => Some(Self::RealmUpgrade),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),
             Self::RELATION_CREATE => Some(Self::RelationCreate),
             Self::RELATION_TOMBSTONE => Some(Self::RelationTombstone),
@@ -824,10 +768,12 @@ impl CapabilityActionId {
             Self::SELF_BLOB_RESOURCE_GET_V1 => Some(Self::SelfBlobResourceGetV1),
             Self::SELF_BLOB_RESOURCE_HEAD_V1 => Some(Self::SelfBlobResourceHeadV1),
             Self::SELF_BLOB_UPLOAD_CREATE_V1 => Some(Self::SelfBlobUploadCreateV1),
-            Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
-            Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
-            Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
-                Some(Self::SelfKeysBackupSeriesCommandEraseV1)
+            Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
+            Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
+                Some(Self::SelfCommittedEventStreamSubscribeV1)
+            }
+            Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1 => {
+                Some(Self::SelfRealmStateSnapshotReadByRefV1)
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)

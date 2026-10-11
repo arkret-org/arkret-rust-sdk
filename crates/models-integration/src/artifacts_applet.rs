@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletId, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode,
-    SchemaId, WebOrigin, WireResourceSelector, XExtensionMap,
+    AppletId, CircleId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
+    RealmId, ReasonCode, SchemaId, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,11 +60,11 @@ pub struct ProtocolInstance {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
+/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_event_row`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RejectedItem {
+pub struct AppletEventRejection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     pub reason_code: ReasonCode,
@@ -73,7 +73,7 @@ pub struct RejectedItem {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
+/// `spec/v1/artifacts/schemas/applet-install-authoring.schema.json#/$defs/e2ee_policy`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -83,7 +83,7 @@ pub struct E2eePolicy {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/scope_grant`.
+/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/scope_grant`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -123,7 +123,7 @@ pub struct E2eeEffect {
     pub mls_join_required: bool,
     pub plaintext_access: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_refs: Option<Vec<EventId>>,
+    pub authorization_refs: Option<Vec<CommittedEventRef>>,
 }
 
 /// Counterpart for
@@ -135,7 +135,7 @@ pub struct EventSubmission {
     pub event_kind: String,
     pub payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refs: Option<Vec<BTreeMap<String, Value>>>,
+    pub semantic_refs: Option<Vec<SemanticRef>>,
 }
 
 /// Counterpart for
@@ -158,7 +158,7 @@ pub struct NamespaceConflict {
 pub struct WidgetEffect {
     pub widget_allowed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_event_ref: Option<EventId>,
+    pub policy_event_ref: Option<CommittedEventRef>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.
@@ -209,9 +209,9 @@ impl DetachedProof {
                 "detached proof kind mismatch".to_owned(),
             ));
         }
-        if self.jws.is_empty() {
+        if !arkret_wire::is_compact_detached_jws(&self.jws) {
             return Err(arkret_wire::WireError::Protocol(
-                "detached proof JWS is empty".to_owned(),
+                "detached proof JWS must use protected..signature form".to_owned(),
             ));
         }
         if self

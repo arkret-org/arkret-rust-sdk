@@ -582,6 +582,45 @@ pub fn verify_did_webvh_v1_chain_and_witness_bytes(
     witness_bytes: Option<&[u8]>,
 ) -> std::result::Result<VerifiedDidWebvhWitnessLog, DidWebvhWitnessValidationError> {
     let log = verify_did_webvh_v1_chain_bytes(did, log_bytes)?;
+    verify_witness_sets_for_log(log, || match witness_bytes {
+        None => Ok(None),
+        Some(bytes) => serde_json::from_slice::<Vec<Value>>(bytes)
+            .map(Some)
+            .map_err(|error| {
+                DidWebvhWitnessValidationError::ProofInvalid(format!(
+                    "did-witness.json is not a JSON array: {error}"
+                ))
+            }),
+    })
+}
+
+/// Verify a complete principal-profile WebVH history together with the exact
+/// `did-witness.json` records an immutable evidence object already carries.
+///
+/// This is the in-memory sibling of
+/// [`verify_did_webvh_v1_chain_and_witness_bytes`]: the caller holds decoded
+/// entries and records rather than fetched bytes, so no transport is involved
+/// and the whole check is offline. Pre-rotation commitments are required, which
+/// is what separates a human principal anchor from a single-head service DID.
+pub fn verify_did_webvh_v1_log_and_witness_records(
+    did: &Did,
+    raw_entries: &[Value],
+    witness_records: &[Value],
+) -> std::result::Result<VerifiedDidWebvhWitnessLog, DidWebvhWitnessValidationError> {
+    let log = verify_did_webvh_v1_log(did, raw_entries)?;
+    verify_witness_sets_for_log(log, || Ok(Some(witness_records.to_vec())))
+}
+
+/// Apply the method-native witness rail to an already verified log. A witness
+/// policy is inherited: once an entry declares one it stays active for every
+/// later entry until a successor replaces it.
+///
+/// `records` stays lazy so a log that activates no witness policy never looks
+/// at the record source at all, exactly as before this was extracted.
+fn verify_witness_sets_for_log(
+    log: VerifiedDidWebvhLog,
+    records: impl FnOnce() -> std::result::Result<Option<Vec<Value>>, DidWebvhWitnessValidationError>,
+) -> std::result::Result<VerifiedDidWebvhWitnessLog, DidWebvhWitnessValidationError> {
     let mut active_policy: Option<DidWebvhWitnessPolicy> = None;
     let mut required_versions = Vec::new();
     for (raw, entry) in log.raw_entries.iter().zip(&log.entries) {
@@ -604,17 +643,11 @@ pub fn verify_did_webvh_v1_chain_and_witness_bytes(
             witness_sets: Vec::new(),
         });
     }
-    let witness_bytes =
-        witness_bytes.ok_or_else(|| DidWebvhWitnessValidationError::ProofsUnavailable {
-            version_id: required_versions[0].0.clone(),
-        })?;
-    let records: Vec<Value> = serde_json::from_slice(witness_bytes).map_err(|error| {
-        DidWebvhWitnessValidationError::ProofInvalid(format!(
-            "did-witness.json is not a JSON array: {error}"
-        ))
+    let records = records()?.ok_or_else(|| DidWebvhWitnessValidationError::ProofsUnavailable {
+        version_id: required_versions[0].0.clone(),
     })?;
     let mut by_version = BTreeMap::new();
-    for record in records {
+    for record in &records {
         let version_id = record
             .get("versionId")
             .and_then(Value::as_str)

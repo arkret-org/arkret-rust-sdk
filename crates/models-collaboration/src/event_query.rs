@@ -1,10 +1,11 @@
-//! Event query request body wire model.
+//! Event query request body wire models and the readable row shapes a query
+//! answers with.
 //!
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, Cursor, RealmId};
+use arkret_wire::{ActorId, Cursor, DidCoreId, EventId, RealmId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -17,37 +18,6 @@ pub struct EventsDescribeRequestBody {
     pub actor_id: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-}
-
-/// Canonical QUERY content for `ak.self.events.read.frontier.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventsFrontierRequestBody {
-    pub actor_id: ActorId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-}
-
-/// Canonical QUERY content shared by `ak.self.seals.read.frontier.v1` and
-/// `ak.peer.seals.read.frontier.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SealFrontierRequestBody {
-    pub realm_id: RealmId,
-}
-
-/// Canonical QUERY content for `ak.peer.events.read.frontier.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerEventsFrontierRequestBody {
-    pub realm_id: RealmId,
-    /// Actor whose policy-check frontiers are requested. Generic federation
-    /// probes omit this field and receive only the replication frontier.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<ActorId>,
 }
 
 /// Ordering for event query scans.
@@ -144,78 +114,239 @@ where
     values.serialize(serializer)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{EventsFrontierRequestBody, EventsQueryOrder, SealFrontierRequestBody};
+/// Caller-scoped, non-durable view of one authority-committed shared Event.
+///
+/// The full branch carries the exact independently signed Event and RealmCommit.
+/// The withheld branch carries only the Commit plus a minimal disclosure marker
+/// and is never reducer input.
+pub use arkret_wire::{
+    CommittedEventFullView, CommittedEventView, CommittedEventWithheldView, EventDisclosure,
+    EventDisclosureStatus,
+};
+/// Opaque, stable identifier of one frozen Event fanout target.
+///
+/// This value deliberately cannot carry a service DID: the grammar is the
+/// exact non-enumerating token shape published by
+/// `EventDeliveryTargetStatus.target_id`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct EventDeliveryTargetId(String);
 
-    #[test]
-    fn scan_rejects_present_empty_and_duplicate_actor_selectors() {
-        let actor = serde_json::json!({
-            "kind": "account",
-            "account_id": {
-                "principal_id": "ak:did_core:web:alice.example",
-                "station_id": "ak:did_core:web:station.example"
-            }
-        });
-        for value in [
-            serde_json::json!({"actor_ids": []}),
-            serde_json::json!({"actor_ids": [actor], "realm_ids": []}),
-            serde_json::json!({"actor_ids": [actor.clone(), actor]}),
-            serde_json::json!({"actor_ids": [actor], "realm_ids": null}),
-        ] {
-            assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
+impl EventDeliveryTargetId {
+    pub fn new(value: impl Into<String>) -> arkret_wire::Result<Self> {
+        let value = value.into();
+        let bytes = value.as_bytes();
+        let valid = (16..=128).contains(&bytes.len())
+            && bytes
+                .first()
+                .is_some_and(|byte| byte.is_ascii_alphanumeric())
+            && bytes
+                .iter()
+                .skip(1)
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'));
+        if !valid {
+            return Err(WireError::Protocol(
+                "event delivery target_id must match ^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$".to_owned(),
+            ));
         }
-        let request: super::EventsQueryPostRequestBody =
-            serde_json::from_value(serde_json::json!({"actor_ids": [actor]})).unwrap();
-        assert!(
-            !serde_json::to_value(&request)
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .contains_key("realm_ids")
-        );
-        let mut duplicate = request.clone();
-        duplicate.actor_ids.push(request.actor_ids[0].clone());
-        assert!(serde_json::to_value(duplicate).is_err());
+        Ok(Self(value))
     }
 
-    #[test]
-    fn scan_rejects_retired_historical_completeness_selector() {
-        let mut value = serde_json::json!({
-            "realm_ids": [
-                "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for EventDeliveryTargetId {
+    type Error = WireError;
+
+    fn try_from(value: String) -> arkret_wire::Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl<'de> Deserialize<'de> for EventDeliveryTargetId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Closed lifecycle of one member of an Event's frozen fanout target set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventDeliveryTargetState {
+    PendingRoute,
+    PendingDelivery,
+    Delivered,
+    CancelledAuthorityLost,
+}
+
+/// Authorized projection of one frozen Event fanout target.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryTargetStatus {
+    pub target_id: EventDeliveryTargetId,
+    pub status: EventDeliveryTargetState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_id: Option<DidCoreId>,
+}
+
+/// Authenticated query for the durable delivery state of one visible Event.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryStatusRequestBody {
+    pub event_id: EventId,
+}
+
+const MAX_EVENT_DELIVERY_TARGETS: usize = 1000;
+
+fn validate_event_delivery_targets(
+    targets: &[EventDeliveryTargetStatus],
+) -> arkret_wire::Result<()> {
+    if targets.len() > MAX_EVENT_DELIVERY_TARGETS {
+        return Err(WireError::Protocol(
+            "event delivery status exceeds 1000 frozen targets".to_owned(),
+        ));
+    }
+    if targets
+        .windows(2)
+        .any(|rows| rows[0].target_id >= rows[1].target_id)
+    {
+        return Err(WireError::Protocol(
+            "event delivery targets must be strictly sorted by unique target_id".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn deserialize_event_delivery_targets<'de, D>(
+    deserializer: D,
+) -> Result<Vec<EventDeliveryTargetStatus>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let targets = Vec::<EventDeliveryTargetStatus>::deserialize(deserializer)?;
+    validate_event_delivery_targets(&targets).map_err(serde::de::Error::custom)?;
+    Ok(targets)
+}
+
+fn serialize_event_delivery_targets<S>(
+    targets: &[EventDeliveryTargetStatus],
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    validate_event_delivery_targets(targets).map_err(serde::ser::Error::custom)?;
+    targets.serialize(serializer)
+}
+
+/// Complete durable frozen fanout target set for one caller-visible Event.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventDeliveryStatusOutcome {
+    pub event_id: EventId,
+    #[serde(
+        deserialize_with = "deserialize_event_delivery_targets",
+        serialize_with = "serialize_event_delivery_targets"
+    )]
+    pub targets: Vec<EventDeliveryTargetStatus>,
+}
+
+impl EventDeliveryStatusOutcome {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_event_delivery_targets(&self.targets)
+    }
+}
+
+#[cfg(test)]
+mod event_delivery_status_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const EVENT: &str = "ak:event:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9";
+
+    fn outcome_value() -> Value {
+        json!({
+            "event_id": EVENT,
+            "targets": [
+                {
+                    "target_id": "A_frozen_target_0001",
+                    "status": "delivered",
+                    "service_id": "ak:did_core:web:station.example"
+                },
+                {
+                    "target_id": "B_frozen_target_0002",
+                    "status": "pending_delivery"
+                }
             ]
+        })
+    }
+
+    #[test]
+    fn delivery_status_request_and_outcome_round_trip_closed_shapes() {
+        let request_value = json!({"event_id": EVENT});
+        let request: EventDeliveryStatusRequestBody =
+            serde_json::from_value(request_value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(request).unwrap(), request_value);
+
+        let outcome: EventDeliveryStatusOutcome = serde_json::from_value(outcome_value()).unwrap();
+        outcome.validate().unwrap();
+        assert_eq!(serde_json::to_value(outcome).unwrap(), outcome_value());
+
+        for mut open in [json!({"event_id": EVENT}), outcome_value()] {
+            open.as_object_mut()
+                .unwrap()
+                .insert("unregistered_member".to_owned(), json!(true));
+            if open.get("targets").is_some() {
+                assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(open).is_err());
+            } else {
+                assert!(serde_json::from_value::<EventDeliveryStatusRequestBody>(open).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn delivery_status_rejects_invalid_opaque_ids_and_noncanonical_sets() {
+        let mut invalid_id = outcome_value();
+        invalid_id["targets"][0]["target_id"] = json!("ak:did_core:web:station.example");
+        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(invalid_id).is_err());
+
+        let mut unsorted = outcome_value();
+        unsorted["targets"].as_array_mut().unwrap().reverse();
+        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(unsorted).is_err());
+
+        let mut duplicate = outcome_value();
+        duplicate["targets"][1]["target_id"] = json!("A_frozen_target_0001");
+        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(duplicate).is_err());
+
+        let target = json!({
+            "target_id": "A_frozen_target_0001",
+            "status": "delivered",
+            "unregistered_member": true
         });
-        value.as_object_mut().unwrap().insert(
-            format!("include_{}", "completeness"),
-            serde_json::Value::Bool(true),
-        );
-        assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
+        assert!(serde_json::from_value::<EventDeliveryTargetStatus>(target).is_err());
     }
 
     #[test]
-    fn query_order_uses_protocol_wire_values() {
-        assert_eq!(EventsQueryOrder::Default.as_str(), "default");
-        assert_eq!(EventsQueryOrder::Ascending.as_str(), "ascending");
-        assert_eq!(EventsQueryOrder::Descending.as_str(), "descending");
-        assert_eq!(
-            serde_json::to_string(&EventsQueryOrder::Descending).unwrap(),
-            "\"descending\""
-        );
-    }
-
-    #[test]
-    fn event_and_seal_frontier_requests_are_disjoint_closed_shapes() {
+    fn delivery_status_rejects_more_than_the_registered_target_limit() {
+        let targets = (0..=MAX_EVENT_DELIVERY_TARGETS)
+            .map(|index| {
+                json!({
+                    "target_id": format!("T{index:015}"),
+                    "status": "pending_route"
+                })
+            })
+            .collect::<Vec<_>>();
         assert!(
-            serde_json::from_value::<EventsFrontierRequestBody>(serde_json::json!({
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            }))
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<SealFrontierRequestBody>(serde_json::json!({
-                "actor_id": "ak:did_core:web:alice.example",
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            serde_json::from_value::<EventDeliveryStatusOutcome>(json!({
+                "event_id": EVENT,
+                "targets": targets
             }))
             .is_err()
         );

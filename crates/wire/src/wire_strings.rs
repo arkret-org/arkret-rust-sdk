@@ -325,8 +325,9 @@ validated_wire_string!(
 );
 
 fn is_authorization_ref(value: &str) -> bool {
-    value == crate::REALM_AUTHORITY_ROOT_CELL
+    value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
         || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
+        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
         || EventId::new(value).is_ok()
@@ -420,9 +421,32 @@ macro_rules! non_empty_wire_string {
     };
 }
 
-non_empty_wire_string!(
-    /// Non-empty MLS group identifier carried by event payloads and governance bindings.
-    MlsGroupId
+/// `common-ids.schema.json#/$defs/mls_group_id`: `^[A-Za-z0-9_-]{43}$`.
+///
+/// 43 characters is not a style choice — it is base64url without padding of a
+/// 32-byte SHA-256 digest, so any other length means the value did not come out
+/// of the v1 derivation. Checking it here is what stops the pre-2218 reversible
+/// encoding (a variable-length base64url of the scope key bytes) from being
+/// accepted as a second spelling of the same field.
+fn is_mls_group_id(value: &str) -> bool {
+    value.len() == 43
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+}
+
+validated_wire_string!(
+    /// MLS group identifier carried by event payloads and governance bindings.
+    ///
+    /// Always `base64url_no_pad(SHA-256(UTF8("ak.mls.group_id.v1") || 0x00 ||
+    /// canonical_effective_scope_key_bytes(effective_scope)))`, derived by the
+    /// reducer and the SDK from the effective scope alone — actors never submit
+    /// it. Derive it with [`crate::ScopeRef::canonical_mls_group_id`]; this type
+    /// only guarantees the shape, not that the value belongs to any particular
+    /// scope, and by design nothing can recover the scope from it.
+    MlsGroupId,
+    is_mls_group_id,
+    "mls group id must be 43 base64url characters (SHA-256 of the scope key)"
 );
 
 non_empty_wire_string!(
@@ -701,12 +725,12 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 
 /// Canonical MIMI room URI accepted by `mimi_room_binding_payload`.
 ///
-/// The value is the `ak.component.mimi.room_binding.v1` cell subject source, so
+/// The value is the `ak.component.mimi.room_binding.v1` typed-result subject source, so
 /// it is a closed canonical form rather than a free URI
 /// (`zh/extensions/mimi-interop.md` §4). Two spellings of one room would
 /// otherwise each own a "first accepted binding" and the `revoked` terminal
-/// state could be bypassed by respelling, because the subject is both the
-/// `state_root` leaf preimage and the leaf sort key. A non-canonical value is
+/// state could be bypassed by respelling, because the subject is what names
+/// the typed current result the binding writes to. A non-canonical value is
 /// rejected here; it is never normalized and then accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
@@ -742,12 +766,6 @@ impl MimiRoomUri {
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    /// Canonical `ak:cell:ak.component.mimi.room_binding.v1:<subject>` subject
-    /// segment for this room (`conformance/encoding.md` §4, `uri` kind).
-    pub fn cell_subject(&self) -> String {
-        crate::cell::uri_cell_subject(&self.0)
     }
 }
 
@@ -897,7 +915,7 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 /// Non-room MIMI URI (`mimi-interop.schema.json#/$defs/mimi_uri`).
 ///
 /// Provider ids and identifier-query targets are ordinary MIMI URIs: they never
-/// address an Arkret cell, so they carry none of the canonicalization duties
+/// address an Arkret typed result, so they carry none of the canonicalization duties
 /// [`MimiRoomUri`] does and MUST NOT be substituted for one. A provider id such
 /// as `mimi://provider.example` has no path segment at all and is deliberately
 /// outside the room form.
@@ -1173,14 +1191,14 @@ mod tests {
             "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "did:web:alice.example#managed-controller",
-            crate::REALM_AUTHORITY_ROOT_CELL,
             crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1,
+            crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
         ] {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }
         for value in [
-            crate::REALM_GENESIS_CELL,
-            crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
+            "state-slot:ak.component.realm.genesis.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
+            "state-slot:ak.component.realm.authority_root.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
             crate::AuthoritySourceId::SIDECAR_PARENT_BOOTSTRAP_V1,
             "ak:grant:not-a-uuid",
             "did:web:alice.example",
@@ -1211,7 +1229,7 @@ mod tests {
         assert!(DidKey::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x").is_ok());
         assert!(DidKey::new("did:web:example.test#device").is_err());
         assert!(serde_json::from_str::<NonEmptyJsonObject>("{}").is_err());
-        assert!(ProtocolKind::new("ak.key.verification.request").is_ok());
+        assert!(ProtocolKind::new("ak.secret.request").is_ok());
         assert!(ProtocolKind::new("ak.key..request").is_err());
         assert!(ProtocolKind::new("ak.Key.request").is_err());
         assert!(ProtocolKind::new("vendor.key.request").is_err());
@@ -1239,7 +1257,7 @@ mod tests {
         }
     }
 
-    /// `zh/extensions/mimi-interop.md` §4: the room URI is a cell subject
+    /// `zh/extensions/mimi-interop.md` §4: the room URI is a typed-result subject
     /// source, so every non-canonical spelling is rejected rather than
     /// normalized — two spellings would each own a "first accepted binding".
     #[test]
@@ -1277,29 +1295,33 @@ mod tests {
         assert!(MimiRoomUri::new(long).is_err());
     }
 
-    /// The escaped and the unescaped separator address different rooms, so the
-    /// subject transform must keep them apart — that is why `%` is encoded.
-    #[test]
-    fn mimi_room_uri_cell_subject_is_injective_over_the_separator() {
-        let escaped = MimiRoomUri::new("mimi://mimi.example.com/rooms/a%2Fb").unwrap();
-        let split = MimiRoomUri::new("mimi://mimi.example.com/rooms/a/b").unwrap();
-        assert_ne!(escaped.cell_subject(), split.cell_subject());
-        assert_eq!(
-            MimiRoomUri::new("mimi://mimi.example.com/rooms/01JSMIMI")
-                .unwrap()
-                .cell_subject(),
-            "mimi%3A%2F%2Fmimi.example.com%2Frooms%2F01JSMIMI"
-        );
-    }
-
     #[test]
     fn non_empty_wire_strings_round_trip_as_strings() {
-        let group_id = MlsGroupId::new("Z3JvdXA").unwrap();
-        assert_eq!(serde_json::to_string(&group_id).unwrap(), r#""Z3JvdXA""#);
+        const GROUP_ID: &str = "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4";
+        let group_id = MlsGroupId::new(GROUP_ID).unwrap();
         assert_eq!(
-            serde_json::from_str::<MlsGroupId>(r#""Z3JvdXA""#).unwrap(),
+            serde_json::to_string(&group_id).unwrap(),
+            format!("\"{GROUP_ID}\"")
+        );
+        assert_eq!(
+            serde_json::from_str::<MlsGroupId>(&format!("\"{GROUP_ID}\"")).unwrap(),
             group_id
         );
+        // The pre-2218 reversible encoding and every other length fail closed.
+        for rejected in [
+            "",
+            "Z3JvdXA",
+            "YWs6cmVhbG06QWMxYUNLOGFRZG5rWUltdmRIM0RGanE0akRDUDE5OHBYWVdDR3pHdVZ5ajU",
+            "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R",
+            "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4=",
+            "QjKOSorlqs3IquY7OikTUTy/Z0mMiL0X2mK4jAOT4R4",
+        ] {
+            assert!(MlsGroupId::new(rejected).is_err(), "{rejected}");
+            assert!(
+                serde_json::from_str::<MlsGroupId>(&format!("\"{rejected}\"")).is_err(),
+                "{rejected}"
+            );
+        }
         let local_id = OpaqueLocalId::new("agent_pairing_request:request-1").unwrap();
         assert_eq!(
             serde_json::from_str::<OpaqueLocalId>(&serde_json::to_string(&local_id).unwrap())

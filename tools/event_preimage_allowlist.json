@@ -2,6 +2,11 @@
   "entries": [
     {
       "repo": "arkret-rust-sdk",
+      "path": "crates/models-collaboration/tests/moderation_report_current_schema_conformance.rs",
+      "reason": "Deletes `selector.event_id` from a moderation-report current-row fixture to prove the schema and SDK both reject a selector missing its required member. Not an Event envelope and not a digest preimage."
+    },
+    {
+      "repo": "arkret-rust-sdk",
       "path": "crates/wire/src/event_envelope.rs",
       "reason": "The single implementation of the encoding.md section 6 exclusion rule (`event_digest_preimage`). Every other caller delegates to it."
     },

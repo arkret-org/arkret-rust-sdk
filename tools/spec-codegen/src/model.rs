@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LoadedArtifact {
     pub relative_path: &'static str,
     pub version: String,
@@ -65,22 +65,24 @@ pub struct SpecInputs {
 
 impl SpecInputs {
     pub fn load(artifacts_dir: &Path) -> Result<Self> {
-        let (id_kinds_source, id_kinds) =
-            LoadedArtifact::read(artifacts_dir, "registry/id-kind-registry.json")?;
-        let (capability_actions_source, capability_actions) =
-            LoadedArtifact::read(artifacts_dir, "registry/capability-action-registry.json")?;
-        let (schemas_source, schemas) =
-            LoadedArtifact::read(artifacts_dir, "registry/schema-registry.json")?;
         let (account_data_source, account_data) =
             LoadedArtifact::read(artifacts_dir, "registry/account-data-key-registry.json")?;
         let (agent_runtime_source, agent_runtime) =
             LoadedArtifact::read(artifacts_dir, "registry/agent-runtime-scope-registry.json")?;
-        let (contracts_source, contracts) =
+        let (contracts_source, contracts): (LoadedArtifact, ContractRegistry) =
             LoadedArtifact::read(artifacts_dir, "registry/contract-registry.json")?;
-        let (operations_source, operations) =
-            LoadedArtifact::read(artifacts_dir, "registry/operation-registry.json")?;
-        let (event_kinds_source, event_kinds) =
-            LoadedArtifact::read(artifacts_dir, "registry/event-kind-registry.json")?;
+        let capability_actions_source = contracts_source.clone();
+        let capability_actions = contracts.capability_action_registry.clone();
+        let id_kinds_source = contracts_source.clone();
+        let id_kinds = contracts.id_kind_registry.clone();
+        let schemas_source = contracts_source.clone();
+        let schemas = contracts.schema_registry.clone();
+        let mut operations_source = contracts_source.clone();
+        operations_source.version = contracts.operation_registry.version.clone();
+        let operations = contracts.operation_registry.clone();
+        let mut event_kinds_source = contracts_source.clone();
+        event_kinds_source.version = contracts.event_kind_registry.version.clone();
+        let event_kinds = contracts.event_kind_registry.clone();
         let (deployment_probes_source, deployment_probes) =
             LoadedArtifact::read(artifacts_dir, "deployment-probes.json")?;
         Ok(Self {
@@ -106,13 +108,13 @@ impl SpecInputs {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct IdKindRegistry {
     pub id_kinds: Vec<IdKind>,
     pub special_forms: Vec<SpecialIdForm>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct IdKind {
     pub kind: String,
     pub category: String,
@@ -120,7 +122,7 @@ pub struct IdKind {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SpecialIdForm {
     pub kind: String,
     pub wire_form: String,
@@ -128,12 +130,42 @@ pub struct SpecialIdForm {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CapabilityActionRegistry {
+    pub event_mapping_kind_definitions: BTreeMap<String, String>,
+    pub approval_requirement_eligibility: ApprovalRequirementEligibilityRegistry,
     pub actions: Vec<CapabilityAction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalRequirementEligibilityRegistry {
+    pub eligibility_kind_definitions: BTreeMap<String, String>,
+    pub event_mapping_defaults: BTreeMap<String, String>,
+    pub carriers: Vec<ApprovalEvidenceCarrier>,
+    pub default_carrier_by_eligibility_kind: BTreeMap<String, String>,
+    pub action_overrides: Vec<ApprovalEligibilityOverride>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalEvidenceCarrier {
+    pub carrier_id: String,
+    pub carrier_class: String,
+    pub operation_id: String,
+    pub request_schema_ref: String,
+    pub carrier_schema_ref: String,
+    pub carrier_field: String,
+    pub evidence_schema_ref: String,
+    pub allowed_target_kinds: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ApprovalEligibilityOverride {
+    pub action: String,
+    pub eligibility_kind: String,
+    pub carrier_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct CapabilityAction {
     pub action: String,
     pub category: String,
@@ -151,17 +183,15 @@ pub struct CapabilityAction {
     pub root_control_only: bool,
     #[serde(default)]
     pub subject_only: bool,
-    #[serde(default)]
-    pub reducer_only: bool,
     pub event_mapping_kind: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SchemaRegistry {
     pub schemas: Vec<SchemaRegistration>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct SchemaRegistration {
     pub schema_id: String,
     pub file: String,
@@ -214,8 +244,77 @@ pub struct AgentCapabilitySet {
 
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
+    pub capability_action_registry: CapabilityActionRegistry,
+    pub id_kind_registry: IdKindRegistry,
+    pub schema_registry: SchemaRegistry,
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
-    pub event_kind_registry: serde_json::Value,
+    pub http_signature_contract_registry: HttpSignatureContractRegistry,
+    pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,
+    pub operation_registry: OperationRegistry,
+    pub event_kind_registry: EventKindRegistry,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureContractRegistry {
+    pub common_contract: HttpSignatureCommonContract,
+    pub freshness_profiles: Vec<HttpSignatureFreshnessProfile>,
+    pub scenarios: Vec<HttpSignatureScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureCommonContract {
+    pub covered_components: Vec<String>,
+    pub signature_parameters: Vec<String>,
+    pub freshness_profile_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureFreshnessProfile {
+    pub freshness_profile_id: String,
+    pub max_signature_lifetime_seconds: Option<i64>,
+    pub created_skew_seconds: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureScenario {
+    pub scenario_id: String,
+    #[serde(default)]
+    pub operations: Vec<String>,
+    pub extends: Option<String>,
+    #[serde(default)]
+    pub additional_covered_components: Vec<String>,
+    #[serde(default)]
+    pub conditional_covered_components: Vec<HttpSignatureConditionalComponent>,
+    pub required_headers: Vec<String>,
+    pub freshness_profile_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HttpSignatureConditionalComponent {
+    pub component: String,
+    pub condition: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeToleranceRegistry {
+    pub tolerances: Vec<ProtocolTimeTolerance>,
+    pub scenarios: Vec<ProtocolTimeToleranceScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeTolerance {
+    pub tolerance_id: String,
+    pub name: String,
+    pub value: i64,
+    pub unit: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeToleranceScenario {
+    pub scenario_id: String,
+    pub tolerance_id: String,
+    pub direction: String,
+    pub comparison: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -229,7 +328,7 @@ pub struct RealmBootstrapRegistry {
 pub struct RealmBootstrapProfile {
     pub atomic: bool,
     pub all_or_nothing: bool,
-    pub genesis_seal_covers_complete_unit: bool,
+    pub genesis_confirms_complete_unit: bool,
     pub ordered_slots: Vec<RealmBootstrapSlot>,
 }
 
@@ -250,25 +349,35 @@ pub struct RealmBootstrapFirstContact {
     pub fail_closed_until_complete: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationRegistry {
+    pub version: String,
     pub operations: Vec<OperationRegistration>,
     pub surface_groups: Vec<OperationSurfaceGroup>,
     pub high_security_session_authentication_policy: HighSecuritySessionAuthenticationPolicy,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct OperationRegistration {
-    pub operation_id: String,
+#[derive(Clone, Debug, Deserialize)]
+pub struct OperationDurableEffect {
+    pub kind: String,
+    #[serde(default)]
+    pub event_kinds: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct OperationRegistration {
+    pub operation_id: String,
+    #[serde(default)]
+    pub durable_effect: Option<OperationDurableEffect>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct HighSecuritySessionAuthenticationPolicy {
     pub applies_to_operation_id_prefix: String,
     pub unauthenticated_public_projection_operations: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OperationSurfaceGroup {
     pub surface: String,
     pub surface_class: String,
@@ -276,62 +385,20 @@ pub struct OperationSurfaceGroup {
     pub operations: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct EventKindRegistry {
+    pub version: String,
     pub event_kinds: Vec<EventKindRegistration>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct EventKindRegistration {
     pub event_kind: String,
     pub status: String,
-    #[serde(default)]
-    pub reducer_input: bool,
     pub id_source: Option<String>,
     pub id_kind: Option<String>,
     #[serde(default)]
     pub id_kinds: Vec<String>,
-    #[serde(default)]
-    pub pre_state_requirements: Vec<EventPreStateRequirement>,
-    pub cell_family: Option<String>,
-    #[serde(default)]
-    pub cell_writes: Vec<EventCellWrite>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventCellWrite {
-    pub cell_family: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateRequirement {
-    pub cell_family: String,
-    pub subject: EventPreStateSubject,
-    /// Optional payload condition drawn from the same closed grammar as
-    /// `cell_writes[].condition`. A requirement whose condition does not hold
-    /// is not evaluated at all, so the raw AST is carried through verbatim
-    /// rather than flattened into a codegen-private shape.
-    pub condition: Option<serde_json::Value>,
-    pub predicate: EventPreStatePredicate,
-    pub failure: EventPreStateFailure,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateSubject {
-    pub field: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStatePredicate {
-    pub kind: String,
-    pub field: String,
-    pub payload_field: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateFailure {
-    pub code: String,
-    pub reason_code: String,
 }
 
 #[derive(Debug, Deserialize)]

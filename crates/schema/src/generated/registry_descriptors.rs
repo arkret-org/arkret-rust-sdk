@@ -1,14 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-07.1;
-//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0 Input: registry/
-//! capability-action-registry.json; version=2026-09-07.1;
-//! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
-//! schema-registry.json; version=2026-09-07.1;
-//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Input: registry/
-//! account-data-key-registry.json; version=2026-09-05.2;
-//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=205, account_data_patterns=24
+//! Input: registry/contract-registry.json; version=2026-10-11.2;
+//! sha256=d01a0c6e980572930e62d759eb1badac5872e5f67bb373483e7c322a5d91bc0e Input: registry/
+//! account-data-key-registry.json; version=2026-10-05.2;
+//! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
+//! special_forms=15, actions=150, approval_carriers=3, schemas=226, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -45,6 +41,26 @@ impl CapabilityRiskTier {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalRequirementEligibility {
+    EventSubmissionCarrier,
+    RegisteredOperationCarrier,
+    IneligibleNoRegisteredCarrier,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ApprovalEvidenceCarrierDescriptor {
+    pub carrier_id: &'static str,
+    pub carrier_class: &'static str,
+    pub operation_id: &'static str,
+    pub request_schema_ref: &'static str,
+    pub carrier_schema_ref: &'static str,
+    pub carrier_field: &'static str,
+    pub evidence_schema_ref: &'static str,
+    pub allowed_target_kinds: &'static [&'static str],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CapabilityActionDescriptor {
     pub action: CapabilityActionId,
@@ -57,8 +73,9 @@ pub struct CapabilityActionDescriptor {
     pub profile: Option<&'static str>,
     pub root_control_only: bool,
     pub subject_only: bool,
-    pub reducer_only: bool,
     pub event_mapping_kind: &'static str,
+    pub approval_requirement_eligibility: ApprovalRequirementEligibility,
+    pub approval_evidence_carrier_id: Option<&'static str>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,39 +108,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:actor_profile:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "announce",
-        category: "discovery",
-        wire_form: "ak:announce:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "applet",
         category: "extension",
         wire_form: "ak:applet:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "attestation",
-        category: "audit",
-        wire_form: "ak:attestation:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "audit_binding",
-        category: "audit",
-        wire_form: "ak:audit_binding:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "audit_release",
-        category: "audit",
-        wire_form: "ak:audit_release:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "audit_session",
-        category: "audit",
-        wire_form: "ak:audit_session:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "authorization_lease",
-        category: "authz",
-        wire_form: "ak:authorization_lease:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "backup",
@@ -176,11 +163,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:claim:<uuidv7>",
     },
     IdKindDescriptor {
-        kind: "collision_variant_record",
-        category: "audit",
-        wire_form: "ak:collision_variant_record:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "consent",
         category: "identity_authz",
         wire_form: "ak:consent:<uuidv7>",
@@ -216,16 +198,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:grant:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "history_request",
-        category: "scope_private",
-        wire_form: "ak:history_request:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "history_response",
-        category: "scope_private",
-        wire_form: "ak:history_response:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "invite",
         category: "authz",
         wire_form: "ak:invite:<44-char-event-token>",
@@ -236,9 +208,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:invite_locator:<uuidv7>",
     },
     IdKindDescriptor {
-        kind: "key_event",
-        category: "identity",
-        wire_form: "ak:key_event:<uuidv7>",
+        kind: "keypackage_claim",
+        category: "mls",
+        wire_form: "ak:keypackage_claim:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "message",
@@ -249,6 +221,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "message_stream",
         category: "sync",
         wire_form: "ak:message_stream:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "mls_welcome_delivery",
+        category: "mls",
+        wire_form: "ak:mls_welcome_delivery:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "moderation_queue_item",
@@ -264,6 +241,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "notification",
         category: "derived_projection",
         wire_form: "ak:notification:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "notification_projection",
+        category: "derived_projection",
+        wire_form: "ak:notification_projection:<44-char-suite-tagged-full-digest-token>",
     },
     IdKindDescriptor {
         kind: "operation",
@@ -286,19 +268,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:realm:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "realm_state_snapshot",
-        category: "realm_state_snapshot",
-        wire_form: "ak:realm_state_snapshot:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "recovery_key",
-        category: "identity",
-        wire_form: "ak:recovery_key:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
@@ -329,11 +301,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "scheduled_send",
         category: "account_private",
         wire_form: "ak:scheduled_send:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "service_route_handover",
-        category: "transport",
-        wire_form: "ak:service_route_handover:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "session_grant",
@@ -379,11 +346,6 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
-        kind: "cell",
-        wire_form: "ak:cell:ak.component.<facet-path>.v<n>:<subject>",
-        payload_pattern: "ak\\.component\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)*\\.v[0-9]+:(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})*(?::(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})+)*",
-    },
-    SpecialFormIdKindDescriptor {
         kind: "cursor",
         wire_form: "ak:cursor:<base64url>",
         payload_pattern: "[A-Za-z0-9_-]+",
@@ -424,9 +386,19 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         payload_pattern: "[a-z0-9_]+:[A-Za-z0-9_-]+",
     },
     SpecialFormIdKindDescriptor {
-        kind: "seal",
-        wire_form: "ak:seal:<digest-suite>:<digest>",
-        payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
+        kind: "realm_authority_handoff",
+        wire_form: "ak:realm_authority_handoff:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "realm_commit",
+        wire_form: "ak:realm_commit:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "realm_snapshot",
+        wire_form: "ak:realm_snapshot:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
     },
     SpecialFormIdKindDescriptor {
         kind: "service_registration_receipt",
@@ -445,11 +417,44 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
     },
 ];
 
+pub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[
+    ApprovalEvidenceCarrierDescriptor {
+        carrier_id: "applet_bot_provision.approval_signatures",
+        carrier_class: "non_event_operation",
+        operation_id: "ak.self.applet.bot.command.provision.v1",
+        request_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body",
+        carrier_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body/properties/approval_signatures",
+        carrier_field: "approval_signatures",
+        evidence_schema_ref: "schemas/approval-signature.schema.json",
+        allowed_target_kinds: &["operation"],
+    },
+    ApprovalEvidenceCarrierDescriptor {
+        carrier_id: "applet_ghost_provision.approval_signatures",
+        carrier_class: "non_event_operation",
+        operation_id: "ak.self.applet.ghost.command.provision.v1",
+        request_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body",
+        carrier_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body/properties/approval_signatures",
+        carrier_field: "approval_signatures",
+        evidence_schema_ref: "schemas/approval-signature.schema.json",
+        allowed_target_kinds: &["operation"],
+    },
+    ApprovalEvidenceCarrierDescriptor {
+        carrier_id: "event_admission_submission.approval_signatures",
+        carrier_class: "event_submission",
+        operation_id: "ak.self.events.command.submit.v1",
+        request_schema_ref: "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request",
+        carrier_schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/EventAdmissionSubmission/properties/approval_signatures",
+        carrier_field: "approval_signatures",
+        evidence_schema_ref: "schemas/approval-signature.schema.json",
+        allowed_target_kinds: &["event", "operation"],
+    },
+];
+
 pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionApprove,
         category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
+        risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_ACTION_APPROVE],
@@ -457,8 +462,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionReject,
@@ -471,8 +477,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionRequest,
@@ -485,8 +492,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentDraftPropose,
@@ -499,8 +507,24 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AgentJoin,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentKeyAuthorize,
@@ -513,8 +537,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentKeyRevoke,
@@ -527,22 +552,24 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AgentSelectorClaim,
+        action: CapabilityActionId::AgentPublish,
         category: "management",
-        risk_tier: CapabilityRiskTier::High,
+        risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AGENT_SELECTOR_CLAIM],
+        target_event_kinds: &[event_kind_str::AGENT_INTERACTION_SET],
         grant_authority_actions: &[],
-        profile: Some("ak.profile.agent_provisioning.v1"),
+        profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarExchangeControl,
@@ -555,8 +582,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarPublish,
@@ -569,8 +597,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarWrite,
@@ -583,8 +612,28 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletBotProvision,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &["applet_id", "executed_by", "registration_epoch"],
+        required_evaluator_checks: &[
+            "active_applet_registration_exact",
+            "bot_managed_actor_provision_unit_atomic",
+        ],
+        target_event_kinds: &[event_kind_str::APPLET_MANAGED_ACTOR_PROVISION],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.applet_service.v1"),
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::RegisteredOperationCarrier,
+        approval_evidence_carrier_id: Some("applet_bot_provision.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletBridgeError,
@@ -597,8 +646,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletGhostProvision,
@@ -615,8 +665,43 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::RegisteredOperationCarrier,
+        approval_evidence_carrier_id: Some("applet_ghost_provision.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletJoin,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletPublish,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[
+            event_kind_str::PROFILE_CREATE,
+            event_kind_str::PROFILE_UPDATE,
+        ],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
@@ -629,8 +714,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditAccessed,
@@ -643,25 +730,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditAppletBinding,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::AUDIT_APPLET_BINDING_CREATE,
-            event_kind_str::AUDIT_APPLET_BINDING_STATE,
-        ],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditExport,
@@ -674,8 +745,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditQuery,
@@ -688,78 +761,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditRelease,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_RELEASE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionAuthorize,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_AUTHORIZE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionClose,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_CLOSE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionNotice,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_NOTICE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionRequest,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_REQUEST],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallJoin,
@@ -767,17 +772,14 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::CALL_CREATE,
-            event_kind_str::CALL_STATE,
-            event_kind_str::CALL_SUMMARY,
-        ],
+        target_event_kinds: &[event_kind_str::CALL_CREATE, event_kind_str::CALL_STATE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallModerate,
@@ -790,8 +792,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallRecord,
@@ -807,8 +810,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallScreenShare,
@@ -821,8 +825,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallSignalSend,
@@ -835,8 +840,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallTranscribe,
@@ -849,22 +856,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::CapabilityDerived,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CAPABILITY_DERIVED],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: true,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityGrant,
@@ -877,8 +871,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityRelinquish,
@@ -891,8 +886,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: true,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityRevoke,
@@ -905,8 +901,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleAudit,
@@ -919,8 +916,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleCreate,
@@ -933,8 +932,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleManage,
@@ -953,8 +953,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberAdd,
@@ -967,8 +968,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberAddOthers,
@@ -981,8 +983,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberManage,
@@ -995,22 +998,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ConflictRecovery,
-        category: "general",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONFLICT_RECOVERY],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ConsentGrant,
@@ -1023,8 +1013,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.principal_control_realm.v1"),
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ConsentRevoke,
@@ -1037,8 +1028,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.principal_control_realm.v1"),
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ContactScopeUpdate,
@@ -1055,36 +1047,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_realm.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ContainerMoveItem,
-        category: "strand",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONTAINER_MOVE_ITEM],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ContainerRebalance,
-        category: "strand",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONTAINER_REBALANCE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::EventRead,
@@ -1097,22 +1062,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ForkResolution,
-        category: "general",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::FORK_RESOLUTION],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteAccept,
@@ -1124,9 +1077,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
+        subject_only: true,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteCancel,
@@ -1139,8 +1093,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteClaim,
@@ -1153,8 +1108,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteCreate,
@@ -1167,8 +1123,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteRevoke,
@@ -1181,8 +1138,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteThirdParty,
@@ -1195,8 +1153,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateLeave,
@@ -1213,8 +1172,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.membership_join_compensation.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateRemove,
@@ -1231,8 +1191,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.membership_join_compensation.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberLeaveOwn,
@@ -1248,8 +1209,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_realm.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberRejoinOwn,
@@ -1265,8 +1227,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_repair.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageCreate,
@@ -1279,14 +1242,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageMentionBroadcast,
         category: "discussion",
         risk_tier: CapabilityRiskTier::High,
-        required_constraints: &["max_operations", "period", "constraint_scope"],
+        required_constraints: &["expires_at", "max_operations", "period", "constraint_scope"],
         required_evaluator_checks: &[
             "message_create_or_revise_authorized",
             "audience_mention_policy_allows_audience",
@@ -1300,8 +1264,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRedact,
@@ -1314,8 +1279,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRedactOwn,
@@ -1328,8 +1294,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRevise,
@@ -1342,8 +1309,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageReviseOwn,
@@ -1356,8 +1324,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageStreamSend,
@@ -1373,8 +1342,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.signal_message_stream.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsCommit,
@@ -1382,16 +1353,14 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::MLS_COMMIT,
-            event_kind_str::MLS_COMMIT_FAILED,
-        ],
+        target_event_kinds: &[event_kind_str::MLS_COMMIT],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsGenesis,
@@ -1404,67 +1373,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsKeypackage,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_KEYPACKAGE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsProposal,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_PROPOSAL],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsWelcome,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_WELCOME],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsWelcomeOwnDevice,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[
-            "welcome_recipient_is_active_device_of_same_participant",
-            "mls_group_matches_current_active_direct_conversation_generation",
-        ],
-        target_event_kinds: &[event_kind_str::MLS_WELCOME],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.direct_conversation_realm.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecision,
@@ -1477,8 +1388,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecisionLift,
@@ -1491,8 +1403,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphArchive,
@@ -1505,8 +1418,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphCreate,
@@ -1519,8 +1433,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphRead,
@@ -1533,8 +1448,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphRestore,
@@ -1547,8 +1464,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphStageSet,
@@ -1561,8 +1479,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphUpdate,
@@ -1575,8 +1494,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::NotificationAck,
@@ -1589,8 +1509,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::NotificationRead,
@@ -1603,8 +1525,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectArchive,
@@ -1620,8 +1544,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectRead,
@@ -1634,8 +1559,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadContent,
@@ -1648,8 +1575,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadHistory,
@@ -1662,8 +1591,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadMetadata,
@@ -1676,8 +1607,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectRestore,
@@ -1694,8 +1627,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectStageSet,
@@ -1711,8 +1645,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinAdd,
@@ -1725,8 +1660,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinRemove,
@@ -1739,8 +1675,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinReorder,
@@ -1753,8 +1690,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicyAction,
@@ -1767,8 +1705,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicyManage,
@@ -1778,9 +1717,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_evaluator_checks: &[],
         target_event_kinds: &[
             event_kind_str::POLICY_SET,
-            event_kind_str::POLICY_RULE,
             event_kind_str::POLICY_ACTION,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
@@ -1793,22 +1730,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::PolicyRule,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::POLICY_RULE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicySet,
@@ -1821,8 +1745,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PresenceBroadcast,
@@ -1835,8 +1760,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReactionAdd,
@@ -1849,8 +1776,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReactionRemove,
@@ -1863,8 +1791,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReadCursorAdvance,
@@ -1877,8 +1806,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAdmin,
@@ -1890,21 +1820,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ORGANIZATION,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_ALIAS,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_HISTORY_ACCESS,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_DISCOVERY,
-            event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
-            event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_SCHEMA,
-            event_kind_str::REALM_INHERITANCE_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::REALM_SET_DEFAULT_STRAND,
             event_kind_str::APPLET_REGISTRATION,
@@ -1915,8 +1839,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAlias,
@@ -1929,8 +1854,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmArchive,
@@ -1938,13 +1864,14 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::REALM_ARCHIVE],
+        target_event_kinds: &[event_kind_str::REALM_ARCHIVE, event_kind_str::REALM_RESTORE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAuthorityReset,
@@ -1957,8 +1884,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmCreate,
@@ -1971,8 +1899,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmDestroy,
@@ -1985,8 +1914,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmDiscover,
@@ -1999,8 +1929,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmFreeze,
@@ -2008,13 +1940,29 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::REALM_FREEZE],
+        target_event_kinds: &[event_kind_str::REALM_FREEZE, event_kind_str::REALM_UNFREEZE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmGovernanceStationChange,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::REALM_GOVERNANCE_STATION_CHANGE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: true,
+        subject_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmLink,
@@ -2027,8 +1975,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmMediaService,
@@ -2041,8 +1990,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmNotificationAudit,
@@ -2055,8 +2005,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmOwner,
@@ -2065,21 +2017,14 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[
+            event_kind_str::AGENT_INTERACTION_SET,
             event_kind_str::AGENT_KEY_AUTHORIZE,
             event_kind_str::AGENT_KEY_REVOKE,
             event_kind_str::APPLET_REGISTRATION,
             event_kind_str::AUDIT_ACCESSED,
-            event_kind_str::AUDIT_APPLET_BINDING_CREATE,
-            event_kind_str::AUDIT_APPLET_BINDING_STATE,
-            event_kind_str::AUDIT_RELEASE,
-            event_kind_str::AUDIT_SESSION_AUTHORIZE,
-            event_kind_str::AUDIT_SESSION_CLOSE,
-            event_kind_str::AUDIT_SESSION_NOTICE,
-            event_kind_str::AUDIT_SESSION_REQUEST,
             event_kind_str::CALL_CREATE,
             event_kind_str::CALL_RECORDING_START,
             event_kind_str::CALL_STATE,
-            event_kind_str::CALL_SUMMARY,
             event_kind_str::CAPABILITY_GRANT,
             event_kind_str::CAPABILITY_REVOKE,
             event_kind_str::CIRCLE_ARCHIVE,
@@ -2089,10 +2034,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CIRCLE_RESTORE,
             event_kind_str::CIRCLE_TOMBSTONE,
             event_kind_str::CIRCLE_UPDATE,
-            event_kind_str::CONFLICT_RECOVERY,
-            event_kind_str::CONTAINER_MOVE_ITEM,
-            event_kind_str::CONTAINER_REBALANCE,
-            event_kind_str::FORK_RESOLUTION,
             event_kind_str::INVITE_CANCEL,
             event_kind_str::INVITE_CLAIM,
             event_kind_str::INVITE_CREATE,
@@ -2104,11 +2045,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MESSAGE_REVISE,
             event_kind_str::MIMI_ROOM_BINDING,
             event_kind_str::MLS_COMMIT,
-            event_kind_str::MLS_COMMIT_FAILED,
             event_kind_str::MLS_GENESIS,
-            event_kind_str::MLS_KEYPACKAGE,
-            event_kind_str::MLS_PROPOSAL,
-            event_kind_str::MLS_WELCOME,
             event_kind_str::MODERATION_DECISION,
             event_kind_str::MODERATION_DECISION_LIFT,
             event_kind_str::MORPH_ARCHIVE,
@@ -2118,35 +2055,31 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MORPH_UPDATE,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
             event_kind_str::POLICY_ACTION,
-            event_kind_str::POLICY_RULE,
             event_kind_str::POLICY_SET,
+            event_kind_str::PROFILE_CREATE,
+            event_kind_str::PROFILE_UPDATE,
             event_kind_str::REACTION_ADD,
             event_kind_str::REACTION_REMOVE,
             event_kind_str::REALM_ALIAS,
             event_kind_str::REALM_ARCHIVE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
-            event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
             event_kind_str::REALM_HISTORY_ACCESS,
-            event_kind_str::REALM_INHERITANCE_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_MEDIA_SERVICE,
-            event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_ORGANIZATION,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
-            event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_PROFILE,
             event_kind_str::REALM_READ_RECEIPT_POLICY,
+            event_kind_str::REALM_RESTORE,
             event_kind_str::REALM_SCHEMA,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::REALM_SET_DEFAULT_STRAND,
-            event_kind_str::REALM_UPGRADE,
+            event_kind_str::REALM_UNFREEZE,
             event_kind_str::REDACTION,
             event_kind_str::RELATION_CREATE,
             event_kind_str::RELATION_TOMBSTONE,
@@ -2172,18 +2105,17 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::VIEW_UPDATE,
         ],
         grant_authority_actions: &[
+            "ak.agent.join",
             "ak.agent.key.authorize",
             "ak.agent.key.revoke",
+            "ak.agent.publish",
+            "ak.applet.bridge_error",
+            "ak.applet.join",
+            "ak.applet.publish",
             "ak.approval.vote",
             "ak.audit.accessed",
-            "ak.audit.applet_binding",
             "ak.audit.export",
             "ak.audit.query",
-            "ak.audit.release",
-            "ak.audit.session.authorize",
-            "ak.audit.session.close",
-            "ak.audit.session.notice",
-            "ak.audit.session.request",
             "ak.call.join",
             "ak.call.moderate",
             "ak.call.record",
@@ -2198,11 +2130,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.circle.member.add",
             "ak.circle.member.add.others",
             "ak.circle.member.manage",
-            "ak.conflict.recovery",
-            "ak.container.move_item",
-            "ak.container.rebalance",
             "ak.event.read",
-            "ak.fork.resolution",
             "ak.invite.cancel",
             "ak.invite.claim",
             "ak.invite.create",
@@ -2216,9 +2144,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.message.revise.own",
             "ak.mls.commit",
             "ak.mls.genesis",
-            "ak.mls.keypackage",
-            "ak.mls.proposal",
-            "ak.mls.welcome",
             "ak.moderation.decision",
             "ak.moderation.decision.lift",
             "ak.morph.archive",
@@ -2234,9 +2159,11 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.object.read_metadata",
             "ak.object.restore",
             "ak.object.stage.set",
+            "ak.pin.add",
+            "ak.pin.remove",
+            "ak.pin.reorder",
             "ak.policy.action",
             "ak.policy.manage",
-            "ak.policy.rule",
             "ak.policy.set",
             "ak.presence.broadcast",
             "ak.reaction.add",
@@ -2254,7 +2181,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.preview_policy",
             "ak.realm.profile",
             "ak.realm.set_default_strand",
-            "ak.realm.upgrade",
             "ak.receipt.broadcast",
             "ak.relation.create",
             "ak.relation.tombstone",
@@ -2287,8 +2213,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmOwnerTransfer,
@@ -2301,8 +2228,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmPlaintextVisibleServices,
@@ -2315,8 +2243,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmPreviewPolicy,
@@ -2329,8 +2258,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmProfile,
@@ -2343,8 +2273,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmSearchPolicy,
@@ -2357,8 +2288,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.search.blind_index.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmSetDefaultStrand,
@@ -2371,8 +2303,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmTombstone,
@@ -2385,22 +2318,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmUpgrade,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::REALM_UPGRADE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReceiptBroadcast,
@@ -2413,8 +2333,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationCreate,
@@ -2427,8 +2349,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationTombstone,
@@ -2441,8 +2364,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationUpdate,
@@ -2455,8 +2379,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RsvpSet,
@@ -2469,8 +2394,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.calendar_event.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SchemaDefine,
@@ -2483,8 +2409,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAccountReadDescribeV1,
@@ -2497,8 +2424,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAccountStreamSubscribeV1,
@@ -2511,8 +2440,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandDeactivateV1,
@@ -2525,8 +2456,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandPauseV1,
@@ -2539,8 +2471,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandProvisionV1,
@@ -2553,8 +2486,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandRenewPairingV1,
@@ -2567,8 +2501,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandResumeV1,
@@ -2581,8 +2517,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentParticipationResourceReplaceV1,
@@ -2598,8 +2535,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_participation_policy.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentSidecarCommandEnsureV1,
@@ -2615,8 +2553,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobCommandPresignV1,
@@ -2629,8 +2568,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobResourceGetV1,
@@ -2643,8 +2584,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobResourceHeadV1,
@@ -2657,8 +2600,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobUploadCreateV1,
@@ -2671,11 +2616,13 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfEventsReadScanV1,
+        action: CapabilityActionId::SelfCommittedEventReadScanV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -2685,11 +2632,13 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfEventsStreamSubscribeV1,
+        action: CapabilityActionId::SelfCommittedEventStreamSubscribeV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -2699,13 +2648,15 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfKeysBackupSeriesCommandEraseV1,
+        action: CapabilityActionId::SelfRealmStateSnapshotReadByRefV1,
         category: "service",
-        risk_tier: CapabilityRiskTier::High,
+        risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[],
@@ -2713,8 +2664,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfRealmStateSnapshotReadManifestHeadV1,
@@ -2727,8 +2680,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceArchive,
@@ -2741,8 +2696,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceCreate,
@@ -2755,8 +2711,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceParent,
@@ -2769,8 +2726,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceRestore,
@@ -2783,8 +2741,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceTombstone,
@@ -2797,8 +2756,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceUpdate,
@@ -2811,8 +2771,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandAdmin,
@@ -2825,8 +2786,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandArchive,
@@ -2839,8 +2802,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandCreate,
@@ -2853,8 +2817,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandMove,
@@ -2867,8 +2832,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandRead,
@@ -2881,8 +2847,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandReorder,
@@ -2895,8 +2863,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandRestore,
@@ -2909,8 +2878,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandStageSet,
@@ -2923,8 +2893,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandTracksUpdate,
@@ -2937,8 +2908,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandUpdate,
@@ -2951,8 +2923,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandWatchSet,
@@ -2965,8 +2938,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandWatchSetOthers,
@@ -2979,8 +2953,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::TypingBroadcast,
@@ -2993,8 +2968,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewCreate,
@@ -3007,8 +2984,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewReconcile,
@@ -3021,8 +2999,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewUpdate,
@@ -3035,12 +3014,21 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
     },
 ];
 
 pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
+    SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_BLOCKLIST_V1,
+        file: "schemas/account-blocklist.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_CURRENT_RESULT_V1,
+        file: "schemas/account-current-result.schema.json",
+    },
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
         file: "schemas/account-data-encrypted-value.schema.json",
@@ -3048,6 +3036,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_DATA_OPERATIONS_V1,
         file: "schemas/account-data-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1,
+        file: "schemas/account-device-signer-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_OPERATIONS_V1,
@@ -3074,6 +3066,30 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/actor-profile-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AGENT_AUTHORITY_STATE_ATTESTATION_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_CONTENT_HANDOFF_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_DRAFT_PENDING_INTENT_V1,
+        file: "schemas/agent-draft-private.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AGENT_MEMBERSHIP_CASCADE_V1,
         file: "schemas/agent-membership-cascade.schema.json",
     },
@@ -3086,16 +3102,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AGENT_PRODUCER_EVIDENCE_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AGENT_PROVISION_V1,
         file: "schemas/agent-provision.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
         file: "schemas/agent-requested-scope-disclosure.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SELECTOR_CLAIM_V1,
-        file: "schemas/agent-selector-claim.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIDECAR_V1,
@@ -3118,32 +3134,24 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-sidecar-view-state.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNING_KEY_BINDING_V1,
-        file: "schemas/agent-signing-key-binding.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::APPLET_V1,
         file: "schemas/applet.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_AUTHORITY_MATERIAL_V1,
+        file: "schemas/applet-authority-material.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
+        file: "schemas/applet-install-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_BOT_OPERATIONS_V1,
+        file: "schemas/applet-bot-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::APPLET_DEVICE_AUTHENTICATION_V1,
+        file: "schemas/applet-device-authentication.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_EDGE_OPERATIONS_V1,
@@ -3202,16 +3210,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-widget-declaration.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AUDIT_RELEASE_ATTESTATION_V1,
-        file: "schemas/audit-release-attestation.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AUDIT_RYW_RECEIPT_V1,
-        file: "schemas/audit-ryw-receipt.schema.json",
+        schema_id: SchemaId::APPROVAL_SIGNATURE_V1,
+        file: "schemas/approval-signature.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1,
         file: "schemas/authenticated-signer-resolution-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AUTHORITY_COMMIT_OPERATIONS_V1,
+        file: "schemas/authority-commit-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AUTHORITY_SET_POLICY_V1,
@@ -3220,10 +3228,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::AUTHZ_OPERATIONS_V1,
         file: "schemas/authz-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AVAILABILITY_RECEIPT_V1,
-        file: "schemas/availability-receipt.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::BACKUP_SERIES_ERASE_CONFIRMATION_V1,
@@ -3236,10 +3240,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::BLOB_OPERATIONS_V1,
         file: "schemas/blob-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::BOTTOM_V1,
-        file: "schemas/bottom.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CALENDAR_EVENT_V1,
@@ -3258,10 +3258,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/capability-grant.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CBA_PROOF_BUNDLE_V1,
-        file: "schemas/cba-proof-bundle.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_V1,
         file: "schemas/circle.schema.json",
     },
@@ -3270,8 +3266,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/circle-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::COLLISION_VARIANT_RECORD_V1,
-        file: "schemas/collision-variant-record.schema.json",
+        schema_id: SchemaId::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
+        file: "schemas/committed-event-subscribe-frame.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::COMMON_IDS_V1,
@@ -3298,32 +3294,32 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/content-block-poll.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CONTROL_PROPOSAL_DECISION_V1,
-        file: "schemas/control-proposal-decision.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
+        schema_id: SchemaId::CURRENT_PRINCIPAL_OUTCOME_V1,
+        file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
+        schema_id: SchemaId::CURRENT_PRINCIPAL_REQUEST_V1,
+        file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DETACHED_OBJECT_SIGNATURE_V1,
+        file: "schemas/detached-object-signature.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DEVICE_MESSAGE_V1,
@@ -3390,16 +3386,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/event-envelope.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::EVENT_BATCH_RECEIPT_V1,
-        file: "schemas/event-batch-receipt.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::EVENT_PAYLOAD_V1,
         file: "schemas/event-payload.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::EVENTS_SUBSCRIBE_FRAME_V1,
-        file: "schemas/events-subscribe-frame.schema.json",
+        schema_id: SchemaId::EXACT_CURRENT_RESULTS_READ_V1,
+        file: "schemas/exact-current-results-read.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::EXTENSION_MANIFEST_V1,
@@ -3430,10 +3422,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/high-risk-authority-proof.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::HISTORY_KEY_V1,
-        file: "schemas/history-key.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::HOLDER_QUARANTINE_V1,
         file: "schemas/holder-quarantine.schema.json",
     },
@@ -3446,20 +3434,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/ice-config-response.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::IDENTITY_LINK_V1,
-        file: "schemas/identity-link.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RECEIPT_V1,
         file: "schemas/identity-receipt.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RESOLUTION_V1,
         file: "schemas/identity-resolution.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::INCLUSION_LIST_V1,
-        file: "schemas/inclusion-list.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::INVITE_V1,
@@ -3506,8 +3486,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/keys-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
-        file: "schemas/list-handles-for-subject-response.schema.json",
+        schema_id: SchemaId::MANAGEMENT_REVIEW_OPERATIONS_V1,
+        file: "schemas/management-review-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MEDIA_METADATA_V1,
@@ -3518,12 +3498,40 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/media-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_OUTCOME_V1,
+        file: "schemas/media-service-binding-result.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_REQUEST_V1,
+        file: "schemas/media-service-binding-result.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::MEMBER_IDENTITY_V1,
         file: "schemas/member-identity.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MESSAGE_V1,
         file: "schemas/message.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MESSAGE_AUTHORING_CONTENT_V1,
+        file: "schemas/message-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MESSAGE_AUTHORING_INTENT_V1,
+        file: "schemas/message-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MESSAGE_ENCRYPTION_CONTEXT_V1,
+        file: "schemas/message-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MESSAGE_PREPARE_OUTCOME_V1,
+        file: "schemas/message-authoring.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MESSAGE_PREPARE_REQUEST_V1,
+        file: "schemas/message-authoring.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MIMI_INTEROP_V1,
@@ -3534,8 +3542,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/mimi-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
-        file: "schemas/mls-governance-proof-bundle.schema.json",
+        schema_id: SchemaId::MLS_COMMIT_SUBMISSION_V1,
+        file: "schemas/mls-commit-submission.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MLS_ROSTER_AUTHORITY_V1,
+        file: "schemas/mls-roster-authority.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MLS_WELCOME_DELIVERY_V1,
+        file: "schemas/mls-welcome-delivery.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_EVIDENCE_V1,
@@ -3564,10 +3580,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::OBJECT_ADDRESSING_V1,
         file: "schemas/object-addressing.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::OFFLINE_PUBLICATION_V1,
-        file: "schemas/offline-publication.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PATCH_V1,
@@ -3602,6 +3614,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/principal-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::PRINCIPAL_REGISTRATION_ANCHOR_V1,
+        file: "schemas/principal-registration-anchor.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,
         file: "schemas/public-key.schema.json",
     },
@@ -3634,12 +3650,56 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_AUTHORITY_BUNDLE_V1,
+        file: "schemas/realm-authority-bundle.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_AUTHORITY_HANDOFF_V1,
+        file: "schemas/realm-authority-handoff.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_COMMIT_V1,
+        file: "schemas/realm-commit.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::REALM_GENESIS_V1,
         file: "schemas/realm-genesis.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_CANDIDATE_V1,
         file: "schemas/realm-join-candidate.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PREPARE_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PREPARE_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_LINK_OPERATIONS_V1,
@@ -3662,8 +3722,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-state-snapshot.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_STATE_SNAPSHOT_CHUNK_V1,
-        file: "schemas/realm-state-snapshot-chunk.schema.json",
+        schema_id: SchemaId::REALM_STREAM_LIST_V1,
+        file: "schemas/realm-read-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
@@ -3682,6 +3742,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/recovery-session.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::RECOVERY_TERMINAL_COMMIT_V1,
+        file: "schemas/security-transaction.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::REGISTRATION_DID_EVIDENCE_V1,
         file: "schemas/registration-did-evidence.schema.json",
     },
@@ -3690,12 +3754,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/relation.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::RESOURCE_DISCOVERY_STATE_V1,
-        file: "schemas/event-payload.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::RESOURCE_SELECTOR_V1,
         file: "schemas/resource-selector.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::RESULT_PROJECTION_V1,
+        file: "schemas/typed-current-result.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RSVP_V1,
@@ -3704,14 +3768,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SDK_CONFORMANCE_CLAIM_V1,
         file: "schemas/sdk-conformance-claim.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SEAL_V1,
-        file: "schemas/seal.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SEAL_TRANSPARENCY_V1,
-        file: "schemas/seal-transparency.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SEARCH_SERVICE_V1,
@@ -3760,6 +3816,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SIGNAL_TYPING_V1,
         file: "schemas/signal-typing.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SIGNER_KEY_QUERY_OUTCOME_V1,
+        file: "schemas/signer-key-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SIGNER_KEY_QUERY_REQUEST_V1,
+        file: "schemas/signer-key-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SPACE_V1,
@@ -3871,10 +3935,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         plaintext_schema: None,
         writer_authorities: &["holder_event"],
         holder_self_operations: &["put", "delete"],
-        write_event_kinds: &[
-            event_kind_str::ACCOUNT_DATA_SET,
-            event_kind_str::ACCOUNT_BLOCKLIST,
-        ],
+        write_event_kinds: &[event_kind_str::ACCOUNT_DATA_SET],
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
@@ -3898,7 +3959,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.draft.v1:<agent_id>:<draft_id>",
+        key_pattern: "ak.agent.draft.v1:<agent_id_sha256_b64u43>:<draft_id_sha256_b64u43>",
         scope: "controller_private_state",
         storage: "encrypted_account_data",
         plaintext_schema: None,
@@ -4128,6 +4189,22 @@ pub fn capability_actions_for_event_kind(
     REGISTERED_CAPABILITY_ACTIONS
         .iter()
         .filter(move |row| row.target_event_kinds.contains(&event_kind))
+}
+
+pub fn approval_evidence_carrier(
+    value: &str,
+) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    APPROVAL_EVIDENCE_CARRIERS
+        .iter()
+        .find(|row| row.carrier_id == value)
+}
+
+pub fn approval_evidence_carrier_for_action(
+    action: CapabilityActionId,
+) -> Option<&'static ApprovalEvidenceCarrierDescriptor> {
+    capability_action_descriptor(action)
+        .approval_evidence_carrier_id
+        .and_then(approval_evidence_carrier)
 }
 
 pub fn account_data_pattern(value: &str) -> Option<&'static AccountDataPatternDescriptor> {

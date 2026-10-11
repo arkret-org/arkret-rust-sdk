@@ -3,39 +3,15 @@
 //! Human issuance is account-handoff + accepted-device proof only. Agent
 //! issuance remains an explicitly scoped runtime-key-signed branch.
 
-use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
-use arkret_models_collaboration::session_grant_bodies::{
+use arkret_models_collaboration::agent_scope::AgentRequestedScopeDisclosure;
+use arkret_models_collaboration::session_grants::{
     AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof,
     HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, SessionGrantAgentScopeRequest,
     SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
     UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
 };
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RequestId};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AgentKeyProofSigningInput {
-    pub audience_id: DidCoreId,
-    pub challenge: String,
-    pub nonce: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub request_canonical_digest: Hash,
-    pub verification_method: DidUrl,
-}
-
-impl AgentKeyProofSigningInput {
-    pub fn canonical_bytes(&self) -> crate::Result<Vec<u8>> {
-        arkret_canonical::canonical::canonical_json_bytes(self).map_err(Into::into)
-    }
-
-    pub fn canonical_digest(&self) -> crate::Result<Hash> {
-        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
-            self.canonical_bytes()?,
-        ))?)
-    }
-}
 
 pub fn human_session_grant_request(
     request_id: RequestId,
@@ -74,34 +50,31 @@ pub fn human_session_grant_refresh_request(
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_proof_session_grant_request(
     principal_id: DidCoreId,
-    device_id: DeviceId,
     requested_scope: Vec<String>,
-    agent_key_authorization_ref: impl Into<String>,
+    agent_key_authorization_ref: EventId,
     agent_scope_request: SessionGrantAgentScopeRequest,
     requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: DidUrl,
     challenge: impl Into<String>,
-    nonce: impl Into<String>,
     audience_id: DidCoreId,
+    issued_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
     let request = UnsignedAgentSessionGrantRequest::new(
         principal_id,
-        device_id,
         requested_scope,
-        agent_key_authorization_ref.into(),
+        agent_key_authorization_ref,
         agent_scope_request,
         requested_scope_disclosure,
         dpop_binding_proof,
-        None,
         UnsignedAgentSessionGrantProof {
             challenge: challenge.into(),
             audience_id,
+            issued_at,
             expires_at,
             verification_method,
-            nonce: nonce.into(),
         },
     )?;
     let signature = NonEmptyString::new(signature.into())
@@ -117,9 +90,8 @@ mod tests {
     fn empty_agent_scope_is_rejected() {
         let error = agent_key_proof_session_grant_request(
             DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
-            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             Vec::new(),
-            "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap(),
             SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
@@ -130,9 +102,9 @@ mod tests {
                 proof_jwt: "p".into(),
             },
             DidUrl::new("did:web:agent.example#runtime-key-1").unwrap(),
-            "challenge",
-            "nonce",
+            "AAECAwQFBgcICQoLDA0ODw",
             DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            "2026-08-08T12:00:00.000Z".parse().unwrap(),
             "2026-08-08T12:05:00.000Z".parse().unwrap(),
             "signature",
         )

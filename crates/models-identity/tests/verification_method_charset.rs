@@ -93,7 +93,7 @@ fn service_webvh_data_integrity_proof_rejects_invalid_did_url_fragments() {
 }
 
 /// A bare DID is never a verification method
-/// (`seal.schema.json#/$defs/signature`: "Bare DID is not valid for signatures").
+/// (producer proof contract: a bare DID is not a verification method).
 #[test]
 fn bare_did_is_rejected_by_every_migrated_field() {
     const BARE: &str = "did:web:alice.example";

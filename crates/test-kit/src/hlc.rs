@@ -6,8 +6,8 @@
 //! crossed repositories changed its HLC — and therefore every content-bound
 //! identifier derived from it — only for sequence numbers past nine.
 //!
-//! One template, one format. Hexadecimal wins because it is what the HLC
-//! grammar itself uses for the physical and node components.
+//! One template, one format. `encoding.md` section 7 requires a four-digit
+//! lowercase hexadecimal logical counter.
 
 use arkret_wire::Hlc;
 use chrono::{DateTime, Utc};
@@ -33,12 +33,9 @@ pub fn pinned_hlc(logical: u16) -> Hlc {
 
 /// An HLC whose physical component is a wall-clock instant.
 ///
-/// A test that submits to a live service cannot use [`pinned_hlc`]: a static
-/// physical component lands before the Realm bootstrap the service already
-/// accepted, and the submission is rejected as
-/// `created_at_before_causal_predecessor`. Such a test needs a real instant,
-/// which is why the clock is an input to the fixture builder rather than a
-/// constant inside it.
+/// The HLC is advisory and independent of `Event.created_at`. Callers that
+/// need a current authoring timestamp must inject a clock into their Event
+/// builder separately; choosing this HLC does not update that timestamp.
 ///
 /// # Panics
 ///
@@ -58,18 +55,47 @@ pub fn wall_hlc(at: DateTime<Utc>, logical: u16) -> Hlc {
 /// over an interior floor rather than a type so it drops straight into
 /// [`crate::signed_event::SignedEventFixtureBuilder::with_clock`].
 pub fn monotonic_floor_clock() -> impl Fn() -> DateTime<Utc> + Send + Sync + 'static {
-    let floor = std::sync::Mutex::new(DateTime::<Utc>::UNIX_EPOCH);
+    monotonic_floor_clock_from(Utc::now)
+}
+
+fn monotonic_floor_clock_from(
+    clock: impl Fn() -> DateTime<Utc> + Send + Sync + 'static,
+) -> impl Fn() -> DateTime<Utc> + Send + Sync + 'static {
+    let floor = std::sync::Mutex::new(None);
     move || {
         let mut floor = floor
             .lock()
-            .expect("the fixture clock floor is not poisoned");
-        let now = Utc::now();
-        let next = if now > *floor {
-            now
-        } else {
-            *floor + chrono::TimeDelta::milliseconds(1)
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let now = clock();
+        let next = match *floor {
+            Some(previous) if now <= previous => previous + chrono::TimeDelta::milliseconds(1),
+            _ => now,
         };
-        *floor = next;
+        *floor = Some(next);
         next
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn floor_advances_for_equal_and_backwards_clock_samples_then_catches_up() {
+        let start = "2026-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let samples = std::sync::Mutex::new(
+            [
+                start,
+                start,
+                start - chrono::TimeDelta::seconds(1),
+                start + chrono::TimeDelta::seconds(1),
+            ]
+            .into_iter(),
+        );
+        let clock = monotonic_floor_clock_from(move || samples.lock().unwrap().next().unwrap());
+        assert_eq!(clock(), start);
+        assert_eq!(clock(), start + chrono::TimeDelta::milliseconds(1));
+        assert_eq!(clock(), start + chrono::TimeDelta::milliseconds(2));
+        assert_eq!(clock(), start + chrono::TimeDelta::seconds(1));
     }
 }

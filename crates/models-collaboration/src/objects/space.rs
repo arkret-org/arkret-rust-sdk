@@ -2,14 +2,60 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-#[cfg(test)]
-use arkret_wire::DidCoreId;
+use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
     ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+/// Validate a resolved canonical structural target. Callers must establish
+/// readability and basis completeness before exposing a Realm mismatch.
+pub fn validate_space_target(
+    child_realm_id: &str,
+    target_realm_id: &str,
+    target_is_active: bool,
+) -> std::result::Result<(), &'static str> {
+    if child_realm_id != target_realm_id {
+        return Err("space_realm_mismatch");
+    }
+    if !target_is_active {
+        return Err("space_not_active");
+    }
+    Ok(())
+}
+
+/// Resolved structural facts, independent of presentation or Circle filters.
+pub struct SpaceStructureNode<'a> {
+    pub realm_id: &'a str,
+    pub parent_space_id: Option<&'a str>,
+    pub active: bool,
+}
+
+/// Validate the entire proposed ancestor chain, failing closed on missing facts.
+pub fn validate_space_parent_chain<'a>(
+    child_id: &str,
+    child_realm_id: &str,
+    parent_id: Option<&'a str>,
+    lookup: impl Fn(&str) -> Option<SpaceStructureNode<'a>>,
+) -> std::result::Result<(), &'static str> {
+    let mut next = parent_id;
+    let mut seen = BTreeSet::new();
+    while let Some(id) = next {
+        if id == child_id || !seen.insert(id) {
+            return Err("space_parent_cycle");
+        }
+        let node = lookup(id).ok_or("space_parent_unreadable")?;
+        validate_space_target(
+            child_realm_id,
+            node.realm_id,
+            next != parent_id || node.active,
+        )?;
+        next = node.parent_space_id;
+    }
+    Ok(())
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,33 +71,6 @@ pub struct Space {
     pub id: Option<SpaceId>,
     pub schema: String,
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_realm_id: Option<RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
-    // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
-    // (common-fields §3.2): the discriminator cluster `kind, rank, schema_refs`
-    // precedes `title, summary`.
-    pub kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub schema_refs: Vec<String>,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub state: Option<SpaceState>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub state_changed_at: Option<DateTime<Utc>>,
     /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
     /// (container). Authorization-transparent: never carries its own
     /// membership/policy/E2EE group; this field places the Space's metadata
@@ -62,6 +81,34 @@ pub struct Space {
     /// pick their scope.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_space_id: Option<SpaceId>,
+    // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
+    // (common-fields §3.2): the discriminator cluster `kind, rank, schema_refs`
+    // precedes `title, summary`.
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<SpaceState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub state_changed_at: Option<DateTime<Utc>>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -106,20 +153,20 @@ impl Space {
             id: Some(id),
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            default_realm_id: None,
+            scope_circle_id: None,
+            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
-            title: title.into(),
+            title: Some(title.into()),
             summary: None,
-            fields: BTreeMap::new(),
             labels: Vec::new(),
+            fields: BTreeMap::new(),
             avatar_blob_ref: None,
+            encrypted_metadata: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
-            scope_circle_id: None,
-            child_scope_policy: None,
             created_by,
             created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
             updated_by: None,
@@ -145,20 +192,20 @@ impl Space {
             id: None,
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            default_realm_id: None,
+            scope_circle_id: None,
+            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
-            title: title.into(),
+            title: Some(title.into()),
             summary: None,
-            fields: BTreeMap::new(),
             labels: Vec::new(),
+            fields: BTreeMap::new(),
             avatar_blob_ref: None,
+            encrypted_metadata: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
-            scope_circle_id: None,
-            child_scope_policy: None,
             created_by,
             created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
             updated_by: None,
@@ -172,9 +219,31 @@ impl Space {
                 "space kind must not be empty".to_owned(),
             ));
         }
-        if self.title.trim().is_empty() {
+        if self.encrypted_metadata.is_none()
+            && self
+                .title
+                .as_ref()
+                .is_none_or(|title| title.trim().is_empty())
+        {
             return Err(WireError::Protocol(
                 "space title must not be empty".to_owned(),
+            ));
+        }
+        if self.encrypted_metadata.is_some()
+            && (self.title.is_some()
+                || self.summary.is_some()
+                || !self.labels.is_empty()
+                || self.avatar_blob_ref.is_some()
+                || self.fields.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "wip_limit" | "wip_limit_enforcement" | "view_id"
+                    )
+                }))
+        {
+            return Err(WireError::Protocol(
+                "encrypted Space metadata cannot contain a plaintext user metadata mirror"
+                    .to_owned(),
             ));
         }
         if self.labels.len() > 64
@@ -217,36 +286,53 @@ impl Space {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
+/// Decrypted Space user metadata, distinct from public structural policy.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpaceMetadata {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+}
 
-    use super::*;
-
-    fn space(kind: &str) -> Space {
-        Space::new(
-            SpaceId::new("ak:space:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
-            RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
-            kind,
-            "Work",
-            ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-        )
+impl SpaceMetadata {
+    pub fn title(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            summary: None,
+            labels: Vec::new(),
+            fields: BTreeMap::new(),
+            avatar_blob_ref: None,
+        }
     }
 
-    #[test]
-    fn list_wip_policy_is_owned_by_space_fields() {
-        let mut list = space("list");
-        list.fields.insert("wip_limit".to_owned(), json!(5));
-        assert!(list.validate().is_err());
-        list.fields
-            .insert("wip_limit_enforcement".to_owned(), json!("reject"));
-        list.validate().unwrap();
-
-        let mut board = space("board");
-        board.fields.insert("wip_limit".to_owned(), json!(5));
-        board
-            .fields
-            .insert("wip_limit_enforcement".to_owned(), json!("warn"));
-        assert!(board.validate().is_err());
+    pub fn validate(&self) -> Result<()> {
+        if self.title.trim().is_empty()
+            || self.title.chars().count() > 256
+            || self
+                .summary
+                .as_ref()
+                .is_some_and(|value| value.chars().count() > 2048)
+            || self.labels.len() > 64
+            || self.labels.iter().any(|label| label.chars().count() > 128)
+            || self.labels.iter().collect::<BTreeSet<_>>().len() != self.labels.len()
+            || self.fields.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "rank" | "wip_limit" | "wip_limit_enforcement" | "view_id"
+                )
+            })
+        {
+            return Err(WireError::Protocol(
+                "Space user metadata violates its closed plaintext contract".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }

@@ -22,6 +22,14 @@ use arkret_wire::SERVICE_OPERATION_DESCRIPTORS;
 /// without either appearing here or failing [`sources_cover_the_crate`].
 const SOURCES: &[(&str, &str)] = &[
     (
+        "own_station_results.rs",
+        include_str!("../src/own_station_results.rs"),
+    ),
+    (
+        "station_connection.rs",
+        include_str!("../src/station_connection.rs"),
+    ),
+    (
         "account_subscribe.rs",
         include_str!("../src/account_subscribe.rs"),
     ),
@@ -56,16 +64,37 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/events.rs"),
     ),
     (
-        "endpoints/history_key.rs",
-        include_str!("../src/endpoints/history_key.rs"),
+        "endpoints/key_backup.rs",
+        include_str!("../src/endpoints/key_backup.rs"),
+    ),
+    ("endpoints/mls.rs", include_str!("../src/endpoints/mls.rs")),
+    (
+        "endpoints/security.rs",
+        include_str!("../src/endpoints/security.rs"),
+    ),
+    (
+        "key_backup_client.rs",
+        include_str!("../src/key_backup_client.rs"),
+    ),
+    (
+        "endpoints/authority.rs",
+        include_str!("../src/endpoints/authority.rs"),
     ),
     (
         "endpoints/identity.rs",
         include_str!("../src/endpoints/identity.rs"),
     ),
     (
+        "endpoints/invite.rs",
+        include_str!("../src/endpoints/invite.rs"),
+    ),
+    (
         "endpoints/media.rs",
         include_str!("../src/endpoints/media.rs"),
+    ),
+    (
+        "endpoints/message_authoring.rs",
+        include_str!("../src/endpoints/message_authoring.rs"),
     ),
     (
         "endpoints/mimi.rs",
@@ -84,8 +113,8 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/push.rs"),
     ),
     (
-        "endpoints/security.rs",
-        include_str!("../src/endpoints/security.rs"),
+        "endpoints/realm_join.rs",
+        include_str!("../src/endpoints/realm_join.rs"),
     ),
     (
         "endpoints/signal.rs",
@@ -96,12 +125,12 @@ const SOURCES: &[(&str, &str)] = &[
         "http_did_resolver.rs",
         include_str!("../src/http_did_resolver.rs"),
     ),
-    (
-        "key_backup_client.rs",
-        include_str!("../src/key_backup_client.rs"),
-    ),
     ("lib.rs", include_str!("../src/lib.rs")),
     ("request.rs", include_str!("../src/request.rs")),
+    (
+        "service_method_resolution.rs",
+        include_str!("../src/service_method_resolution.rs"),
+    ),
     (
         "service_resolution_fetcher.rs",
         include_str!("../src/service_resolution_fetcher.rs"),
@@ -111,6 +140,7 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/subscribe_body.rs"),
     ),
     ("tests.rs", include_str!("../src/tests.rs")),
+    ("tls_roots.rs", include_str!("../src/tls_roots.rs")),
 ];
 
 /// Literals that are deliberately not operation paths. Each entry states why,

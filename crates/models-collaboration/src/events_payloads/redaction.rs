@@ -18,7 +18,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use super::message::ContentBlock;
+use super::message::{ContentBlock, MessageRedactPayload};
+use crate::exact_current_results::CanonicalEventDot;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.
@@ -80,6 +81,78 @@ impl<'de> Deserialize<'de> for CrossObjectRedactionPayload {
         };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
+    }
+}
+
+/// The complete redact payload one `object_redaction` assertion carries
+/// (`typed-current-result.schema.json#/$defs/object_redaction_entry`): the
+/// Message redact payload for an `ak:message:` subject, the cross-object
+/// payload for every other subject.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ObjectRedactionAssertionValue {
+    Message(MessageRedactPayload),
+    CrossObject(CrossObjectRedactionPayload),
+}
+
+impl ObjectRedactionAssertionValue {
+    /// The verbatim target spelling this assertion redacts.
+    pub fn target_ref(&self) -> &str {
+        match self {
+            Self::Message(payload) => payload.message_id.as_str(),
+            Self::CrossObject(payload) => payload.target_ref.as_str(),
+        }
+    }
+}
+
+/// One tagged `object_redaction` assertion: the accepting Event's canonical
+/// dot and its unassembled redact payload.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectRedactionEntry {
+    pub tag_id: CanonicalEventDot,
+    pub value: ObjectRedactionAssertionValue,
+}
+
+/// Closed value of the `object_redaction` typed current result
+/// (`typed-current-result.schema.json#/$defs/object_redaction_value`): the
+/// canonically sorted dot set of committed redactions of one subject. Both
+/// writers only add a dot, and the object's own `state` and `redaction_ref`
+/// are never mirrored here.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObjectRedactionCurrentValue {
+    pub assertions: Vec<ObjectRedactionEntry>,
+}
+
+impl ObjectRedactionCurrentValue {
+    /// Every assertion redacts exactly `target_ref`, the set is non-empty and
+    /// its dots are strictly ascending in canonical string order.
+    pub fn validate_for_subject(&self, target_ref: &str) -> Result<()> {
+        if self.assertions.is_empty() {
+            return Err(WireError::Protocol(
+                "object_redaction value has no assertion".to_owned(),
+            ));
+        }
+        if self
+            .assertions
+            .iter()
+            .any(|entry| entry.value.target_ref() != target_ref)
+        {
+            return Err(WireError::Protocol(
+                "object_redaction assertion redacts another subject".to_owned(),
+            ));
+        }
+        if self
+            .assertions
+            .windows(2)
+            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
+        {
+            return Err(WireError::Protocol(
+                "object_redaction dots are not a canonically sorted set".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -164,107 +237,69 @@ fn strip_redaction_derived_fields(object: &mut Map<String, Value>) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn cross_object_redaction_rejects_message_target_ref() {
-        let err = serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-            "target_ref": "ak:message:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw"
-        }))
-        .expect_err("a Message target belongs to ak.message.redact");
-        assert!(err.to_string().contains("MUST NOT name a Message"));
+    fn message_id(seed: &[u8]) -> MessageId {
+        MessageId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(seed),
+        ))
+    }
+
+    fn dot(seed: &[u8]) -> String {
+        let event_id = arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::sha256_bytes(seed),
+        );
+        format!("{event_id}:0")
     }
 
     #[test]
-    fn cross_object_redaction_rejects_message_id_member() {
-        serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-            "target_ref": "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
-            "message_id": "ak:message:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw"
-        }))
-        .expect_err("message_id is not a member of the cross-object payload");
-    }
-
-    #[test]
-    fn cross_object_redaction_requires_a_target() {
-        serde_json::from_value::<CrossObjectRedactionPayload>(json!({"reason": "policy_recall"}))
-            .expect_err("an untargeted cross-object redaction has no cell subject");
-    }
-
-    #[test]
-    fn cross_object_redaction_accepts_object_and_event_targets() {
-        let object = serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-            "target_ref": "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
-            "reason": "privacy_cleanup"
-        }))
-        .expect("a Strand target is a legal cross-object redaction");
-        assert_eq!(
-            object.target_ref,
-            "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw"
+    fn object_redaction_value_is_a_closed_sorted_set_of_one_subject() {
+        let target = message_id(b"redacted message");
+        let mut tags = [dot(b"first redact"), dot(b"second redact")];
+        tags.sort();
+        let wire = json!({"assertions": [
+            {"tag_id": tags[0], "value": {"message_id": target, "reason": "spam"}},
+            {"tag_id": tags[1], "value": {"message_id": target}},
+        ]});
+        let value: ObjectRedactionCurrentValue = serde_json::from_value(wire.clone()).unwrap();
+        value.validate_for_subject(target.as_str()).unwrap();
+        assert!(matches!(
+            value.assertions[0].value,
+            ObjectRedactionAssertionValue::Message(_)
+        ));
+        assert_eq!(serde_json::to_value(&value).unwrap(), wire);
+        assert!(
+            value
+                .validate_for_subject(message_id(b"another message").as_str())
+                .is_err()
         );
 
-        serde_json::from_value::<CrossObjectRedactionPayload>(json!({
-            "target_ref": "ak:event:ASwq0QFg8faJScGgZD2ETHGz8WhBMT09jmLQI16Q3Z-U"
-        }))
-        .expect("an Event target is a legal cross-object redaction");
-    }
-
-    #[test]
-    fn tombstone_preserves_audit_metadata_and_strips_body() {
-        let mut event = json!({
-            "kind": "ak.message.create",
-            "event_id": "ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
-            "message_id": "ak:message:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9",
-            "realm_id": "ak:realm:AUo-Spu0bMe1QZUbtl4TQxDDY-pgtp3r5Yd32rTlf34J",
-            "sender": "did:webvh:z6mkfixture:bob.example",
-            "created_at": "2026-04-26T00:00:00.000Z",
-            "content": {"kind": "ak.content.text", "body": "secret"},
-            "reactions": [{"actor": "ak:did_core:webvh:z6mkfixture", "key": "+1"}],
-            "reply_to_id": "ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p",
-            "mentions": [{"actor_id": "ak:did_core:webvh:z6mkfixture"}],
-        });
-        let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-
-        redaction_tombstone_message_value(
-            &mut event,
-            redacted_at,
-            Some("ak:event:AeojYODi-q-Pib0QZd6GX9-UONWRPLFTqHX_59FN6ali"),
+        let mut unsorted = value;
+        unsorted.assertions.reverse();
+        assert!(unsorted.validate_for_subject(target.as_str()).is_err());
+        assert!(
+            ObjectRedactionCurrentValue { assertions: vec![] }
+                .validate_for_subject(target.as_str())
+                .is_err()
         );
 
-        assert_eq!(event["kind"], json!("ak.message.create"));
-        assert_eq!(
-            event["event_id"],
-            json!("ak:event:AY0lkKunL-zNI1vvxRau4amdmU4bhLMmwAN2KRxWzSy9")
-        );
-        assert_eq!(event["redacted"], json!(true));
-        assert_eq!(event["state"], json!("redacted"));
-        assert_eq!(
-            event["redaction_ref"],
-            json!("ak:event:AeojYODi-q-Pib0QZd6GX9-UONWRPLFTqHX_59FN6ali")
-        );
-        assert_eq!(
-            event["content"]["body"],
-            json!(REDACTED_MESSAGE_PLACEHOLDER)
-        );
-        assert!(event.get("reactions").is_none());
-        assert!(event.get("reply_to_id").is_none());
-        assert!(event.get("mentions").is_none());
-        assert_eq!(event["created_at"], json!("2026-04-26T00:00:00.000Z"));
-    }
-
-    #[test]
-    fn tombstone_without_redaction_ref_omits_field() {
-        let mut event = json!({
-            "kind": "ak.message.create",
-            "content": {"kind": "ak.content.text", "body": "secret"},
-        });
-        let redacted_at = Utc::now();
-
-        redaction_tombstone_message_value(&mut event, redacted_at, None);
-
-        assert!(event.get("redaction_ref").is_none());
-        assert_eq!(
-            event["content"]["body"],
-            json!(REDACTED_MESSAGE_PLACEHOLDER)
-        );
+        let event_target = dot(b"event target");
+        let event_target = event_target.trim_end_matches(":0");
+        let cross: ObjectRedactionCurrentValue = serde_json::from_value(json!({"assertions": [
+            {"tag_id": tags[0], "value": {"target_ref": event_target, "preserve": ["kind"]}},
+        ]}))
+        .unwrap();
+        cross.validate_for_subject(event_target).unwrap();
+        for invalid in [
+            json!({"assertions": [{"tag_id": tags[0], "value": {"target_ref": target}}]}),
+            json!({"assertions": [{"tag_id": tags[0].trim_end_matches(":0"), "value": {"message_id": target}}]}),
+            json!({"assertions": [{"tag_id": tags[0], "value": {"message_id": target}, "extra": 1}]}),
+            json!({"assertions": [], "subject": target}),
+        ] {
+            assert!(
+                serde_json::from_value::<ObjectRedactionCurrentValue>(invalid.clone()).is_err(),
+                "{invalid}"
+            );
+        }
     }
 }

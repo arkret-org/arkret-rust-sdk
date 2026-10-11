@@ -1,6 +1,6 @@
 use arkret_wire::{
-    BindingKind, ServiceKind, ServiceOperationId, feature_descriptor,
-    operation_binding_is_registered, operation_bundle_descriptor, role_describe_bundle_descriptor,
+    BindingKind, ServiceKind, ServiceOperationId, operation_binding_is_registered,
+    operation_bundle_descriptor, role_describe_bundle_descriptor,
 };
 
 #[test]
@@ -27,7 +27,7 @@ fn every_describable_role_has_its_exact_mandatory_bundle() {
 #[test]
 fn alternate_carrier_membership_is_typed() {
     assert!(operation_binding_is_registered(
-        ServiceOperationId::SelfEventsStreamSubscribeV1,
+        ServiceOperationId::SelfCommittedEventStreamSubscribeV1,
         BindingKind::Websocket,
     ));
     assert!(operation_binding_is_registered(
@@ -41,31 +41,13 @@ fn alternate_carrier_membership_is_typed() {
 }
 
 #[test]
-fn station_http_core_advertises_service_resolution() {
-    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1")
+fn station_http_core_current_advertises_service_resolution() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core_current.v1")
         .expect("Station HTTP core bundle must be registered");
 
     assert_eq!(bundle.service_kind, ServiceKind::Station);
     assert!(bundle.contains(
         ServiceOperationId::OpenServiceReadResolutionV1,
-        BindingKind::HttpJson,
-    ));
-}
-
-#[test]
-fn station_current_signer_evidence_bundle_closes_both_query_hops() {
-    let bundle =
-        operation_bundle_descriptor("ak.operation_bundle.station.current_signer_evidence.v1")
-            .expect("Station current-signer evidence bundle must be registered");
-
-    assert_eq!(bundle.service_kind, ServiceKind::Station);
-    assert_eq!(bundle.members.len(), 2);
-    assert!(bundle.contains(
-        ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
-        BindingKind::HttpJson,
-    ));
-    assert!(bundle.contains(
-        ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
         BindingKind::HttpJson,
     ));
 }
@@ -93,17 +75,33 @@ fn station_device_pairing_handoff_bundle_closes_all_three_open_operations() {
 }
 
 #[test]
-fn station_history_key_recovery_bundle_closes_feature_requirements() {
-    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.history_key_recovery.v1")
-        .expect("Station history-key recovery bundle must be registered");
-    let feature = feature_descriptor("ak.feature.history_key_recovery.v1")
-        .expect("history-key recovery feature must be registered");
-
-    assert_eq!(bundle.service_kind, ServiceKind::Station);
-    assert_eq!(bundle.members, feature.required_operation_pairs);
-    assert_eq!(bundle.members.len(), 11);
-    assert!(bundle.contains(
-        ServiceOperationId::SelfHistoryKeyRequestsReadListV1,
+fn current_station_bundles_have_exact_optional_members() {
+    assert!(operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1").is_none());
+    for (bundle_id, member) in [
+        (
+            "ak.operation_bundle.station.invite_delivery.v1",
+            ServiceOperationId::SelfInvitesCommandDispatchV1,
+        ),
+        (
+            "ak.operation_bundle.station.realm_authority_handoff.v1",
+            ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
+        ),
+    ] {
+        let bundle = operation_bundle_descriptor(bundle_id).unwrap();
+        assert_eq!(bundle.service_kind, ServiceKind::Station);
+        assert_eq!(bundle.members.len(), 1);
+        assert!(bundle.contains(member, BindingKind::HttpJson));
+    }
+    let pairing =
+        operation_bundle_descriptor("ak.operation_bundle.station.account_gate_pairing.v1").unwrap();
+    assert_eq!(pairing.service_kind, ServiceKind::Station);
+    assert_eq!(pairing.members.len(), 2);
+    assert!(pairing.contains(
+        ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
+        BindingKind::HttpJson,
+    ));
+    assert!(pairing.contains(
+        ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
         BindingKind::HttpJson,
     ));
 }

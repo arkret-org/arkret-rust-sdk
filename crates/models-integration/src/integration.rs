@@ -1,7 +1,7 @@
 //! Shared integration describe contract.
 //!
 //! This manifest shape is emitted by multiple services (for example floria,
-//! soland, and coauth) and consumed by SDKs/admin UIs to discover dependent
+//! coland, and coauth) and consumed by SDKs/admin UIs to discover dependent
 //! contracts and advertised REST surfaces. It is intentionally generic: service
 //! specific bridge payloads live in their own modules.
 
@@ -84,7 +84,7 @@ mod tests {
                 "stability": "active",
                 "todo": ""
             }],
-            "examples": {"compose_strand": {"step_1": {"service": "soland"}}}
+            "examples": {"compose_strand": {"step_1": {"service": "coland"}}}
         });
 
         let manifest: IntegrationDescribeOutcome =

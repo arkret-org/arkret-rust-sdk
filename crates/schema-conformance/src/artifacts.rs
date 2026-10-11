@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 
-use arkret_schema::Criticality;
 use arkret_schema::generated::{
     CapabilityRiskTier, REGISTERED_ID_KINDS, REGISTERED_SCHEMA_IDS,
     REGISTERED_SPECIAL_FORM_ID_KINDS,
@@ -58,10 +57,6 @@ pub struct ProfileRequirement {
     #[serde(default)]
     pub required_features: Vec<String>,
     #[serde(default)]
-    pub required_cell_namespaces: Vec<String>,
-    #[serde(default)]
-    pub required_cells: Vec<String>,
-    #[serde(default)]
     pub required_constraint_kinds: Vec<String>,
     #[serde(default)]
     pub non_event_grant_authority_rules: Vec<ParsedNonEventGrantAuthorityRule>,
@@ -88,26 +83,6 @@ pub struct ParsedNonEventGrantAuthorityRule {
     pub scope_binding: String,
     pub epoch_binding: String,
     pub requested_action_binding: String,
-}
-
-/// Component metadata for a single state event kind, as declared by the spec
-/// event-kind-registry.
-///
-/// Returned by [`SpecArtifactBundle::component`]. Multiple event kinds MAY
-/// share a `component_type` (e.g. `ak.capability.grant` and
-/// `ak.capability.revoke`) — the alias entry will set
-/// `component_slot_alias_of` to the canonical kind that owns the slot.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ComponentDescriptor {
-    pub event_kind: String,
-    pub component_type: String,
-    pub component_version: u64,
-    pub criticality: Criticality,
-    /// Canonical event kind whose cell this kind aliases, when set. Aliasing
-    /// kinds share the same `(component_type, component_version)` as the
-    /// canonical kind and resolve to the same cell.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub component_slot_alias_of: Option<String>,
 }
 
 /// Machine-readable descriptor for one capability action registry entry.
@@ -339,12 +314,6 @@ impl SpecArtifactBundle {
                 profile_id,
             )?,
             required_features: optional_string_array(entry, "required_features", profile_id)?,
-            required_cell_namespaces: optional_string_array(
-                entry,
-                "required_cell_namespaces",
-                profile_id,
-            )?,
-            required_cells: optional_string_array(entry, "required_cells", profile_id)?,
             required_constraint_kinds: profile_required_constraint_kinds(entry, profile_id)?,
             non_event_grant_authority_rules: optional_typed_array(
                 entry,
@@ -455,67 +424,6 @@ impl SpecArtifactBundle {
             );
         }
         issues
-    }
-
-    /// Look up the [`ComponentDescriptor`] for a state event kind.
-    ///
-    /// Returns `Ok(None)` when the kind is not registered, `Err` when the
-    /// registry entry does not identify one component slot or its cell family
-    /// lacks a `.vN` suffix.
-    pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
-        let Some(entry) = registry_entry(
-            &self.event_kind_registry,
-            "event_kinds",
-            "event_kind",
-            event_kind,
-        ) else {
-            return Ok(None);
-        };
-        // A single-write kind owns one component slot. Registry rows carry
-        // that identity in `cell_writes[0]`.
-        let (component_type, cell_subject) = component_cell_identity(entry).ok_or_else(|| {
-            SchemaError::Protocol(format!(
-                "event kind {event_kind} does not declare one unambiguous component slot"
-            ))
-        })?;
-        let component_type = component_type.to_owned();
-        let component_version = component_type
-            .rsplit_once(".v")
-            .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
-            .ok_or_else(|| {
-                SchemaError::Protocol(format!(
-                    "event kind {event_kind} cell_family missing .vN version suffix"
-                ))
-            })?;
-        let criticality = Criticality::Required;
-        // Alias owner is the first registry entry for the same component
-        // family. Genesis and mutation events intentionally resolve the same
-        // typed subject through different signed sources (for example,
-        // envelope.event_id vs payload.grant_id), so the source path is not
-        // part of the component-slot identity.
-        let component_slot_alias_of = cell_subject.and_then(|_| {
-            let canonical_owner = self.event_kind_registry["event_kinds"]
-                .as_array()
-                .and_then(|entries| {
-                    entries.iter().find_map(|other| {
-                        let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                        let (other_family, _) = component_cell_identity(other)?;
-                        (other_family == component_type).then(|| other_kind.to_owned())
-                    })
-                })?;
-            if canonical_owner == event_kind {
-                None
-            } else {
-                Some(canonical_owner)
-            }
-        });
-        Ok(Some(ComponentDescriptor {
-            event_kind: event_kind.to_owned(),
-            component_type,
-            component_version,
-            criticality,
-            component_slot_alias_of,
-        }))
     }
 
     /// Look up a capability action descriptor from the loaded spec artifact.
@@ -642,16 +550,12 @@ pub const SUPPORTED_SERVICE_OPERATIONS: &[&str] =
 /// Profile IDs that still appear as hand-written SDK constants or service
 /// requirement fixtures and are therefore hard-checked against the profile
 /// artifact.
-pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
-    ProfileId::DIRECTORY_SERVICE_V1,
-    ProfileId::ATTESTED_AUDIT_E2EE_V1,
-    ProfileId::DISCLOSED_AUDIT_E2EE_V1,
-];
+pub const SUPPORTED_PROFILE_IDS: &[&str] = &[ProfileId::DIRECTORY_SERVICE_V1];
 
 /// Typed `ak:<kind>:<uuid>` id kinds the SDK ships a Rust type for.
 ///
 /// This list is not free-form: `crates/schema/tests/id_kind_coverage.rs`
-/// pins it to the identifiers crate's UUID and Event-token declarations in both
+/// pins it to the identifiers crate's producer-allocated and Event-token declarations in both
 /// directions, so an entry here means a real newtype exists and a missing
 /// entry fails the build rather than silently narrowing spec coverage.
 /// `drift_report` then checks the same set against the live
@@ -659,13 +563,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
 pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "account_status_record",
     "actor_profile",
-    "announce",
     "applet",
-    "attestation",
-    "audit_binding",
-    "audit_release",
-    "audit_session",
-    "authorization_lease",
     "backup",
     "backup_series",
     "batch",
@@ -686,12 +584,15 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "grant",
     "invite",
     "invite_locator",
-    "key_event",
+    "keypackage_claim",
     "message",
     "message_stream",
+    "mls_welcome_delivery",
     "moderation_queue_item",
     "morph",
     "notification",
+    "notification_projection",
+    "operation",
     "policy",
     "presentation",
     "realm",
@@ -719,18 +620,25 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
 ///
 /// Like [`SUPPORTED_ID_KINDS`], this list is not free-form:
 /// `crates/schema/tests/id_kind_coverage.rs` pins it to
-/// [`arkret_identifiers::DECLARED_SPECIAL_FORM_ID_KINDS`] in both directions.
+/// the identifiers declarations and wire-owned signer/delegation reference types
+/// in both directions.
 /// Until that gate existed the list claimed four kinds with no type behind them
 /// — `mls` and `pseudonym` (both `profile_extension`, validated by the E2EE
 /// profile), `plan` and `service_registration_receipt` (both active, and now
 /// implemented by `PlanId` / `ServiceRegistrationReceiptId`).
 pub const SUPPORTED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
     "blob",
-    "cell",
     "cursor",
+    "did_core",
+    "membership_compensation_delegation",
+    "organization_registration_challenge",
+    "organization_registration_receipt",
     "plan",
-    "seal",
+    "realm_authority_handoff",
+    "realm_commit",
+    "realm_snapshot",
     "service_registration_receipt",
+    "signer_evidence",
     "trust_domain",
 ];
 
@@ -770,6 +678,8 @@ pub fn schema_registry_from_spec_artifacts(
         })?;
         let schema_path = artifacts_dir.join(file);
         let schema = read_json_artifact(&schema_path)?;
+        registry
+            .register_reference_document_from(schema.clone(), schema_path.display().to_string())?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
         } else {
@@ -799,6 +709,7 @@ pub fn schema_registry_from_configured_spec_artifacts() -> Result<ProtocolSchema
             SchemaError::Protocol(format!("schema artifact {schema_id} has no file"))
         })?;
         let schema = read_spec_json_artifact(file)?;
+        registry.register_reference_document_from(schema.clone(), file)?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
         } else {
@@ -807,7 +718,7 @@ pub fn schema_registry_from_configured_spec_artifacts() -> Result<ProtocolSchema
     }
     for (path, schema) in spec_artifacts()? {
         if path.starts_with("schemas/") && path.ends_with(".json") && schema.get("$id").is_some() {
-            registry.register_reference_document(schema.clone())?;
+            registry.register_reference_document_from(schema.clone(), path)?;
         }
     }
     Ok(registry)
@@ -836,7 +747,7 @@ fn register_schema_documents_from_dir(
         } else if path.extension().and_then(|extension| extension.to_str()) == Some("json") {
             let schema = read_json_artifact(&path)?;
             if schema.get("$id").is_some() {
-                registry.register_reference_document(schema)?;
+                registry.register_reference_document_from(schema, path.display().to_string())?;
             }
         }
     }
@@ -1234,23 +1145,260 @@ pub(super) fn registry_entry<'a>(
         .find(|entry| entry[key_field].as_str() == Some(expected_key))
 }
 
-fn component_cell_identity(entry: &Value) -> Option<(&str, Option<&Value>)> {
-    let writes = entry.get("cell_writes")?.as_array()?;
-    if writes.len() != 1 {
-        return None;
-    }
-    let write = &writes[0];
-    Some((
-        write.get("cell_family")?.as_str()?,
-        write.get("cell_subject"),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
+    use arkret_wire::{
+        CurrentSelector, ErrorCode, ErrorStatusContext, OperationSpecificError,
+        REASON_CODE_DESCRIPTORS, ServiceOperationId,
+    };
 
     use super::*;
+
+    #[test]
+    fn policy_selector_branches_match_the_formal_current_result_schema() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        registry
+            .register_fragment(
+                "test:policy_result",
+                schema.clone(),
+                "#/$defs/policy_result",
+            )
+            .unwrap();
+        registry
+            .register_fragment(
+                "test:policy_action_result",
+                schema,
+                "#/$defs/policy_action_result",
+            )
+            .unwrap();
+
+        let policy = serde_json::json!({
+            "kind": "policy",
+            "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001"
+        });
+        let policy_ref = serde_json::json!({
+            "kind": "policy_action",
+            "branch": "policy_ref",
+            "policy_id": policy["policy_id"],
+            "action": "ak.message.send"
+        });
+        let realm_action = serde_json::json!({
+            "kind": "policy_action",
+            "branch": "realm_action",
+            "action_id": "local_approval"
+        });
+        // Realm-level policy rows are committed on the owning Realm's stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:AeI0Z4D734iPt9RpF51PAg0CRjLSQmxPqv9NgUmBJiQi"
+        });
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
+            "stream_position": 2
+        });
+        let policy_value = serde_json::json!({
+            "id": policy["policy_id"],
+            "schema": "ak.schema.policy.v1",
+            "policy_kind": "access",
+            "rules": [{"rule_id":"allow_send","kind":"action","effect":"allow","actions":["ak.message.send"]}],
+            "default_effect": "deny",
+            "created_by": {"kind":"account","account_id": {
+                "principal_id":"ak:did_core:web:alice.example",
+                "station_id":"ak:did_core:web:station.example"
+            }},
+            "created_at":"2026-09-23T00:00:00.000Z"
+        });
+        let action_value = serde_json::json!({
+            "action":"ak.message.send",
+            "approval_required":true,
+            "approval_quorum":1,
+            "policy_scope":"did:web:example.com"
+        });
+        for (schema_id, selector, value) in [
+            ("test:policy_result", policy, policy_value),
+            (
+                "test:policy_action_result",
+                policy_ref,
+                action_value.clone(),
+            ),
+            (
+                "test:policy_action_result",
+                realm_action,
+                action_value.clone(),
+            ),
+        ] {
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let selector: CurrentSelector =
+                serde_json::from_value(wire["selector"].clone()).unwrap();
+            assert_eq!(serde_json::to_value(selector).unwrap(), wire["selector"]);
+        }
+        for invalid in [
+            serde_json::json!({"kind":"policy_action","branch":"policy_ref","policy_id":"ak:policy:01904100-0000-7000-8000-000000000001","action":"ak.message.send","action_id":"local_approval"}),
+            serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"local_approval","policy_id":"ak:policy:01904100-0000-7000-8000-000000000001"}),
+            serde_json::json!({"kind":"policy_action","branch":"realm_action","action_id":"ak:policy:typed"}),
+        ] {
+            let wire = serde_json::json!({"selector":invalid,"source_stream_ref":source_stream_ref,"revision":revision,"value":action_value});
+            assert!(
+                registry
+                    .validate_value("test:policy_action_result", &wire)
+                    .is_err()
+            );
+            assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn device_selectors_match_formal_complete_current_results() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        for (name, fragment) in [
+            (
+                "test:device_authorization_result",
+                "#/$defs/device_authorization_result",
+            ),
+            (
+                "test:device_generation_result",
+                "#/$defs/device_generation_result",
+            ),
+            (
+                "test:device_revocation_proposals_result",
+                "#/$defs/device_revocation_proposals_result",
+            ),
+        ] {
+            registry
+                .register_fragment(name, schema.clone(), fragment)
+                .unwrap();
+        }
+        let device = "ak:device:019a0000-0000-7000-8000-000000000001";
+        let fixture = read_spec_json_artifact("fixtures/pcr-genesis-fixture.json").unwrap();
+        let mut authorization = fixture["founding_authorize"]["payload"].clone();
+        authorization.as_object_mut().unwrap().remove("device_id");
+        authorization["device_authorize_event_id"] =
+            serde_json::json!("ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM");
+        // Device facts live in the principal control Realm, so every row's
+        // covering Commit is on that Realm's stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": fixture["identity_creation_control_transcript"]["signed_object"]["pcr_realm_id"]
+        });
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x44; 32]),
+            "stream_position": 2
+        });
+        let samples = [
+            (
+                "test:device_authorization_result",
+                serde_json::json!({"kind":"device_authorization","device_id":device}),
+                authorization,
+            ),
+            (
+                "test:device_generation_result",
+                serde_json::json!({"kind":"device_generation"}),
+                serde_json::json!({"current_device_generation_ref":1}),
+            ),
+            (
+                "test:device_revocation_proposals_result",
+                serde_json::json!({"kind":"device_revocation_proposals","device_id":device}),
+                serde_json::json!({"proposals":[]}),
+            ),
+        ];
+        for (schema_id, selector, value) in samples {
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
+            assert_eq!(serde_json::to_value(typed).unwrap(), selector);
+            let mut mirrored = wire.clone();
+            mirrored["selector"]["account_id"] = serde_json::json!({
+                "principal_id":"ak:did_core:web:alice.example",
+                "station_id":"ak:did_core:web:station.example"
+            });
+            assert!(registry.validate_value(schema_id, &mirrored).is_err());
+            assert!(
+                serde_json::from_value::<CurrentSelector>(mirrored["selector"].clone()).is_err()
+            );
+        }
+        let wrong_singleton = serde_json::json!({
+            "selector":{"kind":"device_generation","device_id":device},
+            "source_stream_ref":source_stream_ref,"revision":revision,
+            "value":{"current_device_generation_ref":1}
+        });
+        assert!(
+            registry
+                .validate_value("test:device_generation_result", &wrong_singleton)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CurrentSelector>(wrong_singleton["selector"].clone()).is_err()
+        );
+    }
+
+    #[test]
+    fn agent_selectors_match_formal_complete_current_results() {
+        let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+            return;
+        };
+        let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let schema = registry
+            .schema("ak.schema.result_projection.v1")
+            .unwrap()
+            .clone();
+        for (name, fragment) in [
+            ("test:agent_key_result", "#/$defs/agent_key_result"),
+            ("test:agent_status_result", "#/$defs/agent_status_result"),
+        ] {
+            registry
+                .register_fragment(name, schema.clone(), fragment)
+                .unwrap();
+        }
+        let agent_id = "ak:did_core:web:agent.example";
+        // Agent key and lifecycle projections are written by `ak.agent.provision`
+        // in the controller's principal control Realm, so they sit on its Realm stream.
+        let source_stream_ref = serde_json::json!({
+            "kind": "realm",
+            "realm_id": "ak:realm:ARn9Y97Ha81FH12YY8HLiDixId_wA5Wx2c25p82mJcJ5"
+        });
+        let revision = serde_json::json!({
+            "commit_id": arkret_wire::RealmCommitId::from_digest([0x55; 32]),
+            "stream_position": 2
+        });
+        for (schema_id, selector, value) in [
+            (
+                "test:agent_key_result",
+                serde_json::json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":"runtime_key-1"}),
+                serde_json::json!({"authorizations":[]}),
+            ),
+            (
+                "test:agent_status_result",
+                serde_json::json!({"kind":"agent_status","agent_id":agent_id}),
+                serde_json::json!("active"),
+            ),
+        ] {
+            let wire = serde_json::json!({"selector":selector,"source_stream_ref":source_stream_ref,"revision":revision,"value":value});
+            registry.validate_value(schema_id, &wire).unwrap();
+            let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
+            assert_eq!(serde_json::to_value(typed).unwrap(), selector);
+            let mut unknown = wire.clone();
+            unknown["selector"]["account_id"] = serde_json::json!(agent_id);
+            assert!(registry.validate_value(schema_id, &unknown).is_err());
+            assert!(
+                serde_json::from_value::<CurrentSelector>(unknown["selector"].clone()).is_err()
+            );
+        }
+    }
 
     #[test]
     fn active_registry_entries_missing_from_generated_coverage_fail_closed() {
@@ -1308,6 +1456,7 @@ mod tests {
                 .and_then(Value::as_array)
                 .unwrap_or_else(|| panic!("live error-code-registry missing {field}"))
                 .iter()
+                .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
                 .map(|entry| {
                     entry
                         .get("code")
@@ -1327,6 +1476,7 @@ mod tests {
             .and_then(Value::as_array)
             .unwrap_or_else(|| panic!("configured error-code-registry missing {field}"))
             .iter()
+            .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
             .map(|entry| {
                 entry
                     .get("code")
@@ -1356,6 +1506,9 @@ mod tests {
             .expect("configured error-code-registry missing codes");
         let mut contexts_seen = 0usize;
         for entry in entries {
+            if entry.get("status").and_then(Value::as_str) != Some("active") {
+                continue;
+            }
             let wire = entry
                 .get("code")
                 .and_then(Value::as_str)
@@ -1446,29 +1599,38 @@ mod tests {
     }
 
     #[test]
-    fn component_descriptor_resolves_canonical_and_alias_kinds() {
-        let bundle = SpecArtifactBundle::load_configured().unwrap();
-        let canonical = bundle
-            .component("ak.capability.grant")
-            .unwrap()
-            .expect("ak.capability.grant should be registered");
-        assert_eq!(canonical.criticality, Criticality::Required);
-        assert!(canonical.component_type.starts_with("ak.component."));
-        assert!(canonical.component_version >= 1);
-        assert!(canonical.component_slot_alias_of.is_none());
-
-        let alias = bundle
-            .component("ak.capability.revoke")
-            .unwrap()
-            .expect("ak.capability.revoke should be registered");
-        assert_eq!(
-            alias.component_slot_alias_of.as_deref(),
-            Some("ak.capability.grant"),
-            "ak.capability.revoke should slot-alias ak.capability.grant"
-        );
-        assert_eq!(alias.component_type, canonical.component_type);
-        assert_eq!(alias.component_version, canonical.component_version);
-        assert!(bundle.component("ak.bogus.kind").unwrap().is_none());
+    fn generated_operation_errors_match_configured_mapping() {
+        let mapping = read_spec_json_artifact("registry/operations-error-mapping.json")
+            .expect("configured operations-error-mapping must load");
+        let entries = mapping
+            .get("operations")
+            .and_then(Value::as_array)
+            .expect("configured operations-error-mapping missing operations");
+        assert_eq!(entries.len(), ServiceOperationId::ALL.len());
+        for entry in entries {
+            let wire = entry
+                .get("operation_id")
+                .and_then(Value::as_str)
+                .expect("mapping entry missing operation_id");
+            let operation = ServiceOperationId::from_wire(wire)
+                .unwrap_or_else(|| panic!("mapping contains unknown operation {wire}"));
+            let expected: Vec<&str> = entry
+                .get("operation_specific")
+                .and_then(Value::as_array)
+                .expect("mapping entry missing operation_specific")
+                .iter()
+                .map(|value| value.as_str().expect("mapping error is not a string"))
+                .collect();
+            let generated: Vec<&str> = operation
+                .operation_specific_errors()
+                .iter()
+                .map(|error| match error {
+                    OperationSpecificError::Code(code) => code.as_str(),
+                    OperationSpecificError::Reason(reason) => reason.as_str(),
+                })
+                .collect();
+            assert_eq!(generated, expected, "operation error mapping drift: {wire}");
+        }
     }
 
     #[test]

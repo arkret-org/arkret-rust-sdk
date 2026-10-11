@@ -1,7 +1,7 @@
 //! Canonical proof builders, Event proof verification, and signing primitives.
 //!
 //! Single canonical JSON + detached JWS pipeline for signing Event
-//! Envelopes, shared by `coauth`, `soland`, and `inkson`:
+//! Envelopes, shared by `coauth`, `coland`, and `inkson`:
 //! canonical-bytes computation, the `EventSigner` /
 //! `EventVerifier` traits, the `PublicKeyMaterial` carrier, and a
 //! generic `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier` primitives.
@@ -49,7 +49,7 @@ pub enum PublicKeyMaterial {
         #[serde(with = "key_bytes")]
         bytes: Vec<u8>,
     },
-    /// `z<base58-btc>` multibase-encoded Ed25519 verifying key.
+    /// `z<base58-btc(0xed 0x01 || key)>` Ed25519 multikey.
     Ed25519Multibase { value: String },
     /// JSON Web Key (`OKP` + `crv=Ed25519`). Accepted for resolver
     /// interop; consumed by parsing the embedded `x` parameter.
@@ -61,7 +61,9 @@ impl PublicKeyMaterial {
     pub fn ed25519_bytes(&self) -> Result<[u8; 32]> {
         let raw = match self {
             Self::Ed25519Raw { bytes } => bytes.clone(),
-            Self::Ed25519Multibase { value } => decode_multibase_btc58(value)?,
+            Self::Ed25519Multibase { value } => {
+                arkret_canonical::decode_ed25519_multibase(value)?.to_vec()
+            }
             Self::Jwk { value } => decode_jwk_ed25519(value)?,
         };
         if raw.len() != 32 {
@@ -83,24 +85,6 @@ impl PublicKeyMaterial {
     pub fn raw_ed25519_digest(&self) -> Result<Hash> {
         Hash::new(canonical::sha256_digest(self.ed25519_bytes()?)).map_err(Into::into)
     }
-}
-
-/// Decode a `did:key` Ed25519 multibase string into raw key bytes.
-///
-/// Tolerates either the standard 2-byte multicodec prefix (`0xed 0x01`) or a
-/// bare 32-byte payload. The base58btc primitive comes from
-/// [`arkret_canonical::multibase`] — the single base58 home shared with `sdk`.
-fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
-    let decoded = canonical_decode_multibase(value)?;
-    if decoded.len() == 34 && decoded[0] == 0xed && decoded[1] == 0x01 {
-        Ok(decoded[2..].to_vec())
-    } else {
-        Ok(decoded)
-    }
-}
-
-fn canonical_decode_multibase(value: &str) -> Result<Vec<u8>> {
-    Ok(arkret_canonical::decode_multibase_base58btc(value)?)
 }
 
 mod key_bytes {
@@ -249,7 +233,7 @@ pub fn verify_ed25519_raw_transcript_signature(
 ///
 /// This checks the signature and the envelope's self-consistency only. The
 /// caller still owes the admission checks that need accepted state: that
-/// `verification_method` resolves, at `seal_ref`, to the active device signing
+/// `verification_method` resolves, at `authority_commit_id`, to the active device signing
 /// method authorized for `sender_device_id` under `sender_actor_id`; that the
 /// device may send into this scope; and, for `moderation`, the corresponding
 /// moderation action. `signal.md` §3 requires all four. In particular, no
@@ -479,7 +463,7 @@ impl From<VerifierError> for Error {
 /// Builds Event Envelope canonical to-be-signed bytes from any payload.
 ///
 /// `EventProofBuilder` is the single entry point that downstream
-/// services (`coauth`, `soland`, `inkson`) call to derive the bytes
+/// services (`coauth`, `coland`, `inkson`) call to derive the bytes
 /// the signer puts under the signature. It threads the canonical
 /// JSON encoder used everywhere else in the SDK so all services
 /// produce byte-identical signing input.
@@ -580,16 +564,18 @@ mod ed25519_jws {
     use arkret_canonical::base64url::{base64url_decode, base64url_encode};
     use arkret_canonical::canonical;
     use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
-    use serde::Deserialize;
 
     /// SDK-canonical detached-JWS protected header (`{"alg":"Ed25519"}`).
     ///
     /// This is the single header byte string shared by fixtures and services
-    /// for Move, Seal, and event-proof signatures. It intentionally omits
+    /// for canonical payload and Event-proof signatures. It intentionally omits
     /// `typ`; the default v1 proof profile does not declare one.
     pub(super) const PROTECTED_HEADER_ED25519: &str = r#"{"alg":"Ed25519"}"#;
 
-    use super::{EventSigner, EventVerifier, PublicKeyMaterial, SignerError, VerifierError};
+    use super::{
+        DetachedJwsProtectedHeader, EventSigner, EventVerifier, PublicKeyMaterial, SignerError,
+        VerifierError,
+    };
 
     /// Production Ed25519 [`EventSigner`] producing RFC 7797 detached
     /// JWS bytes (header.payload-stripped.signature).
@@ -665,22 +651,6 @@ mod ed25519_jws {
         }
     }
 
-    #[derive(Debug, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct JwsProtectedHeader {
-        alg: String,
-        #[serde(default)]
-        kid: Option<String>,
-        #[serde(default)]
-        typ: Option<String>,
-        /// RFC 7515 §4.1.11 `crit`. Arkret v1 understands no critical
-        /// extensions, so any present `crit` member MUST be rejected
-        /// (`deny_unknown_fields` already rejects unrecognized members; this
-        /// field makes the rejection explicit and self-documenting).
-        #[serde(default)]
-        crit: Option<serde_json::Value>,
-    }
-
     impl Ed25519DetachedJwsVerifier {
         pub fn new() -> Self {
             Self
@@ -706,6 +676,17 @@ mod ed25519_jws {
                 .map(|_| ())
         }
 
+        /// Parse the SDK-owned protected header and return its untrusted key id.
+        ///
+        /// This is the resolver seam for callers whose public key is selected by
+        /// RFC 7515 `kid`. The returned value is not authenticated until the
+        /// caller resolves that key and calls [`Self::verify_detached_jws`] or
+        /// [`Self::verify_detached_jws_with_metadata`] over the same JWS.
+        pub fn detached_jws_key_id(&self, jws: &str) -> Result<Option<String>, VerifierError> {
+            let (_, header, _) = parse_detached_jws(jws)?;
+            Ok(header.kid)
+        }
+
         /// Verify a generic detached JWS and return validated protected-header
         /// metadata needed by protocol callers, such as the signing key id.
         pub fn verify_detached_jws_with_metadata(
@@ -714,38 +695,7 @@ mod ed25519_jws {
             canonical_bytes: &[u8],
             public_key: &PublicKeyMaterial,
         ) -> Result<VerifiedDetachedJws, VerifierError> {
-            let parts: Vec<&str> = jws.split('.').collect();
-            if parts.len() != 3 || !parts[1].is_empty() {
-                return Err(VerifierError::Encoding(
-                    "detached JWS must be header..signature with empty payload segment".to_owned(),
-                ));
-            }
-            let header_bytes = base64url_decode(parts[0])
-                .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
-            let header: JwsProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
-                .map_err(|err| {
-                    VerifierError::Encoding(format!("invalid protected header: {err}"))
-                })?;
-            if header.alg != "Ed25519" {
-                return Err(VerifierError::Backend(format!(
-                    "Ed25519 verifier received non-Ed25519 protected alg '{}'",
-                    header.alg
-                )));
-            }
-            // RFC 7515 §4.1.11 — we recognise no critical extensions, so any
-            // `crit` member fails closed.
-            if header.crit.is_some() {
-                return Err(VerifierError::Encoding(
-                    "detached JWS declares unsupported `crit` extensions".to_owned(),
-                ));
-            }
-            if let Some(typ) = header.typ.as_deref() {
-                return Err(VerifierError::Encoding(format!(
-                    "unsupported detached JWS typ '{typ}'"
-                )));
-            }
-            let sig_bytes = base64url_decode(parts[2])
-                .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+            let (parts, header, sig_bytes) = parse_detached_jws(jws)?;
             let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
             self.verify_signing_input(&signing_input, &sig_bytes, public_key)?;
             Ok(VerifiedDetachedJws { key_id: header.kid })
@@ -782,6 +732,48 @@ mod ed25519_jws {
                 })?;
             Ok(())
         }
+    }
+
+    fn parse_detached_jws(
+        jws: &str,
+    ) -> Result<(Vec<&str>, DetachedJwsProtectedHeader, Vec<u8>), VerifierError> {
+        let parts: Vec<&str> = jws.split('.').collect();
+        if parts.len() != 3 || !parts[1].is_empty() {
+            return Err(VerifierError::Encoding(
+                "detached JWS must be header..signature with empty payload segment".to_owned(),
+            ));
+        }
+        let header_bytes = base64url_decode(parts[0])
+            .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
+        let header: DetachedJwsProtectedHeader =
+            canonical::from_canonical_json_slice(&header_bytes).map_err(|err| {
+                VerifierError::Encoding(format!("invalid protected header: {err}"))
+            })?;
+        if header.alg != "Ed25519" {
+            return Err(VerifierError::Backend(format!(
+                "Ed25519 verifier received non-Ed25519 protected alg '{}'",
+                header.alg
+            )));
+        }
+        if header.crit.is_some() {
+            return Err(VerifierError::Encoding(
+                "detached JWS declares unsupported `crit` extensions".to_owned(),
+            ));
+        }
+        if let Some(typ) = header.typ.as_deref() {
+            return Err(VerifierError::Encoding(format!(
+                "unsupported detached JWS typ '{typ}'"
+            )));
+        }
+        let signature = base64url_decode(parts[2])
+            .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+        if signature.len() != 64 {
+            return Err(VerifierError::Encoding(format!(
+                "Ed25519 signature must be 64 bytes, got {}",
+                signature.len()
+            )));
+        }
+        Ok((parts, header, signature))
     }
 
     impl EventVerifier for Ed25519DetachedJwsVerifier {
@@ -885,7 +877,6 @@ pub fn build_proof_envelope(
         kind: kind.into(),
         verification_method,
         event_digest: payload_digest,
-        signer_resolution_evidence_ref: None,
         created_at: Utc::now(),
         domain,
         audience,
@@ -934,6 +925,22 @@ mod tests {
                 .count(),
             3
         );
+
+        let verifier = Ed25519DetachedJwsVerifier::new();
+        let with_kid = ed25519_detached_jws_from_signature(
+            &[0_u8; 64],
+            Some("did:web:alice.example#device-1"),
+        )
+        .unwrap();
+        assert_eq!(
+            verifier.detached_jws_key_id(&with_kid).unwrap().as_deref(),
+            Some("did:web:alice.example#device-1")
+        );
+        assert!(
+            verifier
+                .detached_jws_key_id(&with_kid.replacen("..", ".YQ.", 1))
+                .is_err()
+        );
     }
 
     #[test]
@@ -972,6 +979,56 @@ mod tests {
         let key = PublicKeyMaterial::Jwk { value };
         let raw = key.ed25519_bytes().unwrap();
         assert_eq!(raw.len(), 32);
+    }
+
+    #[test]
+    fn did_key_multibase_requires_the_ed25519_multicodec_even_for_a_valid_signature() {
+        use ed25519_dalek::{Signer as _, SigningKey};
+
+        let fixture: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../../arkret-spec/spec/v1/artifacts/fixtures/did-webvh-witness-fixture.json",
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let witness = &fixture["cryptographic_vectors"][0]["public_fixture_keys"][0];
+        let multibase = witness["public_key_multibase"].as_str().unwrap();
+        let raw = arkret_canonical::decode_ed25519_multibase(multibase).unwrap();
+        assert_eq!(
+            PublicKeyMaterial::Ed25519Multibase {
+                value: multibase.to_owned(),
+            }
+            .ed25519_bytes()
+            .unwrap(),
+            raw,
+        );
+        assert_eq!(
+            format!("sha256:{}", arkret_canonical::sha256_hex(raw)),
+            witness["fingerprint"].as_str().unwrap(),
+        );
+
+        let signer = SigningKey::from_bytes(&[7u8; 32]);
+        let raw = signer.verifying_key().to_bytes();
+        let message = b"formal did:key multicodec boundary";
+        let signature = base64url_encode(signer.sign(message).to_bytes());
+        let valid = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&raw);
+        assert!(verify_detached_ed25519_signature(
+            &PublicKeyMaterial::Ed25519Multibase { value: valid },
+            message,
+            &signature,
+        ));
+
+        for invalid in [
+            arkret_canonical::encode_multibase_base58btc(raw),
+            arkret_canonical::encode_multibase_base58btc([vec![0xec, 0x01], raw.to_vec()].concat()),
+        ] {
+            let material = PublicKeyMaterial::Ed25519Multibase { value: invalid };
+            assert!(material.ed25519_bytes().is_err());
+            assert!(!verify_detached_ed25519_signature(
+                &material, message, &signature,
+            ));
+        }
     }
 
     #[cfg(feature = "signer")]

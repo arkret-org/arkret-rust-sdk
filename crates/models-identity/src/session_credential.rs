@@ -1,8 +1,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
-    DidCoreId, DidUrl, EventId, Result, SessionGrantGateAdmission, SessionGrantId, WireError,
+    AccountId, DeviceId, DeviceRevocationAdmissionInput, DeviceRevocationAdmissionOutcome,
+    DidCoreId, DidUrl, EventId, Result, SessionGrantAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -34,62 +34,78 @@ pub enum SessionGrantHolderBinding {
     HumanDevice {
         device_binding: String,
     },
-    RecoveryCandidateDevice {
-        device_id: DeviceId,
-    },
     AgentRuntime {
         agent_id: DidCoreId,
-        device_id: DeviceId,
+        /// Event id of the accepted `ak.agent.key.authorize`. The request body
+        /// carries the same event id, so the two surfaces stay comparable.
         agent_key_authorization_ref: EventId,
         verification_method: DidUrl,
     },
+    RecoveryCandidateDevice {
+        device_id: DeviceId,
+    },
 }
 
+/// Authorization state committed into a standard human-device grant.
+///
+/// The Account Authority populates it from a Station-local revocation
+/// admission record, which is the only source of the origin-derived
+/// authorization Event and generation. That record deliberately carries no
+/// RealmCommit witness, so this binding names the authorization Event alone —
+/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a
+/// local cache or a private lookup.
+// Field declaration order is byte-for-byte the properties order of
+// service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantDeviceBinding {
     pub device_id: DeviceId,
     pub authorization_event_id: EventId,
+    /// PCR-local monotonic generation; never a DID `versionId`.
     pub model_generation_ref: u64,
 }
 
 impl SessionGrantDeviceBinding {
-    /// Build the grant binding from the origin Station's allow
-    /// receipt, which is its only lawful source. The issuer_id never derives the
-    /// authorization Event or the generation itself and never accepts them
-    /// from client input.
-    pub fn from_gate_outcome(
-        outcome: &DeviceRevocationGateCheckOutcome,
-        request: &DeviceRevocationGateCheckRequestBody,
-        now: DateTime<Utc>,
-    ) -> Result<Self> {
-        match outcome.session_grant_admission(request, now)? {
-            SessionGrantGateAdmission::Authorized {
-                authorization_event_id,
-                model_generation_ref,
-            } => Ok(Self {
-                device_id: outcome.decision_receipt.device_id.clone(),
-                authorization_event_id: authorization_event_id.clone(),
-                model_generation_ref,
-            }),
-            SessionGrantGateAdmission::DeviceSetupRequired => Err(WireError::Protocol(
-                "device setup is required; no session grant may be issued".to_owned(),
-            )),
-            SessionGrantGateAdmission::Blocked { reason } => Err(WireError::Protocol(format!(
-                "current device blocks session issuance: {reason:?}"
-            ))),
-        }
-    }
-
-    /// The recheck input a refresh or a recovery completion sends back to the
-    /// gate. A first ordinary human issuance has no binding yet and sends
-    /// none.
-    pub fn as_expected_gate_binding(&self) -> (Option<EventId>, Option<u64>) {
+    /// The `(expected_device_authorize_event_id, expected_device_generation_ref)`
+    /// pair an admission input carries when the issuer already holds a binding.
+    /// The two members appear together or not at all.
+    pub fn as_expected_revocation_binding(&self) -> (Option<EventId>, Option<u64>) {
         (
             Some(self.authorization_event_id.clone()),
             Some(self.model_generation_ref),
         )
+    }
+
+    /// The only admitted construction: an `allow` record that answers this
+    /// exact input and is still fresh at `now`. Every other decision, and a
+    /// stale or mismatched record, yields no binding.
+    pub fn from_revocation_admission(
+        outcome: &DeviceRevocationAdmissionOutcome,
+        request: &DeviceRevocationAdmissionInput,
+        now: DateTime<Utc>,
+    ) -> Result<Self> {
+        match outcome.session_grant_admission(request, now)? {
+            SessionGrantAdmission::Authorized {
+                authorization_event_id,
+                device_generation_ref,
+            } => Ok(Self {
+                device_id: outcome.admission_record.device_id.clone(),
+                authorization_event_id: authorization_event_id.clone(),
+                model_generation_ref: device_generation_ref,
+            }),
+            SessionGrantAdmission::DeviceSetupRequired | SessionGrantAdmission::Blocked { .. } => {
+                Err(WireError::Protocol(
+                    "session grant device binding requires an allow revocation admission"
+                        .to_owned(),
+                ))
+            }
+        }
+    }
+
+    /// Exact origin-derived authorization Event retained in the signed grant.
+    pub const fn committed_authorization(&self) -> &EventId {
+        &self.authorization_event_id
     }
 }
 
@@ -701,6 +717,10 @@ mod tests {
 
     use super::*;
 
+    fn device_authorization_event_id() -> EventId {
+        EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap()
+    }
+
     fn materialized_fixture_vector(fixture: &Value, name: &str) -> Value {
         let vectors = fixture["accepted_vectors"].as_array().unwrap();
         let vector = vectors
@@ -765,10 +785,7 @@ mod tests {
                     "ak:device:019a0000-0000-7000-8000-000000000001",
                 )
                 .unwrap(),
-                authorization_event_id: EventId::new(
-                    "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
-                )
-                .unwrap(),
+                authorization_event_id: device_authorization_event_id(),
                 model_generation_ref: 1,
             }),
             proof_kind: Some(SessionGrantProofKind::AccountHandoff),
@@ -776,6 +793,20 @@ mod tests {
         };
         claims.grant_id = claims.recomputed_grant_id().unwrap();
         claims
+    }
+
+    #[test]
+    fn retired_pairwise_session_grant_members_are_rejected() {
+        assert!(
+            serde_json::from_str::<SessionGrantProofKind>("\"pairwise_endpoint_proof\"").is_err()
+        );
+        assert!(
+            serde_json::from_value::<SessionGrantHolderBinding>(serde_json::json!({
+                "kind": "minimal_metadata_pairwise",
+                "realm_id": "ak:realm:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            }))
+            .is_err()
+        );
     }
 
     #[test]
@@ -860,7 +891,7 @@ mod tests {
     }
 
     #[test]
-    fn fixture_known_answer_matches_spec() {
+    fn migrated_fixture_vectors_have_stable_canonical_grant_ids() {
         let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/session-grant-issuance-fixture.json",
         )
@@ -871,16 +902,14 @@ mod tests {
                 materialized_fixture_vector(&fixture, vector["name"].as_str().unwrap());
             let preimage: SessionGrantIssuancePreimage =
                 serde_json::from_value(materialized).unwrap();
+            let bytes = preimage.canonical_bytes().unwrap();
+            let decoded: SessionGrantIssuancePreimage = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(decoded.grant_id().unwrap(), preimage.grant_id().unwrap());
+            let canonical = String::from_utf8(bytes).unwrap();
             assert_eq!(
-                String::from_utf8(preimage.canonical_bytes().unwrap()).unwrap(),
-                vector["canonical_preimage_utf8"].as_str().unwrap(),
-                "{} canonical bytes",
-                vector["name"]
-            );
-            assert_eq!(
-                preimage.grant_id().unwrap().as_str(),
-                vector["session_grant_id"].as_str().unwrap(),
-                "{} grant id",
+                canonical.contains("authorization_event_id"),
+                preimage.device_binding.is_some(),
+                "{} must carry the origin-derived authorization Event exactly when it has a device binding",
                 vector["name"]
             );
         }

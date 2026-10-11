@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-07.1;
-//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Entries: schema_ids=205,
-//! active=205
+//! Input: registry/contract-registry.json; version=2026-10-11.2;
+//! sha256=d01a0c6e980572930e62d759eb1badac5872e5f67bb373483e7c322a5d91bc0e Entries: schema_ids=226,
+//! active=226
 
 use serde::{Deserialize, Serialize};
 
@@ -12,32 +12,39 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum SchemaId {
+    AccountBlocklistV1,
+    AccountCurrentResultV1,
     AccountDataEncryptedValueV1,
     AccountDataOperationsV1,
+    AccountDeviceSignerEvidenceV1,
     AccountOperationsV1,
     AccountStatusRecordV1,
     AccountSubscribeFrameV1,
     AccountabilityGrantV1,
     ActorProfileV1,
     ActorProfileOperationsV1,
+    AgentAuthorityStateAttestationV1,
+    AgentAuthorityStateEvidenceV1,
+    AgentDraftV1,
+    AgentDraftContentHandoffV1,
+    AgentDraftContentHandoffPlaintextV1,
+    AgentDraftPendingIntentV1,
     AgentMembershipCascadeV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
+    AgentProducerEvidenceV1,
     AgentProvisionV1,
     AgentRequestedScopeDisclosureV1,
-    AgentSelectorClaimV1,
     AgentSidecarV1,
     AgentSidecarEventExchangeBindingV1,
     AgentSidecarExchangeControlV1,
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
-    AgentSignerAdmissionReceiptV1,
-    AgentSignerEvidenceV1,
-    AgentSignerEvidenceBundleV1,
-    AgentSignerEvidenceQueryOutcomeV1,
-    AgentSignerEvidenceQueryRequestV1,
-    AgentSigningKeyBindingV1,
     AppletV1,
+    AppletAuthorityMaterialV1,
+    AppletBotAuthoringRequestBasisV1,
+    AppletBotOperationsV1,
+    AppletDeviceAuthenticationV1,
     AppletEdgeOperationsV1,
     AppletGhostAuthoringRequestBasisV1,
     AppletGhostOperationsV1,
@@ -52,37 +59,34 @@ pub enum SchemaId {
     AppletRegistrationEpochEvidenceV1,
     AppletRegistrationEpochTranscriptV1,
     AppletWidgetDeclarationV1,
-    AuditReleaseAttestationV1,
-    AuditRywReceiptV1,
+    ApprovalSignatureV1,
     AuthenticatedSignerResolutionEvidenceV1,
+    AuthorityCommitOperationsV1,
     AuthoritySetPolicyV1,
     AuthzOperationsV1,
-    AvailabilityReceiptV1,
     BackupSeriesEraseConfirmationV1,
     BlobV1,
     BlobOperationsV1,
-    BottomV1,
     CalendarEventV1,
     CallRecordingArtifactV1,
     CallSignalPlaintextV1,
     CapabilityV1,
-    CbaProofBundleV1,
     CircleV1,
     CircleOperationsV1,
-    CollisionVariantRecordV1,
+    CommittedEventSubscribeFrameV1,
     CommonIdsV1,
     ConsentOperationsV1,
     ContactOperationsV1,
     ContactRemarkV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
-    ControlProposalDecisionV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
-    ControllerAccountGateAttestationIssueRequestV1,
-    CurrentSignerEvidenceQueryOutcomeV1,
-    CurrentSignerEvidenceQueryRequestV1,
+    ControllerAccountGateAttestationIssueRequestBodyV1,
+    CurrentPrincipalOutcomeV1,
+    CurrentPrincipalRequestV1,
     CursorV1,
+    DetachedObjectSignatureV1,
     DeviceMessageV1,
     DevicePairingBootstrapV1,
     DevicePairingOperationsV1,
@@ -99,9 +103,8 @@ pub enum SchemaId {
     ErasureReceiptOperationsV1,
     ErasureVerificationStubV1,
     EventV1,
-    EventBatchReceiptV1,
     EventPayloadV1,
-    EventsSubscribeFrameV1,
+    ExactCurrentResultsReadV1,
     ExtensionManifestV1,
     FileTransferV1,
     GrantConstraintV1,
@@ -109,14 +112,11 @@ pub enum SchemaId {
     HandleClaimCoreV1,
     HandleClaimRevocationV1,
     HighRiskAuthorityProofV1,
-    HistoryKeyV1,
     HolderQuarantineV1,
     HttpProblemDetailsV1,
     IceConfigResponseV1,
-    IdentityLinkV1,
     IdentityReceiptV1,
     IdentityResolutionV1,
-    InclusionListV1,
     InviteV1,
     InviteDeliveryV1,
     InviteDeliveryRequestV1,
@@ -128,14 +128,23 @@ pub enum SchemaId {
     KeyTransparencyV1,
     KeypackageOperationsV1,
     KeysOperationsV1,
-    ListHandlesForSubjectResponseV1,
+    ManagementReviewOperationsV1,
     MediaMetadataV1,
     MediaOperationsV1,
+    MediaServiceBindingOutcomeV1,
+    MediaServiceBindingRequestV1,
     MemberIdentityV1,
     MessageV1,
+    MessageAuthoringContentV1,
+    MessageAuthoringIntentV1,
+    MessageEncryptionContextV1,
+    MessagePrepareOutcomeV1,
+    MessagePrepareRequestV1,
     MimiInteropV1,
     MimiOperationsV1,
-    MlsGovernanceProofBundleV1,
+    MlsCommitSubmissionV1,
+    MlsRosterAuthorityV1,
+    MlsWelcomeDeliveryV1,
     ModerationEvidenceV1,
     ModerationQueueItemV1,
     ModerationReportV1,
@@ -143,7 +152,6 @@ pub enum SchemaId {
     MorphV1,
     NotificationV1,
     ObjectAddressingV1,
-    OfflinePublicationV1,
     PatchV1,
     PersonalProductivityV1,
     PinV1,
@@ -152,6 +160,7 @@ pub enum SchemaId {
     PresenceVisibilityV1,
     PrincipalLocatorV1,
     PrincipalOperationsV1,
+    PrincipalRegistrationAnchorV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -160,26 +169,36 @@ pub enum SchemaId {
     ReadCursorUpdateV1,
     ReadReceiptV1,
     RealmV1,
+    RealmAuthorityBundleV1,
+    RealmAuthorityHandoffV1,
+    RealmCommitV1,
     RealmGenesisV1,
+    RealmJoinBootstrapOutcomeV1,
+    RealmJoinBootstrapRequestV1,
     RealmJoinCandidateV1,
+    RealmJoinPeerPreviewOutcomeV1,
+    RealmJoinPeerPreviewRequestV1,
+    RealmJoinPrepareOutcomeV1,
+    RealmJoinPrepareRequestV1,
+    RealmJoinSelfPreviewOutcomeV1,
+    RealmJoinSelfPreviewRequestV1,
     RealmLinkOperationsV1,
     RealmOrganizationOperationsV1,
     RealmProfileV1,
     RealmReadOperationsV1,
     RealmStateSnapshotV1,
-    RealmStateSnapshotChunkV1,
+    RealmStreamListV1,
     RecoveryCompletionAttestationV1,
     RecoveryPolicyV1,
     RecoveryReceiptV1,
     RecoverySessionV1,
+    RecoveryTerminalCommitV1,
     RegistrationDidEvidenceV1,
     RelationV1,
-    ResourceDiscoveryStateV1,
     ResourceSelectorV1,
+    ResultProjectionV1,
     RsvpV1,
     SdkConformanceClaimV1,
-    SealV1,
-    SealTransparencyV1,
     SearchServiceV1,
     SecurityRotationLocalCommitV1,
     SecurityTransactionV1,
@@ -192,6 +211,8 @@ pub enum SchemaId {
     SignalRelayV1,
     SignalStreamFrameV1,
     SignalTypingV1,
+    SignerKeyQueryOutcomeV1,
+    SignerKeyQueryRequestV1,
     SpaceV1,
     StrandV1,
     StringProfilesV1,
@@ -221,32 +242,39 @@ pub enum SchemaId {
 
 impl SchemaId {
     pub const ALL: &'static [Self] = &[
+        Self::AccountBlocklistV1,
+        Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
+        Self::AccountDeviceSignerEvidenceV1,
         Self::AccountOperationsV1,
         Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentAuthorityStateAttestationV1,
+        Self::AgentAuthorityStateEvidenceV1,
+        Self::AgentDraftV1,
+        Self::AgentDraftContentHandoffV1,
+        Self::AgentDraftContentHandoffPlaintextV1,
+        Self::AgentDraftPendingIntentV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProducerEvidenceV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
-        Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
         Self::AgentSidecarEventExchangeBindingV1,
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AgentSignerAdmissionReceiptV1,
-        Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceBundleV1,
-        Self::AgentSignerEvidenceQueryOutcomeV1,
-        Self::AgentSignerEvidenceQueryRequestV1,
-        Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
+        Self::AppletAuthorityMaterialV1,
+        Self::AppletBotAuthoringRequestBasisV1,
+        Self::AppletBotOperationsV1,
+        Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -261,37 +289,34 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
-        Self::AuditReleaseAttestationV1,
-        Self::AuditRywReceiptV1,
+        Self::ApprovalSignatureV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
+        Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
         Self::AuthzOperationsV1,
-        Self::AvailabilityReceiptV1,
         Self::BackupSeriesEraseConfirmationV1,
         Self::BlobV1,
         Self::BlobOperationsV1,
-        Self::BottomV1,
         Self::CalendarEventV1,
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CbaProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
-        Self::CollisionVariantRecordV1,
+        Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
-        Self::ControlProposalDecisionV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
-        Self::ControllerAccountGateAttestationIssueRequestV1,
-        Self::CurrentSignerEvidenceQueryOutcomeV1,
-        Self::CurrentSignerEvidenceQueryRequestV1,
+        Self::ControllerAccountGateAttestationIssueRequestBodyV1,
+        Self::CurrentPrincipalOutcomeV1,
+        Self::CurrentPrincipalRequestV1,
         Self::CursorV1,
+        Self::DetachedObjectSignatureV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -308,9 +333,8 @@ impl SchemaId {
         Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
-        Self::EventBatchReceiptV1,
         Self::EventPayloadV1,
-        Self::EventsSubscribeFrameV1,
+        Self::ExactCurrentResultsReadV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -318,14 +342,11 @@ impl SchemaId {
         Self::HandleClaimCoreV1,
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
-        Self::HistoryKeyV1,
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
-        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
-        Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
@@ -337,14 +358,23 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
-        Self::ListHandlesForSubjectResponseV1,
+        Self::ManagementReviewOperationsV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MediaServiceBindingOutcomeV1,
+        Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
+        Self::MessageAuthoringContentV1,
+        Self::MessageAuthoringIntentV1,
+        Self::MessageEncryptionContextV1,
+        Self::MessagePrepareOutcomeV1,
+        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
-        Self::MlsGovernanceProofBundleV1,
+        Self::MlsCommitSubmissionV1,
+        Self::MlsRosterAuthorityV1,
+        Self::MlsWelcomeDeliveryV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -352,7 +382,6 @@ impl SchemaId {
         Self::MorphV1,
         Self::NotificationV1,
         Self::ObjectAddressingV1,
-        Self::OfflinePublicationV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
@@ -361,6 +390,7 @@ impl SchemaId {
         Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalRegistrationAnchorV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -369,26 +399,36 @@ impl SchemaId {
         Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmAuthorityBundleV1,
+        Self::RealmAuthorityHandoffV1,
+        Self::RealmCommitV1,
         Self::RealmGenesisV1,
+        Self::RealmJoinBootstrapOutcomeV1,
+        Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
+        Self::RealmJoinPeerPreviewOutcomeV1,
+        Self::RealmJoinPeerPreviewRequestV1,
+        Self::RealmJoinPrepareOutcomeV1,
+        Self::RealmJoinPrepareRequestV1,
+        Self::RealmJoinSelfPreviewOutcomeV1,
+        Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RealmStateSnapshotV1,
-        Self::RealmStateSnapshotChunkV1,
+        Self::RealmStreamListV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
-        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
+        Self::ResultProjectionV1,
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
-        Self::SealV1,
-        Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
@@ -401,6 +441,8 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
+        Self::SignerKeyQueryOutcomeV1,
+        Self::SignerKeyQueryRequestV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -430,32 +472,39 @@ impl SchemaId {
 
     /// Rows the registry declares `active`; excludes `candidate` rows.
     pub const ACTIVE: &'static [Self] = &[
+        Self::AccountBlocklistV1,
+        Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
+        Self::AccountDeviceSignerEvidenceV1,
         Self::AccountOperationsV1,
         Self::AccountStatusRecordV1,
         Self::AccountSubscribeFrameV1,
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentAuthorityStateAttestationV1,
+        Self::AgentAuthorityStateEvidenceV1,
+        Self::AgentDraftV1,
+        Self::AgentDraftContentHandoffV1,
+        Self::AgentDraftContentHandoffPlaintextV1,
+        Self::AgentDraftPendingIntentV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
+        Self::AgentProducerEvidenceV1,
         Self::AgentProvisionV1,
         Self::AgentRequestedScopeDisclosureV1,
-        Self::AgentSelectorClaimV1,
         Self::AgentSidecarV1,
         Self::AgentSidecarEventExchangeBindingV1,
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AgentSignerAdmissionReceiptV1,
-        Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceBundleV1,
-        Self::AgentSignerEvidenceQueryOutcomeV1,
-        Self::AgentSignerEvidenceQueryRequestV1,
-        Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
+        Self::AppletAuthorityMaterialV1,
+        Self::AppletBotAuthoringRequestBasisV1,
+        Self::AppletBotOperationsV1,
+        Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
         Self::AppletGhostOperationsV1,
@@ -470,37 +519,34 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
-        Self::AuditReleaseAttestationV1,
-        Self::AuditRywReceiptV1,
+        Self::ApprovalSignatureV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
+        Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
         Self::AuthzOperationsV1,
-        Self::AvailabilityReceiptV1,
         Self::BackupSeriesEraseConfirmationV1,
         Self::BlobV1,
         Self::BlobOperationsV1,
-        Self::BottomV1,
         Self::CalendarEventV1,
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CbaProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
-        Self::CollisionVariantRecordV1,
+        Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
-        Self::ControlProposalDecisionV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
-        Self::ControllerAccountGateAttestationIssueRequestV1,
-        Self::CurrentSignerEvidenceQueryOutcomeV1,
-        Self::CurrentSignerEvidenceQueryRequestV1,
+        Self::ControllerAccountGateAttestationIssueRequestBodyV1,
+        Self::CurrentPrincipalOutcomeV1,
+        Self::CurrentPrincipalRequestV1,
         Self::CursorV1,
+        Self::DetachedObjectSignatureV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
         Self::DevicePairingOperationsV1,
@@ -517,9 +563,8 @@ impl SchemaId {
         Self::ErasureReceiptOperationsV1,
         Self::ErasureVerificationStubV1,
         Self::EventV1,
-        Self::EventBatchReceiptV1,
         Self::EventPayloadV1,
-        Self::EventsSubscribeFrameV1,
+        Self::ExactCurrentResultsReadV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
         Self::GrantConstraintV1,
@@ -527,14 +572,11 @@ impl SchemaId {
         Self::HandleClaimCoreV1,
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
-        Self::HistoryKeyV1,
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
-        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
-        Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
@@ -546,14 +588,23 @@ impl SchemaId {
         Self::KeyTransparencyV1,
         Self::KeypackageOperationsV1,
         Self::KeysOperationsV1,
-        Self::ListHandlesForSubjectResponseV1,
+        Self::ManagementReviewOperationsV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MediaServiceBindingOutcomeV1,
+        Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
+        Self::MessageAuthoringContentV1,
+        Self::MessageAuthoringIntentV1,
+        Self::MessageEncryptionContextV1,
+        Self::MessagePrepareOutcomeV1,
+        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
-        Self::MlsGovernanceProofBundleV1,
+        Self::MlsCommitSubmissionV1,
+        Self::MlsRosterAuthorityV1,
+        Self::MlsWelcomeDeliveryV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -561,7 +612,6 @@ impl SchemaId {
         Self::MorphV1,
         Self::NotificationV1,
         Self::ObjectAddressingV1,
-        Self::OfflinePublicationV1,
         Self::PatchV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
@@ -570,6 +620,7 @@ impl SchemaId {
         Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalRegistrationAnchorV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -578,26 +629,36 @@ impl SchemaId {
         Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmAuthorityBundleV1,
+        Self::RealmAuthorityHandoffV1,
+        Self::RealmCommitV1,
         Self::RealmGenesisV1,
+        Self::RealmJoinBootstrapOutcomeV1,
+        Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
+        Self::RealmJoinPeerPreviewOutcomeV1,
+        Self::RealmJoinPeerPreviewRequestV1,
+        Self::RealmJoinPrepareOutcomeV1,
+        Self::RealmJoinPrepareRequestV1,
+        Self::RealmJoinSelfPreviewOutcomeV1,
+        Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
         Self::RealmStateSnapshotV1,
-        Self::RealmStateSnapshotChunkV1,
+        Self::RealmStreamListV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
-        Self::ResourceDiscoveryStateV1,
         Self::ResourceSelectorV1,
+        Self::ResultProjectionV1,
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
-        Self::SealV1,
-        Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
@@ -610,6 +671,8 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
+        Self::SignerKeyQueryOutcomeV1,
+        Self::SignerKeyQueryRequestV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -637,18 +700,32 @@ impl SchemaId {
         Self::WebsocketWelcomeFrameV1,
     ];
 
+    /// Closed decrypted plaintext shape of the holder-private ak.account.blocklist account-data
+    /// value.
+    pub const ACCOUNT_BLOCKLIST_V1: &'static str = "ak.schema.account_blocklist.v1";
+    /// Server-trusted typed current typed current result results, deterministic causal-register
+    /// sources, versioned removal and exact baseline coverage.
+    pub const ACCOUNT_CURRENT_RESULT_V1: &'static str = "ak.schema.account_current_result.v1";
     /// Closed XChaCha20-Poly1305 envelope for principal-private encrypted Account Data values.
     pub const ACCOUNT_DATA_ENCRYPTED_VALUE_V1: &'static str =
         "ak.schema.account_data_encrypted_value.v1";
     /// Closed request/response DTO bundle for self-surface actor-private account_data operations
     /// (ak.self.account_data.*); see zh/discovery/client-preferences.md.
     pub const ACCOUNT_DATA_OPERATIONS_V1: &'static str = "ak.schema.account_data_operations.v1";
+    /// Closed content-addressed account-device signer evidence retaining the exact origin
+    /// attestation and full method-native Service resolution; the same type is the cross-Station
+    /// authority_forward producer_device_evidence.
+    pub const ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1: &'static str =
+        "ak.schema.account_device_signer_evidence.v1";
     /// Closed request/response DTO bundle for account self-service operations: viewer, register,
     /// profile update, and session revocation.
     pub const ACCOUNT_OPERATIONS_V1: &'static str = "ak.schema.account_operations.v1";
     /// Immutable Account Authority issuer-ledger lifecycle record with a suite-tagged full-digest
     /// identity and detached proof.
     pub const ACCOUNT_STATUS_RECORD_V1: &'static str = "ak.schema.account_status_record.v1";
+    /// Closed account aggregate stream frame with five independently completed global baseline
+    /// channels, including the holder-private agent_draft_pending_intents baseline/delta
+    /// projection.
     pub const ACCOUNT_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.account_subscribe_frame.v1";
     /// Issuer-signed accountability endorsement for Actor Profile accountable_principal_ids
     /// verification.
@@ -657,6 +734,32 @@ impl SchemaId {
     /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
     /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
     pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
+    /// The single Agent Authority state signature under ak.agent_authority_state_evidence.v1,
+    /// binding authority, verification method, state digest and observation window.
+    pub const AGENT_AUTHORITY_STATE_ATTESTATION_V1: &'static str =
+        "ak.schema.agent_authority_state_attestation.v1";
+    /// Portable Agent Authority state evidence: one exact confirmed RealmCommit state, its JCS
+    /// SHA-256 digest and the single Agent Authority attestation over that digest.
+    pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
+        "ak.schema.agent_authority_state_evidence.v1";
+    /// Closed decrypted plaintext of controller-holder-created encrypted ak.agent.draft.v1 account
+    /// data. Station never receives this plaintext.
+    pub const AGENT_DRAFT_V1: &'static str = "ak.schema.agent_draft.v1";
+    /// Closed HPKE multi-recipient content handoff carried by ak.agent.draft.propose for accepted
+    /// controller devices.
+    pub const AGENT_DRAFT_CONTENT_HANDOFF_V1: &'static str =
+        "ak.schema.agent_draft_content_handoff.v1";
+    /// Closed plaintext inside each Agent draft HPKE content handoff; only the selected accepted
+    /// controller device opens it.
+    pub const AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1: &'static str =
+        "ak.schema.agent_draft_content_handoff_plaintext.v1";
+    /// Closed live | terminal-redacted Station-private pending-intent union created by
+    /// ak.agent.draft.propose and consumed atomically by the holder's first encrypted draft
+    /// account-data CAS. Live available values require content_handoff; terminal consumed/expired
+    /// values forbid ciphertext and retain create-once identity, source/digest, expiry and terminal
+    /// metadata.
+    pub const AGENT_DRAFT_PENDING_INTENT_V1: &'static str =
+        "ak.schema.agent_draft_pending_intent.v1";
     /// Closed Agent controller-membership binding and durable exact-set emergency cleanup state.
     pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
     /// Closed request/response DTO bundle for account pairing and Agent management operations.
@@ -665,6 +768,10 @@ impl SchemaId {
     /// fragment (agent-operations.schema.json#/$defs/agent_pairing_bootstrap), not the top-level
     /// oneOf DTO bundle that ak.schema.agent_operations.v1 maps to.
     pub const AGENT_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.agent_pairing_bootstrap.v1";
+    /// authority_forward Agent sibling: six-member ASRE, complete portable authority state,
+    /// independent controller account gate and method-native authority history. No participation
+    /// selection.
+    pub const AGENT_PRODUCER_EVIDENCE_V1: &'static str = "ak.schema.agent_producer_evidence.v1";
     /// Single controller-authored Agent Agent provisioning payload with atomic accountability and
     /// selector projections.
     pub const AGENT_PROVISION_V1: &'static str = "ak.schema.agent_provision.v1";
@@ -672,9 +779,6 @@ impl SchemaId {
     /// requested_scope; the public Agent DID carries only its commitment digest.
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
-    /// Signed controller-scoped Agent selector claim for
-    /// @&lt;controller-handle&gt;/&lt;agent_slug&gt; resolution.
-    pub const AGENT_SELECTOR_CLAIM_V1: &'static str = "ak.schema.agent_selector_claim.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
     /// access. It is not a Circle profile and has no backing Circle or editable membership. See
     /// zh/models/sidecar.md.
@@ -682,7 +786,7 @@ impl SchemaId {
     /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message
     /// events. Sole normative declaration of explicit user-facing/internal response disposition.
     /// Never legal in plaintext metadata or shared Realm/Circle events. See zh/models/sidecar.md
-    /// section 7.2.1.
+    /// section 8.
     pub const AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1: &'static str =
         "ak.schema.agent_sidecar_event_exchange_binding.v1";
     /// Closed plaintext encrypted by ak.agent.sidecar.exchange.control. Sole durable source of
@@ -696,30 +800,19 @@ impl SchemaId {
     /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
     /// hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
-    /// Destination-signed immutable receipt for the exact Agent signer evidence used when one Event
-    /// was accepted.
-    pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
-        "ak.schema.agent_signer_admission_receipt.v1";
-    /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
-    /// ordinary device directory.
-    pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
-    /// Deduplicated transport-level Agent signer evidence bundle shared by sync, backfill, and
-    /// federation.
-    pub const AGENT_SIGNER_EVIDENCE_BUNDLE_V1: &'static str =
-        "ak.schema.agent_signer_evidence_bundle.v1";
-    /// Closed outcome carrying portable Agent signer evidence or non-enumerating per-selector
-    /// failures.
-    pub const AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
-        "ak.schema.agent_signer_evidence_query_outcome.v1";
-    /// Authenticated shared-context Agent signer evidence query request.
-    pub const AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
-        "ak.schema.agent_signer_evidence_query_request.v1";
-    /// Controller-signed minimal public binding from an Agent verification method to raw Ed25519
-    /// key material and one accepted Agent key authorization.
-    pub const AGENT_SIGNING_KEY_BINDING_V1: &'static str = "ak.schema.agent_signing_key_binding.v1";
     /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
     /// ak.applet.* use typed payload definitions in event-payload.schema.json.
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
+    /// Exact Service-authenticated parent grant and current material; no group content.
+    pub const APPLET_AUTHORITY_MATERIAL_V1: &'static str = "ak.schema.applet_authority_material.v1";
+    /// Exact installed Service Bot creation intent and scope.
+    pub const APPLET_BOT_AUTHORING_REQUEST_BASIS_V1: &'static str =
+        "ak.schema.applet_bot_authoring_request_basis.v1";
+    /// Closed post-install Bot creation preview and commit DTOs.
+    pub const APPLET_BOT_OPERATIONS_V1: &'static str = "ak.schema.applet_bot_operations.v1";
+    /// Closed signed managed Device request metadata.
+    pub const APPLET_DEVICE_AUTHENTICATION_V1: &'static str =
+        "ak.schema.applet_device_authentication.v1";
     /// Closed request/response DTO bundle for Applet edge and bridge operations.
     pub const APPLET_EDGE_OPERATIONS_V1: &'static str = "ak.schema.applet_edge_operations.v1";
     /// Station-derived Ghost basis binding the exact target server, active installation
@@ -732,8 +825,8 @@ impl SchemaId {
     /// Closed Station preview, Applet authoring request, and managed-actor creation bundle DTOs for
     /// the durable co-sign handshake.
     pub const APPLET_INSTALL_AUTHORING_V1: &'static str = "ak.schema.applet_install_authoring.v1";
-    /// Canonical unsigned basis frozen by the Station preview and covered by the install authoring
-    /// request signature.
+    /// Administrator-authored service installation intent, including exact registration and parent
+    /// grants; no managed Account.
     pub const APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_install_authoring_request_basis.v1";
     /// Closed request/response DTO bundle for ak.self.applet.install.command.preview.v1 and
@@ -747,8 +840,7 @@ impl SchemaId {
     /// service after validating an authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    /// Station-signed, expiry-bounded install_bot or provision_ghost managed-actor authoring
-    /// request.
+    /// Station-signed, expiry-bounded provision_bot or provision_ghost authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
     /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
@@ -771,36 +863,28 @@ impl SchemaId {
     /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and
     /// consent gate.
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
-    /// Remote attestation evidence for an attested_hardware audit release service. Carried inline
-    /// as audit_release_payload.release_attestation on every ak.audit.release under a binding whose
-    /// audit_assurance_class is attested_hardware; verified at admission against the binding's
-    /// attestation_policy (audit_release_attestation_invalid) and the active binding fields
-    /// (audit_release_attestation_mismatch). See zh/crypto-media/audited-e2ee.md §6.
-    pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
-    pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
-    /// Content-addressed historical signer-resolution evidence pinned for Event, Station and
-    /// AvailabilityReceipt signature verification.
+    /// The single approval evidence type of v1: one approver's detached signature over the closed
+    /// approval input, carried beside the target in the submission container and never inside an
+    /// Event.
+    pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.schema.approval_signature.v1";
+    /// Content-addressed historical signer-resolution evidence pinned for Event and Station
+    /// signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
         "ak.schema.authenticated_signer_resolution_evidence.v1";
-    /// Canonical concrete authority policy rederived from accepted CBA control state and bound by
-    /// AuthoritySetRef.
+    /// Authority submission, stream scan, authority bundle and handoff operations.
+    pub const AUTHORITY_COMMIT_OPERATIONS_V1: &'static str =
+        "ak.schema.authority_commit_operations.v1";
+    /// Recovery or admission signer policy accepted at one RealmCommit.
     pub const AUTHORITY_SET_POLICY_V1: &'static str = "ak.schema.authority_set_policy.v1";
     /// Closed response DTO bundle for authorization query operations.
     pub const AUTHZ_OPERATIONS_V1: &'static str = "ak.schema.authz_operations.v1";
-    /// Signed holder commitment that exact Event bytes are available until retention_expires_at. A
-    /// Seal commits every-and-only required receipt through its canonical
-    /// availability_receipt_digests array.
-    pub const AVAILABILITY_RECEIPT_V1: &'static str = "ak.schema.availability_receipt.v1";
-    /// Immutable transaction-bound completion artifact proving all planned old secret_storage and
-    /// mls_history backup objects were erased after authoritative pointer switch.
+    /// Immutable transaction-bound completion artifact proving all planned old secret_storage
+    /// backup objects were erased after authoritative pointer switch.
     pub const BACKUP_SERIES_ERASE_CONFIRMATION_V1: &'static str =
         "ak.schema.backup_series_erase_confirmation.v1";
     pub const BLOB_V1: &'static str = "ak.schema.blob.v1";
     /// Closed request/response DTO bundle for Blob service operations.
     pub const BLOB_OPERATIONS_V1: &'static str = "ak.schema.blob_operations.v1";
-    /// Structured Bottom (⊥) diagnostic surfaced on /account/subscribe, /events, and state query
-    /// responses when a cell's effective Lattice value is undefined
-    pub const BOTTOM_V1: &'static str = "ak.schema.bottom.v1";
     /// Profile fields for calendar-event Strands.
     pub const CALENDAR_EVENT_V1: &'static str = "ak.schema.calendar_event.v1";
     /// Canonical metadata for call recording artifacts after Arkret blob pipeline ingestion,
@@ -810,8 +894,6 @@ impl SchemaId {
     /// validation defined by the WebRTC signaling profile.
     pub const CALL_SIGNAL_PLAINTEXT_V1: &'static str = "ak.schema.call_signal_plaintext.v1";
     pub const CAPABILITY_V1: &'static str = "ak.schema.capability.v1";
-    /// Unsigned, independently verified CBA dependency bundle.
-    pub const CBA_PROOF_BUNDLE_V1: &'static str = "ak.schema.cba_proof_bundle.v1";
     /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history
     /// visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT
     /// carry federation identity. see zh/models/circle.md.
@@ -819,14 +901,15 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface Circle administration operations
     /// (ak.self.circle.*); see zh/models/circle.md.
     pub const CIRCLE_OPERATIONS_V1: &'static str = "ak.schema.circle_operations.v1";
-    /// Stored canonical Event variant bytes referenced by an ak.fork.resolution collision locator.
-    pub const COLLISION_VARIANT_RECORD_V1: &'static str = "ak.schema.collision_variant_record.v1";
+    /// Closed data/control frame union for ak.self.committed_event.stream.subscribe.v1.
+    pub const COMMITTED_EVENT_SUBSCRIBE_FRAME_V1: &'static str =
+        "ak.schema.committed_event_subscribe_frame.v1";
     /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and
     /// relation schemas so a single id-form change propagates without inline drift. Not an
     /// object/event schema. See zh/models/common-fields.md §6.
     pub const COMMON_IDS_V1: &'static str = "ak.schema.common_ids.v1";
-    /// Closed request/response DTO bundle for self-surface holder-private consent cell operations
-    /// (ak.self.consent.*); see zh/identity/consent-model.md.
+    /// Closed request/response DTO bundle for self-surface holder-private consent typed current
+    /// result operations (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
     /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
     /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
@@ -840,35 +923,29 @@ impl SchemaId {
     /// validates it.
     pub const CONTACT_REMARK_V1: &'static str = "ak.schema.contact_remark.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
-    /// basis, version, predecessor and full granted-scope set.
+    /// contact round, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
-    /// Closed request/response DTO bundle for quorum-capable Control Proposal Acks and signed
-    /// reject/defer decisions (ak.self.control_proposal_decision.* operations). Deadlines provide
-    /// bounded authority decisions, never acceptance or Seal finality.
-    pub const CONTROL_PROPOSAL_DECISION_V1: &'static str = "ak.schema.control_proposal_decision.v1";
-    /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate;
-    /// never carries service-local account identity or a raw account cell.
+    /// Account Authority controller-account eligibility gate signed under
+    /// ak.controller_account_gate.v1; privacy minimised and valid for at most 300 seconds.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
         "ak.schema.controller_account_gate_attestation.v1";
-    /// Closed issuance outcome carrying one privacy-minimal controller Account Authority gate
-    /// attestation.
+    /// Byte-stable controller gate issuance outcome; an exact replay returns the original bytes.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_outcome.v1";
-    /// Authenticated S2S request from an Agent PCR authority for the controller Account Authority
-    /// lifecycle gate needed to assemble signer evidence.
-    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
-        "ak.schema.controller_account_gate_attestation_issue_request.v1";
-    /// Origin-Station-signed response binding exact Signal, recipient, proxy verifier, challenge
-    /// and closed current signer evidence.
-    pub const CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
-        "ak.schema.current_signer_evidence_query_outcome.v1";
-    /// Request-bound cold-recipient query selecting exactly one current account-device or Agent
-    /// authority branch per sender.
-    pub const CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
-        "ak.schema.current_signer_evidence_query_request.v1";
+    /// Deployment-authenticated controller gate issuance request; carries no service resolution
+    /// carrier.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation_issue_request_body.v1";
+    /// Own-Station accepted current principal projection and unique PCR; observation is not an
+    /// authorization lease.
+    pub const CURRENT_PRINCIPAL_OUTCOME_V1: &'static str = "ak.schema.current_principal_outcome.v1";
+    /// Authenticated own-account current principal and unique PCR request.
+    pub const CURRENT_PRINCIPAL_REQUEST_V1: &'static str = "ak.schema.current_principal_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
+    /// Closed non-Event signature carrier for authority and delivery objects.
+    pub const DETACHED_OBJECT_SIGNATURE_V1: &'static str = "ak.schema.detached_object_signature.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
     /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
     /// short link. Resolves to the sub-schema at file + fragment
@@ -876,15 +953,15 @@ impl SchemaId {
     /// bundle that ak.schema.device_pairing_operations.v1 maps to.
     pub const DEVICE_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.device_pairing_bootstrap.v1";
     /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
-    /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
+    /// (stage / finalize / resolve / code claim / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
     /// Closed PCR-policy recovery payload binding one account-local lineage, accepted
-    /// policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and
+    /// policy/session, monotonic PCR generation CAS, complete pre-fence RealmCommit checkpoint and
     /// replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
-    /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack,
-    /// exact authority/device/generation binding, universal revocation_pending gates, exact
-    /// signed-reject release, overdue fault retention and covering-Seal finality.
+    /// Authority-commit-owned durable state for ak.device.revoke security transactions: exact
+    /// authority/device/generation binding, universal revocation_pending gates, terminal
+    /// command-result release, fault retention and consecutive same-stream RealmCommit finality.
     pub const DEVICE_REVOCATION_STATE_V1: &'static str = "ak.schema.device_revocation_state.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
@@ -899,11 +976,11 @@ impl SchemaId {
     pub const DID_WEBVH_WITNESS_RECEIPT_V1: &'static str = "ak.schema.did_webvh_witness_receipt.v1";
     /// Closed carriers for the Direct Conversation resolver and single-sided founding: the
     /// query-only resolve request and tagged outcome, permanent coordinates, the resolver blocker
-    /// set and the source founding acceptance receipt.
+    /// set and verified founding-authority evidence. Founding defines no second acceptance receipt.
     pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
         "ak.schema.direct_conversation_operations.v1";
-    /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
-    /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
+    /// Closed request/response DTO bundle for registered Directory discovery search, resolve, and
+    /// private contact discovery operations; no Agent selector lookup operation is registered.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
     /// Closed decrypted plaintext shape and canonical recurring-time semantics for ak.dnd_schedule.
     pub const DND_SCHEDULE_V1: &'static str = "ak.schema.dnd_schedule.v1";
@@ -919,10 +996,11 @@ impl SchemaId {
     /// Minimal retained verification stub bound by erasure-receipt.retained_stub_digest
     pub const ERASURE_VERIFICATION_STUB_V1: &'static str = "ak.schema.erasure_verification_stub.v1";
     pub const EVENT_V1: &'static str = "ak.schema.event.v1";
-    pub const EVENT_BATCH_RECEIPT_V1: &'static str = "ak.schema.event_batch_receipt.v1";
     pub const EVENT_PAYLOAD_V1: &'static str = "ak.schema.event_payload.v1";
-    /// Closed data/control frame union for ak.self.events.stream.subscribe.v1.
-    pub const EVENTS_SUBSCRIBE_FRAME_V1: &'static str = "ak.schema.events_subscribe_frame.v1";
+    /// Closed authenticated request/outcome carrier for one exact Relation primary-domain or
+    /// moderation-target current result at a governing-Station durable cut.
+    pub const EXACT_CURRENT_RESULTS_READ_V1: &'static str =
+        "ak.schema.exact_current_results_read.v1";
     /// Declarative extension loading and conformance manifest.
     pub const EXTENSION_MANIFEST_V1: &'static str = "ak.schema.extension_manifest.v1";
     /// Encrypted account-data plaintext shape and to-device key message content for
@@ -935,36 +1013,28 @@ impl SchemaId {
     pub const HANDLE_CLAIM_CORE_V1: &'static str = "ak.schema.handle_claim_core.v1";
     /// Signed issuer-or-holder revocation of one exact Handle Claim digest.
     pub const HANDLE_CLAIM_REVOCATION_V1: &'static str = "ak.schema.handle_claim_revocation.v1";
-    /// Shared high-risk authority proof family (principal_signing / device_quorum /
+    /// Shared high-risk authority proof family (recovery_unlock / device_quorum /
     /// trusted_recovery_service) over an operation's canonical transcript, each branch reusing the
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
     /// (key-management.md §7.8).
     pub const HIGH_RISK_AUTHORITY_PROOF_V1: &'static str = "ak.schema.high_risk_authority_proof.v1";
-    /// Closed private history-key request, response stream, source relay, response record,
-    /// organization-recovery archive, and HPKE plaintext DTO family
-    pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.holder_quarantine, written
-    /// only by the recipient Station CAS materializer. surface_kind discriminates invite_delivery
-    /// from consent_request. See zh/identity/consent-model.md and zh/sync/client-sync.md.
+    /// Actor-private plaintext account-data typed current result value of
+    /// ak.account.holder_quarantine, written only by the recipient Station CAS materializer.
+    /// surface_kind discriminates invite_delivery from consent_request. See
+    /// zh/identity/consent-model.md and zh/sync/client-sync.md.
     pub const HOLDER_QUARANTINE_V1: &'static str = "ak.schema.holder_quarantine.v1";
     /// Canonical RFC 9457 application/problem+json HTTP error response from sync/api-conventions.md
     /// section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
     pub const ICE_CONFIG_RESPONSE_V1: &'static str = "ak.schema.ice_config_response.v1";
-    /// Encrypted minimal-metadata binding from Realm-scoped pairwise DID to principal DID, scoped
-    /// by realm_id and trust_domain.
-    pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
     /// Principal resolution projection/update/evidence and signed service resolution record
     /// contracts for the did_core_id/did model.
     pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
-    /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next
-    /// Seal MUST include, signed-reject, or prove verification failure for every listed digest
-    pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the
-    /// holder-private delivered invite credential carrier written by the recipient Station on the
-    /// notify branch. See zh/sync/invite-addressing.md section 7.
+    /// Actor-private plaintext account-data typed current result value of
+    /// ak.account.invite_delivery, the holder-private delivered invite credential carrier written
+    /// by the recipient Station on the notify branch. See zh/sync/invite-addressing.md section 7.
     pub const INVITE_DELIVERY_V1: &'static str = "ak.schema.invite_delivery.v1";
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
@@ -972,9 +1042,13 @@ impl SchemaId {
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
+    /// Encrypted signed append-only key-backup envelope. Its only optional source checkpoint is
+    /// source_commit_ref{realm_commit_id,device_generation_ref}; source_ref, nested/full
+    /// CommittedEventRef, string generation, Seal and frontier forms are not v1 wire.
     pub const KEY_BACKUP_V1: &'static str = "ak.schema.key_backup.v1";
     /// Signed principal-control record selecting the active backup series for one (actor_id,
-    /// backup_kind).
+    /// backup_kind), with the sole source anchor
+    /// source_commit_ref{realm_commit_id,device_generation_ref}.
     pub const KEY_BACKUP_ACTIVE_SERIES_V1: &'static str = "ak.schema.key_backup_active_series.v1";
     /// Canonical plaintext keybag opened from a ak.schema.key_backup.v1 envelope.
     pub const KEY_BACKUP_PLAINTEXT_V1: &'static str = "ak.schema.key_backup_plaintext.v1";
@@ -984,29 +1058,52 @@ impl SchemaId {
     /// Canonical log head, inclusion proof, consistency proof and witness evidence for
     /// ak.profile.key_transparency.v1 and high-security log-backed identity checks.
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.schema.key_transparency.v1";
-    /// Closed request/response DTO bundle for self KeyPackage upload/claim/consume/revoke and
-    /// atomic peer claim/outcome-query operations.
+    /// Closed request/response DTO bundle for self KeyPackage
+    /// upload/claim/consume/revoke/claim-query and atomic peer claim/outcome-query operations.
     pub const KEYPACKAGE_OPERATIONS_V1: &'static str = "ak.schema.keypackage_operations.v1";
     /// Closed request/response DTO bundle for ak.self.keys.upload.create.v1, query, claim, and key
     /// backup put/list/delete responses.
     pub const KEYS_OPERATIONS_V1: &'static str = "ak.schema.keys_operations.v1";
-    /// Directory response listing currently visible handle claims for a disclosed subject DID.
-    pub const LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1: &'static str =
-        "ak.schema.list_handles_for_subject_response.v1";
+    /// Private durable management review requests, decisions and outcome; pending carries no
+    /// authority.
+    pub const MANAGEMENT_REVIEW_OPERATIONS_V1: &'static str =
+        "ak.schema.management_review_operations.v1";
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
+    /// Own-Station verified media service route and signing keys bound to the accepted anchor;
+    /// route reuse window only, no key release or plaintext authorization.
+    pub const MEDIA_SERVICE_BINDING_OUTCOME_V1: &'static str =
+        "ak.schema.media_service_binding_outcome.v1";
+    /// Authenticated member request for the media service anchored by one joined Realm; no
+    /// caller-supplied service identity, DID or candidate origin.
+    pub const MEDIA_SERVICE_BINDING_REQUEST_V1: &'static str =
+        "ak.schema.media_service_binding_request.v1";
     /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle
     /// lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
     pub const MESSAGE_V1: &'static str = "ak.schema.message.v1";
+    /// Closed ordinary message authoring carrier: message_authoring_content.
+    pub const MESSAGE_AUTHORING_CONTENT_V1: &'static str = "ak.schema.message_authoring_content.v1";
+    /// Closed ordinary message authoring carrier: message_authoring_intent.
+    pub const MESSAGE_AUTHORING_INTENT_V1: &'static str = "ak.schema.message_authoring_intent.v1";
+    /// Closed ordinary message authoring carrier: message_encryption_context.
+    pub const MESSAGE_ENCRYPTION_CONTEXT_V1: &'static str =
+        "ak.schema.message_encryption_context.v1";
+    /// Closed ordinary message authoring carrier: message_prepare_outcome.
+    pub const MESSAGE_PREPARE_OUTCOME_V1: &'static str = "ak.schema.message_prepare_outcome.v1";
+    /// Closed ordinary message authoring carrier: message_prepare_request_body.
+    pub const MESSAGE_PREPARE_REQUEST_V1: &'static str = "ak.schema.message_prepare_request.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
-    /// Closed near-current stateless MLS group-security frontier query carrier. Bulk and old
-    /// history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
-    pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
-        "ak.schema.mls_governance_proof_bundle.v1";
+    /// Atomic MLS Commit and Welcome submission.
+    pub const MLS_COMMIT_SUBMISSION_V1: &'static str = "ak.schema.mls_commit_submission.v1";
+    /// Signed historical MLS leaf provenance attestation and member-authorized complete roster
+    /// read.
+    pub const MLS_ROSTER_AUTHORITY_V1: &'static str = "ak.schema.mls_roster_authority.v1";
+    /// Producer-signed recipient Welcome delivery.
+    pub const MLS_WELCOME_DELIVERY_V1: &'static str = "ak.schema.mls_welcome_delivery.v1";
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
@@ -1018,8 +1115,6 @@ impl SchemaId {
     pub const NOTIFICATION_V1: &'static str = "ak.schema.notification.v1";
     /// Canonical address-link target descriptor and signed token claims.
     pub const OBJECT_ADDRESSING_V1: &'static str = "ak.schema.object_addressing.v1";
-    /// AuthorizationLease and IngressReceipt proof objects.
-    pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
@@ -1040,6 +1135,10 @@ impl SchemaId {
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
     /// history ingress contracts, Sidecar staging and shared primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
+    /// Closed adapter-discriminated registration anchor consumed identically by human registration
+    /// and PCR genesis.
+    pub const PRINCIPAL_REGISTRATION_ANCHOR_V1: &'static str =
+        "ak.schema.principal_registration_anchor.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -1064,12 +1163,52 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
+    /// Genesis-to-current authority discovery proof bundle.
+    pub const REALM_AUTHORITY_BUNDLE_V1: &'static str = "ak.schema.realm_authority_bundle.v1";
+    /// Dual-signed planned authority generation transfer.
+    pub const REALM_AUTHORITY_HANDOFF_V1: &'static str = "ak.schema.realm_authority_handoff.v1";
+    /// Authority-signed finality record for one Realm, Circle or Sidecar stream.
+    pub const REALM_COMMIT_V1: &'static str = "ak.schema.realm_commit.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// Time-bounded transport hint returned by Realm discovery / resolve paths for reaching the
-    /// already selected Station during join, invite-accept, knock, or restricted-join submission.
-    /// It is neither an identity selector nor an authorization grant and cannot change an
-    /// AccountId.
+    /// One bounded page of the request-authorized governance replay closure for the unique
+    /// confirmed Realm head. Independent scope disclosure authorization is required for every
+    /// object; unavailable private dependencies fail closed. Terminal cursor is not a completeness
+    /// proof and downloading does not install accepted state.
+    pub const REALM_JOIN_BOOTSTRAP_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_bootstrap_outcome.v1";
+    /// Authenticated service-to-service request for the bounded material required to author and
+    /// verify exactly one first-contact Realm join attempt.
+    pub const REALM_JOIN_BOOTSTRAP_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_bootstrap_request.v1";
+    /// Closed, untrusted authority-bundle locator returned by Realm discovery, invite delivery, and
+    /// join intake. Realm scope and freshness belong to the enclosing carrier and nonce-bound
+    /// current assertion; the locator neither selects nor proves the current governance Station, is
+    /// not an identity selector or authorization grant, and cannot change an AccountId.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
+    /// Policy-permitted pre-join disclosure for exactly one invite and invitee, without Directory
+    /// result provenance or join routing hints.
+    pub const REALM_JOIN_PEER_PREVIEW_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_peer_preview_outcome.v1";
+    /// Authenticated service-to-service pre-join preview read against the exact inviter Station of
+    /// one directed invite.
+    pub const REALM_JOIN_PEER_PREVIEW_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_peer_preview_request.v1";
+    /// Own-Station validated join preparation: verified governance facts plus the exact Event kind,
+    /// canonical payload and preconditions to sign. It is not admission and not membership.
+    pub const REALM_JOIN_PREPARE_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_prepare_outcome.v1";
+    /// Authenticated account request to prepare exactly one join, knock or invite acceptance
+    /// through the account's own Station.
+    pub const REALM_JOIN_PREPARE_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_prepare_request.v1";
+    /// Own-Station validated pre-join preview bound to the exact account, Realm, request and
+    /// disclosure source.
+    pub const REALM_JOIN_SELF_PREVIEW_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_self_preview_outcome.v1";
+    /// Authenticated account request for a pre-join Realm preview through the account's own
+    /// Station.
+    pub const REALM_JOIN_SELF_PREVIEW_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_self_preview_request.v1";
     /// Closed request/response DTO bundle for self-surface cross-Realm link operations
     /// (ak.self.realm_link.*); see zh/models/realm-links.md.
     pub const REALM_LINK_OPERATIONS_V1: &'static str = "ak.schema.realm_link_operations.v1";
@@ -1083,10 +1222,10 @@ impl SchemaId {
     /// zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
     pub const REALM_STATE_SNAPSHOT_V1: &'static str = "ak.schema.realm_state_snapshot.v1";
-    /// Snapshot chunk payload: the Realm reducer cells behind one manifest chunks[].chunk_ref,
-    /// whose leaves are the state_root leaves of event-auth-state-resolution.md section 6.2.1
-    pub const REALM_STATE_SNAPSHOT_CHUNK_V1: &'static str =
-        "ak.schema.realm_state_snapshot_chunk.v1";
+    /// Paginated ACL-filtered enumeration outcome of one Realm's authority streams: per-stream
+    /// head_commit_ref, next_position and the caller's readable_floor, plus next_cursor and
+    /// has_more.
+    pub const REALM_STREAM_LIST_V1: &'static str = "ak.schema.realm_stream_list.v1";
     /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant
     /// promotion.
     pub const RECOVERY_COMPLETION_ATTESTATION_V1: &'static str =
@@ -1105,21 +1244,24 @@ impl SchemaId {
     /// exclusively by the bound RecoveryTransaction terminal commit. See
     /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
+    /// Closed terminal artifact of a RecoveryTransaction containing only the
+    /// replacement-device-signed recovery receipt. It contains no RealmCommit, authority signature
+    /// or precomputed commit id; the governance Station validates the receipt and both prepared
+    /// producer Events, then issues their two consecutive PCR-stream RealmCommits inside the atomic
+    /// commit_recovery_unit admission.
+    pub const RECOVERY_TERMINAL_COMMIT_V1: &'static str = "ak.schema.recovery_terminal_commit.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
-    /// Closed SDK-facing union at schemas/event-payload.schema.json#/$defs/resource_discovery_state
-    /// over the exact Actor, Applet, and Handle discovery-state Event payloads.
-    pub const RESOURCE_DISCOVERY_STATE_V1: &'static str = "ak.schema.resource_discovery_state.v1";
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
+    /// Closed typed current-result selector and value union. MLS current includes the immutable
+    /// accepted Genesis cipher_suite so signed snapshots prove the public encryption basis without
+    /// disclosing prejoin Genesis FullView.
+    pub const RESULT_PROJECTION_V1: &'static str = "ak.schema.result_projection.v1";
     /// Payload schema for ak.rsvp.set.
     pub const RSVP_V1: &'static str = "ak.schema.rsvp.v1";
     /// Machine-verifiable SDK release claim against the canonical sdk_conformance_contract.
     pub const SDK_CONFORMANCE_CLAIM_V1: &'static str = "ak.schema.sdk_conformance_claim.v1";
-    /// Seal control-plane finality commitment schema
-    pub const SEAL_V1: &'static str = "ak.schema.seal.v1";
-    /// Seal transparency append-only log entry and independent auditor attestation wire schema
-    pub const SEAL_TRANSPARENCY_V1: &'static str = "ak.schema.seal_transparency.v1";
     /// Privacy-preserving search index manifest, blind index query, and policy shapes.
     pub const SEARCH_SERVICE_V1: &'static str = "ak.schema.search_service.v1";
     /// Typed local-device commit artifact for the terminal SecurityRotationTransaction step.
@@ -1129,11 +1271,10 @@ impl SchemaId {
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
     /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe
     /// operations: base service metadata plus exact supported_operation_bundles and claim-level
-    /// partitions (supported_features / claimed_profiles / verified_profiles / interop_surfaces),
-    /// with the registered directory_service overlay fields used by
-    /// ak.find.directory.read.describe.v1. Enforces development_mode=true =&gt;
-    /// verified_profiles=[]. interop_surfaces is limited to external interop surfaces. See
-    /// service-surface.md §3.0 and discovery-directory.md §8.9.
+    /// partitions (supported_features / supported_profiles / verified_profiles / interop_surfaces).
+    /// Directory describe exposes only its public-Realm resource kind, never private policy or
+    /// resolver configuration. Enforces development_mode=true =&gt; verified_profiles=[].
+    /// interop_surfaces is limited to external interop surfaces. See service-surface.md §3.0.
     pub const SERVICE_DESCRIBE_V1: &'static str = "ak.schema.service_describe.v1";
     /// Verifiable service DID disaster-recovery bundle containing public DID history, receipts and
     /// key references but no private key bytes.
@@ -1141,7 +1282,9 @@ impl SchemaId {
     /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI
     /// inline components.
     pub const SERVICE_OPERATION_DTOS_V1: &'static str = "ak.schema.service_operation_dtos.v1";
-    /// Encrypted-only Signal Extension envelope; product payload types remain inside ciphertext.
+    /// Encrypted-only Signal envelope with exact scope authority_commit_id and Circle-only
+    /// parent_realm_authority_commit_id; both enter proof digest and pre-encryption AAD. Product
+    /// payloads remain encrypted.
     pub const SIGNAL_ENVELOPE_V1: &'static str = "ak.schema.signal_envelope.v1";
     /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta,
     /// and abort frames.
@@ -1156,6 +1299,14 @@ impl SchemaId {
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
+    /// Unified own-Station current/historical Device and Agent signing-key outcome; resolved keys
+    /// bind an independent committed authorization ref, current revision and governance generation,
+    /// while unavailable echoes the exact selector.
+    pub const SIGNER_KEY_QUERY_OUTCOME_V1: &'static str = "ak.schema.signer_key_query_outcome.v1";
+    /// Unified own-Station current/historical Device and Agent signing-key request; historical
+    /// selectors require an exact committed_event_ref obtained from a verified stream_row, never a
+    /// bare EventId or current projection.
+    pub const SIGNER_KEY_QUERY_REQUEST_V1: &'static str = "ak.schema.signer_key_query_request.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
     /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct
@@ -1214,20 +1365,31 @@ impl SchemaId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountBlocklistV1 => Self::ACCOUNT_BLOCKLIST_V1,
+            Self::AccountCurrentResultV1 => Self::ACCOUNT_CURRENT_RESULT_V1,
             Self::AccountDataEncryptedValueV1 => Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
             Self::AccountDataOperationsV1 => Self::ACCOUNT_DATA_OPERATIONS_V1,
+            Self::AccountDeviceSignerEvidenceV1 => Self::ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1,
             Self::AccountOperationsV1 => Self::ACCOUNT_OPERATIONS_V1,
             Self::AccountStatusRecordV1 => Self::ACCOUNT_STATUS_RECORD_V1,
             Self::AccountSubscribeFrameV1 => Self::ACCOUNT_SUBSCRIBE_FRAME_V1,
             Self::AccountabilityGrantV1 => Self::ACCOUNTABILITY_GRANT_V1,
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
             Self::ActorProfileOperationsV1 => Self::ACTOR_PROFILE_OPERATIONS_V1,
+            Self::AgentAuthorityStateAttestationV1 => Self::AGENT_AUTHORITY_STATE_ATTESTATION_V1,
+            Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
+            Self::AgentDraftV1 => Self::AGENT_DRAFT_V1,
+            Self::AgentDraftContentHandoffV1 => Self::AGENT_DRAFT_CONTENT_HANDOFF_V1,
+            Self::AgentDraftContentHandoffPlaintextV1 => {
+                Self::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1
+            }
+            Self::AgentDraftPendingIntentV1 => Self::AGENT_DRAFT_PENDING_INTENT_V1,
             Self::AgentMembershipCascadeV1 => Self::AGENT_MEMBERSHIP_CASCADE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
+            Self::AgentProducerEvidenceV1 => Self::AGENT_PRODUCER_EVIDENCE_V1,
             Self::AgentProvisionV1 => Self::AGENT_PROVISION_V1,
             Self::AgentRequestedScopeDisclosureV1 => Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1,
-            Self::AgentSelectorClaimV1 => Self::AGENT_SELECTOR_CLAIM_V1,
             Self::AgentSidecarV1 => Self::AGENT_SIDECAR_V1,
             Self::AgentSidecarEventExchangeBindingV1 => {
                 Self::AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1
@@ -1235,13 +1397,11 @@ impl SchemaId {
             Self::AgentSidecarExchangeControlV1 => Self::AGENT_SIDECAR_EXCHANGE_CONTROL_V1,
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
-            Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
-            Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
-            Self::AgentSignerEvidenceBundleV1 => Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1,
-            Self::AgentSignerEvidenceQueryOutcomeV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-            Self::AgentSignerEvidenceQueryRequestV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-            Self::AgentSigningKeyBindingV1 => Self::AGENT_SIGNING_KEY_BINDING_V1,
             Self::AppletV1 => Self::APPLET_V1,
+            Self::AppletAuthorityMaterialV1 => Self::APPLET_AUTHORITY_MATERIAL_V1,
+            Self::AppletBotAuthoringRequestBasisV1 => Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
+            Self::AppletBotOperationsV1 => Self::APPLET_BOT_OPERATIONS_V1,
+            Self::AppletDeviceAuthenticationV1 => Self::APPLET_DEVICE_AUTHENTICATION_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1
@@ -1266,49 +1426,42 @@ impl SchemaId {
                 Self::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1
             }
             Self::AppletWidgetDeclarationV1 => Self::APPLET_WIDGET_DECLARATION_V1,
-            Self::AuditReleaseAttestationV1 => Self::AUDIT_RELEASE_ATTESTATION_V1,
-            Self::AuditRywReceiptV1 => Self::AUDIT_RYW_RECEIPT_V1,
+            Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1
             }
+            Self::AuthorityCommitOperationsV1 => Self::AUTHORITY_COMMIT_OPERATIONS_V1,
             Self::AuthoritySetPolicyV1 => Self::AUTHORITY_SET_POLICY_V1,
             Self::AuthzOperationsV1 => Self::AUTHZ_OPERATIONS_V1,
-            Self::AvailabilityReceiptV1 => Self::AVAILABILITY_RECEIPT_V1,
             Self::BackupSeriesEraseConfirmationV1 => Self::BACKUP_SERIES_ERASE_CONFIRMATION_V1,
             Self::BlobV1 => Self::BLOB_V1,
             Self::BlobOperationsV1 => Self::BLOB_OPERATIONS_V1,
-            Self::BottomV1 => Self::BOTTOM_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
             Self::CallRecordingArtifactV1 => Self::CALL_RECORDING_ARTIFACT_V1,
             Self::CallSignalPlaintextV1 => Self::CALL_SIGNAL_PLAINTEXT_V1,
             Self::CapabilityV1 => Self::CAPABILITY_V1,
-            Self::CbaProofBundleV1 => Self::CBA_PROOF_BUNDLE_V1,
             Self::CircleV1 => Self::CIRCLE_V1,
             Self::CircleOperationsV1 => Self::CIRCLE_OPERATIONS_V1,
-            Self::CollisionVariantRecordV1 => Self::COLLISION_VARIANT_RECORD_V1,
+            Self::CommittedEventSubscribeFrameV1 => Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
-            Self::ControlProposalDecisionV1 => Self::CONTROL_PROPOSAL_DECISION_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
             Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1
             }
-            Self::ControllerAccountGateAttestationIssueRequestV1 => {
-                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
+            Self::ControllerAccountGateAttestationIssueRequestBodyV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1
             }
-            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
-                Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1
-            }
-            Self::CurrentSignerEvidenceQueryRequestV1 => {
-                Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1
-            }
+            Self::CurrentPrincipalOutcomeV1 => Self::CURRENT_PRINCIPAL_OUTCOME_V1,
+            Self::CurrentPrincipalRequestV1 => Self::CURRENT_PRINCIPAL_REQUEST_V1,
             Self::CursorV1 => Self::CURSOR_V1,
+            Self::DetachedObjectSignatureV1 => Self::DETACHED_OBJECT_SIGNATURE_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
             Self::DevicePairingOperationsV1 => Self::DEVICE_PAIRING_OPERATIONS_V1,
@@ -1325,9 +1478,8 @@ impl SchemaId {
             Self::ErasureReceiptOperationsV1 => Self::ERASURE_RECEIPT_OPERATIONS_V1,
             Self::ErasureVerificationStubV1 => Self::ERASURE_VERIFICATION_STUB_V1,
             Self::EventV1 => Self::EVENT_V1,
-            Self::EventBatchReceiptV1 => Self::EVENT_BATCH_RECEIPT_V1,
             Self::EventPayloadV1 => Self::EVENT_PAYLOAD_V1,
-            Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
+            Self::ExactCurrentResultsReadV1 => Self::EXACT_CURRENT_RESULTS_READ_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
@@ -1335,14 +1487,11 @@ impl SchemaId {
             Self::HandleClaimCoreV1 => Self::HANDLE_CLAIM_CORE_V1,
             Self::HandleClaimRevocationV1 => Self::HANDLE_CLAIM_REVOCATION_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
-            Self::HistoryKeyV1 => Self::HISTORY_KEY_V1,
             Self::HolderQuarantineV1 => Self::HOLDER_QUARANTINE_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
-            Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
             Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
-            Self::InclusionListV1 => Self::INCLUSION_LIST_V1,
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
@@ -1354,14 +1503,23 @@ impl SchemaId {
             Self::KeyTransparencyV1 => Self::KEY_TRANSPARENCY_V1,
             Self::KeypackageOperationsV1 => Self::KEYPACKAGE_OPERATIONS_V1,
             Self::KeysOperationsV1 => Self::KEYS_OPERATIONS_V1,
-            Self::ListHandlesForSubjectResponseV1 => Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
+            Self::ManagementReviewOperationsV1 => Self::MANAGEMENT_REVIEW_OPERATIONS_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
+            Self::MediaServiceBindingOutcomeV1 => Self::MEDIA_SERVICE_BINDING_OUTCOME_V1,
+            Self::MediaServiceBindingRequestV1 => Self::MEDIA_SERVICE_BINDING_REQUEST_V1,
             Self::MemberIdentityV1 => Self::MEMBER_IDENTITY_V1,
             Self::MessageV1 => Self::MESSAGE_V1,
+            Self::MessageAuthoringContentV1 => Self::MESSAGE_AUTHORING_CONTENT_V1,
+            Self::MessageAuthoringIntentV1 => Self::MESSAGE_AUTHORING_INTENT_V1,
+            Self::MessageEncryptionContextV1 => Self::MESSAGE_ENCRYPTION_CONTEXT_V1,
+            Self::MessagePrepareOutcomeV1 => Self::MESSAGE_PREPARE_OUTCOME_V1,
+            Self::MessagePrepareRequestV1 => Self::MESSAGE_PREPARE_REQUEST_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
-            Self::MlsGovernanceProofBundleV1 => Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
+            Self::MlsCommitSubmissionV1 => Self::MLS_COMMIT_SUBMISSION_V1,
+            Self::MlsRosterAuthorityV1 => Self::MLS_ROSTER_AUTHORITY_V1,
+            Self::MlsWelcomeDeliveryV1 => Self::MLS_WELCOME_DELIVERY_V1,
             Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
             Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
@@ -1369,7 +1527,6 @@ impl SchemaId {
             Self::MorphV1 => Self::MORPH_V1,
             Self::NotificationV1 => Self::NOTIFICATION_V1,
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
-            Self::OfflinePublicationV1 => Self::OFFLINE_PUBLICATION_V1,
             Self::PatchV1 => Self::PATCH_V1,
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
@@ -1378,6 +1535,7 @@ impl SchemaId {
             Self::PresenceVisibilityV1 => Self::PRESENCE_VISIBILITY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
             Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
+            Self::PrincipalRegistrationAnchorV1 => Self::PRINCIPAL_REGISTRATION_ANCHOR_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1386,26 +1544,36 @@ impl SchemaId {
             Self::ReadCursorUpdateV1 => Self::READ_CURSOR_UPDATE_V1,
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
             Self::RealmV1 => Self::REALM_V1,
+            Self::RealmAuthorityBundleV1 => Self::REALM_AUTHORITY_BUNDLE_V1,
+            Self::RealmAuthorityHandoffV1 => Self::REALM_AUTHORITY_HANDOFF_V1,
+            Self::RealmCommitV1 => Self::REALM_COMMIT_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
+            Self::RealmJoinBootstrapOutcomeV1 => Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
+            Self::RealmJoinBootstrapRequestV1 => Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
+            Self::RealmJoinPeerPreviewOutcomeV1 => Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
+            Self::RealmJoinPeerPreviewRequestV1 => Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
+            Self::RealmJoinPrepareOutcomeV1 => Self::REALM_JOIN_PREPARE_OUTCOME_V1,
+            Self::RealmJoinPrepareRequestV1 => Self::REALM_JOIN_PREPARE_REQUEST_V1,
+            Self::RealmJoinSelfPreviewOutcomeV1 => Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
+            Self::RealmJoinSelfPreviewRequestV1 => Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
             Self::RealmLinkOperationsV1 => Self::REALM_LINK_OPERATIONS_V1,
             Self::RealmOrganizationOperationsV1 => Self::REALM_ORGANIZATION_OPERATIONS_V1,
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
             Self::RealmStateSnapshotV1 => Self::REALM_STATE_SNAPSHOT_V1,
-            Self::RealmStateSnapshotChunkV1 => Self::REALM_STATE_SNAPSHOT_CHUNK_V1,
+            Self::RealmStreamListV1 => Self::REALM_STREAM_LIST_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
+            Self::RecoveryTerminalCommitV1 => Self::RECOVERY_TERMINAL_COMMIT_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
-            Self::ResourceDiscoveryStateV1 => Self::RESOURCE_DISCOVERY_STATE_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
+            Self::ResultProjectionV1 => Self::RESULT_PROJECTION_V1,
             Self::RsvpV1 => Self::RSVP_V1,
             Self::SdkConformanceClaimV1 => Self::SDK_CONFORMANCE_CLAIM_V1,
-            Self::SealV1 => Self::SEAL_V1,
-            Self::SealTransparencyV1 => Self::SEAL_TRANSPARENCY_V1,
             Self::SearchServiceV1 => Self::SEARCH_SERVICE_V1,
             Self::SecurityRotationLocalCommitV1 => Self::SECURITY_ROTATION_LOCAL_COMMIT_V1,
             Self::SecurityTransactionV1 => Self::SECURITY_TRANSACTION_V1,
@@ -1418,6 +1586,8 @@ impl SchemaId {
             Self::SignalRelayV1 => Self::SIGNAL_RELAY_V1,
             Self::SignalStreamFrameV1 => Self::SIGNAL_STREAM_FRAME_V1,
             Self::SignalTypingV1 => Self::SIGNAL_TYPING_V1,
+            Self::SignerKeyQueryOutcomeV1 => Self::SIGNER_KEY_QUERY_OUTCOME_V1,
+            Self::SignerKeyQueryRequestV1 => Self::SIGNER_KEY_QUERY_REQUEST_V1,
             Self::SpaceV1 => Self::SPACE_V1,
             Self::StrandV1 => Self::STRAND_V1,
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
@@ -1450,22 +1620,35 @@ impl SchemaId {
     /// `spec/v1/artifacts/`.
     pub const fn file(self) -> &'static str {
         match self {
+            Self::AccountBlocklistV1 => "schemas/account-blocklist.schema.json",
+            Self::AccountCurrentResultV1 => "schemas/account-current-result.schema.json",
             Self::AccountDataEncryptedValueV1 => "schemas/account-data-encrypted-value.schema.json",
             Self::AccountDataOperationsV1 => "schemas/account-data-operations.schema.json",
+            Self::AccountDeviceSignerEvidenceV1 => {
+                "schemas/account-device-signer-evidence.schema.json"
+            }
             Self::AccountOperationsV1 => "schemas/account-operations.schema.json",
             Self::AccountStatusRecordV1 => "schemas/account-operations.schema.json",
             Self::AccountSubscribeFrameV1 => "schemas/account-subscribe-frame.schema.json",
             Self::AccountabilityGrantV1 => "schemas/accountability-grant.schema.json",
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
             Self::ActorProfileOperationsV1 => "schemas/actor-profile-operations.schema.json",
+            Self::AgentAuthorityStateAttestationV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
+            Self::AgentAuthorityStateEvidenceV1 => "schemas/agent-authority-evidence.schema.json",
+            Self::AgentDraftV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftContentHandoffV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftContentHandoffPlaintextV1 => "schemas/agent-draft-private.schema.json",
+            Self::AgentDraftPendingIntentV1 => "schemas/agent-draft-private.schema.json",
             Self::AgentMembershipCascadeV1 => "schemas/agent-membership-cascade.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
+            Self::AgentProducerEvidenceV1 => "schemas/agent-authority-evidence.schema.json",
             Self::AgentProvisionV1 => "schemas/agent-provision.schema.json",
             Self::AgentRequestedScopeDisclosureV1 => {
                 "schemas/agent-requested-scope-disclosure.schema.json"
             }
-            Self::AgentSelectorClaimV1 => "schemas/agent-selector-claim.schema.json",
             Self::AgentSidecarV1 => "schemas/agent-sidecar.schema.json",
             Self::AgentSidecarEventExchangeBindingV1 => {
                 "schemas/agent-sidecar-event-exchange-binding.schema.json"
@@ -1477,19 +1660,15 @@ impl SchemaId {
                 "schemas/agent-sidecar-exchange-projection.schema.json"
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
-            Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::AgentSignerEvidenceBundleV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
-            Self::AgentSignerEvidenceQueryOutcomeV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
-            Self::AgentSignerEvidenceQueryRequestV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
-            Self::AgentSigningKeyBindingV1 => "schemas/agent-signing-key-binding.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
+            Self::AppletAuthorityMaterialV1 => "schemas/applet-authority-material.schema.json",
+            Self::AppletBotAuthoringRequestBasisV1 => {
+                "schemas/applet-install-authoring.schema.json"
+            }
+            Self::AppletBotOperationsV1 => "schemas/applet-bot-operations.schema.json",
+            Self::AppletDeviceAuthenticationV1 => {
+                "schemas/applet-device-authentication.schema.json"
+            }
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostAuthoringRequestBasisV1 => {
                 "schemas/applet-install-authoring.schema.json"
@@ -1516,47 +1695,44 @@ impl SchemaId {
                 "schemas/applet-registration-epoch-transcript.schema.json"
             }
             Self::AppletWidgetDeclarationV1 => "schemas/applet-widget-declaration.schema.json",
-            Self::AuditReleaseAttestationV1 => "schemas/audit-release-attestation.schema.json",
-            Self::AuditRywReceiptV1 => "schemas/audit-ryw-receipt.schema.json",
+            Self::ApprovalSignatureV1 => "schemas/approval-signature.schema.json",
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 "schemas/authenticated-signer-resolution-evidence.schema.json"
             }
+            Self::AuthorityCommitOperationsV1 => "schemas/authority-commit-operations.schema.json",
             Self::AuthoritySetPolicyV1 => "schemas/authority-set-policy.schema.json",
             Self::AuthzOperationsV1 => "schemas/authz-operations.schema.json",
-            Self::AvailabilityReceiptV1 => "schemas/availability-receipt.schema.json",
             Self::BackupSeriesEraseConfirmationV1 => "schemas/keys-operations.schema.json",
             Self::BlobV1 => "schemas/blob.schema.json",
             Self::BlobOperationsV1 => "schemas/blob-operations.schema.json",
-            Self::BottomV1 => "schemas/bottom.schema.json",
             Self::CalendarEventV1 => "schemas/calendar-event.schema.json",
             Self::CallRecordingArtifactV1 => "schemas/call-recording-artifact.schema.json",
             Self::CallSignalPlaintextV1 => "schemas/call-signal-plaintext.schema.json",
             Self::CapabilityV1 => "schemas/capability-grant.schema.json",
-            Self::CbaProofBundleV1 => "schemas/cba-proof-bundle.schema.json",
             Self::CircleV1 => "schemas/circle.schema.json",
             Self::CircleOperationsV1 => "schemas/circle-operations.schema.json",
-            Self::CollisionVariantRecordV1 => "schemas/collision-variant-record.schema.json",
+            Self::CommittedEventSubscribeFrameV1 => {
+                "schemas/committed-event-subscribe-frame.schema.json"
+            }
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
-            Self::ControlProposalDecisionV1 => "schemas/control-proposal-decision.schema.json",
-            Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
+            Self::ControllerAccountGateAttestationV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
             Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
+                "schemas/agent-authority-evidence.schema.json"
             }
-            Self::ControllerAccountGateAttestationIssueRequestV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
+            Self::ControllerAccountGateAttestationIssueRequestBodyV1 => {
+                "schemas/agent-authority-evidence.schema.json"
             }
-            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
-                "schemas/current-signer-evidence-operations.schema.json"
-            }
-            Self::CurrentSignerEvidenceQueryRequestV1 => {
-                "schemas/current-signer-evidence-operations.schema.json"
-            }
+            Self::CurrentPrincipalOutcomeV1 => "schemas/identity-resolution.schema.json",
+            Self::CurrentPrincipalRequestV1 => "schemas/identity-resolution.schema.json",
             Self::CursorV1 => "schemas/cursor.schema.json",
+            Self::DetachedObjectSignatureV1 => "schemas/detached-object-signature.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
             Self::DevicePairingOperationsV1 => "schemas/device-pairing.schema.json",
@@ -1575,9 +1751,8 @@ impl SchemaId {
             Self::ErasureReceiptOperationsV1 => "schemas/erasure-receipt-operations.schema.json",
             Self::ErasureVerificationStubV1 => "schemas/erasure-verification-stub.schema.json",
             Self::EventV1 => "schemas/event-envelope.schema.json",
-            Self::EventBatchReceiptV1 => "schemas/event-batch-receipt.schema.json",
             Self::EventPayloadV1 => "schemas/event-payload.schema.json",
-            Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
+            Self::ExactCurrentResultsReadV1 => "schemas/exact-current-results-read.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
@@ -1585,14 +1760,11 @@ impl SchemaId {
             Self::HandleClaimCoreV1 => "schemas/handle-claim.schema.json",
             Self::HandleClaimRevocationV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
-            Self::HistoryKeyV1 => "schemas/history-key.schema.json",
             Self::HolderQuarantineV1 => "schemas/holder-quarantine.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
-            Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
             Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
-            Self::InclusionListV1 => "schemas/inclusion-list.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
@@ -1604,16 +1776,29 @@ impl SchemaId {
             Self::KeyTransparencyV1 => "schemas/key-transparency.schema.json",
             Self::KeypackageOperationsV1 => "schemas/keypackage-operations.schema.json",
             Self::KeysOperationsV1 => "schemas/keys-operations.schema.json",
-            Self::ListHandlesForSubjectResponseV1 => {
-                "schemas/list-handles-for-subject-response.schema.json"
+            Self::ManagementReviewOperationsV1 => {
+                "schemas/management-review-operations.schema.json"
             }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
+            Self::MediaServiceBindingOutcomeV1 => {
+                "schemas/media-service-binding-result.schema.json"
+            }
+            Self::MediaServiceBindingRequestV1 => {
+                "schemas/media-service-binding-result.schema.json"
+            }
             Self::MemberIdentityV1 => "schemas/member-identity.schema.json",
             Self::MessageV1 => "schemas/message.schema.json",
+            Self::MessageAuthoringContentV1 => "schemas/message-authoring.schema.json",
+            Self::MessageAuthoringIntentV1 => "schemas/message-authoring.schema.json",
+            Self::MessageEncryptionContextV1 => "schemas/message-authoring.schema.json",
+            Self::MessagePrepareOutcomeV1 => "schemas/message-authoring.schema.json",
+            Self::MessagePrepareRequestV1 => "schemas/message-authoring.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
-            Self::MlsGovernanceProofBundleV1 => "schemas/mls-governance-proof-bundle.schema.json",
+            Self::MlsCommitSubmissionV1 => "schemas/mls-commit-submission.schema.json",
+            Self::MlsRosterAuthorityV1 => "schemas/mls-roster-authority.schema.json",
+            Self::MlsWelcomeDeliveryV1 => "schemas/mls-welcome-delivery.schema.json",
             Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
             Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
@@ -1621,7 +1806,6 @@ impl SchemaId {
             Self::MorphV1 => "schemas/morph.schema.json",
             Self::NotificationV1 => "schemas/notification.schema.json",
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
-            Self::OfflinePublicationV1 => "schemas/offline-publication.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
@@ -1630,6 +1814,9 @@ impl SchemaId {
             Self::PresenceVisibilityV1 => "schemas/presence-visibility.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
             Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
+            Self::PrincipalRegistrationAnchorV1 => {
+                "schemas/principal-registration-anchor.schema.json"
+            }
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -1638,8 +1825,19 @@ impl SchemaId {
             Self::ReadCursorUpdateV1 => "schemas/device-message.schema.json",
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
             Self::RealmV1 => "schemas/realm.schema.json",
+            Self::RealmAuthorityBundleV1 => "schemas/realm-authority-bundle.schema.json",
+            Self::RealmAuthorityHandoffV1 => "schemas/realm-authority-handoff.schema.json",
+            Self::RealmCommitV1 => "schemas/realm-commit.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
+            Self::RealmJoinBootstrapOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinBootstrapRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinCandidateV1 => "schemas/realm-join-candidate.schema.json",
+            Self::RealmJoinPeerPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPeerPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPrepareOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPrepareRequestV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinSelfPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinSelfPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmLinkOperationsV1 => "schemas/realm-link-operations.schema.json",
             Self::RealmOrganizationOperationsV1 => {
                 "schemas/realm-organization-operations.schema.json"
@@ -1647,19 +1845,18 @@ impl SchemaId {
             Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
             Self::RealmStateSnapshotV1 => "schemas/realm-state-snapshot.schema.json",
-            Self::RealmStateSnapshotChunkV1 => "schemas/realm-state-snapshot-chunk.schema.json",
+            Self::RealmStreamListV1 => "schemas/realm-read-operations.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
+            Self::RecoveryTerminalCommitV1 => "schemas/security-transaction.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
-            Self::ResourceDiscoveryStateV1 => "schemas/event-payload.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
+            Self::ResultProjectionV1 => "schemas/typed-current-result.schema.json",
             Self::RsvpV1 => "schemas/rsvp.schema.json",
             Self::SdkConformanceClaimV1 => "schemas/sdk-conformance-claim.schema.json",
-            Self::SealV1 => "schemas/seal.schema.json",
-            Self::SealTransparencyV1 => "schemas/seal-transparency.schema.json",
             Self::SearchServiceV1 => "schemas/search-service.schema.json",
             Self::SecurityRotationLocalCommitV1 => "schemas/security-transaction.schema.json",
             Self::SecurityTransactionV1 => "schemas/security-transaction.schema.json",
@@ -1672,6 +1869,8 @@ impl SchemaId {
             Self::SignalRelayV1 => "schemas/signal-relay.schema.json",
             Self::SignalStreamFrameV1 => "schemas/signal-stream-frame.schema.json",
             Self::SignalTypingV1 => "schemas/signal-typing.schema.json",
+            Self::SignerKeyQueryOutcomeV1 => "schemas/signer-key-operations.schema.json",
+            Self::SignerKeyQueryRequestV1 => "schemas/signer-key-operations.schema.json",
             Self::SpaceV1 => "schemas/space.schema.json",
             Self::StrandV1 => "schemas/strand.schema.json",
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
@@ -1702,22 +1901,35 @@ impl SchemaId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACCOUNT_BLOCKLIST_V1 => Some(Self::AccountBlocklistV1),
+            Self::ACCOUNT_CURRENT_RESULT_V1 => Some(Self::AccountCurrentResultV1),
             Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1 => Some(Self::AccountDataEncryptedValueV1),
             Self::ACCOUNT_DATA_OPERATIONS_V1 => Some(Self::AccountDataOperationsV1),
+            Self::ACCOUNT_DEVICE_SIGNER_EVIDENCE_V1 => Some(Self::AccountDeviceSignerEvidenceV1),
             Self::ACCOUNT_OPERATIONS_V1 => Some(Self::AccountOperationsV1),
             Self::ACCOUNT_STATUS_RECORD_V1 => Some(Self::AccountStatusRecordV1),
             Self::ACCOUNT_SUBSCRIBE_FRAME_V1 => Some(Self::AccountSubscribeFrameV1),
             Self::ACCOUNTABILITY_GRANT_V1 => Some(Self::AccountabilityGrantV1),
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),
             Self::ACTOR_PROFILE_OPERATIONS_V1 => Some(Self::ActorProfileOperationsV1),
+            Self::AGENT_AUTHORITY_STATE_ATTESTATION_V1 => {
+                Some(Self::AgentAuthorityStateAttestationV1)
+            }
+            Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
+            Self::AGENT_DRAFT_V1 => Some(Self::AgentDraftV1),
+            Self::AGENT_DRAFT_CONTENT_HANDOFF_V1 => Some(Self::AgentDraftContentHandoffV1),
+            Self::AGENT_DRAFT_CONTENT_HANDOFF_PLAINTEXT_V1 => {
+                Some(Self::AgentDraftContentHandoffPlaintextV1)
+            }
+            Self::AGENT_DRAFT_PENDING_INTENT_V1 => Some(Self::AgentDraftPendingIntentV1),
             Self::AGENT_MEMBERSHIP_CASCADE_V1 => Some(Self::AgentMembershipCascadeV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
+            Self::AGENT_PRODUCER_EVIDENCE_V1 => Some(Self::AgentProducerEvidenceV1),
             Self::AGENT_PROVISION_V1 => Some(Self::AgentProvisionV1),
             Self::AGENT_REQUESTED_SCOPE_DISCLOSURE_V1 => {
                 Some(Self::AgentRequestedScopeDisclosureV1)
             }
-            Self::AGENT_SELECTOR_CLAIM_V1 => Some(Self::AgentSelectorClaimV1),
             Self::AGENT_SIDECAR_V1 => Some(Self::AgentSidecarV1),
             Self::AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1 => {
                 Some(Self::AgentSidecarEventExchangeBindingV1)
@@ -1727,17 +1939,13 @@ impl SchemaId {
                 Some(Self::AgentSidecarExchangeProjectionV1)
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
-            Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
-            Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
-            Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1 => Some(Self::AgentSignerEvidenceBundleV1),
-            Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
-                Some(Self::AgentSignerEvidenceQueryOutcomeV1)
-            }
-            Self::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
-                Some(Self::AgentSignerEvidenceQueryRequestV1)
-            }
-            Self::AGENT_SIGNING_KEY_BINDING_V1 => Some(Self::AgentSigningKeyBindingV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
+            Self::APPLET_AUTHORITY_MATERIAL_V1 => Some(Self::AppletAuthorityMaterialV1),
+            Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1 => {
+                Some(Self::AppletBotAuthoringRequestBasisV1)
+            }
+            Self::APPLET_BOT_OPERATIONS_V1 => Some(Self::AppletBotOperationsV1),
+            Self::APPLET_DEVICE_AUTHENTICATION_V1 => Some(Self::AppletDeviceAuthenticationV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1 => {
                 Some(Self::AppletGhostAuthoringRequestBasisV1)
@@ -1764,51 +1972,44 @@ impl SchemaId {
                 Some(Self::AppletRegistrationEpochTranscriptV1)
             }
             Self::APPLET_WIDGET_DECLARATION_V1 => Some(Self::AppletWidgetDeclarationV1),
-            Self::AUDIT_RELEASE_ATTESTATION_V1 => Some(Self::AuditReleaseAttestationV1),
-            Self::AUDIT_RYW_RECEIPT_V1 => Some(Self::AuditRywReceiptV1),
+            Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
             Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1 => {
                 Some(Self::AuthenticatedSignerResolutionEvidenceV1)
             }
+            Self::AUTHORITY_COMMIT_OPERATIONS_V1 => Some(Self::AuthorityCommitOperationsV1),
             Self::AUTHORITY_SET_POLICY_V1 => Some(Self::AuthoritySetPolicyV1),
             Self::AUTHZ_OPERATIONS_V1 => Some(Self::AuthzOperationsV1),
-            Self::AVAILABILITY_RECEIPT_V1 => Some(Self::AvailabilityReceiptV1),
             Self::BACKUP_SERIES_ERASE_CONFIRMATION_V1 => {
                 Some(Self::BackupSeriesEraseConfirmationV1)
             }
             Self::BLOB_V1 => Some(Self::BlobV1),
             Self::BLOB_OPERATIONS_V1 => Some(Self::BlobOperationsV1),
-            Self::BOTTOM_V1 => Some(Self::BottomV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
             Self::CALL_RECORDING_ARTIFACT_V1 => Some(Self::CallRecordingArtifactV1),
             Self::CALL_SIGNAL_PLAINTEXT_V1 => Some(Self::CallSignalPlaintextV1),
             Self::CAPABILITY_V1 => Some(Self::CapabilityV1),
-            Self::CBA_PROOF_BUNDLE_V1 => Some(Self::CbaProofBundleV1),
             Self::CIRCLE_V1 => Some(Self::CircleV1),
             Self::CIRCLE_OPERATIONS_V1 => Some(Self::CircleOperationsV1),
-            Self::COLLISION_VARIANT_RECORD_V1 => Some(Self::CollisionVariantRecordV1),
+            Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1 => Some(Self::CommittedEventSubscribeFrameV1),
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
-            Self::CONTROL_PROPOSAL_DECISION_V1 => Some(Self::ControlProposalDecisionV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1 => {
                 Some(Self::ControllerAccountGateAttestationIssueOutcomeV1)
             }
-            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1 => {
-                Some(Self::ControllerAccountGateAttestationIssueRequestV1)
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1 => {
+                Some(Self::ControllerAccountGateAttestationIssueRequestBodyV1)
             }
-            Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
-                Some(Self::CurrentSignerEvidenceQueryOutcomeV1)
-            }
-            Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
-                Some(Self::CurrentSignerEvidenceQueryRequestV1)
-            }
+            Self::CURRENT_PRINCIPAL_OUTCOME_V1 => Some(Self::CurrentPrincipalOutcomeV1),
+            Self::CURRENT_PRINCIPAL_REQUEST_V1 => Some(Self::CurrentPrincipalRequestV1),
             Self::CURSOR_V1 => Some(Self::CursorV1),
+            Self::DETACHED_OBJECT_SIGNATURE_V1 => Some(Self::DetachedObjectSignatureV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
             Self::DEVICE_PAIRING_OPERATIONS_V1 => Some(Self::DevicePairingOperationsV1),
@@ -1825,9 +2026,8 @@ impl SchemaId {
             Self::ERASURE_RECEIPT_OPERATIONS_V1 => Some(Self::ErasureReceiptOperationsV1),
             Self::ERASURE_VERIFICATION_STUB_V1 => Some(Self::ErasureVerificationStubV1),
             Self::EVENT_V1 => Some(Self::EventV1),
-            Self::EVENT_BATCH_RECEIPT_V1 => Some(Self::EventBatchReceiptV1),
             Self::EVENT_PAYLOAD_V1 => Some(Self::EventPayloadV1),
-            Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
+            Self::EXACT_CURRENT_RESULTS_READ_V1 => Some(Self::ExactCurrentResultsReadV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
@@ -1835,14 +2035,11 @@ impl SchemaId {
             Self::HANDLE_CLAIM_CORE_V1 => Some(Self::HandleClaimCoreV1),
             Self::HANDLE_CLAIM_REVOCATION_V1 => Some(Self::HandleClaimRevocationV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
-            Self::HISTORY_KEY_V1 => Some(Self::HistoryKeyV1),
             Self::HOLDER_QUARANTINE_V1 => Some(Self::HolderQuarantineV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
-            Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
             Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
-            Self::INCLUSION_LIST_V1 => Some(Self::InclusionListV1),
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
@@ -1854,16 +2051,23 @@ impl SchemaId {
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
             Self::KEYPACKAGE_OPERATIONS_V1 => Some(Self::KeypackageOperationsV1),
             Self::KEYS_OPERATIONS_V1 => Some(Self::KeysOperationsV1),
-            Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1 => {
-                Some(Self::ListHandlesForSubjectResponseV1)
-            }
+            Self::MANAGEMENT_REVIEW_OPERATIONS_V1 => Some(Self::ManagementReviewOperationsV1),
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
+            Self::MEDIA_SERVICE_BINDING_OUTCOME_V1 => Some(Self::MediaServiceBindingOutcomeV1),
+            Self::MEDIA_SERVICE_BINDING_REQUEST_V1 => Some(Self::MediaServiceBindingRequestV1),
             Self::MEMBER_IDENTITY_V1 => Some(Self::MemberIdentityV1),
             Self::MESSAGE_V1 => Some(Self::MessageV1),
+            Self::MESSAGE_AUTHORING_CONTENT_V1 => Some(Self::MessageAuthoringContentV1),
+            Self::MESSAGE_AUTHORING_INTENT_V1 => Some(Self::MessageAuthoringIntentV1),
+            Self::MESSAGE_ENCRYPTION_CONTEXT_V1 => Some(Self::MessageEncryptionContextV1),
+            Self::MESSAGE_PREPARE_OUTCOME_V1 => Some(Self::MessagePrepareOutcomeV1),
+            Self::MESSAGE_PREPARE_REQUEST_V1 => Some(Self::MessagePrepareRequestV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
-            Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1 => Some(Self::MlsGovernanceProofBundleV1),
+            Self::MLS_COMMIT_SUBMISSION_V1 => Some(Self::MlsCommitSubmissionV1),
+            Self::MLS_ROSTER_AUTHORITY_V1 => Some(Self::MlsRosterAuthorityV1),
+            Self::MLS_WELCOME_DELIVERY_V1 => Some(Self::MlsWelcomeDeliveryV1),
             Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
             Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),
@@ -1871,7 +2075,6 @@ impl SchemaId {
             Self::MORPH_V1 => Some(Self::MorphV1),
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
-            Self::OFFLINE_PUBLICATION_V1 => Some(Self::OfflinePublicationV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
@@ -1880,6 +2083,7 @@ impl SchemaId {
             Self::PRESENCE_VISIBILITY_V1 => Some(Self::PresenceVisibilityV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
             Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
+            Self::PRINCIPAL_REGISTRATION_ANCHOR_V1 => Some(Self::PrincipalRegistrationAnchorV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),
@@ -1888,26 +2092,36 @@ impl SchemaId {
             Self::READ_CURSOR_UPDATE_V1 => Some(Self::ReadCursorUpdateV1),
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),
             Self::REALM_V1 => Some(Self::RealmV1),
+            Self::REALM_AUTHORITY_BUNDLE_V1 => Some(Self::RealmAuthorityBundleV1),
+            Self::REALM_AUTHORITY_HANDOFF_V1 => Some(Self::RealmAuthorityHandoffV1),
+            Self::REALM_COMMIT_V1 => Some(Self::RealmCommitV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
+            Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1 => Some(Self::RealmJoinBootstrapOutcomeV1),
+            Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1 => Some(Self::RealmJoinBootstrapRequestV1),
             Self::REALM_JOIN_CANDIDATE_V1 => Some(Self::RealmJoinCandidateV1),
+            Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinPeerPreviewOutcomeV1),
+            Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinPeerPreviewRequestV1),
+            Self::REALM_JOIN_PREPARE_OUTCOME_V1 => Some(Self::RealmJoinPrepareOutcomeV1),
+            Self::REALM_JOIN_PREPARE_REQUEST_V1 => Some(Self::RealmJoinPrepareRequestV1),
+            Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinSelfPreviewOutcomeV1),
+            Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinSelfPreviewRequestV1),
             Self::REALM_LINK_OPERATIONS_V1 => Some(Self::RealmLinkOperationsV1),
             Self::REALM_ORGANIZATION_OPERATIONS_V1 => Some(Self::RealmOrganizationOperationsV1),
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
             Self::REALM_STATE_SNAPSHOT_V1 => Some(Self::RealmStateSnapshotV1),
-            Self::REALM_STATE_SNAPSHOT_CHUNK_V1 => Some(Self::RealmStateSnapshotChunkV1),
+            Self::REALM_STREAM_LIST_V1 => Some(Self::RealmStreamListV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
+            Self::RECOVERY_TERMINAL_COMMIT_V1 => Some(Self::RecoveryTerminalCommitV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
-            Self::RESOURCE_DISCOVERY_STATE_V1 => Some(Self::ResourceDiscoveryStateV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),
+            Self::RESULT_PROJECTION_V1 => Some(Self::ResultProjectionV1),
             Self::RSVP_V1 => Some(Self::RsvpV1),
             Self::SDK_CONFORMANCE_CLAIM_V1 => Some(Self::SdkConformanceClaimV1),
-            Self::SEAL_V1 => Some(Self::SealV1),
-            Self::SEAL_TRANSPARENCY_V1 => Some(Self::SealTransparencyV1),
             Self::SEARCH_SERVICE_V1 => Some(Self::SearchServiceV1),
             Self::SECURITY_ROTATION_LOCAL_COMMIT_V1 => Some(Self::SecurityRotationLocalCommitV1),
             Self::SECURITY_TRANSACTION_V1 => Some(Self::SecurityTransactionV1),
@@ -1920,6 +2134,8 @@ impl SchemaId {
             Self::SIGNAL_RELAY_V1 => Some(Self::SignalRelayV1),
             Self::SIGNAL_STREAM_FRAME_V1 => Some(Self::SignalStreamFrameV1),
             Self::SIGNAL_TYPING_V1 => Some(Self::SignalTypingV1),
+            Self::SIGNER_KEY_QUERY_OUTCOME_V1 => Some(Self::SignerKeyQueryOutcomeV1),
+            Self::SIGNER_KEY_QUERY_REQUEST_V1 => Some(Self::SignerKeyQueryRequestV1),
             Self::SPACE_V1 => Some(Self::SpaceV1),
             Self::STRAND_V1 => Some(Self::StrandV1),
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),

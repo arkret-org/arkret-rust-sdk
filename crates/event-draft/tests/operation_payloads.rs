@@ -25,7 +25,7 @@ fn object_create_payload_wraps_strand_draft() {
 }
 
 #[test]
-fn strand_tracks_update_uses_shared_strand_patch_payload() {
+fn strand_tracks_update_accepts_configuration_leaf_patch() {
     let strand_id =
         StrandId::new("ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
     let patch: Patch = serde_json::from_value(json!({

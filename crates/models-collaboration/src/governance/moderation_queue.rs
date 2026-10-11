@@ -1,11 +1,11 @@
 //! Moderation queue vocabulary and queue-item container
 //! (`moderation-queue-item.schema.json`).
 
-use arkret_wire::{DidCoreId, SchemaId};
+use arkret_wire::{DidCoreId, EventId, ModerationQueueItemId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::governance::moderation::ModerationReport;
+use crate::events_payloads::moderation::ModerationReportPayload;
 
 // ---------------------------------------------------------------------------
 // Moderation queue item (moderation-queue-item.schema.json)
@@ -43,8 +43,11 @@ pub enum ModerationQueueVisibility {
     FrankingProofOnly,
 }
 
-/// Evidence-handling policy embedded in a queue item.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Evidence-handling policy embedded in a queue item. Both booleans are
+/// derived from the same accepted material as `visibility`
+/// (content-moderation.md §3.3 item 4).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModerationEvidencePolicy {
     pub plaintext_allowed: bool,
     pub franking_proof_verification_required: bool,
@@ -55,26 +58,29 @@ pub struct ModerationEvidencePolicy {
     pub legal_hold: Option<bool>,
 }
 
-/// Moderation queue container (`ak.component.moderation_queue.v1` cell
-/// body). Mirrors `moderation-queue-item.schema.json`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// One report item of the moderation queue View
+/// (`moderation-queue-item.schema.json`).
+///
+/// The item is a read-side View over the accepted `moderation_report` typed
+/// current result and the `moderation_state` records that point at it, not a
+/// second stored state (content-moderation.md §3.3): `id` is the report Event
+/// id retyped to `moderation_queue_item`, `report` is the complete accepted
+/// report payload and `created_at` the accepting Commit time.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModerationQueueItem {
-    /// `ak:moderation_queue_item:<uuidv7>`.
-    pub id: String,
-    /// The full report this queue entry represents.
-    pub report: ModerationReport,
+    pub id: ModerationQueueItemId,
+    pub report: ModerationReportPayload,
     pub status: ModerationQueueStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<ModerationQueuePriority>,
     pub visibility: ModerationQueueVisibility,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub assigned_to_ids: Vec<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assigned_to_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_policy: Option<ModerationEvidencePolicy>,
-    /// `ak:event:<44-char-token>` references to audit events recording queue
-    /// actions (decisions, redirects, dismissals).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub audit_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_refs: Option<Vec<EventId>>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,43 +90,10 @@ pub struct ModerationQueueItem {
 
 impl ModerationQueueItem {
     pub const SCHEMA: &'static str = SchemaId::MODERATION_QUEUE_ITEM_V1;
-}
 
-#[cfg(test)]
-mod tests {
-    use arkret_wire::RealmId;
-
-    use super::*;
-
-    #[test]
-    fn queue_item_round_trips() {
-        let item = ModerationQueueItem {
-            id: "ak:moderation_queue_item:AeI4eUGRmaA9GYZ60CABKT42AUIqRSquqvnvBNywHzeG".to_owned(),
-            report: ModerationReport::new(
-                "ak:report:AeaUpT-cu-NcupBk54pDQtlp7O3sqCQzjyexZxvQhXbc",
-                RealmId::new("ak:realm:AYXp4CiHLjKHg42IhFAbpOD0JiP1L-wLeEGGKcIuox_2").unwrap(),
-                "ak:message:AXB4Wy8AgJaUH7vqjxD-xwHRsqpfyTp-qM7_vrf4j7ol",
-                "spam",
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturereporter").unwrap(),
-            ),
-            status: ModerationQueueStatus::Submitted,
-            priority: Some(ModerationQueuePriority::Normal),
-            visibility: ModerationQueueVisibility::MetadataOnly,
-            assigned_to_ids: vec![],
-            evidence_policy: Some(ModerationEvidencePolicy {
-                plaintext_allowed: false,
-                franking_proof_verification_required: true,
-                retention_expires_at: None,
-                legal_hold: None,
-            }),
-            audit_refs: vec![],
-            created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
-            updated_at: None,
-        };
-        let json_text = serde_json::to_string(&item).unwrap();
-        assert!(json_text.contains(r#""status":"submitted""#));
-        assert!(json_text.contains(r#""visibility":"metadata_only""#));
-        let parsed: ModerationQueueItem = serde_json::from_str(&json_text).unwrap();
-        assert_eq!(parsed, item);
+    /// The queue item identity of one accepted report Event.
+    #[must_use]
+    pub fn id_for_report(report_event_id: &EventId) -> ModerationQueueItemId {
+        ModerationQueueItemId::from_event_id(report_event_id)
     }
 }

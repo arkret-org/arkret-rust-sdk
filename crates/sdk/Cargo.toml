@@ -19,6 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 client = ["dep:arkret-http-client", "dep:url"]
+tls-rustls = ["client", "arkret-http-client/tls-rustls"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server"]
 mls = ["dep:arkret-mls"]
@@ -38,7 +39,7 @@ keystore-windows = ["arkret-keystore/keystore-windows"]
 arkret-auth = { workspace = true }
 arkret-bootstrap = { workspace = true }
 arkret-canonical = { workspace = true }
-arkret-crypto = { workspace = true, features = ["account-data", "aead", "identity-root", "secret-share"] }
+arkret-crypto = { workspace = true, features = ["account-data", "aead", "hpke", "identity-root"] }
 arkret-egress-policy = { workspace = true }
 arkret-event-draft = { workspace = true }
 arkret-hlc = { workspace = true }
@@ -46,7 +47,6 @@ arkret-http-client = { workspace = true, optional = true }
 arkret-identifiers = { workspace = true }
 arkret-identity = { workspace = true }
 arkret-keystore = { workspace = true }
-arkret-lattice-registry = { workspace = true }
 arkret-mls = { workspace = true, optional = true }
 arkret-models-collaboration = { workspace = true }
 # Direct dep so the SDK crypto store can re-export the MLS record shapes
@@ -58,6 +58,7 @@ arkret-models-identity = { workspace = true }
 arkret-models-integration = { workspace = true }
 arkret-policy = { workspace = true }
 arkret-push-policy.workspace = true
+arkret-retry = { workspace = true }
 arkret-schema = { workspace = true }
 arkret-server = { workspace = true, optional = true }
 arkret-signatures = { workspace = true, features = [
@@ -69,10 +70,17 @@ arkret-signatures = { workspace = true, features = [
 arkret-state = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true }
+ed25519-dalek = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true, features = ["serde"], optional = true }
+
+[dev-dependencies]
+arkret-signatures = { workspace = true, features = ["signer"] }
+arkret-wire = { workspace = true, features = ["test-support"] }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
 
 [lints]
 workspace = true

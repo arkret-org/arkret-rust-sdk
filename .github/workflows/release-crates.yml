@@ -23,14 +23,14 @@ jobs:
         arkret-locale
         arkret-wire
         arkret-hlc
-        arkret-models-identity
         arkret-models-crypto
+        arkret-models-identity
+        arkret-schema
         arkret-models-collaboration
         arkret-models-discovery
         arkret-models-integration
         arkret-push-policy
         arkret-event-draft
-        arkret-schema
         arkret-policy
         arkret-state
         arkret-signatures
@@ -39,7 +39,6 @@ jobs:
         arkret-identity
         arkret-mls
         arkret-http-client
-        arkret-lattice-registry
         arkret-bootstrap
         arkret-rate-limit
         arkret-server
@@ -54,4 +53,4 @@ jobs:
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
       - run: python tools/check-publish-order.py
-      - run: cargo package --workspace --locked --no-verify
+      - run: cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify

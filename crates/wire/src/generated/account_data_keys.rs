@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-05.2;
-//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf
+//! Input: registry/account-data-key-registry.json; version=2026-10-05.2;
+//! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -67,9 +67,10 @@ impl AccountDataKey {
         Self::ViewsPrivate,
     ];
 
-    /// Holder-private personal blocklist. It affects only the holder's local projection,
-    /// notifications, contact handling, and trusted holder-side filtering. Key pattern:
-    /// `ak.account.blocklist`.
+    /// Holder-private personal blocklist, written only as an encrypted ak.account_data.set value
+    /// under the server-revision CAS. Only key-holding holder devices apply it to local
+    /// projections, notifications and holder-private requests; v1 has no service plaintext
+    /// disclosure or filtering operation. Key pattern: `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
     /// Actor-private plaintext holder quarantine inbox for the two admission surfaces the consent
     /// gate defers under the default profile: invite delivery and
@@ -80,26 +81,33 @@ impl AccountDataKey {
     /// pending_incoming state and never produce an entry here. Key pattern:
     /// `ak.account.holder_quarantine`.
     pub const ACCOUNT_HOLDER_QUARANTINE: &'static str = "ak.account.holder_quarantine";
-    /// Actor-private holder-side carrier for delivered directed-invite credentials on the notify
-    /// branch (invite-addressing.md section 7). Written by the recipient Station through the
-    /// delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
-    /// client-encrypted envelope; invite_token is a server-issued private locator that MUST NOT
-    /// enter the Invite object or Realm history. Bounded CAS register: at most 200 entries, expired
-    /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
-    /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
+    /// Actor-private holder-side carrier for delivered directed invites on the notify branch
+    /// (invite-addressing.md section 7). Written by the recipient Station through the delivery
+    /// path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a client-encrypted
+    /// envelope; it carries invite references and untrusted locator hints, no bearer credential,
+    /// and its routing material MUST NOT enter the Invite object or Realm history. Bounded CAS
+    /// register: at most 200 entries, expired entries purged first, then oldest evicted; accepted
+    /// writes fan out as ak.account_data.update actor-private device updates. Key pattern:
+    /// `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
-    /// Controller-owned encrypted draft created when Station materializes an agent's
-    /// ak.agent.draft.propose / ak.agent.action_request after capability / policy / accountability
-    /// / risk check. Draft MUST NOT enter shared Realm history; publishing produces a new shared
-    /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
-    /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
+    /// Controller-owned encrypted draft created only by the controller holder's ak.account_data.set
+    /// CAS. Both key components are fixed 43-character unpadded-base64url SHA-256 digests under
+    /// distinct registered domains; they are not reversible literals. ak.agent.draft.propose is not
+    /// a writer: it creates a Station-private pending intent whose HPKE handoff the holder
+    /// decrypts, validates and re-encrypts with the account secret. The initial create must
+    /// atomically consume that exact intent after Station recomputes the complete signed key from
+    /// the source row; Station never sees plaintext or generates the encrypted value. Draft MUST
+    /// NOT enter shared Realm history; publishing produces a new shared event referencing only an
+    /// opaque digest. See actor-private-effects.md §3.2 and private-objects.md §4.1.
+    /// Key pattern: `ak.agent.draft.v1:<agent_id_sha256_b64u43>:<draft_id_sha256_b64u43>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
     /// Controller-private per-context Sidecar hosted-view state. controller_account_key is
     /// derive_account_data_key(RFC8785_JCS(controller_account_id)) from models/account-data.md
     /// section 2; the structured AccountId is never inserted directly into the colon-delimited key.
-    /// Synchronizes display_mode (context_merged or sidecar_only), pin/collapse state, and HLC
-    /// without changing either Strand, Track, access, read, watch, notification, or search state.
-    /// Key pattern:
+    /// Synchronizes only pin/local-collapse state and HLC, without changing either Strand, Track,
+    /// access, read, watch, notification, or search state. The source Strand always merges
+    /// authorized private Sidecar requests and user-facing replies for the controller, without
+    /// publish or a display-mode field. Key pattern:
     /// `ak.agent.sidecar_view_state.v1:<controller_account_key>:<target_realm_id>:
     /// <target_strand_id>`.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.agent.sidecar_view_state.v1";
@@ -174,8 +182,8 @@ impl AccountDataKey {
     /// Key pattern: `ak.tags.realm.<realm_id>`.
     pub const TAGS_REALM: &'static str = "ak.tags.realm";
     /// Actor-private View definition. The encrypted value validates as ak.schema.view.v1 with
-    /// visibility=private; it never enters a shared Realm View cell. Key pattern:
-    /// `ak.views.private.<view_id>`.
+    /// visibility=private; it never enters a shared Realm View typed current result.
+    /// Key pattern: `ak.views.private.<view_id>`.
     pub const VIEWS_PRIVATE: &'static str = "ak.views.private";
 
     pub const fn as_str(self) -> &'static str {

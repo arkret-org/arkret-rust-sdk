@@ -136,8 +136,8 @@ references a body branch the verifier does not understand.
 profile branch as canonical fields covered by the policy's signature;
 verifiers reject `body` branches they cannot parse rather than silently
 accepting them. `ak.schema.recovery_receipt.v1` binds the `policy_id`,
-`recovery_session_id` and `frontier_ref` of the originating key state, so
-receipts cannot be replayed against a rotated frontier. The
+`recovery_session_id` and source commit of the originating key state, so
+receipts cannot be replayed against a rotated authority projection. The
 first-backup gate (below) ensures recovery cannot land before the controller
 has staged at least one chain envelope.
 
@@ -149,7 +149,7 @@ caller fabricates a Sidecar identity or participation list.
 
 *Mitigations.* `ak.profile.agent_sidecar.v1` exposes only the self-scoped
 `ak.self.agent.sidecar.command.ensure.v1` aggregate and dedicated get/list reads.
-The reducer derives the Sidecar singleton from the create Event and binds an
+The authority projection derives the Sidecar singleton from the create Event and binds an
 independent MLS group directly to the native Sidecar scope. Participants are
 the controller plus ownership-derived Agents and cannot be edited through a
 Sidecar membership surface. Source echoes are encrypted
@@ -166,7 +166,7 @@ becomes the canonical history.
 
 *Mitigations.* The gate requires at least one
 `ak.schema.key_backup.v1` envelope (with `series_seq == 0`) to be visible
-on the home soland before any `recovery_policy` can accept a binding. SDK
+on the home coland before any `recovery_policy` can accept a binding. SDK
 callers see this as `Error::Protocol("first_backup_required")` from the
 recovery client; the spec layer codifies it as the
 `first_backup_required` failure mode on `ak.account.recovery.*` operations.

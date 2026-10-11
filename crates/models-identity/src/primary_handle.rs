@@ -1,11 +1,11 @@
 //! R3.2 (arkret-spec @ b56cab1) — §3.2.1 primary handle selection,
 //! `claim_digest(c)`, and §3.8.2 mention rendering.
 //!
-//! These helpers are shared across inkson / sodmin / soland / cotest so
+//! These helpers are shared across inkson / codmin / coland / cotest so
 //! every implementation agrees on the deterministic primary-handle
 //! selection and the canonical claim digest. The DID-Document
 //! `metadata.primary_handle` lookup (`holder_primary_handle_at_as_of`) is
-//! injected via [`DidDocumentSnapshotResolver`] so the algorithm stays a
+//! injected via [`crate::primary_handle::DidDocumentSnapshotResolver`] so the algorithm stays a
 //! pure function of its inputs.
 //!
 //! This module is wasm-safe: it depends only on the identity-domain wire
@@ -14,7 +14,7 @@
 //! (JCS canonicalization + sha256), and pulls in no client / keystore /
 //! salvo / MLS native-only dependency. The umbrella `arkret` crate re-exports
 //! these symbols from `arkret::identity`, while wasm-only consumers (e.g.
-//! sodmin) depend on this authoritative implementation directly instead of
+//! codmin) depend on this authoritative implementation directly instead of
 //! mirroring the algorithm by hand.
 
 use arkret_wire::{AccountId, DidCoreId, Result};
@@ -65,8 +65,8 @@ pub trait DidDocumentSnapshotResolver {
 /// Test/offline resolver: never returns a holder preference.
 ///
 /// Production callers that support DID Document `metadata.primary_handle`
-/// MUST inject a real [`DidDocumentSnapshotResolver`]. Using this resolver in
-/// production deliberately disables the holder-flagged priority layer and
+/// MUST inject a real [`crate::primary_handle::DidDocumentSnapshotResolver`]. Using this resolver
+/// in production deliberately disables the holder-flagged priority layer and
 /// falls through to audience-match / most-recent selection.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoHolderPreferenceResolver;

@@ -140,21 +140,21 @@ fn patch_event_family_maps_to_canonical_payloads() {
     assert_eq!(
         catalog.rules["ak.strand.tracks.update"].payload_schema_id,
         format!(
-            "{schemaid_event_payload_v1}#/$defs/strand_patch_payload",
+            "{schemaid_event_payload_v1}#/$defs/strand_tracks_update_payload",
             schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
         ),
-        "ak.strand.tracks.update must share the canonical strand patch payload"
+        "ak.strand.tracks.update must use the configuration-only payload"
     );
     catalog
         .validate_payload(
             "ak.strand.tracks.update",
             &json!({
                 "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
-                "patch": { "tracks.main.is_primary": { "$op": "set", "value": true } }
+                "patch": { "tracks.synthesis.is_primary": { "$op": "set", "value": true } }
             }),
         )
         .unwrap_or_else(|err| {
-            panic!("ak.strand.tracks.update should accept strand patch payloads: {err}")
+            panic!("ak.strand.tracks.update should accept configuration leaf patches: {err}")
         });
     assert!(
         catalog

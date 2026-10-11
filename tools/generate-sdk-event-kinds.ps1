@@ -1,107 +1,32 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire\src\generated\event_kinds.rs"),
+    [switch]$Check
 )
 
 . (Join-Path $PSScriptRoot 'utf8-byte-order.ps1')
 
-# Emits crates/wire/src/generated/event_kinds.rs from
-# arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json.
-#
-# Outputs the strongly-typed `EventKind` enum: one PascalCase variant per
-# active `ak.*` kind in the registry, plus an `Unknown(String)` catch-all that
-# carries any other wire string verbatim for forward compatibility (an older
-# build deserialising a newer ak.* kind keeps the bytes instead of failing the
-# parse; the spec's "unknown standard kind is schema_violation" rule is enforced
-# at the validation layer, not at deserialisation).
-
-$registryPath = Join-Path $ArtifactsDir "registry\event-kind-registry.json"
+# Emits the clean-break Event kind surface. Ordering, finality and projection
+# state no longer live in the producer Event. Effect ownership is local catalog
+# metadata for implementation closure checks, never an additional wire member.
+$registryPath = Join-Path $ArtifactsDir "registry\contract-registry.json"
 if (!(Test-Path -LiteralPath $registryPath)) {
-    throw "event-kind registry artifact not found: $registryPath"
+    throw "canonical contract registry artifact not found: $registryPath"
 }
 
-$raw = Get-Content -LiteralPath $registryPath -Raw
-$artifact = $raw | ConvertFrom-Json
+$artifact = Get-Content -LiteralPath $registryPath -Raw | ConvertFrom-Json
 $digest = (Get-FileHash -LiteralPath $registryPath -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($null -eq $artifact.event_kinds) {
-    throw "event-kind-registry.json missing top-level 'event_kinds' array"
+if ($null -eq $artifact.event_kind_registry.event_kinds) {
+    throw "contract-registry.json missing 'event_kind_registry.event_kinds' array"
 }
+$registry = $artifact.event_kind_registry
 
 function ConvertTo-Variant {
-    param([string]$Kind)
-    $body = $Kind -replace '^ak\.', ''
-    $segs = $body -split '[._]'
-    ($segs | ForEach-Object {
-        if ($_.Length -eq 0) { '' } else { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }
-    }) -join ''
-}
-
-function ConvertTo-SimpleVariant {
-    param([string]$Value)
-    (($Value -split '[._]' | ForEach-Object {
+    param([string]$Value, [string]$Prefix = '')
+    $body = if ($Prefix -and $Value.StartsWith($Prefix)) { $Value.Substring($Prefix.Length) } else { $Value }
+    (($body -split '[^A-Za-z0-9]+' | ForEach-Object {
         if ($_.Length -eq 0) { '' } else { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }
     }) -join '')
-}
-
-function ConvertTo-RuleVariant {
-    param([string]$Value)
-    (($Value -split '[^A-Za-z0-9]+' | ForEach-Object {
-        if ($_.Length -eq 0) { '' } else { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }
-    }) -join '')
-}
-
-function Add-RuleVocabulary {
-    param($Value)
-    if ($null -eq $Value) { return }
-    if ($Value -is [System.Management.Automation.PSCustomObject]) {
-        foreach ($property in $Value.PSObject.Properties) {
-            [void]$script:ruleKeys.Add([string]$property.Name)
-            if ($property.Name -eq 'kind' -and $property.Value -is [string]) {
-                [void]$script:ruleOperators.Add([string]$property.Value)
-            }
-            Add-RuleVocabulary -Value $property.Value
-        }
-        return
-    }
-    if ($Value -is [System.Array]) {
-        foreach ($item in $Value) { Add-RuleVocabulary -Value $item }
-    }
-}
-
-function ConvertTo-RuleExpression {
-    param($Value, [bool]$IsOperator = $false)
-    if ($null -eq $Value) { return 'EventCellRule::Null' }
-    if ($IsOperator) {
-        return "EventCellRule::Operator(EventCellRuleOperator::$(ConvertTo-RuleVariant -Value ([string]$Value)))"
-    }
-    if ($Value -is [System.Management.Automation.PSCustomObject]) {
-        $fields = @($Value.PSObject.Properties | ForEach-Object {
-            $key = ConvertTo-RuleVariant -Value ([string]$_.Name)
-            $expression = ConvertTo-RuleExpression -Value $_.Value -IsOperator ($_.Name -eq 'kind')
-            "EventCellRuleField { key: EventCellRuleKey::$key, value: $expression }"
-        })
-        return "EventCellRule::Object(&[$($fields -join ', ')])"
-    }
-    if ($Value -is [System.Array]) {
-        $items = @($Value | ForEach-Object { ConvertTo-RuleExpression -Value $_ })
-        return "EventCellRule::Array(&[$($items -join ', ')])"
-    }
-    if ($Value -is [bool]) {
-        return "EventCellRule::Bool($($Value.ToString().ToLowerInvariant()))"
-    }
-    if ($Value -is [byte] -or $Value -is [sbyte] -or $Value -is [int16] -or
-        $Value -is [uint16] -or $Value -is [int32] -or $Value -is [uint32] -or
-        $Value -is [int64]) {
-        return "EventCellRule::Integer($Value)"
-    }
-    if ($Value -is [uint64]) {
-        if ($Value -gt [int64]::MaxValue) { throw "cell rule integer exceeds i64: $Value" }
-        return "EventCellRule::Integer($Value)"
-    }
-    if ($Value -is [string]) {
-        return "EventCellRule::String($($Value | ConvertTo-Json -Compress))"
-    }
-    throw "unsupported cell rule value type: $($Value.GetType().FullName)"
 }
 
 function ConvertTo-AssociatedName {
@@ -109,863 +34,404 @@ function ConvertTo-AssociatedName {
     (($Kind -replace '^ak\.', '') -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
 }
 
-# Active kinds only, sorted by their encoded UTF-8 bytes so match arms and the
-# variant list are deterministic across PowerShell cultures and .NET runtimes.
-$kinds = @($artifact.event_kinds | Where-Object { $_.status -eq 'active' } | ForEach-Object { [string]$_.event_kind })
-$arr = Sort-Utf8ByteLexicographic -Values $kinds
-
-$ruleKeys = [System.Collections.Generic.HashSet[string]]::new()
-$ruleOperators = [System.Collections.Generic.HashSet[string]]::new()
-foreach ($row in $artifact.event_kinds) {
-    Add-RuleVocabulary -Value $row.cell_subject
-    Add-RuleVocabulary -Value $row.value_projection
-    foreach ($write in $row.cell_writes) {
-        Add-RuleVocabulary -Value $write.cell_ref
-        Add-RuleVocabulary -Value $write.cell_subject
-        Add-RuleVocabulary -Value $write.value_projection
-        Add-RuleVocabulary -Value $write.effect_projection
-        Add-RuleVocabulary -Value $write.condition
-        Add-RuleVocabulary -Value $write.derived_members
-    }
-    # A `pre_state_requirements[].condition` is drawn from the same closed
-    # payload-condition grammar as `cell_writes[].condition` and is rendered
-    # into the same AST by tools/spec-codegen. Feeding it through the same
-    # vocabulary keeps the two generators from disagreeing about which
-    # operators and keys exist: an operator only a pre-state condition uses
-    # would otherwise be emitted by spec-codegen but missing from this enum.
-    foreach ($requirement in $row.pre_state_requirements) {
-        Add-RuleVocabulary -Value $requirement.condition
-    }
-}
-$sortedRuleKeys = Sort-Utf8ByteLexicographic -Values @($ruleKeys)
-$sortedRuleOperators = Sort-Utf8ByteLexicographic -Values @($ruleOperators)
-
-$entries = New-Object System.Collections.Generic.List[object]
-$seenVariants = @{}
-$rowByKind = @{}
-foreach ($row in $artifact.event_kinds) {
-    $rowByKind[[string]$row.event_kind] = $row
-}
-foreach ($k in $arr) {
-    $variant = ConvertTo-Variant -Kind $k
-    if ($seenVariants.ContainsKey($variant)) {
-        throw "event-kind variant collision: '$variant' produced by both '$($seenVariants[$variant])' and '$k'"
-    }
-    $seenVariants[$variant] = $k
-    $row = $rowByKind[$k]
-    $entries.Add([PSCustomObject]@{
-        Kind = $k
-        Variant = $variant
-        Category = [string]$row.category
-        CategoryVariant = ConvertTo-SimpleVariant -Value ([string]$row.category)
-        WireScope = [string]$row.wire_scope
-        WireScopeVariant = switch ([string]$row.wire_scope) {
-            'durable_event' { 'DurableEvent' }
-            'actor_private_event' { 'ActorPrivateEvent' }
-            'ephemeral_event' { 'EphemeralEvent' }
-            default { throw "unsupported event wire scope: $($row.wire_scope)" }
-        }
-        ReducerInput = [bool]$row.reducer_input
-        Admission = if ($null -eq $row.admission) { $null } else { [string]$row.admission }
-        PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
-        CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
-        CellSubjectRule = $row.cell_subject
-        ValueProjectionRule = $row.value_projection
-        Lattice = if ($null -eq $row.lattice) { $null } else { [string]$row.lattice }
-        Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
-        Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
-        Sealed = [bool]$row.sealed
-        CellWrites = @(
-            if ($null -eq $row.cell_writes) { } else {
-                foreach ($write in $row.cell_writes) {
-                    [PSCustomObject]@{
-                        CellFamily = if ($null -eq $write.cell_family) { $null } else { [string]$write.cell_family }
-                        CellRefRule = $write.cell_ref
-                        CellSubjectRule = $write.cell_subject
-                        Lattice = if ($null -eq $write.lattice) { $null } else { [string]$write.lattice }
-                        Bottom = if ($null -eq $write.bottom) { $null } else { [string]$write.bottom }
-                        ValueProjectionRule = $write.value_projection
-                        EffectProjectionRule = $write.effect_projection
-                        ConditionRule = $write.condition
-                        DerivedMembersRule = $write.derived_members
-                    }
-                }
-            }
-        )
-    }) | Out-Null
+function ConvertTo-OptionString {
+    param($Value)
+    if ($null -eq $Value) { return 'None' }
+    'Some(' + ([string]$Value | ConvertTo-Json -Compress) + ')'
 }
 
-foreach ($entry in $entries) {
-    if ($entry.ReducerInput) {
-        if ($entry.Plane -ne 'data' -and $entry.Plane -ne 'control') {
-            throw "reducer-input event kind '$($entry.Kind)' must declare plane=data|control"
-        }
-    } elseif ($null -ne $entry.Plane) {
-        throw "non-reducer event kind '$($entry.Kind)' must not declare a CBA plane"
+function Get-EffectMetadata {
+    param($Row)
+    $kind = [string]$Row.event_kind
+    $persistent = $Row.wire_scope -in @('durable_event', 'actor_private_event')
+    $owner = $Row.result_effect_ownership
+    if ($Row.reducer_input -isnot [bool]) { throw "$kind reducer_input must be a boolean" }
+    if (!$persistent) {
+        if ($null -ne $owner -or @($Row.result_writes).Count -gt 0) { throw "$kind has orphaned persistent effect metadata" }
+        return $null
     }
-}
-
-# Fold both the single-target shorthand and every cell_writes[] target into the
-# family -> plane index. Multi-target kinds carry plane/sealed on the row, so a
-# kind that outgrows the shorthand MUST NOT silently drop its families here.
-$cellFamilyPlaneByFamily = @{}
-foreach ($entry in $entries) {
-    $families = New-Object System.Collections.Generic.List[string]
-    if ($null -ne $entry.CellFamily) { $families.Add($entry.CellFamily) | Out-Null }
-    foreach ($write in $entry.CellWrites) {
-        $family = $write.CellFamily
-        if ($null -eq $family) { continue }
-        if (-not $families.Contains($family)) { $families.Add($family) | Out-Null }
+    if ($null -eq $owner -or $owner -isnot [PSCustomObject]) { throw "$kind is missing closed result_effect_ownership" }
+    if ($null -ne $Row.result_writes -and $Row.result_writes -isnot [Array]) { throw "$kind result_writes must be an array" }
+    $writes = @($Row.result_writes | Where-Object { $null -ne $_ })
+    $keys = switch ([string]$owner.kind) {
+        'typed_result_writer' { @('kind') }
+        'durable_fact_no_current_projection' { @('kind', 'defined_in') }
+        'private_service_effect' { @('kind', 'service_contract_id') }
+        'authority_commit_effect' { @('kind', 'service_contract_id') }
+        'owned_gap' { @('kind', 'owner_report', 'closure_condition') }
+        default { throw "$kind has unknown effect ownership '$($owner.kind)'" }
     }
-    if ($families.Count -eq 0) {
-        continue
+    $actualKeys = @($owner.PSObject.Properties.Name)
+    if (@(Compare-Object $keys $actualKeys).Count -ne 0) { throw "$kind effect ownership must be a closed $($owner.kind) object" }
+    foreach ($key in $keys) {
+        if ($owner.$key -isnot [string] -or [string]::IsNullOrWhiteSpace($owner.$key)) { throw "$kind ownership.$key must be a nonempty string" }
     }
-    if ($entry.Plane -ne "data" -and $entry.Plane -ne "control") {
-        throw "event kind '$($entry.Kind)' with cell families '$($families -join ', ')' must declare plane=data|control"
+    if ($owner.kind -eq 'typed_result_writer') {
+        if ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input -or $writes.Count -eq 0) { throw "$kind typed result owner requires durable reducer input and nonempty result_writes" }
+    } elseif ($writes.Count -ne 0) {
+        throw "$kind $($owner.kind) must not declare typed result_writes"
     }
-    foreach ($family in $families) {
-        if ($cellFamilyPlaneByFamily.ContainsKey($family)) {
-            $existingPlane = [string]$cellFamilyPlaneByFamily[$family]
-            if ($existingPlane -ne $entry.Plane) {
-                throw "cell family '$family' has conflicting planes '$existingPlane' and '$($entry.Plane)'"
-            }
-        } else {
-            $cellFamilyPlaneByFamily[$family] = $entry.Plane
-        }
+    if ($owner.kind -eq 'private_service_effect' -and $Row.reducer_input) { throw "$kind private service effect cannot be a shared reducer input" }
+    if ($owner.kind -eq 'authority_commit_effect' -and ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input)) { throw "$kind authority effect requires a durable reducer input" }
+    if ($owner.kind -eq 'durable_fact_no_current_projection' -and $owner.defined_in -notmatch '^zh/.+\.md$') { throw "$kind durable fact must cite normative zh prose" }
+    if ($owner.kind -eq 'owned_gap' -and $owner.owner_report -notmatch '^arkret-work/tasks/spec-open/.+\.md$') { throw "$kind gap must cite its live specification owner" }
+    if ($owner.kind -in @('private_service_effect', 'authority_commit_effect')) {
+        $services = @($artifact.service_contracts | Where-Object { $_.contract_id -eq $owner.service_contract_id -and $_.status -eq 'active' })
+        if ($services.Count -ne 1) { throw "$kind ownership service contract is not uniquely active" }
+        $service = $services[0]
+        $covering = @($service.branches | Where-Object {
+            $_.event_kind -eq $kind -or @([regex]::Matches([string]$_.branch, '\bak\.[a-z0-9_]+(?:\.[a-z0-9_]+)*\b') | ForEach-Object Value) -contains $kind
+        })
+        if ($covering.Count -ne 1) { throw "$kind service contract needs exactly one covering branch" }
+        if ($owner.kind -eq 'authority_commit_effect' -and $service.contract_kind -ne 'authority_commit_effect_owner') { throw "$kind has the wrong authority effect service owner" }
+        if ($service.contract_kind -eq 'actor_private_effect_owner' -and ($Row.wire_scope -ne 'actor_private_event' -or $service.wire_scope -ne 'actor_private_event')) { throw "$kind actor-private owner cannot own shared scope" }
     }
-}
-# `cba_cell_family_plane` binary-searches this table, so it MUST be sorted in
-# encoded UTF-8 byte order. Culture-aware sorting can reorder punctuation and
-# silently break the lookup for families that land on the wrong side.
-$cellFamilyNames = @($cellFamilyPlaneByFamily.Keys | ForEach-Object { [string]$_ })
-$cellFamilyNames = Sort-Utf8ByteLexicographic -Values $cellFamilyNames
-$cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
-    $plane = [string]$cellFamilyPlaneByFamily[$_]
-    $body = $_ -replace '^ak\.component\.', ''
+    $families = @($writes | ForEach-Object {
+        if ($_ -isnot [PSCustomObject] -or [string]::IsNullOrWhiteSpace($_.result_family)) { throw "$kind result write has no registered family" }
+        $family = [string]$_.result_family
+        if (@($artifact.current_result_registry.result_kinds | Where-Object result_kind -eq $family).Count -ne 1) { throw "$kind writes unknown result family $family" }
+        $family
+    })
     [PSCustomObject]@{
-        Family = $_
-        Variant = ConvertTo-SimpleVariant -Value $body
-        AssociatedName = ($body -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
-        Plane = $plane
-        PlaneVariant = ConvertTo-SimpleVariant -Value $plane
+        Ownership = ConvertTo-Variant -Value $owner.kind
+        ResultFamilies = '&[' + (($families | ForEach-Object { $_ | ConvertTo-Json -Compress }) -join ', ') + ']'
+        ServiceContractId = ConvertTo-OptionString $owner.service_contract_id
+        DefinedIn = ConvertTo-OptionString $owner.defined_in
+        OwnerReport = ConvertTo-OptionString $owner.owner_report
+        ClosureCondition = ConvertTo-OptionString $owner.closure_condition
+    }
+}
+
+$rowsByKind = @{}
+foreach ($row in $registry.event_kinds) {
+    if ([string]$row.status -ne 'active') { continue }
+    $kind = [string]$row.event_kind
+    if ($rowsByKind.ContainsKey($kind)) { throw "duplicate active Event kind: $kind" }
+    $rowsByKind[$kind] = $row
+}
+$kinds = Sort-Utf8ByteLexicographic -Values @($rowsByKind.Keys | ForEach-Object { [string]$_ })
+$entries = @($kinds | ForEach-Object {
+    $row = $rowsByKind[$_]
+    $wireScope = switch ([string]$row.wire_scope) {
+        'durable_event' { 'DurableEvent' }
+        'actor_private_event' { 'ActorPrivateEvent' }
+        'ephemeral_event' { 'EphemeralEvent' }
+        default { throw "unsupported event wire scope: $($row.wire_scope)" }
+    }
+    [PSCustomObject]@{
+        Kind = $_
+        Variant = ConvertTo-Variant -Value $_ -Prefix 'ak.'
+        AssociatedName = ConvertTo-AssociatedName -Kind $_
+        Category = ConvertTo-Variant -Value ([string]$row.category)
+        WireScope = $wireScope
+        Admission = ConvertTo-OptionString -Value $row.admission
+        PayloadSchemaRef = ConvertTo-OptionString -Value $row.payload_schema_ref
+        ReducerInput = $(if ($row.reducer_input) { 'true' } else { 'false' })
+        Effect = Get-EffectMetadata $row
     }
 })
 
-$categories = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.Category })
-$lattices = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Lattice) { $_.Lattice } } })
-$bottomModes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Bottom) { $_.Bottom } } })
-
-$lines = New-Object System.Collections.Generic.List[string]
-$add = { param($s) $lines.Add($s) | Out-Null }
-
-& $add "//! Generated strongly-typed Arkret event-kind enum."
-& $add "//!"
-& $add "//! @generated by tools/generate-sdk-event-kinds.ps1 from"
-& $add "//! arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json; do not edit by hand."
-& $add "//! Input version: $($artifact.version); sha256=$digest; active=$($entries.Count)."
-& $add ""
-& $add "use serde::{Deserialize, Deserializer, Serialize, Serializer};"
-& $add ""
-& $add "use crate::events::kinds::{EventProductClass, event_product_class, event_wire_scope};"
-& $add ""
-& $add '/// Count of standard `ak.*` event kinds the registry declares active.'
-& $add "/// Excludes the [`EventKind::Unknown`] catch-all."
-& $add "pub const EVENT_KIND_COUNT: usize = $($entries.Count);"
-& $add "/// SHA-256 of the exact event-kind registry used to generate this module."
-& $add "pub const EVENT_KIND_REGISTRY_SHA256: &str = `"$digest`";"
-& $add ""
-& $add "/// Raw category assigned by event-kind-registry.json."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventRegistryCategory {"
-foreach ($category in $categories) {
-    $categoryVariant = ConvertTo-SimpleVariant -Value $category
-    & $add "    $categoryVariant,"
-}
-& $add "}"
-& $add ""
-& $add "/// Wire envelope scope assigned by the event registry."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventWireScope {"
-& $add "    DurableEvent,"
-& $add "    ActorPrivateEvent,"
-& $add "    EphemeralEvent,"
-& $add "    Custom,"
-& $add "}"
-& $add ""
-& $add "/// Closed CBA plane assigned to a registered cell family."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum CbaEffectPlane {"
-& $add "    Data,"
-& $add "    Control,"
-& $add "}"
-& $add ""
-& $add "impl CbaEffectPlane {"
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-& $add '            Self::Data => "data",'
-& $add '            Self::Control => "control",'
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Registered Arkret cell-family identifiers. Every registered"
-& $add "/// ``ak.component.*`` literal the SDK ships is spelled exactly once here."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]"
-& $add "#[repr(usize)]"
-& $add "pub enum CellFamilyId {"
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "    $($entry.Variant),"
-}
-& $add "}"
-& $add ""
-& $add "impl CellFamilyId {"
-& $add "    pub const ALL: &'static [Self] = &["
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "        Self::$($entry.Variant),"
-}
-& $add "    ];"
-& $add ""
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "    pub const $($entry.AssociatedName): &'static str = `"$($entry.Family)`";"
-}
-& $add ""
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "            Self::$($entry.Variant) => Self::$($entry.AssociatedName),"
-}
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub fn from_wire(value: &str) -> Option<Self> {"
-& $add "        match value {"
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "            Self::$($entry.AssociatedName) => Some(Self::$($entry.Variant)),"
-}
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl std::fmt::Display for CellFamilyId {"
-& $add "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
-& $add "        f.write_str(self.as_str())"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl Serialize for CellFamilyId {"
-& $add "    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {"
-& $add "        serializer.serialize_str(self.as_str())"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl<'de> Deserialize<'de> for CellFamilyId {"
-& $add "    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {"
-& $add "        let raw = String::deserialize(deserializer)?;"
-& $add "        Self::from_wire(&raw).ok_or_else(|| {"
-& $add '            serde::de::Error::custom(format!("unknown cell family: {raw}"))'
-& $add "        })"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Closed lattice identifier used by registry-declared event cell writes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventCellLattice {"
-foreach ($lattice in $lattices) {
-    & $add "    $(ConvertTo-SimpleVariant -Value $lattice),"
-}
-& $add "}"
-& $add ""
-& $add "impl EventCellLattice {"
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-foreach ($lattice in $lattices) {
-    & $add "            Self::$(ConvertTo-SimpleVariant -Value $lattice) => `"$lattice`","
-}
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Closed bottom-state behavior used by registry-declared event cell writes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventCellBottom {"
-foreach ($bottom in $bottomModes) {
-    & $add "    $(ConvertTo-SimpleVariant -Value $bottom),"
-}
-& $add "}"
-& $add ""
-& $add "impl EventCellBottom {"
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-foreach ($bottom in $bottomModes) {
-    & $add "            Self::$(ConvertTo-SimpleVariant -Value $bottom) => `"$bottom`","
-}
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Closed property names used by registry-declared cell-rule AST nodes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventCellRuleKey {"
-foreach ($key in $sortedRuleKeys) {
-    & $add "    $(ConvertTo-RuleVariant -Value $key),"
-}
-& $add "}"
-& $add ""
-& $add "impl EventCellRuleKey {"
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-foreach ($key in $sortedRuleKeys) {
-    & $add "            Self::$(ConvertTo-RuleVariant -Value $key) => `"$key`","
-}
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Closed operators used by registry-declared cell-rule AST nodes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventCellRuleOperator {"
-foreach ($operator in $sortedRuleOperators) {
-    & $add "    $(ConvertTo-RuleVariant -Value $operator),"
-}
-& $add "}"
-& $add ""
-& $add "impl EventCellRuleOperator {"
-& $add "    pub const fn as_str(self) -> &'static str {"
-& $add "        match self {"
-foreach ($operator in $sortedRuleOperators) {
-    & $add "            Self::$(ConvertTo-RuleVariant -Value $operator) => `"$operator`","
-}
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// One named field in a closed cell-rule AST object."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
-& $add "pub struct EventCellRuleField {"
-& $add "    pub key: EventCellRuleKey,"
-& $add "    pub value: EventCellRule,"
-& $add "}"
-& $add ""
-& $add "/// Lossless, parse-free AST for registry-declared cell rules."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
-& $add "pub enum EventCellRule {"
-& $add "    Null,"
-& $add "    Bool(bool),"
-& $add "    Integer(i64),"
-& $add "    String(&'static str),"
-& $add "    Operator(EventCellRuleOperator),"
-& $add "    Array(&'static [EventCellRule]),"
-& $add "    Object(&'static [EventCellRuleField]),"
-& $add "}"
-& $add ""
-& $add "impl EventCellRule {"
-& $add "    pub const fn as_str(self) -> Option<&'static str> {"
-& $add "        match self {"
-& $add "            Self::String(value) => Some(value),"
-& $add "            Self::Operator(value) => Some(value.as_str()),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub const fn as_bool(self) -> Option<bool> {"
-& $add "        match self {"
-& $add "            Self::Bool(value) => Some(value),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub const fn as_u64(self) -> Option<u64> {"
-& $add "        match self {"
-& $add "            Self::Integer(value) if value >= 0 => Some(value as u64),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub const fn as_array(self) -> Option<&'static [Self]> {"
-& $add "        match self {"
-& $add "            Self::Array(values) => Some(values),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub const fn as_object(self) -> Option<&'static [EventCellRuleField]> {"
-& $add "        match self {"
-& $add "            Self::Object(fields) => Some(fields),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub fn field(self, key: EventCellRuleKey) -> Option<Self> {"
-& $add "        match self {"
-& $add "            Self::Object(fields) => fields.iter().find(|field| field.key == key).map(|field| field.value),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub fn field_named(self, name: &str) -> Option<Self> {"
-& $add "        match self {"
-& $add "            Self::Object(fields) => fields.iter().find(|field| field.key.as_str() == name).map(|field| field.value),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub fn operator(self) -> Option<EventCellRuleOperator> {"
-& $add "        match self.field(EventCellRuleKey::Kind) {"
-& $add "            Some(Self::Operator(operator)) => Some(operator),"
-& $add "            _ => None,"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    pub fn to_json_value(self) -> serde_json::Value {"
-& $add "        match self {"
-& $add "            Self::Null => serde_json::Value::Null,"
-& $add "            Self::Bool(value) => serde_json::Value::Bool(value),"
-& $add "            Self::Integer(value) => serde_json::Value::Number(value.into()),"
-& $add "            Self::String(value) => serde_json::Value::String(value.to_owned()),"
-& $add "            Self::Operator(value) => serde_json::Value::String(value.as_str().to_owned()),"
-& $add "            Self::Array(values) => serde_json::Value::Array(values.iter().map(|value| value.to_json_value()).collect()),"
-& $add "            Self::Object(fields) => serde_json::Value::Object(fields.iter().map(|field| (field.key.as_str().to_owned(), field.value.to_json_value())).collect()),"
-& $add "        }"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// One complete registry-declared cell write for an event kind."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
-& $add "pub struct EventCellWriteDescriptor {"
-& $add "    pub cell_family: Option<CellFamilyId>,"
-& $add "    pub cell_ref_rule: Option<EventCellRule>,"
-& $add "    pub cell_subject_rule: Option<EventCellRule>,"
-& $add "    pub lattice: Option<EventCellLattice>,"
-& $add "    pub bottom: Option<EventCellBottom>,"
-& $add "    pub value_projection_rule: Option<EventCellRule>,"
-& $add "    pub effect_projection_rule: Option<EventCellRule>,"
-& $add "    pub condition_rule: Option<EventCellRule>,"
-& $add "    pub derived_members_rule: Option<EventCellRule>,"
-& $add "}"
-& $add ""
-& $add "/// Registry-owned CBA plane for one cell family."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
-& $add "pub struct CellFamilyPlaneDescriptor {"
-& $add "    pub cell_family: &'static str,"
-& $add "    pub plane: CbaEffectPlane,"
-& $add "}"
-& $add ""
-& $add "/// Complete generated metadata for one active standard event kind."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
-& $add "pub struct EventKindDescriptor {"
-& $add "    pub kind: &'static str,"
-& $add "    pub category: EventRegistryCategory,"
-& $add "    pub wire_scope: EventWireScope,"
-& $add "    pub reducer_input: bool,"
-& $add "    pub admission: Option<&'static str>,"
-& $add "    pub payload_schema_ref: Option<&'static str>,"
-& $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
-& $add "    pub cell_family: Option<&'static str>,"
-& $add "    /// Cell-subject rule; ``None`` means the envelope ``realm_id``."
-& $add "    pub cell_subject_rule: Option<EventCellRule>,"
-& $add "    /// ``op.value`` projection rule for ordered_log appends; ``None`` means"
-& $add "    /// the kind declares no registry-driven append value."
-& $add "    pub value_projection_rule: Option<EventCellRule>,"
-& $add "    pub lattice: Option<&'static str>,"
-& $add "    pub bottom: Option<&'static str>,"
-& $add "    plane: Option<CbaEffectPlane>,"
-& $add "    pub sealed: bool,"
-& $add "}"
-& $add ""
-& $add "/// Canonical wire strings for active standard Event kinds."
-& $add "///"
-& $add "/// Each registry wire literal is emitted exactly once in this module;"
-& $add "/// typed code uses [`EventKind`] variants and string boundaries use these constants."
-& $add "pub mod event_kind_str {"
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "    pub const ${associatedName}: &'static str = `"$($e.Kind)`";"
-}
-& $add "}"
-& $add ""
-& $add '/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in'
-& $add "/// ``event-kind-registry.json``, plus [`EventKind::Unknown`] which preserves"
-& $add "/// any other wire string verbatim for forward compatibility."
-& $add "///"
-& $add "/// Serialises / deserialises as the bare wire string. Deserialising an"
-& $add "/// unrecognised kind yields [`EventKind::Unknown`] rather than an error;"
-& $add "/// rejecting unknown standard kinds is the validation layer's job."
-& $add "///"
-& $add "/// ``#[non_exhaustive]``: the registry gains kinds as the spec evolves and this"
-& $add "/// enum is regenerated to match; downstream ``match`` expressions MUST carry a"
-& $add "/// ``_`` arm with fail-closed semantics."
-& $add "#[derive(Clone, Debug, PartialEq, Eq, Hash)]"
-& $add "#[non_exhaustive]"
-& $add "pub enum EventKind {"
-foreach ($e in $entries) {
-    & $add "    /// ``$($e.Kind)``"
-    & $add "    $($e.Variant),"
-}
-& $add "    /// Forward-compatibility catch-all for any kind not in the registry at"
-& $add "    /// build time. Carries the raw wire string."
-& $add "    Unknown(String),"
-& $add "}"
-& $add ""
-& $add "impl EventKind {"
-& $add "    pub const ALL: &'static [Self] = &["
-foreach ($e in $entries) {
-    & $add "        Self::$($e.Variant),"
-}
-& $add "    ];"
-& $add ""
-& $add "    /// Canonical wire-form string for this kind."
-& $add "    pub const fn as_str(&self) -> &str {"
-& $add "        match self {"
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "            Self::$($e.Variant) => event_kind_str::$associatedName,"
-}
-& $add "            Self::Unknown(raw) => raw.as_str(),"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    /// Parse a wire string into an [`EventKind`]. Unrecognised kinds become"
-& $add "    /// [`EventKind::Unknown`] (forward compatible)."
-& $add "    pub fn from_wire(value: &str) -> Self {"
-& $add "        match value {"
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "            event_kind_str::$associatedName => Self::$($e.Variant),"
-}
-& $add "            _ => Self::Unknown(value.to_owned()),"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    /// Parse a wire string, returning `None` for any kind not declared in the"
-& $add "    /// registry (vendor / unknown). Mirrors the previous wrapper semantics."
-& $add "    pub fn try_new(value: &str) -> Option<Self> {"
-& $add "        match Self::from_wire(value) {"
-& $add "            Self::Unknown(_) => None,"
-& $add "            known => Some(known),"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add '    /// `true` for any registry-declared kind; `false` for [`Self::Unknown`].'
-& $add "    pub fn is_standard(&self) -> bool {"
-& $add "        self.descriptor().is_some()"
-& $add "    }"
-& $add ""
-& $add "    /// Registry metadata for a standard kind."
-& $add "    pub fn descriptor(&self) -> Option<&'static EventKindDescriptor> {"
-& $add "        EVENT_KIND_DESCRIPTORS"
-& $add "            .binary_search_by_key(&self.as_str(), |descriptor| descriptor.kind)"
-& $add "            .ok()"
-& $add "            .map(|index| &EVENT_KIND_DESCRIPTORS[index])"
-& $add "    }"
-& $add ""
-& $add "    /// Raw registry category, distinct from the product EventProductClass projection."
-& $add "    pub fn registry_category(&self) -> Option<EventRegistryCategory> {"
-& $add "        self.descriptor().map(|descriptor| descriptor.category)"
-& $add "    }"
-& $add ""
-& $add "    /// Broad class for routing / indexing."
-& $add "    pub fn product_class(&self) -> EventProductClass {"
-& $add "        event_product_class(self)"
-& $add "    }"
-& $add ""
-& $add "    /// Wire scope (durable / actor-private / ephemeral)."
-& $add "    pub fn wire_scope(&self) -> EventWireScope {"
-& $add "        self.descriptor()"
-& $add "            .map(|descriptor| descriptor.wire_scope)"
-& $add "            .unwrap_or_else(|| event_wire_scope(self.as_str()))"
-& $add "    }"
-& $add ""
-& $add "    /// Whether this kind is a reducer-input durable event."
-& $add "    pub fn is_reducer_input(&self) -> bool {"
-& $add "        self.descriptor()"
-& $add "            .is_some_and(|descriptor| descriptor.reducer_input)"
-& $add "    }"
-& $add ""
-& $add "    /// Registry-declared CBA plane for reducer-input kinds."
-& $add "    ///"
-& $add "    /// Non-reducer and unknown kinds return ``None``. The generator rejects"
-& $add "    /// any registered reducer-input kind without exactly one closed plane."
-& $add "    pub fn cba_plane(&self) -> Option<CbaEffectPlane> {"
-& $add "        self.descriptor().and_then(|descriptor| descriptor.plane)"
-& $add "    }"
-& $add ""
-& $add "    /// Whether the registry declares this reducer-input kind on the Data plane."
-& $add "    pub fn is_data_plane(&self) -> bool {"
-& $add "        self.cba_plane() == Some(CbaEffectPlane::Data)"
-& $add "    }"
-& $add ""
-& $add "    /// Whether the registry declares this reducer-input kind on the Control plane."
-& $add "    pub fn is_control_plane(&self) -> bool {"
-& $add "        self.cba_plane() == Some(CbaEffectPlane::Control)"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl std::fmt::Display for EventKind {"
-& $add "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
-& $add "        f.write_str(self.as_str())"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl AsRef<str> for EventKind {"
-& $add "    fn as_ref(&self) -> &str {"
-& $add "        self.as_str()"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl std::str::FromStr for EventKind {"
-& $add "    type Err = std::convert::Infallible;"
-& $add ""
-& $add "    fn from_str(value: &str) -> Result<Self, Self::Err> {"
-& $add "        Ok(Self::from_wire(value))"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl From<&str> for EventKind {"
-& $add "    fn from(value: &str) -> Self {"
-& $add "        Self::from_wire(value)"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl From<String> for EventKind {"
-& $add "    fn from(value: String) -> Self {"
-& $add "        Self::from_wire(&value)"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl From<&String> for EventKind {"
-& $add "    fn from(value: &String) -> Self {"
-& $add "        Self::from_wire(value)"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl PartialEq<str> for EventKind {"
-& $add "    fn eq(&self, other: &str) -> bool {"
-& $add "        self.as_str() == other"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl PartialEq<&str> for EventKind {"
-& $add "    fn eq(&self, other: &&str) -> bool {"
-& $add "        self.as_str() == *other"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl PartialEq<String> for EventKind {"
-& $add "    fn eq(&self, other: &String) -> bool {"
-& $add "        self.as_str() == other.as_str()"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl PartialEq<EventKind> for str {"
-& $add "    fn eq(&self, other: &EventKind) -> bool {"
-& $add "        self == other.as_str()"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl Serialize for EventKind {"
-& $add "    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {"
-& $add "        serializer.serialize_str(self.as_str())"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "impl<'de> Deserialize<'de> for EventKind {"
-& $add "    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {"
-& $add "        let raw = String::deserialize(deserializer)?;"
-& $add "        Ok(Self::from_wire(&raw))"
-& $add "    }"
-& $add "}"
-& $add ""
-& $add "/// Zero-sized markers for the active standard Event kinds."
-& $add "///"
-& $add "/// Payload bindings live in ``arkret-event-draft`` so this low-level wire"
-& $add "/// crate does not depend on the higher-level payload model crates."
-& $add "pub mod event_spec {"
-& $add "    use super::{EventKind, event_kind_str};"
-& $add ""
-foreach ($e in $entries) {
-    & $add "    /// Marker for ``$($e.Kind)``."
-    & $add "    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]"
-    & $add "    pub struct $($e.Variant);"
-    & $add ""
-    & $add "    impl $($e.Variant) {"
-    & $add "        pub const KIND: EventKind = EventKind::$($e.Variant);"
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "        pub const KIND_STR: &'static str = event_kind_str::$associatedName;"
-    & $add "    }"
-    & $add ""
-}
-& $add "}"
-& $add ""
-& $add "/// Active standard event-kind values from the registry."
-& $add "pub const REGISTERED_EVENT_KINDS: &[EventKind] = &["
-foreach ($e in $entries) {
-    & $add "    EventKind::$($e.Variant),"
-}
-& $add "];"
-& $add ""
-& $add "pub const REGISTERED_EVENT_KIND_WIRE_VALUES: &[&str] = &["
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    & $add "    event_kind_str::$associatedName,"
-}
-& $add "];"
-& $add ""
-& $add "/// Return the registry-owned CBA plane for a cell family."
-& $add "pub fn cba_cell_family_plane(cell_family: &str) -> Option<CbaEffectPlane> {"
-& $add "    CELL_FAMILY_PLANE_DESCRIPTORS"
-& $add "        .binary_search_by_key(&cell_family, |descriptor| descriptor.cell_family)"
-& $add "        .ok()"
-& $add "        .map(|index| CELL_FAMILY_PLANE_DESCRIPTORS[index].plane)"
-& $add "}"
-& $add ""
-& $add "/// Unique registered cell families and their CBA planes, sorted by family."
-& $add "pub const CELL_FAMILY_PLANE_DESCRIPTORS: &[CellFamilyPlaneDescriptor] = &["
-foreach ($entry in $cellFamilyPlanes) {
-    & $add "    CellFamilyPlaneDescriptor {"
-    & $add "        cell_family: CellFamilyId::$($entry.AssociatedName),"
-    & $add "        plane: CbaEffectPlane::$($entry.PlaneVariant),"
-    & $add "    },"
-}
-& $add "];"
-& $add ""
-& $add "/// Complete metadata rows for active standard event kinds."
-& $add "pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &["
-foreach ($e in $entries) {
-    $associatedName = ConvertTo-AssociatedName -Kind $e.Kind
-    $reducerInput = $e.ReducerInput.ToString().ToLowerInvariant()
-    $admission = if ($null -eq $e.Admission) { "None" } else { "Some(`"$($e.Admission)`")" }
-    $payloadSchemaRef = if ($null -eq $e.PayloadSchemaRef) { "None" } else { "Some(`"$($e.PayloadSchemaRef)`")" }
-    $cellFamily = if ($null -eq $e.CellFamily) {
-        "None"
-    } else {
-        $cellFamilyBody = $e.CellFamily -replace '^ak\.component\.', ''
-        $cellFamilyAssociatedName = ($cellFamilyBody -replace '[^A-Za-z0-9]+', '_').ToUpperInvariant()
-        "Some(CellFamilyId::$cellFamilyAssociatedName)"
+$variantOwners = @{}
+foreach ($entry in $entries) {
+    if ($variantOwners.ContainsKey($entry.Variant)) {
+        throw "event-kind variant collision: '$($entry.Variant)' produced by '$($variantOwners[$entry.Variant])' and '$($entry.Kind)'"
     }
-    $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.CellSubjectRule))" }
-    $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.ValueProjectionRule))" }
-    $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
-    $bottom = if ($null -eq $e.Bottom) { "None" } else { "Some(`"$($e.Bottom)`")" }
-    $plane = if ($null -eq $e.Plane) {
-        "None"
+    $variantOwners[$entry.Variant] = $entry.Kind
+}
+$categories = Sort-Utf8ByteLexicographic -Values @($registry.event_kinds | Where-Object { $_.status -eq 'active' } | ForEach-Object { [string]$_.category })
+
+$lines = [System.Collections.Generic.List[string]]::new()
+function Add-Line { param([string]$Line = '') $lines.Add($Line) | Out-Null }
+
+Add-Line '//! Generated strongly-typed Arkret Event kind catalog.'
+Add-Line '//!'
+Add-Line '//! @generated by tools/generate-sdk-event-kinds.ps1 from'
+Add-Line '//! arkret-spec/spec/v1/artifacts/registry/contract-registry.json#event_kind_registry; do not edit by hand.'
+Add-Line "//! Input version: $($registry.version); sha256=$digest; active=$($entries.Count)."
+Add-Line
+Add-Line 'use serde::{Deserialize, Deserializer, Serialize, Serializer};'
+Add-Line
+Add-Line 'use crate::events::kinds::{EventProductClass, event_product_class, event_wire_scope};'
+Add-Line
+Add-Line '/// Count of active standard `ak.*` Event kinds.'
+Add-Line "pub const EVENT_KIND_COUNT: usize = $($entries.Count);"
+Add-Line '/// SHA-256 of the canonical contract registry used to generate this module.'
+Add-Line "pub const EVENT_KIND_REGISTRY_SHA256: &str = `"$digest`";"
+Add-Line
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]'
+Add-Line 'pub enum EventRegistryCategory {'
+foreach ($category in $categories) { Add-Line "    $(ConvertTo-Variant -Value $category)," }
+Add-Line '}'
+Add-Line
+Add-Line '/// Producer Event transport scope. Commit stream placement is carried by RealmCommit.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]'
+Add-Line 'pub enum EventWireScope {'
+Add-Line '    DurableEvent,'
+Add-Line '    ActorPrivateEvent,'
+Add-Line '    EphemeralEvent,'
+Add-Line '    Custom,'
+Add-Line '}'
+Add-Line
+Add-Line '/// Non-wire classification of the registered effect owner.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]'
+Add-Line 'pub enum EventEffectOwnership {'
+foreach ($owner in @('TypedResultWriter', 'DurableFactNoCurrentProjection', 'PrivateServiceEffect', 'AuthorityCommitEffect', 'OwnedGap')) { Add-Line "    $owner," }
+Add-Line '}'
+Add-Line
+Add-Line '/// Local implementation metadata; these fields are never serialized into an Event.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq)]'
+Add-Line 'pub struct EventEffectDescriptor {'
+Add-Line '    pub ownership: EventEffectOwnership,'
+Add-Line "    pub result_families: &'static [&'static str],"
+Add-Line "    pub service_contract_id: Option<&'static str>,"
+Add-Line "    pub defined_in: Option<&'static str>,"
+Add-Line "    pub owner_report: Option<&'static str>,"
+Add-Line "    pub closure_condition: Option<&'static str>,"
+Add-Line '}'
+Add-Line
+Add-Line '/// Registry metadata that is intrinsic to the producer Event.'
+Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq)]'
+Add-Line 'pub struct EventKindDescriptor {'
+Add-Line "    pub kind: &'static str,"
+Add-Line '    pub category: EventRegistryCategory,'
+Add-Line '    pub wire_scope: EventWireScope,'
+Add-Line "    pub admission: Option<&'static str>,"
+Add-Line "    pub payload_schema_ref: Option<&'static str>,"
+Add-Line '    pub reducer_input: bool,'
+Add-Line '    pub effect: Option<EventEffectDescriptor>,'
+Add-Line '}'
+Add-Line
+Add-Line '/// Canonical wire strings for active standard Event kinds.'
+Add-Line 'pub mod event_kind_str {'
+foreach ($entry in $entries) { Add-Line "    pub const $($entry.AssociatedName): &'static str = `"$($entry.Kind)`";" }
+Add-Line '}'
+Add-Line
+Add-Line '/// Strongly typed Event kind with a forward-compatible unknown case.'
+Add-Line '#[derive(Clone, Debug, PartialEq, Eq, Hash)]'
+Add-Line '#[non_exhaustive]'
+Add-Line 'pub enum EventKind {'
+foreach ($entry in $entries) {
+    Add-Line "    /// ``$($entry.Kind)``"
+    Add-Line "    $($entry.Variant),"
+}
+Add-Line '    Unknown(String),'
+Add-Line '}'
+Add-Line
+Add-Line 'impl EventKind {'
+Add-Line "    pub const ALL: &'static [Self] = &["
+foreach ($entry in $entries) { Add-Line "        Self::$($entry.Variant)," }
+Add-Line '    ];'
+Add-Line
+Add-Line '    pub const fn as_str(&self) -> &str {'
+Add-Line '        match self {'
+foreach ($entry in $entries) { Add-Line "            Self::$($entry.Variant) => event_kind_str::$($entry.AssociatedName)," }
+Add-Line '            Self::Unknown(raw) => raw.as_str(),'
+Add-Line '        }'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn from_wire(value: &str) -> Self {'
+Add-Line '        match value {'
+foreach ($entry in $entries) { Add-Line "            event_kind_str::$($entry.AssociatedName) => Self::$($entry.Variant)," }
+Add-Line '            _ => Self::Unknown(value.to_owned()),'
+Add-Line '        }'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn try_new(value: &str) -> Option<Self> {'
+Add-Line '        match Self::from_wire(value) {'
+Add-Line '            Self::Unknown(_) => None,'
+Add-Line '            known => Some(known),'
+Add-Line '        }'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn is_standard(&self) -> bool { self.descriptor().is_some() }'
+Add-Line
+Add-Line "    pub fn descriptor(&self) -> Option<&'static EventKindDescriptor> {"
+Add-Line '        EVENT_KIND_DESCRIPTORS'
+Add-Line '            .binary_search_by_key(&self.as_str(), |descriptor| descriptor.kind)'
+Add-Line '            .ok()'
+Add-Line '            .map(|index| &EVENT_KIND_DESCRIPTORS[index])'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn registry_category(&self) -> Option<EventRegistryCategory> {'
+Add-Line '        self.descriptor().map(|descriptor| descriptor.category)'
+Add-Line '    }'
+Add-Line
+Add-Line "    pub fn effect_descriptor(&self) -> Option<&'static EventEffectDescriptor> {"
+Add-Line '        self.descriptor().and_then(|descriptor| descriptor.effect.as_ref())'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn effect_ownership(&self) -> Option<EventEffectOwnership> {'
+Add-Line '        self.effect_descriptor().map(|descriptor| descriptor.ownership)'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn product_class(&self) -> EventProductClass { event_product_class(self) }'
+Add-Line
+Add-Line '    /// Whether the registry declares this kind an input to the shared product'
+Add-Line '    /// reducer. Unregistered kinds are never reducer inputs.'
+Add-Line '    pub fn is_reducer_input(&self) -> bool {'
+Add-Line '        self.descriptor().is_some_and(|descriptor| descriptor.reducer_input)'
+Add-Line '    }'
+Add-Line
+Add-Line '    pub fn wire_scope(&self) -> EventWireScope {'
+Add-Line '        self.descriptor()'
+Add-Line '            .map(|descriptor| descriptor.wire_scope)'
+Add-Line '            .unwrap_or_else(|| event_wire_scope(self.as_str()))'
+Add-Line '    }'
+Add-Line '}'
+Add-Line
+Add-Line 'impl std::fmt::Display for EventKind {'
+Add-Line "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }"
+Add-Line '}'
+Add-Line
+Add-Line 'impl AsRef<str> for EventKind { fn as_ref(&self) -> &str { self.as_str() } }'
+Add-Line 'impl std::str::FromStr for EventKind {'
+Add-Line '    type Err = std::convert::Infallible;'
+Add-Line '    fn from_str(value: &str) -> Result<Self, Self::Err> { Ok(Self::from_wire(value)) }'
+Add-Line '}'
+Add-Line 'impl From<&str> for EventKind { fn from(value: &str) -> Self { Self::from_wire(value) } }'
+Add-Line 'impl From<String> for EventKind { fn from(value: String) -> Self { Self::from_wire(&value) } }'
+Add-Line 'impl From<&String> for EventKind { fn from(value: &String) -> Self { Self::from_wire(value) } }'
+Add-Line 'impl PartialEq<str> for EventKind { fn eq(&self, other: &str) -> bool { self.as_str() == other } }'
+Add-Line 'impl PartialEq<&str> for EventKind { fn eq(&self, other: &&str) -> bool { self.as_str() == *other } }'
+Add-Line 'impl PartialEq<String> for EventKind { fn eq(&self, other: &String) -> bool { self.as_str() == other.as_str() } }'
+Add-Line 'impl PartialEq<EventKind> for str { fn eq(&self, other: &EventKind) -> bool { self == other.as_str() } }'
+Add-Line
+Add-Line 'impl Serialize for EventKind {'
+Add-Line '    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {'
+Add-Line '        serializer.serialize_str(self.as_str())'
+Add-Line '    }'
+Add-Line '}'
+Add-Line "impl<'de> Deserialize<'de> for EventKind {"
+Add-Line "    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {"
+Add-Line '        let raw = String::deserialize(deserializer)?;'
+Add-Line '        Ok(Self::from_wire(&raw))'
+Add-Line '    }'
+Add-Line '}'
+Add-Line
+Add-Line 'pub mod event_spec {'
+Add-Line '    use super::{EventKind, event_kind_str};'
+foreach ($entry in $entries) {
+    Add-Line '    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]'
+    Add-Line "    pub struct $($entry.Variant);"
+    Add-Line "    impl $($entry.Variant) {"
+    Add-Line "        pub const KIND: EventKind = EventKind::$($entry.Variant);"
+    Add-Line "        pub const KIND_STR: &'static str = event_kind_str::$($entry.AssociatedName);"
+    Add-Line '    }'
+}
+Add-Line '}'
+Add-Line
+Add-Line 'pub const REGISTERED_EVENT_KINDS: &[EventKind] = &['
+foreach ($entry in $entries) { Add-Line "    EventKind::$($entry.Variant)," }
+Add-Line '];'
+Add-Line
+Add-Line 'pub const REGISTERED_EVENT_KIND_WIRE_VALUES: &[&str] = &['
+foreach ($entry in $entries) { Add-Line "    event_kind_str::$($entry.AssociatedName)," }
+Add-Line '];'
+Add-Line
+Add-Line 'pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &['
+foreach ($entry in $entries) {
+    Add-Line '    EventKindDescriptor {'
+    Add-Line "        kind: event_kind_str::$($entry.AssociatedName),"
+    Add-Line "        category: EventRegistryCategory::$($entry.Category),"
+    Add-Line "        wire_scope: EventWireScope::$($entry.WireScope),"
+    Add-Line "        admission: $($entry.Admission),"
+    Add-Line "        payload_schema_ref: $($entry.PayloadSchemaRef),"
+    Add-Line "        reducer_input: $($entry.ReducerInput),"
+    if ($null -eq $entry.Effect) {
+        Add-Line '        effect: None,'
     } else {
-        "Some(CbaEffectPlane::$(ConvertTo-SimpleVariant -Value $e.Plane))"
+        Add-Line '        effect: Some(EventEffectDescriptor {'
+        Add-Line "            ownership: EventEffectOwnership::$($entry.Effect.Ownership),"
+        Add-Line "            result_families: $($entry.Effect.ResultFamilies),"
+        Add-Line "            service_contract_id: $($entry.Effect.ServiceContractId),"
+        Add-Line "            defined_in: $($entry.Effect.DefinedIn),"
+        Add-Line "            owner_report: $($entry.Effect.OwnerReport),"
+        Add-Line "            closure_condition: $($entry.Effect.ClosureCondition),"
+        Add-Line '        }),'
     }
-    $sealed = if ($e.Sealed) { "true" } else { "false" }
-    & $add "    EventKindDescriptor {"
-    & $add "        kind: event_kind_str::$associatedName,"
-    & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
-    & $add "        wire_scope: EventWireScope::$($e.WireScopeVariant),"
-    & $add "        reducer_input: $reducerInput,"
-    & $add "        admission: $admission,"
-    & $add "        payload_schema_ref: $payloadSchemaRef,"
-    if ($e.CellWrites.Count -eq 0) {
-        & $add "        cell_writes: &[],"
-    } else {
-        & $add "        cell_writes: &["
-        foreach ($write in $e.CellWrites) {
-            $cellWriteFamily = if ($null -eq $write.CellFamily) {
-                "None"
-            } else {
-                $familyBody = $write.CellFamily -replace '^ak\.component\.', ''
-                $familyVariant = ConvertTo-SimpleVariant -Value $familyBody
-                "Some(CellFamilyId::$familyVariant)"
+    Add-Line '    },'
+}
+Add-Line '];'
+Add-Line
+Add-Line '#[cfg(test)]'
+Add-Line 'mod tests {'
+Add-Line '    use super::*;'
+Add-Line '    #[test]'
+Add-Line '    fn every_standard_kind_resolves_through_the_sorted_descriptor_table() {'
+Add-Line '        assert!(EVENT_KIND_DESCRIPTORS.windows(2).all(|pair| pair[0].kind < pair[1].kind));'
+Add-Line '        for kind in EventKind::ALL {'
+Add-Line '            assert_eq!(kind.descriptor().map(|descriptor| descriptor.kind), Some(kind.as_str()));'
+Add-Line '        }'
+Add-Line '    }'
+@'
+    #[test]
+    fn effect_owners_preserve_scope_reducer_and_write_contracts() {
+        for kind in EventKind::ALL {
+            let descriptor = kind.descriptor().unwrap();
+            if descriptor.wire_scope == EventWireScope::EphemeralEvent {
+                assert!(kind.effect_descriptor().is_none());
+                continue;
             }
-            $cellWriteLattice = if ($null -eq $write.Lattice) { "None" } else { "Some(EventCellLattice::$(ConvertTo-SimpleVariant -Value $write.Lattice))" }
-            $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
-            $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellRefRule))" }
-            $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellSubjectRule))" }
-            $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ValueProjectionRule))" }
-            $effectProjection = if ($null -eq $write.EffectProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.EffectProjectionRule))" }
-            $condition = if ($null -eq $write.ConditionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ConditionRule))" }
-            $derivedMembers = if ($null -eq $write.DerivedMembersRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.DerivedMembersRule))" }
-            & $add "            EventCellWriteDescriptor {"
-            & $add "                cell_family: $cellWriteFamily,"
-            & $add "                cell_ref_rule: $cellRefRule,"
-            & $add "                cell_subject_rule: $cellSubject,"
-            & $add "                lattice: $cellWriteLattice,"
-            & $add "                bottom: $cellWriteBottom,"
-            & $add "                value_projection_rule: $valueProjection,"
-            & $add "                effect_projection_rule: $effectProjection,"
-            & $add "                condition_rule: $condition,"
-            & $add "                derived_members_rule: $derivedMembers,"
-            & $add "            },"
+            let effect = kind.effect_descriptor().expect("persistent kind needs an owner");
+            assert_eq!(kind.effect_ownership(), Some(effect.ownership));
+            match effect.ownership {
+                EventEffectOwnership::TypedResultWriter => {
+                    assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
+                    assert!(descriptor.reducer_input);
+                    assert!(!effect.result_families.is_empty());
+                }
+                EventEffectOwnership::PrivateServiceEffect => {
+                    assert!(!descriptor.reducer_input);
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.service_contract_id.is_some());
+                }
+                EventEffectOwnership::AuthorityCommitEffect => {
+                    assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
+                    assert!(descriptor.reducer_input);
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.service_contract_id.is_some());
+                }
+                EventEffectOwnership::DurableFactNoCurrentProjection => {
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.defined_in.is_some());
+                }
+                EventEffectOwnership::OwnedGap => {
+                    assert!(effect.result_families.is_empty());
+                    assert!(effect.owner_report.is_some());
+                    assert!(effect.closure_condition.is_some());
+                }
+            }
+            assert_eq!(serde_json::to_value(kind).unwrap(), serde_json::Value::String(kind.as_str().to_owned()));
         }
-        & $add "        ],"
+        let unknown = EventKind::from_wire("custom.effect-owner-test");
+        assert!(unknown.effect_ownership().is_none());
+        assert!(unknown.effect_descriptor().is_none());
     }
-    & $add "        cell_family: $cellFamily,"
-    & $add "        cell_subject_rule: $cellSubjectRule,"
-    & $add "        value_projection_rule: $valueProjectionRule,"
-    & $add "        lattice: $lattice,"
-    & $add "        bottom: $bottom,"
-    & $add "        plane: $plane,"
-    & $add "        sealed: $sealed,"
-    & $add "    },"
-}
-& $add "];"
-& $add ""
-& $add "#[cfg(test)]"
-& $add "mod tests {"
-& $add "    use super::*;"
-& $add ""
-& $add "    #[test]"
-& $add "    fn every_standard_kind_resolves_through_the_sorted_descriptor_table() {"
-& $add "        assert!(EVENT_KIND_DESCRIPTORS.windows(2).all(|pair| pair[0].kind < pair[1].kind));"
-& $add "        for kind in EventKind::ALL {"
-& $add "            assert_eq!(kind.descriptor().map(|descriptor| descriptor.kind), Some(kind.as_str()));"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    #[test]"
-& $add "    fn every_registered_cell_family_uses_its_generated_plane() {"
-& $add "        for descriptor in EVENT_KIND_DESCRIPTORS {"
-& $add "            let mut families = descriptor.cell_writes.iter().filter_map(|write| write.cell_family.map(CellFamilyId::as_str)).collect::<Vec<_>>();"
-& $add "            if let Some(cell_family) = descriptor.cell_family {"
-& $add "                families.push(cell_family);"
-& $add "            }"
-& $add "            for cell_family in families {"
-& $add "                assert_eq!("
-& $add "                    cba_cell_family_plane(cell_family),"
-& $add "                    descriptor.plane,"
-& $add '                    "cell family {cell_family} drifted from its event descriptor",'
-& $add "                );"
-& $add "            }"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    #[test]"
-& $add "    fn every_reducer_input_has_exactly_one_typed_plane() {"
-& $add "        for kind in EventKind::ALL {"
-& $add "            let descriptor = kind.descriptor().expect(`"registered kind`");"
-& $add "            assert_eq!(kind.cba_plane().is_some(), descriptor.reducer_input, `"{}`", kind.as_str());"
-& $add "            assert_eq!(kind.is_data_plane(), kind.cba_plane() == Some(CbaEffectPlane::Data));"
-& $add "            assert_eq!(kind.is_control_plane(), kind.cba_plane() == Some(CbaEffectPlane::Control));"
-& $add "            assert!(!(kind.is_data_plane() && kind.is_control_plane()));"
-& $add "        }"
-& $add "    }"
-& $add ""
-& $add "    #[test]"
-& $add "    fn every_cell_family_round_trips_through_its_generated_id() {"
-& $add "        for id in CellFamilyId::ALL {"
-& $add "            assert_eq!(CellFamilyId::from_wire(id.as_str()), Some(*id));"
-& $add "        }"
-& $add "    }"
-& $add "}"
+'@ -split '\r?\n' | ForEach-Object { Add-Line $_ }
+Add-Line '}'
 
 $generatedSource = $lines -join [Environment]::NewLine
 foreach ($entry in $entries) {
     $quotedKind = '"' + $entry.Kind + '"'
-    $literalCount = [regex]::Matches(
-        $generatedSource,
-        [regex]::Escape($quotedKind)
-    ).Count
+    $literalCount = [regex]::Matches($generatedSource, [regex]::Escape($quotedKind)).Count
     if ($literalCount -ne 1) {
         throw "generated Event kind literal $quotedKind must occur exactly once, found $literalCount"
     }
 }
 
-Set-Content -LiteralPath $OutputPath -Value $generatedSource -NoNewline
-& rustfmt +nightly --edition 2024 $OutputPath
-if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $OutputPath" }
-Write-Host "Wrote $OutputPath ($($entries.Count) variants)"
+$generationTarget = if ($Check) {
+    Join-Path (Split-Path -Parent $OutputPath) (".event-kind-check-" + [guid]::NewGuid().ToString('N') + '.rs')
+} else { $OutputPath }
+try {
+    Set-Content -LiteralPath $generationTarget -Value $generatedSource -NoNewline
+    & rustfmt +nightly --edition 2024 $generationTarget
+    if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $generationTarget" }
+    if ($Check) {
+        if (!(Test-Path -LiteralPath $OutputPath) -or [IO.File]::ReadAllText($generationTarget) -cne [IO.File]::ReadAllText($OutputPath)) { throw "generated Event catalog is stale: $OutputPath" }
+        Write-Host "Verified $OutputPath ($($entries.Count) variants)"
+    } else {
+        Write-Host "Wrote $OutputPath ($($entries.Count) variants)"
+    }
+} finally {
+    if ($Check) { Remove-Item -LiteralPath $generationTarget -Force }
+}

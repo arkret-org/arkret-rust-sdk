@@ -25,7 +25,7 @@ arkret (umbrella SDK)
     |   verification lives in `crates/signatures/src/media_ice.rs`
     |-- arkret-push-policy: push payload redaction policy
     |-- arkret-mls: OpenMLS-backed group encryption and epoch handling
-    `-- arkret-bootstrap / arkret-lattice-registry: bootstrap and lattice behavior
+    `-- arkret-bootstrap: PCR genesis and Agent provisioning intent builders
 ```
 
 Client runtime, synchronization, timeline and persistence orchestration live in

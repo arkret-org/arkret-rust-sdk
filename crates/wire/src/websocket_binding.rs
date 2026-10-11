@@ -76,7 +76,7 @@ pub const WEBSOCKET_MAX_SESSION_GRANT_BYTES: usize = 16_384;
 #[serde(into = "String", try_from = "String")]
 pub enum WebSocketOperationId {
     AccountStreamSubscribe,
-    EventsStreamSubscribe,
+    CommittedEventStreamSubscribe,
     SignalStreamSubscribe,
 }
 
@@ -84,7 +84,7 @@ impl WebSocketOperationId {
     /// Every covered operation, in the order the profile registers them.
     pub const ALL: &'static [Self] = &[
         Self::AccountStreamSubscribe,
-        Self::EventsStreamSubscribe,
+        Self::CommittedEventStreamSubscribe,
         Self::SignalStreamSubscribe,
     ];
 
@@ -95,8 +95,8 @@ impl WebSocketOperationId {
             Self::AccountStreamSubscribe => {
                 crate::ServiceOperationId::SELF_ACCOUNT_STREAM_SUBSCRIBE_V1
             }
-            Self::EventsStreamSubscribe => {
-                crate::ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE_V1
+            Self::CommittedEventStreamSubscribe => {
+                crate::ServiceOperationId::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
             }
             Self::SignalStreamSubscribe => {
                 crate::ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE_V1

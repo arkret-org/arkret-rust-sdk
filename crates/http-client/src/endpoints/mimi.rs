@@ -1,6 +1,6 @@
 //! MIMI interoperability endpoint methods on [`Client`].
 
-use arkret_models_collaboration::http_bodies::{
+use arkret_models_collaboration::mimi_operations::{
     MimiReportAbuseOutcome, MimiReportAbuseRequestBody,
 };
 use arkret_models_collaboration::objects::interop::ProviderDirectory;

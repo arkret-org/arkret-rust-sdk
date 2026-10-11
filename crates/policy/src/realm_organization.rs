@@ -25,7 +25,7 @@ pub type RealmOrganizationVerificationResult<T> = Result<T, RealmOrganizationVer
 //
 // Stateless, injectable verification of a [`RealmOrganizationPayload`]
 // relationship statement. This is the canonical organization-side check
-// shared across soland / teabay / cotest so none of them re-implements the
+// shared across coland / flagon / cotest so none of them re-implements the
 // issuer-role / delegation / proof / validity-window / scope / revocation
 // invariants. The helper performs NO product-side DB queries; the DID /
 // delegation resolution it needs is injected via
@@ -157,13 +157,13 @@ where
                 .ok_or_else(|| {
                     RealmOrganizationVerificationError::Protocol(format!(
                         "ak.realm.organization delegation_ref did not resolve ({})",
-                        ReasonCode::GRANT_REVOKED_UPSTREAM
+                        ReasonCode::REALM_ORGANIZATION_AUTHORIZATION_INVALID
                     ))
                 })?;
             if !delegation.is_live {
                 return Err(RealmOrganizationVerificationError::Protocol(format!(
                     "ak.realm.organization delegation is not live ({})",
-                    ReasonCode::GRANT_REVOKED_UPSTREAM
+                    ReasonCode::REALM_ORGANIZATION_AUTHORIZATION_INVALID
                 )));
             }
             if delegation.organization_id != payload.organization_id {
@@ -205,7 +205,7 @@ where
     if payload.is_expired(now) {
         return Err(RealmOrganizationVerificationError::Protocol(format!(
             "ak.realm.organization statement is expired ({})",
-            ReasonCode::TTL_EXPIRED
+            ReasonCode::REALM_ORGANIZATION_EXPIRED
         )));
     }
 
@@ -275,7 +275,7 @@ mod realm_organization_verifier_tests {
             expires_at: None,
             supersedes_statement_id: None,
             revokes_statement_id: None,
-            realm_frontier_digest: None,
+            realm_commit_ref: None,
             organization_policy_ref: None,
             authorization: RealmOrganizationAuthorization {
                 issuer_id: org_actor(),

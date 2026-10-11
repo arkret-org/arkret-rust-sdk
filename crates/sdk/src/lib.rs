@@ -1,8 +1,8 @@
 //! Arkret v1 Rust SDK.
 //!
-//! This crate exposes Arkret protocol concepts directly. The source of truth
-//! is signed Event Envelopes; standard authoring binds each Event marker to its
-//! SDK payload type before erasing it into the wire envelope.
+//! This crate exposes Arkret protocol concepts directly. Producers sign
+//! immutable Events; the current governance Station accepts and orders them in
+//! the Realm, Circle, or Sidecar authority stream selected by `scope_ref`.
 //!
 //! # Examples
 //!
@@ -11,8 +11,8 @@
 //! ```rust
 //! use arkret::canonical::DigestSuite;
 //! use arkret::{
-//!     AccountId, ActorId, ContentBlock, Did, DidCoreId, Hlc, MessageCreatePayload, RealmId,
-//!     ScopeRef, StrandId, TypedEventDraft, event_spec, project_did_to_core_id,
+//!     AccountId, ActorId, ContentBlock, Did, DidCoreId, MessageCreatePayload, RealmId, ScopeRef,
+//!     StrandId, TypedEventDraft, event_spec, project_did_to_core_id,
 //! };
 //!
 //! # fn main() -> arkret::Result<()> {
@@ -33,12 +33,7 @@
 //!     )),
 //!     payload,
 //! )?
-//! .author_with_digest_suite(
-//!     1,
-//!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
-//!     "2026-08-09T00:00:00Z".parse().unwrap(),
-//!     DigestSuite::Sha256,
-//! )?;
+//! .author_with_digest_suite("2026-08-09T00:00:00Z".parse().unwrap(), DigestSuite::Sha256)?;
 //! assert_eq!(event.payload["content"]["body"], "hello");
 //! # Ok(())
 //! # }
@@ -51,12 +46,12 @@
 //! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
-mod history_response;
+pub mod contact_authorization;
 mod keypackage_claim_receipt;
-mod managed_actor_authoring;
-mod mls_governance;
+pub mod managed_actor_authoring;
+mod mls_roster_authority;
+mod push_registration_receipt;
 mod sdk_error;
-mod sidecar_recovery;
 
 pub use arkret_auth as auth;
 pub use arkret_auth::session_grant;
@@ -76,33 +71,36 @@ pub use arkret_crypto as crypto;
 pub use arkret_crypto::{account_data_crypto, identity_root};
 pub use arkret_egress_policy as network_policy;
 pub use arkret_event_draft::{
-    AppletBridgeErrorBuilder, CausalRef, ContainerRebalanceAssignment, DeviceMessageSpec,
+    AppletBridgeErrorBuilder, EVENT_PAYLOAD_BINDINGS, EventAuthoringContext,
     EventDraftKindConformanceVector, EventDraftKindRegistry, EventDraftKindSpec,
-    EventDraftKindValidation, EventIntent, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
+    EventDraftKindValidation, EventIntent, EventMetadataSendGate, EventMetadataSendGateExt,
+    EventPayloadBinding, EventPayloadExt, EventSpec, ExtensionPayloadValidator,
     GhostActorProfileRequest, LocalOperationDraft, LocalOperationSpec, MessageEventPayload,
-    MlsEnvelopeOperationExt, OperationEnvelope, OperationEnvelopeBuilder, OperationEventConversion,
-    OperationSignature, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
-    RsvpResponseBranch, StrandCreateObject, TypedDeviceMessageTarget, TypedEventDraft,
-    ValidatedExtensionPayload, accountability_grant_intent, container_rebalance_assignments,
-    device_message_kind, device_message_spec, event_draft_kind_conformance_vectors, rank_between,
-    rank_exhausted, validate_event_payload,
+    MlsEnvelopeOperationExt, ProjectedEventOperation, ProjectionContext, RsvpAuthoring,
+    RsvpResponseBranch, StrandCreateObject, TypedEventDraft, ValidatedExtensionPayload,
+    accountability_grant_intent, event_draft_kind_conformance_vectors, local_operation_spec,
+    rank_between, rank_exhausted, validate_event_payload,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, generate_cursor_handle,
 };
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
+pub use arkret_http_client::service_resolution_fetcher::{
+    MaterializedServiceResolution, ServiceResolutionFetcher,
+};
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
-    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
-    AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
+    ActorProfileId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
-    InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId, RealmStateSnapshotId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    SidecarId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin,
-    new_prefixed_uuid7, project_did_to_core_id,
+    InviteId, InviteLocatorId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId,
+    NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
+    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, ReceiptId, RecoverySessionId,
+    RelationId, ReportId, RequestId, RtcParticipantId, SidecarId, SpaceId, StrandId,
+    SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7,
+    project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -113,12 +111,29 @@ pub use arkret_identity::service_identity::{
     LocalDidCoreIdentity, ResolvedService, StoredDidCoreIdentity,
 };
 pub use arkret_keystore::{
-    BackendKind, InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore,
-    MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
-    platform_default_keystore_with_kind,
+    KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
+    WindowsProtectedKeyStore, durable_platform_keystore,
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
+pub use arkret_models_collaboration::account_operations::*;
+pub use arkret_models_collaboration::account_status::*;
+pub use arkret_models_collaboration::actor_profile_resolution::*;
+pub use arkret_models_collaboration::agent_interaction::*;
 pub use arkret_models_collaboration::agent_operations::*;
+pub use arkret_models_collaboration::agent_scope::{
+    AGENT_RUNTIME_KEY_BINDING_KIND, AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT,
+    AgentKeyPairRequestBody, AgentRequestedScopeDisclosure, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeKeyAlgorithm, AgentRuntimeKeyPossessionProof, AgentRuntimeKeyPossessionProofKind,
+    agent_requested_scope_digest, agent_runtime_key_binding_digest,
+};
+pub use arkret_models_collaboration::agent_sidecar::*;
+pub use arkret_models_collaboration::applet_installation_authority::*;
+pub use arkret_models_collaboration::authority_commit::{
+    HistoricalProducerSignerFactEntry, HumanHistoricalSignerFact, PeerStreamScanOutcome,
+    authority_forward_body_digest, historical_signer_facts_digest,
+    validate_historical_signer_fact_inventory, validate_new_human_admission_fact,
+    validate_new_human_admission_fact_for_purpose,
+};
 pub use arkret_models_collaboration::call_signal::{
     CallAckSignalData, CallAnswerSignalData, CallCandidateSignalData, CallEndSignalData,
     CallErrorSignalData, CallFocusSignalData, CallInviteSignalData, CallMediaSelection,
@@ -128,27 +143,28 @@ pub use arkret_models_collaboration::call_signal::{
     MuteChangedBy, RenegotiationReason, ScreenMediaState, SessionDescription,
     SessionDescriptionType,
 };
-pub use arkret_models_collaboration::direct_conversation_ops::*;
+pub use arkret_models_collaboration::consent_operations::*;
+pub use arkret_models_collaboration::contact_operations::*;
+pub use arkret_models_collaboration::device_messages::*;
+pub use arkret_models_collaboration::device_pairing::*;
+pub use arkret_models_collaboration::direct_conversation::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
 pub use arkret_models_collaboration::events_payloads::audit::*;
 pub use arkret_models_collaboration::events_payloads::call::*;
-pub use arkret_models_collaboration::events_payloads::device_identity::*;
 pub use arkret_models_collaboration::events_payloads::event_wire::*;
 pub use arkret_models_collaboration::events_payloads::mention::*;
+pub use arkret_models_collaboration::events_payloads::message::MessageTrackName;
 pub use arkret_models_collaboration::events_payloads::*;
 pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload, AccountabilityGrantStatus,
     AccountabilityScope, AccountabilityScopeKind,
 };
 pub use arkret_models_collaboration::governance::agent_artifacts::*;
+pub use arkret_models_collaboration::governance::agent_membership_cascade::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;
-pub use arkret_models_collaboration::governance::audit::{
-    ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
-    AuditRywReceipt, AuditRywRecoveryReasonCode, AuditRywWitness, AuditRywWitnessAttestation,
-    RywActorFrontierEntry, RywFrontier, RywIssuerRole, validate_relaxed_window_ms,
-};
+pub use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;
 pub use arkret_models_collaboration::governance::erasure::*;
@@ -161,13 +177,28 @@ pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;
 pub use arkret_models_collaboration::governance::plaintext_visibility::*;
 pub use arkret_models_collaboration::governance::realm_governance::*;
+pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
+    RealmJoinBootstrapAssembly, RealmJoinBootstrapStreamScan,
+};
+pub use arkret_models_collaboration::governance::realm_join_intake::{
+    AUTHORITY_LOCATOR_HINTS_MAX, AuthorityLocatorSource, PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS,
+    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
+    PeerRealmJoinPreviewRequestBody, RealmJoinCandidate, RealmJoinCandidateServiceKind,
+    RealmJoinIntent, RealmJoinTarget, RealmPublicPreview, SelfRealmJoinPrepareOutcome,
+    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    canonicalize_authority_locator_hints, validate_authority_locator_hints,
+};
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
-pub use arkret_models_collaboration::governance_dependencies::*;
 pub use arkret_models_collaboration::governance_payloads::*;
-pub use arkret_models_collaboration::history_key::*;
-pub use arkret_models_collaboration::http_bodies::*;
+pub use arkret_models_collaboration::mention_composer::*;
+pub use arkret_models_collaboration::message_authoring::{
+    MessageAuthoringContent, MessageAuthoringIntent, MessageEncryptionContext,
+    MessagePrepareOutcome, MessagePrepareRequestBody, MessageSubmitRequestBody,
+};
+pub use arkret_models_collaboration::mimi_operations::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
+pub use arkret_models_collaboration::mls_roster_authority::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
 pub use arkret_models_collaboration::objects::account_status::{
     AccountStatus, AccountStatusTransitionRejection,
@@ -192,59 +223,50 @@ pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
 pub use arkret_models_collaboration::prepared_event_draft::PreparedEventDraft;
-pub use arkret_models_collaboration::seal_transparency::*;
+pub use arkret_models_collaboration::principal_operations::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
+pub use arkret_models_collaboration::session_grants::*;
+pub use arkret_models_collaboration::sidecar_operations::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
+pub use arkret_models_collaboration::signal_operations::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
-pub use arkret_models_collaboration::sync_frames::account_subscribe::{
-    AccountDataContainer, AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeFrame,
-    AccountSubscribeFrameKind, AccountSubscribeRealms, AccountSubscribeReconnectAfter,
-    AccountSubscribeSnapshotResult, DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
-    MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, StationCasAccountDataContainer,
-    StationCasAccountDataRemoval,
-};
-pub use arkret_models_collaboration::sync_frames::account_sync::*;
-pub use arkret_models_collaboration::sync_frames::client_sync::{
-    BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
-    MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncGap,
-    SyncGapReason, SyncMode, SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTokenBinding,
-    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier,
-    sync_filter_digest,
-};
-pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
-pub use arkret_models_collaboration::sync_frames::stream_trace::{
-    StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
-    StreamTraceValidator,
-};
+pub use arkret_models_collaboration::strand_watch_operations::*;
+pub use arkret_models_collaboration::sync_frames::current_results::*;
+pub use arkret_models_collaboration::sync_frames::websocket::*;
 pub use arkret_models_collaboration::{
-    contact_operations, direct_conversation_ops, governance_dependencies, history_key,
-    sidecar_operations,
+    contact_operations, direct_conversation, exact_current_results,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
+pub use arkret_models_crypto::authority_set_policy::*;
+pub use arkret_models_crypto::encrypted_attachment::*;
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,
 };
+pub use arkret_models_crypto::high_risk_authority_proof::*;
 pub use arkret_models_crypto::http_bodies::*;
 pub use arkret_models_crypto::key_backup::*;
+pub use arkret_models_crypto::key_backup_operations::*;
 pub use arkret_models_crypto::key_transparency::{
     KeyTransparencyEvidence, TransparencyConsistencyProof, TransparencyInclusionProof,
     TransparencyLogHead, TransparencyWitnessSignature,
 };
+pub use arkret_models_crypto::keypackage_capabilities::*;
 pub use arkret_models_crypto::keys::*;
-pub use arkret_models_crypto::mls_envelopes::{
-    MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
-};
+pub use arkret_models_crypto::mls_envelopes::MlsCommitEnvelope;
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::{
     LocalMlsKeyPackageInventory, LocalMlsKeyPackageInventoryEntry, MlsEndpointIdentity,
-    MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
-    RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
+    MlsGroupStateRecord, MlsKeyPackageRecord, MlsKeyPackageState,
+    decode_mls_basic_credential_identity, mls_basic_credential_identity,
 };
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
+pub use arkret_models_crypto::recovery_policy::*;
+pub use arkret_models_crypto::recovery_session::*;
+pub use arkret_models_crypto::secret_share::*;
+pub use arkret_models_crypto::security_transaction::*;
 pub use arkret_models_discovery::directory::*;
-pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
 pub use arkret_models_discovery::ops;
 pub use arkret_models_discovery::presence::{
@@ -259,39 +281,53 @@ pub use arkret_models_discovery::service_requirements::{
     QuotaMetadata, RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding,
     ServiceRequirements,
 };
+pub use arkret_models_discovery::station_connection::*;
+pub use arkret_models_discovery::verified_profiles::*;
+pub use arkret_models_discovery::websocket_binding::*;
 pub use arkret_models_identity::account::*;
+pub use arkret_models_identity::account_device_signer_evidence::{
+    AccountDeviceSignerEvidence, ForwardAccountDeviceSignerEvidence,
+};
 pub use arkret_models_identity::actor_profile::*;
+pub use arkret_models_identity::actor_profile_operations::*;
 pub use arkret_models_identity::admin_grant::{
     SessionGrantAdminIntrospectionStatus, SessionGrantIntrospection, admin_scopes,
 };
 pub use arkret_models_identity::agent_signer_evidence::*;
+pub use arkret_models_identity::agent_signer_state::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
+pub use arkret_models_identity::authenticated_signer_resolution_evidence::*;
 pub use arkret_models_identity::claim_presentation::{
-    AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
-    DirectoryRestrictedClaimPresentation, validate_agent_slug,
+    AgentSelectorClaimValue, agent_selector_matches_known_account, validate_agent_slug,
 };
 pub use arkret_models_identity::device_push_route::*;
 pub use arkret_models_identity::device_verification::*;
+pub use arkret_models_identity::did_webvh::*;
 pub use arkret_models_identity::handle::*;
 pub use arkret_models_identity::handle_claim::*;
 pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
 pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
+pub use arkret_models_identity::organization_registration::*;
+pub use arkret_models_identity::primary_handle::*;
+pub use arkret_models_identity::principal_registration_anchor::*;
+pub use arkret_models_identity::service_binding_results::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;
-pub use arkret_models_identity::{
-    AuthenticatedSignerResolutionEvidence, DID_WEBVH_V1_METHOD,
-    ed25519_notary_signer_descriptor_from_evidence, validate_did_webvh_v1_method,
-};
+pub use arkret_models_identity::signer_key_operations::*;
+pub use arkret_models_identity::{DID_WEBVH_V1_METHOD, validate_did_webvh_v1_method};
 pub use arkret_models_integration::applet::*;
 pub use arkret_models_integration::applet_audit_payload::*;
 pub use arkret_models_integration::applet_install_plan::*;
 pub use arkret_models_integration::applet_models::*;
 pub use arkret_models_integration::artifacts_applet::*;
 pub use arkret_models_integration::integration::*;
+pub use arkret_models_integration::management_review::*;
 pub use arkret_models_integration::models_push::*;
+pub use arkret_models_integration::push::*;
+pub use arkret_models_integration::push_vocab::*;
 pub use arkret_models_integration::{integration, push};
 pub use arkret_policy::authz::*;
 pub use arkret_policy::profile_claim::{
@@ -309,23 +345,34 @@ pub use arkret_policy::profile_semantics::{
 pub use arkret_policy::realm_organization::*;
 pub use arkret_push_policy::blind_payload_sanitizer::*;
 pub use arkret_push_policy::{blind_payload_sanitizer, push_rule_core};
-pub use arkret_schema as schema;
-pub use arkret_schema::protocol::*;
-pub use arkret_schema::{
-    EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedDataEvent,
-    PreparedEventPlane, PreparedNonReducerEvent, PreparedStandardEvent, invite_live_target_cell,
-    invite_live_target_free_value,
+pub use arkret_retry as retry;
+pub use arkret_retry::{
+    Jitter, RetryLadder, RetryPolicy, RetrySchedule, SPEC_FACTOR, SPEC_INITIAL_DELAY,
+    SPEC_JITTER_RATIO, SPEC_MAX_DELAY, SPEC_MAX_RETRIES, SPEC_RETRY_WINDOW, apply_jitter,
 };
+pub use arkret_schema as schema;
+pub use arkret_schema::EventSchemaExt;
+pub use arkret_schema::protocol::*;
 #[cfg(feature = "server")]
 pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519PayloadSigner;
+// Account Authority controller-gate issuance/verification and the generic
+// detached authority-object seal, surfaced so coauth / coland / inkson reach
+// one implementation instead of re-deriving either transcript.
+pub use arkret_signatures::agent_evidence::{
+    sign_controller_account_gate_attestation, verify_controller_account_gate_attestation,
+};
 pub use arkret_signatures::contact_receipt::{
     contact_request_acceptance_receipt_signing_bytes, verify_contact_request_acceptance_receipt,
 };
+pub use arkret_signatures::detached_object::{
+    detached_object_signed_digest, detached_object_signing_bytes, sign_detached_object,
+    verify_detached_object_signature,
+};
 pub use arkret_signatures::device_pairing::{
-    sign_device_pairing_target_attestation, verify_device_pairing_target_attestation,
+    sign_device_pairing_target_proof, verify_device_pairing_target_proof,
 };
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{
@@ -334,93 +381,94 @@ pub use arkret_signatures::keypackages::{
     sign_keypackages_revoke_request, sign_keypackages_upload_request,
     verify_keypackage_signing_input,
 };
-pub use arkret_signatures::service_resolution::{
-    sign_service_resolution_record, verify_authenticated_service_resolution,
-};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
-// at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
+// at the SDK root so clients (codmin / inkson) and servers (coland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
-pub use arkret_state::mls_governance_proof::*;
-pub use arkret_state::{lattice, realm_state_snapshot, state, *};
+pub use arkret_state::*;
+pub use arkret_wire::accepted_device_possession::*;
+pub use arkret_wire::applet_revoke_mode::AppletRevokeMode;
 pub use arkret_wire::authored_event::AuthoredEvent;
-pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
-pub use arkret_wire::cba::{
-    LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
-    ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
-};
-pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
+pub use arkret_wire::authority_commit::*;
+pub use arkret_wire::consent_scope::*;
 pub use arkret_wire::constants::*;
-pub use arkret_wire::control_proposal::*;
-pub use arkret_wire::device_revocation::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
-pub use arkret_wire::notary::{
-    ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
-};
+pub use arkret_wire::event_submission::*;
+pub use arkret_wire::extension_manifest::*;
+pub use arkret_wire::ingress_budget::*;
+pub use arkret_wire::mls_transition::mls_genesis_transition_digest;
 pub use arkret_wire::object_address::*;
-pub use arkret_wire::organization_recovery::{
-    OrganizationRecoveryArchive, OrganizationRecoveryHpkeSuite,
-};
+pub use arkret_wire::object_ref::is_object_ref;
+pub use arkret_wire::operation_types::*;
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;
+pub use arkret_wire::platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use arkret_wire::primitives::*;
 pub use arkret_wire::problem_details::*;
+pub use arkret_wire::realm_authority_signer::{
+    RealmAuthorityJoseAlgorithm, RealmAuthoritySignerDescriptor, RealmAuthoritySignerKeyKind,
+    RealmAuthoritySignerValue,
+};
 pub use arkret_wire::receive_policy::{
     EffectiveNewSourceQuota, InviteReceiveAction, NewSourceQuotaConstraints,
     NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
-pub use arkret_wire::seal::{
-    MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, SealSignature, compute_seal_id,
-    seal_canonical_bytes,
-};
+pub use arkret_wire::recovery_authority::*;
+pub use arkret_wire::request_digest::framed_request_digest;
+pub use arkret_wire::resource_selector::ObjectRef;
 pub use arkret_wire::self_contact_paths::*;
-pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
+pub use arkret_wire::service_kind::EvaluationClass;
+pub use arkret_wire::signal::{
+    MAX_SIGNAL_CIPHERTEXT_CHARS, MAX_SIGNAL_ENVELOPE_BYTES, MAX_SIGNAL_PLAINTEXT_BYTES,
+    MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES, MAX_SIGNAL_RELAY_ITEMS, MAX_SIGNAL_STREAM_REASON_CHARS,
+    MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS, MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
+    SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalDeliveryAuthority,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, SignalRelayOutcome,
+    SignalRelayRequest, SignalSenderEndpoint, SignalStreamFrame,
+};
 pub use arkret_wire::string_profiles::*;
-pub use arkret_wire::tsp_vid::*;
+pub use arkret_wire::websocket_binding::*;
+pub use arkret_wire::webvh_parameters::{
+    did_webvh_v1_effective_portable, validate_did_webvh_v1_parameter_names,
+};
+pub use arkret_wire::wire_presence::WirePresence;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, DIGEST_SUITES,
-    DidFreshnessProfileId, DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass,
-    EventInitialSubmission, EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey,
-    KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId,
-    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId,
-    ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
-    ResourceMatchScope, ResourceSelectorKind, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKind,
-    ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
+    AccountDataKey, BindingKind, CapabilityActionId, DIGEST_SUITES, DidFreshnessProfileId,
+    DidFreshnessRiskTier, EXPORTER_LABELS, EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES,
+    IdempotencyKey, KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS,
+    MlsCiphersuiteId, PROOF_CONTEXTS, PayloadSigner, ProfileId, ProfileRole, ProofContextId,
+    ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES,
+    RELATION_KIND_DESCRIPTORS, ReservationHandle, ResourceMatchScope, ResourceSelectorKind,
+    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
+    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
     WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
     is_query_auth_parameter,
 };
-pub use history_response::{
-    HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
-    VerifiedHistoryChunk, VerifiedHistoryEpochSuite, VerifiedHistoryManifest,
-    VerifiedHistoryResponseRecord, registered_mls_ciphersuite_kdf_nh,
-    verify_history_response_lost_record, verify_history_response_record,
-    verify_history_source_proof, verify_minimal_metadata_history_source_local_state,
-    verify_minimal_metadata_identity_link_signature,
-    winning_history_epoch_suites_from_verified_checkpoint,
-};
 pub use keypackage_claim_receipt::verify_peer_keypackage_claim_receipt_signature;
 pub use managed_actor_authoring::{
-    AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
+    APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
+    AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,
+    applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
 };
-pub use mls_governance::{
-    AgentHistoricalTrustFuture, AgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
-    VerifyAgentHistoryKeyFuture, VerifyAgentHistoryKeySend, build_agent_signer_resolution_evidence,
-    current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
-    derive_verified_mls_governance_checkpoint_at_basis, materialize_mls_governance_frontier,
-    signed_event_digest_claim, verify_agent_historical_event_key, verify_agent_history_source_key,
-    verify_event_derived_genesis_checkpoint, verify_mls_governance_checkpoint,
-    verify_mls_governance_closure, verify_mls_governance_cut, verify_mls_governance_frontier,
-    verify_seal_availability_dependencies_default,
+#[cfg(feature = "mls")]
+pub use mls_roster_authority::{
+    install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
+    mls_roster_genesis_material_request,
 };
+pub use mls_roster_authority::{
+    mls_self_roster_authority_page_encoded_size, project_mls_self_roster_authority_page,
+    verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
+    verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
+    verify_mls_roster_authority_pages, verify_mls_self_roster_authority_pages,
+};
+pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};
-pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
 
 pub mod events {
     pub use arkret_models_collaboration::events_payloads::redaction::*;
@@ -428,7 +476,10 @@ pub mod events {
 }
 
 pub mod sync {
-    pub use arkret_models_collaboration::sync_frames::client_sync::*;
+    pub use arkret_models_collaboration::account_subscribe_projections::*;
+    pub use arkret_models_collaboration::sync_frames::account_subscribe::*;
+    pub use arkret_models_collaboration::sync_frames::current_results::*;
+    pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
     pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};
 }
 
@@ -450,18 +501,9 @@ pub use arkret_hlc as hlc;
 pub use arkret_http_client::http_did_resolver;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so station-style consumers (inkson,
-/// floria, cotest, teabay, soland) all reach the same verifier. Depends
+/// floria, cotest, flagon, coland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
-// `key_backup_client` is owned by arkret-http-client and surfaced here as
-// `arkret::key_backup_client::*`.
-#[cfg(feature = "client")]
-pub use arkret_http_client::key_backup_client;
-// `lattice_registry` is intentionally NOT feature-gated: inkson Move
-// pre-check + cotest fixtures need the spec-normative cell-family
-// registry independently of the HTTP and MLS runtime integrations.
-pub use arkret_lattice_registry as lattice_registry;
 pub use arkret_signatures::{dpop, http_signature};
-pub use arkret_state::{consent, mls_cells, resolver};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary), surfaced here as `arkret::mls::*` under the
 // same feature gate.
@@ -483,6 +525,7 @@ pub use arkret_identifiers::hlc::{
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the
 // umbrella independently of the heavier `mls` group-machine feature.
 pub use arkret_models_crypto::{MlsCommitSource, MlsGroupStateSink};
+pub use arkret_models_identity::actor_profile::{AppletInteractionIntent, AppletInteractionMode};
 #[cfg(feature = "server")]
 pub use arkret_server::AppletHandler;
 #[cfg(feature = "server")]
@@ -493,8 +536,8 @@ pub use arkret_server::{
 };
 pub use arkret_signatures::media::{
     CallMediaTokenVerification, IceConfig, MediaBackendKind, MediaServiceAnchors,
-    call_media_token_exchange, participant_binding_signing_input, validate_token_ttl,
-    verify_call_media_token_outcome, verify_ice_config_outcome,
+    ParticipantBindingContext, call_media_token_exchange, participant_binding_signing_input,
+    validate_token_ttl, verify_call_media_token_outcome, verify_ice_config_outcome,
 };
 #[cfg(feature = "client")]
 pub use http_client::{
@@ -516,125 +559,7 @@ pub use identity::{
     verify_canonical_proof_with_did_resolver, verify_event_proof_with_did_resolver,
     verify_event_proof_with_did_resolver_context,
 };
-#[cfg(feature = "client")]
-pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
-pub use resolver::RealmState;
 #[cfg(feature = "server")]
 pub use server::reject_query_auth;
-
-/// Calendar RSVP authoring.
-///
-/// [`arkret_event_draft::RsvpAuthoring`] builds the validated payload; this
-/// module adds the half that needs the event-kind registry — running the
-/// `ak.component.calendar.rsvp.v1` contract's `effect_projection =
-/// set(payload.entry)` over the finished Event, which is the same projection a
-/// receiver runs. A producer states no writes in v1, so this is a self-check,
-/// not a stamping step: a payload the contract cannot project fails here
-/// instead of reaching the wire and being rejected with
-/// `effects_payload_mismatch`. It deliberately checks the projection only, not
-/// the DataEvent-vs-Control-Move plane routing — the draft has no `seal_ref`
-/// yet, so that check belongs to the submit gate, not to authoring.
-/// A sentinel Event identity used only to prove that a projected cell does NOT
-/// depend on the Event's own id. It never reaches an envelope.
-const CELL_PROJECTION_SENTINEL: [u8; 32] = [0xEE; 32];
-
-/// The registered cells an intent will write, resolved before authoring.
-///
-/// A precondition, or a producer self-check, names a cell — and a producer has
-/// to know that cell before it signs. Most kinds address a cell keyed by an
-/// object the payload already names, so the registry resolves it with no Event
-/// identity at all. A create keys its cell by `retype(event_id)` instead, which
-/// does not exist yet: that case fails closed here rather than pinning a
-/// producer decision to a cell that authoring is about to rename.
-pub fn pre_authoring_cell_writes(
-    intent: &EventIntent,
-    digest_suite: DigestSuite,
-) -> std::result::Result<Vec<ProjectedCellWrite>, arkret_schema::EventCellContractError> {
-    let sentinel = EventId::from_digest(digest_suite, CELL_PROJECTION_SENTINEL);
-    let input = ProjectedEventInput {
-        kind: intent.kind().clone(),
-        event_id: sentinel.clone(),
-        actor_id: intent.actor_id().clone(),
-        authorization_ref: intent.authorization_ref().cloned(),
-        actor_seq: 0,
-        realm_id: intent
-            .realm_id_opt()
-            .cloned()
-            .unwrap_or_else(|| RealmId::from_event_id(&sentinel)),
-        created_at: intent.created_at(),
-        payload: intent.payload().clone(),
-        refs: intent.refs().to_vec(),
-        preconditions: intent.preconditions().to_vec(),
-        seal_ref: intent.seal_ref().cloned(),
-        seal_basis: intent.seal_basis().cloned(),
-    };
-    let writes = arkret_schema::project_registered_operation_writes(&input, digest_suite)?;
-    // Registry-driven, not a substring guess: these are exactly the object ids
-    // this kind would retype from the sentinel identity, so a cell naming one is
-    // a cell that moves when the real identity is derived.
-    let derived = arkret_schema::derived_object_ids_for_kind(intent.kind().as_str(), &sentinel);
-    if writes.iter().any(|write| {
-        derived
-            .iter()
-            .any(|object_id| write.cell_id.as_str().contains(object_id))
-    }) {
-        return Err(arkret_schema::EventCellContractError::SubjectDerivation {
-            kind: intent.kind().as_str().to_owned(),
-            message: "the cell is keyed by this Event's own identity, which does not exist before authoring"
-                .to_owned(),
-        });
-    }
-    Ok(writes)
-}
-
-pub mod calendar {
-    use arkret_event_draft::{EventIntent, RsvpAuthoring};
-    use arkret_models_collaboration::objects::productivity::CalendarEventFields;
-    use arkret_wire::{ActorId, Hash, Result, ScopeRef, WireError};
-
-    /// Builds a complete, self-verified `ak.rsvp.set` Event.
-    ///
-    /// `causal_refs` MUST already contain every entry of
-    /// `schedule_basis_refs`; the subset rule is enforced here because a
-    /// producer, unlike a JSON Schema, can see both sides.
-    pub fn build_rsvp_set_intent(
-        authoring: RsvpAuthoring,
-        calendar: &CalendarEventFields,
-        schedule: &crate::CalendarScheduleProjection,
-        scope_ref: ScopeRef,
-        actor_id: ActorId,
-        created_at: chrono::DateTime<chrono::Utc>,
-        causal_refs: Vec<Hash>,
-    ) -> Result<EventIntent> {
-        let payload = authoring.into_payload(calendar, schedule)?;
-        for basis in &payload.entry.schedule_basis_refs {
-            if !causal_refs
-                .iter()
-                .any(|value| value.as_str() == basis.as_str())
-            {
-                return Err(WireError::Protocol(
-                    "rsvp schedule_basis_refs must be a subset of the envelope causal_refs"
-                        .to_owned(),
-                ));
-            }
-        }
-        let intent = arkret_event_draft::TypedEventDraft::<arkret_wire::event_spec::RsvpSet>::new(
-            scope_ref, actor_id, payload,
-        )
-        .map_err(|error| WireError::Protocol(error.to_string()))?
-        .with_causal_refs(causal_refs)
-        .into_intent(created_at)
-        .map_err(|error| WireError::Protocol(error.to_string()))?;
-        // No materialization step: v1 has no producer-written effect array, so
-        // there is nothing for the builder to stamp. The check below is the
-        // producer running the same registry projection a receiver will run,
-        // which is what makes an unprojectable payload fail here instead of on
-        // the wire. It runs on the intent because an RSVP cell is keyed by the
-        // Strand its payload names, not by the Event's own identity.
-        super::pre_authoring_cell_writes(&intent, arkret_canonical::DigestSuite::Sha256)
-            .map_err(|error| WireError::Protocol(format!("rsvp cell contract failed: {error}")))?;
-        Ok(intent)
-    }
-}

@@ -3,16 +3,21 @@
 mod account;
 mod agent;
 mod applet;
+mod authority;
 mod circle;
 mod data;
 mod events;
-mod history_key;
 mod identity;
+mod invite;
+mod key_backup;
 mod media;
+mod message_authoring;
 mod mimi;
+mod mls;
 mod moderation;
 mod peer;
 mod push;
+mod realm_join;
 mod security;
 mod signal;
 
@@ -21,5 +26,8 @@ pub use data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
-pub use events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
-pub use signal::SignalSubscribeFrameStream;
+pub use events::{
+    COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
+    CommittedEventSubscribeOptions, STREAM_SCAN_MAX_LIMIT,
+};
+pub use signal::{SignalSendTransportObservation, SignalSubscribeFrameStream};

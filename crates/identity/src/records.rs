@@ -46,11 +46,11 @@ pub struct DidRegistryReceipt {
     pub schema: String,
     pub receipt_id: arkret_wire::ReceiptId,
     /// DID whose key-log head this receipt witnesses.
-    pub did: Did,
+    pub subject_did: Did,
     /// Key-log sequence number of the witnessed head.
     pub seq: u64,
-    /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
-    pub head_event_digest: Hash,
+    /// SHA-256 of the complete canonical accepted method entry, including its proofs.
+    pub accepted_entry_digest: Hash,
     /// Issuing registry service DID.
     pub registry_id: DidCoreId,
     pub witness_role: IdentityReceiptWitnessRole,
@@ -75,7 +75,7 @@ impl DidRegistryReceipt {
         receipt_id: arkret_wire::ReceiptId,
         did: Did,
         seq: u64,
-        head_event_digest: Hash,
+        accepted_entry_digest: Hash,
         registry_id: DidCoreId,
         witness_role: IdentityReceiptWitnessRole,
         signing_key: &ed25519_dalek::SigningKey,
@@ -85,9 +85,9 @@ impl DidRegistryReceipt {
         let mut receipt = Self {
             schema: arkret_wire::SchemaId::IDENTITY_RECEIPT_V1.to_owned(),
             receipt_id,
-            did,
+            subject_did: did,
             seq,
-            head_event_digest,
+            accepted_entry_digest,
             registry_id,
             witness_role,
             audience: None,
@@ -136,8 +136,8 @@ impl DidRegistryReceipt {
             Value::String(self.registry_id.as_str().to_owned()),
         );
         object.insert(
-            "did".to_owned(),
-            Value::String(self.did.as_str().to_owned()),
+            "subject_did".to_owned(),
+            Value::String(self.subject_did.as_str().to_owned()),
         );
         object.insert(
             "verification_method".to_owned(),
@@ -189,6 +189,11 @@ impl DidRegistryReceipt {
         document: &DidDocument,
         registry_did: &Did,
     ) -> Result<()> {
+        if !self.accepted_entry_digest.as_str().starts_with("sha256:") {
+            return Err(IdentityError::Protocol(
+                "accepted entry commitment requires SHA-256".to_owned(),
+            ));
+        }
         if project_did_to_core_id(registry_did)?.as_str() != self.registry_id.as_str() {
             return Err(IdentityError::Protocol(
                 "identity receipt registry_id does not match proof controller".to_owned(),

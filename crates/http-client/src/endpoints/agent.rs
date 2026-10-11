@@ -12,11 +12,8 @@ use arkret_models_collaboration::governance::agent_participation::{
 use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
-use arkret_models_collaboration::{
-    CurrentSignerEvidenceQueryOutcome, CurrentSignerEvidenceQueryRequestBody,
-};
-use arkret_models_identity::agent_signer_evidence::{
-    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
+use arkret_models_identity::signer_key_operations::{
+    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
 };
 use arkret_wire::{RealmId, SidecarId};
 use reqwest::Method;
@@ -25,33 +22,38 @@ use crate::{Client, Error, Result};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
-const AGENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/agent-signer-evidence/query";
-const CURRENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/current-signer-evidence/query";
+const SIGNER_KEYS_QUERY_PATH: &str = "/_arkret/self/signer-keys/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
-    /// Resolve origin-signed current authority for one exact received Signal.
-    pub async fn current_signer_evidence_query(
+    /// `POST /_arkret/self/signer-keys/query`
+    /// (`ak.self.signer_keys.read.resolve.v1`).
+    ///
+    /// One surface for both questions the recipient Station can answer: which
+    /// key is currently admitted for a sender, and which key signed one exact
+    /// locally accepted historical Event. Device and Agent senders share it, so
+    /// a caller no longer has to know which of two operations to reach for.
+    /// Selectors carry the independent `verification_mode` and `sender_kind`
+    /// discriminators; a resolved historical result additionally requires its
+    /// canonical `accepted_at` authorization-effective time.
+    ///
+    /// The result is not portable evidence and not a reusable current grant: a
+    /// `unavailable` answer means only that this Station cannot answer that
+    /// selector right now.
+    pub async fn signer_keys_query(
         &self,
-        request: &CurrentSignerEvidenceQueryRequestBody,
-    ) -> Result<CurrentSignerEvidenceQueryOutcome> {
+        request: &SignerKeysQueryRequestBody,
+    ) -> Result<SignerKeysQueryOutcome> {
         request.validate()?;
-        let outcome: CurrentSignerEvidenceQueryOutcome = self
-            .post(CURRENT_SIGNER_EVIDENCE_QUERY_PATH, request)
+        let builder = self.request(Method::POST, SIGNER_KEYS_QUERY_PATH)?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: SignerKeysQueryOutcome = self
+            .send_json_limited(
+                builder,
+                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
+            )
             .await?;
-        outcome.validate_for_request(request, chrono::Utc::now())?;
-        Ok(outcome)
-    }
-
-    /// `POST /_arkret/self/agent-signer-evidence/query`
-    /// (`ak.self.agent_signer_evidence.read.resolve.v1`).
-    pub async fn agent_signer_evidence_query(
-        &self,
-        request: &AgentSignerEvidenceQueryRequestBody,
-    ) -> Result<AgentSignerEvidenceQueryOutcome> {
-        let outcome: AgentSignerEvidenceQueryOutcome =
-            self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }
@@ -225,6 +227,8 @@ fn agent_path_component(value: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -259,13 +263,82 @@ mod tests {
         }))
         .unwrap_err();
 
-        assert!(error.to_string().contains("agent_projections"));
+        assert!(error.to_string().contains("agents"));
 
         let error = serde_json::from_value::<AgentList>(serde_json::json!({
-            "agent_projections": []
+            "agents": []
         }))
         .unwrap_err();
 
         assert!(error.to_string().contains("has_more"));
+    }
+
+    #[test]
+    fn formal_historical_signer_key_response_decodes_for_the_client() {
+        let outcome: SignerKeysQueryOutcome = serde_json::from_value(json!({
+            "request_id": "ak:request:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            "recipient_account_id": {
+                "principal_id": "ak:did_core:web:recipient.example",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "results": [{
+                "selector": {
+                    "verification_mode": "historical_event",
+                    "sender_kind": "agent",
+                    "actor": {
+                        "kind": "account",
+                        "account_id": {
+                            "principal_id": "ak:did_core:web:agent.example",
+                            "station_id": "ak:did_core:web:station.example"
+                        }
+                    },
+                    "verification_method": "did:web:agent.example#runtime-1",
+                    "committed_event_ref": {
+                        "event_id": "ak:event:ARTzU1T6HTPffn8VGBicK6XWx4KIC4PXvv0NX-EMSj4G",
+                        "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+                        "stream_ref": {
+                            "kind": "realm",
+                            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+                        },
+                        "stream_position": 12
+                    }
+                },
+                "status": "resolved",
+                "key": {
+                    "public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "authorization_ref": {
+                        "event_id": "ak:event:Aao964Xuq1Q7PmnLt9I97ih00Qs2N6qMkBgKgYCvUFFe",
+                        "commit_id": "ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ",
+                        "stream_ref": {
+                            "kind": "realm",
+                            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+                        },
+                        "stream_position": 7
+                    },
+                    "revision": {
+                        "commit_id": "ak:realm_commit:AQPhm6Di_JMyu-JM932ww_EvyQU0dIIEO2ykFmYb9nD5",
+                        "stream_position": 15
+                    },
+                    "governance_generation": 4
+                },
+                "accepted_at": "2026-09-20T00:00:00.000Z"
+            }]
+        }))
+        .expect("the formal Station response must decode before endpoint validation");
+
+        assert_eq!(outcome.results.len(), 1);
+        assert!(outcome.results[0].selector().is_historical());
+        assert!(outcome.results[0].accepted_at().is_some());
+
+        let request = SignerKeysQueryRequestBody {
+            request_id: outcome.request_id.clone(),
+            realm_id: outcome.realm_id.clone(),
+            recipient_account_id: outcome.recipient_account_id.clone(),
+            queries: vec![outcome.results[0].selector().clone()],
+        };
+        outcome
+            .validate_for_request(&request)
+            .expect("the HTTP client must accept the schema-valid response for its exact request");
     }
 }

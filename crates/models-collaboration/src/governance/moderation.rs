@@ -1,17 +1,10 @@
 //! Moderation report wire DTOs.
 
 use arkret_wire::{
-    AccountId, Did, DidCoreId, EventInitialSubmission, EventKind, RealmId, ReportId, Result,
-    SchemaId, ScopeRef, project_did_to_core_id,
+    AccountId, Did, DidCoreId, EventAdmissionSubmission, EventKind, ReportId, Result, ScopeRef,
+    project_did_to_core_id,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::events_payloads::FrankingProof;
-
-fn now_utc_canonical() -> DateTime<Utc> {
-    arkret_canonical::normalize_timestamp_canonical(Utc::now())
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -50,7 +43,7 @@ pub enum ModerationAction {
 
 /// `ak.self.moderation.command.report.v1` request body.
 ///
-/// The service forwards this exact caller-authored and caller-signed DataEvent
+/// The service forwards this exact caller-authored and caller-signed ordinary Event
 /// through ordinary Event admission. It never constructs a report Event from
 /// an unsigned report projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,7 +51,7 @@ pub enum ModerationAction {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub report_event: EventInitialSubmission,
+    pub report_event: EventAdmissionSubmission,
 }
 
 /// Accepted target facts used only at the report-authoring boundary.
@@ -73,8 +66,7 @@ pub struct ModerationReportAcceptedTargetBasis {
 
 impl ModerationReportRequestBody {
     /// Validate constraints carried entirely inside the signed request.
-    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
-        self.report_event.validate_structural(digest_suite)?;
+    pub fn validate(&self) -> Result<()> {
         let event = &self.report_event.event;
         if event.kind != EventKind::SelfModerationReport {
             return Err(arkret_wire::WireError::Protocol(
@@ -89,13 +81,6 @@ impl ModerationReportRequestBody {
                 "self moderation report requires a direct holder-authored Event".to_owned(),
             ));
         }
-        if event.seal_basis.is_some() || !event.preconditions.is_empty() {
-            return Err(arkret_wire::WireError::Protocol(
-                "self moderation report must be a DataEvent without seal_basis or preconditions"
-                    .to_owned(),
-            ));
-        }
-
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
         payload
@@ -124,28 +109,15 @@ impl ModerationReportRequestBody {
             ));
         }
 
-        let auth_context = event.auth_context.as_ref().ok_or_else(|| {
-            arkret_wire::WireError::Protocol(
-                "moderation report DataEvent requires auth_context".to_owned(),
+        if !event.producer_proof.as_ref().is_some_and(|proof| {
+            proof_controller_matches_actor(
+                proof.verification_method.as_str(),
+                event.actor_id.signing_principal_id(),
             )
-        })?;
-        if auth_context.key_id.is_empty()
-            || auth_context.key_id.len() > 128
-            || !auth_context.key_id.chars().all(|character| {
-                character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-')
-            })
-            || !event.proofs.iter().any(|proof| {
-                proof.as_producer().is_some_and(|proof| {
-                    proof_controller_matches_actor(
-                        proof.verification_method.as_str(),
-                        event.actor_id.signing_principal_id(),
-                    )
-                    .unwrap_or(false)
-                })
-            })
-        {
+            .unwrap_or(false)
+        }) {
             return Err(arkret_wire::WireError::Protocol(
-                "moderation report proof and auth_context must bind the holder actor".to_owned(),
+                "moderation report proof must bind the holder actor".to_owned(),
             ));
         }
         Ok(())
@@ -157,9 +129,8 @@ impl ModerationReportRequestBody {
         &self,
         session_account_id: &AccountId,
         accepted_target: &ModerationReportAcceptedTargetBasis,
-        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate(digest_suite)?;
+        self.validate()?;
         let event = &self.report_event.event;
         let payload: crate::events_payloads::ModerationReportPayload =
             crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
@@ -177,8 +148,8 @@ impl ModerationReportRequestBody {
 
     /// The durable report identity is the accepted Event identity with only
     /// its typed prefix changed.
-    pub fn report_id(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<ReportId> {
-        self.validate(digest_suite)?;
+    pub fn report_id(&self) -> Result<ReportId> {
+        self.validate()?;
         Ok(ReportId::from_event_id(&self.report_event.event.event_id))
     }
 }
@@ -188,295 +159,7 @@ fn proof_controller_matches_actor(verification_method: &str, actor_id: &DidCoreI
         .split_once('#')
         .map(|(did, _)| did)
         .ok_or_else(|| {
-            arkret_wire::WireError::Protocol(
-                "moderation report proof verification_method has no fragment".to_owned(),
-            )
+            arkret_wire::WireError::Protocol("verification_method has no fragment".into())
         })?;
-    let did = Did::new(controller.to_owned())?;
-    Ok(project_did_to_core_id(&did)? == *actor_id)
-}
-
-/// Moderation report (moderation.md §3).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModerationReport {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
-    pub report_id: String,
-    pub realm_id: RealmId,
-    pub target_ref: String,
-    pub report_reason_code: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub reporter_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub evidence_refs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<FrankingProof>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-}
-
-impl ModerationReport {
-    pub const SCHEMA: &'static str = SchemaId::MODERATION_REPORT_V1;
-    pub fn new(
-        id: impl Into<String>,
-        realm_id: RealmId,
-        target_ref: impl Into<String>,
-        report_reason_code: impl Into<String>,
-        reporter: DidCoreId,
-    ) -> Self {
-        Self {
-            schema: Some(SchemaId::MODERATION_REPORT_V1.to_owned()),
-            report_id: id.into(),
-            realm_id,
-            target_ref: target_ref.into(),
-            report_reason_code: report_reason_code.into(),
-            description: None,
-            reporter_id: reporter,
-            evidence_refs: Vec::new(),
-            franking_proof: None,
-            created_at: now_utc_canonical(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod signed_request_tests {
-    use arkret_wire::{
-        AccountId, ActorId, AuthContext, DidCoreId, DidUrl, EventInitialSubmission, Hash, Hlc,
-        Precondition, ProducerEventProof, RealmId, ReportId, ScopeRef, SealId, proof_kind,
-    };
-    use chrono::{DateTime, Utc};
-    use serde_json::json;
-
-    use super::{
-        ModerationReportAcceptedTargetBasis, ModerationReportOutcome, ModerationReportRequestBody,
-        ModerationReportStatus,
-    };
-
-    const ACTOR: &str = "ak:did_core:webvh:z6mkfixture";
-    const OTHER_ACTOR: &str = "ak:did_core:webvh:z6mkother";
-    const REALM: &str = "ak:realm:AfTcej7ZFNg8uTbkOiUJT0KN1F_c9l1fmtil65CUwncm";
-    const CIRCLE: &str = "ak:circle:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
-    const TARGET: &str = "ak:event:AYe0UROSIqIZGD1cBkkPMK8WhKaAJfv7SpPwNrYjFPOD";
-    const VM: &str = "did:webvh:z6mkfixture:fixture.example#device-1";
-    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
-
-    fn actor() -> DidCoreId {
-        DidCoreId::new(ACTOR).unwrap()
-    }
-
-    fn account() -> AccountId {
-        AccountId::new(
-            actor(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
-        )
-    }
-
-    fn realm() -> RealmId {
-        RealmId::new(REALM).unwrap()
-    }
-
-    fn signed_request(effective_scope: Option<ScopeRef>) -> ModerationReportRequestBody {
-        let created_at: DateTime<Utc> = "2026-08-11T00:00:00.000Z".parse().unwrap();
-        let scope_ref = effective_scope
-            .clone()
-            .unwrap_or_else(|| ScopeRef::Realm { realm_id: realm() });
-        let mut payload = json!({
-            "realm_id": REALM,
-            "target_ref": TARGET,
-            "report_reason_code": "spam",
-            "reporter_id": ACTOR,
-            "provenance": "self"
-        });
-        if let Some(scope) = effective_scope {
-            payload["effective_scope"] = serde_json::to_value(scope).unwrap();
-        }
-        let mut event = arkret_wire::test_support::raw_event_at(
-            "ak.self.moderation.report",
-            scope_ref,
-            actor(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
-            7,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            payload,
-            created_at,
-        )
-        .unwrap();
-        event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
-        event.auth_context = Some(AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 1,
-            credential_epoch: None,
-        });
-        event
-            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        let event_digest = Hash::new(
-            event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap(),
-        )
-        .unwrap();
-        event.proofs = vec![
-            ProducerEventProof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(VM).unwrap(),
-                event_digest,
-                signer_resolution_evidence_ref: None,
-                created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "a..b".to_owned(),
-            }
-            .into(),
-        ];
-        ModerationReportRequestBody {
-            report_event: EventInitialSubmission::online(event),
-        }
-    }
-
-    fn realm_basis() -> ModerationReportAcceptedTargetBasis {
-        ModerationReportAcceptedTargetBasis {
-            target_ref: TARGET.to_owned(),
-            effective_scope: ScopeRef::Realm { realm_id: realm() },
-        }
-    }
-
-    #[test]
-    fn valid_realm_and_circle_reports_bind_signed_authoring_context() {
-        let realm_request = signed_request(None);
-        realm_request.validate(SUITE).unwrap();
-        realm_request
-            .validate_authoring_context(&account(), &realm_basis(), SUITE)
-            .unwrap();
-        assert_eq!(
-            realm_request.report_id(SUITE).unwrap(),
-            ReportId::from_event_id(&realm_request.report_event.event.event_id)
-        );
-
-        let circle_scope = ScopeRef::Circle {
-            realm_id: realm(),
-            circle_id: arkret_wire::CircleId::new(CIRCLE).unwrap(),
-        };
-        let circle_request = signed_request(Some(circle_scope.clone()));
-        circle_request
-            .validate_authoring_context(
-                &account(),
-                &ModerationReportAcceptedTargetBasis {
-                    target_ref: TARGET.to_owned(),
-                    effective_scope: circle_scope,
-                },
-                SUITE,
-            )
-            .unwrap();
-    }
-
-    #[test]
-    fn request_rejects_wrong_kind_scope_actor_and_target() {
-        let mut wrong_kind = signed_request(None);
-        wrong_kind.report_event.event.kind = arkret_wire::EventKind::MessageCreate;
-        assert!(wrong_kind.validate(SUITE).is_err());
-
-        let mut wrong_scope = signed_request(None);
-        wrong_scope.report_event.event.scope_ref = ScopeRef::Circle {
-            realm_id: realm(),
-            circle_id: arkret_wire::CircleId::new(CIRCLE).unwrap(),
-        };
-        assert!(wrong_scope.validate(SUITE).is_err());
-
-        let request = signed_request(None);
-        assert!(
-            request
-                .validate_authoring_context(
-                    &AccountId::new(DidCoreId::new(OTHER_ACTOR).unwrap(), account().station_id,),
-                    &realm_basis(),
-                    SUITE,
-                )
-                .is_err()
-        );
-        let mut wrong_target = realm_basis();
-        wrong_target.target_ref =
-            "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6".to_owned();
-        assert!(
-            request
-                .validate_authoring_context(&account(), &wrong_target, SUITE)
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn request_rejects_delegated_mimi_and_control_move_fields() {
-        let mut delegated = signed_request(None);
-        delegated.report_event.event.executed_by = Some(ActorId::account(account()));
-        assert!(delegated.validate(SUITE).is_err());
-
-        let mut mimi = signed_request(None);
-        mimi.report_event.event.payload.insert(
-            "provenance".to_owned(),
-            serde_json::Value::String("mimi_facade".to_owned()),
-        );
-        mimi.report_event.event.payload.insert(
-            "source_provider_id".to_owned(),
-            serde_json::Value::String(OTHER_ACTOR.to_owned()),
-        );
-        assert!(mimi.validate(SUITE).is_err());
-
-        let mut guarded = signed_request(None);
-        guarded.report_event.event.preconditions = vec![Precondition {
-            cell_id: arkret_wire::CellRef::new("ak:cell:ak.component.realm.authority_root.v1:null")
-                .unwrap(),
-            predicate: arkret_wire::Predicate {
-                op: arkret_wire::PredicateOp::HeadEq,
-                value: Some(json!(null)),
-                values: None,
-                predicate_id: None,
-            },
-        }];
-        assert!(guarded.validate(SUITE).is_err());
-    }
-
-    #[test]
-    fn request_rejects_wrong_reporter_proof_and_other_without_description() {
-        let mut wrong_reporter = signed_request(None);
-        wrong_reporter.report_event.event.payload.insert(
-            "reporter".to_owned(),
-            serde_json::Value::String(OTHER_ACTOR.to_owned()),
-        );
-        assert!(wrong_reporter.validate(SUITE).is_err());
-
-        let mut wrong_proof = signed_request(None);
-        wrong_proof.report_event.event.proofs[0]
-            .as_producer_mut()
-            .unwrap()
-            .verification_method =
-            DidUrl::new("did:webvh:z6mkother:other.example#device-1").unwrap();
-        assert!(wrong_proof.validate(SUITE).is_err());
-
-        let mut other = signed_request(None);
-        other.report_event.event.payload.insert(
-            "report_reason_code".to_owned(),
-            serde_json::Value::String("other".to_owned()),
-        );
-        assert!(other.validate(SUITE).is_err());
-    }
-
-    #[test]
-    fn submission_outcome_is_closed_and_submitted() {
-        let request = signed_request(None);
-        let outcome = ModerationReportOutcome {
-            report_id: request.report_id(SUITE).unwrap(),
-            status: ModerationReportStatus::Submitted,
-            routed_to_ids: Vec::new(),
-        };
-        assert_eq!(outcome.status, ModerationReportStatus::Submitted);
-        assert!(
-            serde_json::from_value::<ModerationReportOutcome>(json!({
-                "report_id": request.report_id(SUITE).unwrap(),
-                "status": "resolved"
-            }))
-            .is_err()
-        );
-    }
+    Ok(project_did_to_core_id(&Did::new(controller.to_owned())?)? == *actor_id)
 }

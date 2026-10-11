@@ -6,8 +6,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, Facet, GrantId,
-    Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector, XExtensionMap,
+    AccountId, ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, EventId,
+    Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
+    WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -190,13 +191,60 @@ pub enum GrantApprovalRelation {
     Custom,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum GrantApprovalThreshold {
     Majority,
+    #[default]
     Unanimous,
-    Quorum,
-    Custom,
+    Count(std::num::NonZeroU64),
+}
+
+impl GrantApprovalThreshold {
+    pub fn required_votes(self, eligible_approvers: u64) -> Option<u64> {
+        if eligible_approvers == 0 {
+            return None;
+        }
+        let required = match self {
+            Self::Majority => eligible_approvers / 2 + 1,
+            Self::Unanimous => eligible_approvers,
+            Self::Count(count) => count.get(),
+        };
+        (required <= eligible_approvers).then_some(required)
+    }
+}
+
+impl Serialize for GrantApprovalThreshold {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::Majority => serializer.serialize_str("majority"),
+            Self::Unanimous => serializer.serialize_str("unanimous"),
+            Self::Count(count) => serializer.serialize_u64(count.get()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for GrantApprovalThreshold {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        match Value::deserialize(deserializer)? {
+            Value::String(value) if value == "majority" => Ok(Self::Majority),
+            Value::String(value) if value == "unanimous" => Ok(Self::Unanimous),
+            Value::Number(value) => value
+                .as_u64()
+                .and_then(std::num::NonZeroU64::new)
+                .map(Self::Count)
+                .ok_or_else(|| {
+                    serde::de::Error::custom("approval threshold must be a positive integer")
+                }),
+            _ => Err(serde::de::Error::custom(
+                "approval threshold must be majority, unanimous or a positive integer",
+            )),
+        }
+    }
 }
 
 /// Conditional claim requirement in a grant constraint.
@@ -417,6 +465,8 @@ pub struct GrantConstraint {
     pub authority_path_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_regrant_allowed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_managed_actor_roles: Vec<ManagedActorRole>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_scope: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -456,13 +506,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_reject_on_timeout: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_morph_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_threshold: Option<GrantApprovalThreshold>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approver_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -561,6 +605,7 @@ impl GrantConstraint {
             max_authority_depth: None,
             authority_path_ids: Vec::new(),
             authority_regrant_allowed: None,
+            allowed_managed_actor_roles: Vec::new(),
             authority_scope: None,
             applet_id: None,
             executed_by: None,
@@ -580,10 +625,7 @@ impl GrantConstraint {
             approval_actor_ids: Vec::new(),
             approval_relation: None,
             timeout: None,
-            auto_reject_on_timeout: None,
-            proposal_morph_kind: None,
             approval_threshold: None,
-            approver_ids: Vec::new(),
             accountability_required: None,
             guardian_approval_required: None,
             controller_approval_required: None,
@@ -639,36 +681,54 @@ impl GrantConstraint {
 /// One entry of a grant's `issuer_authority_refs[]`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IssuerAuthorityRef {
+    /// Controller-bounded execution source. It requires current ownership and
+    /// exact join generations and must never be used as a regrant parent.
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     /// A grant the issuer holds. The issuer MUST be its subject and the ref
     /// MUST be active when the child is evaluated.
     Grant { grant_id: GrantId },
-    /// The Realm authority-root cell — a rooted terminal, never a graph edge.
-    ///
-    /// `controller_epoch_at_issuance` is issuance audit only: comparing it to
-    /// the current epoch would make an owner transfer invalidate every grant
-    /// the previous controller ever signed. `authority_generation` is the field
-    /// that IS compared, because an authority reset advances it precisely so a
-    /// whole tree stops resolving.
+    /// A Realm authority root accepted by the governing Station. The current
+    /// result revision used at acceptance is Station-local state, not wire.
     RealmRoot {
         realm_id: RealmId,
-        cell_ref: String,
-        controller_epoch_at_issuance: u64,
+        authority_event_ref: EventId,
         authority_generation: u64,
     },
 }
 
-/// Reducer-derived identity of one authority root reached by a grant.
+/// Identity of one committed authority source reached by a grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthorityRootRef {
+    OwnedAgent {
+        realm_id: RealmId,
+        controller_account_id: AccountId,
+        controller_join_event_id: EventId,
+        agent_join_event_id: EventId,
+    },
     RealmRoot {
         realm_id: RealmId,
-        cell_ref: String,
+        authority_event_ref: EventId,
         authority_generation: u64,
     },
+}
+
+/// Reducer-derived lifecycle state of one capability grant current result.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityGrantStatus {
+    Active,
+    Revoked,
+    Relinquished,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -692,8 +752,18 @@ pub struct CapabilityGrant {
     // `skip_serializing_if`: doing so lets a strongly typed grant silently
     // deserialize or serialize without its authority root/parent edge.
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
+    /// Absolute distance from a committed authority source. An owned Agent
+    /// execution source has depth one and grants no Realm root control.
+    pub authority_depth: u64,
+    /// Canonically sorted, deduplicated authority sources reached through
+    /// `issuer_authority_refs`. This is reducer-derived and never authored in
+    /// the create body.
+    pub authority_root_refs: Vec<AuthorityRootRef>,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
+    /// Station-derived lifecycle state. Producers cannot author this member;
+    /// it is present on the materialized capability-grant current result.
+    pub status: CapabilityGrantStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<ActorId>,
     #[serde(
@@ -712,173 +782,75 @@ pub struct CapabilityGrant {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
+impl CapabilityGrant {
+    /// Original signer of this dedicated source, independent of current
+    /// membership, lifecycle effectiveness or the controller's action rights.
+    pub fn owned_agent_issuer(&self) -> Option<&AccountId> {
+        let [
+            IssuerAuthorityRef::OwnedAgent {
+                realm_id,
+                controller_account_id,
+                ..
+            },
+        ] = self.issuer_authority_refs.as_slice()
+        else {
+            return None;
+        };
+        (self.realm_id.as_ref() == Some(realm_id)
+            && self.issuer_id.as_account_id() == Some(controller_account_id))
+        .then_some(controller_account_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use arkret_wire::AccountId;
-    use serde_json::json;
-
     use super::*;
 
     #[test]
-    fn capability_revocation_preserves_exact_actor_identity() {
-        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
-            .unwrap()
-            .expect("spec schema registry");
-        let principal = DidCoreId::new("ak:did_core:web:revoker.example").unwrap();
-        let mut identities = std::collections::BTreeSet::new();
-        for actor in [
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
-            )),
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
-            )),
-            ActorId::service(principal.clone()),
+    fn executable_approval_threshold_uses_the_eligible_roster() {
+        assert_eq!(GrantApprovalThreshold::default().required_votes(3), Some(3));
+        assert_eq!(GrantApprovalThreshold::Majority.required_votes(4), Some(3));
+        assert_eq!(GrantApprovalThreshold::Majority.required_votes(0), None);
+        let count: GrantApprovalThreshold = serde_json::from_value(serde_json::json!(2)).unwrap();
+        assert_eq!(count.required_votes(3), Some(2));
+        assert_eq!(count.required_votes(1), None);
+        assert_eq!(serde_json::to_value(count).unwrap(), serde_json::json!(2));
+        for value in [
+            serde_json::json!("quorum"),
+            serde_json::json!("custom"),
+            serde_json::json!(0),
+            serde_json::json!(-1),
+            serde_json::json!(1.5),
+            Value::Null,
         ] {
-            let value = json!({
-                "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                "schema": SchemaId::CAPABILITY_V1,
-                "issuer_id": actor,
-                "subject": actor,
-                "actions": ["ak.event.read"],
-                "resources": [{"kind": "realm"}],
-                "issuer_authority_refs": [{
-                    "kind": "realm_root",
-                    "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                    "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
-                    "controller_epoch_at_issuance": 0,
-                    "authority_generation": 0
-                }],
-                "issued_at": "2026-07-14T12:34:56.789Z",
-                "revoked_by": actor
-            });
-            registry
-                .validate_value(SchemaId::CAPABILITY_V1, &value)
-                .unwrap();
-            let decoded: CapabilityGrant = serde_json::from_value(value.clone()).unwrap();
-            assert_eq!(decoded.revoked_by.as_ref(), Some(&actor));
-            assert_eq!(serde_json::to_value(decoded).unwrap(), value);
-            assert!(identities.insert(actor));
+            assert!(serde_json::from_value::<GrantApprovalThreshold>(value).is_err());
         }
     }
 
     #[test]
-    fn capability_grant_accepts_omitted_optional_constraints() {
-        let grant: CapabilityGrant = serde_json::from_value(json!({
-            "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer_id": {"kind": "service", "service_id": "ak:did_core:web:issuer.example"},
-            "subject": {"kind": "service", "service_id": "ak:did_core:web:subject.example"},
-            "actions": ["ak.event.read"],
-            "resources": [{"kind": "realm"}],
-            "issuer_authority_refs": [{
-                "kind": "realm_root",
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
-                "controller_epoch_at_issuance": 0,
-                "authority_generation": 0
-            }],
-            "issued_at": "2026-07-14T12:34:56.789Z"
-        }))
-        .expect("constraints are optional in capability-grant.schema.json");
-
-        assert!(grant.constraints.is_empty());
-    }
-
-    #[test]
-    fn capability_grant_rejects_missing_issuer_authority_refs() {
-        let error = serde_json::from_value::<CapabilityGrant>(json!({
-            "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer_id": {"kind": "service", "service_id": "ak:did_core:web:issuer.example"},
-            "subject": {"kind": "service", "service_id": "ak:did_core:web:subject.example"},
-            "actions": ["ak.event.read"],
-            "resources": [{"kind": "realm"}],
-            "issued_at": "2026-07-14T12:34:56.789Z",
-            "proofs": []
-        }))
-        .expect_err("issuer_authority_refs is required by capability-grant.schema.json");
-
-        assert!(error.to_string().contains("issuer_authority_refs"));
-    }
-
-    #[test]
-    fn applet_authority_uses_registered_authority_control_shape() {
-        let constraint = GrantConstraint::applet_authority(
-            AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
-            ActorId::service(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
-            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+    fn grant_constraint_rejects_retired_proposal_morph_kind() {
+        let mut constraint = GrantConstraint::new(
+            GrantConstraintKind::ClaimBased,
+            GrantConstraintEffect::RequireReview,
         );
-        let wire = serde_json::to_value(constraint).unwrap();
+        constraint
+            .extensions
+            .insert("x_review_note", Value::Bool(true))
+            .unwrap();
+        let wire = serde_json::to_value(&constraint).unwrap();
+        assert!(wire.get("proposal_morph_kind").is_none());
+        assert_eq!(wire["x_review_note"], true);
+        assert!(serde_json::from_value::<GrantConstraint>(wire.clone()).is_ok());
 
-        assert_eq!(wire["constraint_kind"], "authority_control");
-        assert_eq!(wire["constraint_subkind"], "applet_authority");
-        assert_eq!(wire["evaluation_class"], "grant_local");
-        assert_eq!(
-            wire["executed_by"],
-            serde_json::json!({"kind":"service","service_id":"ak:did_core:web:calendar.example"})
-        );
-        assert!(wire.get("applet_delegation_binding").is_none());
+        let mut retired = wire;
+        retired["proposal_morph_kind"] = Value::String("old_proposal".to_owned());
+        assert!(serde_json::from_value::<GrantConstraint>(retired).is_err());
     }
+}
 
-    #[test]
-    fn capability_grant_serializes_lifecycle_timestamps_canonically() {
-        let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let grant = CapabilityGrant {
-            id: GrantId::new("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            schema: "ak.schema.capability.v1".to_owned(),
-            realm_id: Some(
-                RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ),
-            issuer_id: ActorId::service(DidCoreId::new("ak:did_core:web:issuer.example").unwrap()),
-            subject: CapabilitySubject::Actor(ActorId::service(
-                DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
-            )),
-            actions: vec!["ak.event.read".to_owned()],
-            resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
-            constraints: vec![
-                serde_json::from_value(json!({
-                    "constraint_kind": "temporal",
-                    "effect": "allow",
-                    "not_before": "2026-07-14T12:34:56.789Z",
-                    "expires_at": "2026-07-14T12:34:56.789Z"
-                }))
-                .unwrap(),
-            ],
-            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
-                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                    .unwrap(),
-                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
-                controller_epoch_at_issuance: 0,
-                authority_generation: 0,
-            }],
-            issued_at: fractional,
-            updated_by: None,
-            updated_at: Some(fractional),
-            revoked_by: None,
-            revoked_at: Some(fractional),
-        };
-
-        let wire = serde_json::to_value(&grant).unwrap();
-        for pointer in [
-            "/issued_at",
-            "/constraints/0/not_before",
-            "/constraints/0/expires_at",
-            "/updated_at",
-            "/revoked_at",
-        ] {
-            assert_eq!(
-                wire.pointer(pointer).and_then(Value::as_str),
-                Some("2026-07-14T12:34:56.789Z")
-            );
-        }
-
-        assert!(wire.get("proofs").is_none());
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedActorRole {
+    Bot,
+    Ghost,
 }

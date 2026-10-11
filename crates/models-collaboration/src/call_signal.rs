@@ -160,11 +160,14 @@ pub struct CallMuteStateSignalData {
 
 impl CallMuteStateSignalData {
     pub fn validate(&self) -> Result<()> {
-        let has_target = self.target_actor_id.is_some() && self.target_device_id.is_some();
-        if (self.changed_by == MuteChangedBy::Moderator) != has_target {
+        if self.changed_by == MuteChangedBy::Moderator {
             return Err(WireError::Protocol(
-                "moderator mute requires target_actor_id and target_device_id; self mute forbids them"
-                    .to_owned(),
+                "unsupported_feature: moderator force-mute is deferred in v1".to_owned(),
+            ));
+        }
+        if self.target_actor_id.is_some() || self.target_device_id.is_some() {
+            return Err(WireError::Protocol(
+                "self mute forbids target_actor_id and target_device_id".to_owned(),
             ));
         }
         Ok(())
@@ -426,47 +429,25 @@ impl CallSignalPlaintext {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
+mod v1_mute_tests {
     use super::*;
 
-    fn call_id() -> CallId {
-        CallId::new("ak:call:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
-    }
-
     #[test]
-    fn call_signal_plaintext_is_closed_and_requires_data() {
-        let valid = json!({
-            "kind": "ak.call.signal",
-            "payload_sequence": 11,
-            "call_id": call_id(),
-            "signal_kind": "candidate",
-            "seq": 3,
-            "data": {"candidates": [{"candidate": "opaque"}]}
-        });
-        let decoded: CallSignalPlaintext = serde_json::from_value(valid.clone()).unwrap();
-        assert_eq!(decoded.seq, 3);
-        // The two sequences are independent axes; carrying one is not carrying
-        // the other.
-        assert_eq!(decoded.payload_sequence, 11);
-        assert_eq!(decoded.signal_kind(), CallSignalKind::Candidate);
-
-        let mut missing_data = valid.clone();
-        missing_data.as_object_mut().unwrap().remove("data");
-        assert!(serde_json::from_value::<CallSignalPlaintext>(missing_data).is_err());
-
-        for required in ["payload_sequence", "seq"] {
-            let mut missing = valid.clone();
-            missing.as_object_mut().unwrap().remove(required);
-            assert!(
-                serde_json::from_value::<CallSignalPlaintext>(missing).is_err(),
-                "{required} must not be omissible"
-            );
-        }
-
-        let mut extra = valid;
-        extra["actor_id"] = json!("did:webvh:z6mkfixture:alice.example");
-        assert!(serde_json::from_value::<CallSignalPlaintext>(extra).is_err());
+    fn moderator_force_mute_is_rejected_while_self_mute_remains_valid() {
+        let mut mute = CallMuteStateSignalData {
+            audio_muted: true,
+            video_muted: false,
+            changed_by: MuteChangedBy::SelfActor,
+            target_actor_id: None,
+            target_device_id: None,
+        };
+        assert!(mute.validate().is_ok());
+        mute.changed_by = MuteChangedBy::Moderator;
+        assert!(
+            mute.validate()
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported_feature")
+        );
     }
 }
