@@ -1,9 +1,6 @@
 name: atomic compatibility
 
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       manifest_ref:
@@ -24,8 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      CANDIDATE_REPOSITORY: ${{ github.event.repository.name }}
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       CARGO_TERM_COLOR: always
       RUSTFLAGS: -D warnings
       CARGO_BUILD_JOBS: "1"
@@ -33,20 +28,13 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
-      - name: Checkout candidate
-        uses: actions/checkout@v4
-        with:
-          path: candidate-source
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
       - name: Checkout compatibility manifest source
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/arkret-rust-sdk
           path: .compatibility-source
           persist-credentials: false
-          ref: ${{ inputs.manifest_ref || 'main' }}
+          ref: ${{ inputs.manifest_ref || github.sha }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
 
       - name: Resolve the immutable candidate set
@@ -56,20 +44,12 @@ jobs:
           set -euo pipefail
           resolver_root="$RUNNER_TEMP/compatibility-resolver-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           mkdir -p "$resolver_root"
-          mv -- "$GITHUB_WORKSPACE/candidate-source" "$resolver_root/candidate-source"
           mv -- "$GITHUB_WORKSPACE/.compatibility-source" "$resolver_root/manifest-source"
           gate_source="$resolver_root/manifest-source"
-          if [ "$CANDIDATE_REPOSITORY" = "arkret-rust-sdk" ]; then
-            gate_source="$resolver_root/candidate-source"
-          fi
-          candidate_args=(--candidate "$CANDIDATE_REPOSITORY=$CANDIDATE_SHA")
-          if [ "$CANDIDATE_REPOSITORY" != "arkret-rust-sdk" ]; then
-            sdk_source_sha="$(git -C "$gate_source" rev-parse --verify HEAD)"
-            candidate_args+=(--candidate "arkret-rust-sdk=$sdk_source_sha")
-          fi
+          sdk_source_sha="$(git -C "$gate_source" rev-parse --verify HEAD)"
           python "$gate_source/tools/compatibility_gate.py" resolve \
             --manifest "$gate_source/compatibility/manifest.json" \
-            "${candidate_args[@]}" \
+            --candidate "arkret-rust-sdk=$sdk_source_sha" \
             --output "${{ runner.temp }}/resolved-compatibility-manifest.json" \
             --github-output "$GITHUB_OUTPUT"
 
@@ -185,6 +165,10 @@ jobs:
 
       - name: Install Dioxus CLI for the real Inkson web contract
         run: cargo install dioxus-cli --version 0.7.10 --locked
+      - name: Install frontend task runner
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: "1.46.0"
 
       - name: Install Cotest contract dependencies
         working-directory: cotest/e2e

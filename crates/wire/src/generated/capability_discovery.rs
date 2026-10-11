@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-11.1;
-//! sha256=ed52e81d08ba9134713238b195905646c9ef33983815c4968e9adf2523e41cf6
-//! Entries: operation_bundles=39 features=12
+//! Input: registry/contract-registry.json; version=2026-10-11.2;
+//! sha256=d01a0c6e980572930e62d759eb1badac5872e5f67bb373483e7c322a5d91bc0e
+//! Entries: operation_bundles=40 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -1118,6 +1118,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::SelfRealmStateSnapshotReadByRefV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.third_party_invite_acceptance_attestation.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },

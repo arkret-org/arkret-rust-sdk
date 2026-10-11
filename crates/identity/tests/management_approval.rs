@@ -246,7 +246,7 @@ fn native_management_creation_omits_only_outer_evidence_and_binds_ledger() {
             )
         };
     verify(&signature, &digest, &binding).unwrap();
-    let mut attached = body.clone();
+    let mut attached = body;
     attached["approval_signatures"] = json!([signature]);
     assert_eq!(
         management_creation_request_digest(&attached).unwrap(),

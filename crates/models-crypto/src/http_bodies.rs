@@ -90,7 +90,10 @@ struct KeyPackagesUploadWire {
     keypackages: Vec<KeyPackageUploadEntry>,
     #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
     endpoint_signature: Option<KeyOperationSignature>,
-    #[serde(default, deserialize_with = "deserialize_upload_expiry")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_upload_expiry_canonical_timestamp"
+    )]
     expires_at: Option<DateTime<Utc>>,
     #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
     strand_id: Option<StrandId>,
@@ -177,7 +180,9 @@ where
     deserialize_keypackage_string_list(deserializer).map(Some)
 }
 
-fn deserialize_upload_expiry<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+fn deserialize_upload_expiry_canonical_timestamp<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

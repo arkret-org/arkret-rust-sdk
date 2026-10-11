@@ -2,7 +2,7 @@ name: compatibility train
 
 # Manual orchestration entry point for tools/compatibility_train.py.
 #
-# The per-repository `compatibility.yml` gate can only verify one exact
+# The SDK's manually dispatched `compatibility.yml` gate verifies one exact
 # candidate set; it cannot advance six independent Git repositories together.
 # That is what the train does: it stages a ref per repository, dispatches the
 # exact gate, then promotes every `main` in `train.merge_order` only after the

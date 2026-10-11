@@ -4,11 +4,13 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use arkret_keystore::{EncryptedFileKeyStore, KeyStore};
 
 const ID: &str = "first-creation";
+static SCRATCH_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 fn open_store(kind: &str, path: &Path, app: &str) -> Box<dyn KeyStore> {
     match kind {
@@ -53,9 +55,19 @@ fn cross_process(kind: &str) {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let app = format!("test.creation.{}.{unique}", std::process::id());
-    let directory = Scratch(std::env::temp_dir().join(&app));
-    fs::create_dir_all(&directory.0).unwrap();
+    let (app, directory) = loop {
+        let sequence = SCRATCH_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let app = format!(
+            "test.creation.{kind}.{}.{unique}.{sequence}",
+            std::process::id()
+        );
+        let path = std::env::temp_dir().join(&app);
+        match fs::create_dir(&path) {
+            Ok(()) => break (app, Scratch(path)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("cannot allocate creation-test scratch directory: {error}"),
+        }
+    };
     let spawn = |candidate: &str| -> Child {
         Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "creation_worker", "--ignored", "--nocapture"])

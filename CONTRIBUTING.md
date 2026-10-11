@@ -100,8 +100,9 @@ green here and broke `bridges` and `cotest` at HEAD, which nothing compiled.)
 Any change that touches the public surface of `crates/wire` or
 `crates/models-*` MUST update `compatibility/manifest.json` with every
 coordinated candidate SHA. The `atomic compatibility / exact manifest gate`
-workflow resolves the triggering repository to its candidate SHA, records the
-fully resolved manifest as CI evidence, and checks that exact set before merge.
+workflow is manually dispatched in the SDK repository for a coordinated train.
+It resolves the selected manifest source to its exact SDK SHA, records the
+fully resolved manifest as CI evidence, and checks that exact set before promotion.
 For a local equivalent, resolve the candidate set and execute the ordered gate:
 
 ```bash
@@ -128,10 +129,11 @@ smoke. The first failure is emitted with its operation/schema/type surface.
 The committed negative-mutation test deletes a real SDK `Event` field in a
 temporary copy and must prove the gate rejects it.
 
-The same workflow is present in every repository in the train and also runs on
-`main` pushes, so local auto-sync cannot create an unobserved green set.
-Configure `atomic compatibility / exact manifest gate` as a required status
-check on each protected `main` branch. CI code cannot itself protect a branch.
+Ordinary repository CI validates current source and dependencies. The exact
+manifest gate is a single manual SDK workflow: independently updated `main`
+branches must not automatically be mixed with old pinned consumers. It is not
+a required per-repository status check. Use the compatibility train when a
+coordinated change needs this full candidate-set evidence.
 The merge order is the manifest's `train.merge_order`; do not use local DTOs,
 dual reads, or permissive extra fields to make an intermediate commit green.
 
