@@ -108,6 +108,9 @@ impl KeyStore for WindowsProtectedKeyStore {
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
         self.vault.store(id, key)
     }
+    fn create_if_absent(&self, id: &str, key: &[u8]) -> Result<KeyBytes> {
+        self.vault.create_if_absent(id, key)
+    }
     fn list(&self) -> Result<Vec<String>> {
         self.vault.list()
     }

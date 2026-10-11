@@ -404,6 +404,7 @@ dependencies = [
  "sha2 0.11.0",
  "thiserror",
  "windows",
+ "zbus",
  "zeroize",
 ]
 

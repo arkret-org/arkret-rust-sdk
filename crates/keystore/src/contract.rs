@@ -1,6 +1,6 @@
 //! Pluggable key storage abstraction for SDK signers and HSM integrations.
 //!
-//! The trait stays small — `load` / `store` / `list` / `delete` only — so it
+//! The trait keeps ordinary storage and optional atomic first creation separate so it
 //! can wrap any durable backend (OS keyring, encrypted file, HSM) behind a single
 //! signing surface. This module holds the **pure contract** — the
 //! [`KeyStore`] trait, the typed [`KeyStoreError`], and zeroizing key bytes.
@@ -91,6 +91,20 @@ pub trait KeyStore: Send + Sync {
     /// overwritten.
     fn store(&self, id: &str, key: &[u8]) -> Result<()>;
 
+    /// Atomically create `id` only when absent, returning the committed winner.
+    ///
+    /// Concurrent creators across threads and processes MUST return the same
+    /// bytes. Existing entries MUST remain unchanged, including invalid data.
+    /// Implementations MUST NOT emulate this with an unlocked load then store.
+    /// Unsupported backends fail closed; ordinary imports still use `store`.
+    /// Explicit rotation/deletion must be serialized by the application.
+    fn create_if_absent(&self, id: &str, _key: &[u8]) -> Result<KeyBytes> {
+        validate_id(id)?;
+        Err(KeyStoreError::unsupported(
+            "atomic first creation is unavailable",
+        ))
+    }
+
     /// List all key ids known to this store, sorted ascending.
     fn list(&self) -> Result<Vec<String>>;
 
@@ -169,6 +183,35 @@ pub fn service_name(application_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct ImportOnly;
+
+    impl KeyStore for ImportOnly {
+        fn load(&self, id: &str) -> Result<KeyBytes> {
+            Err(KeyStoreError::not_found(id))
+        }
+        fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
+            panic!("must not emulate atomic creation")
+        }
+        fn list(&self) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+        fn delete(&self, _id: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn import_only_backend_fails_atomic_creation_closed() {
+        assert!(matches!(
+            ImportOnly.create_if_absent("key", b"candidate"),
+            Err(KeyStoreError::Unsupported { .. })
+        ));
+        assert!(matches!(
+            ImportOnly.create_if_absent("", b"candidate"),
+            Err(KeyStoreError::InvalidId { .. })
+        ));
+    }
 
     #[test]
     fn key_bytes_debug_output_is_redacted() {

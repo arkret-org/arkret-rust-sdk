@@ -256,6 +256,23 @@ impl KeyStore for EncryptedFileKeyStore {
         })
     }
 
+    fn create_if_absent(&self, id: &str, key: &[u8]) -> Result<KeyBytes> {
+        validate_entry(id, key)?;
+        self.with_exclusive_lock(|| {
+            let mut entries = self.read_entries()?;
+            let entry = (self.namespace.clone(), id.to_owned());
+            if let Some(existing) = entries.get(&entry) {
+                return Ok(existing.clone());
+            }
+            entries.insert(entry, KeyBytes::new(key.to_vec()));
+            self.write_entries(&entries)?;
+            self.read_entries()?
+                .get(&(self.namespace.clone(), id.to_owned()))
+                .cloned()
+                .ok_or_else(|| backend("committed first key is missing"))
+        })
+    }
+
     fn list(&self) -> Result<Vec<String>> {
         self.with_shared_lock(|| {
             Ok(self
@@ -624,14 +641,19 @@ mod tests {
             .store("key", b"secret")
             .unwrap();
 
+        let before = fs::read(&path).unwrap();
         let wrong = EncryptedFileKeyStore::new(&path, "coland", [2u8; 32]).unwrap();
+        assert!(wrong.create_if_absent("key", b"replacement").is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         assert!(!wrong.load("key").unwrap_err().is_not_found());
 
         let mut encoded = fs::read(&path).unwrap();
         *encoded.last_mut().unwrap() ^= 1;
-        fs::write(&path, encoded).unwrap();
+        fs::write(&path, &encoded).unwrap();
         let original = EncryptedFileKeyStore::new(&path, "coland", [1u8; 32]).unwrap();
         assert!(!original.load("key").unwrap_err().is_not_found());
+        assert!(original.create_if_absent("key", b"replacement").is_err());
+        assert_eq!(fs::read(&path).unwrap(), encoded);
     }
 
     #[test]
