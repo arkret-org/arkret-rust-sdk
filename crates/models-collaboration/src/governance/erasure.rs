@@ -538,7 +538,7 @@ mod tests {
         let valid = receipt();
         valid.validate_minimal().unwrap();
         let mut invalid = valid.clone();
-        invalid.receipt_id = format!("ak:receipt:{}", uuid::Uuid::new_v4());
+        invalid.receipt_id = "ak:receipt:01904100-0000-4000-8000-000000000001".into();
         assert!(invalid.validate_minimal().is_err());
         invalid = valid;
         invalid.erased_classes = vec![ErasedClass::BlobBytes, ErasedClass::BlobBytes];
