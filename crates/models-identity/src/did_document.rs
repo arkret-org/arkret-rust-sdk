@@ -1180,8 +1180,9 @@ mod tests {
             ],
             "service": [{
                 "id": "did:webvh:z6mkfixture:alice.example#station",
-                "type": "ArkretStation",
-                "serviceEndpoint": "https://principal.example"
+                "type": "ArkretService",
+                "serviceKind": "station",
+                "serviceEndpoint": "https://principal.example/"
             }],
             "x-vendor": {"preserve": true}
         });

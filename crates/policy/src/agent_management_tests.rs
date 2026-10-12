@@ -69,7 +69,7 @@ fn rule(
     effect: &str,
     priority: i64,
 ) -> serde_json::Value {
-    let mut value = json!({"rule_id":format!("{effect}-{priority}"),"kind":"agent","effect":effect,"priority":priority,
+    let mut value = json!({"rule_id":format!("{effect}_{}", priority.to_string().replace('-', "neg_")),"kind":"agent","effect":effect,"priority":priority,
         "agent_target":target,"agent_operations":operations});
     if effect == "require_review" {
         value["agent_operations"] = json!(["join", "publish"]);
@@ -452,5 +452,61 @@ fn unsupported_non_agent_rule_is_not_silently_ignored() {
     assert_eq!(
         evaluate_agent_management(Some(&[policy]), &f.context(AgentPolicyOperation::Execute)),
         Err(AgentManagementError::UnsupportedRule)
+    );
+}
+
+#[test]
+fn unrelated_service_rules_do_not_block_a_different_operation_target_or_action() {
+    let f = Fixture::new();
+    let mut named = rule(json!({"kind":"all"}), json!(["execute"]), "deny", 0);
+    named["resources"] = json!([{"kind":"service"}]);
+    let policy = f.policy(json!([named.clone()]), PolicyEffect::Allow, 1);
+    let mut join = f.context(AgentPolicyOperation::Join);
+    join.content_action = None;
+    assert_eq!(
+        evaluate_agent_management(Some(&[policy]), &join),
+        Ok(PolicyEffect::Allow)
+    );
+
+    let foreign_controller = account("owner", "other-station");
+    named["agent_target"] = json!({"kind":"controller","controller_account_id":foreign_controller});
+    let policy = f.policy(json!([named.clone()]), PolicyEffect::Allow, 1);
+    assert_eq!(
+        evaluate_agent_management(Some(&[policy]), &f.context(AgentPolicyOperation::Execute)),
+        Ok(PolicyEffect::Allow)
+    );
+
+    named["agent_target"] = json!({"kind":"all"});
+    named["actions"] = json!(["ak.message.revise"]);
+    let policy = f.policy(json!([named]), PolicyEffect::Allow, 1);
+    assert_eq!(
+        evaluate_agent_management(Some(&[policy]), &f.context(AgentPolicyOperation::Execute)),
+        Ok(PolicyEffect::Allow)
+    );
+}
+
+#[test]
+fn applicable_service_matchers_still_require_registered_current_facts() {
+    let f = Fixture::new();
+    let mut named = rule(json!({"kind":"all"}), json!(["execute"]), "deny", 0);
+    named["resources"] = json!([{"kind":"service"}]);
+    named["actions"] = json!(["ak.message.create"]);
+    let policy = f.policy(json!([named]), PolicyEffect::Allow, 1);
+    assert_eq!(
+        evaluate_agent_management(Some(&[policy]), &f.context(AgentPolicyOperation::Execute)),
+        Err(AgentManagementError::UnsupportedRule)
+    );
+}
+
+#[test]
+fn unrelated_service_rules_cannot_hide_invalid_policy_structure() {
+    let f = Fixture::new();
+    let mut named = rule(json!({"kind":"all"}), json!(["execute"]), "deny", 0);
+    named["resources"] = json!([{"kind":"service"}]);
+    named["conditions"] = json!({"unregistered_condition": true});
+    let policy = f.policy(json!([named]), PolicyEffect::Allow, 1);
+    assert_eq!(
+        evaluate_agent_management(Some(&[policy]), &f.context(AgentPolicyOperation::Join)),
+        Err(AgentManagementError::InvalidPolicy)
     );
 }

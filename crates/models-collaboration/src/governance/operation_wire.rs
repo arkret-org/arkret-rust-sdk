@@ -388,6 +388,8 @@ impl PolicyRule {
         use std::sync::LazyLock;
         static ACTION: LazyLock<regex::Regex> =
             LazyLock::new(|| regex::Regex::new(r"^ak\.[a-z0-9_]+(?:\.[a-z0-9_]+)*$").unwrap());
+        static RULE_ID: LazyLock<regex::Regex> =
+            LazyLock::new(|| regex::Regex::new(r"^[a-z][a-z0-9_]{0,63}$").unwrap());
         static RESOURCE: LazyLock<regex::Regex> = LazyLock::new(|| {
             regex::Regex::new(
                 r"^(ak:[a-z0-9_]+:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*|did:[^\s]+)$",
@@ -420,7 +422,7 @@ impl PolicyRule {
                     .enumerate()
                     .all(|(index, value)| !values[..index].contains(value))
         }
-        require(!self.rule_id.trim().is_empty(), "rule_id")?;
+        require(RULE_ID.is_match(&self.rule_id), "rule_id")?;
         if let Some(actions) = &self.actions {
             require(
                 unique_nonempty(actions) && actions.iter().all(|value| ACTION.is_match(value)),
@@ -793,6 +795,54 @@ mod policy_set_state_tests {
         assert_eq!(payload.value.schema(), SchemaId::POLICY_V1);
         payload.validate().unwrap();
         assert_eq!(serde_json::to_value(&payload).unwrap(), governance_value());
+    }
+
+    #[test]
+    fn rule_id_validation_matches_the_original_policy_schema() {
+        let schema: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../arkret-spec/spec/v1/artifacts/schemas/policy.schema.json"
+        )))
+        .unwrap();
+        let pattern = schema["$defs"]["policy_rule"]["properties"]["rule_id"]["pattern"]
+            .as_str()
+            .unwrap();
+        let registered = regex::Regex::new(pattern).unwrap();
+        for id in [
+            "a".to_owned(),
+            "allow_members_0".to_owned(),
+            "a".repeat(64),
+            "a".repeat(65),
+            String::new(),
+            "_rule".to_owned(),
+            "Rule".to_owned(),
+            "rule-with-hyphens".to_owned(),
+            " rule".to_owned(),
+            "rule ".to_owned(),
+            "rule\n".to_owned(),
+            "rul\u{00e9}".to_owned(),
+        ] {
+            let mut value = governance_value();
+            value["value"]["rules"][0]["rule_id"] = json!(id);
+            let payload: PolicySetStatePayload = serde_json::from_value(value).unwrap();
+            assert_eq!(
+                payload.validate().is_ok(),
+                registered.is_match(&id),
+                "{id:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_rule_labels_remain_legal_without_a_registered_uniqueness_rule() {
+        let mut value = governance_value();
+        let repeated = value["value"]["rules"][0].clone();
+        value["value"]["rules"]
+            .as_array_mut()
+            .unwrap()
+            .push(repeated);
+        let payload: PolicySetStatePayload = serde_json::from_value(value).unwrap();
+        payload.validate().unwrap();
     }
 
     #[test]

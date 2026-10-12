@@ -22,7 +22,34 @@ pub enum ReferenceProjectionState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateRevision {
+    #[serde(with = "checkpoint_digest")]
+    pub state_digest: arkret_wire::Hash,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stream_heads: Vec<CommitStreamHead>,
+}
+
+mod checkpoint_digest {
+    use arkret_wire::Hash;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(digest: &Hash, serializer: S) -> Result<S::Ok, S::Error> {
+        if !digest.as_str().starts_with("sha256:") {
+            return Err(serde::ser::Error::custom(
+                "checkpoint digest must be SHA-256",
+            ));
+        }
+        digest.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Hash, D::Error> {
+        let digest = Hash::deserialize(deserializer)?;
+        if !digest.as_str().starts_with("sha256:") {
+            return Err(serde::de::Error::custom(
+                "checkpoint digest must be SHA-256",
+            ));
+        }
+        Ok(digest)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -31,14 +58,9 @@ pub struct StateRevision {
 pub struct DocumentMorphProjectionOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub document: DocumentMorphProjection,
-    #[serde(default)]
     pub versions: Vec<BTreeMap<String, Value>>,
-    #[serde(default)]
     pub relations: Vec<BTreeMap<String, Value>>,
-    #[serde(default)]
     pub comments: Vec<BTreeMap<String, Value>>,
-    #[serde(default)]
-    pub cursor_presence_entries: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
         feature = "openapi",

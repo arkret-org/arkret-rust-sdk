@@ -32,8 +32,8 @@ use arkret_canonical::base64url::base64url_encode;
 use arkret_canonical::multibase::decode_ed25519_multibase;
 use arkret_models_identity::identity::DidOperationSubmitRequestBody;
 use arkret_models_identity::service_identity::{
-    CanonicalServiceUrl, ServiceRegistrationKey, ServiceWebvhInceptionOperation,
-    service_registration_local_id,
+    CanonicalServiceUrl, ServiceDidEndpoint, ServiceRegistrationKey,
+    ServiceWebvhInceptionOperation, service_registration_local_id,
 };
 use arkret_models_identity::{
     DidDocument, IdentityCreationControlProof, UnsignedIdentityCreationControlProof,
@@ -915,9 +915,10 @@ where
     validate_principal_key_separation(&root_public_key_multibase, next_root_public_key_multibase)?;
     let next_root_key_hash = webvh_next_key_hash(next_root_public_key_multibase)?;
     let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
-    let service_endpoint = trimmed_endpoint(principal_endpoint);
+    let service_endpoint = CanonicalServiceUrl::canonicalize(principal_endpoint.as_str())
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     let version_time = version_time_value.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let document_skeleton = document_builder(&placeholder_did, &service_endpoint)?;
+    let document_skeleton = document_builder(&placeholder_did, service_endpoint.as_str())?;
     document_validator(
         &placeholder_did,
         &document_skeleton,
@@ -2128,9 +2129,13 @@ pub fn prepare_supplied_principal_inception(
     let (method_authority, _https_authority) = authority_pair(input.principal_endpoint)?;
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
     let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
-    let service_endpoint = trimmed_endpoint(input.principal_endpoint);
-    let document_skeleton =
-        principal_document_value(&placeholder_did, input.also_known_as, &service_endpoint)?;
+    let service_endpoint = CanonicalServiceUrl::canonicalize(input.principal_endpoint.as_str())
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    let document_skeleton = principal_document_value(
+        &placeholder_did,
+        input.also_known_as,
+        service_endpoint.as_str(),
+    )?;
     validate_principal_did_document_profile(
         &placeholder_did,
         &document_skeleton,
@@ -2245,6 +2250,35 @@ fn embedded_webvh_document_value_without_enrollment(
     })
 }
 
+fn station_document_service(
+    did: &str,
+    service_endpoint: &str,
+) -> Result<Value, WebvhInceptionError> {
+    let service = ServiceDidEndpoint {
+        id: format!("{did}#coland"),
+        endpoint_type: "ArkretService".to_owned(),
+        service_kind: ServiceKind::Station,
+        service_endpoint: CanonicalServiceUrl::new(service_endpoint)
+            .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?,
+    };
+    serde_json::to_value(service).map_err(|error| WebvhInceptionError::Canonical(error.to_string()))
+}
+
+fn validate_station_document_service(did: &str, value: &Value) -> Result<(), WebvhInceptionError> {
+    let service: ServiceDidEndpoint = serde_json::from_value(value.clone())
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    if service.id != format!("{did}#coland")
+        || service.endpoint_type != "ArkretService"
+        || service.service_kind != ServiceKind::Station
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal Station service must use the registered ArkretService station profile"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn principal_document_value(
     did: &str,
     also_known_as: &[String],
@@ -2254,11 +2288,7 @@ fn principal_document_value(
         "@context": ["https://www.w3.org/ns/did/v1"],
         "id": did,
         "alsoKnownAs": also_known_as,
-        "service": [{
-            "id": format!("{did}#coland"),
-            "type": "ArkretStation",
-            "serviceEndpoint": service_endpoint,
-        }],
+        "service": [station_document_service(did, service_endpoint)?],
     }))
 }
 
@@ -2276,11 +2306,7 @@ fn agent_document_value(
 ) -> Result<Value, WebvhInceptionError> {
     let authorization_ref = format!("{did}#managed-controller");
     let mut services = vec![
-        json!({
-            "id": format!("{did}#coland"),
-            "type": "ArkretStation",
-            "serviceEndpoint": service_endpoint,
-        }),
+        station_document_service(did, service_endpoint)?,
         json!({
             "id": authorization_ref,
             "type": "ArkretManagedPrincipalController",
@@ -2361,18 +2387,7 @@ pub fn validate_agent_did_document_profile(
                     .to_owned(),
             )
         })?;
-    let expected_coland_id = format!("{did}#coland");
-    if services[0].get("id").and_then(Value::as_str) != Some(expected_coland_id.as_str())
-        || services[0].get("type").and_then(Value::as_str) != Some("ArkretStation")
-        || services[0]
-            .get("serviceEndpoint")
-            .and_then(Value::as_str)
-            .is_none()
-    {
-        return Err(WebvhInceptionError::InvalidProof(
-            "Agent Station service is invalid".to_owned(),
-        ));
-    }
+    validate_station_document_service(did, &services[0])?;
     let authorization_ref = format!("{did}#managed-controller");
     let controller = services[1].as_object().ok_or_else(|| {
         WebvhInceptionError::InvalidProof(
@@ -2491,19 +2506,7 @@ pub fn validate_principal_did_document_profile(
                 "principal DID document must declare exactly one Station service".to_owned(),
             )
         })?;
-    let service = &services[0];
-    let expected_service_id = format!("{did}#coland");
-    if service.get("id").and_then(Value::as_str) != Some(expected_service_id.as_str())
-        || service.get("type").and_then(Value::as_str) != Some("ArkretStation")
-        || service
-            .get("serviceEndpoint")
-            .and_then(Value::as_str)
-            .is_none()
-    {
-        return Err(WebvhInceptionError::InvalidProof(
-            "principal DID document Station service is invalid".to_owned(),
-        ));
-    }
+    validate_station_document_service(did, &services[0])?;
     Ok(())
 }
 
@@ -2675,10 +2678,6 @@ fn authority_pair(endpoint: &Url) -> Result<(String, String), WebvhInceptionErro
     Ok(super::skeleton::webvh_authority_pair(host, endpoint.port()))
 }
 
-fn trimmed_endpoint(endpoint: &Url) -> String {
-    endpoint.as_str().trim_end_matches('/').to_owned()
-}
-
 /// Apply the embedded-provider local-id profile so the local_id we send is
 /// guaranteed accepted on the wire.
 fn normalize_local_id(value: &str) -> Option<String> {
@@ -2825,6 +2824,82 @@ mod historical_verification_tests {
         (prepared, root_seed, created_at)
     }
 
+    fn station_schema_accepts(value: &Value) -> bool {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+        let mut registry =
+            arkret_schema_conformance::schema_registry_from_spec_artifacts(&artifacts).unwrap();
+        let schema: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("schemas/service-operation-dtos.schema.json")).unwrap(),
+        )
+        .unwrap();
+        registry
+            .register_reference_document(schema.clone())
+            .unwrap();
+        registry
+            .register_fragment(
+                "test:principal-station-service",
+                schema,
+                "#/$defs/ServiceDidEndpoint",
+            )
+            .unwrap();
+        registry
+            .validate_value("test:principal-station-service", value)
+            .is_ok()
+    }
+
+    #[test]
+    fn principal_and_agent_station_services_match_the_normative_contract() {
+        let did = "did:webvh:profiletest:principal.example:agent";
+        let controller: DidCoreId = "ak:did_core:web:controller.example".parse().unwrap();
+        let principal = principal_document_value(did, &[], "https://station.example/").unwrap();
+        let agent =
+            agent_document_value(did, "https://station.example/", &controller, None).unwrap();
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+        let contract: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("registry/did-document-contract-registry.json")).unwrap(),
+        )
+        .unwrap();
+        let entry = contract["arkret_service_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["type"] == "ArkretService")
+            .unwrap();
+        assert!(
+            entry["required_extension_members"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("serviceKind"))
+        );
+        for document in [&principal, &agent] {
+            let service = &document["service"][0];
+            assert_eq!(service["type"], entry["type"]);
+            assert_eq!(service["serviceKind"], "station");
+            assert!(station_schema_accepts(service));
+            validate_station_document_service(did, service).unwrap();
+        }
+        validate_principal_did_document_profile(did, &principal, &[]).unwrap();
+        validate_agent_did_document_profile(did, &agent, &[]).unwrap();
+    }
+
+    #[test]
+    fn retired_station_alias_and_missing_or_foreign_kind_are_refused() {
+        let did = "did:webvh:profiletest:principal.example:agent";
+        let controller: DidCoreId = "ak:did_core:web:controller.example".parse().unwrap();
+        let document =
+            agent_document_value(did, "https://station.example/", &controller, None).unwrap();
+        for service in [
+            json!({"id":format!("{did}#coland"),"type":"ArkretStation", "serviceEndpoint":"https://station.example/"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceEndpoint":"https://station.example/"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceKind":"identity_registry", "serviceEndpoint":"https://station.example/"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceKind":"station", "serviceEndpoint":"https://station.example/?query=1"}),
+        ] {
+            let mut invalid = document.clone();
+            invalid["service"][0] = service;
+            assert!(validate_agent_did_document_profile(did, &invalid, &[]).is_err());
+        }
+    }
+
     #[test]
     fn validated_principal_inception_exposes_typed_resume_metadata() {
         let (prepared, _, created_at) = registration_fixture();
@@ -2872,7 +2947,7 @@ mod historical_verification_tests {
         assert!(prepared.did.contains(":identity.example:"));
         assert_eq!(
             prepared.log_entry["state"]["service"][0]["serviceEndpoint"],
-            "https://principal.example"
+            "https://principal.example/"
         );
         assert_eq!(prepared.log_entry["parameters"]["witness"]["threshold"], 1);
 

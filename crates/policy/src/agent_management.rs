@@ -140,11 +140,6 @@ pub fn evaluate_agent_management(
                     .actions
                     .as_ref()
                     .is_some_and(|actions| actions.iter().any(|action| !content_action(action)))
-                || rule.resources.as_ref().is_some_and(|resources| {
-                    resources
-                        .iter()
-                        .any(|resource| resource.kind == PolicyResourceKind::Service)
-                })
             {
                 return Err(AgentManagementError::UnsupportedRule);
             }
@@ -168,6 +163,21 @@ pub fn evaluate_agent_management(
             {
                 continue;
             }
+            if let Some(actions) = &rule.actions {
+                let action = context
+                    .content_action
+                    .ok_or(AgentManagementError::InvalidOperationContext)?;
+                if !actions.iter().any(|named| named == action.as_str()) {
+                    continue;
+                }
+            }
+            if rule.resources.as_ref().is_some_and(|selectors| {
+                selectors
+                    .iter()
+                    .any(|selector| selector.kind == PolicyResourceKind::Service)
+            }) {
+                return Err(AgentManagementError::UnsupportedRule);
+            }
             if let Some(selectors) = &rule.resources
                 && !selectors.iter().any(|selector| {
                     resources.iter().any(|actual| {
@@ -184,14 +194,6 @@ pub fn evaluate_agent_management(
                 })
             {
                 continue;
-            }
-            if let Some(actions) = &rule.actions {
-                let action = context
-                    .content_action
-                    .ok_or(AgentManagementError::InvalidOperationContext)?;
-                if !actions.iter().any(|named| named == action.as_str()) {
-                    continue;
-                }
             }
             matched = Some(match matched {
                 Some((priority, effect)) if priority == rule.priority => {

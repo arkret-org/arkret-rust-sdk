@@ -8,10 +8,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AppletBotProvisionRequestBody, GhostActorProvisionRequestBody};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ManagementReviewTarget {
     Event {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         event: Box<Event>,
     },
     BotCreation {
@@ -23,6 +25,7 @@ pub enum ManagementReviewTarget {
         request_body: Box<GhostActorProvisionRequestBody>,
     },
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagementReviewRequestBody {
@@ -65,11 +68,13 @@ impl ManagementReviewRequestBody {
         Ok(())
     }
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagementReviewLookupRequestBody {
     pub request_id: String,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ManagementReviewDecision {
@@ -77,6 +82,7 @@ pub enum ManagementReviewDecision {
     Reject,
     Cancel,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ManagementReviewStatus {
@@ -88,6 +94,7 @@ pub enum ManagementReviewStatus {
     Consumed,
     Superseded,
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagementReviewDecisionRequestBody {
@@ -95,6 +102,7 @@ pub struct ManagementReviewDecisionRequestBody {
     pub expected_status: ManagementReviewStatus,
     pub decision: ManagementReviewDecision,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub approval_signatures: Vec<ApprovalSignature>,
 }
 impl ManagementReviewDecisionRequestBody {
@@ -111,6 +119,7 @@ impl ManagementReviewDecisionRequestBody {
         Ok(())
     }
 }
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagementReviewOutcome {
@@ -120,5 +129,6 @@ pub struct ManagementReviewOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub approval_signatures: Vec<ApprovalSignature>,
 }
