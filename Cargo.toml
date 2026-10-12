@@ -150,7 +150,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["query"] }
 # OpenAPI 3 schema derives (`ToSchema`) for wire model types. Optional and
 # gated behind each model crate's `openapi` feature so the no-default data
 # graph stays framework-free; enabled by service crates that serve OpenAPI.
-salvo-oapi = { version = "=0.96.0", default-features = false, features = ["rfc9457"] }
+salvo-oapi = { version = "=1.0.1", default-features = false, features = ["rfc9457"] }
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
 zbus = { version = "5.15.0", default-features = false, features = ["blocking-api", "tokio"] }
 secret-service = { version = "5.2.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
