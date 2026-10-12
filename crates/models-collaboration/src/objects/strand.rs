@@ -411,14 +411,11 @@ impl Strand {
         strand
     }
 
+    /// Metadata and its title are optional. A present title follows the
+    /// canonical display_text_512 profile; absence is not an empty title.
     pub fn validate_title(&self) -> Result<()> {
-        if self
-            .metadata_title()
-            .is_none_or(|title| title.trim().is_empty())
-        {
-            return Err(WireError::Protocol(
-                "strand title must not be empty".to_owned(),
-            ));
+        if let Some(title) = self.metadata_title() {
+            arkret_wire::validate_single_line_display_text(title, 512)?;
         }
         if self.tracks.is_empty() {
             return Err(WireError::Protocol(

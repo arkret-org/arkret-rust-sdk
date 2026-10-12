@@ -890,10 +890,10 @@ mod policy_set_state_tests {
     #[test]
     fn an_unregistered_document_family_fails_closed() {
         let mut unknown = governance_value();
-        unknown["value"]
-            .as_object_mut()
-            .unwrap()
-            .insert("schema".to_owned(), json!("ak.schema.unregistered_policy.v1"));
+        unknown["value"].as_object_mut().unwrap().insert(
+            "schema".to_owned(),
+            json!("ak.schema.unregistered_policy.v1"),
+        );
         assert!(serde_json::from_value::<PolicySetStatePayload>(unknown).is_err());
 
         let mut without_schema = governance_value();
