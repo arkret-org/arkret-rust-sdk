@@ -319,7 +319,7 @@ impl AgentParticipationObservation {
         .map_err(|e| e.to_string())?;
         let entries: Vec<AgentParticipationEntry> = serde_json::from_value(
             details
-                .get("participation")
+                .get("participations")
                 .ok_or("Agent session has no participation observation")?
                 .clone(),
         )
@@ -419,6 +419,50 @@ mod observation_tests {
             }],
         }
     }
+    #[test]
+    fn authenticated_claims_consume_the_canonical_participations_member() {
+        use arkret_models_identity::{
+            CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantHolderBinding,
+            SessionGrantIssuanceNonce, SignedSessionGrantClaims,
+        };
+        let expected = observation();
+        let mut claims = SignedSessionGrantClaims {
+            kind: "ak.session.grant".into(),
+            grant_id: expected.grant_id.clone(),
+            issuer_id: "ak:did_core:web:authority.example".parse().unwrap(),
+            issuance_nonce: SessionGrantIssuanceNonce::from_bytes([5; 32]),
+            account_id: expected.agent_account.clone(),
+            session_public_key: CanonicalSessionPublicJwk::new(
+                r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+            ).unwrap(),
+            audience_id: expected.agent_account.station_id.clone(),
+            scopes: vec!["ak.self.committed_event.read.scan.v1".into()],
+            not_before: expected.observed_at,
+            expires_at: expected.expires_at,
+            session_id: expected.session_id.clone(),
+            credential_class: SessionGrantCredentialClass::Standard,
+            holder_binding: SessionGrantHolderBinding::AgentRuntime {
+                agent_id: expected.agent_account.principal_id.clone(),
+                agent_key_authorization_ref: expected.agent_key_authorization_ref.clone(),
+                verification_method: expected.verification_method.clone(),
+            },
+            device_binding: None,
+            proof_kind: None,
+            scope_details: Some(serde_json::json!({
+                "controller_principal_id":expected.controller_account.principal_id,
+                "participations":expected.entries,
+            }).as_object().unwrap().clone()),
+        };
+        assert_eq!(
+            AgentParticipationObservation::from_authenticated_claims(&claims).unwrap(),
+            expected
+        );
+        let details = claims.scope_details.as_mut().unwrap();
+        let entries = details.remove("participations").unwrap();
+        details.insert("participation".into(), entries);
+        assert!(AgentParticipationObservation::from_authenticated_claims(&claims).is_err());
+    }
+
     #[test]
     fn refresh_observation_rejects_rollback_conflict_and_changed_owner() {
         let old = observation();
