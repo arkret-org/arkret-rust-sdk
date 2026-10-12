@@ -766,7 +766,7 @@ fn deserialize_present_approval_signatures<'de, D>(
     deserializer: D,
 ) -> std::result::Result<Option<Vec<ApprovalSignature>>, D::Error>
 where
-    D: serde::Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     Vec::<ApprovalSignature>::deserialize(deserializer).map(Some)
 }
@@ -2807,7 +2807,7 @@ mod tests {
         let omitted: EventAdmissionSubmission = serde_json::from_value(value.clone()).unwrap();
         assert!(omitted.approval_signatures.is_none());
         let approval = approval_shape_fixture();
-        value["approval_signatures"] = json!([approval.clone()]);
+        value["approval_signatures"] = json!([approval]);
         let present: EventAdmissionSubmission = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(present.approval_signatures, Some(vec![approval]));
         for invalid in [Value::Null, json!({}), json!("omitted")] {
