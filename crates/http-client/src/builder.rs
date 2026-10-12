@@ -212,7 +212,8 @@ impl ClientBuilder {
     }
 
     /// Allow credential-free HTTPS DID method discovery in one local development
-    /// DNS namespace and port. Only `localhost` and `local.host` are supported.
+    /// DNS namespace or exact IPv4 loopback address and port. Only `localhost`,
+    /// `local.host` and exact `127.0.0.1` are supported.
     /// Native DNS answers must all be loopback. Other targets retain public HTTPS
     /// policy. This scope is retained when the client changes its base URL.
     pub fn loopback_service_discovery(mut self, namespace: &str, port: u16) -> Result<Self> {

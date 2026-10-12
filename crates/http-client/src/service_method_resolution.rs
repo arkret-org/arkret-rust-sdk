@@ -26,7 +26,7 @@ pub(crate) struct LoopbackMethodScope {
 
 impl LoopbackMethodScope {
     pub(crate) fn new(namespace: &str, port: u16) -> Result<Self> {
-        if !matches!(namespace, "localhost" | "local.host") || port == 0 {
+        if !matches!(namespace, "localhost" | "local.host" | "127.0.0.1") || port == 0 {
             return Err(protocol(
                 "invalid loopback service discovery namespace or port",
             ));
@@ -40,9 +40,10 @@ impl LoopbackMethodScope {
     fn permits(&self, url: &Url) -> Result<bool> {
         let host = url.host_str().unwrap_or_default();
         let matches_namespace = host == self.namespace
-            || host
-                .strip_suffix(&self.namespace)
-                .is_some_and(|prefix| prefix.ends_with('.'));
+            || self.namespace != "127.0.0.1"
+                && host
+                    .strip_suffix(&self.namespace)
+                    .is_some_and(|prefix| prefix.ends_with('.'));
         if matches_namespace && url.port_or_known_default() != Some(self.port) {
             return Err(protocol(
                 "service DID fetch is outside the configured loopback port",
@@ -449,6 +450,46 @@ mod tests {
             let scope = LoopbackMethodScope::new("local.host", 443).unwrap();
             assert!(fetch_method_bytes(url, Some(&scope)).await.is_err());
         }
+    }
+
+    #[test]
+    fn literal_loopback_scope_is_exact_host_and_port_only() {
+        let scope = LoopbackMethodScope::new("127.0.0.1", 24630).unwrap();
+        let target = Url::parse("https://127.0.0.1:24630/did.json").unwrap();
+        assert!(
+            method_fetch_policy(&target, None)
+                .unwrap()
+                .validate_url(&target)
+                .is_err()
+        );
+        assert!(
+            method_fetch_policy(&target, Some(&scope))
+                .unwrap()
+                .validate_url(&target)
+                .is_ok()
+        );
+        for address in [
+            "https://127.0.0.1:24631/did.json",
+            "https://127.0.0.2:24630/did.json",
+            "https://169.254.169.254:24630/did.json",
+        ] {
+            let target = Url::parse(address).unwrap();
+            assert!(
+                method_fetch_policy(&target, Some(&scope))
+                    .and_then(|policy| policy.validate_url(&target).map_err(protocol))
+                    .is_err()
+            );
+        }
+        let deceptive = Url::parse("https://127.0.0.1.example:24630/did.json").unwrap();
+        assert!(!scope.permits(&deceptive).unwrap());
+        assert!(
+            method_fetch_policy(&deceptive, Some(&scope))
+                .unwrap()
+                .validate_ip("127.0.0.1".parse().unwrap())
+                .is_err()
+        );
+        assert!(LoopbackMethodScope::new("127.0.0.2", 24630).is_err());
+        assert!(LoopbackMethodScope::new("127.0.0.1", 0).is_err());
     }
 
     #[test]
