@@ -141,7 +141,7 @@ openmls_basic_credential = { version = "0.6.0", default-features = false }
 openmls_rust_crypto = { version = "0.6.0", default-features = false }
 openmls_traits = { version = "0.6.0", default-features = false }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
-precis-profiles = { version = "0.1.13", default-features = false }
+precis-profiles = { version = "0.2.0", default-features = false }
 proptest = { version = "1", default-features = false }
 rand_chacha = { version = "0.10.0", default-features = false }
 rand_core = { version = "0.10.1", default-features = false }
