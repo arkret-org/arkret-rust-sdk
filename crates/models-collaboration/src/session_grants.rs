@@ -518,6 +518,10 @@ pub struct SessionGrantValidationMetadata {
     /// `human_device` grants.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_binding: Option<SessionGrantDeviceBinding>,
+    /// Exact immutable Agent scope from the authenticated issuer-ledger
+    /// introspection, never from local token parsing or runtime hints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<serde_json::Map<String, Value>>,
 }
 
 #[derive(Deserialize)]
@@ -544,6 +548,8 @@ struct SessionGrantValidationMetadataWire {
     holder_binding: SessionGrantHolderBinding,
     #[serde(default)]
     device_binding: Option<SessionGrantDeviceBinding>,
+    #[serde(default)]
+    scope_details: Option<serde_json::Map<String, Value>>,
 }
 
 impl SessionGrantValidationMetadata {
@@ -638,6 +644,139 @@ impl SessionGrantValidationMetadata {
                 ));
             }
         }
+        match (&self.holder_binding, &self.scope_details) {
+            (
+                SessionGrantHolderBinding::AgentRuntime {
+                    agent_key_authorization_ref,
+                    ..
+                },
+                Some(details),
+            ) if [
+                "controller_principal_id",
+                "agent_key_authorization_ref",
+                "realm_ids",
+                "strand_ids",
+                "resources",
+                "constraints",
+                "capability_grant_refs",
+                "policy_refs",
+            ]
+            .iter()
+            .all(|field| details.contains_key(*field)) =>
+            {
+                let invalid = |error: String| {
+                    WireError::Protocol(format!(
+                        "Agent session introspection scope details are invalid: {error}"
+                    ))
+                };
+                if details.keys().any(|field| {
+                    !matches!(
+                        field.as_str(),
+                        "controller_principal_id"
+                            | "agent_key_authorization_ref"
+                            | "realm_ids"
+                            | "strand_ids"
+                            | "resources"
+                            | "constraints"
+                            | "capability_grant_refs"
+                            | "policy_refs"
+                            | "participations"
+                    )
+                }) {
+                    return Err(invalid("unknown scope member".to_owned()));
+                }
+                serde_json::from_value::<DidCoreId>(details["controller_principal_id"].clone())
+                    .map_err(|error| invalid(error.to_string()))?;
+                let reference = serde_json::from_value::<EventId>(
+                    details["agent_key_authorization_ref"].clone(),
+                )
+                .map_err(|error| invalid(error.to_string()))?;
+                if &reference != agent_key_authorization_ref {
+                    return Err(invalid("key authorization differs from holder".to_owned()));
+                }
+                let realms: Vec<RealmId> = serde_json::from_value(details["realm_ids"].clone())
+                    .map_err(|error| invalid(error.to_string()))?;
+                let strands: Vec<StrandId> = serde_json::from_value(details["strand_ids"].clone())
+                    .map_err(|error| invalid(error.to_string()))?;
+                let resources = details["resources"]
+                    .as_object()
+                    .ok_or_else(|| invalid("resources are not an object".to_owned()))?;
+                if resources.len() != 2
+                    || resources.get("realm_ids") != Some(&details["realm_ids"])
+                    || resources.get("strand_ids") != Some(&details["strand_ids"])
+                {
+                    return Err(invalid(
+                        "resource ceilings differ from their bound IDs".to_owned(),
+                    ));
+                }
+                if realms
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != realms.len()
+                    || strands
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                        != strands.len()
+                {
+                    return Err(invalid("duplicate resource ceiling".to_owned()));
+                }
+                if let Some(participations) = details.get("participations") {
+                    serde_json::from_value::<
+                        Vec<crate::governance::agent_participation::AgentParticipationEntry>,
+                    >(participations.clone())
+                    .map_err(|error| invalid(error.to_string()))?;
+                }
+                for field in ["capability_grant_refs", "policy_refs"] {
+                    serde_json::from_value::<Vec<String>>(details[field].clone())
+                        .map_err(|error| invalid(error.to_string()))?;
+                }
+                let constraints = details["constraints"]
+                    .as_object()
+                    .ok_or_else(|| invalid("constraints are not an object".to_owned()))?;
+                if constraints.keys().any(|field| {
+                    !matches!(
+                        field.as_str(),
+                        "allowed_tracks"
+                            | "allowed_data_labels"
+                            | "allowed_endpoints"
+                            | "allowed_strand_ids"
+                    )
+                }) {
+                    return Err(invalid("unknown constraint member".to_owned()));
+                }
+                for field in ["allowed_tracks", "allowed_data_labels", "allowed_endpoints"] {
+                    serde_json::from_value::<Vec<String>>(
+                        constraints
+                            .get(field)
+                            .cloned()
+                            .ok_or_else(|| invalid(format!("missing {field}")))?,
+                    )
+                    .map_err(|error| invalid(error.to_string()))?;
+                }
+                if let Some(ids) = constraints.get("allowed_strand_ids") {
+                    let ids: Vec<StrandId> = serde_json::from_value(ids.clone())
+                        .map_err(|error| invalid(error.to_string()))?;
+                    if ids != strands {
+                        return Err(invalid(
+                            "strand constraint differs from resource ceiling".to_owned(),
+                        ));
+                    }
+                }
+            }
+            (SessionGrantHolderBinding::AgentRuntime { .. }, _) => {
+                return Err(WireError::Protocol(
+                    "Agent session introspection requires its immutable scope details".to_owned(),
+                ));
+            }
+            (_, Some(_)) => {
+                return Err(WireError::Protocol(
+                    "non-Agent session introspection forbids Agent scope details".to_owned(),
+                ));
+            }
+            (_, None) => {}
+        }
         Ok(())
     }
 }
@@ -663,6 +802,7 @@ impl TryFrom<SessionGrantValidationMetadataWire> for SessionGrantValidationMetad
             credential_class: wire.credential_class,
             holder_binding: wire.holder_binding,
             device_binding: wire.device_binding,
+            scope_details: wire.scope_details,
         };
         grant.validate().map_err(|error| error.to_string())?;
         Ok(grant)
@@ -900,6 +1040,60 @@ mod session_grant_private_adapter_tests {
             .is_err(),
             "proof_jwt is required"
         );
+    }
+
+    #[test]
+    fn introspect_agent_scope_is_complete_bound_and_preserved() {
+        let mut agent = human_grant_value();
+        let grant = agent.as_object_mut().unwrap();
+        grant.remove("device_id");
+        grant.remove("device_binding");
+        grant["holder_binding"] = json!({
+            "kind":"agent_runtime",
+            "agent_id":grant["account_id"]["principal_id"],
+            "agent_key_authorization_ref":"ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "verification_method":"did:web:agent.example#runtime"
+        });
+        grant.insert("scope_details".to_owned(), json!({
+            "controller_principal_id":"ak:did_core:web:controller.example",
+            "agent_key_authorization_ref":"ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "realm_ids":[],"strand_ids":[],
+            "resources":{"realm_ids":[],"strand_ids":[]},
+            "constraints":{"allowed_tracks":["discussion"],"allowed_data_labels":[],"allowed_endpoints":[]},
+            "capability_grant_refs":[],"policy_refs":[]
+        }));
+        let parsed: SessionGrantValidationMetadata = serde_json::from_value(agent.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), agent);
+        for field in [
+            "controller_principal_id",
+            "agent_key_authorization_ref",
+            "realm_ids",
+            "strand_ids",
+            "resources",
+            "constraints",
+            "capability_grant_refs",
+            "policy_refs",
+        ] {
+            let mut absent = agent.clone();
+            absent["scope_details"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            assert!(serde_json::from_value::<SessionGrantValidationMetadata>(absent).is_err());
+            let mut null = agent.clone();
+            null["scope_details"][field] = Value::Null;
+            assert!(serde_json::from_value::<SessionGrantValidationMetadata>(null).is_err());
+        }
+        let mut absent = agent.clone();
+        absent.as_object_mut().unwrap().remove("scope_details");
+        assert!(serde_json::from_value::<SessionGrantValidationMetadata>(absent).is_err());
+        let mut mismatched = agent.clone();
+        mismatched["scope_details"]["agent_key_authorization_ref"] =
+            json!("ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB");
+        assert!(serde_json::from_value::<SessionGrantValidationMetadata>(mismatched).is_err());
+        let mut human = human_grant_value();
+        human["scope_details"] = agent["scope_details"].clone();
+        assert!(serde_json::from_value::<SessionGrantValidationMetadata>(human).is_err());
     }
 
     #[test]
