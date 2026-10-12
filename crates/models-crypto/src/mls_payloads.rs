@@ -34,13 +34,13 @@ pub struct MlsGovernanceBindingPayload {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_non_null_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     participant_authority_digest: Option<Hash>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_non_null_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     authority_stream_head: Option<Vec<EventId>>,
 }
@@ -53,16 +53,6 @@ where
     T: Deserialize<'de>,
 {
     Option::<T>::deserialize(deserializer)
-}
-
-fn deserialize_non_null_optional<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 /// The Sidecar-only authority coordinates inside a signed MLS binding.

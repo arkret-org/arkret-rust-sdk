@@ -9,11 +9,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::handle::{Handle, HandleVisibility};
 
-pub const HANDLE_CLAIM_CORE_SCHEMA: &str = "ak.schema.handle_claim_core.v1";
-pub const HANDLE_CLAIM_REVOCATION_SCHEMA: &str = "ak.schema.handle_claim_revocation.v1";
-pub const HANDLE_CLAIM_PROOF_DOMAIN: &str = "ak.handle_claim_proof.v1";
-pub const HANDLE_CLAIM_STATUS_DOMAIN: &str = "ak.handle_claim_status.v1";
-pub const HANDLE_CLAIM_REVOCATION_DOMAIN: &str = "ak.handle_claim_revocation.v1";
+pub const HANDLE_CLAIM_CORE_SCHEMA: &str = SchemaId::HANDLE_CLAIM_CORE_V1;
+pub const HANDLE_CLAIM_REVOCATION_SCHEMA: &str = SchemaId::HANDLE_CLAIM_REVOCATION_V1;
+pub const HANDLE_CLAIM_PROOF_DOMAIN: &str = arkret_wire::ProofContextId::HANDLE_CLAIM_PROOF_V1;
+pub const HANDLE_CLAIM_STATUS_DOMAIN: &str = arkret_wire::ProofContextId::HANDLE_CLAIM_STATUS_V1;
+pub const HANDLE_CLAIM_REVOCATION_DOMAIN: &str =
+    arkret_wire::ProofContextId::HANDLE_CLAIM_REVOCATION_V1;
 pub const HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS: i64 = 300;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -400,10 +401,10 @@ fn validate_sorted_unique<T: Ord>(values: &[T], field: &str) -> Result<()> {
 fn domain_separated_digest(domain: &[u8], value: &impl Serialize) -> Result<Hash> {
     let canonical = arkret_canonical::canonical_json_bytes(value)
         .map_err(|error| protocol(error.to_string()))?;
-    let mut preimage = Vec::with_capacity(domain.len() + canonical.len());
-    preimage.extend_from_slice(domain);
-    preimage.extend_from_slice(&canonical);
-    Hash::new(arkret_canonical::sha256_digest(preimage)).map_err(Into::into)
+    Hash::new(arkret_canonical::canonical::sha256_digest_from_slices(&[
+        domain, &canonical,
+    ]))
+    .map_err(Into::into)
 }
 
 fn protocol(message: impl Into<String>) -> WireError {

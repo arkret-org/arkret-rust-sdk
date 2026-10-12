@@ -27,10 +27,14 @@ pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
         }
     }
     core.remove("organization_recovery_archive");
-    let mut preimage = b"ak.mls-genesis-transition-v1".to_vec();
-    preimage.push(0);
-    preimage.extend(arkret_canonical::canonical_json_bytes(&core)?);
-    Ok(Hash::new(arkret_canonical::sha256_digest(preimage))?)
+    let canonical = arkret_canonical::canonical_json_bytes(&core)?;
+    Ok(Hash::new(
+        arkret_canonical::canonical::sha256_digest_from_slices(&[
+            b"ak.mls-genesis-transition-v1",
+            &[0],
+            &canonical,
+        ]),
+    )?)
 }
 
 #[cfg(test)]

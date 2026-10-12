@@ -53,31 +53,31 @@ struct MlsWelcomeEnvelopeWire {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_principal_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_device_id: Option<DeviceId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_agent_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     agent_key_authorize_event_id: Option<EventId>,
     welcome: String,
@@ -85,7 +85,7 @@ struct MlsWelcomeEnvelopeWire {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     ratchet_tree: Option<String>,
 }

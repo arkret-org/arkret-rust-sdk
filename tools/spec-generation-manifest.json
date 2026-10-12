@@ -423,6 +423,51 @@
       "artifacts": [
         "registry/contract-registry.json"
       ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-discovery/src/generated/directory.rs",
+        "crates/models-discovery/src/generated/presence.rs"
+      ],
+      "owner": "arkret-models-discovery",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/directory-operations.schema.json",
+        "schemas/presence-preference.schema.json",
+        "schemas/presence-visibility.schema.json",
+        "schemas/time.schema.json",
+        "schemas/service-operation-dtos.schema.json"
+      ],
+      "provides": [
+        "PublicRealmMetadata",
+        "PublicRealmDirectoryEntry",
+        "DirectorySearchRealmsRequestBody",
+        "DirectoryRealmSearchOutcome",
+        "DirectoryResolveRealmRequestBody",
+        "ManualPresenceState",
+        "PresencePreference",
+        "PresenceVisibility",
+        "PresenceVisibilityPreference"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/high_risk_authority_proof.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model+union",
+      "artifacts": [
+        "schemas/high-risk-authority-proof.schema.json"
+      ],
+      "provides": [
+        "HighRiskRecoveryUnlockProofBody",
+        "HighRiskDeviceQuorumSignature",
+        "HighRiskDeviceQuorumProofBody",
+        "HighRiskTrustedRecoveryServiceProofBody",
+        "HighRiskAuthorityProof"
+      ]
     }
   ]
 }

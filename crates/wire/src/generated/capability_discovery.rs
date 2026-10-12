@@ -1397,3 +1397,24 @@ pub fn feature_descriptor(feature_id: &str) -> Option<&'static FeatureDescriptor
         .ok()
         .map(|index| &FEATURES[index])
 }
+
+impl FeatureDescriptor {
+    pub const AGENT_RUNTIME_APPROVAL_NOTIFICATIONS_V1: &'static str =
+        "ak.feature.agent_runtime_approval_notifications.v1";
+    pub const BLOB_RESUMABLE_UPLOAD_TUS_V1: &'static str =
+        "ak.feature.blob.resumable_upload.tus.v1";
+    pub const CURSOR_REVOKE_HIGH_ASSURANCE_V1: &'static str =
+        "ak.feature.cursor_revoke_high_assurance.v1";
+    pub const DETACHED_JWS_V1: &'static str = "ak.feature.detached_jws.v1";
+    pub const DIRECT_CONVERSATION_REALM_ROLE_V1: &'static str =
+        "ak.feature.direct_conversation_realm_role.v1";
+    pub const IDENTITY_WEBVH_NATIVE_LOG_V1: &'static str =
+        "ak.feature.identity.webvh_native_log.v1";
+    pub const INVITE_ADDRESSING_V1: &'static str = "ak.feature.invite_addressing.v1";
+    pub const MESSAGE_CONTENT_BLOCK_V1: &'static str = "ak.feature.message_content_block.v1";
+    pub const MLS_LAST_RESORT_KEYPACKAGE_V1: &'static str =
+        "ak.feature.mls_last_resort_keypackage.v1";
+    pub const NOTIFICATIONS_V1: &'static str = "ak.feature.notifications.v1";
+    pub const REALM_STATE_SNAPSHOT_V1: &'static str = "ak.feature.realm_state_snapshot.v1";
+    pub const SYNC_STREAM_V1: &'static str = "ak.feature.sync_stream.v1";
+}

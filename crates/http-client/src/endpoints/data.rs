@@ -33,7 +33,8 @@ use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 /// Protocol-level feature id the server must advertise before a caller uses
 /// the optional tus upload binding.
-pub const RESUMABLE_UPLOAD_FEATURE: &str = "ak.feature.blob.resumable_upload.tus.v1";
+pub const RESUMABLE_UPLOAD_FEATURE: &str =
+    arkret_wire::FeatureDescriptor::BLOB_RESUMABLE_UPLOAD_TUS_V1;
 /// Default ciphertext size where callers should prefer the resumable binding
 /// over the canonical single-shot multipart upload when the server advertises
 /// it. Below this threshold the extra tus round-trips usually do not pay off.

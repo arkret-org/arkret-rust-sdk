@@ -25,14 +25,16 @@ use crate::security_transaction::{RecoveryIdentityModel, RecoveryProofKind};
 pub const RECOVERY_SESSION_DEFAULT_TTL_SECONDS: i64 = 900;
 
 /// The single action a recovery publication authority context may allow.
-pub const RECOVERY_PUBLICATION_ALLOWED_ACTION: &str = "ak.device.reanchor";
+pub const RECOVERY_PUBLICATION_ALLOWED_ACTION: &str = arkret_wire::event_kind_str::DEVICE_REANCHOR;
 
 /// Signature domain of the create-time replacement identity-key possession
 /// transcript.
-pub const RECOVERY_DEVICE_POSSESSION_DOMAIN: &str = "ak.identity.recovery_device_possession.v1";
+pub const RECOVERY_DEVICE_POSSESSION_DOMAIN: &str =
+    arkret_wire::DomainSeparationId::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1;
 
 /// Schema constant of every canonical recovery proof transcript.
-pub const RECOVERY_PROOF_TRANSCRIPT_SCHEMA: &str = "ak.identity.recovery_proof.v1";
+pub const RECOVERY_PROOF_TRANSCRIPT_SCHEMA: &str =
+    arkret_wire::DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1;
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/session_state.

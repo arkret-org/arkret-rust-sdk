@@ -10,82 +10,17 @@
 //! leaf: a signature made under another consumer's context must be rejected
 //! even when it verifies cryptographically.
 
-use arkret_wire::{DeviceId, DidCoreId, PayloadProof, RecoverySessionId, Result, WireError};
-use serde::{Deserialize, Serialize};
-
-use crate::recovery_session::{
-    DeviceQuorumProofKind, RecoveryUnlockProofKind, TrustedRecoveryServiceProofKind,
-};
+use arkret_wire::{RecoverySessionId, Result, WireError};
 
 /// The only registered consumer context in v1: active-series key backup tail
 /// deletion.
-pub const KEY_BACKUP_DELETE_PROOF_CONTEXT: &str = "ak.key_backup_delete_proof.v1";
+pub const KEY_BACKUP_DELETE_PROOF_CONTEXT: &str =
+    arkret_wire::ProofContextId::KEY_BACKUP_DELETE_PROOF_V1;
 
-// Field declaration order is byte-for-byte the properties order of
-// high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HighRiskRecoveryUnlockProofBody {
-    pub kind: RecoveryUnlockProofKind,
-    /// Verified, unexpired recovery session for the transcript's exact account
-    /// whose accepted proof summary is `recovery_unlock`.
-    pub recovery_session_id: RecoverySessionId,
-    pub proof: PayloadProof,
-}
-
-// Field declaration order is byte-for-byte the properties order of
-// high-risk-authority-proof.schema.json#/$defs/device_quorum_signature.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HighRiskDeviceQuorumSignature {
-    pub device_id: DeviceId,
-    /// Detached-JWS leaf whose verification method must resolve, at
-    /// `proof.created_at`, to an authorized non-revoked device key of exactly
-    /// this `device_id`. Every quorum member signs the same transcript bytes.
-    pub proof: PayloadProof,
-}
-
-// Field declaration order is byte-for-byte the properties order of
-// high-risk-authority-proof.schema.json#/$defs/device_quorum_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HighRiskDeviceQuorumProofBody {
-    pub kind: DeviceQuorumProofKind,
-    /// The quorum threshold the issuer claims to satisfy. It must equal the
-    /// principal's currently accepted recovery-policy device-quorum `k`; a
-    /// smaller issuer-supplied threshold is rejected as failed precondition.
-    pub threshold: u32,
-    /// Schema floor only: receivers require the deduplicated valid signature
-    /// count to reach `threshold`.
-    pub signatures: Vec<HighRiskDeviceQuorumSignature>,
-}
-
-// Field declaration order is byte-for-byte the properties order of
-// high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HighRiskTrustedRecoveryServiceProofBody {
-    pub kind: TrustedRecoveryServiceProofKind,
-    pub service_id: DidCoreId,
-    /// Verified, unexpired, unconsumed recovery session established by
-    /// `recovery_unlock` or `device_quorum`. A service-only session is never a
-    /// second factor.
-    pub recovery_session_id: RecoverySessionId,
-    pub proof: PayloadProof,
-}
-
-/// The closed high-risk authority proof family.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum HighRiskAuthorityProof {
-    RecoveryUnlock(HighRiskRecoveryUnlockProofBody),
-    DeviceQuorum(HighRiskDeviceQuorumProofBody),
-    TrustedRecoveryService(HighRiskTrustedRecoveryServiceProofBody),
-}
+pub use crate::generated::high_risk_authority_proof::{
+    HighRiskAuthorityProof, HighRiskDeviceQuorumProofBody, HighRiskDeviceQuorumSignature,
+    HighRiskRecoveryUnlockProofBody, HighRiskTrustedRecoveryServiceProofBody,
+};
 
 impl HighRiskAuthorityProof {
     /// The recovery session this proof is bound to. Every branch names one.

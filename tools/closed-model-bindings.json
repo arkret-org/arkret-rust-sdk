@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "references": {
+    "common-ids.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
+    "common-ids.schema.json#/$defs/blob_ref": "arkret_wire::BlobRef",
+    "high-risk-authority-proof.schema.json#/$defs/recovery_session_id": "arkret_wire::RecoverySessionId",
+    "high-risk-authority-proof.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
+    "high-risk-authority-proof.schema.json#/$defs/detached_proof": "arkret_wire::PayloadProof",
+    "common-ids.schema.json#/$defs/did_core_id": "arkret_wire::DidCoreId",
+    "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32"
+  },
+  "families": [
+    {
+      "output": "crates/models-discovery/src/generated/directory.rs",
+      "types": [
+        {
+          "name": "PublicRealmMetadata",
+          "schema": "service-operation-dtos.schema.json#/$defs/PublicRealmMetadata"
+        },
+        {
+          "name": "PublicRealmDirectoryEntry",
+          "schema": "directory-operations.schema.json#/$defs/public_realm_directory_entry"
+        },
+        {
+          "name": "DirectorySearchRealmsRequestBody",
+          "schema": "directory-operations.schema.json#/$defs/directory_search_realms_request_body",
+          "default": true
+        },
+        {
+          "name": "DirectoryRealmSearchOutcome",
+          "schema": "directory-operations.schema.json#/$defs/directory_realm_search_outcome"
+        },
+        {
+          "name": "DirectoryResolveRealmRequestBody",
+          "schema": "directory-operations.schema.json#/$defs/directory_resolve_realm_request_body"
+        }
+      ]
+    },
+    {
+      "output": "crates/models-discovery/src/generated/presence.rs",
+      "types": [
+        {
+          "name": "ManualPresenceState",
+          "schema": "presence-preference.schema.json#/properties/manual_state",
+          "copy": true
+        },
+        {
+          "name": "PresencePreference",
+          "schema": "presence-preference.schema.json",
+          "default": true
+        },
+        {
+          "name": "PresenceVisibility",
+          "schema": "presence-visibility.schema.json#/properties/presence_visibility",
+          "copy": true,
+          "default_variant": "public"
+        },
+        {
+          "name": "PresenceVisibilityPreference",
+          "schema": "presence-visibility.schema.json",
+          "copy": true,
+          "default": true
+        }
+      ]
+    },
+    {
+      "output": "crates/models-crypto/src/generated/high_risk_authority_proof.rs",
+      "types": [
+        {
+          "name": "HighRiskRecoveryUnlockProofBody",
+          "schema": "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof"
+        },
+        {
+          "name": "HighRiskDeviceQuorumSignature",
+          "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_signature"
+        },
+        {
+          "name": "HighRiskDeviceQuorumProofBody",
+          "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof"
+        },
+        {
+          "name": "HighRiskTrustedRecoveryServiceProofBody",
+          "schema": "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof"
+        },
+        {
+          "name": "HighRiskAuthorityProof",
+          "schema": "high-risk-authority-proof.schema.json",
+          "openapi": false
+        }
+      ]
+    }
+  ],
+  "retained_binding_reasons": {
+    "references": "References bind to existing validated SDK identifier/proof leaves and closed marker types; domain verification remains handwritten.",
+    "threshold": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
+  }
+}

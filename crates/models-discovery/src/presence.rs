@@ -18,6 +18,10 @@ use arkret_wire::canonical::is_nfc;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+pub use crate::generated::presence::{
+    ManualPresenceState, PresencePreference, PresenceVisibility, PresenceVisibilityPreference,
+};
+
 /// Protocol floor for `last_active_at` bucket granularity (§3.3):
 /// finer buckets degrade into a near-second activity timing side
 /// channel.
@@ -50,14 +54,6 @@ pub enum PresenceStatus {
 /// express offline state. This enum is the exact counterpart of the
 /// `manual_state` closed set in
 /// `spec/v1/artifacts/schemas/presence-preference.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ManualPresenceState {
-    Online,
-    Idle,
-    Dnd,
-}
 
 impl ManualPresenceState {
     pub fn as_wire(self) -> &'static str {
@@ -84,15 +80,6 @@ impl From<ManualPresenceState> for PresenceStatus {
 ///
 /// This is a protocol closed set. Applications must keep this typed until
 /// serialization instead of copying its wire strings into local enums.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum PresenceVisibility {
-    #[default]
-    Public,
-    ContactsOnly,
-    Nobody,
-}
 
 impl PresenceVisibility {
     /// Strict parse of the v1 wire closed set.
@@ -122,12 +109,6 @@ impl PresenceVisibility {
 /// Canonical `ak.presence.visibility` account-data payload (§3.4).
 ///
 /// Counterpart for `spec/v1/artifacts/schemas/presence-visibility.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct PresenceVisibilityPreference {
-    pub presence_visibility: PresenceVisibility,
-}
 
 impl PresenceStatus {
     /// Strict closed-set wire parse (§3.2). Unknown values return
@@ -306,27 +287,6 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
 /// preference is active.
 ///
 /// Counterpart for `spec/v1/artifacts/schemas/presence-preference.schema.json`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PresencePreference {
-    /// Pinned manual state: `online`, `idle` or `dnd`. `offline` is
-    /// expressed by ceasing broadcasts / TTL expiry and is not a
-    /// pinnable value; "invisible" is `ak.presence.visibility =
-    /// "nobody"`, not a state.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manual_state: Option<ManualPresenceState>,
-    /// Transient status-message override used as the broadcast
-    /// `status_message` source while active. Same constraints as the
-    /// wire field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status_message: Option<String>,
-    /// Expiry: past this instant the whole preference is treated as
-    /// absent and clients revert to automatic state detection.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub clears_at: Option<DateTime<Utc>>,
-}
 
 impl PresencePreference {
     /// Whether the payload carries no manual state or status message.

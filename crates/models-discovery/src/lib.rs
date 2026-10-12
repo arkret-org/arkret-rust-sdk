@@ -6,6 +6,10 @@
 //! data shapes and type-local invariants only.
 
 pub mod directory;
+mod generated {
+    pub mod directory;
+    pub mod presence;
+}
 pub mod directory_artifacts;
 pub mod http_bodies;
 pub mod ops;

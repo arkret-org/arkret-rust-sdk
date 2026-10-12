@@ -213,13 +213,13 @@ pub enum DeviceAuthorizationBindingKind {
 impl DeviceAuthorizationBindingKind {
     pub const fn possession_proof_context(self) -> &'static str {
         match self {
-            Self::RegistrationAnchor => "ak.device_authorize_possession_proof.v1",
-            Self::PcrRecovery => "ak.device_authorize_recovery_possession_proof.v1",
+            Self::RegistrationAnchor => DomainSeparationId::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
+            Self::PcrRecovery => DomainSeparationId::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1,
             Self::AcceptedDevice => {
                 DomainSeparationId::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
             Self::AppletManagedDelegation => {
-                "ak.device_authorize_applet_managed_possession_proof.v1"
+                DomainSeparationId::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1
             }
         }
     }

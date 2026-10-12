@@ -1289,34 +1289,24 @@ pub struct FileTransferEncryption {
     pub aead_profile: String,
     #[serde(
         default,
-        deserialize_with = "file_transfer_present_value",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub nonce: Option<String>,
     #[serde(
         default,
-        deserialize_with = "file_transfer_present_value",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub nonce_prefix: Option<String>,
     #[serde(
         default,
-        deserialize_with = "file_transfer_present_value",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub segment_bytes: Option<u32>,
     pub aad: FileTransferAad,
     pub key_delivery: FileTransferKeyDelivery,
-}
-
-fn file_transfer_present_value<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 impl FileTransferEncryption {

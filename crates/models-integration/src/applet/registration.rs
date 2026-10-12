@@ -97,7 +97,7 @@ pub struct AppletManagedActorProvisionPayload {
 }
 
 impl AppletManagedActorProvisionPayload {
-    pub const SCHEMA: &'static str = "ak.schema.applet_managed_actor_provision.v1";
+    pub const SCHEMA: &'static str = SchemaId::APPLET_MANAGED_ACTOR_PROVISION_V1;
 
     pub fn validate(&self) -> Result<()> {
         self.method_history_evidence.validate_shape()?;

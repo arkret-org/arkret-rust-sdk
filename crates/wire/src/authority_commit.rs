@@ -110,16 +110,20 @@ impl DetachedSignatureContext {
     /// one context can never verify under another.
     pub fn as_wire_str(self) -> &'static str {
         match self {
-            Self::RealmCommit => "ak.realm_commit_signature.v1",
-            Self::RealmAuthorityHandoffOld => "ak.realm_authority_handoff_old_signature.v1",
+            Self::RealmCommit => crate::DomainSeparationId::REALM_COMMIT_SIGNATURE_V1,
+            Self::RealmAuthorityHandoffOld => {
+                crate::DomainSeparationId::REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1
+            }
             Self::RealmAuthorityHandoffNewAcceptance => {
-                "ak.realm_authority_handoff_new_acceptance_signature.v1"
+                crate::DomainSeparationId::REALM_AUTHORITY_HANDOFF_NEW_ACCEPTANCE_SIGNATURE_V1
             }
             Self::RealmAuthorityCurrentAssertion => {
-                "ak.realm_authority_current_assertion_signature.v1"
+                crate::DomainSeparationId::REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1
             }
-            Self::RealmSnapshot => "ak.realm_snapshot_signature.v1",
-            Self::MlsWelcomeDelivery => "ak.mls_welcome_delivery_signature.v1",
+            Self::RealmSnapshot => crate::DomainSeparationId::REALM_SNAPSHOT_SIGNATURE_V1,
+            Self::MlsWelcomeDelivery => {
+                crate::DomainSeparationId::MLS_WELCOME_DELIVERY_SIGNATURE_V1
+            }
         }
     }
 
@@ -1058,7 +1062,7 @@ impl ApprovalSignature {
             ));
         }
         if self.input.approval_target == ApprovalTarget::Operation
-            && self.input.operation != "ak.self.events.command.submit.v1"
+            && self.input.operation != crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1
         {
             return Err(WireError::Protocol(
                 "approval operation target has no registered evidence carrier".into(),

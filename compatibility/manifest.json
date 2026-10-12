@@ -426,13 +426,15 @@
       "category": "static",
       "surface": {
         "kind": "type",
-        "name": "schema struct gate itself"
+        "name": "schema struct gate and production closed model generator"
       },
       "working_directory": "arkret-rust-sdk",
       "command": [
         "python",
         "-m",
-        "tools.test_schema_struct_gate"
+        "unittest",
+        "tools.test_schema_struct_gate",
+        "tools.test_generate_closed_models"
       ]
     },
     {

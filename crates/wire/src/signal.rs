@@ -314,13 +314,13 @@ pub struct SignalProof {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_proof_value"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub domain: Option<String>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_proof_value"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub audience: Option<Audience>,
     pub jws: String,
@@ -339,14 +339,14 @@ pub struct SignalEnvelope {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_proof_value"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub sender_device_id: Option<DeviceId>,
     pub authority_commit_id: RealmCommitId,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_proof_value"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub parent_realm_authority_commit_id: Option<RealmCommitId>,
     pub signal_class: SignalClass,
@@ -367,16 +367,6 @@ pub struct SignalEnvelope {
 pub enum SignalSenderEndpoint<'a> {
     AccountDevice(&'a DeviceId),
     Agent,
-}
-
-fn deserialize_present_proof_value<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 impl SignalEnvelope {

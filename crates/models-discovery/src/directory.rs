@@ -3,25 +3,15 @@
 //! Directory results are discovery hints only. They never carry membership,
 //! join, history, Event/RealmCommit, source-reference, or authority evidence.
 
-use arkret_wire::{BlobRef, RealmId, Result, WireError};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use arkret_wire::{Result, WireError};
+
+pub use crate::generated::directory::{
+    DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody,
+    DirectorySearchRealmsRequestBody, PublicRealmDirectoryEntry, PublicRealmMetadata,
+};
 
 fn invalid(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublicRealmMetadata {
-    pub display_name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub public_locator: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
 }
 
 impl PublicRealmMetadata {
@@ -51,18 +41,6 @@ impl PublicRealmMetadata {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublicRealmDirectoryEntry {
-    pub realm_id: RealmId,
-    pub public_metadata: PublicRealmMetadata,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub indexed_at: DateTime<Utc>,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
 impl PublicRealmDirectoryEntry {
     pub fn validate(&self) -> Result<()> {
         self.public_metadata.validate()?;
@@ -73,18 +51,6 @@ impl PublicRealmDirectoryEntry {
         }
         Ok(())
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectorySearchRealmsRequestBody {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub query: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub limit: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<String>,
 }
 
 impl DirectorySearchRealmsRequestBody {
@@ -105,16 +71,6 @@ impl DirectorySearchRealmsRequestBody {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryRealmSearchOutcome {
-    pub realms: Vec<PublicRealmDirectoryEntry>,
-    pub has_more: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-}
-
 impl DirectoryRealmSearchOutcome {
     pub fn validate(&self) -> Result<()> {
         if self.realms.len() > 100
@@ -129,13 +85,6 @@ impl DirectoryRealmSearchOutcome {
             .iter()
             .try_for_each(PublicRealmDirectoryEntry::validate)
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryResolveRealmRequestBody {
-    pub realm_id: RealmId,
 }
 
 pub type DirectoryRealmResolutionOutcome = PublicRealmDirectoryEntry;

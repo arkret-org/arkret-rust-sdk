@@ -1779,7 +1779,7 @@ mod tests {
                 arkret_wire::ErrorCode::OperationSelectorRequired,
             ),
             (
-                serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"ak.self.committed_event.stream.subscribe.v2","parameters":null}),
+                serde_json::json!({"kind":"open","channel_id":"events-1","operation_id":"ak.self.committed_event.stream.unregistered.v1","parameters":null}),
                 arkret_wire::ErrorCode::UnsupportedOperationVersion,
             ),
             (

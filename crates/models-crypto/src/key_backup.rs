@@ -378,39 +378,29 @@ pub struct KeyBackupKdfParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_kdf_parameter"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub memory_kib: Option<u64>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_kdf_parameter"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub iterations: Option<u64>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_kdf_parameter"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub parallelism: Option<u64>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_kdf_parameter"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub digest_algorithm: Option<KeyBackupKdfDigestAlgorithm>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
-}
-
-fn deserialize_present_kdf_parameter<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 #[cfg(test)]

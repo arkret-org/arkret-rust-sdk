@@ -36,7 +36,7 @@ fn main() {
         "backup_kind": envelope["backup_kind"],
         "created_at": created_at,
         "recipient_method": envelope["encryption"]["recipient_method"],
-        "schema": "ak.schema.key_backup.v1",
+        "schema": arkret_wire::SchemaId::KEY_BACKUP_V1,
         "series_id": envelope["series_id"],
         "series_seq": envelope["series_seq"],
     }))

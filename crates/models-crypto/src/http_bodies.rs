@@ -81,34 +81,42 @@ pub struct KeyPackagesUploadUnsignedRequest {
 struct KeyPackagesUploadWire {
     actor_id: ActorId,
     principal_id: DidCoreId,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     device_id: Option<DeviceId>,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     agent_verification_method: Option<DidUrl>,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     agent_key_authorize_event_id: Option<EventId>,
     keypackages: Vec<KeyPackageUploadEntry>,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     endpoint_signature: Option<KeyOperationSignature>,
     #[serde(
         default,
         deserialize_with = "deserialize_upload_expiry_canonical_timestamp"
     )]
     expires_at: Option<DateTime<Utc>>,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     strand_id: Option<StrandId>,
-    #[serde(default, deserialize_with = "deserialize_keypackage_optional")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     mls_group_id: Option<MlsGroupId>,
-}
-
-pub(crate) fn deserialize_keypackage_optional<'de, D, T>(
-    deserializer: D,
-) -> Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 // A missing Agent device selector defaults to an empty vector. A present
@@ -403,13 +411,13 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_account_id: Option<AccountId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
@@ -428,25 +436,25 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_keypackage_ref: Option<KeyPackageRef>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_key_authorize_event_id: Option<EventId>,
     #[serde(
@@ -458,19 +466,19 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub strand_id: Option<StrandId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub pair_key: Option<Hash>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub last_resort_allowed: Option<bool>,
 }
@@ -491,13 +499,13 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_account_id: Option<AccountId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
@@ -516,25 +524,25 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_keypackage_ref: Option<KeyPackageRef>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_key_authorize_event_id: Option<EventId>,
     #[serde(
@@ -546,19 +554,19 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub strand_id: Option<StrandId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub pair_key: Option<Hash>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub last_resort_allowed: Option<bool>,
     pub service_binding: KeyPackagesClaimServiceBinding,
@@ -604,13 +612,13 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_account_id: Option<AccountId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
@@ -629,25 +637,25 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_keypackage_ref: Option<KeyPackageRef>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub target_agent_key_authorize_event_id: Option<EventId>,
     #[serde(
@@ -659,19 +667,19 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub strand_id: Option<StrandId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub pair_key: Option<Hash>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub last_resort_allowed: Option<bool>,
     pub service_binding: KeyPackagesClaimServiceBinding,
@@ -986,19 +994,19 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub claim_outcome: Option<PeerKeyPackagesClaimOutcome>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub consume_receipt: Option<KeyPackageConsumeReceipt>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub terminal_receipt: Option<KeyPackageClaimTerminalReceipt>,
     #[serde(
@@ -1010,7 +1018,7 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub error_code: Option<PeerKeyPackageClaimErrorCode>,
 }
@@ -1489,37 +1497,37 @@ struct RecipientMlsDurableReceiptWire {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_account_id: Option<AccountId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_device_id: Option<DeviceId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     device_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_agent_id: Option<DidCoreId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     recipient_agent_verification_method: Option<DidUrl>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     agent_key_authorize_event_id: Option<EventId>,
     recipient_id: DidCoreId,
@@ -1823,7 +1831,7 @@ pub struct KeyPackagesRevokeRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub reason: Option<AuditReasonText>,
 }
@@ -1841,7 +1849,7 @@ pub struct KeyPackagesRevokeUnsignedRequest {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub reason: Option<AuditReasonText>,
 }

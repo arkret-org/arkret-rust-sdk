@@ -17,7 +17,7 @@ use crate::objects::profiles::{STRAND_TRACK_NAME_DISCUSSION, StrandTrack};
 use crate::objects::strand::Strand;
 
 pub const DIRECT_CONVERSATION_REALM_ROLE_FEATURE: &str =
-    "ak.feature.direct_conversation_realm_role.v1";
+    arkret_wire::FeatureDescriptor::DIRECT_CONVERSATION_REALM_ROLE_V1;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

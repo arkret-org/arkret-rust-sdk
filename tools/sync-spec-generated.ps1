@@ -64,6 +64,10 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'profile requirement generation failed'
     }
+    & python (Join-Path $PSScriptRoot 'generate-closed-models.py') --artifacts-dir $artifacts --output-root $targetRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw 'closed model generation failed'
+    }
     & cargo run --quiet --manifest-path (Join-Path $PSScriptRoot 'spec-codegen/Cargo.toml') -- --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
         throw 'Rust spec code generation failed'

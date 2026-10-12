@@ -204,7 +204,8 @@ pub struct FrankingProof {
 }
 
 impl FrankingProof {
-    pub const SIGNATURE_DOMAIN: &'static str = "ak.franking_proof.signature.v1";
+    pub const SIGNATURE_DOMAIN: &'static str =
+        arkret_wire::DomainSeparationId::FRANKING_PROOF_SIGNATURE_V1;
 
     /// Return the exact seven-field RFC 8785 transcript signed by the
     /// receiving service.

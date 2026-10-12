@@ -17,9 +17,10 @@ use crate::prepared_event_draft::PreparedEventDraft;
 use crate::string_marker;
 
 /// Event kind of the Sidecar create Event carried by the commit phase.
-pub const SIDECAR_CREATE_EVENT_KIND: &str = "ak.sidecar.create";
+pub const SIDECAR_CREATE_EVENT_KIND: &str = arkret_wire::event_kind_str::SIDECAR_CREATE;
 /// Event kind of the Sidecar context attach Event.
-pub const SIDECAR_CONTEXT_ATTACH_EVENT_KIND: &str = "ak.sidecar.context.attach";
+pub const SIDECAR_CONTEXT_ATTACH_EVENT_KIND: &str =
+    arkret_wire::event_kind_str::SIDECAR_CONTEXT_ATTACH;
 
 pub use arkret_wire::SidecarContextRef;
 

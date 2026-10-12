@@ -504,11 +504,11 @@
       "schema": "keys-operations.schema.json#/$defs/peer_query_account_device_entries/items"
     },
     {
-      "rust_type": "crates/models-discovery/src/presence.rs::PresenceVisibilityPreference",
+      "rust_type": "crates/models-discovery/src/generated/presence.rs::PresenceVisibilityPreference",
       "schema": "presence-visibility.schema.json"
     },
     {
-      "rust_type": "crates/models-discovery/src/presence.rs::PresencePreference",
+      "rust_type": "crates/models-discovery/src/generated/presence.rs::PresencePreference",
       "schema": "presence-preference.schema.json"
     },
     {
@@ -802,19 +802,19 @@
       "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome"
     },
     {
-      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskRecoveryUnlockProofBody",
+      "rust_type": "crates/models-crypto/src/generated/high_risk_authority_proof.rs::HighRiskRecoveryUnlockProofBody",
       "schema": "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof"
     },
     {
-      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskDeviceQuorumProofBody",
+      "rust_type": "crates/models-crypto/src/generated/high_risk_authority_proof.rs::HighRiskDeviceQuorumProofBody",
       "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof"
     },
     {
-      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskTrustedRecoveryServiceProofBody",
+      "rust_type": "crates/models-crypto/src/generated/high_risk_authority_proof.rs::HighRiskTrustedRecoveryServiceProofBody",
       "schema": "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof"
     },
     {
-      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskDeviceQuorumSignature",
+      "rust_type": "crates/models-crypto/src/generated/high_risk_authority_proof.rs::HighRiskDeviceQuorumSignature",
       "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_signature"
     },
     {
@@ -1255,6 +1255,26 @@
       "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadRequestBody",
       "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
       "schema_field_set": "accepted"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::PublicRealmDirectoryEntry",
+      "schema": "directory-operations.schema.json#/$defs/public_realm_directory_entry"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectorySearchRealmsRequestBody",
+      "schema": "directory-operations.schema.json#/$defs/directory_search_realms_request_body"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectoryRealmSearchOutcome",
+      "schema": "directory-operations.schema.json#/$defs/directory_realm_search_outcome"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectoryResolveRealmRequestBody",
+      "schema": "directory-operations.schema.json#/$defs/directory_resolve_realm_request_body"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::PublicRealmMetadata",
+      "schema": "service-operation-dtos.schema.json#/$defs/PublicRealmMetadata"
     }
   ],
   "exemptions": [

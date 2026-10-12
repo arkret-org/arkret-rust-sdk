@@ -629,7 +629,7 @@ impl ServiceDescribe {
         let advertises_invite_addressing = self
             .supported_features
             .iter()
-            .any(|feature| feature == "ak.feature.invite_addressing.v1");
+            .any(|feature| feature == FeatureDescriptor::INVITE_ADDRESSING_V1);
         if advertises_invite_addressing != self.invite_addressing.is_some() {
             return Err(WireError::Protocol(format!(
                 "ServiceDescribe: invite_addressing and ak.feature.invite_addressing.v1 must appear together ({})",

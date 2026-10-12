@@ -103,7 +103,7 @@ pub struct KeyOperationSignature {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub signature_algorithm: Option<NonEmptyString>,
     pub sig: Base64UrlString,
@@ -116,13 +116,13 @@ pub struct Failure {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub keypackage_ref: Option<String>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub device_id: Option<String>,
     pub reason_code: ReasonCode,
@@ -170,41 +170,41 @@ struct KeyPackageClaimRecordWire {
     principal_id: DidCoreId,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     device_id: Option<DeviceId>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     agent_id: Option<DidCoreId>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     agent_verification_method: Option<DidUrl>,
     keypackage: String,
     capabilities: Vec<String>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     device_authorize_event_id: Option<EventId>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     agent_key_authorize_event_id: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     revocation_status: Option<String>,
     #[serde(
         default,
-        deserialize_with = "crate::http_bodies::deserialize_keypackage_optional"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     last_resort: Option<bool>,
 }

@@ -768,12 +768,20 @@ fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         if !seen.insert((operation, binding)) {
             bail!("duplicate wait-for operation/binding {operation} {binding}");
         }
-        if !rows.iter().any(|row| row.get("operation_id").and_then(Value::as_str) == Some(operation)) {
+        if !rows
+            .iter()
+            .any(|row| row.get("operation_id").and_then(Value::as_str) == Some(operation))
+        {
             bail!("unregistered wait-for operation {operation}");
         }
-        writeln!(output, "            (Self::{}, {}) => Some(({}, {})),",
-            variant(operation, &["ak."]), rust_string(binding),
-            rust_string(string(wait, "carrier")?), rust_string(string(wait, "field")?))?;
+        writeln!(
+            output,
+            "            (Self::{}, {}) => Some(({}, {})),",
+            variant(operation, &["ak."]),
+            rust_string(binding),
+            rust_string(string(wait, "carrier")?),
+            rust_string(string(wait, "field")?)
+        )?;
     }
     output.push_str("            _ => None,\n        }\n    }\n}\n");
     Ok(GeneratedOutput {
@@ -1154,6 +1162,18 @@ fn generate_capability_discovery(artifacts_dir: &Path) -> Result<GeneratedOutput
         output.push_str("    ] },\n");
     }
     output.push_str("];\n\npub fn operation_bundle_descriptor(operation_bundle_id: &str) -> Option<&'static OperationBundleDescriptor> { OPERATION_BUNDLES.binary_search_by_key(&operation_bundle_id, |row| row.operation_bundle_id).ok().map(|index| &OPERATION_BUNDLES[index]) }\npub fn operation_bundles_for_service_kind(service_kind: ServiceKind) -> impl Iterator<Item = &'static OperationBundleDescriptor> { OPERATION_BUNDLES.iter().filter(move |bundle| bundle.service_kind == service_kind) }\npub fn role_describe_bundle_descriptor(service_kind: ServiceKind) -> Option<&'static OperationBundleDescriptor> { operation_bundles_for_service_kind(service_kind).find(|bundle| bundle.operation_bundle_id.ends_with(\".describe.v1\")) }\npub fn operation_binding_is_registered(operation_id: ServiceOperationId, binding_kind: BindingKind) -> bool { OPERATION_BUNDLES.iter().any(|bundle| bundle.contains(operation_id, binding_kind)) }\n\npub const FEATURES: &[FeatureDescriptor] = &[\n");
+    // Feature identifiers share the descriptor owner and canonical input.
+    let mut feature_constants = String::from("\nimpl FeatureDescriptor {\n");
+    for feature in &features {
+        let id = string(feature, "feature_id")?;
+        writeln!(
+            feature_constants,
+            "    pub const {}: &'static str = {};",
+            associated_name(id, &["ak.feature."]),
+            rust_string(id)
+        )?;
+    }
+    feature_constants.push_str("}\n");
     for feature in features {
         let status = match string(feature, "status")? {
             "active" => "FeatureStatus::Active",
@@ -1194,6 +1214,7 @@ fn generate_capability_discovery(artifacts_dir: &Path) -> Result<GeneratedOutput
         )?;
     }
     output.push_str("];\n\npub fn feature_descriptor(feature_id: &str) -> Option<&'static FeatureDescriptor> { FEATURES.binary_search_by_key(&feature_id, |row| row.feature_id).ok().map(|index| &FEATURES[index]) }\n");
+    output.push_str(&feature_constants);
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/capability_discovery.rs".into(),
         contents: output,

@@ -375,16 +375,6 @@ fn required_base64url_member(object: &Map<String, Value>, member: &str) -> Resul
     Ok(vec![0; value.len() * 6 / 8])
 }
 
-fn deserialize_optional_non_null<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
-}
-
 /// Closed immutable issuer_id-record preimage used to derive SessionGrantId.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -406,19 +396,19 @@ pub struct SessionGrantIssuancePreimage {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub device_binding: Option<SessionGrantDeviceBinding>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub proof_kind: Option<SessionGrantProofKind>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub scope_details: Option<Map<String, Value>>,
 }
@@ -480,19 +470,19 @@ pub struct SignedSessionGrantClaims {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub device_binding: Option<SessionGrantDeviceBinding>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub proof_kind: Option<SessionGrantProofKind>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_non_null"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub scope_details: Option<Map<String, Value>>,
 }
@@ -518,11 +508,20 @@ struct RawSignedSessionGrantClaims {
     session_id: String,
     credential_class: SessionGrantCredentialClass,
     holder_binding: SessionGrantHolderBinding,
-    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     device_binding: Option<SessionGrantDeviceBinding>,
-    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     proof_kind: Option<SessionGrantProofKind>,
-    #[serde(default, deserialize_with = "deserialize_optional_non_null")]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     scope_details: Option<Map<String, Value>>,
 }
 

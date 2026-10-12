@@ -13,6 +13,9 @@ pub mod current_key_derivations;
 pub mod encrypted_attachment;
 pub mod encrypted_envelope;
 pub mod high_risk_authority_proof;
+mod generated {
+    pub mod high_risk_authority_proof;
+}
 pub mod http_bodies;
 pub mod key_backup;
 pub mod key_backup_operations;

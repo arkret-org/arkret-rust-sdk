@@ -112,31 +112,31 @@ impl SyncRequestBody {
 pub struct AccountFilter {
     #[serde(
         default,
-        deserialize_with = "present_member",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub realm_ids: Option<Vec<RealmId>>,
     #[serde(
         default,
-        deserialize_with = "present_member",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub stream_refs: Option<Vec<CommitStreamRef>>,
     #[serde(
         default,
-        deserialize_with = "present_member",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub window_limit: Option<u32>,
     #[serde(
         default,
-        deserialize_with = "present_member",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub lazy_load_members: Option<bool>,
     #[serde(
         default,
-        deserialize_with = "present_member",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
     pub include_redundant_members: Option<bool>,
@@ -144,13 +144,6 @@ pub struct AccountFilter {
 
 /// A member that is present must carry a value of its type: `null` is not an
 /// absent member, and the schema admits no `null` for any filter member.
-fn present_member<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
-}
 
 impl AccountFilter {
     pub fn validate(&self) -> Result<()> {

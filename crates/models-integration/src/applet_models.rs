@@ -906,7 +906,8 @@ pub struct AppletInstallAuthoringRequestBasis {
 }
 
 impl AppletInstallAuthoringRequestBasis {
-    pub const SCHEMA: &'static str = "ak.schema.applet_install_authoring_request_basis.v1";
+    pub const SCHEMA: &'static str =
+        arkret_wire::SchemaId::APPLET_INSTALL_AUTHORING_REQUEST_BASIS_V1;
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA
@@ -1008,7 +1009,7 @@ pub struct AppletGhostAuthoringRequestBasis {
 }
 
 impl AppletGhostAuthoringRequestBasis {
-    pub const SCHEMA: &'static str = "ak.schema.applet_ghost_authoring_request_basis.v1";
+    pub const SCHEMA: &'static str = arkret_wire::SchemaId::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1;
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA || self.purpose != AppletManagedActorPurpose::ProvisionGhost
@@ -1121,8 +1122,10 @@ pub struct AppletManagedActorAuthoringRequest {
 }
 
 impl AppletManagedActorAuthoringRequest {
-    pub const SCHEMA: &'static str = "ak.schema.applet_managed_actor_authoring_request.v1";
-    pub const PROOF_CONTEXT: &'static str = "ak.applet_managed_actor_authoring_request_proof.v1";
+    pub const SCHEMA: &'static str =
+        arkret_wire::SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1;
+    pub const PROOF_CONTEXT: &'static str =
+        arkret_wire::DomainSeparationId::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1;
 
     pub fn unsigned_payload_value(&self) -> serde_json::Value {
         serde_json::json!({
@@ -1294,8 +1297,10 @@ pub struct AppletManagedActorAuthoringBundle {
 }
 
 impl AppletManagedActorAuthoringBundle {
-    pub const SCHEMA: &'static str = "ak.schema.applet_managed_actor_authoring_bundle.v1";
-    pub const PROOF_CONTEXT: &'static str = "ak.applet_managed_actor_bundle_proof.v1";
+    pub const SCHEMA: &'static str =
+        arkret_wire::SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1;
+    pub const PROOF_CONTEXT: &'static str =
+        arkret_wire::DomainSeparationId::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1;
 
     pub fn unsigned_payload_value(&self) -> serde_json::Value {
         serde_json::json!({
@@ -1392,7 +1397,7 @@ pub struct AppletBotAuthoringRequestBasis {
     pub request_id: String,
 }
 impl AppletBotAuthoringRequestBasis {
-    pub const SCHEMA: &'static str = "ak.schema.applet_bot_authoring_request_basis.v1";
+    pub const SCHEMA: &'static str = arkret_wire::SchemaId::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1;
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA
             || self.purpose != AppletManagedActorPurpose::ProvisionBot

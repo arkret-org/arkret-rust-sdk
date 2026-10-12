@@ -211,7 +211,7 @@ pub struct KeyBackupSummaryEncryption {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub recipient_key_ref: Option<String>,
 }
@@ -233,7 +233,7 @@ pub struct KeyBackupSummary {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
@@ -250,7 +250,7 @@ pub struct KeyBackupSummary {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub supersedes_digest: Option<Hash>,
     #[serde(
@@ -275,20 +275,13 @@ pub struct KeyBackupSummary {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present"
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
     pub retention: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// A present optional member must carry a value: `null` is schema-invalid.
-fn deserialize_present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
-}
 
 /// A present tristate member is either `null` or a value.
 fn deserialize_present_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -630,7 +623,9 @@ impl KeysBackupsDeleteChallenge {
             .clone();
         transcript.insert(
             "context".to_owned(),
-            serde_json::Value::String("ak.key_backup_delete_proof.v1".to_owned()),
+            serde_json::Value::String(
+                arkret_wire::ProofContextId::KEY_BACKUP_DELETE_PROOF_V1.to_owned(),
+            ),
         );
         transcript.insert(
             "reason".to_owned(),

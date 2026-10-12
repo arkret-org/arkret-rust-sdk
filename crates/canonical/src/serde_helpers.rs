@@ -6,6 +6,25 @@ use serde_json::Value;
 
 use crate::canonical;
 
+/// Deserialize a present non-null member; `serde(default)` handles absence.
+pub fn deserialize_non_null_optional<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+/// Canonical timestamp counterpart of a present non-null optional member.
+pub fn deserialize_non_null_optional_timestamp<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_canonical_timestamp(deserializer).map(Some)
+}
+
 /// Deserialize an `Option<Value>` field while preserving an explicit wire
 /// `null` as `Some(Value::Null)` rather than collapsing it to `None`.
 pub fn deserialize_optional_value_preserving_null<'de, D>(

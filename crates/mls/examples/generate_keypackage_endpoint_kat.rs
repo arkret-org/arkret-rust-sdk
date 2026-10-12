@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         kat_case("agent_runtime", &agent)?,
     ];
     let fixture = json!({
-        "profile": "ak.profile.e2ee_client.v1",
+        "profile": arkret_wire::ProfileId::E2EE_CLIENT_V1,
         "version": "2026-09-19.1",
         "suite": "mls_keypackage_endpoint_known_answers",
         "runner": {
