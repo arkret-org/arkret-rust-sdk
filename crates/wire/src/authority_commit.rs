@@ -752,8 +752,23 @@ impl MlsWelcomeDelivery {
 #[serde(deny_unknown_fields)]
 pub struct EventAdmissionSubmission {
     pub event: Event,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present_approval_signatures"
+    )]
     pub approval_signatures: Option<Vec<ApprovalSignature>>,
+}
+
+// The registered carrier permits absence or an array, never explicit null.
+// Missing members use the field default; present members must decode as Vec.
+fn deserialize_present_approval_signatures<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Vec<ApprovalSignature>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Vec::<ApprovalSignature>::deserialize(deserializer).map(Some)
 }
 
 impl EventAdmissionSubmission {
@@ -2778,6 +2793,30 @@ mod tests {
             },
             "proof":{"kind":"detached_jws","verification_method":"did:web:approver.example#key","jws":"AA..AA"}
         })).unwrap()
+    }
+
+    #[test]
+    fn approval_submission_carrier_accepts_omission_or_array_but_rejects_null() {
+        let realm = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [31; 32],
+        ));
+        // Codec shape only; actual signature admission is tested by consumers.
+        let event = circle_item(realm, 1).event;
+        let mut value = serde_json::to_value(EventAdmissionSubmission::new(event)).unwrap();
+        let omitted: EventAdmissionSubmission = serde_json::from_value(value.clone()).unwrap();
+        assert!(omitted.approval_signatures.is_none());
+        let approval = approval_shape_fixture();
+        value["approval_signatures"] = json!([approval.clone()]);
+        let present: EventAdmissionSubmission = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(present.approval_signatures, Some(vec![approval]));
+        for invalid in [Value::Null, json!({}), json!("omitted")] {
+            value["approval_signatures"] = invalid.clone();
+            assert!(
+                serde_json::from_value::<EventAdmissionSubmission>(value.clone()).is_err(),
+                "invalid registered approval carrier: {invalid}"
+            );
+        }
     }
 
     #[test]
