@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::governance::membership_invite::InviteClaimBindingProof;
 
 /// Body of `ak.open.third_party_invite.command.present_token.v1`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInvitePresentRequestBody {
@@ -42,6 +43,7 @@ impl ThirdPartyInvitePresentRequestBody {
 }
 
 /// Success body of `ak.open.third_party_invite.command.present_token.v1`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInvitePresentOutcome {
@@ -59,6 +61,7 @@ pub struct ThirdPartyInvitePresentOutcome {
 ///   the entry).
 ///
 /// Plaintext 3PID (email / SMS) never appears in the public Event.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteOobKind {
@@ -77,6 +80,7 @@ pub enum ThirdPartyInviteOobKind {
 /// verifier chain (`verification_id` chain of trust + replay
 /// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
 /// the SDK model carries the wire shape.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInvite {
@@ -207,6 +211,7 @@ pub const THIRD_PARTY_INVITE_PROOF_FRESHNESS_SECONDS: i64 = 300;
 /// It is deliberately **not** an `ak:` typed id: it addresses service-private
 /// state, never a protocol object. It must never be written into a durable
 /// Realm Event, and it is neither invite permission nor activation authority.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct ThirdPartyInviteProvisioningId(String);
@@ -265,6 +270,7 @@ impl<'de> Deserialize<'de> for ThirdPartyInviteProvisioningId {
 ///
 /// It is service-local state: never a Realm invite cell state, never a reducer
 /// input.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteProvisioningState {
@@ -280,6 +286,7 @@ pub enum ThirdPartyInviteProvisioningState {
 /// `failed` reports only that the service exhausted its retry budget; the
 /// Realm-visible transition still requires an authorized writer to submit
 /// `ak.invite.revoke` with `target_state = send_failed`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteDeliveryState {
@@ -295,6 +302,7 @@ pub enum ThirdPartyInviteDeliveryState {
 /// must never echo it in a response, write it into a durable Event,
 /// account-data cell, notification or ordinary log. `Debug` is redacted for
 /// that reason, so a derived `Debug` on an enclosing body cannot leak a 3PID.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct ThirdPartyInviteDeliveryTargetUri(String);
@@ -353,6 +361,7 @@ impl<'de> Deserialize<'de> for ThirdPartyInviteDeliveryTargetUri {
 /// pepper and per-invite ephemeral key, and to return only the public material.
 /// A successful provisioning is neither invite permission, nor a pending Realm
 /// Invite, nor authority to deliver anything.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteProvisionRequestBody {
@@ -481,6 +490,7 @@ fn validate_invite_proof_binding(
 /// invite back to the private record. It never carries the raw token, salt,
 /// pepper, ephemeral private key or delivery target, and it is never presented
 /// to the invitee.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteProvisionOutcome {
@@ -529,6 +539,7 @@ impl ThirdPartyInviteProvisionOutcome {
 
 /// There is no attestation shape for any invite state other than `pending`: a
 /// non-pending invite yields no attestation at all.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteAttestedState {
@@ -564,6 +575,7 @@ impl ThirdPartyInviteDigestPreimage<'_> {
 /// service activate its private record without holding Realm state. A
 /// caller-reported invite id, invite digest, Event signature or HTTP success is
 /// never accepted in its place.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteAcceptanceAttestation {
@@ -662,6 +674,7 @@ impl ThirdPartyInviteAcceptanceAttestation {
 
 /// Body of `ak.self.third_party_invite.read.acceptance_attestation.v1`
 /// (`POST /_arkret/self/third-party-invites/acceptance-attestation`).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteAcceptanceAttestationRequestBody {
@@ -672,6 +685,7 @@ pub struct ThirdPartyInviteAcceptanceAttestationRequestBody {
 }
 
 /// Success body of `ak.self.third_party_invite.read.acceptance_attestation.v1`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteAcceptanceAttestationOutcome {
@@ -704,6 +718,7 @@ impl ThirdPartyInviteAcceptanceAttestationOutcome {
 /// The attestation is the whole authorization: a bare invite id, a
 /// caller-computed invite digest, or the service's own optimistic read of a
 /// remote Realm is never accepted.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteActivationRequestBody {
@@ -728,6 +743,7 @@ impl ThirdPartyInviteActivationRequestBody {
 ///
 /// A byte-identical retry, a concurrent duplicate and a retry after a process
 /// restart all return this same body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteActivationOutcome {
@@ -762,6 +778,7 @@ impl ThirdPartyInviteActivationOutcome {
 ///
 /// `provisioning_id` is the whole query credential and travels only in this
 /// JSON body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteProvisioningStatusRequestBody {
@@ -774,6 +791,7 @@ pub struct ThirdPartyInviteProvisioningStatusRequestBody {
 /// It never carries the raw token, salt, pepper, ephemeral private key,
 /// delivery target or any 3PID-derived value, and never reveals whether the
 /// invitee opened the invite.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteProvisioningStatusOutcome {

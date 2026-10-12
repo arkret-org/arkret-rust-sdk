@@ -1354,9 +1354,9 @@ impl EventIdentityKey {
 }
 
 impl BlobRef {
-    /// Create a content-addressed `sha256:...` blob reference from raw bytes.
+    /// Create a content-addressed `ak:blob:sha256:...` reference from raw bytes.
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        Self(sha256_digest(bytes))
+        Self(format!("ak:blob:{}", sha256_digest(bytes)))
     }
 }
 
@@ -1653,6 +1653,12 @@ mod tests {
         assert!(BlobRef::new(format!("ak:blob:blake3:{digest64}")).is_ok());
         assert!(BlobRef::new(format!("sha256:{digest64}")).is_err());
         assert!(BlobRef::new("ak:blob:01904100-0000-7000-8000-000000000001").is_err());
+        let empty_blob = BlobRef::from_bytes(b"");
+        assert_eq!(
+            empty_blob.as_str(),
+            "ak:blob:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(empty_blob.as_str().parse::<BlobRef>().unwrap(), empty_blob);
         assert_eq!(Cursor::ID_KIND, "cursor");
         assert!(Cursor::new("ak:cursor:b3RoZXI").is_ok());
         for token in [

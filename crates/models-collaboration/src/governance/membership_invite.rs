@@ -694,6 +694,7 @@ pub const INVITE_SUBJECT_PROOF_ALG: &str = "Ed25519";
 pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
 
 /// Verification-service proof carried by `ak.invite.claim`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteClaimBindingProof {
