@@ -13,7 +13,9 @@ pub fn validate_event_wire_schema(event: &Event) -> Result<()> {
         .map_err(|error| SchemaError::Protocol(format!("event wire contract failed: {error}")))
 }
 
-/// Run the complete Event submit gate: structural checks followed by schema validation.
+/// Validate the typed Event root and its structural producer requirements.
+/// Effectful consumers use `arkret_event_draft::validate_event_for_submit`,
+/// which also owns the kind-selected payload class in the same admission gate.
 pub fn validate_event_for_submit(event: &Event) -> Result<()> {
     event
         .validate_for_submit_structural()

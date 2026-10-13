@@ -14,6 +14,7 @@ mod accountability;
 mod agent;
 mod applet;
 mod calendar;
+mod event_admission;
 mod event_intent;
 mod event_payload;
 mod ghost_profile;
@@ -34,6 +35,7 @@ pub use agent::{
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
+pub use event_admission::{decode_event_for_submit, validate_event_for_submit};
 pub use event_intent::EventIntent;
 pub use event_payload::{
     EVENT_PAYLOAD_BINDINGS, EventPayloadBinding, EventPayloadExt, EventSpec, MessageEventPayload,
