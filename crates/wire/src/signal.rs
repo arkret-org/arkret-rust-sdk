@@ -25,8 +25,8 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
-    AccountId, ActorId, Base64UrlString, DeviceId, Did, DidUrl, EventId, ExporterLabelId, Hash,
-    RealmCommitId, RealmId, canonical, project_did_to_core_id,
+    ActorId, Base64UrlString, DeviceId, Did, DidUrl, EventId, ExporterLabelId, Hash, RealmCommitId,
+    RealmId, canonical, project_did_to_core_id,
 };
 
 /// Construction identifier of the v1 Signal payload.
@@ -611,103 +611,6 @@ fn station_key_error(code: ErrorCode, message: &str) -> WireError {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SignalDeliveryAuthority {
-    pub recipient_account_id: AccountId,
-    pub key: StationSigningKey,
-}
-
-impl SignalDeliveryAuthority {
-    pub fn validate_for_envelope(&self, envelope: &SignalEnvelope) -> Result<()> {
-        self.recipient_account_id.validate()?;
-        self.key.validate()?;
-        if self.key.actor != envelope.sender_actor_id
-            || self.key.verification_method != envelope.proof.verification_method
-        {
-            return Err(station_key_error(
-                ErrorCode::SchemaViolation,
-                "Signal delivery authority does not bind the exact sender",
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Closed frame union for `ak.self.signal.stream.subscribe.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-// Tagged wire union; boxing a variant changes the public constructor shape
-// without changing the JSON.
-#[allow(clippy::large_enum_variant)]
-pub enum SignalStreamFrame {
-    Signal {
-        envelope: SignalEnvelope,
-        delivery_authority: SignalDeliveryAuthority,
-    },
-    Heartbeat,
-    Drain {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reconnect_after_ms: Option<u64>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reason: Option<String>,
-    },
-    Unauthorized {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reason: Option<String>,
-    },
-}
-
-impl SignalStreamFrame {
-    pub fn signal(envelope: SignalEnvelope, delivery_authority: SignalDeliveryAuthority) -> Self {
-        Self::Signal {
-            envelope,
-            delivery_authority,
-        }
-    }
-
-    pub const HEARTBEAT: Self = Self::Heartbeat;
-
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            Self::Signal {
-                envelope,
-                delivery_authority,
-            } => {
-                envelope.validate_structural()?;
-                delivery_authority.validate_for_envelope(envelope)
-            }
-            Self::Heartbeat => Ok(()),
-            Self::Drain {
-                reconnect_after_ms,
-                reason,
-            } => {
-                if reconnect_after_ms
-                    .is_some_and(|value| value > MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS)
-                {
-                    return Err(WireError::Protocol(format!(
-                        "Signal drain reconnect_after_ms exceeds \
-                         {MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS}"
-                    )));
-                }
-                validate_signal_stream_reason(reason.as_deref())
-            }
-            Self::Unauthorized { reason } => validate_signal_stream_reason(reason.as_deref()),
-        }
-    }
-}
-
-fn validate_signal_stream_reason(reason: Option<&str>) -> Result<()> {
-    if reason.is_some_and(|value| value.chars().count() > MAX_SIGNAL_STREAM_REASON_CHARS) {
-        return Err(WireError::Protocol(format!(
-            "Signal stream reason exceeds {MAX_SIGNAL_STREAM_REASON_CHARS} characters"
-        )));
-    }
-    Ok(())
-}
-
 /// Closed request body for `ak.peer.signal.command.relay.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -774,6 +677,7 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
+    use crate::AccountId;
     use crate::primitives::proof_kind;
 
     fn realm() -> RealmId {
@@ -1170,44 +1074,5 @@ mod tests {
         let bytes = String::from_utf8(envelope.proof_binding_bytes().unwrap()).unwrap();
         assert!(bytes.contains(ProofContextId::SIGNAL_PROOF_V1));
         assert!(bytes.contains("sender_device_id"));
-    }
-
-    #[test]
-    fn stream_frames_are_closed_and_bounded() {
-        let envelope = envelope(SignalClass::Session, 30);
-        let authority = SignalDeliveryAuthority {
-            recipient_account_id: envelope.sender_actor_id.as_account_id().unwrap().clone(),
-            key: StationSigningKey {
-                actor: envelope.sender_actor_id.clone(),
-                verification_method: envelope.proof.verification_method.clone(),
-                public_key_b64u: Base64UrlString::new("A".repeat(43)).unwrap(),
-                authorization_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
-            },
-        };
-        let signal = SignalStreamFrame::signal(envelope, authority);
-        signal.validate().unwrap();
-        assert_eq!(
-            serde_json::to_value(signal).unwrap()["kind"],
-            serde_json::json!("signal")
-        );
-        assert_eq!(
-            serde_json::to_value(SignalStreamFrame::HEARTBEAT).unwrap(),
-            serde_json::json!({"kind": "heartbeat"})
-        );
-        assert!(
-            SignalStreamFrame::Drain {
-                reconnect_after_ms: Some(MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS + 1),
-                reason: None,
-            }
-            .validate()
-            .is_err()
-        );
-        assert!(
-            SignalStreamFrame::Unauthorized {
-                reason: Some("x".repeat(MAX_SIGNAL_STREAM_REASON_CHARS + 1)),
-            }
-            .validate()
-            .is_err()
-        );
     }
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-13.1;
-//! sha256=e0c0f65c268ed1f8c7cf1bcea318b88d8bbc94c55dc527b04b9cf2207fc129af Entries: schema_ids=227,
+//! Input: registry/contract-registry.json; version=2026-10-14.1;
+//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86 Entries: schema_ids=227,
 //! active=227
 
 use serde::{Deserialize, Serialize};
@@ -1301,7 +1301,8 @@ impl SchemaId {
     /// Bounded single-hop peer relay request and opaque outcome for encrypted SignalEnvelope
     /// values.
     pub const SIGNAL_RELAY_V1: &'static str = "ak.schema.signal_relay.v1";
-    /// Closed data/control frame union for ak.self.signal.stream.subscribe.v1.
+    /// Closed data/control frame union for ak.self.signal.stream.subscribe.v1, with optional
+    /// exact-envelope historical/current dual-action product authority and public Agent ceilings.
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";

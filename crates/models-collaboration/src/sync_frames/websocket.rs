@@ -22,11 +22,12 @@ use arkret_wire::websocket_binding::{
     validate_websocket_opaque_id, validate_websocket_ping_id, validate_websocket_session_grant,
 };
 use arkret_wire::{
-    ActorId, RealmId, Result, SignalStreamFrame, WebSocketOperationId, WebSocketTransportError,
-    WireError,
+    ActorId, RealmId, Result, WebSocketOperationId, WebSocketTransportError, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::SignalStreamFrame;
 
 /// Failure at the WebSocket message ingress boundary. The close code is
 /// selected before JSON parsing so an oversize message always closes as 1009.
