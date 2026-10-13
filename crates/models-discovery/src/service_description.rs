@@ -1327,23 +1327,6 @@ pub enum ConformanceVerifiedKind {
     ConformanceVerified,
 }
 
-/// Wire-level entry in
-/// [`ServiceDescribe::interop_surfaces`]. Mirrors
-/// `service-describe.schema.json#/properties/interop_surfaces/items`:
-/// `name` + `kind` are required and `kind` is restricted to a closed
-/// enum so receivers can fast-path the dispatch.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InteropSurfaceEntry {
-    pub name: String,
-    pub kind: InteropSurfaceKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notes: Option<String>,
-}
-
 impl InteropSurfaceEntry {
     pub fn new(name: impl Into<String>, kind: InteropSurfaceKind) -> Self {
         Self {
@@ -1529,3 +1512,5 @@ pub enum RateLimitScope {
     Single(String),
     Multiple(Vec<String>),
 }
+
+include!("generated/service_description_contracts.rs");

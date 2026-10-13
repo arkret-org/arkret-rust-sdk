@@ -226,17 +226,6 @@ impl EncryptedEnvelopeEncryptionContext {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-/// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.
-pub struct EncryptedEnvelope {
-    pub version: String,
-    pub content_type: String,
-    pub encryption_context: EncryptedEnvelopeEncryptionContext,
-    pub ciphertext: String,
-}
-
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
@@ -461,3 +450,5 @@ impl EncryptedPayload {
         }
     }
 }
+
+include!("generated/encrypted_envelope_contracts.rs");

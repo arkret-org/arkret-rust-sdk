@@ -170,50 +170,6 @@ pub struct DeviceGenerationState {
     pub current_device_generation_ref: u64,
 }
 
-/// Exact original device grant window, independent of current-query cache TTL.
-/// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
-/// authorization_window`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceAuthorizationWindow {
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub not_before: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-/// Origin Station assertion that one exact device projection is the
-/// account's current accepted one.
-///
-/// This is the whole verification closure of the cross-principal `keys/query`
-/// surface. It replaces replaying the PCR genesis and authorization history:
-/// that material is account-internal governance,
-/// a relationship-gated third party has no business holding it, and the schema
-/// never carried it in the first place, so the old closure was unexecutable on
-/// the wire. Mirrors
-/// `keys-operations.schema.json#/$defs/device_projection_attestation_core`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceProjectionAttestationCore {
-    /// Complete account identity. The proof controller MUST be its Station.
-    pub account_id: AccountId,
-    pub device_id: DeviceId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub device_signing_key_did: DidKey,
-    pub hpke_key: NonEmptyString,
-    pub device_authorize_event_id: EventId,
-    pub authorized_generation_ref: u64,
-    /// Constant `active`: this surface attests usable devices only.
-    pub device_status: DeviceStatus,
-    pub authorization_window: DeviceAuthorizationWindow,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub attested_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -254,52 +210,6 @@ impl DeviceProjectionAttestation {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HumanEventAuthorization {
-    pub event_id: EventId,
-    pub verification_method: arkret_wire::DidUrl,
-    pub destination_service_id: arkret_wire::DidCoreId,
-    pub forward_body_digest: Hash,
-    pub authorization_ref: arkret_wire::CommittedEventRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub revision: arkret_wire::CurrentRevision,
-    pub governance_generation: u64,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ForwardDeviceProjectionAttestationCore {
-    /// Complete account identity. The proof controller MUST be its Station.
-    pub account_id: AccountId,
-    pub device_id: DeviceId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub device_signing_key_did: DidKey,
-    pub hpke_key: NonEmptyString,
-    pub device_authorize_event_id: EventId,
-    pub authorized_generation_ref: u64,
-    /// Constant `active`: this surface attests usable devices only.
-    pub device_status: DeviceStatus,
-    pub authorization_window: DeviceAuthorizationWindow,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub attested_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub event_authorization: HumanEventAuthorization,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ForwardDeviceProjectionAttestation {
-    pub attestation: ForwardDeviceProjectionAttestationCore,
-    pub proof: ProtocolSignature,
-}
-
 impl ForwardDeviceProjectionAttestation {
     pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
         let core = &self.attestation;
@@ -323,73 +233,6 @@ impl ForwardDeviceProjectionAttestation {
         }))
         .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
-}
-
-/// Restricted device projection a client receives from its *own* authenticated
-/// Station on the self `keys/query` surface.
-///
-/// The values are the ones the returning Station read out of the origin
-/// Station's verified [`DeviceProjectionAttestation`]. The row therefore
-/// carries no origin proof and no wrapper whose only job was to verify that
-/// proof, and a client MUST NOT treat this projection as portable evidence
-/// about the origin. `account_id` and `device_id` are deliberately absent:
-/// they are the enclosing [`QueryAccountDeviceEntry::account_id`] and the
-/// `device_keys` map key, and the returning Station MUST have checked that the
-/// verified attestation named exactly that pair before projecting the row.
-/// Mirrors `keys-operations.schema.json#/$defs/verified_device_projection`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct VerifiedDeviceProjection {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub device_signing_key_did: DidKey,
-    pub hpke_key: NonEmptyString,
-    pub device_authorize_event_id: EventId,
-    pub authorized_generation_ref: u64,
-    /// Constant `active`: this surface projects usable devices only.
-    pub device_status: DeviceStatus,
-    /// Origin observation instant, forwarded verbatim.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub attested_at: DateTime<Utc>,
-    /// Fresh current-query cache deadline, forwarded verbatim. The returning
-    /// Station MUST NOT extend it.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub authorization_window: DeviceAuthorizationWindow,
-}
-
-/// Per-`(account_id, device_id)` entry in [`KeysQueryOutcome::device_keys`],
-/// the client-facing self surface.
-///
-/// Every field is required. A device whose generation is fenced or conflicted,
-/// or which is revoked, is not degraded into a partial row: it is omitted from
-/// `device_keys` or reported through the non-enumerating `failures` shape, so
-/// an incomplete row can never be mistaken for a usable one. `account_id` and
-/// `device_id` are the map keys, not row fields. This is deliberately a
-/// different type from [`PeerQueryDeviceRecord`]: the client's Station already
-/// verified the origin attestation, so the client gets the restricted
-/// projection and never the origin proof. Mirrors
-/// `keys-operations.schema.json#/$defs/query_device_record`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct QueryDeviceRecord {
-    /// Content-addressed retained device evidence and its Station attester
-    /// closure. It keeps pointing at that complete immutable evidence object:
-    /// it is neither recomputed from this pruned projection nor an additional
-    /// device-authority claim.
-    pub signer_evidence_ref: arkret_wire::SignerEvidenceRef,
-    /// Prekey bundle keyed by algorithm name. The demo projection carries the
-    /// opaque uploaded key payload here; each value matches the schema
-    /// `key_record` once real prekey records are published.
-    #[serde(default)]
-    pub algorithms: AlgorithmKeyRecords,
-    /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids used to
-    /// select entries from the sibling prekey-bundle map.
-    pub trust_algorithms: Vec<NonEmptyString>,
-    /// Values the client's own Station read out of the verified origin
-    /// attestation. Not portable evidence.
-    pub device_projection: VerifiedDeviceProjection,
 }
 
 impl QueryDeviceRecord {
@@ -432,29 +275,6 @@ impl QueryDeviceRecord {
         }
         Ok(())
     }
-}
-
-/// Per-`(account_id, device_id)` entry in
-/// [`PeerKeysQueryOutcome::device_keys`], the Station-to-Station surface.
-///
-/// Every returned row is complete and attested: the origin Station signs the
-/// exact projection, so the requesting Station can verify the row itself. A
-/// Station MUST NOT turn an unverified peer row into a client result by
-/// dropping its proof. Mirrors
-/// `keys-operations.schema.json#/$defs/peer_query_device_record`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerQueryDeviceRecord {
-    /// Content-addressed retained device evidence and its Station attester
-    /// closure. Its embedded attestation equals this row's attestation byte for
-    /// byte; the ref is not an additional device-authority claim.
-    pub signer_evidence_ref: arkret_wire::SignerEvidenceRef,
-    #[serde(default)]
-    pub algorithms: AlgorithmKeyRecords,
-    pub trust_algorithms: Vec<NonEmptyString>,
-    /// Origin Station signature over this exact row.
-    pub device_projection_attestation: DeviceProjectionAttestation,
 }
 
 impl PeerQueryDeviceRecord {
@@ -619,16 +439,6 @@ pub type QueryDeviceKeys = BTreeMap<DeviceId, QueryDeviceRecord>;
 /// `keys-operations.schema.json#/$defs/peer_query_device_keys`.
 pub type PeerQueryDeviceKeys = BTreeMap<DeviceId, PeerQueryDeviceRecord>;
 
-/// One self-surface device-key result group per exact `AccountId`. Item of
-/// `keys-operations.schema.json#/$defs/query_account_device_entries/items`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct QueryAccountDeviceEntry {
-    pub account_id: AccountId,
-    pub device_keys: QueryDeviceKeys,
-}
-
 impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceEntry {
     type Identity = AccountId;
     fn identity(&self) -> &AccountId {
@@ -640,16 +450,6 @@ impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceEntry {
         }
         Ok(())
     }
-}
-
-/// One Station-to-Station device-key result group per exact `AccountId`. Item
-/// of `keys-operations.schema.json#/$defs/peer_query_account_device_entries/items`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerQueryAccountDeviceEntry {
-    pub account_id: AccountId,
-    pub device_keys: PeerQueryDeviceKeys,
 }
 
 impl arkret_wire::CanonicalIdentityEntry for PeerQueryAccountDeviceEntry {
@@ -1464,3 +1264,5 @@ impl ForwardDeviceProjectionAttestationCore {
         Ok(())
     }
 }
+
+include!("generated/keys_contracts.rs");

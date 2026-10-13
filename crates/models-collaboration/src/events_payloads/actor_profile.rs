@@ -3,14 +3,6 @@
 
 use crate::internal_prelude::*;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/actor_profile_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ActorProfileCreatePayload {
-    pub object: ActorProfileDefinition,
-}
-
 impl ActorProfileCreatePayload {
     /// The create result: the profile id is this Event's own id retyped, the
     /// Realm is the carrying Event's Realm and the creation time is the
@@ -28,17 +20,6 @@ impl ActorProfileCreatePayload {
             event.created_at,
         )
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/actor_profile_update_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ActorProfileUpdatePayload {
-    pub target_ref: ActorProfileId,
-    pub patch: Patch,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
 }
 
 /// Root members the registered `ak.profile.update` `apply_patch` projection
@@ -266,3 +247,5 @@ mod tests {
         assert!(foreign.apply(&update, &current).is_err());
     }
 }
+
+include!("generated/actor_profile_contracts.rs");

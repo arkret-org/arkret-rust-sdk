@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-12.1;
-//! sha256=d2ceba4e55eb1db1efe5952869b3785ea5f3539bfd1b0bc99655bdc0146028c2 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-13.1;
+//! sha256=e0c0f65c268ed1f8c7cf1bcea318b88d8bbc94c55dc527b04b9cf2207fc129af Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=150, approval_carriers=3, schemas=226, account_data_patterns=24
+//! special_forms=15, actions=150, approval_carriers=3, schemas=227, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3432,6 +3432,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::ICE_CONFIG_RESPONSE_V1,
         file: "schemas/ice-config-response.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::IDENTITY_LINK_V1,
+        file: "schemas/identity-link.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RECEIPT_V1,

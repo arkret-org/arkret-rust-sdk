@@ -52,21 +52,4 @@ fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
     Ok(())
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/morph_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MorphCreatePayload {
-    pub object: Morph,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/morph_stage_set_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MorphStageSetPayload {
-    pub morph_id: MorphId,
-    pub stage: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_stage: Option<String>,
-}
+include!("generated/morph_contracts.rs");

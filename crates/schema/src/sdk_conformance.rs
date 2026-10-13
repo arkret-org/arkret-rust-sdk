@@ -45,14 +45,6 @@ pub struct SdkArtifactSubject {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-/// `spec/v1/artifacts/schemas/sdk-conformance-claim.schema.json#/$defs/issuer`.
-pub struct SdkClaimIssuer {
-    pub id: DidCoreId,
-    pub verification_method: DidUrl,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct SdkConformanceProof {
     pub kid: DidUrl,
     pub signature_algorithm: SdkConformanceProofAlgorithm,
@@ -1092,3 +1084,5 @@ mod tests {
         ));
     }
 }
+
+include!("generated/sdk_conformance_contracts.rs");

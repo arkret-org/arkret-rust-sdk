@@ -10,33 +10,6 @@ pub enum AgentInteractionMode {
     Public,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_interaction_set_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentInteractionSetPayload {
-    pub agent_account_id: AccountId,
-    pub controller_account_id: AccountId,
-    pub interaction_mode: AgentInteractionMode,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
-    pub expected_revision: Option<CurrentRevision>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_value`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentInteractionCurrentValue {
-    pub controller_account_id: AccountId,
-    pub interaction_mode: AgentInteractionMode,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentInteractionSelectorKind {
@@ -44,16 +17,6 @@ pub enum AgentInteractionSelectorKind {
     AgentInteraction,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_result/
-/// properties/selector`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentInteractionExactCurrentSelector {
-    pub kind: AgentInteractionSelectorKind,
-    pub agent_account_id: AccountId,
-}
 impl AgentInteractionExactCurrentSelector {
     pub fn new(agent_account_id: AccountId) -> Self {
         Self {
@@ -61,17 +24,6 @@ impl AgentInteractionExactCurrentSelector {
             agent_account_id,
         }
     }
-}
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_result`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentInteractionExactCurrentRow {
-    pub selector: AgentInteractionExactCurrentSelector,
-    pub source_stream_ref: CommitStreamRef,
-    pub revision: CurrentRevision,
-    pub value: AgentInteractionCurrentValue,
 }
 
 /// Only a verified same-cut read can yield a mode; a missing snapshot is unknown.
@@ -130,3 +82,5 @@ mod tests {
         }
     }
 }
+
+include!("generated/agent_interaction_contracts.rs");

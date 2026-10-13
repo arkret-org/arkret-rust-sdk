@@ -594,29 +594,18 @@ impl<'de> Deserialize<'de> for DeviceRevocationReason {
     }
 }
 
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/device_revoke_payload`.
-///
-/// The revoked subject account is derived exclusively from the Event envelope
-/// `actor_id`, so the payload carries no `principal_id` mirror. It likewise
-/// carries no checkpoint, generation or pending-selector member: the permanent
-/// cutoff is the accepted `RealmCommit` covering this Event, and the
-/// `revocation_pending` record for the reducer-derived authorization and
-/// generation is created by first durable acceptance, never self-reported by
-/// the producer.
+// Counterpart for
+// `event-payload.schema.json#/$defs/device_revoke_payload`.
+//
+// The revoked subject account is derived exclusively from the Event envelope
+// `actor_id`, so the payload carries no `principal_id` mirror. It likewise
+// carries no checkpoint, generation or pending-selector member: the permanent
+// cutoff is the accepted `RealmCommit` covering this Event, and the
+// `revocation_pending` record for the reducer-derived authorization and
+// generation is created by first durable acceptance, never self-reported by
+// the producer.
 // Field declaration order is byte-for-byte the properties order of
 // event-payload.schema.json#/$defs/device_revoke_payload.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceRevokePayload {
-    pub device_id: DeviceId,
-    pub revoked_by: DeviceOrPrincipalRef,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub revoked_at: DateTime<Utc>,
-    pub reason: DeviceRevocationReason,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SignatureMaterial>,
-}
 
 impl DeviceRevokePayload {
     /// The subject of a revocation is the envelope author, so a payload that
@@ -881,3 +870,5 @@ mod device_revoke_tests {
         assert!(serde_json::from_value::<DeviceRevokePayload>(loose).is_err());
     }
 }
+
+include!("generated/device_identity_contracts.rs");

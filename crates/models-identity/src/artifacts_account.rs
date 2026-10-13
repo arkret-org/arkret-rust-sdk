@@ -43,33 +43,6 @@ pub enum DeviceSummaryVerificationSource {
     Recovery,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summary`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceSummary {
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    pub status: DeviceSummaryStatus,
-    pub verification_state: DeviceSummaryVerificationState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_source: Option<DeviceSummaryVerificationSource>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub authorized_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub last_seen_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
-}
-
 impl DeviceSummary {
     pub fn validate(&self) -> Result<()> {
         validate_device_summary_evidence(
@@ -165,3 +138,5 @@ pub fn validate_device_summary_evidence(
     }
     Ok(())
 }
+
+include!("generated/artifacts_account_contracts.rs");

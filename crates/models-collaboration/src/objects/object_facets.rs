@@ -13,44 +13,12 @@ use crate::objects::productivity::{
     SearchPolicy,
 };
 
-/// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DisplaySymbol {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub emoji: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub glyph: Option<String>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Display {
     pub short_name: String,
     pub color_token: String,
     pub symbol: DisplaySymbol,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StrandTrack {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub is_primary: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub template: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub metadata: BTreeMap<String, Value>,
-    /// Track-owned narrative body. In v1 only the `synthesis` entry may carry
-    /// this field; discussion bodies are Message objects.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<ContentBlock>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<EncryptedEnvelope>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json#/properties/fields`.
@@ -98,3 +66,5 @@ pub enum StationSearchArtifacts {
 impl StationSearchArtifacts {
     pub const SCHEMA: &'static str = SchemaId::SEARCH_SERVICE_V1;
 }
+
+include!("generated/object_facets_contracts.rs");

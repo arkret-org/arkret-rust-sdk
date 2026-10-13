@@ -97,13 +97,6 @@ impl ViewDefinition {
     }
 }
 
-/// `event-payload.schema.json#/$defs/view_create_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewCreatePayload {
-    pub object: ViewDefinition,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ViewCreatePayloadWire {
@@ -128,16 +121,6 @@ impl<'de> Deserialize<'de> for ViewCreatePayload {
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
     }
-}
-
-/// `event-payload.schema.json#/$defs/view_update_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewUpdatePayload {
-    pub view_id: ViewId,
-    pub patch: Patch,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
 }
 
 #[derive(Deserialize)]
@@ -202,15 +185,6 @@ fn validate_collection_config(collection: &CollectionConfig) -> Result<()> {
         return schema_violation("View collection grouping is missing mode-specific fields");
     }
     Ok(())
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/view_reconcile_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ViewReconcilePayload {
-    pub view_id: ViewId,
-    pub definition: ViewDefinition,
 }
 
 #[derive(Deserialize)]
@@ -333,3 +307,5 @@ mod tests {
         }
     }
 }
+
+include!("generated/view_contracts.rs");

@@ -48,7 +48,6 @@ pub mod extension_manifest;
 pub mod forbidden_wire;
 pub mod generated;
 pub mod ingress_budget;
-pub mod mls_transition;
 pub mod object_address;
 pub mod object_ref;
 pub mod operation_types;
@@ -105,7 +104,6 @@ pub use extension_map::XExtensionMap;
 pub use generated::*;
 pub use genesis_salt::GenesisSalt;
 pub use ingress_budget::WireBodyClass;
-pub use mls_transition::mls_genesis_transition_digest;
 pub use object_address::*;
 pub use object_ref::is_object_ref;
 pub use operation_types::*;
@@ -159,12 +157,6 @@ pub use webvh_parameters::{
 };
 pub use wire_presence::WirePresence;
 pub use wire_strings::*;
-
-// Retain the pre-existing SDK identity-link surface until its own registry
-// drift is adjudicated; the current committed-event migration does not delete it.
-impl SchemaId {
-    pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
-}
 
 // Keep this pre-existing policy-facing string while its registry removal is
 // handled independently from the committed-event protocol migration.

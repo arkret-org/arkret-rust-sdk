@@ -468,6 +468,1552 @@
         "HighRiskTrustedRecoveryServiceProofBody",
         "HighRiskAuthorityProof"
       ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/identity/src/generated/binding_contracts.rs"
+      ],
+      "owner": "arkret-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/did-binding-contracts.schema.json"
+      ],
+      "provides": [
+        "LimitedTrust",
+        "FreshnessProfile"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/identity/src/generated/binding_digest_contracts.rs"
+      ],
+      "owner": "arkret-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/did-binding-contracts.schema.json"
+      ],
+      "provides": [
+        "EvidenceDependencies"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/identity/src/generated/records_contracts.rs"
+      ],
+      "owner": "arkret-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/identity-receipt.schema.json"
+      ],
+      "provides": [
+        "DidRegistryReceipt"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/agent_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/authenticated-signer-resolution-evidence.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/string-profiles.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "AgentProjection",
+        "AgentList",
+        "AgentView",
+        "KeyState",
+        "AgentRuntimeApprovalControllerProjection",
+        "AgentSidecarView",
+        "AgentSidecarList",
+        "AgentLifecycleOutcome",
+        "KeyStateCurrentSignerEvidence"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/actor_profile_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ActorProfileCreatePayload",
+        "ActorProfileUpdatePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-provision.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/string-profiles.schema.json",
+        "schemas/time.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "AgentActionApprovePayload",
+        "AgentActionRejectPayload",
+        "AgentActionRequestPayload",
+        "AgentDeactivatePayload",
+        "AgentDraftProposePayload",
+        "AgentKeyScope",
+        "AgentKeyAuthorizePayloadRuntimeAttestation",
+        "AgentKeyAuthorizePayload",
+        "AgentKeyRevokePayload",
+        "AgentPausePayload",
+        "AgentResumePayload",
+        "AgentProvisioningValue",
+        "AgentPcrGenesisDeclarationValue",
+        "AgentProvisionPayload",
+        "AgentActionTarget",
+        "AgentKeyApprovalEvidence",
+        "AgentKeyScopeResource"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/capability_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/capability-grant.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "CapabilityRevokePayload",
+        "CapabilityRelinquishPayload",
+        "CapabilityGrantCreateBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/circle_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "CircleCreatePayload",
+        "CirclePatchPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "ConsentGrantPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/contact_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ContactAcceptedPayload",
+        "ContactRejectedPayload",
+        "ContactRequestedPayload",
+        "ContactTombstonedPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/message_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/encrypted-envelope.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "MessageRedactPayload",
+        "MessageRevisePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/morph_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "MorphCreatePayload",
+        "MorphStageSetPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/poll_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/content-block-poll.schema.json",
+        "schemas/message.schema.json"
+      ],
+      "provides": [
+        "PollAnswer",
+        "PollBody",
+        "PollResponseBody",
+        "PollBlock",
+        "PollResponseBlock"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/profile_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ProfileRealmOverridePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ReadReceiptPolicyPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/realm_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "RealmOwnerTransferPayload",
+        "RealmCreatePayload",
+        "RealmFreezePayload",
+        "RealmSearchPolicyPayload",
+        "RealmOrganizationPayload",
+        "RealmAuthorityResetPayload",
+        "RealmOrganizationAuthorization"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/redaction_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "CrossObjectRedactionPayload",
+        "ObjectRedactionEntry",
+        "ObjectRedactionCurrentValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/relation_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "RelationCreatePayload",
+        "RelationUpdatePayload",
+        "RelationTombstonePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/wire/src/generated/relation_contracts.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/event-envelope.schema.json",
+        "schemas/relation.schema.json"
+      ],
+      "provides": [
+        "RelationDefinition"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/sidecar_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "SidecarCreatePayload",
+        "AgentSidecarExchangeControlPayload",
+        "SidecarContextAttachPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/space_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "SpaceCreatePayload",
+        "SpaceParentPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/strand_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "StrandCreatePayload",
+        "StrandStageSetPayload",
+        "StrandMovePayload",
+        "StrandReorderPayload",
+        "StrandWatchSetPayload",
+        "StrandWatchExpectedValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/view_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ViewCreatePayload",
+        "ViewUpdatePayload",
+        "ViewReconcilePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/agent_artifacts_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/public-key.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "GrantSnapshot",
+        "AgentKeyAuthorizationState",
+        "PublicKey"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/agent_participation_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/agent-operations.schema.json"
+      ],
+      "provides": [
+        "AgentParticipationOutcome"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/invite_addressing_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/authority-commit-operations.schema.json",
+        "schemas/invite-delivery-request.schema.json",
+        "schemas/invite-delivery.schema.json"
+      ],
+      "provides": [
+        "InviteDelivery",
+        "InviteDeliveryEntry",
+        "InviteDeliveryRequestBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/moderation-queue-item.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "ModerationQueueItem"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/policy.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "PolicyResourceSelector",
+        "PolicyRule",
+        "PolicyServerSelector",
+        "PolicySetStatePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/plaintext_visibility_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "PlaintextVisibleServicesPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/realm_governance_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/realm-link-operations.schema.json",
+        "schemas/realm-organization-operations.schema.json"
+      ],
+      "provides": [
+        "RealmLinkList",
+        "RealmAliasDeclarationPayload",
+        "RealmAliasTombstonePayload",
+        "RealmOrganizationRelationshipList"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/realm_lifecycle_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/realm.schema.json"
+      ],
+      "provides": [
+        "RealmJoinRulePayload",
+        "RealmDiscoveryPayload",
+        "RealmArchivePayload",
+        "RealmTombstonePayload",
+        "RealmDestroyPayload",
+        "ObjectLifecyclePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/interop_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/mimi-operations.schema.json"
+      ],
+      "provides": [
+        "Ciphertext",
+        "GroupInfo",
+        "Identifier"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/object_facets_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/circle.schema.json",
+        "schemas/encrypted-envelope.schema.json",
+        "schemas/morph.schema.json",
+        "schemas/strand.schema.json"
+      ],
+      "provides": [
+        "StrandTrack",
+        "DisplaySymbol"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/queries_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/view.schema.json"
+      ],
+      "provides": [
+        "SortSpec"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/read_receipts_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/notification.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "OrdinaryProjectionContent"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/signal_plaintext_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/read-receipt.schema.json",
+        "schemas/signal-presence.schema.json",
+        "schemas/signal-typing.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "PresencePlaintext",
+        "TypingPlaintext",
+        "ReadReceipt"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/encrypted_envelope_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/encrypted-envelope.schema.json"
+      ],
+      "provides": [
+        "EncryptedEnvelope"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/keys_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/keys-operations.schema.json"
+      ],
+      "provides": [
+        "DeviceAuthorizationWindow",
+        "DeviceProjectionAttestationCore",
+        "VerifiedDeviceProjection",
+        "QueryDeviceRecord",
+        "PeerQueryDeviceRecord",
+        "QueryAccountDeviceEntry",
+        "PeerQueryAccountDeviceEntry",
+        "HumanEventAuthorization",
+        "ForwardDeviceProjectionAttestationCore",
+        "ForwardDeviceProjectionAttestation"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-discovery/src/generated/service_description_contracts.rs"
+      ],
+      "owner": "arkret-models-discovery",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/service-describe.schema.json"
+      ],
+      "provides": [
+        "InteropSurfaceEntry"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/identity_resolution_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/identity-resolution.schema.json"
+      ],
+      "provides": [
+        "ServiceResolutionProjection"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/generated/applet_audit_payload_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "AppletBridgeErrorPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/generated/artifacts_applet_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/applet-edge-operations.schema.json",
+        "schemas/applet-install-authoring.schema.json",
+        "schemas/applet-install-plan.schema.json",
+        "schemas/string-profiles.schema.json"
+      ],
+      "provides": [
+        "FieldDefinition",
+        "ProtocolInstance",
+        "AppletEventRejection",
+        "E2eePolicy",
+        "ScopeGrant",
+        "CapabilityConstraint",
+        "DeniedScope",
+        "E2eeEffect",
+        "EventSubmission",
+        "NamespaceConflict",
+        "WidgetEffect",
+        "ExternalRef"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/schema/src/generated/sdk_conformance_contracts.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/sdk-conformance-claim.schema.json"
+      ],
+      "provides": [
+        "SdkClaimIssuer"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/authority_set_policy_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/authority-set-policy.schema.json"
+      ],
+      "provides": [
+        "AuthoritySetPolicy"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/recovery_policy_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/call-recording-artifact.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/recovery-policy.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "RecoveryKeyEntry",
+        "RecoveryKeyAgreementEntry",
+        "RecoveryPolicyRef",
+        "RecoveryPolicySummary",
+        "RecoveryPolicySetPayload",
+        "RecoveryAuthorityStreamHead",
+        "RecoveryPolicyActiveOutcome",
+        "RecoveryPolicyPublishOutcome",
+        "RecoveryPolicyAuthData"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/recovery_session_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/recovery-authority.schema.json",
+        "schemas/recovery-policy.schema.json",
+        "schemas/recovery-session.schema.json"
+      ],
+      "provides": [
+        "RecoverySessionProofSummary",
+        "PublicationAuthorityContext",
+        "RecoverySessionCreateRequestBody",
+        "RecoveryDevicePossessionTranscript",
+        "DidRootProofBody",
+        "RecoveryUnlockProofBodyWithSignature",
+        "DeviceQuorumProofBodyWithSignatures",
+        "TrustedRecoveryServiceProofBodyWithSignature",
+        "DeviceQuorumSignature",
+        "DeviceQuorumSignatureBody",
+        "RecoveryUnlockProofBody",
+        "DeviceQuorumProofBody",
+        "TrustedRecoveryServiceProofBody",
+        "DidRootRecoveryTranscript",
+        "RecoverySessionProofSubmitRequestBody",
+        "RecoverySessionProofSubmitOutcome",
+        "RecoverySession",
+        "GenericRecoveryTranscript"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/agent-sidecar-event-exchange-binding.schema.json",
+        "schemas/agent-sidecar-exchange-control.schema.json",
+        "schemas/agent-sidecar-exchange-projection.schema.json",
+        "schemas/agent-sidecar-view-state.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "AgentSidecarViewState",
+        "SidecarStrandContextRef",
+        "AgentSidecarFoldedCheckpoint",
+        "SidecarSourceTrackRef",
+        "AgentSidecarMlsContext",
+        "PendingSidecarAccessReconciliation",
+        "AgentSidecarExchangeControlAssertion",
+        "AgentSidecarExchangeControl",
+        "AgentSidecarExchangeProjection",
+        "AgentSidecarEventExchangeBinding",
+        "AgentSidecarExchangeRequestContext"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/sidecar_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/principal-operations.schema.json"
+      ],
+      "provides": [
+        "SidecarStreamHead"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/sync_frames/generated/current_results_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-current-result.schema.json"
+      ],
+      "provides": [
+        "AccountCurrentView",
+        "AccountCurrentCoverage"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/realm_join_intake_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/realm-join-intake.schema.json"
+      ],
+      "provides": [
+        "PeerRealmJoinBootstrapRequestBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/session_credential_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/service-operation-dtos.schema.json"
+      ],
+      "provides": [
+        "SessionGrantDeviceBinding"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/service-operation-dtos.schema.json"
+      ],
+      "provides": [
+        "RecoverySessionGrantRequest",
+        "AgentSessionGrantRefreshRequest",
+        "AgentSessionRefreshProof"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/session_grants_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/agent-requested-scope-disclosure.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/service-operation-dtos.schema.json"
+      ],
+      "provides": [
+        "AgentSessionGrantRequest",
+        "HumanSessionGrantRequest",
+        "HumanSessionGrantRefreshRequest",
+        "AgentSessionGrantProof"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/contact_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/agent-operations.schema.json",
+        "schemas/authz-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/contact-operations.schema.json",
+        "schemas/string-profiles.schema.json"
+      ],
+      "provides": [
+        "ContactList",
+        "ContactAgentProjection",
+        "DirectConversationSummary"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/account_subscribe_projections_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-subscribe-frame.schema.json",
+        "schemas/common-ids.schema.json"
+      ],
+      "provides": [
+        "MemberRoster",
+        "MemberRosterEntry",
+        "AgentRuntimeApprovalNotificationData"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/device_identity_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "DeviceRevokePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/message_authoring_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/message-authoring.schema.json"
+      ],
+      "provides": [
+        "MessagePrepareOutcome"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/mimi_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/mimi-interop.schema.json",
+        "schemas/mimi-operations.schema.json",
+        "schemas/service-operation-dtos.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "MimiSubmitMessageRequestBody",
+        "MimiSubmitMessageOutcome",
+        "MimiIdentifierQueryOutcome",
+        "MimiProxyDownloadOutcome",
+        "MimiKeyMaterialRequestBody",
+        "MimiRoomUpdateRequestBody",
+        "MimiNotifyRequestBody",
+        "MimiRequestConsentOutcome",
+        "MimiUpdateConsentOutcome",
+        "MimiKeyMaterialOutcome"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "DirectConversationBoundPayload",
+        "DirectConversationBindingEndorsementEntry",
+        "DirectConversationBindingCurrentValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/consent_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/time.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "ConsentValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/key_backup_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/authz-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/keys-operations.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "BackupActiveSeriesState",
+        "KeysBackupsList",
+        "KeyBackupSummaryEncryption",
+        "KeyBackupSummary"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/sync_frames/generated/account_subscribe_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-subscribe-frame.schema.json"
+      ],
+      "provides": [
+        "AccountFilter",
+        "RealmDetailBaseline"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/account_device_signer_evidence_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-device-signer-evidence.schema.json"
+      ],
+      "provides": [
+        "AccountDeviceSignerEvidence",
+        "ForwardAccountDeviceSignerEvidence"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/claim_presentation_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/agent-provision.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "AgentSelectorClaimValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/wire/src/generated/authority_commit_contracts.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/authority-commit-operations.schema.json",
+        "schemas/authz-operations.schema.json",
+        "schemas/realm-authority-handoff.schema.json",
+        "schemas/realm-commit.schema.json",
+        "schemas/realm-read-operations.schema.json",
+        "schemas/service-operation-dtos.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "RealmStreamRow",
+        "RealmStreamList",
+        "ActorPrivateEventSubmitRequestBody",
+        "RealmAuthorityRootValue",
+        "RealmAuthorityHandoff",
+        "RealmCommit"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/registry_state_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "ResourceDiscoveryStateValue",
+        "AppletDiscoveryStatePayload",
+        "PolicyActionDocument",
+        "SchemaDefineStatePayload",
+        "PolicyActionStatePayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/productivity_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-blocklist.schema.json",
+        "schemas/calendar-event.schema.json",
+        "schemas/encrypted-envelope.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "AccountBlocklistValue",
+        "CalendarEventFields"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/membership_invite_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/agent-membership-cascade.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "InviteDirectedInviteeValue",
+        "InviteLiveTargetOccupant",
+        "JoinGateProof",
+        "MembershipPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/accountability_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/accountability-grant.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "AccountabilityProjection"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/actor_profile_operations_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/actor-profile-operations.schema.json"
+      ],
+      "provides": [
+        "AccountStatusProjection"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/authority_commit_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/authority-commit-operations.schema.json",
+        "schemas/common-ids.schema.json"
+      ],
+      "provides": [
+        "MlsGenesisMaterial",
+        "HumanHistoricalSignerFact",
+        "HistoricalProducerSignerFactEntry",
+        "PeerStreamScanOutcome",
+        "AuthorityHandoffRequest",
+        "CommittedEventSubmission"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/agent_interaction_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "AgentInteractionSetPayload",
+        "AgentInteractionCurrentValue",
+        "AgentInteractionExactCurrentSelector",
+        "AgentInteractionExactCurrentRow"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/encrypted-envelope.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "ReactionAssertionEntry",
+        "MessageReactionsCurrentValue",
+        "ReactionPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/account_data_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "AccountDataSetPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/audit_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "AuditAccessedPayload"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/call-recording-artifact.schema.json",
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "CallRecordingArtifact",
+        "CallStatePayload",
+        "ParticipantBinding"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/generated/models_push_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/push-operations.schema.json"
+      ],
+      "provides": [
+        "PushNotifyDeviceOutcome"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/artifacts_account_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/string-profiles.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "DeviceSummary"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/actor_profile_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/actor-profile.schema.json",
+        "schemas/string-profiles.schema.json"
+      ],
+      "provides": [
+        "ActorProfileDefinition"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/applet/generated/registration_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/account-operations.schema.json",
+        "schemas/applet-registration-epoch-evidence.schema.json",
+        "schemas/applet-registration-epoch-transcript.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "AppletDidMethodVersionEvidence",
+        "AppletRegistrationEpochEvidence"
+      ]
+    },
+    {
+      "generator": "binding-prefixes",
+      "outputs": [
+        "crates/canonical/src/generated/binding_prefixes.rs"
+      ],
+      "owner": "arkret-canonical",
+      "mode": "canonical-prefix",
+      "artifacts": [
+        "registry/proof-context-registry.json"
+      ],
+      "provides": [
+        "DomainPrefix"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/profiles_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/identity-link.schema.json",
+        "schemas/policy.schema.json",
+        "schemas/strand.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "IdentityLink",
+        "IdentityLinkProof"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/authenticated_signer_resolution_evidence_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/authenticated-signer-resolution-evidence.schema.json"
+      ],
+      "provides": [
+        "AuthenticatedSignerResolutionEvidence"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/mimi_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "MimiRoomBindingPayloadBindingScope"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/events_payloads/generated/preview_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json"
+      ],
+      "provides": [
+        "PreviewPolicyPayloadValueHistory"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/erasure_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/erasure-receipt.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "ErasurePeerReceipt"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/objects/generated/blob_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/blob-operations.schema.json"
+      ],
+      "provides": [
+        "SignatureValue"
+      ]
+    },
+    {
+      "generator": "rejected-profile-markers",
+      "outputs": [
+        "crates/wire/src/generated/rejected_profile_markers.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "rejection-marker",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ],
+      "provides": [
+        "RejectedProfileId"
+      ]
     }
   ]
 }

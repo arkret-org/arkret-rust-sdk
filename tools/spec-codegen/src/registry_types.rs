@@ -1140,6 +1140,13 @@ fn generate_capability_discovery(artifacts_dir: &Path) -> Result<GeneratedOutput
         ),
     );
     output.push_str("use crate::{BindingKind, ServiceKind, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub struct OperationBindingPair { pub operation_id: ServiceOperationId, pub binding_kind: BindingKind }\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct OperationBundleDescriptor { pub operation_bundle_id: &'static str, pub service_kind: ServiceKind, pub members: &'static [OperationBindingPair] }\nimpl OperationBundleDescriptor { pub fn contains(&self, operation_id: ServiceOperationId, binding_kind: BindingKind) -> bool { self.members.iter().any(|pair| pair.operation_id == operation_id && pair.binding_kind == binding_kind) } }\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum FeatureStatus { Active, Experimental, TestOnly }\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct FeatureDescriptor { pub feature_id: &'static str, pub status: FeatureStatus, pub defined_in: &'static str, pub service_kinds: &'static [ServiceKind], pub required_operation_pairs: &'static [OperationBindingPair], pub required_profiles: &'static [&'static str], pub required_limits: &'static [&'static str], pub semantic_guarantees: &'static [&'static str], pub conflicts: &'static [&'static str] }\n\npub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[\n");
+    let mut bundle_constants = String::from("\nimpl OperationBundleDescriptor {\n");
+    for bundle in &bundles {
+        let id = string(bundle, "operation_bundle_id")?;
+        writeln!(bundle_constants, "    pub const {}: &'static str = {};",
+            associated_name(id, &["ak.operation_bundle."]), rust_string(id))?;
+    }
+    bundle_constants.push_str("}\n");
     for bundle in bundles {
         writeln!(
             output,
@@ -1215,6 +1222,7 @@ fn generate_capability_discovery(artifacts_dir: &Path) -> Result<GeneratedOutput
     }
     output.push_str("];\n\npub fn feature_descriptor(feature_id: &str) -> Option<&'static FeatureDescriptor> { FEATURES.binary_search_by_key(&feature_id, |row| row.feature_id).ok().map(|index| &FEATURES[index]) }\n");
     output.push_str(&feature_constants);
+    output.push_str(&bundle_constants);
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/capability_discovery.rs".into(),
         contents: output,

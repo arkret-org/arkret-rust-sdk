@@ -62,29 +62,9 @@ pub enum RecoverySessionRejectionReasonCode {
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/proof_summary.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionProofSummary {
-    pub kind: RecoveryProofKind,
-    /// Digest of the canonical recovery proof transcript that satisfied this
-    /// session.
-    pub proof_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_method: Option<DidUrl>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/publication_authority_context.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublicationAuthorityContext {
-    pub authority_commit_id: RealmCommitId,
-    pub scope_ref: ScopeRef,
-    pub authority_set_policy: AuthoritySetPolicy,
-    pub allowed_actions: Vec<String>,
-}
 
 impl PublicationAuthorityContext {
     pub fn validate_shape(&self) -> Result<()> {
@@ -102,48 +82,6 @@ impl PublicationAuthorityContext {
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_session_state.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySession {
-    pub schema: String,
-    pub request_id: RequestId,
-    pub recovery_session_id: RecoverySessionId,
-    pub session_grant_id: SessionGrantId,
-    pub session_grant_cnf_jkt: Base64UrlString,
-    pub account_id: AccountId,
-    pub requesting_device_id: DeviceId,
-    pub requesting_device_public_key_did: DidKey,
-    pub trust_domain: TrustDomainId,
-    pub policy_id: PolicyId,
-    pub policy_version: u64,
-    pub identity_model: RecoveryIdentityModel,
-    pub current_device_generation_ref: u64,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub realm_stream_head: CommitStreamHead,
-    pub publication_authority_context: PublicationAuthorityContext,
-    /// SHA-256 of JCS(publication_authority_context). Proof transcripts and the
-    /// RecoveryTransaction session snapshot bind this exact digest.
-    pub publication_authority_context_digest: Hash,
-    pub challenge: Base64UrlString,
-    pub state: RecoverySessionState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof_summary: Option<RecoverySessionProofSummary>,
-    /// Durable RecoveryTransaction bound by CAS after verification. Absent
-    /// until transaction create succeeds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transaction_id: Option<TransactionId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rejection_reason_code: Option<RecoverySessionRejectionReasonCode>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    /// Session creation/signing time; this is the `created_at` bound into the
-    /// recovery proof transcript.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
-}
 
 impl RecoverySession {
     pub fn validate_shape(&self) -> Result<()> {
@@ -178,43 +116,9 @@ impl RecoverySession {
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_session_create_request_body.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionCreateRequestBody {
-    pub request_id: RequestId,
-    pub account_id: AccountId,
-    pub requesting_device_id: DeviceId,
-    pub requesting_device_public_key_did: DidKey,
-    /// Ed25519 proof of possession over
-    /// `UTF8("ak.identity.recovery_device_possession.v1\n") || JCS(transcript)`.
-    pub requesting_device_signature: Base64UrlString,
-    pub trust_domain: TrustDomainId,
-    /// Client CAS hint. When present and different from the server-snapshotted
-    /// accepted policy the request fails with `recovery_policy_mismatch`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_recovery_policy_ref: Option<RecoveryPolicyRef>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_device_possession_transcript.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryDevicePossessionTranscript {
-    pub schema: String,
-    pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
-    pub session_grant_cnf_jkt: Base64UrlString,
-    pub account_id: AccountId,
-    pub requesting_device_id: DeviceId,
-    pub requesting_device_public_key_did: DidKey,
-    pub trust_domain: TrustDomainId,
-    /// Included exactly when the create request includes it; an omitted hint is
-    /// never normalized to null.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_recovery_policy_ref: Option<RecoveryPolicyRef>,
-}
 
 impl RecoveryDevicePossessionTranscript {
     /// Canonical signing bytes: the domain line, then RFC 8785 JCS of the
@@ -268,71 +172,19 @@ pub enum TrustedRecoveryServiceProofKind {
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/did_root_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DidRootProofBody {
-    pub kind: DidRootProofKind,
-    pub challenge: Base64UrlString,
-    /// Current DID-root verification method, accepted only when the frozen PCR
-    /// recovery policy explicitly enables this revocable factor.
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-    pub signature: Base64UrlString,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_unlock_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryUnlockProofBodyWithSignature {
-    pub kind: RecoveryUnlockProofKind,
-    pub challenge: Base64UrlString,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-    pub signature: Base64UrlString,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/device_quorum_proof/properties/
 // signatures/items.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceQuorumSignature {
-    pub device_id: DeviceId,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-    pub signature: Base64UrlString,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/device_quorum_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceQuorumProofBodyWithSignatures {
-    pub kind: DeviceQuorumProofKind,
-    pub challenge: Base64UrlString,
-    pub threshold: u32,
-    pub signatures: Vec<DeviceQuorumSignature>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/trusted_recovery_service_proof.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustedRecoveryServiceProofBodyWithSignature {
-    pub kind: TrustedRecoveryServiceProofKind,
-    pub challenge: Base64UrlString,
-    pub service_id: DidCoreId,
-    pub audience: String,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-    pub signature: Base64UrlString,
-}
 
 /// Kind-specific recovery proof submitted against a pending session. Receivers
 /// rebuild the canonical transcript from stored session state plus this body,
@@ -380,105 +232,25 @@ impl RecoverySessionProof {
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionProofSubmitRequestBody {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof: RecoverySessionProof,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionProofSubmitOutcome {
-    pub recovery_session_id: RecoverySessionId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof_summary: Option<RecoverySessionProofSummary>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/did_root_transcript.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DidRootRecoveryTranscript {
-    pub schema: String,
-    pub kind: RecoveryProofKind,
-    pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
-    pub session_grant_cnf_jkt: Base64UrlString,
-    pub account_id: AccountId,
-    pub requesting_device_id: DeviceId,
-    pub requesting_device_public_key_did: DidKey,
-    pub trust_domain: TrustDomainId,
-    pub policy_id: PolicyId,
-    pub policy_version: u64,
-    pub recovery_session_id: RecoverySessionId,
-    pub identity_model: RecoveryIdentityModel,
-    /// Accepted PCR generation fenced by this recovery. DID method versioning
-    /// is orthogonal and is never carried here.
-    pub model_generation_ref: u64,
-    pub publication_authority_context_digest: Hash,
-    pub challenge: Base64UrlString,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    /// Session creation/signing time, not client proof creation time.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/recovery_unlock_proof_body.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryUnlockProofBody {
-    pub kind: RecoveryUnlockProofKind,
-    pub challenge: Base64UrlString,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/device_quorum_proof_body/properties/
 // signatures/items.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceQuorumSignatureBody {
-    pub device_id: DeviceId,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/device_quorum_proof_body.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceQuorumProofBody {
-    pub kind: DeviceQuorumProofKind,
-    pub challenge: Base64UrlString,
-    pub threshold: u32,
-    pub signatures: Vec<DeviceQuorumSignatureBody>,
-}
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/trusted_recovery_service_proof_body.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustedRecoveryServiceProofBody {
-    pub kind: TrustedRecoveryServiceProofKind,
-    pub challenge: Base64UrlString,
-    pub service_id: DidCoreId,
-    pub audience: String,
-    pub verification_method: DidUrl,
-    pub signature_algorithm: RecoverySignatureAlgorithm,
-}
 
 /// Closed signature-independent projection selected by `kind`. Carrier
 /// signatures are deleted, never replaced by null, before transcript
@@ -501,40 +273,11 @@ impl RecoveryTranscriptProofBody {
     }
 }
 
-/// Canonical transcript shared by `recovery_unlock`, `device_quorum` and
-/// `trusted_recovery_service` proofs. Producers and receivers bind exactly this
-/// session tuple.
+// Canonical transcript shared by `recovery_unlock`, `device_quorum` and
+// `trusted_recovery_service` proofs. Producers and receivers bind exactly this
+// session tuple.
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/generic_recovery_transcript.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GenericRecoveryTranscript {
-    pub schema: String,
-    pub kind: RecoveryProofKind,
-    pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
-    pub session_grant_cnf_jkt: Base64UrlString,
-    pub account_id: AccountId,
-    pub requesting_device_id: DeviceId,
-    pub requesting_device_public_key_did: DidKey,
-    pub trust_domain: TrustDomainId,
-    pub policy_id: PolicyId,
-    pub policy_version: u64,
-    pub recovery_session_id: RecoverySessionId,
-    pub identity_model: RecoveryIdentityModel,
-    /// PCR-local monotonic device generation accepted for this recovery
-    /// session; it is never a DID method versionId.
-    pub model_generation_ref: u64,
-    pub publication_authority_context_digest: Hash,
-    pub challenge: Base64UrlString,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_body: RecoveryTranscriptProofBody,
-}
 
 impl GenericRecoveryTranscript {
     pub fn validate_shape(&self) -> Result<()> {
@@ -936,3 +679,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/recovery_session_contracts.rs");

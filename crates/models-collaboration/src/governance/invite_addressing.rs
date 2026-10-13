@@ -404,31 +404,6 @@ impl IntroductionEvidence {
     }
 }
 
-/// Private service-to-service invite delivery request
-/// (`invite-delivery-request.schema.json`).
-///
-/// The current Realm governance Station emits it after committing the invite
-/// Event. `invite_commit` is the Realm-stream authority commit of exactly that
-/// Event; `authority_locator_hints` are untrusted discovery hints only. Field
-/// declaration order is the schema `properties` order.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteDeliveryRequestBody {
-    pub schema: String,
-    pub invite_event: Event,
-    pub invite_commit: RealmCommit,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_non_null_optional"
-    )]
-    pub producer_signer_fact: Option<crate::authority_commit::HumanHistoricalSignerFact>,
-    pub authority_locator_hints: Vec<RealmJoinCandidate>,
-    pub invite_address: InviteAddress,
-    pub introduction_evidence: IntroductionEvidence,
-    pub idempotency_key: String,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SelfInviteDispatchRequestBody {
@@ -586,31 +561,6 @@ pub enum DisclosedOutcome {
     Blocked,
 }
 
-/// Strong cell value for the `ak.account.invite_delivery` account-data key
-/// ([`arkret_wire::AccountDataKey::ACCOUNT_INVITE_DELIVERY`]), whose wire
-/// schema is `spec/v1/artifacts/schemas/invite-delivery.schema.json`
-/// (`ak.schema.invite_delivery.v1`).
-///
-/// Actor-private plaintext carrier for delivered directed invites on the
-/// notify branch (invite-addressing.md section 7), written by the recipient
-/// Station through the delivery path. It carries invite references and
-/// untrusted locator hints but no bearer credential. The cell is a bounded CAS register: at most
-/// [`InviteDelivery::MAX_ENTRIES`] entries, at most one entry per
-/// `invite_id` (a redelivery replaces the previous entry), expired entries
-/// are purged on the next write and overflow evicts the oldest entries.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteDelivery {
-    /// `ak.schema.invite_delivery.v1`.
-    pub schema: String,
-    /// Instant of the accepted CAS write that produced this value.
-    #[serde(with = "canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
-    /// Delivered directed invites, oldest first.
-    pub delivery_entries: Vec<InviteDeliveryEntry>,
-}
-
 impl InviteDelivery {
     pub const SCHEMA: &'static str = SchemaId::INVITE_DELIVERY_V1;
     /// Registered `maxItems` bound on `entries`; overflow evicts the oldest.
@@ -651,35 +601,6 @@ impl InviteDelivery {
         }
         Ok(())
     }
-}
-
-/// One delivered directed invite inside [`InviteDelivery`]
-/// (`invite-delivery.schema.json#/$defs/delivery_entry`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteDeliveryEntry {
-    /// Invite ID derived from the accepted `ak.invite.create` Event; the
-    /// deduplication key of the register.
-    pub invite_id: InviteId,
-    pub realm_id: RealmId,
-    /// Complete inviter account copied from the accepted Invite Event and
-    /// bound by the delivery verification chain.
-    pub inviter_account_id: AccountId,
-    /// One to eight untrusted locator cores, strictly sorted by `service_id`
-    /// UTF-8 bytes. Realm scope and freshness come only from this entry; the
-    /// invitee still fetches and verifies a nonce-bound RealmAuthorityBundle
-    /// through its own Station before any preview, join preparation or
-    /// bootstrap request.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub authority_locator_hints: Vec<RealmJoinCandidate>,
-    /// Instant the recipient Station accepted this delivery.
-    #[serde(with = "canonical_timestamp")]
-    pub received_at: DateTime<Utc>,
-    /// Expiry copied from the accepted invite; a stale entry MUST NOT be used
-    /// to accept the invite.
-    #[serde(with = "canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 impl InviteDeliveryEntry {
@@ -786,3 +707,5 @@ pub struct DisclosurePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub low_trust: Option<DisclosureLevel>,
 }
+
+include!("generated/invite_addressing_contracts.rs");

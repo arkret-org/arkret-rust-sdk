@@ -79,17 +79,6 @@ pub enum DiscoveryResourceKind {
     Applet,
 }
 
-/// `resource_discovery_state_value`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ResourceDiscoveryStateValue {
-    pub resource_kind: DiscoveryResourceKind,
-    pub discoverability: Discoverability,
-    pub directory_ids: Vec<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile_visibility: Option<DiscoveryProfileVisibility>,
-}
-
 impl ResourceDiscoveryStateValue {
     fn validate_for(&self, kind: DiscoveryResourceKind) -> Result<()> {
         if self.resource_kind != kind {
@@ -104,28 +93,10 @@ impl ResourceDiscoveryStateValue {
     }
 }
 
-/// `ak.applet.discovery` payload (`applet_discovery_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletDiscoveryStatePayload {
-    pub resource_id: AppletId,
-    pub value: ResourceDiscoveryStateValue,
-}
-
 impl AppletDiscoveryStatePayload {
     pub fn validate(&self) -> Result<()> {
         self.value.validate_for(DiscoveryResourceKind::Applet)
     }
-}
-
-/// `policy_action_document`: the sole v1 approval-action document family.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicyActionDocument {
-    pub action: arkret_wire::PolicyActionName,
-    pub approval_required: bool,
-    pub approval_quorum: u64,
-    pub policy_scope: String,
 }
 
 impl PolicyActionDocument {
@@ -174,17 +145,6 @@ pub enum PolicyActionSubject {
     Action(arkret_wire::RealmPolicyActionId),
 }
 
-/// `ak.policy.action` payload (`policy_action_state_payload`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicyActionStatePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub action_id: Option<arkret_wire::RealmPolicyActionId>,
-    pub value: PolicyActionDocument,
-}
-
 impl PolicyActionStatePayload {
     /// The tagged subject; exactly one of `policy_id` and `action_id`.
     pub fn subject(&self) -> Result<PolicyActionSubject> {
@@ -205,14 +165,6 @@ impl PolicyActionStatePayload {
 
 /// JSON Schema dialect every `ak.schema.define` document declares.
 pub const SCHEMA_DEFINITION_DIALECT: &str = "https://json-schema.org/draft/2020-12/schema";
-
-/// `ak.schema.define` payload (`schema_define_state_payload`). `value` is an
-/// open JSON Schema 2020-12 document whose `$id` is the definition subject.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SchemaDefineStatePayload {
-    pub value: Map<String, Value>,
-}
 
 impl SchemaDefineStatePayload {
     /// The stable `ak.schema.<name>.v<N>` subject of the definition.
@@ -387,3 +339,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/registry_state_contracts.rs");

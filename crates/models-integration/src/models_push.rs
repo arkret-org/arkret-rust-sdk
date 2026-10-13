@@ -818,20 +818,6 @@ pub struct PushNotifyOutcome {
     pub outcomes: Vec<PushNotifyDeviceOutcome>,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_notify_device_outcome`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PushNotifyDeviceOutcome {
-    pub device_id: DeviceId,
-    pub gateway_status: PushNotifyGatewayStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<PushNotifyReasonCode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
-}
-
 impl PushNotifyDeviceOutcome {
     pub fn accepted(device_id: DeviceId) -> Self {
         Self {
@@ -1413,3 +1399,5 @@ pub enum PushOperations {
 impl PushOperations {
     pub const SCHEMA: &'static str = SchemaId::PUSH_OPERATIONS_V1;
 }
+
+include!("generated/models_push_contracts.rs");

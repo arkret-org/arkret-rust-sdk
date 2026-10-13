@@ -257,28 +257,6 @@ impl AccountabilityGrantPayload {
     }
 }
 
-/// Canonical business value of the `identity_accountability` typed current
-/// result (`accountability-grant.schema.json#/$defs/accountability_projection`).
-///
-/// One record has two registered writers: the independent
-/// `ak.identity.accountability_grant` and the atomic accountability projection
-/// of `ak.agent.provision` (`zh/models/actor.md` section 3.3.1). Neither the
-/// inner proof nor a source Event reference is part of the value; the head
-/// Event and its accepting Commit carry provenance.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AccountabilityProjection {
-    pub issuer_id: DidCoreId,
-    pub subject_id: DidCoreId,
-    pub accountability_scope: AccountabilityScopeSet,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub not_before: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    pub grant_status: AccountabilityGrantStatus,
-}
-
 impl AccountabilityProjection {
     /// The independent writer's `value_projection`: every member is the signed
     /// payload member, the scope normalized, `expires_at` only when present.
@@ -390,3 +368,5 @@ mod projection_tests {
         assert!(!revoked.verifies_at(at("2026-03-01T00:00:00.000Z")));
     }
 }
+
+include!("generated/accountability_contracts.rs");

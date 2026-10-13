@@ -513,25 +513,6 @@ pub enum PresenceState {
     Dnd,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`
-/// (`ak.schema.signal_presence.v1`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PresencePlaintext {
-    pub kind: PresencePlaintextKind,
-    pub payload_sequence: u64,
-    pub actor_id: ActorId,
-    pub state: PresenceState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status_message: Option<String>,
-    /// RFC 3339 instant or a `<start>/<end>` bucket. Kept as the wire string
-    /// because the bucket form is not a single timestamp and the granularity
-    /// bound is a Realm-policy check the receiver runs, not a parse.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_active_at: Option<String>,
-    pub ttl_ms: u64,
-}
-
 impl PresencePlaintext {
     /// `payload_sequence` is the first parameter and has no default: the shared
     /// minimum is part of constructing a presence signal, not something a
@@ -602,23 +583,6 @@ impl SignalPlaintextProfile for PresencePlaintext {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/signal-typing.schema.json`
-/// (`ak.schema.signal_typing.v1`).
-///
-/// The profile is fixed to the discussion track family and the plaintext
-/// therefore carries no `track_name` at all
-/// (`zh/discovery/profiles-presence.md` §3.5).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TypingPlaintext {
-    pub kind: TypingPlaintextKind,
-    pub payload_sequence: u64,
-    pub strand_id: StrandId,
-    pub typing: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ttl_ms: Option<u64>,
-}
-
 impl TypingPlaintext {
     pub fn new(payload_sequence: u64, strand_id: StrandId, typing: bool) -> Result<Self> {
         let payload = Self {
@@ -649,30 +613,6 @@ impl SignalPlaintextProfile for TypingPlaintext {
     fn ttl_ms(&self) -> Option<u64> {
         self.ttl_ms
     }
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/read-receipt.schema.json`
-/// (`ak.schema.read_receipt.v1`).
-///
-/// A read receipt is a Signal plaintext, not a durable object: it never enters
-/// Event history, so it carries no `id`, no `schema`, no `created_at` and no
-/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal
-/// AAD, the sending device and send time are on the signed envelope, and the
-/// payload kind is the `kind` const. One type both seals and opens — the
-/// closed schema and this struct describe the same five fields, so a sender's
-/// own bytes deserialize back.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReadReceipt {
-    pub kind: ReadReceiptPlaintextKind,
-    pub payload_sequence: u64,
-    pub actor_id: ActorId,
-    pub event_id: EventId,
-    /// Required only when a Sync Service must compare receipts across devices
-    /// for the same actor under merge / debounce rules.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
-    pub read_scope: ReadReceiptScope,
 }
 
 impl ReadReceipt {
@@ -742,3 +682,5 @@ impl SignalPlaintextProfile for MessageStreamFrame {
         self.validate()
     }
 }
+
+include!("generated/signal_plaintext_contracts.rs");

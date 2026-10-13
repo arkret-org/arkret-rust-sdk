@@ -139,90 +139,6 @@ pub enum PolicyRuleKind {
     Extension,
 }
 
-/// Closed fields of `policy.schema.json#/$defs/policy_rule`.
-/// Kind-specific presence constraints are checked by [`Self::validate`].
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicyRule {
-    pub rule_id: String,
-    pub kind: PolicyRuleKind,
-    pub effect: PolicyEffect,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub agent_target: Option<AgentPolicyTarget>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub agent_operations: Option<Vec<AgentPolicyOperation>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub applet_target: Option<AppletPolicyTarget>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub applet_operations: Option<Vec<AppletPolicyOperation>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub review_requirement: Option<ManagementReviewRequirement>,
-    #[serde(default, skip_serializing_if = "is_zero_i64")]
-    pub priority: i64,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub actions: Option<Vec<String>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub resources: Option<Vec<PolicyResourceSelector>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub servers: Option<Vec<PolicyServerSelector>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub conditions: Option<arkret_wire::NonEmptyJsonObject>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub schema_ref: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub profile_ref: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub params: Option<BTreeMap<String, Value>>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AgentPolicyTarget {
@@ -317,62 +233,12 @@ pub enum PolicyResourceKind {
     Service,
 }
 
-/// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicyResourceSelector {
-    pub kind: PolicyResourceKind,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub realm_id: Option<RealmId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub resource_ref: Option<String>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyServerKind {
     ServiceId,
     Domain,
     TrustDomain,
-}
-
-/// Federation selector from `policy.schema.json#/$defs/server_selector`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicyServerSelector {
-    pub kind: PolicyServerKind,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub service_id: Option<arkret_wire::DidCoreId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub domain: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub match_subdomains: Option<bool>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub trust_domain: Option<arkret_identifiers::TrustDomainId>,
 }
 
 impl PolicyRule {
@@ -675,28 +541,16 @@ impl<'de> Deserialize<'de> for PolicySetValue {
     }
 }
 
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/policy_set_state_payload`.
-///
-/// `policy_id` is the stable subject of the Policy typed current result, so
-/// repeated `ak.policy.set` Events under the same `policy_id` converge on one
-/// document rather than accumulating versions. There is no cell head, basis or
-/// version member on the wire. Agent and Applet governance policies carry a required
-/// nullable `expected_revision` precondition; other policy families omit it.
+// Counterpart for
+// `event-payload.schema.json#/$defs/policy_set_state_payload`.
+//
+// `policy_id` is the stable subject of the Policy typed current result, so
+// repeated `ak.policy.set` Events under the same `policy_id` converge on one
+// document rather than accumulating versions. There is no cell head, basis or
+// version member on the wire. Agent and Applet governance policies carry a required
+// nullable `expected_revision` precondition; other policy families omit it.
 // Field declaration order is byte-for-byte the properties order of
 // event-payload.schema.json#/$defs/policy_set_state_payload.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PolicySetStatePayload {
-    pub policy_id: PolicyId,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub expected_revision: Option<Option<CurrentRevision>>,
-    pub value: PolicySetValue,
-}
 
 impl PolicySetStatePayload {
     /// The payload subject and the document it carries are the same policy, so
@@ -961,3 +815,5 @@ mod policy_set_state_tests {
         assert!(payload.validate().is_err());
     }
 }
+
+include!("generated/operation_wire_contracts.rs");

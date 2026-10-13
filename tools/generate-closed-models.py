@@ -40,6 +40,7 @@ class Generator:
         self.names = {
             row["schema"]: row["name"]
             for family in bindings["families"] for row in family["types"]
+            if "rust" not in row
         }
         self.names.update(bindings["references"])
         self.inputs: dict[str, bytes] = {}
@@ -53,9 +54,104 @@ class Generator:
         node = json.loads(raw)
         if node.get("source_of_truth") is False:
             raise ValueError(f"derived schema cannot own generated fields: {file}")
+        def rebase(value):
+            if isinstance(value, dict):
+                return {key: normalize(child, file) if key == "$ref" else rebase(child)
+                        for key, child in value.items()}
+            return [rebase(child) for child in value] if isinstance(value, list) else value
+        node = rebase(node)
         for part in fragment.split("/")[1:]:
-            node = node[part.replace("~1", "/").replace("~0", "~")]
+            token = part.replace("~1", "/").replace("~0", "~")
+            while isinstance(node, dict) and token not in node and "$ref" in node:
+                node = self.node(node["$ref"])
+            node = node[int(token)] if isinstance(node, list) else node[token]
         return node
+
+    def nullable(self, node: dict, owner: str, seen=None) -> bool:
+        seen = set() if seen is None else seen
+        if isinstance(node, bool):
+            return node
+        kind = node.get("type")
+        if kind is not None and kind != "null" and not (isinstance(kind, list) and "null" in kind):
+            return False
+        if "const" in node and node["const"] is not None:
+            return False
+        if "enum" in node and None not in node["enum"]:
+            return False
+        if "$ref" in node:
+            target = normalize(node["$ref"], owner)
+            if target in seen:
+                raise ValueError(f"cyclic null applicability reference: {target}")
+            if not self.nullable(self.node(target), target, seen | {target}):
+                return False
+        if "allOf" in node and not all(self.nullable(branch, owner, seen) for branch in node["allOf"]):
+            return False
+        if "anyOf" in node and not any(self.nullable(branch, owner, seen) for branch in node["anyOf"]):
+            return False
+        if "oneOf" in node and sum(self.nullable(branch, owner, seen) for branch in node["oneOf"]) != 1:
+            return False
+        if "not" in node and self.nullable(node["not"], owner, seen):
+            return False
+        if "if" in node:
+            branch = "then" if self.nullable(node["if"], owner, seen) else "else"
+            if branch in node and not self.nullable(node[branch], owner, seen):
+                return False
+        # Applicability-only keywords (properties, pattern, minimum, etc.) do
+        # not reject null unless a type/enum/const/composition proves it.
+        return True
+
+    def representation(self, row: dict, node: dict) -> str:
+        """Project schema-owned members using reviewed Rust representation hooks.
+
+        The hooks carry types/traits/serde adapters, never membership or order.
+        include! keeps private validators and public Rust paths at their owner.
+        """
+        pointer = row["schema"]
+        seen = set()
+        while "$ref" in node:
+            target = node["$ref"]
+            if target in seen:
+                raise ValueError(f"cyclic object reference: {pointer}")
+            seen.add(target)
+            node = self.node(target)
+        if (node.get("type") != "object" or node.get("additionalProperties") is not False
+            or "patternProperties" in node):
+            raise ValueError(f"representation requires closed named object members: {pointer}")
+        rust = row["rust"]
+        properties = node.get("properties", {})
+        if set(properties) != set(rust["members"]):
+            raise ValueError(f"Rust representation member set drifted: {pointer}")
+        attributes = list(rust["attributes"])
+        if any(attr.startswith("#[derive") and "Deserialize" in attr for attr in attributes) and not any("deny_unknown_fields" in attr for attr in attributes):
+            attributes.append("#[serde(deny_unknown_fields)]")
+        lines = [f"/// Counterpart: `{pointer}`.", *attributes, rust["signature"] + " {"]
+        required = set(node.get("required", []))
+        for wire, shape in properties.items():
+            binding = rust["members"][wire]
+            attributes = list(binding["attributes"])
+            typ = binding["type"]
+            if wire in required:
+                if any("skip_serializing_if" in attr for attr in attributes):
+                    raise ValueError(f"required member cannot be omitted by its Rust representation: {pointer}/{wire}")
+                attributes = [re.sub(r'\bdefault(?:\s*=\s*"[^"]*")?\s*,?\s*', '', attr) for attr in attributes]
+                attributes = [attr for attr in attributes if not re.fullmatch(r'#\[serde\(\s*\)\]', attr)]
+                if typ.startswith("Option<") and not any("deserialize_with" in attr or re.search(r"\bwith\s*=", attr) for attr in attributes):
+                    attributes.append(f'#[serde(deserialize_with = "{HELPERS}::deserialize_required_nullable")]')
+            if typ.startswith("Option<") and wire not in required and not self.nullable(shape, pointer):
+                for index, attr in enumerate(attributes):
+                    if re.search(r'\bwith\s*=\s*"[^"]*::optional_canonical_timestamp"', attr):
+                        attributes[index] = re.sub(
+                            r'\bwith\s*=\s*"[^"]*::optional_canonical_timestamp"',
+                            f'serialize_with = "{HELPERS}::serialize_optional_canonical_timestamp", deserialize_with = "{HELPERS}::deserialize_non_null_optional_timestamp"', attr)
+            if (typ.startswith("Option<") and wire not in required and not self.nullable(shape, pointer)
+                and not any("deserialize_with" in attr or re.search(r"\bwith\s*=", attr) for attr in attributes)):
+                default = "" if any(re.search(r"\bdefault\b", attr) for attr in attributes) else "default, "
+                attributes.append(f'#[serde({default}deserialize_with = "{HELPERS}::deserialize_non_null_optional")]')
+                if not any("skip_serializing_if" in attr for attr in attributes):
+                    attributes.append('#[serde(skip_serializing_if = "Option::is_none")]')
+            lines.extend("    " + attr for attr in attributes)
+            lines.append(f"    {binding['visibility']} {binding['name']}: {typ},")
+        return "\n".join(lines + ["}", ""])
 
     def rust_type(self, node: dict, pointer: str) -> tuple[str, bool]:
         if "$ref" in node:
@@ -88,6 +184,8 @@ class Generator:
     def declaration(self, row: dict) -> str:
         pointer, name = row["schema"], row["name"]
         node = self.node(pointer)
+        if "rust" in row:
+            return self.representation(row, node)
         if any(key in node for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas")):
             raise ValueError(f"unsupported object composition: {pointer}")
         traits = ["Clone", "Debug", "PartialEq", "Eq", "serde::Serialize", "serde::Deserialize"]
@@ -166,6 +264,8 @@ class Generator:
                 header.extend(["//!", f"//! Input: schemas/{path}", f"//! sha256={hashlib.sha256(raw).hexdigest()}"])
             binding_bytes = json.dumps(self.bindings, sort_keys=True, separators=(",", ":")).encode()
             header.extend(["//!", "//! Bindings: tools/closed-model-bindings.json", f"//! sha256={hashlib.sha256(binding_bytes).hexdigest()}"])
+            if family.get("inline"):
+                header = [line.replace("//!", "//", 1) for line in header]
             outputs[family["output"]] = "\n".join(header) + "\n\n" + contents
         return outputs
 
@@ -182,6 +282,43 @@ def main():
     if len(set(selected)) != len(selected) or sorted(selected) != sorted(declared):
         raise ValueError("closed model bindings and generation manifest output sets differ")
     outputs = Generator(args.artifacts_dir / "schemas", bindings).generate()
+    registry = json.loads((ROOT / "schema_struct_registry.json").read_text(encoding="utf-8"))
+    generated = {family["output"] + "::" + row["name"]: row["schema"] for family in bindings["families"] for row in family["types"]}
+    retained = {row["rust_type"]: row for row in bindings["retained_models"]}
+    expected = {row["rust_type"]: row["schema"] for row in registry["mappings"]}
+    actual = {key: value for key, value in generated.items() if key in expected}
+    if set(actual) & set(retained) or actual | {key: row["schema"] for key, row in retained.items()} != expected:
+        raise ValueError("every schema mapping must have exactly one generated or reviewed retained owner")
+    exempted = {row["rust_type"] for row in registry["exemptions"]}
+    if {row["rust_type"] for row in bindings["retained_exemptions"]} != exempted:
+        raise ValueError("every field-set exemption requires an explicit generation classification")
+    for row in [*bindings["retained_models"], *bindings["retained_exemptions"]]:
+        if row["category"] not in {"domain_semantics", "artifact_expression", "internal_implementation"} or len(row["reason"]) < 50:
+            raise ValueError(f"unreviewed retained generation boundary: {row['rust_type']}")
+    prefix_path = "crates/canonical/src/generated/binding_prefixes.rs"
+    prefix_outputs = [path for entry in manifest["entries"] if entry["generator"] == "binding-prefixes" for path in entry["outputs"]]
+    if prefix_outputs != [prefix_path]:
+        raise ValueError("binding prefix generation manifest mismatch")
+    raw = (args.artifacts_dir / "registry/proof-context-registry.json").read_bytes()
+    lines = ["//! @generated; do not edit by hand.", "//! Input: registry/proof-context-registry.json", f"//! sha256={hashlib.sha256(raw).hexdigest()}", "", "pub struct DomainPrefix;", "", "impl DomainPrefix {"]
+    for row in json.loads(raw)["domain_separations"]:
+        if "prefix_bytes_hex" not in row:
+            continue
+        prefix = bytes.fromhex(row["prefix_bytes_hex"])
+        name = re.sub(r"[^A-Za-z0-9]", "_", row["domain"]).upper()
+        lines.append(f"    pub const {name}: &'static [u8] = &[{', '.join(str(byte) for byte in prefix)}];")
+    outputs[prefix_path] = "\n".join(lines + ["}", ""])
+    retired_path = "crates/wire/src/generated/rejected_profile_markers.rs"
+    if [path for entry in manifest["entries"] if entry["generator"] == "rejected-profile-markers" for path in entry["outputs"]] != [retired_path]:
+        raise ValueError("retired profile marker manifest mismatch")
+    raw = (args.artifacts_dir / "registry/contract-registry.json").read_bytes()
+    lines = ["//! @generated; do not edit by hand.", "//! Rejection markers only; these are never active or claimable profiles.", "//! Input: registry/contract-registry.json", f"//! sha256={hashlib.sha256(raw).hexdigest()}", "", "pub struct RejectedProfileId;", "", "impl RejectedProfileId {"]
+    for row in json.loads(raw)["rejected_profile_markers"]:
+        if row["behavior"] != "reject_without_activation_or_registration":
+            raise ValueError("retired profiles must remain rejection-only")
+        name = row["profile_id"].removeprefix("ak.profile.").replace(".", "_").upper()
+        lines.append(f'    pub const {name}: &\'static str = {json.dumps(row["profile_id"])};')
+    outputs[retired_path] = "\n".join(lines + ["}", ""])
     for relative, contents in outputs.items():
         output = args.output_root / relative
         if not output.resolve().is_relative_to(args.output_root.resolve()):

@@ -102,31 +102,6 @@ impl ActorProfile {
     }
 }
 
-/// The closed author region of `ak.profile.create`
-/// (`actor-profile.schema.json#/$defs/actor_profile_definition`).
-///
-/// `schema`, `realm_id`, `created_at`, `updated_by` and `updated_at` are
-/// reducer derivations and `id`/`resolution` are never authored, so none of
-/// them is representable here. `principal_id` and `actor_kind` are author
-/// input and create-locked afterwards.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ActorProfileDefinition {
-    pub principal_id: DidCoreId,
-    pub actor_kind: ActorKind,
-    pub display_name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_slug: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_principal_ids: Vec<DidCoreId>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub profile_fields: BTreeMap<String, Value>,
-}
-
 impl ActorProfileDefinition {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         validate_display_members(
@@ -342,3 +317,5 @@ pub enum AppletInteractionMode {
     Private,
     Public,
 }
+
+include!("generated/actor_profile_contracts.rs");

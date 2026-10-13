@@ -14,16 +14,6 @@ use serde_json::Value;
 use crate::objects::relation::RelationEndpoint;
 use crate::objects::view::DashboardConfig;
 
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_spec`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SortSpec {
-    pub field: String,
-    pub direction: SortDirection,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nulls: Option<NullsOrder>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FieldFilter {
     pub field: String,
@@ -406,3 +396,5 @@ pub struct GraphViewConfig {
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
+
+include!("generated/queries_contracts.rs");

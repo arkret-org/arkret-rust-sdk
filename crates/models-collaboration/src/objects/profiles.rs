@@ -450,60 +450,10 @@ pub enum IdentityLinkStatus {
     Revoked,
 }
 
-fn identity_link_default_status() -> IdentityLinkStatus {
-    IdentityLinkStatus::Active
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityLinkProof {
-    pub verification_method: DidUrl,
-    pub signature_algorithm: String,
-    pub payload_digest: Hash,
-    pub signature: String,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IdentityLinkResponseSigningAlgorithm {
     Ed25519,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityLink {
-    pub schema: String,
-    #[serde(default = "identity_link_default_status")]
-    pub status: IdentityLinkStatus,
-    pub pairwise_actor_id: DidCoreId,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub realm_id: RealmId,
-    pub trust_domain: TrustDomainId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(
-        rename = "track_name",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub track: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    pub mls_leaf_index: u64,
-    pub mls_epoch: u64,
-    pub response_signing_verification_method: DidUrl,
-    pub response_signing_algorithm: IdentityLinkResponseSigningAlgorithm,
-    pub response_signing_public_key_b64u: Base64UrlString,
-    pub response_signing_public_key_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disclosure_policy_id: Option<PolicyId>,
-    pub proof: IdentityLinkProof,
 }
 
 pub const IDENTITY_LINK_MLS_CONTENT_TYPE: &str = "application/vnd.arkret.identity-link+json";
@@ -529,7 +479,7 @@ impl IdentityLink {
             validate_strand_track_name(track_name)?;
         }
         if self.proof.verification_method.trim().is_empty()
-            || self.proof.signature_algorithm.trim().is_empty()
+            || self.proof.signature_algorithm != "Ed25519"
             || self.proof.signature.trim().is_empty()
         {
             return Err(WireError::Protocol(
@@ -550,7 +500,7 @@ impl IdentityLink {
         let response_key = arkret_wire::base64url::base64url_decode(
             self.response_signing_public_key_b64u.as_str().as_bytes(),
         )?;
-        if project_did_to_core_id(&response_controller)? != self.pairwise_actor_id
+        if project_did_to_core_id(&response_controller)? != self.pairwise_id
             || response_key.len() != 32
             || self.response_signing_public_key_digest
                 != Hash::new(arkret_canonical::sha256_digest(&response_key))?
@@ -593,3 +543,5 @@ impl IdentityLink {
         })
     }
 }
+
+include!("generated/profiles_contracts.rs");

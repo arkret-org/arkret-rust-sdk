@@ -12,15 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::AuthenticatedServiceResolution;
 
-/// `account-device-signer-evidence.schema.json` exact two-member root.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDeviceSignerEvidence {
-    pub device_projection_attestation: DeviceProjectionAttestation,
-    pub service_resolution: AuthenticatedServiceResolution,
-}
-
 impl AccountDeviceSignerEvidence {
     /// Check only byte-local bindings. The caller separately verifies the
     /// method-native Service history, assertion relationship and signature.
@@ -84,15 +75,6 @@ impl AccountDeviceSignerEvidence {
     pub fn matches_ref(&self, reported: &SignerEvidenceRef) -> arkret_wire::Result<bool> {
         Ok(&self.signer_evidence_ref()? == reported)
     }
-}
-
-/// Closed authority-forward sibling; never accepted as a directory row.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ForwardAccountDeviceSignerEvidence {
-    pub device_projection_attestation: arkret_models_crypto::ForwardDeviceProjectionAttestation,
-    pub service_resolution: AuthenticatedServiceResolution,
 }
 
 impl ForwardAccountDeviceSignerEvidence {
@@ -305,3 +287,5 @@ mod tests {
         assert!(serde_json::from_value::<AccountDeviceSignerEvidence>(value).is_err());
     }
 }
+
+include!("generated/account_device_signer_evidence_contracts.rs");

@@ -62,21 +62,6 @@ impl BackupActiveSeriesPointer {
     }
 }
 
-/// `keys-operations.schema.json#/$defs/backup_active_series_state`.
-///
-/// v1 registers exactly one backup class, `secret_storage` (key-management
-/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class
-/// member is schema-invalid and is rejected rather than ignored.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BackupActiveSeriesState {
-    pub account_id: AccountId,
-    pub control_realm_id: arkret_wire::RealmId,
-    pub authority_commit_id: RealmCommitId,
-    pub secret_storage: BackupActiveSeriesPointer,
-}
-
 #[cfg(test)]
 mod active_series_state_tests {
     use serde_json::{Value, json};
@@ -201,87 +186,7 @@ mod active_series_state_tests {
     }
 }
 
-/// `keys-operations.schema.json#/$defs/backup_metadata/properties/encryption`:
-/// only the non-secret recipient categorization; AEAD/KDF material is withheld.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyBackupSummaryEncryption {
-    pub recipient_method: KeyBackupRecipientMethod,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub recipient_key_ref: Option<String>,
-}
-
-/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list
-/// summary of one stored envelope (key-management §7.6.1).
-///
-/// Field order is the schema `properties` order. Optional members are absent
-/// or carry a value; only the schema's tristate members (`supersedes_id`,
-/// `expires_at`) accept an explicit `null`, which round-trips as `Some(None)`.
-/// Only `retention` is an open object and is carried verbatim. Source and
-/// recovery-policy references are read from the complete signed envelope.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyBackupSummary {
-    pub backup_id: BackupId,
-    pub actor_id: ActorId,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub device_id: Option<DeviceId>,
-    pub backup_kind: BackupKind,
-    pub backup_version: NonEmptyString,
-    pub series_id: BackupSeriesId,
-    pub series_seq: u64,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_present_nullable"
-    )]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<BackupId>)))]
-    pub supersedes_id: Option<Option<BackupId>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub supersedes_digest: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_tristate_canonical_timestamp",
-        deserialize_with = "deserialize_tristate_canonical_timestamp"
-    )]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
-    pub expires_at: Option<Option<DateTime<Utc>>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "deserialize_present_timestamp"
-    )]
-    pub updated_at: Option<DateTime<Utc>>,
-    pub ciphertext_digest: Hash,
-    pub encryption: KeyBackupSummaryEncryption,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<Object>)))]
-    pub retention: Option<serde_json::Map<String, serde_json::Value>>,
-}
-
-/// A present optional member must carry a value: `null` is schema-invalid.
+// A present optional member must carry a value: `null` is schema-invalid.
 
 /// A present tristate member is either `null` or a value.
 fn deserialize_present_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -320,18 +225,6 @@ where
         &value.flatten(),
         serializer,
     )
-}
-
-/// `keys-operations.schema.json#/$defs/keys_backups_list`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeysBackupsList {
-    pub backups: Vec<KeyBackupSummary>,
-    pub active_series: BackupActiveSeriesState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Cursor>,
-    pub has_more: bool,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -728,3 +621,5 @@ mod unlock_proof_wire_tests {
         assert!(serde_json::from_value::<KeyBackupUnlockProof>(missing).is_err());
     }
 }
+
+include!("generated/key_backup_operations_contracts.rs");

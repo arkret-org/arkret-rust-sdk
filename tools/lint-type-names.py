@@ -26,19 +26,19 @@ EXCEPTIONS = {
         "Domain artifact: a produced call recording, not an endpoint result wrapper.",
     ("models-collaboration/src/events_payloads/call.rs", "CallStatePayloadTranscriptResult"):
         "Domain artifact: a produced call transcript, not an endpoint result wrapper.",
-    ("models-collaboration/src/events_payloads/poll.rs", "PollResponseBody"):
+    ("models-collaboration/src/events_payloads/generated/poll_contracts.rs", "PollResponseBody"):
         "Domain response to a poll inside a content block, not an HTTP response.",
     ("models-collaboration/src/poll.rs", "VerifiedPollResponse"):
         "Domain poll answer bound to a verified authority cut, selections and accepted Event; non-serialized reducer input, not an operation response wrapper.",
     ("models-collaboration/src/sync_frames/account_subscribe.rs", "AccountSubscribeSnapshotResult"):
         "Non-wire SDK orchestration result; no serialization or schema component.",
-    ("models-collaboration/src/governance/moderation_queue.rs", "ModerationQueueItem"):
+    ("models-collaboration/src/governance/generated/moderation_queue_contracts.rs", "ModerationQueueItem"):
         "First-class moderation queue object with its own registered identifier and schema.",
     ("models-collaboration/src/governance/realm_governance.rs", "RealmLinkTransitionCandidate"):
         "Non-wire borrowed input to the local transition evaluator.",
     ("models-collaboration/src/objects/mimi.rs", "MimiGroupInfo"):
         "External MLS GroupInfo term in the MIMI binding.",
-    ("models-collaboration/src/objects/interop.rs", "GroupInfo"):
+    ("models-collaboration/src/objects/generated/interop_contracts.rs", "GroupInfo"):
         "External MLS GroupInfo term in the MIMI binding.",
     ("models-collaboration/src/objects/productivity.rs", "RsvpResponse"):
         "Domain RSVP answer, not an endpoint response wrapper.",

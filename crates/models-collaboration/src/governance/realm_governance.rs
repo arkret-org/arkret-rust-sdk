@@ -318,17 +318,6 @@ pub struct RealmLinkEntry {
     pub updated_at: DateTime<Utc>,
 }
 
-/// `realm-link-operations.schema.json#/$defs/realm_link_list`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmLinkList {
-    pub realm_id: RealmId,
-    pub direction: RealmLinkDirection,
-    #[serde(default)]
-    pub links: Vec<RealmLinkEntry>,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -366,32 +355,6 @@ pub struct RealmExport {
 pub enum RealmExportSchema {
     #[serde(rename = "ak.export.realm.v1")]
     V1,
-}
-
-/// Wire counterpart:
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.
-///
-/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.
-///
-/// `realm.schema.json` is a closed object with no `alias` property, and
-/// Realm genesis/profile payloads MUST NOT carry one
-/// (`discovery/object-addressing.md` §3.3).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAliasDeclarationPayload {
-    pub alias: RealmAlias,
-}
-
-/// `ak.realm.alias` durable value tombstone: releases the alias without
-/// erasing cell history. Effective resolution then treats the Realm as
-/// addressable only by `realm_id`.
-/// Wire counterpart:
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_tombstone`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAliasTombstonePayload {
-    pub tombstone: bool,
 }
 
 impl RealmAliasTombstonePayload {
@@ -498,18 +461,4 @@ pub struct RealmOrganizationRelationshipRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Response DTO for `ak.self.realm_organization.read.list.v1`
-/// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct RealmOrganizationRelationshipList {
-    pub realm_id: RealmId,
-    #[serde(default)]
-    pub relationships: Vec<RealmOrganizationRelationshipRow>,
-    /// `owning_organization_ids` declared hints with no verified statement. These
-    /// are unverified claims and MUST NOT be rendered as official / governed /
-    /// endorsed.
-    #[serde(default)]
-    pub declared_organization_hint_ids: Vec<DidCoreId>,
-}
+include!("generated/realm_governance_contracts.rs");

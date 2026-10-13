@@ -223,36 +223,6 @@ pub enum CalendarStatus {
     Cancelled,
 }
 
-/// Calendar schedule subtree carried at `metadata.fields.calendar` and
-/// activated by `ak.schema.calendar_event.v1` in `Strand.schema_refs`.
-///
-/// The schedule never carries an absolute instant: timed events use a
-/// whole-second RFC 8984 `LocalDateTime` resolved through `timezone` plus
-/// `tzdb_version`. Field order mirrors `calendar-event.schema.json`.
-///
-/// [`Self::validate`] covers every rule expressible without the TZDB registry.
-/// Resolving `timezone` to the canonical Zone of the pinned release requires
-/// that registry, so it lives in `arkret-schema`, which is the layer that
-/// embeds spec artifacts.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CalendarEventFields {
-    pub start: String,
-    pub end: String,
-    pub timezone: String,
-    pub tzdb_version: String,
-    pub all_day: bool,
-    pub status: CalendarStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence: Option<CalendarRecurrence>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub location: Option<CalendarEventLocation>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub call_id: Option<CallId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attendees: Vec<CalendarAttendee>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RsvpStatus {
@@ -1755,20 +1725,6 @@ pub fn parse_contact_remark_account_data_key(key: &str) -> Result<String> {
     Ok(principal_key.to_owned())
 }
 
-/// Decrypted plaintext value of the holder-private `ak.account.blocklist`
-/// account-data key, written only through `ak.account_data.set` under its
-/// `expected_server_revision` CAS; the value carries no revision of its own.
-///
-/// Spec: `account-blocklist.schema.json`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AccountBlocklistValue {
-    pub entries: Vec<AccountBlocklistEntry>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountBlocklistEntry {
@@ -2543,3 +2499,5 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     mac.update(data);
     mac.finalize().into_bytes().into()
 }
+
+include!("generated/productivity_contracts.rs");

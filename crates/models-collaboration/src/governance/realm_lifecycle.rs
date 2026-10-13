@@ -19,15 +19,6 @@ pub enum RealmJoinRuleValue {
     Closed,
 }
 
-/// Strong payload for `ak.realm.join_rule`, whose wire schema is
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_join_rule_payload`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmJoinRulePayload {
-    pub value: RealmJoinRuleValue,
-}
-
 impl RealmJoinRulePayload {
     pub fn new(value: RealmJoinRuleValue) -> Self {
         Self { value }
@@ -130,15 +121,6 @@ pub struct RealmDiscoveryValue {
     pub directory_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anti_enumeration: Option<RealmAntiEnumerationPolicy>,
-}
-
-/// Strong payload for `ak.realm.discovery`, whose wire schema is
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_discovery_payload`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDiscoveryPayload {
-    pub value: RealmDiscoveryValue,
 }
 
 impl RealmDiscoveryPayload {
@@ -246,19 +228,6 @@ pub struct RealmSchemaPayload {
     pub reason: Option<String>,
 }
 
-/// Strong type for `ak.realm.archive` payloads
-/// (`event-payload.schema.json#/$defs/realm_archive_payload`).
-///
-/// Shared closed payload for explicit archive/restore operations.
-/// The registered Event kind determines the state change.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmArchivePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
 impl Default for RealmArchivePayload {
     fn default() -> Self {
         Self::new()
@@ -284,24 +253,6 @@ impl RealmArchivePayload {
     }
 }
 
-/// Strong type for `ak.realm.tombstone` payloads
-/// (`event-payload.schema.json#/$defs/realm_tombstone_payload`).
-///
-/// Terminal lifecycle event pointing at a successor Realm. `reason` and
-/// `successor_realm_id` are both required by spec; callers without a successor
-/// must use [`RealmDestroyPayload`] instead. `additionalProperties:false`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmTombstonePayload {
-    pub reason: String,
-    pub successor_realm_id: RealmId,
-    /// Optional `event_ref` (`^ak:event:` typed id) of the replacing event;
-    /// carried as a bare string per the spec wire shape.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_event_id: Option<ObjectRef>,
-}
-
 impl RealmTombstonePayload {
     pub fn new(successor_realm_id: RealmId, reason: impl Into<String>) -> Self {
         Self {
@@ -317,24 +268,6 @@ impl RealmTombstonePayload {
     }
 }
 
-/// Strong type for `ak.realm.destroy` payloads
-/// (`event-payload.schema.json#/$defs/realm_destroy_payload`).
-///
-/// Terminal lifecycle event with no successor. `reason` is required;
-/// `verification_stub_required` defaults to `true` (omitted on the wire when
-/// unset so the reducer applies its default). `additionalProperties:false`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDestroyPayload {
-    pub reason: String,
-    /// Optional retention-policy `object_ref` (bare string per spec wire shape).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retention_policy_id: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_stub_required: Option<bool>,
-}
-
 impl RealmDestroyPayload {
     pub fn new(reason: impl Into<String>) -> Self {
         Self {
@@ -348,22 +281,6 @@ impl RealmDestroyPayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("realm destroy payload serialize: {err}")))
     }
-}
-
-/// Strong type for `object_lifecycle_payload`
-/// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).
-///
-/// Generic archive / restore / tombstone-style payload for Strand, Circle, and
-/// Morph lifecycle events (e.g. `ak.strand.archive` / `ak.strand.restore`). The
-/// target object is single-sourced by `target_ref`. Required: `target_ref`.
-/// `additionalProperties:false`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ObjectLifecyclePayload {
-    pub target_ref: ObjectRef,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl ObjectLifecyclePayload {
@@ -498,3 +415,5 @@ impl CircleHistoryAccessPayload {
         .validate()
     }
 }
+
+include!("generated/realm_lifecycle_contracts.rs");

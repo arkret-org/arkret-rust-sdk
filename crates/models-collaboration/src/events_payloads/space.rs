@@ -3,14 +3,6 @@
 use crate::internal_prelude::*;
 use crate::serde_absence::deserialize_non_null_optional;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/space_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SpaceCreatePayload {
-    pub object: Space,
-}
-
 impl SpaceCreatePayload {
     pub fn new(object: Space) -> Self {
         Self { object }
@@ -23,24 +15,6 @@ impl SpaceCreatePayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("space create payload serialize: {err}")))
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/space_parent_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SpaceParentPayload {
-    pub space_id: SpaceId,
-    /// Required and nullable. Explicit `null` is the one spelling of "no
-    /// parent" on this payload, so the `space_parent` register stays total and
-    /// an omitted member can never mean the root by accident. Never skipped on
-    /// serialization, never defaulted on deserialization.
-    pub parent_space_id: Option<SpaceId>,
-    /// Required and nullable. It is a declared `pre_state` requirement on the
-    /// `space_parent` family, not an optional compare-and-set: making it
-    /// optional would give one Event kind two admission semantics selected by
-    /// a member's presence.
-    pub expected_parent_space_id: Option<SpaceId>,
 }
 
 /// Counterpart for
@@ -101,3 +75,5 @@ impl SpacePatchPayload {
         serde_json::to_value(self).map_err(|error| WireError::Protocol(error.to_string()))
     }
 }
+
+include!("generated/space_contracts.rs");

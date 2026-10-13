@@ -152,27 +152,16 @@ impl MessagePrepareRequestBody {
     }
 }
 
-/// Counterpart for
-/// `message-authoring.schema.json#/$defs/message_prepare_outcome`.
-///
-/// The prepare phase hands back one service-prepared unsigned Event plus the
-/// exact request digest it answers; the producer signs that draft and submits
-/// it through [`MessageSubmitRequestBody`]. The outcome carries no
-/// reservation, predecessor or ordering member: a producer Event has no causal
-/// predecessor, and finality is the authority-signed RealmCommit.
+// Counterpart for
+// `message-authoring.schema.json#/$defs/message_prepare_outcome`.
+//
+// The prepare phase hands back one service-prepared unsigned Event plus the
+// exact request digest it answers; the producer signs that draft and submits
+// it through [`MessageSubmitRequestBody`]. The outcome carries no
+// reservation, predecessor or ordering member: a producer Event has no causal
+// predecessor, and finality is the authority-signed RealmCommit.
 // Field declaration order is byte-for-byte the properties order of
 // message-authoring.schema.json#/$defs/message_prepare_outcome.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MessagePrepareOutcome {
-    pub request_digest: Hash,
-    pub draft: PreparedEventDraft,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
 
 impl MessagePrepareOutcome {
     /// `x-arkret-max-canonical-bytes` on the schema node.
@@ -526,3 +515,5 @@ mod message_prepare_tests {
         assert_eq!(outcome.draft_event_id().unwrap(), draft.event_id().unwrap());
     }
 }
+
+include!("generated/message_authoring_contracts.rs");

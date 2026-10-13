@@ -27,44 +27,17 @@ pub enum MemberRosterMembership {
     Knock,
 }
 
-/// Counterpart for
-/// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`.
-///
-/// The schema's `dependentRequired` block is the entry's whole privacy rule:
-/// inline identity Events, handle-claim digests, inline handle claims and the
-/// truncation flag are all linkable to one member, so each one may appear only
-/// when `subject_account_id` is already disclosed. [`Self::validate`] enforces
-/// that, so an entry that reaches a caller has never leaked a subject through
-/// a side channel the projection itself declined to disclose.
+// Counterpart for
+// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`.
+//
+// The schema's `dependentRequired` block is the entry's whole privacy rule:
+// inline identity Events, handle-claim digests, inline handle claims and the
+// truncation flag are all linkable to one member, so each one may appear only
+// when `subject_account_id` is already disclosed. [`Self::validate`] enforces
+// that, so an entry that reaches a caller has never leaked a subject through
+// a side channel the projection itself declined to disclose.
 // Field declaration order is byte-for-byte the properties order of
 // account-subscribe-frame.schema.json#/$defs/member_roster_entry.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MemberRosterEntry {
-    pub actor_id: ActorId,
-    pub membership: MemberRosterMembership,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subject_account_id: Option<AccountId>,
-    /// Effective `ak.member.identity.update` Event ids for this actor after
-    /// replacement refs are applied.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub identity_event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member_display_state_digest: Option<Hash>,
-    /// Inline effective `ak.member.identity.update` envelopes. These are the
-    /// original Events, never a query-time re-encryption or projection
-    /// rewrite.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identity_events: Option<Vec<Event>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle_claim_digests: Option<Vec<Hash>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle_claims: Option<Vec<HandleClaim>>,
-    /// True when `handle_claims` is truncated or replaced by digest-only
-    /// hints. Absence of a claim is never proof that the member has no handle.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handle_claims_limited: Option<bool>,
-}
 
 impl MemberRosterEntry {
     pub fn validate(&self) -> Result<()> {
@@ -121,20 +94,10 @@ fn require_unique<'a>(member: &str, values: impl Iterator<Item = &'a str>) -> Re
     Ok(())
 }
 
-/// Counterpart for
-/// `account-subscribe-frame.schema.json#/$defs/member_roster`.
+// Counterpart for
+// `account-subscribe-frame.schema.json#/$defs/member_roster`.
 // Field declaration order is byte-for-byte the properties order of
 // account-subscribe-frame.schema.json#/$defs/member_roster.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MemberRoster {
-    pub entries: Vec<MemberRosterEntry>,
-    /// True when `entries` is truncated. A truncated page is never the
-    /// complete Realm roster, whatever its length.
-    pub limited: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Cursor>,
-}
 
 impl MemberRoster {
     pub const MAX_ENTRIES: usize = 100;
@@ -212,23 +175,13 @@ impl<'de> Deserialize<'de> for AgentRuntimeApprovalRequestId {
     }
 }
 
-/// Counterpart for
-/// `account-subscribe-frame.schema.json#/$defs/agent_runtime_approval_notification_data`.
-///
-/// This is the `upsert` payload of the Agent runtime approval branch of one
-/// `notification_delta`, selected by an `ak:notification:<uuidv7>` delta id.
+// Counterpart for
+// `account-subscribe-frame.schema.json#/$defs/agent_runtime_approval_notification_data`.
+//
+// This is the `upsert` payload of the Agent runtime approval branch of one
+// `notification_delta`, selected by an `ak:notification:<uuidv7>` delta id.
 // Field declaration order is byte-for-byte the properties order of
 // account-subscribe-frame.schema.json#/$defs/agent_runtime_approval_notification_data.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentRuntimeApprovalNotificationData {
-    pub approval_request_id: AgentRuntimeApprovalRequestId,
-    pub agent_id: DidCoreId,
-    #[serde(with = "canonical_timestamp")]
-    pub requested_at: DateTime<Utc>,
-    #[serde(with = "canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
 
 impl AgentRuntimeApprovalNotificationData {
     /// An approval window that has already closed at the instant it is
@@ -485,3 +438,5 @@ mod tests {
         assert!(data.validate().is_err());
     }
 }
+
+include!("generated/account_subscribe_projections_contracts.rs");

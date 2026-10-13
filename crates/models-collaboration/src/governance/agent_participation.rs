@@ -260,18 +260,6 @@ impl<'de> Deserialize<'de> for AgentParticipationEntry {
     }
 }
 
-/// Response for `ak.self.agent.participation.{set,get}`.
-///
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_participation_outcome`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipationOutcome {
-    pub agent_id: String,
-    #[serde(rename = "participation_entries")]
-    pub agent_participation_entries: Vec<AgentParticipationEntry>,
-}
-
 /// An observation from one exact authenticated Agent session. This local
 /// value is never a participation-current verdict or a wire carrier.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -488,3 +476,5 @@ mod observation_tests {
         assert!(old.validate_successor(&next).is_err());
     }
 }
+
+include!("generated/agent_participation_contracts.rs");

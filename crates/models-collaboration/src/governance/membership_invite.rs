@@ -54,41 +54,6 @@ pub enum JoinGateProofKind {
     ClaimRequired,
 }
 
-/// Closed applicant proof for one automatic join gate
-/// (`event-payload.schema.json#/$defs/join_gate_proof`).
-///
-/// The binding tuple — gate, Realm, applicant, policy revision, creation time —
-/// rides as wire members and is covered by `proofs`, so a proof replayed across
-/// Realms, applicants or policy revisions fails by field comparison before any
-/// signature is checked. Freshness is judged against the enclosing Event's
-/// signed `created_at`, never a receiver clock.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct JoinGateProof {
-    pub gate_id: String,
-    pub kind: JoinGateProofKind,
-    pub realm_id: RealmId,
-    pub applicant_actor_id: ActorId,
-    /// `sha256` over the canonical JSON of the accepted `join_policy`
-    /// component the reducer evaluates this join against.
-    pub policy_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    /// `challenge_response` only; MUST be one of the gate's `challenge_kinds`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge_kind: Option<JoinPolicyChallengeKind>,
-    /// `challenge_response` only; the provider treats it as single-use.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge_id: Option<String>,
-    /// `claim_required` only; MUST be listed in the gate's `trusted_issuer_ids`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issuer_id: Option<DidCoreId>,
-    /// `claim_required` only; MUST cover the gate's `required_claims`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub claims: Option<Vec<NonEmptyString>>,
-    pub proofs: Vec<PayloadProof>,
-}
-
 impl JoinGateProof {
     /// `payload_digest` for this proof: `sha256` over its canonical JSON with
     /// `proofs` removed (`proof-context-registry.json`, context
@@ -148,48 +113,6 @@ pub enum JoinPolicyChallengeKind {
     Pow,
     AttestedHuman,
     IdpOidc,
-}
-
-/// Strong type for `ak.member.state` payloads
-/// (`event-payload.schema.json#/$defs/membership_payload`).
-///
-/// `additionalProperties:false`: the removed `handle` / `from` keys that older
-/// inkson call sites tried to emit are intentionally NOT representable here —
-/// `handle` has no spec-legal home in this payload (the member identity is
-/// carried by `member_id`; handle evidence lives in signed `HandleClaim`
-/// objects on the roster, not the durable membership event), and the FSM
-/// `from` expectation is checked by the governance Station against its committed
-/// `transition`, not the payload body.
-///
-/// Member identity is one closed `ActorId`; delivery is projected from it and
-/// is not membership state.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the `properties` order of
-// `event-payload.schema.json#/$defs/membership_payload`.
-pub struct MembershipPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub member_id: ActorId,
-    pub membership: MembershipPayloadState,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub gate_proofs: Vec<JoinGateProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    /// Closed audit-only lifecycle cause. It classifies the transition and
-    /// never supplies authority (`zh/models/actor.md` section on explicit
-    /// cascade).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership_cause: Option<MembershipLifecycleCause>,
-    /// Exact controller authority pair and membership generation an Agent
-    /// membership is bound to.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_controller_binding: Option<AgentControllerMembershipBinding>,
-    /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_ref: Option<MembershipInviteRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -642,32 +565,6 @@ impl InviteAcceptPayload {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("invite accept payload serialize: {err}")))
     }
-}
-
-/// Closed value of the `invite_directed_invitee` typed current result
-/// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_value`).
-///
-/// It is the create-locked reverse index of the `invite_live_target` slot:
-/// written once by a directed `ak.invite.create` from that Event's own payload
-/// and never by `ak.invite.third_party`, so a third-party Invite's stored
-/// invitee is absent rather than null.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteDirectedInviteeValue {
-    pub invitee_account_id: AccountId,
-}
-
-/// The occupied branch of the `invite_live_target` slot value
-/// (`typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0`).
-///
-/// The occupant is the verbatim `ak:event:` id of the `ak.invite.create` that
-/// holds the slot, never its `ak:invite:` retype. The empty branch of the same
-/// value is JSON `null`, carried as `Option<InviteLiveTargetOccupant>`: it is
-/// the reusable state a registered release write returns the slot to.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteLiveTargetOccupant {
-    pub create_event_id: EventId,
 }
 
 /// Closed `invite_live_target` slot value: an occupant or the empty slot.
@@ -1258,3 +1155,5 @@ mod invite_accept_payload_tests {
         );
     }
 }
+
+include!("generated/membership_invite_contracts.rs");

@@ -59,20 +59,6 @@ pub struct OperationSignature {
     pub jws: String,
 }
 
-/// Immutable authorization source, with no target Commit coordinate.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HumanHistoricalSignerFact {
-    pub event_id: EventId,
-    #[serde(deserialize_with = "deserialize_signing_account_actor")]
-    pub actor: ActorId,
-    pub device_id: arkret_wire::DeviceId,
-    pub verification_method: DidUrl,
-    pub key: ResolvedSignerKey,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-}
-
 fn deserialize_signing_account_actor<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<ActorId, D::Error> {
@@ -291,13 +277,6 @@ impl HistoricalProducerSignerFact {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalProducerSignerFactEntry {
-    pub target: arkret_wire::CommittedEventRef,
-    pub producer_signer_fact: HistoricalProducerSignerFact,
-}
-
 impl HistoricalProducerSignerFactEntry {
     pub fn validate_target(&self, full: &arkret_wire::CommittedEventFullView) -> Result<()> {
         if self.target.event_id != full.commit.event_ref
@@ -315,16 +294,6 @@ impl HistoricalProducerSignerFactEntry {
         self.producer_signer_fact
             .validate_commit_binding(full, suite)
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerStreamScanOutcome {
-    pub committed_events: Vec<arkret_wire::CommittedEventView>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub readable_floor: Option<arkret_wire::ReadableFloor>,
-    pub truncated: bool,
-    pub producer_signer_facts: Vec<HistoricalProducerSignerFactEntry>,
 }
 
 impl PeerStreamScanOutcome {
@@ -360,28 +329,6 @@ impl PeerStreamScanOutcome {
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CommittedEventSubmission {
-    pub event_submission: EventAdmissionSubmission,
-    pub source_commit: RealmCommit,
-    /// Exact accepted Genesis of an MLS Commit's effective scope and group,
-    /// frozen by governance and carried in the authenticated peer body.
-    /// Required for MLS Commit replication and forbidden for every other kind.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub genesis_event_ref: Option<EventId>,
-    /// Welcomes of an `ak.mls.commit` whose recipients the destination
-    /// Station hosts, in submission order; absent for every other kind.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub welcomes: Option<Vec<MlsWelcomeDelivery>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
-    pub producer_signer_fact: Option<HistoricalProducerSignerFact>,
 }
 
 impl CommittedEventSubmission {
@@ -857,16 +804,6 @@ pub fn validate_producer_agent_evidence_presence(
 /// response bound, so the carrier has no aggregate bound of its own.
 pub const MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES: usize = 4_194_304;
 const MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS: usize = 5_592_406;
-
-/// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
-/// (`authority-commit-operations.schema.json#/$defs/mls_genesis_material`).
-/// The signed Genesis refs are the only digest carrier.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsGenesisMaterial {
-    pub group_info_bytes_b64: String,
-    pub ratchet_tree_bytes_b64: String,
-}
 
 impl MlsGenesisMaterial {
     #[must_use]
@@ -1555,23 +1492,6 @@ pub fn validate_reason_code(value: &str) -> Result<()> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthorityHandoffRequest {
-    pub handoff: RealmAuthorityHandoff,
-    /// Private complete manifest. It is transferred only old-authority to
-    /// new-authority and is never embedded in the public bundle.
-    pub final_stream_heads: Vec<CommitStreamHead>,
-    pub snapshot: RealmStateSnapshot,
-    pub authority_bundle: RealmAuthorityBundle,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
-    pub historical_signer_facts: Option<Vec<HistoricalProducerSignerFactEntry>>,
-}
-
 impl AuthorityHandoffRequest {
     pub fn validate_shape(&self) -> Result<()> {
         self.handoff.validate_shape()?;
@@ -1858,3 +1778,5 @@ pub fn validate_new_human_admission_fact_for_purpose(
         }
     }
 }
+
+include!("generated/authority_commit_contracts.rs");

@@ -36,43 +36,11 @@ impl PollContentBlock {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_answer`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PollAnswer {
-    pub id: String,
-    pub text: ContentBlock,
-}
-
 /// Discriminator for `content-block-poll.schema.json#/$defs/poll_body.kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PollDisclosureKind {
     #[serde(rename = "disclosed")]
     Disclosed,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PollBody {
-    pub kind: PollDisclosureKind,
-    pub max_selections: u64,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub question: Option<ContentBlock>,
-    pub answers: Vec<PollAnswer>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_response_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PollResponseBody {
-    pub poll_ref: MessageId,
-    pub selections: Vec<String>,
 }
 
 /// Discriminator for `content-block-poll.schema.json#/$defs/poll_block.kind`.
@@ -82,67 +50,12 @@ pub enum PollBlockKind {
     Poll,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_block`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PollBlock {
-    pub kind: PollBlockKind,
-    pub body: String,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub format: Option<TextFormat>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub formatted_body: Option<FormattedBody>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub reply_context: Option<PollReplyContext>,
-    pub poll: PollBody,
-}
-
 /// Discriminator for
 /// `content-block-poll.schema.json#/$defs/poll_response_block.kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PollResponseBlockKind {
     #[serde(rename = "ak.content.poll.response")]
     PollResponse,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_response_block`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PollResponseBlock {
-    pub kind: PollResponseBlockKind,
-    pub body: String,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub format: Option<TextFormat>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub formatted_body: Option<FormattedBody>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_non_null_optional",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub reply_context: Option<PollReplyContext>,
-    pub poll_response: PollResponseBody,
 }
 
 /// Closed identity alternatives permitted by the Poll reply-context schema.
@@ -273,3 +186,5 @@ impl PollResponseBlock {
         Ok(())
     }
 }
+
+include!("generated/poll_contracts.rs");

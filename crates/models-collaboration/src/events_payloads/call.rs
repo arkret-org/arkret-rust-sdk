@@ -6,17 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::internal_prelude::*;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ParticipantBinding {
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub issuer_kid: DidUrl,
-    pub sig: String,
-}
-
 impl ParticipantBinding {
     /// AKP-0010 — schema id for the participant_binding signing envelope.
     pub const SCHEMA: &'static str = "ak.media.participant_binding.v1";
@@ -457,36 +446,6 @@ pub struct CallRecordingDeletionAudit {
     pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
-///
-/// The schema identity `ak.schema.call_recording_artifact.v1` already fixes the
-/// recording artifact family, so the artifact carries no `artifact_kind`
-/// member (`zh/crypto-media/call-state.md`); the schema is closed and would
-/// reject one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CallRecordingArtifact {
-    pub schema: String,
-    pub realm_id: RealmId,
-    pub call_id: CallId,
-    pub recording_id: CallRecordingId,
-    pub recording_start_event_id: EventId,
-    pub blob_ref: BlobRef,
-    pub size_bytes: u64,
-    pub duration_ms: u64,
-    pub media_type: String,
-    pub encryption: CallRecordingEncryption,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retention_policy_id: Option<PolicyId>,
-    pub retention: CallRecordingRetention,
-    pub produced_by: DidCoreId,
-    pub recording_initiator_capability_ref: GrantId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub deletion_audit: Option<CallRecordingDeletionAudit>,
-}
-
 impl CallRecordingArtifact {
     pub const SCHEMA: &'static str = SchemaId::CALL_RECORDING_ARTIFACT_V1;
     pub fn validate(&self) -> Result<()> {
@@ -784,27 +743,6 @@ pub struct CallTranscriptTransition {
     pub result: Option<CallStatePayloadTranscriptResult>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_state_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CallStatePayload {
-    pub call_id: CallId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_transition: Option<CallStateTransition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub focus: Option<CallFocus>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recording_transition: Option<CallRecordingTransition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transcript_transition: Option<CallTranscriptTransition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub roster_delta: Option<CallRosterDelta>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub moderation_delta: Option<CallModerationDelta>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mute_override: Option<CallMuteOverride>,
-}
-
 impl CallStatePayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
         // v1 has no per-leg current selector or CAS carrier for moderator mute.
@@ -1019,3 +957,5 @@ mod call_current_tests {
         );
     }
 }
+
+include!("generated/call_contracts.rs");
