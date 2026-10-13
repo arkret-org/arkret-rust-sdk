@@ -37,7 +37,7 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{
-    DigestSuite, canonical_json_bytes, digest, digest_hex, digest_suite,
+    ContentHasher, DigestSuite, canonical_json_bytes, digest_hex, digest_suite,
 };
 use arkret_models_crypto::{
     AttachmentContentKeySalt, EncryptedAttachment, EncryptedAttachmentGroupStateRef,
@@ -292,15 +292,6 @@ pub fn encrypt_stream(
     let size_bytes = plaintext.len() as u64;
 
     let mut ciphertext = Vec::new();
-    // Empty plaintext is a single zero-length last segment; otherwise chunk
-    // into `segment_bytes` pieces (the last is 1..=segment_bytes).
-    let chunks: Vec<&[u8]> = if plaintext.is_empty() {
-        vec![&[][..]]
-    } else {
-        plaintext.chunks(segment_bytes).collect()
-    };
-    debug_assert_eq!(chunks.len() as u32, segment_count);
-
     let aad_context = StreamSegmentAadContext {
         key_ref: &params.key_ref,
         content_key_salt: &params.content_key_salt,
@@ -311,8 +302,10 @@ pub fn encrypt_stream(
         size_bytes,
     };
 
-    for (index, chunk) in chunks.iter().enumerate() {
-        let segment_index = index as u32;
+    for segment_index in 0..segment_count {
+        let start = segment_index as usize * segment_bytes;
+        let end = start.saturating_add(segment_bytes).min(plaintext.len());
+        let chunk = &plaintext[start..end];
         let last = segment_index == segment_count - 1;
         let nonce = segment_nonce(&nonce_prefix, segment_index, last);
         let aad = stream_segment_aad(&aad_context, segment_index, last)?;
@@ -447,8 +440,9 @@ pub struct StreamDecryptor {
     next_index: u32,
     /// Whether a legal last segment has been accepted — §3.3.6 (3).
     seen_last: bool,
-    /// Running SHA-256 input: concatenated ciphertext in index order — §3.3.5.
-    digest_input: Vec<u8>,
+    failure: Option<String>,
+    /// The complete commitment retains no ciphertext segments.
+    hasher: ContentHasher,
 }
 
 impl StreamDecryptor {
@@ -459,11 +453,18 @@ impl StreamDecryptor {
         resolver: &impl AttachmentGroupStateEpochResolver,
     ) -> Result<Self> {
         let env = envelope_fields(env)?;
+        let suite = env
+            .blob_ref
+            .strip_prefix("ak:blob:")
+            .and_then(|value| value.split_once(':'))
+            .ok_or_else(|| protocol("schema_violation", "missing content digest suite"))?
+            .0;
         Ok(Self {
             ctx: StreamContext::new(&env, content_key, resolver)?,
             next_index: 0,
             seen_last: false,
-            digest_input: Vec::new(),
+            failure: None,
+            hasher: ContentHasher::new(digest_suite(suite)?),
         })
     }
 
@@ -471,6 +472,24 @@ impl StreamDecryptor {
     /// AEAD-verified plaintext. The plaintext is only returned after the tag
     /// verifies — §3.3.6 (2).
     pub fn push_segment(
+        &mut self,
+        segment_index: u32,
+        segment_ciphertext: &[u8],
+    ) -> Result<Vec<u8>> {
+        if let Some(message) = &self.failure {
+            return Err(Error::Protocol(message.clone()));
+        }
+        let result = self.push_segment_inner(segment_index, segment_ciphertext);
+        if let Err(error) = &result {
+            self.failure = Some(match error {
+                Error::Protocol(message) => message.clone(),
+                _ => format!("schema_violation: consumption stopped after {error}"),
+            });
+        }
+        result
+    }
+
+    fn push_segment_inner(
         &mut self,
         segment_index: u32,
         segment_ciphertext: &[u8],
@@ -560,7 +579,7 @@ impl StreamDecryptor {
             })?;
 
         // Only after AEAD success do we advance state / accumulate digest input.
-        self.digest_input.extend_from_slice(segment_ciphertext);
+        self.hasher.update(segment_ciphertext);
         self.next_index += 1;
         if last {
             self.seen_last = true;
@@ -571,6 +590,9 @@ impl StreamDecryptor {
     /// Finalize: require that a legal last segment was accepted and that the
     /// overall ciphertext digest matches — §3.3.6 (3)/(4)/(7).
     pub fn finish(self) -> Result<()> {
+        if let Some(message) = self.failure {
+            return Err(Error::Protocol(message));
+        }
         // §3.3.6 (3)/(4): no legal last segment ⇒ truncated stream.
         if !self.seen_last {
             return Err(protocol(
@@ -589,13 +611,7 @@ impl StreamDecryptor {
             ));
         }
         // §3.3.6 (7): recompute the concatenated ciphertext digest.
-        let suite = self
-            .ctx
-            .expected_digest
-            .split_once(':')
-            .ok_or_else(|| protocol("schema_violation", "missing digest suite"))?
-            .0;
-        let actual = digest(digest_suite(suite)?, &self.digest_input);
+        let actual = self.hasher.finish();
         if actual != self.ctx.expected_digest {
             return Err(protocol(
                 "digest_mismatch",
@@ -623,20 +639,8 @@ pub fn decrypt_stream(
     let segment_count = ctx.segment_count;
     let segment_bytes = ctx.segment_bytes as usize;
 
-    // Pre-compute each segment's expected ciphertext length so we can slice the
-    // single concatenated buffer at the right boundaries. The last segment's
-    // plaintext length comes from size_bytes (§3.3.1 / cargo note in task).
-    let mut boundaries: Vec<usize> = Vec::with_capacity(segment_count as usize);
-    for index in 0..segment_count {
-        let last_index = segment_count - 1;
-        let pt = if index < last_index {
-            segment_bytes
-        } else {
-            (ctx.size_bytes - (ctx.segment_bytes as u64) * (last_index as u64)) as usize
-        };
-        boundaries.push(pt + TAG_LEN);
-    }
-    let total: usize = boundaries.iter().sum();
+    let total = usize::try_from(ctx.size_bytes + u64::from(segment_count) * TAG_LEN as u64)
+        .map_err(|_| protocol("segment_bounds_invalid", "ciphertext exceeds address space"))?;
     if ciphertext.len() != total {
         return Err(protocol(
             "segment_bounds_invalid",
@@ -649,10 +653,15 @@ pub fn decrypt_stream(
 
     let mut plaintext = Vec::with_capacity(ctx.size_bytes as usize);
     let mut offset = 0usize;
-    for (index, seg_len) in boundaries.into_iter().enumerate() {
+    for index in 0..segment_count {
+        let seg_len = if index + 1 == segment_count {
+            total - offset
+        } else {
+            segment_bytes + TAG_LEN
+        };
         let segment = &ciphertext[offset..offset + seg_len];
         offset += seg_len;
-        let segment_plaintext = decryptor.push_segment(index as u32, segment)?;
+        let segment_plaintext = decryptor.push_segment(index, segment)?;
         plaintext.extend_from_slice(&segment_plaintext);
     }
     decryptor.finish()?;
@@ -746,6 +755,73 @@ mod tests {
                 b"digest suite"
             );
         }
+    }
+
+    #[test]
+    fn incremental_digest_verifies_many_segments_in_both_suites() {
+        let plaintext = vec![17; 512 * S + 7];
+        for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
+            let mut params = params(MIN_SEGMENT_SIZE);
+            params.digest_suite = suite;
+            let (ciphertext, envelope) =
+                encrypt_stream(&plaintext, &key(), &params, &winning_epoch).unwrap();
+            let mut decryptor = StreamDecryptor::new(&envelope, &key(), &winning_epoch).unwrap();
+            let mut recovered_bytes = 0;
+            for (index, segment) in ciphertext.chunks(S + TAG_LEN).enumerate() {
+                let verified = decryptor.push_segment(index as u32, segment).unwrap();
+                assert_eq!(
+                    verified,
+                    plaintext[recovered_bytes..recovered_bytes + verified.len()]
+                );
+                recovered_bytes += verified.len();
+            }
+            decryptor.finish().unwrap();
+            assert_eq!(recovered_bytes, plaintext.len());
+            let mut bad = envelope_fields(&envelope).unwrap();
+            bad.blob_ref = format!("ak:blob:{}:{}", suite.as_str(), "00".repeat(32));
+            assert_eq!(
+                reason(
+                    &decrypt_stream(
+                        &ciphertext,
+                        &typed_envelope(bad).unwrap(),
+                        &key(),
+                        &winning_epoch
+                    )
+                    .unwrap_err()
+                ),
+                "digest_mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn a_failed_stream_cannot_resume_or_finish() {
+        let (ciphertext, envelope) = encrypt_stream(
+            &vec![2; S + 3],
+            &key(),
+            &params(MIN_SEGMENT_SIZE),
+            &winning_epoch,
+        )
+        .unwrap();
+        let mut decryptor = StreamDecryptor::new(&envelope, &key(), &winning_epoch).unwrap();
+        let mut first = ciphertext[..S + TAG_LEN].to_vec();
+        first[0] ^= 1;
+        assert_eq!(
+            reason(&decryptor.push_segment(0, &first).unwrap_err()),
+            "segment_aead_failed"
+        );
+        assert_eq!(
+            reason(
+                &decryptor
+                    .push_segment(0, &ciphertext[..S + TAG_LEN])
+                    .unwrap_err()
+            ),
+            "segment_aead_failed"
+        );
+        assert_eq!(
+            reason(&decryptor.finish().unwrap_err()),
+            "segment_aead_failed"
+        );
     }
 
     fn reason(err: &Error) -> String {

@@ -757,6 +757,37 @@ pub fn digest_hex(suite: DigestSuite, bytes: &[u8]) -> String {
     }
 }
 
+/// Fixed-size incremental content commitment for both registered v1 suites.
+pub enum ContentHasher {
+    Sha256(Sha256),
+    Blake3(Box<blake3::Hasher>),
+}
+
+impl ContentHasher {
+    pub fn new(suite: DigestSuite) -> Self {
+        match suite {
+            DigestSuite::Sha256 => Self::Sha256(Sha256::new()),
+            DigestSuite::Blake3 => Self::Blake3(Box::new(blake3::Hasher::new())),
+        }
+    }
+
+    pub fn update(&mut self, bytes: &[u8]) {
+        match self {
+            Self::Sha256(hasher) => hasher.update(bytes),
+            Self::Blake3(hasher) => {
+                hasher.update(bytes);
+            }
+        }
+    }
+
+    pub fn finish(self) -> String {
+        match self {
+            Self::Sha256(hasher) => format!("sha256:{}", hex::encode(hasher.finalize())),
+            Self::Blake3(hasher) => format!("blake3:{}", hasher.finalize().to_hex()),
+        }
+    }
+}
+
 /// Compute the raw 32-byte digest under an explicit active suite.
 pub fn digest_bytes(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> [u8; 32] {
     match suite {

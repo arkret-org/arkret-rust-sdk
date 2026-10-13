@@ -3,7 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::{
-    EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
+    EncryptedAttachment, EncryptedEnvelope, MlsEncryptedPayload, MlsPayloadType, PlainPayload,
+    ProtectedPayload,
 };
 use arkret_wire::{DidCoreId, EventId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
@@ -128,6 +129,31 @@ impl MlsPayloadType for MessageMetadata {
 }
 
 impl ContentBlock {
+    /// Build the sole E2EE long-text carrier with an existing typed descriptor.
+    pub fn encrypted_long_text(full_body: &str, attachment: EncryptedAttachment) -> Result<Self> {
+        let EncryptedAttachment::Stream(ref stream) = attachment else {
+            return Err(WireError::Protocol(
+                "E2EE long text requires stream AEAD".into(),
+            ));
+        };
+        let normalized = normalize_long_text(full_body)?;
+        if stream.size_bytes != normalized.len() as u64 {
+            return Err(WireError::Protocol(
+                "long-text plaintext size differs from descriptor".into(),
+            ));
+        }
+        let block = Self::new(ContentBlockKind::LongText, long_text_prefix(&normalized))
+            .with_field("body_kind", Value::String("prefix".into()))
+            .with_field("line_count", Value::from(long_text_line_count(&normalized)))
+            .with_field(
+                "attachment",
+                serde_json::to_value(attachment)
+                    .map_err(|error| WireError::Protocol(error.to_string()))?,
+            );
+        block.validate_long_text()?;
+        Ok(block)
+    }
+
     pub fn new(kind: ContentBlockKind, body: impl Into<String>) -> Self {
         Self {
             kind,
@@ -655,68 +681,23 @@ impl ContentBlock {
                 ));
             }
         } else {
-            let attachment = self
-                .extra
-                .get("attachment")
-                .and_then(Value::as_object)
-                .ok_or_else(|| {
-                    WireError::Protocol("E2EE long_text attachment must be an object".to_owned())
+            let typed: EncryptedAttachment =
+                serde_json::from_value(self.extra["attachment"].clone()).map_err(|error| {
+                    WireError::Protocol(format!("long-text attachment: {error}"))
                 })?;
-            let field = |key: &str| {
-                attachment
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
+            let EncryptedAttachment::Stream(stream) = typed else {
+                return Err(WireError::Protocol(
+                    "E2EE long_text requires stream AEAD".into(),
+                ));
             };
-            if field("scheme") != "ak.blob.stream_aead.v1" {
+            if hash_blob_ref_suite_and_hex(stream.blob_ref.as_str()).is_none() {
                 return Err(WireError::Protocol(
-                    "E2EE long_text attachment must use ak.blob.stream_aead.v1".to_owned(),
+                    "E2EE long_text requires hash-addressed blob_ref".into(),
                 ));
             }
-            if !field("encryption_algorithm").ends_with("_stream") {
-                return Err(WireError::Protocol(
-                    "E2EE long_text attachment must use the matching _stream AEAD algorithm"
-                        .to_owned(),
-                ));
-            }
-            let blob_ref = field("blob_ref");
-            if hash_blob_ref_suite_and_hex(blob_ref).is_none() {
-                return Err(WireError::Protocol(
-                    "E2EE long_text attachment blob_ref must be hash-addressed".to_owned(),
-                ));
-            }
-            const STREAM_ATTACHMENT_FIELDS: &[&str] = &[
-                "blob_ref",
-                "encrypted",
-                "scheme",
-                "encryption_algorithm",
-                "key_ref",
-                "size_bytes",
-                "media_type",
-                "nonce_prefix",
-                "segment_bytes",
-            ];
-            if let Some(unknown) = attachment
-                .keys()
-                .find(|key| !STREAM_ATTACHMENT_FIELDS.contains(&key.as_str()))
-            {
-                return Err(WireError::Protocol(format!(
-                    "E2EE long_text attachment does not allow field {unknown:?}"
-                )));
-            }
-            for key in ["nonce_prefix", "segment_bytes", "size_bytes"] {
-                if !attachment.contains_key(key) {
-                    return Err(WireError::Protocol(format!(
-                        "E2EE long_text attachment requires {key}"
-                    )));
-                }
-            }
-            let segment_bytes = attachment.get("segment_bytes").and_then(Value::as_u64);
-            if segment_bytes == Some(0) {
-                return Err(WireError::Protocol(
-                    "E2EE long_text attachment segment_bytes must be positive".to_owned(),
-                ));
-            }
+            let segment_bytes = u32::try_from(stream.segment_bytes)
+                .map_err(|_| WireError::Protocol("attachment segment size overflow".into()))?;
+            arkret_models_crypto::stream_segment_count(stream.size_bytes, segment_bytes)?;
         }
 
         if let Some(declared) = self.extra_u64("line_count")
