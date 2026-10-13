@@ -44,30 +44,6 @@ pub struct MimiOperationSignature {
     pub jws: String,
 }
 
-/// `mimi-operations.schema.json#/$defs/mimi_key_material_request_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiKeyMaterialRequestBody {
-    pub requester_id: DidCoreId,
-    pub strand_id: StrandId,
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mimi_room_uri: Option<MimiRoomUri>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<MlsGroupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(
-        default,
-        skip_serializing_if = "Vec::is_empty",
-        deserialize_with = "deserialize_nonempty_identifier_query_proofs"
-    )]
-    pub proofs: Vec<PayloadProof>,
-}
-
 impl MimiKeyMaterialRequestBody {
     pub fn unsigned_payload(&self) -> Result<Value> {
         mimi_unsigned_body_without_proofs(self)
@@ -96,22 +72,6 @@ impl MimiKeyMaterialRequestBody {
             proof,
         )
     }
-}
-
-/// `mimi-operations.schema.json#/$defs/mimi_key_material_outcome`.
-/// Presence is preserved for the schema's at-least-one branch constraint.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiKeyMaterialOutcome {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keypackages: Option<Vec<MimiKeyPackage>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_info: Option<MimiGroupInfo>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failures: Option<Vec<MimiFailure>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signature: Option<MimiOperationSignature>,
 }
 
 impl MimiKeyMaterialOutcome {
@@ -172,27 +132,6 @@ impl MimiKeyMaterialOutcome {
     }
 }
 
-/// `mimi-operations.schema.json#/$defs/mimi_room_update_request_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiRoomUpdateRequestBody {
-    pub mls_group_id: MlsGroupId,
-    pub update: MimiRoomUpdate,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub confirmed_transcript_hash: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_actor_id: Option<ActorId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    // The runtime carrier is the closed EventAdmissionSubmission; the full
-    // Event/approval schema is published by the canonical artifact, not
-    // recreated as an OpenAPI mirror here.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<serde_json::Value>)))]
-    pub room_binding_event: Option<EventAdmissionSubmission>,
-}
-
 impl MimiRoomUpdateRequestBody {
     pub fn validate(&self) -> Result<()> {
         if (self.update.kind.as_str() == event_kind_str::MIMI_ROOM_BINDING)
@@ -218,18 +157,6 @@ pub struct MimiRoomUpdateOutcome {
     pub rejections: Option<Vec<MimiFailure>>,
 }
 
-/// `mimi-operations.schema.json#/$defs/mimi_notify_request_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiNotifyRequestBody {
-    pub notification: MimiNotification,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin_provider_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub routing: Option<MimiNotificationRouting>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -238,29 +165,6 @@ pub struct MimiNotifyOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
-}
-
-/// `mimi-operations.schema.json#/$defs/mimi_request_consent_outcome`.
-/// The old `status` mirror is not part of the closed outcome.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiRequestConsentOutcome {
-    pub consent_id: ConsentId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge: Option<NonEmptyString>,
-}
-
-/// `mimi-operations.schema.json#/$defs/mimi_update_consent_outcome`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiUpdateConsentOutcome {
-    pub consent_id: ConsentId,
-    pub decision: MimiConsentDecision,
-    #[serde(with = "canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
-    pub event_ref: EventId,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -955,51 +859,23 @@ mod tests {
     }
 }
 
-/// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
-///
-/// Operation `ak.open.mimi.command.submit_message.v1`. The facade never sees
-/// plaintext: the Arkret side supplies one already-encrypted MIMI ciphertext
-/// plus the exact sender coordinates, and `associated_data` carries only the
-/// opaque AAD descriptor.
+// Counterpart for
+// `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
+//
+// Operation `ak.open.mimi.command.submit_message.v1`. The facade never sees
+// plaintext: the Arkret side supplies one already-encrypted MIMI ciphertext
+// plus the exact sender coordinates, and `associated_data` carries only the
+// opaque AAD descriptor.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_submit_message_request_body.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiSubmitMessageRequestBody {
-    pub sender_actor_id: ActorId,
-    pub device_id: DeviceId,
-    pub ciphertext: MimiCiphertext,
-    /// The Arkret-derived group id of the room's MLS group, present only for
-    /// an E2EE room. `mimi-operations.schema.json` binds it to the shared
-    /// `mls_group_id` definition, so it is the scope digest and never a
-    /// provider-chosen name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<MlsGroupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub associated_data: Option<MimiOpaquePayload>,
-}
 
-/// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.
-///
-/// `event_ref` is present only when the submission also produced an Arkret
-/// Event; a pure outbound relay reports delivery without one.
+// Counterpart for
+// `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.
+//
+// `event_ref` is present only when the submission also produced an Arkret
+// Event; a pure outbound relay reports delivery without one.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_submit_message_outcome.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiSubmitMessageOutcome {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_ref: Option<EventId>,
-    pub delivery: MimiDelivery,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejections: Vec<MimiFailure>,
-}
 
 impl MimiSubmitMessageOutcome {
     /// `accepted` and `rejected` are total statements about the same fan-out,
@@ -1106,24 +982,14 @@ impl MimiIdentifierQueryRequestBody {
     }
 }
 
-/// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
-///
-/// The outcome is a proof-carrying object: its registered proof context is
-/// `ak.mimi_identifier_query_outcome_proof.v1`, and the signed transcript is
-/// the canonical body with `proofs` removed.
+// Counterpart for
+// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
+//
+// The outcome is a proof-carrying object: its registered proof context is
+// `ak.mimi_identifier_query_outcome_proof.v1`, and the signed transcript is
+// the canonical body with `proofs` removed.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiIdentifierQueryOutcome {
-    #[serde(default)]
-    pub matches: Vec<MimiIdentifierMatch>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
-    pub has_more: bool,
-}
 
 impl MimiIdentifierQueryOutcome {
     pub fn unsigned_payload(&self) -> Result<Value> {
@@ -1170,28 +1036,14 @@ pub struct MimiProxyDownloadRequestBody {
     pub range: Option<NonEmptyString>,
 }
 
-/// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
-///
-/// Operation `ak.open.mimi.command.proxy_download.v1`. `download_ref` is the
-/// provider's own opaque handle; the SDK never interprets it as a URL or as a
-/// typed Arkret identifier.
+// Counterpart for
+// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
+//
+// Operation `ak.open.mimi.command.proxy_download.v1`. `download_ref` is the
+// provider's own opaque handle; the SDK never interprets it as a URL or as a
+// typed Arkret identifier.
 // Field declaration order is byte-for-byte the properties order of
 // mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiProxyDownloadOutcome {
-    pub download_ref: NonEmptyString,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, NonEmptyString>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-}
 
 #[cfg(test)]
 mod mimi_relay_tests {
@@ -1615,3 +1467,5 @@ mod mimi_relay_tests {
         );
     }
 }
+
+include!("generated/mimi_operations_contracts.rs");

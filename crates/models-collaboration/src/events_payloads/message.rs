@@ -47,51 +47,6 @@ pub enum MimiMessageProvenanceKind {
     MimiFacade,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
-///
-/// `message_id` is the single target carrier: the registered
-/// `ak.component.object.redaction.v1` cell subject is that typed Message ID, so
-/// the same Message cannot be addressed two ways.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageRedactPayload {
-    pub message_id: MessageId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preserve: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mimi_provenance: Option<MimiMessageProvenance>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_revise_payload`.
-///
-/// `message_id` is the single target carrier: the registered
-/// `ak.component.message.revision.v1` cell subject is that typed Message ID.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageRevisePayload {
-    pub message_id: MessageId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<MessageTrackName>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<ContentBlock>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<EncryptedEnvelope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<MessageMetadata>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<EncryptedEnvelope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mimi_provenance: Option<MimiMessageProvenance>,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MessageRevisePayloadWire {
@@ -1263,3 +1218,5 @@ fn content_block_has_text(block: &Value) -> bool {
 fn json_integer(value: &Value) -> bool {
     value.is_i64() || value.is_u64()
 }
+
+include!("generated/message_contracts.rs");

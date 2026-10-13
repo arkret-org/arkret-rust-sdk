@@ -35,39 +35,6 @@ pub enum IdentityReceiptWitnessRole {
     Replica,
 }
 
-/// Signed identity receipt from a DID registry
-/// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).
-/// The registry / witness endorsement of a key-log head travels here —
-/// never inside the key-log entry's `proofs[]`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DidRegistryReceipt {
-    /// Canonical schema discriminator (`ak.schema.identity_receipt.v1`).
-    pub schema: String,
-    pub receipt_id: arkret_wire::ReceiptId,
-    /// DID whose key-log head this receipt witnesses.
-    pub subject_did: Did,
-    /// Key-log sequence number of the witnessed head.
-    pub seq: u64,
-    /// SHA-256 of the complete canonical accepted method entry, including its proofs.
-    pub accepted_entry_digest: Hash,
-    /// Issuing registry service DID.
-    pub registry_id: DidCoreId,
-    pub witness_role: IdentityReceiptWitnessRole,
-    /// Optional audience binding; verifiers MUST reject the receipt
-    /// outside this audience context when present.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
-    #[serde(with = "canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    /// Generic detached-JWS proof
-    /// (`event-envelope.schema.json#/$defs/proof`) by the registry
-    /// service key. `payload_digest = canonical_digest(receipt without
-    /// signature)`; the JWS signs the `ak.identity_receipt_proof.v1`
-    /// binding object defined by identity-did.md section 4.3.
-    pub signature: DetachedPayloadProof,
-}
-
 impl DidRegistryReceipt {
     /// Build and sign a receipt with the **registry's** Ed25519 key.
     #[allow(clippy::too_many_arguments)]
@@ -245,3 +212,5 @@ impl DidRegistryReceipt {
         .map_err(|err| IdentityError::Protocol(err.to_string()))
     }
 }
+
+include!("generated/records_contracts.rs");

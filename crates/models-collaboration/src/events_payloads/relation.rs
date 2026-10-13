@@ -25,21 +25,6 @@ where
     Option::<CurrentRevision>::deserialize(deserializer)
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_create_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationCreatePayload {
-    pub primary_conflict_domain: RelationPrimaryConflictDomain,
-    /// `null` is permitted only when the domain has never been written. A
-    /// tombstoned domain must name that tombstone's exact revision.
-    pub expected_revision: Option<CurrentRevision>,
-    /// The closed six-field authoring definition. Materialized Relation
-    /// identity, Realm, lifecycle, scope projection, and audit fields are
-    /// reducer-owned and cannot be supplied here.
-    pub relation: RelationDefinition,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RelationCreatePayloadWire {
@@ -92,17 +77,6 @@ impl<'de> Deserialize<'de> for RelationCreatePayload {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_update_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationUpdatePayload {
-    pub primary_conflict_domain: RelationPrimaryConflictDomain,
-    pub expected_revision: CurrentRevision,
-    pub patch: Patch,
-    pub relation_id: RelationId,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RelationUpdatePayloadWire {
@@ -145,18 +119,6 @@ impl<'de> Deserialize<'de> for RelationUpdatePayload {
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_tombstone_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationTombstonePayload {
-    pub primary_conflict_domain: RelationPrimaryConflictDomain,
-    pub expected_revision: CurrentRevision,
-    pub relation_id: RelationId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<NonEmptyString>,
 }
 
 #[derive(Deserialize)]
@@ -331,3 +293,5 @@ mod tests {
         assert!(serde_json::from_value::<RelationTombstonePayload>(invalid).is_err());
     }
 }
+
+include!("generated/relation_contracts.rs");

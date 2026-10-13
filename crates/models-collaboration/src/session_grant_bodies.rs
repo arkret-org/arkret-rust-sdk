@@ -24,24 +24,15 @@ pub const AGENT_SESSION_REFRESH_OPERATION: &str = "refresh_session_grant";
 /// Longest validity window an Agent runtime-key refresh proof may claim.
 pub const AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS: i64 = 300;
 
-/// Fresh-device existing-principal recovery issuance.
-///
-/// Authorization is the Bound AccountHandoff plus a matching per-request DPoP
-/// proof. The Account Authority binds this request to its account/principal
-/// mapping and does not consume the handoff on success, so the candidate
-/// device is deliberately not required to hold an accepted-device
-/// authorization yet.
+// Fresh-device existing-principal recovery issuance.
+//
+// Authorization is the Bound AccountHandoff plus a matching per-request DPoP
+// proof. The Account Authority binds this request to its account/principal
+// mapping and does not consume the handoff on success, so the candidate
+// device is deliberately not required to hold an accepted-device
+// authorization yet.
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoverySessionGrantRequest {
-    pub credential_class: SessionGrantCredentialClass,
-    pub request_id: RequestId,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub audience_id: DidCoreId,
-}
 
 impl RecoverySessionGrantRequest {
     pub fn validate(&self) -> Result<()> {
@@ -55,25 +46,13 @@ impl RecoverySessionGrantRequest {
     }
 }
 
-/// DPoP-bound Agent SessionGrant rotation.
-///
-/// The predecessor is presented as `Authorization: DPoP` plus a matching DPoP
-/// proof; this body carries no client-generated challenge and no polymorphic
-/// proof kind.
+// DPoP-bound Agent SessionGrant rotation.
+//
+// The predecessor is presented as `Authorization: DPoP` plus a matching DPoP
+// proof; this body carries no client-generated challenge and no polymorphic
+// proof kind.
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSessionGrantRefreshRequest {
-    /// Near-expiry Agent DPoP-bound SessionGrant.
-    pub grant_jwt: String,
-    /// When present, it must equal the predecessor grant audience.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience_id: Option<DidCoreId>,
-    pub principal_id: DidCoreId,
-    pub agent_key_authorization_ref: EventId,
-    pub agent_session_refresh_proof: AgentSessionRefreshProof,
-}
 
 impl AgentSessionGrantRefreshRequest {
     pub fn validate(&self) -> Result<()> {
@@ -103,24 +82,9 @@ pub enum AgentSessionRefreshProofContext {
     V1,
 }
 
-/// Current Agent runtime-key proof for SessionGrant rotation.
+// Current Agent runtime-key proof for SessionGrant rotation.
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSessionRefreshProof {
-    pub context: AgentSessionRefreshProofContext,
-    pub request_canonical_digest: Hash,
-    pub audience_id: DidCoreId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    /// Must be after `issued_at` and no more than
-    /// [`AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS`] later.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub verification_method: DidUrl,
-    pub signature: Base64UrlString,
-}
 
 impl AgentSessionRefreshProof {
     pub fn validate(&self) -> Result<()> {
@@ -541,3 +505,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/session_grant_bodies_contracts.rs");

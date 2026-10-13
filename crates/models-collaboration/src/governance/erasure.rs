@@ -1,4 +1,4 @@
-//! Erasure receipt wire shapes (`erasure-receipt.schema.json`,
+//! Erasure receipt wire shapes (`erasure-receipt.schema.json#/properties/peer_receipts/items`,
 //! `ak.audit.erasure_receipt`): subject/scope/outcome enums, per-peer
 //! fanout acknowledgement records, and the canonical proof-input
 //! digest rules shared by receipt issuers and verifiers.
@@ -243,8 +243,8 @@ pub struct ErasureReceiptProof {
 }
 
 /// Cross-Station erasure-receipt fanout aggregate status tracked by
-/// the issuing server (mirrors `erasure-receipt.schema.json` `fanout_status`;
-/// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
+/// the issuing server (mirrors `erasure-receipt.schema.json#/properties/peer_receipts/items`
+/// `fanout_status`; models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
 /// kind `ak.audit.erasure_receipt.fanout_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -261,8 +261,8 @@ pub enum ErasureFanoutStatus {
     Incomplete,
 }
 
-/// Per-peer fanout acknowledgement status (mirrors `erasure-receipt.schema.json`
-/// `peer_receipts[].status`).
+/// Per-peer fanout acknowledgement status (mirrors
+/// `erasure-receipt.schema.json#/properties/peer_receipts/items` `peer_receipts[].status`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -276,27 +276,6 @@ pub enum ErasurePeerStatus {
     Failed,
     /// No feedback within `erasure_propagation_window_ms`.
     TimedOut,
-}
-
-/// One per-peer fanout acknowledgement record maintained by the issuing server
-/// (mirrors `erasure-receipt.schema.json` `peer_receipts[]`). One entry per peer
-/// Station that ever held this Realm's content.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct ErasurePeerReceipt {
-    /// Peer Station DID.
-    pub peer_id: DidCoreId,
-    pub status: ErasurePeerStatus,
-    /// The peer's own feedback receipt id, when received.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub receipt_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub acknowledged_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -545,3 +524,5 @@ mod tests {
         assert!(invalid.validate_minimal().is_err());
     }
 }
+
+include!("generated/erasure_contracts.rs");

@@ -21,42 +21,6 @@ pub enum ConsentState {
     Revoked,
 }
 
-/// Closed `typed-current-result.schema.json#/$defs/consent_value`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConsentValue {
-    pub consent_id: ConsentId,
-    pub peer: ConsentPeer,
-    pub consent_scope: ConsentScope,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub constraints: Option<Vec<std::collections::BTreeMap<String, serde_json::Value>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    pub status: ConsentState,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revoked_reason: Option<String>,
-}
-
 // Field declaration order is byte-for-byte the properties order of
 // consent-operations.schema.json#/$defs/consent_view.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -317,3 +281,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/consent_operations_contracts.rs");

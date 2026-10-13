@@ -1,0 +1,79 @@
+// @generated; do not edit by hand.
+// Generator: tools/generate-closed-models.py
+//
+// Input: schemas/signal-presence.schema.json
+// sha256=66dd4ce1ca6772e8cdbc506ab9cc2054b973cae7c4deb0e9d9988718b0930689
+//
+// Input: schemas/time.schema.json
+// sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
+//
+// Input: schemas/signal-typing.schema.json
+// sha256=bc3864e8e7f8997ce90c0abf16451ed4ba33bd128e6cd90a4e78b7c4fb07df81
+//
+// Input: schemas/read-receipt.schema.json
+// sha256=388e2980872d205b1137e790d0ae9e89c27d887be3a14d54edca2bbb59498f5e
+//
+// Bindings: tools/closed-model-bindings.json
+// sha256=c5c717d42040392233cf38e4f3236cfeed2d38c2b642d4cf765ba04cf371a3ee
+
+/// Counterpart: `signal-presence.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`
+/// (`ak.schema.signal_presence.v1`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PresencePlaintext {
+    pub kind: PresencePlaintextKind,
+    pub payload_sequence: u64,
+    pub actor_id: ActorId,
+    pub state: PresenceState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub status_message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub last_active_at: Option<String>,
+    pub ttl_ms: u64,
+}
+
+/// Counterpart: `signal-typing.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/signal-typing.schema.json`
+/// (`ak.schema.signal_typing.v1`).
+///
+/// The profile is fixed to the discussion track family and the plaintext
+/// therefore carries no `track_name` at all
+/// (`zh/discovery/profiles-presence.md` §3.5).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TypingPlaintext {
+    pub kind: TypingPlaintextKind,
+    pub payload_sequence: u64,
+    pub strand_id: StrandId,
+    pub typing: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub ttl_ms: Option<u64>,
+}
+
+/// Counterpart: `read-receipt.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/read-receipt.schema.json`
+/// (`ak.schema.read_receipt.v1`).
+///
+/// A read receipt is a Signal plaintext, not a durable object: it never enters
+/// Event history, so it carries no `id`, no `schema`, no `created_at` and no
+/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal
+/// AAD, the sending device and send time are on the signed envelope, and the
+/// payload kind is the `kind` const. One type both seals and opens — the
+/// closed schema and this struct describe the same five fields, so a sender's
+/// own bytes deserialize back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadReceipt {
+    pub kind: ReadReceiptPlaintextKind,
+    pub payload_sequence: u64,
+    pub actor_id: ActorId,
+    pub event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub hlc: Option<Hlc>,
+    pub read_scope: ReadReceiptScope,
+}

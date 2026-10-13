@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-12.1;
-//! sha256=d2ceba4e55eb1db1efe5952869b3785ea5f3539bfd1b0bc99655bdc0146028c2 Entries: schema_ids=226,
-//! active=226
+//! Input: registry/contract-registry.json; version=2026-10-13.1;
+//! sha256=e0c0f65c268ed1f8c7cf1bcea318b88d8bbc94c55dc527b04b9cf2207fc129af Entries: schema_ids=227,
+//! active=227
 
 use serde::{Deserialize, Serialize};
 
@@ -115,6 +115,7 @@ pub enum SchemaId {
     HolderQuarantineV1,
     HttpProblemDetailsV1,
     IceConfigResponseV1,
+    IdentityLinkV1,
     IdentityReceiptV1,
     IdentityResolutionV1,
     InviteV1,
@@ -345,6 +346,7 @@ impl SchemaId {
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
+        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
         Self::InviteV1,
@@ -575,6 +577,7 @@ impl SchemaId {
         Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
+        Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
         Self::InviteV1,
@@ -1027,6 +1030,9 @@ impl SchemaId {
     /// section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
     pub const ICE_CONFIG_RESPONSE_V1: &'static str = "ak.schema.ice_config_response.v1";
+    /// Closed canonical historical MLS IdentityLink plaintext; no current identity disclosure
+    /// authority.
+    pub const IDENTITY_LINK_V1: &'static str = "ak.schema.identity_link.v1";
     pub const IDENTITY_RECEIPT_V1: &'static str = "ak.schema.identity_receipt.v1";
     /// Principal resolution projection/update/evidence and signed service resolution record
     /// contracts for the did_core_id/did model.
@@ -1490,6 +1496,7 @@ impl SchemaId {
             Self::HolderQuarantineV1 => Self::HOLDER_QUARANTINE_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
+            Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
             Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
             Self::InviteV1 => Self::INVITE_V1,
@@ -1763,6 +1770,7 @@ impl SchemaId {
             Self::HolderQuarantineV1 => "schemas/holder-quarantine.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
+            Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
             Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
@@ -2038,6 +2046,7 @@ impl SchemaId {
             Self::HOLDER_QUARANTINE_V1 => Some(Self::HolderQuarantineV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
+            Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
             Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
             Self::INVITE_V1 => Some(Self::InviteV1),

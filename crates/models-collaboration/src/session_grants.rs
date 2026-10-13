@@ -91,16 +91,6 @@ impl SessionGrantRequestBody {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HumanSessionGrantRequest {
-    pub request_id: RequestId,
-    pub principal_id: DidCoreId,
-    pub device_id: DeviceId,
-    pub audience_id: DidCoreId,
-    pub accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
-}
-
 impl HumanSessionGrantRequest {
     pub fn validate(&self) -> Result<()> {
         let proof = &self.accepted_device_possession_proof;
@@ -128,23 +118,6 @@ impl HumanSessionGrantRequest {
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSessionGrantRequest {
-    pub principal_id: DidCoreId,
-    pub requested_scope: Vec<String>,
-    /// Event id of the accepted `ak.agent.key.authorize` that authorized the
-    /// runtime key. The Spec pins it to the `ak:event:` form, and
-    /// `SessionGrantHolderBinding::AgentRuntime` names the same id, so the two
-    /// surfaces meet without a boundary reparse.
-    pub agent_key_authorization_ref: EventId,
-    pub agent_scope_request: SessionGrantAgentScopeRequest,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
-    pub dpop_binding_proof: SessionGrantDpopBindingProof,
-    pub proof: AgentSessionGrantProof,
 }
 
 impl AgentSessionGrantRequest {
@@ -206,21 +179,6 @@ pub struct SessionGrantAgentScopeRequest {
 pub enum AgentSessionGrantProofKind {
     #[serde(rename = "agent_key_proof")]
     AgentKeyProof,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSessionGrantProof {
-    pub proof_kind: AgentSessionGrantProofKind,
-    pub challenge: String,
-    pub request_canonical_digest: Hash,
-    pub audience_id: DidCoreId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub verification_method: DidUrl,
-    pub signature: String,
 }
 
 /// Longest validity window an initial Agent session proof may claim.
@@ -405,16 +363,6 @@ impl SessionGrantRefreshRequestBody {
             Self::Agent(request) => request.validate(),
         }
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HumanSessionGrantRefreshRequest {
-    pub grant_jwt: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience_id: Option<DidCoreId>,
-    pub device_id: DeviceId,
-    pub accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
 }
 
 impl HumanSessionGrantRefreshRequest {
@@ -1558,3 +1506,5 @@ mod tests {
         assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(crossed).is_err());
     }
 }
+
+include!("generated/session_grants_contracts.rs");

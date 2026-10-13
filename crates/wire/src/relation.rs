@@ -93,26 +93,6 @@ fn deserialize_relation_object_ref<'de, D: serde::Deserializer<'de>>(
     Ok(value)
 }
 
-/// Closed authoring input for `ak.relation.create`.
-///
-/// Materialized object identity, Realm binding, effective scope, lifecycle,
-/// and audit timestamps are reducer-owned and intentionally absent.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationDefinition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub relation_kind: RelationKind,
-    pub from_ref: RelationEndpoint,
-    pub to_ref: RelationEndpoint,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, Value>,
-}
-
 impl RelationDefinition {
     pub fn validate(&self) -> Result<()> {
         validate_relation_endpoints(&self.relation_kind, &self.from_ref, &self.to_ref)?;
@@ -485,3 +465,5 @@ fn validate_relation_endpoints(
     }
     Ok(())
 }
+
+include!("generated/relation_contracts.rs");

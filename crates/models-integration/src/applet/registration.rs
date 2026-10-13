@@ -396,26 +396,6 @@ pub struct AppletAcceptedSigningKeyEvidence {
     pub public_key_digest: Hash,
 }
 
-/// Method-specific version evidence captured with an Applet registration
-/// epoch (`applet-registration-epoch-transcript.schema.json#/$defs/did_method_version`).
-///
-/// Only the versioned `did:webvh` and `did:key` adapters are accepted: a
-/// `did:key` carries its synthetic immutable `version_id`, and a `did:webvh`
-/// carries `version_id`, `version_time`, or both. `unversioned_refetch` is
-/// always `false`, because a `did:web` current snapshot cannot support
-/// historical producer verification. Deserialization enforces the same
-/// closed shape.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AppletDidMethodVersionEvidence {
-    pub method: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_time: Option<DateTime<Utc>>,
-    pub unversioned_refetch: bool,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AppletDidMethodVersionEvidenceWire {
@@ -686,24 +666,6 @@ pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> Str
     } else {
         format!("{}#{}", service_did.as_str(), key_ref)
     }
-}
-/// Captured DID-document and signing-key evidence for an Applet registration
-/// epoch. Reducers expand this snapshot when checking delegated Applet grants
-/// and fail closed if the service DID document or accepted signing key set no
-/// longer matches the install-time epoch.
-///
-/// Deserialization enforces the closed
-/// `applet-registration-epoch-evidence.schema.json` shape: `did` is a bare
-/// `did:webvh` or `did:key` whose method equals
-/// `method_version_evidence.method`, and `accepted_signing_keys` is
-/// `minItems: 1` / `uniqueItems: true`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct AppletRegistrationEpochEvidence {
-    pub did: Did,
-    pub document_digest: Hash,
-    pub method_version_evidence: AppletDidMethodVersionEvidence,
-    pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
 }
 
 #[derive(Deserialize)]
@@ -1644,3 +1606,5 @@ fn validate_applet_extension_fields(context: &str, fields: &BTreeMap<String, Val
     }
     Ok(())
 }
+
+include!("generated/registration_contracts.rs");

@@ -55,20 +55,6 @@ impl PlaintextVisibleService {
     }
 }
 
-/// Strong type for `ak.realm.plaintext_visible_services` payloads
-/// (`event-payload.schema.json#/$defs/plaintext_visible_services_payload`).
-///
-/// `{ services: [...] }`, top-level `additionalProperties:false`. Declares the
-/// services allowed to receive plaintext / reversible-derived content outside
-/// the E2EE boundary.
-///
-/// The event-payload resolver binds this type to the registered named def.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PlaintextVisibleServicesPayload {
-    pub services: Vec<PlaintextVisibleService>,
-}
-
 impl PlaintextVisibleServicesPayload {
     pub fn new(services: Vec<PlaintextVisibleService>) -> Self {
         Self { services }
@@ -82,3 +68,5 @@ impl PlaintextVisibleServicesPayload {
         })
     }
 }
+
+include!("generated/plaintext_visibility_contracts.rs");

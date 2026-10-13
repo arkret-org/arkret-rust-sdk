@@ -29,17 +29,6 @@ pub struct RealmOwnerTransferPatch {
     pub controller_actor_id: ActorId,
 }
 
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/realm_owner_transfer_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmOwnerTransferPayload {
-    pub realm_id: RealmId,
-    pub expected_state_digest: Hash,
-    pub patch: RealmOwnerTransferPatch,
-    pub successor_acceptance: SignatureMaterial,
-}
-
 impl RealmOwnerTransferPayload {
     pub fn successor_controller_epoch(current: u64) -> Result<u64> {
         const JSON_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
@@ -48,15 +37,6 @@ impl RealmOwnerTransferPayload {
             .filter(|successor| *successor <= JSON_SAFE_INTEGER_MAX)
             .ok_or_else(|| WireError::Protocol("Realm controller_epoch is exhausted".to_owned()))
     }
-}
-
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/realm_authority_reset_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAuthorityResetPayload {
-    pub realm_id: RealmId,
-    pub expected_state_digest: Hash,
 }
 
 impl RealmAuthorityResetPayload {
@@ -242,14 +222,6 @@ impl RealmPolicyBundlePayload {
             WireError::Protocol(format!("realm policy bundle payload serialize: {err}"))
         })
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmCreatePayload {
-    pub object: RealmGenesis,
 }
 
 impl RealmCreatePayload {
@@ -474,16 +446,6 @@ impl RealmProfile {
 
 // `realm_destroy_payload` uses `models::operation_payloads::RealmDestroyPayload`.
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_freeze_payload`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmFreezePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
 impl Default for RealmFreezePayload {
     fn default() -> Self {
         Self::new()
@@ -557,82 +519,6 @@ impl RealmOrganizationIssuerRole {
     }
 }
 
-/// Counterpart for the inner `authorization` object of
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
-///
-/// This is the organization-side authorization proof, independent of the
-/// Realm-side `ak.realm.admin` authorization required to write the event into
-/// Realm history.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmOrganizationAuthorization {
-    /// Organization DID or delegated service DID that issued this statement.
-    pub issuer_id: DidCoreId,
-    pub issuer_role: RealmOrganizationIssuerRole,
-    /// DID URL of a concrete verification method (bare DIDs are not valid).
-    pub verification_method: DidUrl,
-    /// REQUIRED when `issuer_role` is `governance_service` or
-    /// `account_authority`; MUST resolve to a live organization DID delegation.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delegation_ref: Option<ObjectRef>,
-    /// Optional exact ActorId of the human administrator or service actor
-    /// that initiated the decision. Does not become the organization principal.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executed_by: Option<ActorId>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub signed_at: DateTime<Utc>,
-    /// Signature, threshold transcript, or governance-service attestation over
-    /// the canonical organization statement.
-    pub proof: SignatureMaterial,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
-///
-/// Organization-side endorsement or revocation for a Realm relationship. The
-/// reducer cell subject is `(organization_id, relationship)` — `statement_id`
-/// is audit identity, not the cell subject. Field order mirrors the spec schema
-/// `properties` ordering.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmOrganizationPayload {
-    /// Stable id of this organization statement (audit identity).
-    pub statement_id: String,
-    /// Realm the statement is bound to; MUST equal the enclosing
-    /// `Event.realm_id`.
-    pub realm_id: RealmId,
-    /// Organization principal DID that endorses / governs / sponsors /
-    /// certifies / revokes the Realm relationship.
-    pub organization_id: DidCoreId,
-    pub relationship: RealmOrganizationRelationship,
-    pub status: RealmOrganizationStatus,
-    /// Machine-readable scopes covered by the organization's consent
-    /// (non-empty, unique).
-    pub control_scopes: Vec<RealmOrganizationControlScope>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub not_before: Option<DateTime<Utc>>,
-    /// Nullable expiry — `Some(None)` and absence both mean "no expiry".
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_statement_id: Option<String>,
-    /// REQUIRED when `status == revoked`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revokes_statement_id: Option<String>,
-    /// Optional authority commit the organization evaluated.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_commit_ref: Option<RealmCommitId>,
-    /// Optional DID-document delegation URL / policy object / governance
-    /// decision / attestation reference.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization_policy_ref: Option<ObjectRef>,
-    pub authorization: RealmOrganizationAuthorization,
-}
-
 impl RealmOrganizationPayload {
     /// `true` when the statement asserts the relationship (not a revocation).
     pub fn is_active_status(&self) -> bool {
@@ -655,24 +541,6 @@ impl RealmOrganizationPayload {
     pub fn is_effective_active(&self, now: DateTime<Utc>) -> bool {
         self.is_active_status() && !self.is_not_yet_valid(now) && !self.is_expired(now)
     }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_search_policy_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmSearchPolicyPayload {
-    pub enabled_profile_refs: Vec<String>,
-    pub allowed_service_ids: Vec<DidCoreId>,
-    pub data_classes: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub index_retention_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_behavior: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub leakage_class: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token_rotation_cadence_ms: Option<u64>,
 }
 
 // `realm_tombstone_payload` uses `models::operation_payloads::RealmTombstonePayload`.
@@ -1116,3 +984,5 @@ mod media_service_tests {
         assert!(message.contains(ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED));
     }
 }
+
+include!("generated/realm_contracts.rs");

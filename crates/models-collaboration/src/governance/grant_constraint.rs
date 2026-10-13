@@ -31,9 +31,8 @@ pub enum CapabilitySubject {
     Condition(ConditionSubjectSelector),
 }
 
-/// Claim-based subject predicate from `capability-grant.schema.json`.
+/// Claim-based subject predicate from `capability-grant.schema.json#/properties/subject/oneOf/1`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ConditionSubjectSelector {
     pub kind: ConditionSubjectSelectorKind,
     pub required_claims: Vec<GrantConstraintClaimRequirement>,
@@ -748,8 +747,8 @@ pub struct CapabilityGrant {
     /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
     /// v1 has one grant shape, so this is the only thing that distinguishes a
     /// root controller's grant from a member re-granting what it holds.
-    // Required by capability-grant.schema.json.  Do not add `default` or
-    // `skip_serializing_if`: doing so lets a strongly typed grant silently
+    // Required by capability-grant.schema.json#/properties/subject/oneOf/1.  Do not add `default`
+    // or `skip_serializing_if`: doing so lets a strongly typed grant silently
     // deserialize or serialize without its authority root/parent edge.
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
     /// Absolute distance from a committed authority source. An owned Agent

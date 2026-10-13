@@ -5,4 +5,5 @@
 // `ProofContextId` surface in `arkret-wire`, which this crate sits below. A
 // hand-copied literal would be a second, unchecked spelling of a registry
 // value.
-pub const IDENTITY_LINK_PREFIX: &[u8] = b"ak.identity-link-v1\n";
+pub const IDENTITY_LINK_PREFIX: &[u8] =
+    crate::generated::binding_prefixes::DomainPrefix::AK_IDENTITY_LINK_V1;

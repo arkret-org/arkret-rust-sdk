@@ -46,25 +46,16 @@ pub enum SessionGrantHolderBinding {
     },
 }
 
-/// Authorization state committed into a standard human-device grant.
-///
-/// The Account Authority populates it from a Station-local revocation
-/// admission record, which is the only source of the origin-derived
-/// authorization Event and generation. That record deliberately carries no
-/// RealmCommit witness, so this binding names the authorization Event alone —
-/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a
-/// local cache or a private lookup.
+// Authorization state committed into a standard human-device grant.
+//
+// The Account Authority populates it from a Station-local revocation
+// admission record, which is the only source of the origin-derived
+// authorization Event and generation. That record deliberately carries no
+// RealmCommit witness, so this binding names the authorization Event alone —
+// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a
+// local cache or a private lookup.
 // Field declaration order is byte-for-byte the properties order of
 // service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantDeviceBinding {
-    pub device_id: DeviceId,
-    pub authorization_event_id: EventId,
-    /// PCR-local monotonic generation; never a DID `versionId`.
-    pub model_generation_ref: u64,
-}
 
 impl SessionGrantDeviceBinding {
     /// The `(expected_device_authorize_event_id, expected_device_generation_ref)`
@@ -1012,3 +1003,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/session_credential_contracts.rs");

@@ -5,26 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::handle::HandleVisibility;
 
-/// Value of the `agent_selector_claim` typed current result
-/// (`typed-current-result.schema.json#/$defs/agent_selector_claim_value`).
-///
-/// The selector is `(controller principal, agent_slug)`; the only writer is
-/// the selector projection of the accepted `ak.agent.provision`. The value is
-/// read only to verify a picker label against an Agent AccountId the client
-/// already obtained from an authorized source; it never selects a target.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSelectorClaimValue {
-    /// Exact Agent account the provision bound this slug onto. A consumer
-    /// compares it verbatim; it must not be rebuilt from a bare principal, the
-    /// controller handle's Station, a DID default Station or the resolving
-    /// facade.
-    pub subject_account_id: AccountId,
-    pub visibility: HandleVisibility,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
-}
-
 pub fn validate_agent_slug(value: &str) -> Result<()> {
     arkret_wire::validate_canonical_agent_slug(value)
 }
@@ -78,3 +58,5 @@ mod agent_selector_tests {
         }
     }
 }
+
+include!("generated/claim_presentation_contracts.rs");

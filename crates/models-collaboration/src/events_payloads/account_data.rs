@@ -239,41 +239,6 @@ impl<'de> Deserialize<'de> for AccountDataBody {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/account_data_set_payload`.
-///
-/// This is the canonical Event payload for `ak.account_data.set`. The
-/// self-service HTTP `account_data_replace_request_body` is a separate
-/// transport DTO.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AccountDataSetPayload {
-    pub key: NonEmptyString,
-    /// Compare-and-set precondition. `0` creates a key that has never been
-    /// written; every accepted write stores `expected_server_revision + 1`.
-    pub expected_server_revision: u64,
-    /// Caller-supplied opaque value. Unlike the encrypted branch, this may be
-    /// any JSON value, including a scalar, array, or null.
-    #[serde(default, skip_serializing_if = "AccountDataBody::is_absent")]
-    pub body: AccountDataBody,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_payload: Option<BTreeMap<String, Value>>,
-    /// `true` selects the schema's tombstone branch. `false` is never emitted
-    /// and is rejected on deserialization.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub tombstone: bool,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
-    )]
-    pub updated_at: Option<DateTime<Utc>>,
-    /// Selects the Station-private proposal intent consumed by the initial
-    /// Initial `ak.agent.draft.v1:<agent_digest_b64u43>:<draft_digest_b64u43>`
-    /// create.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_pending_event_id: Option<EventId>,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AccountDataSetPayloadWire {
@@ -470,3 +435,5 @@ mod tests {
         assert!(agent_draft_account_data_key(&agent(), "ak:draft:typed").is_err());
     }
 }
+
+include!("generated/account_data_contracts.rs");

@@ -5,15 +5,6 @@ use arkret_wire::ActorId;
 use crate::internal_prelude::*;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CircleCreatePayload {
-    pub object: Circle,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_member_state_payload`.
 ///
 /// The expected-value guard is tri-state: omission leaves legality to the
@@ -91,13 +82,4 @@ impl CircleMemberStatePayload {
     }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_patch_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CirclePatchPayload {
-    pub circle_id: CircleId,
-    pub patch: Patch,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<Hash>,
-}
+include!("generated/circle_contracts.rs");

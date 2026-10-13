@@ -359,26 +359,6 @@ impl EvidenceReceipt {
 // §5.6 evidence dependencies
 // ============================================================================
 
-/// The structured dependency record a binding carries so witness-level
-/// invalidation can be selective
-/// (`did-binding-contracts.schema.json#/$defs/evidence_dependencies`).
-///
-/// A witness revocation, an organization merge or a falsified consistency proof
-/// arrives as a *coordinate* (witness DID, organization, log head), never as a
-/// digest — digests are one-way, so `evidence_digest` cannot answer "which
-/// bindings depend on witness X". This record can, and a store that declares
-/// evidence-bearing methods MUST index it at least by witness DID.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EvidenceDependencies {
-    /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_dids: Vec<Did>,
-    /// Sorted, deduplicated; empty for proofless methods.
-    pub witness_controlling_organization_dids: Vec<Did>,
-    /// Sorted, deduplicated; empty for proofless methods.
-    pub history_heads: Vec<String>,
-}
-
 impl EvidenceDependencies {
     /// Extract the record from a receipt. Purely mechanical — there is no
     /// caller-supplied dimension, so the record cannot disagree with the
@@ -865,3 +845,5 @@ mod tests {
         assert!(receipt.evidence_dependencies().expect("deps").is_empty());
     }
 }
+
+include!("generated/binding_digest_contracts.rs");

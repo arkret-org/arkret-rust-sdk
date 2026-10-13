@@ -257,43 +257,6 @@ pub struct AgentDeactivateRequestBody {
     pub lifecycle_event: EventAdmissionSubmission,
 }
 
-/// Closed lifecycle operation response:
-/// `agent-operations.schema.json#/$defs/agent_lifecycle_state`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentLifecycleOutcome {
-    pub status: AgentLifecycleState,
-}
-
-/// Read projection of one Agent.
-///
-/// Field declaration order is byte-for-byte the properties order of
-/// `agent-operations.schema.json#/$defs/agent_projection`. The definition is
-/// closed (`additionalProperties: false`), so the projection carries no commit
-/// coordinate: durable coordinates reach callers through the operation outcome
-/// that accepted the Event, never through this read projection.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentProjection {
-    pub agent_id: DidCoreId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    pub slug: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    pub lifecycle: AgentLifecycleState,
-    pub readiness: AgentReadiness,
-    pub presence: AgentPresence,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub created_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -438,25 +401,12 @@ pub struct AgentPairingResolveRequestBody {
     pub pairing_token: String,
 }
 
-/// Authenticated minimal frozen candidate projection delivered to the
-/// controller. It carries neither the full possession proof nor the pairing
-/// secret; the controller inspects the exact Agent, key fingerprint, scope,
-/// expiry and supersedes in the Event before signing.
+// Authenticated minimal frozen candidate projection delivered to the
+// controller. It carries neither the full possession proof nor the pairing
+// secret; the controller inspects the exact Agent, key fingerprint, scope,
+// expiry and supersedes in the Event before signing.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_runtime_approval_controller_projection.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentRuntimeApprovalControllerProjection {
-    pub pairing_request_id: OpaqueLocalId,
-    pub agent_id: DidCoreId,
-    pub verification_method: DidUrl,
-    pub public_key: PublicKey,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
-    pub approval_request_id: OpaqueLocalId,
-    pub runtime_key_binding_digest: Hash,
-}
 
 /// Runtime receipt for submitting a stable pending key candidate.
 /// agent-operations.schema.json#/$defs/agent_runtime_approval_outcome.
@@ -541,20 +491,13 @@ impl AgentRuntimeApprovalStatusOutcome {
     }
 }
 
-/// Complete content-addressed Agent signer root for the currently authorized
-/// runtime key. `signer_resolution_evidence_ref` is the registered
-/// `ak:signer_evidence` form of `SHA-256(RFC8785-JCS(authenticated_signer_evidence))`
-/// and equals the sibling `KeyState::signer_resolution_evidence_ref` byte for
-/// byte.
+// Complete content-addressed Agent signer root for the currently authorized
+// runtime key. `signer_resolution_evidence_ref` is the registered
+// `ak:signer_evidence` form of `SHA-256(RFC8785-JCS(authenticated_signer_evidence))`
+// and equals the sibling `KeyState::signer_resolution_evidence_ref` byte for
+// byte.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/key_state/properties/current_signer_evidence.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyStateCurrentSignerEvidence {
-    pub signer_resolution_evidence_ref: SignerEvidenceRef,
-    pub authenticated_signer_evidence: AuthenticatedSignerResolutionEvidence,
-}
 
 impl KeyStateCurrentSignerEvidence {
     /// Recompute the content address and require it to equal both the carried
@@ -570,57 +513,15 @@ impl KeyStateCurrentSignerEvidence {
     }
 }
 
-/// Controller-private key, pairing-handle and authorization material for a
-/// generic Agent view.
-///
-/// It deliberately carries no lifecycle, readiness, presence, runtime_state or
-/// backup-readiness member: the three generic status axes are siblings on
-/// `AgentProjection`, and the operation-local `runtime_state` diagnostic is
-/// exposed only by the pairing poll.
+// Controller-private key, pairing-handle and authorization material for a
+// generic Agent view.
+//
+// It deliberately carries no lifecycle, readiness, presence, runtime_state or
+// backup-readiness member: the three generic status axes are siblings on
+// `AgentProjection`, and the operation-local `runtime_state` diagnostic is
+// exposed only by the pairing poll.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/key_state.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyState {
-    pub agent_id: DidCoreId,
-    pub controller_account_id: AccountId,
-    pub principal_control_realm_id: RealmId,
-    pub controller_authorization_ref: DidUrl,
-    /// Immutable global Agent ceiling captured by provisioning. It is not a
-    /// grant: later key scopes, Realm grants and sessions may only narrow it.
-    pub requested_scope: AgentKeyScope,
-    /// Current unconsumed, unexpired pairing handle.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_request_id: Option<OpaqueLocalId>,
-    /// Present exactly when `pairing_request_id` and `pairing_expires_at` are.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub pairing_expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_request_id: Option<OpaqueLocalId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_runtime_key_request: Option<AgentRuntimeApprovalControllerProjection>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub approval_requested_at: Option<DateTime<Utc>>,
-    /// Provenance only; activation authority comes from the signer evidence.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_verification_method: Option<DidUrl>,
-    /// SHA-256 of the decoded 32-byte Ed25519 public key.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_public_key_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub active_authorizations: Vec<AgentKeyAuthorizationState>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_signer_evidence: Option<KeyStateCurrentSignerEvidence>,
-}
 
 impl KeyState {
     /// An active authorization delivers the complete activation closure; an
@@ -678,19 +579,6 @@ pub fn agent_key_pairing_request_binding_digest(
         .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
-/// Field declaration order is byte-for-byte the properties order of
-/// `agent-operations.schema.json#/$defs/agent_list`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentList {
-    pub agents: Vec<AgentProjection>,
-    /// Opaque continuation token in the `ak:cursor:` wire form.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-    pub has_more: bool,
-}
-
 impl AgentList {
     /// Wire prefix every `next_cursor` token carries
     /// (`agent-operations.schema.json#/$defs/agent_list`).
@@ -716,38 +604,14 @@ impl AgentList {
     }
 }
 
-/// Field declaration order is byte-for-byte the properties order of
-/// `agent-operations.schema.json#/$defs/agent_view`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentView {
-    pub agent: AgentProjection,
-    #[serde(default)]
-    pub grants: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_state: Option<KeyState>,
-}
-
-/// Read projection of one hosted Sidecar at its stream's committed head.
-///
-/// `desired_agent_ids` and `effective_agent_ids` are derived, never authored:
-/// the effective set is a subset of the desired set, and the controller is
-/// represented by `sidecar.controller_account_id` rather than being duplicated
-/// into either array.
+// Read projection of one hosted Sidecar at its stream's committed head.
+//
+// `desired_agent_ids` and `effective_agent_ids` are derived, never authored:
+// the effective set is a subset of the desired set, and the controller is
+// represented by `sidecar.controller_account_id` rather than being duplicated
+// into either array.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_sidecar_view.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarView {
-    pub sidecar: AgentSidecar,
-    pub desired_agent_ids: Vec<DidCoreId>,
-    pub effective_agent_ids: Vec<DidCoreId>,
-    pub mls_context: AgentSidecarMlsContext,
-    pub access_readiness: AgentSidecarAccessReadiness,
-    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliation>,
-}
 
 impl AgentSidecarView {
     pub fn validate(&self) -> Result<()> {
@@ -769,14 +633,6 @@ impl AgentSidecarView {
 
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_sidecar_list.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarList {
-    pub sidecars: Vec<AgentSidecarView>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<NonEmptyString>,
-}
 
 #[cfg(test)]
 mod tests {
@@ -1024,3 +880,5 @@ mod tests {
         }
     }
 }
+
+include!("generated/agent_operations_contracts.rs");

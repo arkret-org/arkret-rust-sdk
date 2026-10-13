@@ -268,20 +268,12 @@ impl SelfRealmJoinPrepareOutcome {
     }
 }
 
-/// A candidate names the authority-signed RealmCommit that admitted its
-/// membership. The Commit id alone addresses that admission: the bootstrap
-/// answer is derived from the authority's own stream, so the request carries no
-/// client-supplied Event coordinates.
+// A candidate names the authority-signed RealmCommit that admitted its
+// membership. The Commit id alone addresses that admission: the bootstrap
+// answer is derived from the authority's own stream, so the request carries no
+// client-supplied Event coordinates.
 // Field declaration order is byte-for-byte the `properties` order of
 // `realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerRealmJoinBootstrapRequestBody {
-    pub request_id: RequestId,
-    pub realm_id: RealmId,
-    pub member_account_id: AccountId,
-    pub membership_commit_id: RealmCommitId,
-}
 
 /// The verified current authority answers a bootstrap with one signed snapshot
 /// plus the head of every stream the new member may read after its membership
@@ -332,3 +324,5 @@ impl RealmJoinCandidate {
         Ok(())
     }
 }
+
+include!("generated/realm_join_intake_contracts.rs");

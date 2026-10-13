@@ -83,18 +83,6 @@ pub struct ResolvedActorProfile {
     pub account_status: Option<AccountStatusProjection>,
 }
 
-/// `actor-profile-operations.schema.json#/$defs/account_status_projection`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountStatusProjection {
-    pub account_id: AccountId,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub status: ActorStatus,
-    pub status_seq: u64,
-    pub account_status_record_id: AccountStatusRecordId,
-}
-
 /// Per-actor failure reason.
 ///
 /// Deliberately single-valued: unknown actor, actor without an accepted
@@ -154,3 +142,5 @@ impl ActorProfileResolveOutcome {
         Ok(())
     }
 }
+
+include!("generated/actor_profile_operations_contracts.rs");

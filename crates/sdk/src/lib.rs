@@ -400,7 +400,6 @@ pub use arkret_wire::event_envelope::*;
 pub use arkret_wire::event_submission::*;
 pub use arkret_wire::extension_manifest::*;
 pub use arkret_wire::ingress_budget::*;
-pub use arkret_wire::mls_transition::mls_genesis_transition_digest;
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::object_ref::is_object_ref;
 pub use arkret_wire::operation_types::*;

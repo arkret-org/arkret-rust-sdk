@@ -15,21 +15,4 @@ pub enum AuditAccessedKind {
     Other,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_accessed_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuditAccessedPayload {
-    pub access_kind: AuditAccessedKind,
-    pub writer_actor_id: ActorId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<ActorId>,
-    pub target_ref: ObjectRef,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub paired_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub late_recovery_original_event_id: Option<EventId>,
-    pub purpose: NonEmptyString,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accessed_at: DateTime<Utc>,
-}
+include!("generated/audit_contracts.rs");

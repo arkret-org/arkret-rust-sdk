@@ -24,19 +24,10 @@ pub const SIDECAR_CONTEXT_ATTACH_EVENT_KIND: &str =
 
 pub use arkret_wire::SidecarContextRef;
 
-/// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar
-/// selection refs are forbidden here.
+// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar
+// selection refs are forbidden here.
 // Field declaration order is byte-for-byte the properties order of
 // principal-operations.schema.json#/$defs/sidecar_stream_head.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarStreamHead {
-    pub create_event_ref: EventId,
-    /// Sorted ownership, Agent lifecycle, authorization, Realm participation
-    /// and key-readiness refs.
-    pub authority_refs: Vec<EventId>,
-}
 
 string_marker!(SidecarEnsurePreparePhase, Prepare, "prepare");
 string_marker!(SidecarEnsureCommitPhase, Commit, "commit");
@@ -418,3 +409,5 @@ mod tests {
         assert!(serde_json::from_value::<SidecarEnsureOutcome>(missing).is_err());
     }
 }
+
+include!("generated/sidecar_operations_contracts.rs");

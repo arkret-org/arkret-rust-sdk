@@ -1,6 +1,9 @@
 //! Pure Rust Arkret v1 canonical encoding and digest primitives.
 
 mod error;
+pub mod generated {
+    pub mod binding_prefixes;
+}
 
 pub mod base64url;
 pub mod binding_contexts;

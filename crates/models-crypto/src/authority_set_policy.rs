@@ -51,17 +51,6 @@ pub struct AuthoritySetAuthorizationRule {
 
 // Field declaration order is byte-for-byte the properties order of
 // authority-set-policy.schema.json#/properties.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthoritySetPolicy {
-    pub schema: String,
-    pub authority_set_id: String,
-    pub policy_kind: AuthoritySetPolicyKind,
-    pub scope_ref: ScopeRef,
-    pub source_commit_id: RealmCommitId,
-    pub authorization_rules: Vec<AuthoritySetAuthorizationRule>,
-}
 
 impl AuthoritySetPolicy {
     pub fn validate_shape(&self) -> Result<()> {
@@ -158,3 +147,5 @@ mod tests {
         assert!(parsed.validate_shape().is_err());
     }
 }
+
+include!("generated/authority_set_policy_contracts.rs");

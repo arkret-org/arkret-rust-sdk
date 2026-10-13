@@ -36,16 +36,6 @@ where
     Option::<BlobStorageEncryption>::deserialize(deserializer)
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SignatureValue {
-    pub kid: DidCoreId,
-    pub signature_algorithm: String,
-    pub sig: String,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -248,3 +238,5 @@ mod storage_encryption_tests {
         assert!(serde_json::from_value::<BlobUploadMetadata>(body).is_err());
     }
 }
+
+include!("generated/blob_contracts.rs");

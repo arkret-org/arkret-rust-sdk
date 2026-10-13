@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-09.1;
-//! sha256=ee6ea003f10e50704f02b7c5f6cb261dffefe357883e716c7c2b3911d61a8c96 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-13.1;
+//! sha256=9e9ec291af50b7a6efc8ef6e2d5cd46aa0cefba58fb19d51652f66f1eb935fd2 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=36, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -341,6 +341,7 @@ pub enum DomainSeparationId {
     IdentityRecoveryProofV1,
     IdentityRecoveryReceiptSignatureV1,
     IdentityCreationControlProofV1,
+    IdentityLinkV1,
     KeypackageClaimTerminalReceiptV1,
     KeypackageConsumeReceiptV1,
     MimiReporterAuthorityProofV1,
@@ -380,6 +381,7 @@ impl DomainSeparationId {
         Self::IdentityRecoveryProofV1,
         Self::IdentityRecoveryReceiptSignatureV1,
         Self::IdentityCreationControlProofV1,
+        Self::IdentityLinkV1,
         Self::KeypackageClaimTerminalReceiptV1,
         Self::KeypackageConsumeReceiptV1,
         Self::MimiReporterAuthorityProofV1,
@@ -431,6 +433,7 @@ impl DomainSeparationId {
         "ak.identity.recovery_receipt.signature.v1";
     pub const IDENTITY_CREATION_CONTROL_PROOF_V1: &'static str =
         "ak.identity_creation_control_proof.v1";
+    pub const IDENTITY_LINK_V1: &'static str = "ak.identity_link.v1";
     pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
         "ak.keypackage.claim_terminal_receipt.v1";
     pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume_receipt.v1";
@@ -488,6 +491,7 @@ impl DomainSeparationId {
                 Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
             }
             Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
+            Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
             Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
             Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
@@ -554,6 +558,7 @@ impl DomainSeparationId {
                 Some(Self::IdentityRecoveryReceiptSignatureV1)
             }
             Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
+            Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1 => {
                 Some(Self::KeypackageClaimTerminalReceiptV1)
             }

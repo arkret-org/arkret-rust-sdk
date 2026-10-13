@@ -42,29 +42,6 @@ pub enum AuthenticatedSignerKind {
     Agent,
 }
 
-/// Content-addressed signer resolution evidence.
-///
-/// `authority_commit_id` is the single revision coordinate: the evidence
-/// asserts the binding as of that committed revision and carries no window,
-/// no frontier, and no reusable grant. A consumer that needs a later binding
-/// resolves again; it never extrapolates this one forward.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-// Field declaration order is byte-for-byte the `properties` order of
-// `authenticated-signer-resolution-evidence.schema.json#/$defs/base`; the three
-// `oneOf` branches differ only by the `signer_kind` const, which this enum
-// field already carries.
-pub struct AuthenticatedSignerResolutionEvidence {
-    pub signer_kind: AuthenticatedSignerKind,
-    pub subject_id: DidCoreId,
-    pub verification_method: DidUrl,
-    pub public_key_jwk: NonEmptyJsonObject,
-    pub authority_commit_id: RealmCommitId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub resolved_at: DateTime<Utc>,
-}
-
 impl AuthenticatedSignerResolutionEvidence {
     /// Structural invariants a consumer re-checks before it trusts the key.
     ///
@@ -391,3 +368,5 @@ mod tests {
         .expect_err("a one-member JWK is not a usable key");
     }
 }
+
+include!("generated/authenticated_signer_resolution_evidence_contracts.rs");

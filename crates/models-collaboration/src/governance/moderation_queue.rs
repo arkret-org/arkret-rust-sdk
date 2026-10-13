@@ -58,36 +58,6 @@ pub struct ModerationEvidencePolicy {
     pub legal_hold: Option<bool>,
 }
 
-/// One report item of the moderation queue View
-/// (`moderation-queue-item.schema.json`).
-///
-/// The item is a read-side View over the accepted `moderation_report` typed
-/// current result and the `moderation_state` records that point at it, not a
-/// second stored state (content-moderation.md §3.3): `id` is the report Event
-/// id retyped to `moderation_queue_item`, `report` is the complete accepted
-/// report payload and `created_at` the accepting Commit time.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModerationQueueItem {
-    pub id: ModerationQueueItemId,
-    pub report: ModerationReportPayload,
-    pub status: ModerationQueueStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub priority: Option<ModerationQueuePriority>,
-    pub visibility: ModerationQueueVisibility,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub assigned_to_ids: Option<Vec<DidCoreId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_policy: Option<ModerationEvidencePolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit_refs: Option<Vec<EventId>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
 impl ModerationQueueItem {
     pub const SCHEMA: &'static str = SchemaId::MODERATION_QUEUE_ITEM_V1;
 
@@ -97,3 +67,5 @@ impl ModerationQueueItem {
         ModerationQueueItemId::from_event_id(report_event_id)
     }
 }
+
+include!("generated/moderation_queue_contracts.rs");

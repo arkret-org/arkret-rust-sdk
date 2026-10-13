@@ -1933,34 +1933,6 @@ pub enum DirectConversationSummaryState {
     Suspended,
 }
 
-/// `contact-operations.schema.json#/$defs/direct_conversation_summary`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DirectConversationSummary {
-    pub realm_id: RealmId,
-    pub main_strand_id: StrandId,
-    pub binding_event_ref: EventId,
-    pub state: DirectConversationSummaryState,
-}
-
-/// `contact-operations.schema.json#/$defs/contact_agent_projection`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactAgentProjection {
-    pub actor_id: ActorId,
-    pub controller_account_id: AccountId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_slug: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub direct_conversation: Option<DirectConversationSummary>,
-}
-
 /// Historical Contact producer selector, never current Device/MLS authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2149,18 +2121,6 @@ impl ContactListRow {
         }
         Ok(())
     }
-}
-
-/// Viewer-specific current Contact rows.
-/// `contact-operations.schema.json#/$defs/contact_list`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContactList {
-    pub contacts: Vec<ContactListRow>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<arkret_wire::Cursor>,
-    pub has_more: bool,
 }
 
 #[cfg(test)]
@@ -2460,3 +2420,5 @@ mod contact_list_projection_tests {
         assert!(serde_json::from_value::<ContactListRow>(row).is_err());
     }
 }
+
+include!("generated/contact_operations_contracts.rs");

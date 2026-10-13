@@ -40,15 +40,6 @@ pub struct MimiRoomBindingMigrationProof {
     pub migrating_commit_id: RealmCommitId,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mimi_room_binding_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MimiRoomBindingPayloadBindingScope {
-    pub realm_id: RealmId,
-    pub strand_id: StrandId,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiRoomBindingPayload {
@@ -116,3 +107,5 @@ impl MimiRoomBindingCurrentRow {
         }
     }
 }
+
+include!("generated/mimi_contracts.rs");

@@ -6,6 +6,16 @@ use serde_json::Value;
 
 use crate::canonical;
 
+/// Decode an explicitly present nullable member. Without a serde default,
+/// this adapter rejects absence and retains a schema-permitted null.
+pub fn deserialize_required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
 /// Deserialize a present non-null member; `serde(default)` handles absence.
 pub fn deserialize_non_null_optional<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where

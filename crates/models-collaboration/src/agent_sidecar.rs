@@ -90,34 +90,12 @@ impl AgentSidecar {
 
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-view-state.schema.json#/$defs/strand_context_ref.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SidecarStrandContextRef {
-    pub realm_id: RealmId,
-    pub strand_id: StrandId,
-}
 
-/// Controller-private encrypted account-data plaintext for one hosted Sidecar
-/// context. It changes only private presentation and never mutates a Strand,
-/// Track, access, read state, notification, search index, or event ownership.
+// Controller-private encrypted account-data plaintext for one hosted Sidecar
+// context. It changes only private presentation and never mutates a Strand,
+// Track, access, read state, notification, search index, or event ownership.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-view-state.schema.json#/properties.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarViewState {
-    pub schema: String,
-    pub controller_account_id: AccountId,
-    pub sidecar_id: SidecarId,
-    pub context_ref: SidecarStrandContextRef,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pinned: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub collapsed: Option<bool>,
-    pub updated_hlc: Hlc,
-    pub origin_device_id: DeviceId,
-}
 
 impl AgentSidecarViewState {
     pub fn validate_shape(&self) -> Result<()> {
@@ -140,35 +118,12 @@ pub enum AgentSidecarExchangeAction {
     ReassignCoordinator,
 }
 
-/// Closed plaintext encrypted inside the payload of
-/// `ak.agent.sidecar.exchange.control`. Only the Sidecar controller may author
-/// this durable private-Strand Event; it is the sole source of coordinator
-/// reassignment and terminal exchange state.
+// Closed plaintext encrypted inside the payload of
+// `ak.agent.sidecar.exchange.control`. Only the Sidecar controller may author
+// this durable private-Strand Event; it is the sole source of coordinator
+// reassignment and terminal exchange state.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-exchange-control.schema.json#/properties.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarExchangeControl {
-    pub schema: String,
-    pub exchange_id: String,
-    pub request_event_id: EventId,
-    /// Canonical UTF-8 byte-order sorted maximal causal heads of the exchange
-    /// facts observed when this control was authored.
-    pub basis_event_ids: Vec<EventId>,
-    pub action: AgentSidecarExchangeAction,
-    /// Exact canonical set of validated user-facing response Event ids covered
-    /// by `basis_event_ids`. Required for every terminal action, including an
-    /// empty array.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_event_ids: Option<Vec<EventId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_coordinator_agent_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinator_agent_id: Option<DidCoreId>,
-}
 
 impl AgentSidecarExchangeControl {
     pub fn validate_shape(&self) -> Result<()> {
@@ -241,15 +196,6 @@ impl AgentSidecarExchangeControl {
         }
         Ok(())
     }
-}
-
-/// One accepted encrypted control carrier, identified by the Event's only
-/// registered keyed-set write (`typed-current-result.schema.json`).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarExchangeControlAssertion {
-    pub tag_id: crate::exact_current_results::CanonicalEventDot,
-    pub value: crate::events_payloads::sidecar::AgentSidecarExchangeControlPayload,
 }
 
 /// Closed, canonical assertion set for one native Sidecar source context.
@@ -341,20 +287,12 @@ impl<'de> Deserialize<'de> for AgentSidecarExchangeControlsCurrentValue {
     }
 }
 
-/// Track coordinate of the source-routed exchange. The same closed shape backs
-/// agent-sidecar-exchange-projection.schema.json#/$defs/source_track_ref and
-/// agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context/
-/// properties/source_track_ref.
+// Track coordinate of the source-routed exchange. The same closed shape backs
+// agent-sidecar-exchange-projection.schema.json#/$defs/source_track_ref and
+// agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context/
+// properties/source_track_ref.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-exchange-projection.schema.json#/$defs/source_track_ref.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SidecarSourceTrackRef {
-    pub realm_id: RealmId,
-    pub strand_id: StrandId,
-    pub track_name: String,
-}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -366,57 +304,19 @@ pub enum AgentSidecarExchangeStatus {
     Failed,
 }
 
-/// Local cache coverage. `event_ids` are the canonical sorted maximal causal
-/// heads of every contributing accepted exchange fact; `event_set_digest`
-/// commits to the canonical sorted complete contributing Event-id set;
-/// `max_hlc` is display/cache metadata and never proves causal dominance.
+// Local cache coverage. `event_ids` are the canonical sorted maximal causal
+// heads of every contributing accepted exchange fact; `event_set_digest`
+// commits to the canonical sorted complete contributing Event-id set;
+// `max_hlc` is display/cache metadata and never proves causal dominance.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-exchange-projection.schema.json#/$defs/folded_checkpoint.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarFoldedCheckpoint {
-    pub event_ids: Vec<EventId>,
-    pub event_set_digest: Hash,
-    pub max_hlc: Hlc,
-}
 
-/// Disposable controller-device-local cache for one source-routed native
-/// Sidecar exchange. Every member is a deterministic fold of accepted
-/// Sidecar-scoped Events: this is not wire truth, not Account Data, never
-/// merged across devices, and may always be deleted and rebuilt.
+// Disposable controller-device-local cache for one source-routed native
+// Sidecar exchange. Every member is a deterministic fold of accepted
+// Sidecar-scoped Events: this is not wire truth, not Account Data, never
+// merged across devices, and may always be deleted and rebuilt.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-exchange-projection.schema.json#/properties.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarExchangeProjection {
-    pub schema: String,
-    pub controller_account_id: AccountId,
-    pub sidecar_id: SidecarId,
-    pub exchange_id: String,
-    pub source_track_ref: SidecarSourceTrackRef,
-    /// Accepted Event id copied from the request context as this exchange's
-    /// source Event. It identifies one Event, not a checkpoint or trust anchor.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_event_id: Option<EventId>,
-    pub source_hlc: Hlc,
-    pub client_order_key: String,
-    pub addressed_agent_ids: Vec<DidCoreId>,
-    pub coordinator_agent_id: DidCoreId,
-    pub coordinator_assignment_event_id: EventId,
-    pub participating_agent_ids: Vec<DidCoreId>,
-    pub private_request_event_id: EventId,
-    pub user_facing_response_event_ids: Vec<EventId>,
-    pub status: AgentSidecarExchangeStatus,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub failure_reason_code: Option<String>,
-    /// Controller-authored `ak.agent.sidecar.exchange.control` Event that
-    /// produced `complete` or `failed`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_event_id: Option<EventId>,
-    pub folded_checkpoint: AgentSidecarFoldedCheckpoint,
-}
 
 impl AgentSidecarExchangeProjection {
     pub fn validate_shape(&self) -> Result<()> {
@@ -490,59 +390,20 @@ pub enum AgentSidecarExchangeRole {
     Internal,
 }
 
-/// Write-once exchange identity carried only on `role=request`. Any controller
-/// device rebuilding the projection copies these values verbatim, so
-/// cross-device bit-identity is anchored to the accepted request Event instead
-/// of device-local state.
+// Write-once exchange identity carried only on `role=request`. Any controller
+// device rebuilding the projection copies these values verbatim, so
+// cross-device bit-identity is anchored to the accepted request Event instead
+// of device-local state.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarExchangeRequestContext {
-    pub source_track_ref: SidecarSourceTrackRef,
-    pub source_hlc: Hlc,
-    pub client_order_key: String,
-    pub addressed_agent_ids: Vec<DidCoreId>,
-    /// Initial coordinator. It must be one of `addressed_agent_ids`, and may be
-    /// omitted only when that array holds exactly one item.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinator_agent_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_checkpoint_anchor_id: Option<EventId>,
-}
 
-/// Closed typed binding tying one native-Sidecar-scoped Message event to one
-/// source-routed exchange. It is legal only inside encrypted metadata plaintext
-/// of an event whose `scope_ref.kind` is `sidecar`, and it is the only
-/// normative way to declare an explicit user-facing response; invalid or absent
-/// bindings are non-echo.
+// Closed typed binding tying one native-Sidecar-scoped Message event to one
+// source-routed exchange. It is legal only inside encrypted metadata plaintext
+// of an event whose `scope_ref.kind` is `sidecar`, and it is the only
+// normative way to declare an explicit user-facing response; invalid or absent
+// bindings are non-echo.
 // Field declaration order is byte-for-byte the properties order of
 // agent-sidecar-event-exchange-binding.schema.json#/properties.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarEventExchangeBinding {
-    pub schema: String,
-    /// Opaque controller-private idempotency identity copied verbatim from the
-    /// request binding. It is not a Sidecar locator and must not appear on any
-    /// public or shared surface.
-    pub exchange_id: String,
-    pub role: AgentSidecarExchangeRole,
-    /// Accepted Event id of the private request event of the same exchange.
-    /// Event id is the only canonical reference form here.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_event_id: Option<EventId>,
-    /// Coordinator completion request; legal only with
-    /// `role=user_facing_response`. It does not itself make the exchange
-    /// terminal.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub completes_exchange: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinator_assignment_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_context: Option<AgentSidecarExchangeRequestContext>,
-}
 
 impl AgentSidecarEventExchangeBinding {
     pub fn validate_shape(&self) -> Result<()> {
@@ -663,13 +524,6 @@ pub enum SidecarAccessProvisioningPhase {
 
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PendingSidecarAccessReconciliation {
-    pub agent_id: DidCoreId,
-    pub provisioning_phase: SidecarAccessProvisioningPhase,
-}
 
 /// Upper bound of `authority_stream_head`, equal to the MLS governance binding
 /// decoder `maximum_collection_items`.
@@ -730,32 +584,11 @@ pub fn normalize_sidecar_authority_stream_head(authority_refs: &[EventId]) -> Re
     Ok(normalized)
 }
 
-/// MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
-/// own accepted `ak.mls.genesis` and irreversibly activates to standard
-/// RFC 9420 afterwards.
+// MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
+// own accepted `ak.mls.genesis` and irreversibly activates to standard
+// RFC 9420 afterwards.
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/agent_sidecar_mls_context.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentSidecarMlsContext {
-    pub participant_authority_digest: Hash,
-    /// UTF-8 byte-lexicographically sorted accepted refs for Sidecar genesis,
-    /// ownership, Agent lifecycle/runtime-key authorization, and exact Realm
-    /// membership. Action grants, participation selections and key-readiness
-    /// results are excluded.
-    pub authority_stream_head: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub genesis_event_ref: Option<String>,
-    /// True only when the authenticated controller session device is the
-    /// accepted genesis creator device or has completed matching Welcome and
-    /// KeyPackage consume evidence.
-    pub current_controller_device_ready: bool,
-}
 
 impl AgentSidecarMlsContext {
     pub fn validate_shape(&self) -> Result<()> {
@@ -1293,3 +1126,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/agent_sidecar_contracts.rs");

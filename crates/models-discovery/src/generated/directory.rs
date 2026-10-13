@@ -11,7 +11,7 @@
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=e86a99f612dabd2640ea622b606c050ed51e0706e2c32c84d6055a6fd2b9a226
+//! sha256=c5c717d42040392233cf38e4f3236cfeed2d38c2b642d4cf765ba04cf371a3ee
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/PublicRealmMetadata`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

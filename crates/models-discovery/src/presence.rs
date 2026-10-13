@@ -47,13 +47,13 @@ pub enum PresenceStatus {
     Offline,
 }
 
-/// Manual state accepted by the principal-private
-/// `ak.presence.preference` account-data payload (§3.6).
-///
-/// `offline` is intentionally absent: stopping broadcasts and TTL expiry
-/// express offline state. This enum is the exact counterpart of the
-/// `manual_state` closed set in
-/// `spec/v1/artifacts/schemas/presence-preference.schema.json`.
+// Manual state accepted by the principal-private
+// `ak.presence.preference` account-data payload (§3.6).
+//
+// `offline` is intentionally absent: stopping broadcasts and TTL expiry
+// express offline state. This enum is the exact counterpart of the
+// `manual_state` closed set in
+// `spec/v1/artifacts/schemas/presence-preference.schema.json`.
 
 impl ManualPresenceState {
     pub fn as_wire(self) -> &'static str {
@@ -75,11 +75,11 @@ impl From<ManualPresenceState> for PresenceStatus {
     }
 }
 
-/// Sender-side visibility policy stored in the principal-private
-/// `ak.presence.visibility` account-data payload (§3.4).
-///
-/// This is a protocol closed set. Applications must keep this typed until
-/// serialization instead of copying its wire strings into local enums.
+// Sender-side visibility policy stored in the principal-private
+// `ak.presence.visibility` account-data payload (§3.4).
+//
+// This is a protocol closed set. Applications must keep this typed until
+// serialization instead of copying its wire strings into local enums.
 
 impl PresenceVisibility {
     /// Strict parse of the v1 wire closed set.
@@ -106,9 +106,9 @@ impl PresenceVisibility {
     }
 }
 
-/// Canonical `ak.presence.visibility` account-data payload (§3.4).
-///
-/// Counterpart for `spec/v1/artifacts/schemas/presence-visibility.schema.json`.
+// Canonical `ak.presence.visibility` account-data payload (§3.4).
+//
+// Counterpart for `spec/v1/artifacts/schemas/presence-visibility.schema.json`.
 
 impl PresenceStatus {
     /// Strict closed-set wire parse (§3.2). Unknown values return
@@ -280,13 +280,13 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
     Ok(())
 }
 
-/// `ak.presence.preference` payload (profiles-presence.md §3.6):
-/// the principal-private manual presence preference. Enforced on the
-/// send side — every device of the principal reads the same account
-/// data and pins its broadcast `state` to `manual_state` while the
-/// preference is active.
-///
-/// Counterpart for `spec/v1/artifacts/schemas/presence-preference.schema.json`.
+// `ak.presence.preference` payload (profiles-presence.md §3.6):
+// the principal-private manual presence preference. Enforced on the
+// send side — every device of the principal reads the same account
+// data and pins its broadcast `state` to `manual_state` while the
+// preference is active.
+//
+// Counterpart for `spec/v1/artifacts/schemas/presence-preference.schema.json`.
 
 impl PresencePreference {
     /// Whether the payload carries no manual state or status message.

@@ -4,25 +4,6 @@ use arkret_wire::{ActorId, CurrentRevision};
 
 use crate::internal_prelude::*;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/capability_grant_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityGrantCreateBody {
-    pub schema: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub issuer_id: ActorId,
-    pub subject: CapabilitySubject,
-    pub actions: Vec<String>,
-    pub resources: Vec<WireResourceSelector>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub constraints: Vec<GrantConstraint>,
-    pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-}
-
 impl CapabilityGrantCreateBody {
     /// Structural checks only. Ownership, current rights and management gates
     /// must still be decided by the accepting Station in its transaction.
@@ -71,24 +52,4 @@ pub struct CapabilityGrantPayload {
     pub grant: CapabilityGrantCreateBody,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/capability_revoke_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityRevokePayload {
-    pub grant_id: GrantId,
-    pub expected_revision: CurrentRevision,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-/// Counterpart for
-/// `event-payload.schema.json#/$defs/capability_relinquish_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityRelinquishPayload {
-    pub grant_id: GrantId,
-    pub expected_revision: CurrentRevision,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
+include!("generated/capability_contracts.rs");

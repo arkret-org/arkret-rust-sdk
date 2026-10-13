@@ -199,26 +199,6 @@ impl std::fmt::Display for PinState {
     }
 }
 
-/// Per-pin limited-trust record
-/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).
-///
-/// §5.5 replaced the old single "reason" with one state per pin, because the two
-/// pins fail independently and for different reasons: a `did:webvh` binding that
-/// lost only `version_id` because the resolver did not surface it is a resolver
-/// defect, while a `did:key` binding that has no history at all is a terminal
-/// property of the method. Collapsing both into one enum made those
-/// indistinguishable.
-///
-/// The record is omitted entirely when both pins are present; every state MUST
-/// agree with the actual presence of its pin, and [`VerifiedDidBinding::new`]
-/// rejects a binding where it does not.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct LimitedTrust {
-    pub history_head_status: PinState,
-    pub version_id_status: PinState,
-}
-
 impl LimitedTrust {
     /// The record implied by the pins a **proofless** method produced.
     ///
@@ -273,32 +253,6 @@ pub enum StaleBehavior {
     AcceptedWithoutNetwork,
     AcceptedAndBackgroundRefresh,
     SynchronousRefreshOrFailClosed,
-}
-
-/// One registered freshness profile row
-/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).
-///
-/// §5.4 makes every DID authority call site reference exactly one profile id
-/// through its operation / action registration — natural-language tier guessing
-/// ("directory-ish, so any cache will do") is forbidden, and an unknown id is
-/// treated as `high`, never as "anything cached is fine".
-///
-/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_after =
-/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the
-/// same value. Two separately maintained constants are exactly the drift §5.4
-/// forbids, so [`Self::requirement`] is the only way to obtain a
-/// [`FreshnessRequirement`] from a profile.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FreshnessProfile {
-    pub freshness_profile_id: String,
-    pub risk_tier: DidFreshnessRiskTier,
-    /// `did:<method>:` prefixes this row applies to, or the single `"*"`.
-    pub did_method_selector: Vec<String>,
-    pub fresh_for_seconds: Option<u64>,
-    pub stale_grace_seconds: Option<u64>,
-    pub hard_expiry_seconds: Option<u64>,
-    pub stale_behavior: StaleBehavior,
 }
 
 impl FreshnessProfile {
@@ -1259,3 +1213,5 @@ mod tests {
         );
     }
 }
+
+include!("generated/binding_contracts.rs");

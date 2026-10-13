@@ -838,45 +838,6 @@ impl Notification {
     }
 }
 
-/// Counterpart for
-/// `notification.schema.json#/$defs/ordinary_projection_content`: the current
-/// content of one ordinary source-Event notification projection as it is
-/// delivered on the account-subscribe `notifications` channel.
-///
-/// Four members of [`Notification`] are deliberately absent, and the absence is
-/// the contract, not an omission: `id` is carried by the delta row, `schema` is
-/// implied by the channel, `actor_id` is the authenticated account, and `state`
-/// stays in the holder-private inbox
-/// (`ak.notifications.inbox.<notification_id>` plus the read cursor). A Station
-/// that put any of them on this row would be publishing a second source of
-/// truth for inbox disposition. [`Self::into_notification`] is the only way
-/// back to a full object, and it takes those four from the receiver's own
-/// state.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OrdinaryProjectionContent {
-    pub realm_id: RealmId,
-    pub source_event_id: EventId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_ref: Option<NotificationSourceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<String>,
-    pub notification_kind: OrdinaryNotificationKind,
-    pub priority: NotificationPriority,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preview: Option<BTreeMap<String, Value>>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
 impl OrdinaryProjectionContent {
     pub fn validate(&self) -> Result<()> {
         if let Some(track_name) = self.track_name.as_deref() {
@@ -1033,3 +994,5 @@ impl NotificationInboxValue {
         }
     }
 }
+
+include!("generated/read_receipts_contracts.rs");
