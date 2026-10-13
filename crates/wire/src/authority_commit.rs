@@ -3963,6 +3963,55 @@ mod tests {
     }
 
     #[test]
+    fn every_stream_rejects_gaps_duplicate_positions_and_foreign_predecessors() {
+        let collaboration = realm(0x10);
+        let pcr = realm(0x11);
+        let streams = [
+            CommitStreamRef::Realm {
+                realm_id: collaboration.clone(),
+            },
+            circle_item(collaboration.clone(), 0).commit.stream_ref,
+            CommitStreamRef::Sidecar {
+                realm_id: collaboration.clone(),
+                sidecar_id: crate::SidecarId::from_event_id(&EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [0x12; 32],
+                )),
+            },
+            CommitStreamRef::Realm { realm_id: pcr },
+        ];
+        for stream in &streams {
+            let mut first = circle_item(stream.realm_id().clone(), 0).commit;
+            first.stream_ref = stream.clone();
+            first.validate_shape().unwrap();
+            let mut next = first.clone();
+            next.stream_position = 1;
+            next.commit_id = RealmCommitId::from_digest([0x22; 32]);
+            next.previous_commit_ref = Some(first.commit_id.clone());
+            next.validate_successor_of(&first).unwrap();
+            let restored: RealmCommit =
+                serde_json::from_slice(&serde_json::to_vec(&first).unwrap()).unwrap();
+            next.validate_successor_of(&restored).unwrap();
+            for other in &streams {
+                if other != stream {
+                    let mut foreign = first.clone();
+                    foreign.realm_id = other.realm_id().clone();
+                    foreign.stream_ref = other.clone();
+                    assert!(next.validate_successor_of(&foreign).is_err());
+                }
+            }
+            for position in [0, 2] {
+                let mut wrong = next.clone();
+                wrong.stream_position = position;
+                assert!(wrong.validate_successor_of(&first).is_err());
+            }
+            let mut wrong = next;
+            wrong.previous_commit_ref = Some(RealmCommitId::from_digest([0x23; 32]));
+            assert!(wrong.validate_successor_of(&first).is_err());
+        }
+    }
+
+    #[test]
     fn scan_request_has_exactly_one_present_direction_even_when_null() {
         let realm_id = realm(0x10);
         let stream_ref = circle_item(realm_id.clone(), 0).commit.stream_ref;

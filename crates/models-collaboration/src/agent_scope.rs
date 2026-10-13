@@ -17,6 +17,116 @@ pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
     ProofContextId::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1;
 pub const AGENT_RUNTIME_KEY_BINDING_KIND: &str = "ak.agent.runtime_key_binding.v1";
 
+/// A durable grant may only narrow the immutable provision actions/resources
+/// and must preserve every provision constraint. Service-only selectors do
+/// not manufacture a content resource ceiling (capabilities.md section 9.1).
+pub fn agent_grant_scope_within_provision(
+    ceiling: &AgentKeyScope,
+    actions: &[String],
+    resources: &[arkret_wire::WireResourceSelector],
+    constraints: &[crate::governance::grant_constraint::GrantConstraint],
+) -> Result<bool> {
+    if actions
+        .iter()
+        .any(|action| !ceiling.actions.contains(action))
+        || ceiling
+            .constraints
+            .iter()
+            .any(|required| !constraints.contains(required))
+    {
+        return Ok(false);
+    }
+    let content = |kind: &str| {
+        matches!(
+            kind,
+            "realm"
+                | "space"
+                | "circle"
+                | "strand"
+                | "message"
+                | "morph"
+                | "object"
+                | "relation"
+                | "view"
+                | "event"
+                | "actor"
+                | "schema"
+                | "policy"
+                | "invite"
+                | "notification"
+                | "read_cursor"
+                | "blob"
+        )
+    };
+    let ceilings = ceiling
+        .resources
+        .iter()
+        .map(serde_json::to_value)
+        .collect::<serde_json::Result<Vec<_>>>()
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
+    let has_content = ceilings
+        .iter()
+        .any(|selector| selector["kind"].as_str().is_some_and(content));
+    for resource in resources {
+        let child = serde_json::to_value(resource)
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        let Some(kind) = child["kind"].as_str() else {
+            return Ok(false);
+        };
+        if !content(kind) {
+            return Ok(false);
+        }
+        if content(kind) && !has_content {
+            continue;
+        }
+        let covered = ceilings.iter().any(|parent| {
+            let parent_kind = parent["kind"].as_str();
+            if parent_kind != Some(kind) && !(parent_kind == Some("realm") && content(kind)) {
+                return false;
+            }
+            if parent
+                .get("realm_id")
+                .is_some_and(|realm| child.get("realm_id") != Some(realm))
+            {
+                return false;
+            }
+            for field in ["operation", "service_id", "schema_ref"] {
+                if parent
+                    .get(field)
+                    .is_some_and(|value| child.get(field) != Some(value))
+                {
+                    return false;
+                }
+            }
+            let Some(reference) = parent.get("resource_ref") else {
+                return true;
+            };
+            [
+                "resource_ref",
+                "space_id",
+                "circle_id",
+                "strand_id",
+                "message_id",
+                "morph_id",
+                "object_ref",
+                "relation_id",
+                "view_id",
+                "event_id",
+                "actor_id",
+                "policy_id",
+                "invite_id",
+                "blob_ref",
+            ]
+            .iter()
+            .any(|field| child.get(*field) == Some(reference))
+        });
+        if !covered {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentRuntimeKeyPossessionProofKind {
