@@ -50,7 +50,7 @@ jobs:
           --report "${{ runner.temp }}/sdk-structure-time-event.json"
       - name: Preserve SDK structure, time and Event results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-structure-time-event-results
           path: ${{ runner.temp }}/sdk-structure-time-event.json
@@ -64,7 +64,7 @@ jobs:
           --report "${{ runner.temp }}/sdk-type-boundaries.json"
       - name: Preserve SDK type boundary results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-type-boundary-results
           path: ${{ runner.temp }}/sdk-type-boundaries.json
@@ -87,7 +87,7 @@ jobs:
           --report "${{ runner.temp }}/sdk-native-compile.json"
       - name: Preserve SDK native compile results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-native-compile-results
           path: ${{ runner.temp }}/sdk-native-compile.json
@@ -195,7 +195,7 @@ jobs:
           --report "${{ runner.temp }}/sdk-wasm-compile.json"
       - name: Preserve SDK browser compile results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-wasm-compile-results
           path: ${{ runner.temp }}/sdk-wasm-compile.json
@@ -271,7 +271,7 @@ jobs:
       - name: Generate coverage report
         run: cargo tarpaulin --config tarpaulin.toml --out Xml
       - name: Preserve coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-coverage-${{ github.sha }}
           path: arkret-rust-sdk/cobertura.xml
@@ -337,7 +337,7 @@ jobs:
           --report "${{ runner.temp }}/sdk-schema-artifacts.json"
       - name: Preserve SDK schema and artifact results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-schema-artifact-results
           path: ${{ runner.temp }}/sdk-schema-artifacts.json
