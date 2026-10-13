@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json; version=2026-10-11.1;
 //! sha256=e6888224eb63b0c1129d1770f6c8304d2de59ebd3accbee4631ac9d8f1c3e59f Input: registry/
-//! contract-registry.json; version=2026-10-13.1;
-//! sha256=e0c0f65c268ed1f8c7cf1bcea318b88d8bbc94c55dc527b04b9cf2207fc129af Input: registry/
+//! contract-registry.json; version=2026-10-14.1;
+//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86 Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
 //! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=215
 

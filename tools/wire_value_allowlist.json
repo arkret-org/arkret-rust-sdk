@@ -3948,29 +3948,6 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/events/projection_query.rs::document_projection_comments:2edd2a26393c47eb",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Coland derived document-comment view",
-      "owner_repository": "coland",
-      "action": "Retain this exact symbol; the adjacent value does not select the data shape.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "comment state is derived from anchor bounds after content extraction; it does not select the preserved message content/body shape.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/http/src/routing/events/projection_query.rs::document_projection_versions:3fef54ffc614448d",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning body",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:coland/crates/http/src/routing/events/strand.rs::strand_projection_for_realm:de744611a3da71e4",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4565,61 +4542,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning actor_id",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/events/projection_query.rs::document_projection_document:0bff4efc2f93017c",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning body",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/events/projection_query.rs::document_projection_document:34fa1e2870d4a66c",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/events/projection_query.rs::document_projection_document:b45893fb72a8651e",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning state",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/events/projection_query.rs::document_relation_reference_projection:54360e67908d4f01",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning status",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/events/projection_query.rs::document_relation_row:6ac8047195e77cc2",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning state",
       "owner_repository": "coland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

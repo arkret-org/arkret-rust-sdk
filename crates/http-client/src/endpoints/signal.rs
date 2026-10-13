@@ -2,8 +2,9 @@
 
 use std::time::Duration;
 
+use arkret_models_collaboration::SignalStreamFrame;
 use arkret_models_collaboration::signal_operations::SignalSubmitOutcome;
-use arkret_wire::{SignalEnvelope, SignalStreamFrame};
+use arkret_wire::SignalEnvelope;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, Response};
 use web_time::Instant;

@@ -426,9 +426,8 @@ pub use arkret_wire::signal::{
     MAX_SIGNAL_CIPHERTEXT_CHARS, MAX_SIGNAL_ENVELOPE_BYTES, MAX_SIGNAL_PLAINTEXT_BYTES,
     MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES, MAX_SIGNAL_RELAY_ITEMS, MAX_SIGNAL_STREAM_REASON_CHARS,
     MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS, MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
-    SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalDeliveryAuthority,
-    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, SignalRelayOutcome,
-    SignalRelayRequest, SignalSenderEndpoint, SignalStreamFrame,
+    SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalEncryptedPayload, SignalEnvelope,
+    SignalKeyRef, SignalProof, SignalRelayOutcome, SignalRelayRequest, SignalSenderEndpoint,
 };
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::websocket_binding::*;
@@ -519,6 +518,9 @@ pub use arkret_crypto::{
 pub use arkret_identifiers::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,
     parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
+};
+pub use arkret_models_collaboration::{
+    SignalAgentProductAuthority, SignalDeliveryAuthority, SignalProductAuthority, SignalStreamFrame,
 };
 // The narrow MLS persistence ports are part of the `CryptoStore` supertrait
 // contract (owned by arkret-models-crypto, OpenMLS-free), so surface them on the

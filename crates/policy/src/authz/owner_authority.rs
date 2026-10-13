@@ -89,6 +89,12 @@ mod tests {
     }
 
     #[test]
+    fn message_stream_is_an_explicit_grant_exception_without_direct_owner_coverage() {
+        assert!(owner_may_grant(CapabilityActionId::MESSAGE_STREAM_SEND).unwrap());
+        assert!(!owner_may_author_action(CapabilityActionId::MESSAGE_STREAM_SEND).unwrap());
+    }
+
+    #[test]
     fn owner_grant_surface_uses_the_compiled_exact_action_set() {
         assert!(owner_may_grant("ak.audit.export").unwrap());
         assert!(owner_may_grant("ak.strand.create").unwrap());

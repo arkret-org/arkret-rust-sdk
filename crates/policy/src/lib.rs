@@ -2,10 +2,12 @@
 
 use arkret_wire::*;
 
+pub mod agent_content_ceiling;
 pub mod agent_management;
 pub mod applet_admission;
 pub mod applet_management;
 pub mod authz;
+pub mod grant_evaluation;
 pub mod history_access;
 pub mod mls_group_state;
 pub mod ordinary_agent_mls;
@@ -14,6 +16,7 @@ pub mod profile_feature_guard;
 pub mod profile_semantics;
 pub mod realm_bootstrap;
 pub mod realm_organization;
+pub mod signal_authorization;
 
 pub mod models {
     pub use arkret_wire::primitives::Facet;
