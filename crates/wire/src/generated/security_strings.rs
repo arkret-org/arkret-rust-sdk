@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-13.1;
-//! sha256=9e9ec291af50b7a6efc8ef6e2d5cd46aa0cefba58fb19d51652f66f1eb935fd2 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-14.2;
+//! sha256=bc7ec3a4bcb49f80afda2495d84d2a7dfeffca733cf6dcc9ca2899b5c7d308c6 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=36, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -325,6 +325,9 @@ pub enum DomainSeparationId {
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
     ApprovalSignatureV1,
+    CallInvitationAdmissionV1,
+    CallInvitationV1,
+    CallVoluntaryJoinV1,
     ContactGlareUnconsumedSlotV1,
     ContactNoOutgoingSlotV1,
     ContactRequestAcceptanceCoreV1,
@@ -365,6 +368,9 @@ impl DomainSeparationId {
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
         Self::ApprovalSignatureV1,
+        Self::CallInvitationAdmissionV1,
+        Self::CallInvitationV1,
+        Self::CallVoluntaryJoinV1,
         Self::ContactGlareUnconsumedSlotV1,
         Self::ContactNoOutgoingSlotV1,
         Self::ContactRequestAcceptanceCoreV1,
@@ -406,6 +412,9 @@ impl DomainSeparationId {
     pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
         "ak.applet_managed_actor_bundle_proof.v1";
     pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.approval.signature.v1";
+    pub const CALL_INVITATION_ADMISSION_V1: &'static str = "ak.call.invitation.admission.v1";
+    pub const CALL_INVITATION_V1: &'static str = "ak.call.invitation.v1";
+    pub const CALL_VOLUNTARY_JOIN_V1: &'static str = "ak.call.voluntary_join.v1";
     pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
         "ak.contact.glare_unconsumed_slot.v1";
     pub const CONTACT_NO_OUTGOING_SLOT_V1: &'static str = "ak.contact.no_outgoing_slot.v1";
@@ -465,6 +474,9 @@ impl DomainSeparationId {
             }
             Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
             Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
+            Self::CallInvitationAdmissionV1 => Self::CALL_INVITATION_ADMISSION_V1,
+            Self::CallInvitationV1 => Self::CALL_INVITATION_V1,
+            Self::CallVoluntaryJoinV1 => Self::CALL_VOLUNTARY_JOIN_V1,
             Self::ContactGlareUnconsumedSlotV1 => Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1,
             Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
             Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
@@ -526,6 +538,9 @@ impl DomainSeparationId {
                 Some(Self::AppletManagedActorBundleProofV1)
             }
             Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
+            Self::CALL_INVITATION_ADMISSION_V1 => Some(Self::CallInvitationAdmissionV1),
+            Self::CALL_INVITATION_V1 => Some(Self::CallInvitationV1),
+            Self::CALL_VOLUNTARY_JOIN_V1 => Some(Self::CallVoluntaryJoinV1),
             Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1 => Some(Self::ContactGlareUnconsumedSlotV1),
             Self::CONTACT_NO_OUTGOING_SLOT_V1 => Some(Self::ContactNoOutgoingSlotV1),
             Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1 => Some(Self::ContactRequestAcceptanceCoreV1),

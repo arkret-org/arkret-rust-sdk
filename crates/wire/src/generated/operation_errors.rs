@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-11.1;
-//! sha256=e6888224eb63b0c1129d1770f6c8304d2de59ebd3accbee4631ac9d8f1c3e59f Input: registry/
-//! contract-registry.json; version=2026-10-14.1;
-//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-14.1;
+//! sha256=e0ca725ca837e093fe1fd2f8f7219c2f84d6bce29fb3c0ae19d5a7dc2ca4b0f7 Input: registry/
+//! contract-registry.json; version=2026-10-14.5;
+//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7 Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
-//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=215
+//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=218
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -275,6 +275,8 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ErasurePendingIsTerminal),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[],
+    &[],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -605,6 +607,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::UnsupportedMediaPolicy),
         OperationSpecificError::Code(ErrorCode::BlobDigestMismatch),
     ],
+    &[],
     &[
         OperationSpecificError::Reason(ReasonCode::FocusMismatch),
         OperationSpecificError::Reason(ReasonCode::UnknownFocusType),

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.1;
-//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86
-//! Entries: http_signature_scenarios=6, freshness_profile=ak.http_signature.freshness.v1
+//! Input: registry/contract-registry.json; version=2026-10-14.5;
+//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7
+//! Entries: http_signature_scenarios=7, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HttpSignatureScenario {
@@ -12,6 +12,7 @@ pub enum HttpSignatureScenario {
     ClientSessionPopV1,
     MimiProviderV1,
     AppletManagedDeviceV1,
+    CallInvitationV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,6 +97,11 @@ const APPLET_MANAGED_DEVICE_V1_CONDITIONAL_COMPONENTS:
         condition: "the operation uses an idempotency key",
     },
 ];
+const CALL_INVITATION_V1_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalComponentDescriptor] =
+    &[HttpSignatureConditionalComponentDescriptor {
+        component: "destination-service-endpoint-digest",
+        condition: "the destination is reached through a shared ingress",
+    }];
 
 pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
     HttpSignatureScenarioDescriptor {
@@ -250,6 +256,34 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.realm_state_snapshot.read.by_ref.v1",
             "ak.self.realm_state_snapshot.read.manifest_head.v1",
             "ak.self.events.command.submit.v1",
+        ],
+    },
+    HttpSignatureScenarioDescriptor {
+        scenario: HttpSignatureScenario::CallInvitationV1,
+        scenario_id: "ak.http_signature.scenario.call_invitation.v1",
+        extends: Some(HttpSignatureScenario::ServiceToServiceV1),
+        additional_covered_components: &[
+            "content-digest",
+            "source-service-id",
+            "destination-service-id",
+            "source-trust-domain",
+            "destination-trust-domain",
+        ],
+        conditional_covered_components: CALL_INVITATION_V1_CONDITIONAL_COMPONENTS,
+        required_headers: &[
+            "Signature",
+            "Signature-Input",
+            "Arkret-Operation",
+            "Content-Digest",
+            "Source-Service-ID",
+            "Destination-Service-ID",
+            "Source-Trust-Domain",
+            "Destination-Trust-Domain",
+        ],
+        freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[
+            "ak.peer.call.invitation.command.relay.v1",
+            "ak.peer.call.invitation.read.admission.v1",
         ],
     },
 ];

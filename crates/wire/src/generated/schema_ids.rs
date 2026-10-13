@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.1;
-//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86 Entries: schema_ids=227,
-//! active=227
+//! Input: registry/contract-registry.json; version=2026-10-14.5;
+//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7 Entries: schema_ids=228,
+//! active=228
 
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +68,7 @@ pub enum SchemaId {
     BlobV1,
     BlobOperationsV1,
     CalendarEventV1,
+    CallInvitationOperationsV1,
     CallRecordingArtifactV1,
     CallSignalPlaintextV1,
     CapabilityV1,
@@ -299,6 +300,7 @@ impl SchemaId {
         Self::BlobV1,
         Self::BlobOperationsV1,
         Self::CalendarEventV1,
+        Self::CallInvitationOperationsV1,
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
@@ -530,6 +532,7 @@ impl SchemaId {
         Self::BlobV1,
         Self::BlobOperationsV1,
         Self::CalendarEventV1,
+        Self::CallInvitationOperationsV1,
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
@@ -890,6 +893,10 @@ impl SchemaId {
     pub const BLOB_OPERATIONS_V1: &'static str = "ak.schema.blob_operations.v1";
     /// Profile fields for calendar-event Strands.
     pub const CALENDAR_EVENT_V1: &'static str = "ak.schema.calendar_event.v1";
+    /// Closed exact-envelope call invitation relation, opaque submission, authorized holder-current
+    /// admission and explicit token join branches.
+    pub const CALL_INVITATION_OPERATIONS_V1: &'static str =
+        "ak.schema.call_invitation_operations.v1";
     /// Canonical metadata for call recording artifacts after Arkret blob pipeline ingestion,
     /// including recording exporter context, retention policy and deletion audit binding.
     pub const CALL_RECORDING_ARTIFACT_V1: &'static str = "ak.schema.call_recording_artifact.v1";
@@ -1444,6 +1451,7 @@ impl SchemaId {
             Self::BlobV1 => Self::BLOB_V1,
             Self::BlobOperationsV1 => Self::BLOB_OPERATIONS_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
+            Self::CallInvitationOperationsV1 => Self::CALL_INVITATION_OPERATIONS_V1,
             Self::CallRecordingArtifactV1 => Self::CALL_RECORDING_ARTIFACT_V1,
             Self::CallSignalPlaintextV1 => Self::CALL_SIGNAL_PLAINTEXT_V1,
             Self::CapabilityV1 => Self::CAPABILITY_V1,
@@ -1714,6 +1722,7 @@ impl SchemaId {
             Self::BlobV1 => "schemas/blob.schema.json",
             Self::BlobOperationsV1 => "schemas/blob-operations.schema.json",
             Self::CalendarEventV1 => "schemas/calendar-event.schema.json",
+            Self::CallInvitationOperationsV1 => "schemas/call-invitation-operations.schema.json",
             Self::CallRecordingArtifactV1 => "schemas/call-recording-artifact.schema.json",
             Self::CallSignalPlaintextV1 => "schemas/call-signal-plaintext.schema.json",
             Self::CapabilityV1 => "schemas/capability-grant.schema.json",
@@ -1994,6 +2003,7 @@ impl SchemaId {
             Self::BLOB_V1 => Some(Self::BlobV1),
             Self::BLOB_OPERATIONS_V1 => Some(Self::BlobOperationsV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
+            Self::CALL_INVITATION_OPERATIONS_V1 => Some(Self::CallInvitationOperationsV1),
             Self::CALL_RECORDING_ARTIFACT_V1 => Some(Self::CallRecordingArtifactV1),
             Self::CALL_SIGNAL_PLAINTEXT_V1 => Some(Self::CallSignalPlaintextV1),
             Self::CAPABILITY_V1 => Some(Self::CapabilityV1),

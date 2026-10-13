@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-12.1;
-//! sha256=634f96b0108d0bfb5be7ba3a663b5e8327c2c438ab3bbae3d3a2783aa1c2ac86 Entries: registered=215
+//! Input: registry/contract-registry.json; version=2026-10-14.5;
+//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7 Entries: registered=218
 
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +66,8 @@ pub enum ServiceOperationId {
     OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
+    PeerCallInvitationCommandRelayV1,
+    PeerCallInvitationReadAdmissionV1,
     PeerCommittedEventReadScanV1,
     PeerContactsCommandSubmitV1,
     PeerErasureReceiptCommandSubmitV1,
@@ -139,6 +141,7 @@ pub enum ServiceOperationId {
     SelfBlobResourceGetV1,
     SelfBlobResourceHeadV1,
     SelfBlobUploadCreateV1,
+    SelfCallInvitationCommandSendV1,
     SelfCallMediaExchangeIssueTokenV1,
     SelfCircleCommandCreateV1,
     SelfCircleCommandRotateScopeV1,
@@ -284,6 +287,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+    ServiceOperationId::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
+    ServiceOperationId::PEER_CALL_INVITATION_READ_ADMISSION_V1,
     ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
@@ -357,6 +362,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_BLOB_RESOURCE_GET_V1,
     ServiceOperationId::SELF_BLOB_RESOURCE_HEAD_V1,
     ServiceOperationId::SELF_BLOB_UPLOAD_CREATE_V1,
+    ServiceOperationId::SELF_CALL_INVITATION_COMMAND_SEND_V1,
     ServiceOperationId::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1,
     ServiceOperationId::SELF_CIRCLE_COMMAND_CREATE_V1,
     ServiceOperationId::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1,
@@ -544,6 +550,8 @@ impl ServiceOperationId {
         Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
+        Self::PeerCallInvitationCommandRelayV1,
+        Self::PeerCallInvitationReadAdmissionV1,
         Self::PeerCommittedEventReadScanV1,
         Self::PeerContactsCommandSubmitV1,
         Self::PeerErasureReceiptCommandSubmitV1,
@@ -617,6 +625,7 @@ impl ServiceOperationId {
         Self::SelfBlobResourceGetV1,
         Self::SelfBlobResourceHeadV1,
         Self::SelfBlobUploadCreateV1,
+        Self::SelfCallInvitationCommandSendV1,
         Self::SelfCallMediaExchangeIssueTokenV1,
         Self::SelfCircleCommandCreateV1,
         Self::SelfCircleCommandRotateScopeV1,
@@ -810,6 +819,10 @@ impl ServiceOperationId {
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
         "ak.peer.account_status.read.resolve.v1";
+    pub const PEER_CALL_INVITATION_COMMAND_RELAY_V1: &'static str =
+        "ak.peer.call.invitation.command.relay.v1";
+    pub const PEER_CALL_INVITATION_READ_ADMISSION_V1: &'static str =
+        "ak.peer.call.invitation.read.admission.v1";
     pub const PEER_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
         "ak.peer.committed_event.read.scan.v1";
     pub const PEER_CONTACTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.contacts.command.submit.v1";
@@ -930,6 +943,8 @@ impl ServiceOperationId {
     pub const SELF_BLOB_RESOURCE_GET_V1: &'static str = "ak.self.blob.resource.get.v1";
     pub const SELF_BLOB_RESOURCE_HEAD_V1: &'static str = "ak.self.blob.resource.head.v1";
     pub const SELF_BLOB_UPLOAD_CREATE_V1: &'static str = "ak.self.blob.upload.create.v1";
+    pub const SELF_CALL_INVITATION_COMMAND_SEND_V1: &'static str =
+        "ak.self.call.invitation.command.send.v1";
     pub const SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1: &'static str =
         "ak.self.call.media.exchange.issue_token.v1";
     pub const SELF_CIRCLE_COMMAND_CREATE_V1: &'static str = "ak.self.circle.command.create.v1";
@@ -1170,6 +1185,8 @@ impl ServiceOperationId {
             }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+            Self::PeerCallInvitationCommandRelayV1 => Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
+            Self::PeerCallInvitationReadAdmissionV1 => Self::PEER_CALL_INVITATION_READ_ADMISSION_V1,
             Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptCommandSubmitV1 => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
@@ -1279,6 +1296,7 @@ impl ServiceOperationId {
             Self::SelfBlobResourceGetV1 => Self::SELF_BLOB_RESOURCE_GET_V1,
             Self::SelfBlobResourceHeadV1 => Self::SELF_BLOB_RESOURCE_HEAD_V1,
             Self::SelfBlobUploadCreateV1 => Self::SELF_BLOB_UPLOAD_CREATE_V1,
+            Self::SelfCallInvitationCommandSendV1 => Self::SELF_CALL_INVITATION_COMMAND_SEND_V1,
             Self::SelfCallMediaExchangeIssueTokenV1 => {
                 Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1
             }
@@ -1526,6 +1544,12 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
             Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1 => Some(Self::PeerAccountStatusReadResolveV1),
+            Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1 => {
+                Some(Self::PeerCallInvitationCommandRelayV1)
+            }
+            Self::PEER_CALL_INVITATION_READ_ADMISSION_V1 => {
+                Some(Self::PeerCallInvitationReadAdmissionV1)
+            }
             Self::PEER_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::PeerCommittedEventReadScanV1),
             Self::PEER_CONTACTS_COMMAND_SUBMIT_V1 => Some(Self::PeerContactsCommandSubmitV1),
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1 => {
@@ -1667,6 +1691,9 @@ impl ServiceOperationId {
             Self::SELF_BLOB_RESOURCE_GET_V1 => Some(Self::SelfBlobResourceGetV1),
             Self::SELF_BLOB_RESOURCE_HEAD_V1 => Some(Self::SelfBlobResourceHeadV1),
             Self::SELF_BLOB_UPLOAD_CREATE_V1 => Some(Self::SelfBlobUploadCreateV1),
+            Self::SELF_CALL_INVITATION_COMMAND_SEND_V1 => {
+                Some(Self::SelfCallInvitationCommandSendV1)
+            }
             Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1 => {
                 Some(Self::SelfCallMediaExchangeIssueTokenV1)
             }
@@ -3256,6 +3283,56 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerCallInvitationCommandRelayV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/rtc/invitation",
+        grpc: Some("PeerCallInvitation/Relay"),
+        mq: Some("peer.call.invitation.command.relay"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(131072),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/send_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/send_outcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("ephemeral_invitation_is_not_a_consent_ledger_or_durable_participant"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerCallInvitationReadAdmissionV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/rtc/invitation-admission",
+        grpc: Some("PeerCallInvitation/Admission"),
+        mq: Some("peer.call.invitation.read.admission"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(131072),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/admission_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/admission_outcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("ephemeral_invitation_is_not_a_consent_ledger_or_durable_participant"),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerCommittedEventReadScanV1,
@@ -4886,6 +4963,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCallInvitationCommandSendV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/rtc/invitation",
+        grpc: Some("SelfCallInvitation/Send"),
+        mq: Some("self.call.invitation.command.send"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(131072),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("none"),
+        retry_safe: Some(false),
+        request_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/send_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/call-invitation-operations.schema.json#/$defs/send_outcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("ephemeral_invitation_is_not_a_consent_ledger_or_durable_participant"),
             branch_contract_json: None,
         }),
     },

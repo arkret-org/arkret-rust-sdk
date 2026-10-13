@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Input: registry/proof-context-registry.json
-//! sha256=9e9ec291af50b7a6efc8ef6e2d5cd46aa0cefba58fb19d51652f66f1eb935fd2
+//! sha256=bc7ec3a4bcb49f80afda2495d84d2a7dfeffca733cf6dcc9ca2899b5c7d308c6
 
 pub struct DomainPrefix;
 
@@ -56,5 +56,17 @@ impl DomainPrefix {
     pub const AK_REALM_SNAPSHOT_SIGNATURE_V1: &'static [u8] = &[
         97, 107, 46, 114, 101, 97, 108, 109, 95, 115, 110, 97, 112, 115, 104, 111, 116, 95, 115,
         105, 103, 110, 97, 116, 117, 114, 101, 46, 118, 49, 10,
+    ];
+    pub const AK_CALL_INVITATION_V1: &'static [u8] = &[
+        97, 107, 46, 99, 97, 108, 108, 46, 105, 110, 118, 105, 116, 97, 116, 105, 111, 110, 46,
+        118, 49, 0,
+    ];
+    pub const AK_CALL_INVITATION_ADMISSION_V1: &'static [u8] = &[
+        97, 107, 46, 99, 97, 108, 108, 46, 105, 110, 118, 105, 116, 97, 116, 105, 111, 110, 46, 97,
+        100, 109, 105, 115, 115, 105, 111, 110, 46, 118, 49, 0,
+    ];
+    pub const AK_CALL_VOLUNTARY_JOIN_V1: &'static [u8] = &[
+        97, 107, 46, 99, 97, 108, 108, 46, 118, 111, 108, 117, 110, 116, 97, 114, 121, 95, 106,
+        111, 105, 110, 46, 118, 49, 0,
     ];
 }
