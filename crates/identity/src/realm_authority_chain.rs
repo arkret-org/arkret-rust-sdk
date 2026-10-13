@@ -41,8 +41,8 @@ use arkret_signatures::PublicKeyMaterial;
 use arkret_signatures::detached_object::verify_detached_object_signature;
 use arkret_wire::{
     Base64UrlString, CommittedEventFullView, DetachedObjectSignature, DetachedSignatureContext,
-    Did, DidCoreId, DidUrl, Event, EventId, RealmAuthorityBundle, RealmAuthorityHandoffId,
-    RealmCommit, RealmCommitAuthorityRef, RealmId, project_did_to_core_id,
+    Did, DidCoreId, DidUrl, Event, EventId, EventKind, RealmAuthorityBundle,
+    RealmAuthorityHandoffId, RealmCommit, RealmCommitAuthorityRef, RealmId, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -281,6 +281,7 @@ struct GenerationAuthority {
     /// union `RealmCommitAuthorityRef` admits exactly these two spellings.
     installing_event: EventId,
     installing_handoff: Option<RealmAuthorityHandoffId>,
+    final_realm_head: Option<arkret_wire::CommitStreamHead>,
 }
 
 impl GenerationAuthority {
@@ -374,6 +375,16 @@ impl VerifiedRealmAuthority {
                 "commit authority_ref does not name the record that installed generation {}",
                 commit.governance_generation
             )));
+        }
+        if let Some(final_head) = &authority.final_realm_head
+            && commit.stream_ref == final_head.stream_ref
+            && (commit.stream_position > final_head.stream_position
+                || (commit.stream_position == final_head.stream_position
+                    && commit.commit_id != final_head.commit_id))
+        {
+            return Err(E::GenerationMismatch(
+                "the outgoing Station signed past its frozen Realm head".into(),
+            ));
         }
         let signer = signature_service_id(&commit.signature)?;
         if signer != authority.service_id {
@@ -655,6 +666,7 @@ fn walk_history_parts(
             service_id: genesis_service.clone(),
             installing_event: genesis_event.event_id.clone(),
             installing_handoff: None,
+            final_realm_head: None,
         },
     );
 
@@ -663,6 +675,20 @@ fn walk_history_parts(
 
     for transition in transitions {
         let handoff = &transition.handoff;
+        let payload: arkret_models_collaboration::events_payloads::RealmGovernanceStationChangePayload =
+            serde_json::from_value(serde_json::to_value(&transition.change_event.payload)
+                .map_err(|error| E::ChainBroken(error.to_string()))?)
+                .map_err(|error| E::ChainBroken(error.to_string()))?;
+        if transition.change_event.kind != EventKind::RealmGovernanceStationChange
+            || payload.expected_governance_generation != handoff.from_generation
+            || payload.new_governance_station_id != handoff.to_service_id
+            || Some(&payload.expected_realm_stream_commit_id)
+                != transition.change_commit.previous_commit_ref.as_ref()
+        {
+            return Err(E::ChainBroken(
+                "handoff must bind the accepted governance Station change and its exact CAS".into(),
+            ));
+        }
         if handoff.realm_id != *realm_id {
             return Err(E::ChainBroken(
                 "authority handoff belongs to another Realm".to_owned(),
@@ -742,18 +768,36 @@ fn walk_history_parts(
                 "the change commit is not signed by the outgoing governance Station".to_owned(),
             ));
         }
+        if !generations
+            .get(&handoff.from_generation)
+            .expect("the outgoing generation was validated")
+            .admits(&transition.change_commit.authority_ref)
+        {
+            return Err(E::GenerationMismatch(
+                "the change Commit does not name its outgoing authority record".into(),
+            ));
+        }
         if generations.contains_key(&handoff.to_generation) {
             return Err(E::ChainBroken(format!(
                 "generation {} is installed twice; the chain forks",
                 handoff.to_generation
             )));
         }
+        generations
+            .get_mut(&handoff.from_generation)
+            .expect("the outgoing generation was validated")
+            .final_realm_head = Some(arkret_wire::CommitStreamHead {
+            stream_ref: transition.change_commit.stream_ref.clone(),
+            stream_position: transition.change_commit.stream_position,
+            commit_id: transition.change_commit.commit_id.clone(),
+        });
         generations.insert(
             handoff.to_generation,
             GenerationAuthority {
                 service_id: handoff.to_service_id.clone(),
                 installing_event: transition.change_event.event_id.clone(),
                 installing_handoff: Some(handoff.handoff_id.clone()),
+                final_realm_head: None,
             },
         );
         expected_generation = handoff.to_generation;
@@ -892,6 +936,9 @@ fn verify_commit_signature(
     commit: &RealmCommit,
     keys: &dyn RealmAuthorityKeyDirectory,
 ) -> ChainResult<()> {
+    commit
+        .verify_commit_id_matches_content()
+        .map_err(|error| E::ChainBroken(error.to_string()))?;
     let unsigned = canonical::unsigned_value(commit, &["signature"])
         .map_err(|error| E::ChainBroken(error.to_string()))?;
     verify_detached(

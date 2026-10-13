@@ -128,6 +128,12 @@ fn event(kind: EventKind, seconds: i64) -> Event {
 /// Seal a commit exactly the way the verifier reconstructs it: the unsigned
 /// projection is the object minus its `signature` member.
 fn seal_commit(mut commit: RealmCommit, did: &str, key: &SigningKey) -> RealmCommit {
+    commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+        canonical::canonical_json_bytes(
+            &canonical::unsigned_value(&commit, &["commit_id", "signature"]).unwrap(),
+        )
+        .unwrap(),
+    ));
     let unsigned = canonical::unsigned_value(&commit, &["signature"]).unwrap();
     commit.signature = sign_detached_object(
         &unsigned,
@@ -147,7 +153,7 @@ fn seal_commit(mut commit: RealmCommit, did: &str, key: &SigningKey) -> RealmCom
 fn commit(
     seed: u8,
     stream_position: u64,
-    previous: Option<u8>,
+    previous: Option<RealmCommitId>,
     event_ref: &EventId,
     generation: u64,
     authority_ref: RealmCommitAuthorityRef,
@@ -160,7 +166,7 @@ fn commit(
             realm_id: realm_id(),
             stream_ref: realm_stream(),
             stream_position,
-            previous_commit_ref: previous.map(|byte| RealmCommitId::from_digest([byte; 32])),
+            previous_commit_ref: previous,
             event_ref: event_ref.clone(),
             governance_generation: generation,
             authority_ref,
@@ -269,11 +275,20 @@ fn chain() -> Chain {
         &key_a,
     );
 
-    let change_event = event(EventKind::MessageCreate, 1);
+    let mut change_event = event(EventKind::RealmGovernanceStationChange, 1);
+    change_event.payload = serde_json::from_value(json!({
+        "expected_governance_generation": 0,
+        "expected_realm_stream_commit_id": genesis_commit.commit_id,
+        "new_governance_station_id": core_id(STATION_B),
+    }))
+    .unwrap();
+    change_event
+        .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
     let change_commit = commit(
         0x02,
         1,
-        Some(0x01),
+        Some(genesis_commit.commit_id.clone()),
         &change_event.event_id,
         0,
         RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
@@ -311,7 +326,7 @@ fn chain() -> Chain {
     let item_commit = commit(
         0x03,
         2,
-        Some(0x02),
+        Some(change_commit.commit_id.clone()),
         &item_event.event_id,
         1,
         RealmCommitAuthorityRef::Handoff(handoff.handoff_id.clone()),
@@ -398,6 +413,75 @@ fn a_real_two_generation_chain_verifies_and_authorises_its_own_commits() {
     verified
         .verify_committed_item(&chain.item, &chain.keys)
         .expect("a commit made under generation 1 must verify against generation 1");
+}
+
+#[test]
+fn old_station_cannot_sign_new_realm_positions_after_its_handoff() {
+    let chain = chain();
+    let verified = verify(&chain).unwrap();
+    let mut old = chain.item.commit.clone();
+    old.governance_generation = 0;
+    old.authority_ref =
+        RealmCommitAuthorityRef::GenesisOrChangeEvent(chain.bundle.genesis_event.event_id.clone());
+    old = seal_commit(old, STATION_A, &signing_key(0xA1));
+    assert!(matches!(
+        verified.verify_commit(&old, &chain.keys),
+        Err(RealmAuthorityChainError::GenerationMismatch(_))
+    ));
+    verified
+        .verify_commit(
+            &chain.bundle.authority_transitions[0].change_commit,
+            &chain.keys,
+        )
+        .unwrap();
+}
+
+#[test]
+fn handoff_requires_a_governance_change_with_the_exact_payload_cas() {
+    let original = chain();
+    for case in 0..5 {
+        let mut chain = chain();
+        let transition = &mut chain.bundle.authority_transitions[0];
+        match case {
+            0 => transition.change_event.kind = EventKind::MessageCreate,
+            1 => {
+                transition
+                    .change_event
+                    .payload
+                    .insert("expected_governance_generation".into(), json!(1));
+            }
+            2 => {
+                transition.change_event.payload.insert(
+                    "expected_realm_stream_commit_id".into(),
+                    json!(RealmCommitId::from_digest([99; 32])),
+                );
+            }
+            3 => {
+                transition.change_event.payload.insert(
+                    "new_governance_station_id".into(),
+                    json!(core_id(STATION_A)),
+                );
+            }
+            _ => {
+                transition
+                    .change_event
+                    .payload
+                    .insert("authority_generation".into(), json!(0));
+            }
+        }
+        // Test the structural authority contract independently of subsequent
+        // signature/identity checks, starting from an otherwise valid chain.
+        assert!(
+            walk_history_parts(
+                &chain.bundle.realm_id,
+                &chain.bundle.genesis_event,
+                &chain.bundle.genesis_commit,
+                &chain.bundle.authority_transitions
+            )
+            .is_err()
+        );
+    }
+    verify(&original).unwrap();
 }
 
 #[test]
@@ -492,6 +576,17 @@ fn one_changed_byte_in_a_signed_commit_fails_closed() {
     let mut chain = chain();
     chain.bundle.genesis_commit.stream_position = 0;
     chain.bundle.genesis_commit.committed_at = issued_at() + Duration::seconds(1);
+    chain.bundle.genesis_commit.commit_id =
+        RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+            canonical::canonical_json_bytes(
+                &canonical::unsigned_value(
+                    &chain.bundle.genesis_commit,
+                    &["commit_id", "signature"],
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        ));
 
     let error = verify(&chain).expect_err("a re-dated commit body must not verify");
     assert!(
@@ -749,7 +844,7 @@ fn same_method_rotation() -> (RealmAuthorityBundle, CommittedEventFullView, Hist
     let mut item_commit = commit(
         0x62,
         1,
-        Some(0x61),
+        Some(genesis_commit.commit_id.clone()),
         &item_event.event_id,
         0,
         RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
@@ -757,12 +852,21 @@ fn same_method_rotation() -> (RealmAuthorityBundle, CommittedEventFullView, Hist
         &old_key,
     );
     let mut keys = HistoricalKeys::default();
+    let mut previous = None;
     for (index, commit) in [&mut genesis_commit, &mut item_commit]
         .into_iter()
         .enumerate()
     {
         let at = issued_at() - Duration::seconds(40 - index as i64);
         commit.committed_at = at;
+        commit.previous_commit_ref = previous;
+        commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+            canonical::canonical_json_bytes(
+                &canonical::unsigned_value(commit, &["commit_id", "signature"]).unwrap(),
+            )
+            .unwrap(),
+        ));
+        previous = Some(commit.commit_id.clone());
         commit.signature = sign_detached_object(
             &canonical::unsigned_value(commit, &["signature"]).unwrap(),
             DetachedSignatureContext::RealmCommit,
@@ -1345,6 +1449,10 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
         realm_id: cut_realm.clone(),
     };
     transition.change_event.producer_proof = None;
+    transition.change_event.payload.insert(
+        "expected_realm_stream_commit_id".into(),
+        json!(chain.bundle.genesis_commit.commit_id),
+    );
     transition.change_event = finalize_event(transition.change_event.clone());
     transition.change_commit.realm_id = cut_realm.clone();
     transition.change_commit.stream_ref = cut_stream.clone();
