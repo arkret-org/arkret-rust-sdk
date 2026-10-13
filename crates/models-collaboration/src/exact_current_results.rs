@@ -285,7 +285,7 @@ pub struct PolicyExactCurrentRow {
     pub selector: PolicyExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
-    pub value: crate::governance::operation_wire::PolicySetStatePayload,
+    pub value: crate::governance::operation_wire::PolicySetValue,
 }
 
 /// `ak.self.current_results.read.exact.v1` request body.
@@ -454,17 +454,17 @@ impl ExactCurrentResultEntry {
         match self {
             Self::Policy(entry) => {
                 entry.value.validate()?;
-                if entry.selector.policy_id != entry.value.policy_id
-                    || entry.source_stream_ref
-                        != (CommitStreamRef::Realm {
-                            realm_id: realm_id.clone(),
-                        })
+                if &entry.selector.policy_id != entry.value.policy_id()
+                    || !matches!(&entry.source_stream_ref,
+                        CommitStreamRef::Realm { realm_id: source }
+                        | CommitStreamRef::Circle { realm_id: source, .. }
+                        if source == realm_id)
                 {
                     return Err(WireError::Protocol(
                         "exact Policy current binding mismatch".into(),
                     ));
                 }
-                match &entry.value.value {
+                match &entry.value {
                     crate::governance::operation_wire::PolicySetValue::Governance(policy)
                         if matches!(
                             policy.policy_kind,

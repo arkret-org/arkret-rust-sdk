@@ -50,6 +50,63 @@ fn moderation_outcome(fixture: &Value) -> Value {
         .clone()
 }
 
+fn policy_outcome() -> Value {
+    let mut value = moderation_outcome(&fixture());
+    let policy = "ak:policy:0198ff00-0000-7000-8000-000000000001";
+    value["entry"]["selector"] = json!({"kind":"policy", "policy_id":policy});
+    value["entry"]["value"] = json!({
+        "schema":"ak.schema.policy.v1", "id":policy, "realm_id":value["realm_id"],
+        "policy_kind":"agent", "default_effect":"deny",
+        "rules":[{"rule_id":"owned_join", "kind":"agent", "effect":"allow",
+            "agent_target":{"kind":"all"}, "agent_operations":["join"]}],
+        "created_by":{"kind":"service", "service_id":"ak:did_core:web:policy.example"},
+        "created_at":"2026-09-16T00:00:00.000Z"
+    });
+    value
+}
+
+#[test]
+fn managed_policy_current_is_the_whole_document_in_its_realm_or_circle_stream() {
+    for circle in [false, true] {
+        let mut value = policy_outcome();
+        if circle {
+            let stream = json!({"kind":"circle", "realm_id":value["realm_id"],
+                "circle_id":"ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"});
+            value["entry"]["source_stream_ref"] = stream.clone();
+            value["effective_stream_head"]["stream_ref"] = stream;
+        }
+        assert!(schema_accepts(
+            "#/$defs/exact_current_results_read_outcome",
+            &value
+        ));
+        let request = serde_json::from_value(moderation_request(&value)).unwrap();
+        let outcome: ExactCurrentResultsReadOutcome =
+            serde_json::from_value(value.clone()).unwrap();
+        outcome.validate_for_request(&request, 4).unwrap();
+        assert_eq!(serde_json::to_value(outcome).unwrap(), value);
+    }
+}
+
+#[test]
+fn policy_current_rejects_submit_payload_wrappers_and_other_policy_identity() {
+    let value = policy_outcome();
+    let mut wrapped = value.clone();
+    wrapped["entry"]["value"] = json!({
+        "policy_id":value["entry"]["selector"]["policy_id"],
+        "expected_revision":null, "value":value["entry"]["value"]
+    });
+    assert!(!schema_accepts(
+        "#/$defs/exact_current_results_read_outcome",
+        &wrapped
+    ));
+    assert!(serde_json::from_value::<ExactCurrentResultsReadOutcome>(wrapped).is_err());
+    let request = serde_json::from_value(moderation_request(&value)).unwrap();
+    let mut wrong_id = value;
+    wrong_id["entry"]["value"]["id"] = json!("ak:policy:0198ff00-0000-7000-8000-000000000002");
+    let outcome: ExactCurrentResultsReadOutcome = serde_json::from_value(wrong_id).unwrap();
+    assert!(outcome.validate_for_request(&request, 4).is_err());
+}
+
 #[test]
 fn formal_fixture_round_trips_through_strong_types() {
     let fixture = fixture();
