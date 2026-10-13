@@ -161,7 +161,8 @@ pub struct PreparedInception {
     pub next_update_key_seed: [u8; 32],
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PreparedPrincipalInception {
     pub did: String,
     pub method_authority: String,
