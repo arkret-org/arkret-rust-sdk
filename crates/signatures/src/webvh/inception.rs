@@ -1397,9 +1397,11 @@ fn prepare_principal_rotation_inner(
         ));
     }
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
+    // Preserve the protocol's millisecond cut: truncating an Agent binding
+    // to seconds can put it before the already accepted PCR genesis.
     let version_time = input
         .version_time
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let previous_version_time = previous_entry
         .get("versionTime")
         .and_then(Value::as_str)
@@ -3162,11 +3164,13 @@ mod historical_verification_tests {
             arkret_wire::RealmId::new("ak:realm:AZbOMvW-csKhom4LhjgFr2cuYB-cQ9oR21-cRX94cL9M")
                 .unwrap();
         let scope_digest = Hash::new(format!("sha256:{}", "7".repeat(64))).unwrap();
+        let genesis_accepted_at = inception_time + Duration::milliseconds(1422);
+        let binding_time = inception_time + Duration::milliseconds(1935);
         let binding = prepare_agent_binding_update(&AgentBindingUpdateInput {
             did: &inception.did,
             local_id: &inception.local_id,
             previous_entries: std::slice::from_ref(&inception.log_entry),
-            version_time: inception_time + Duration::seconds(1),
+            version_time: binding_time,
             current_root_seed: &next_seed,
             next_root_public_key_multibase: &future_public,
             controller_principal_id: &controller_principal_id,
@@ -3174,6 +3178,15 @@ mod historical_verification_tests {
             requested_scope_digest: &scope_digest,
         })
         .unwrap();
+        let entries = vec![inception.log_entry.clone(), binding.log_entry.clone()];
+        let did = Did::new(inception.did.clone()).unwrap();
+        let before_binding =
+            validate_webvh_history_at(&did, &entries, genesis_accepted_at).unwrap();
+        assert_eq!(before_binding.version_id, inception.version_id);
+        let at_binding = validate_webvh_history_at(&did, &entries, binding_time).unwrap();
+        assert_eq!(at_binding.version_id, binding.version_id);
+        assert_eq!(at_binding.version_time, binding_time);
+        assert!(at_binding.version_time > genesis_accepted_at);
         assert!(binding.version_id.starts_with("2-"));
         let services = binding.log_entry["state"]["service"].as_array().unwrap();
         assert_eq!(services.len(), 3);
