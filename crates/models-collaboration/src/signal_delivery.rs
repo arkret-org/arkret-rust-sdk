@@ -26,6 +26,10 @@ pub struct SignalProductAuthority {
     pub grants: Vec<CapabilityGrant>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub current_grants: Vec<CapabilityGrant>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub historical_product_policies: Vec<Policy>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub current_product_policies: Vec<Policy>,
     pub owner_actions: Vec<String>,
     pub profile_actions: Vec<String>,
     #[serde(
@@ -46,7 +50,8 @@ pub struct SignalAgentProductAuthority {
     pub controller_grants: Vec<CapabilityGrant>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub current_controller_grants: Vec<CapabilityGrant>,
-    pub controller_owner_actions: Vec<String>,
+    pub historical_controller_owner_actions: Vec<String>,
+    pub current_controller_owner_actions: Vec<String>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub historical_management_policies: Vec<Policy>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
@@ -79,16 +84,26 @@ impl SignalProductAuthority {
                 "Signal product authority differs from its delivery".into(),
             ));
         }
-        for actions in [&self.owner_actions, &self.profile_actions] {
-            if actions.len() > 1
+        for (actions, allowed) in [
+            (
+                &self.owner_actions,
+                &[CapabilityActionId::MESSAGE_CREATE][..],
+            ),
+            (
+                &self.profile_actions,
+                &[
+                    CapabilityActionId::MESSAGE_CREATE,
+                    CapabilityActionId::TYPING_BROADCAST,
+                ][..],
+            ),
+        ] {
+            if actions.len() > allowed.len()
                 || actions
                     .iter()
                     .collect::<std::collections::BTreeSet<_>>()
                     .len()
                     != actions.len()
-                || actions
-                    .iter()
-                    .any(|a| !matches!(a.as_str(), CapabilityActionId::MESSAGE_CREATE))
+                || actions.iter().any(|a| !allowed.contains(&a.as_str()))
             {
                 return Err(WireError::Protocol(
                     "Signal product authority names an unrelated action".into(),
@@ -116,6 +131,25 @@ impl SignalProductAuthority {
             &envelope.realm_id,
             &envelope.sender_actor_id,
         )?;
+        for policies in [
+            &self.historical_product_policies,
+            &self.current_product_policies,
+        ] {
+            if policies.len() > 64
+                || policies.iter().any(|policy| {
+                    policy.realm_id.as_ref() != Some(&envelope.realm_id)
+                        || !matches!(
+                            policy.policy_kind,
+                            PolicyKind::Access | PolicyKind::Moderation
+                        )
+                        || policy.validate().is_err()
+                })
+            {
+                return Err(WireError::Protocol(
+                    "Signal product policies differ from their scope".into(),
+                ));
+            }
+        }
         if scope_stream == realm_stream && self.current_realm_head != self.current_scope_head {
             return Err(WireError::Protocol(
                 "Signal product Realm heads differ".into(),
@@ -124,12 +158,14 @@ impl SignalProductAuthority {
         if let Some(agent) = &self.agent {
             let controller = ActorId::account(agent.controller_account_id.clone());
             if controller == envelope.sender_actor_id
-                || agent.controller_owner_actions.len() > 1
+                || agent.historical_controller_owner_actions.len() > 1
+                || agent.current_controller_owner_actions.len() > 1
                 || agent.key_scope.actions.is_empty()
                 || agent.key_scope.resources.is_empty()
                 || agent
-                    .controller_owner_actions
+                    .historical_controller_owner_actions
                     .iter()
+                    .chain(&agent.current_controller_owner_actions)
                     .any(|a| !matches!(a.as_str(), CapabilityActionId::MESSAGE_CREATE))
             {
                 return Err(WireError::Protocol(
@@ -358,11 +394,26 @@ mod tests {
             sent_at: envelope.sent_at,
             grants: vec![],
             current_grants: vec![],
+            historical_product_policies: vec![],
+            current_product_policies: vec![],
             owner_actions: vec![],
             profile_actions: vec![],
             agent: None,
         };
         product.validate_for_envelope(&envelope).unwrap();
+        for field in ["historical_product_policies", "current_product_policies"] {
+            let mut missing = serde_json::to_value(&product).unwrap();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<SignalProductAuthority>(missing).is_err());
+        }
+        let mut typing_profile = product.clone();
+        typing_profile.profile_actions = vec![
+            CapabilityActionId::MESSAGE_CREATE.into(),
+            CapabilityActionId::TYPING_BROADCAST.into(),
+        ];
+        typing_profile.validate_for_envelope(&envelope).unwrap();
+        typing_profile.owner_actions = vec![CapabilityActionId::TYPING_BROADCAST.into()];
+        assert!(typing_profile.validate_for_envelope(&envelope).is_err());
         let mut wrong_role = product.clone();
         wrong_role.owner_actions = vec![CapabilityActionId::MESSAGE_STREAM_SEND.into()];
         assert!(wrong_role.validate_for_envelope(&envelope).is_err());

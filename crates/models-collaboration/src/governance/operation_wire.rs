@@ -585,6 +585,16 @@ mod policy_set_state_tests {
     const POLICY: &str = "ak:policy:0198ff00-0000-7000-8000-000000000001";
     const OTHER_POLICY: &str = "ak:policy:0198ff00-0000-7000-8000-000000000002";
 
+    #[test]
+    fn policy_root_rejects_unknown_authority_fields() {
+        let mut value = governance_value()["value"].clone();
+        value["unchecked_allow"] = json!(true);
+        assert!(serde_json::from_value::<Policy>(value).is_err());
+        let mut extension = governance_value()["value"].clone();
+        extension["x_local_hint"] = json!(true);
+        assert!(serde_json::from_value::<Policy>(extension).is_ok());
+    }
+
     fn governance_value() -> Value {
         json!({
             "policy_id": POLICY,

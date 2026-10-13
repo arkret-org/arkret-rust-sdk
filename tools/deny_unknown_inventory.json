@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1416,
+    "total": 1417,
     "by_classification": {
       "A": 7,
       "B": 812,
-      "needs_review": 597
+      "needs_review": 598
     },
     "by_openness": {
       "closed": 819,
-      "unresolved": 597
+      "unresolved": 598
     },
     "by_crate": {
       "crypto": 2,
@@ -23,7 +23,7 @@
       "policy": 1,
       "schema": 10,
       "schema-conformance": 1,
-      "signatures": 5,
+      "signatures": 6,
       "wire": 118
     }
   },
@@ -10198,7 +10198,7 @@
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalAgentProductAuthority",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/signal_delivery.rs",
-      "line": 42,
+      "line": 46,
       "kind": "struct",
       "value_kind": "SignalAgentProductAuthority",
       "spec_pointer": "signal-stream-frame.schema.json#/$defs/agent_product_authority",
@@ -10211,7 +10211,7 @@
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalDeliveryAuthority",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/signal_delivery.rs",
-      "line": 178,
+      "line": 208,
       "kind": "struct",
       "value_kind": "SignalDeliveryAuthority",
       "spec_pointer": "signal-stream-frame.schema.json#/$defs/delivery_authority",
@@ -10224,7 +10224,7 @@
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalStreamFrame",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/signal_delivery.rs",
-      "line": 213,
+      "line": 243,
       "kind": "enum",
       "value_kind": "SignalStreamFrame",
       "spec_pointer": "signal-stream-frame.schema.json",
@@ -16896,6 +16896,19 @@
       "line": 120,
       "kind": "struct",
       "value_kind": "DetachedJwsProtectedHeader",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalInception",
+      "crate": "signatures",
+      "file": "crates/signatures/src/webvh/inception.rs",
+      "line": 165,
+      "kind": "struct",
+      "value_kind": "PreparedPrincipalInception",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
