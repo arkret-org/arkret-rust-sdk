@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=13be8d3bdff36d29221e12f01baea7289991b08d953ffa53e82730355bd3f495
+// sha256=0726e92679a034d958f290919dca9450871ac2f9c29dbb97f1a2f93ddc6939ec
 //
 // Input: schemas/agent-requested-scope-disclosure.schema.json
 // sha256=0f1d7f670bdbaab69f35732b248d1d5f01d004f11c50e9feeb0cbc726af06b57

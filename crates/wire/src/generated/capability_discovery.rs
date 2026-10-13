@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.5;
-//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7
-//! Entries: operation_bundles=40 features=12
+//! Input: registry/contract-registry.json; version=2026-10-14.7;
+//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5
+//! Entries: operation_bundles=41 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -1024,6 +1024,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         ],
     },
     OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.http_peer_watch_current.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::PeerStrandWatchReadCurrentV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.invite_delivery.v1",
         service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
@@ -1483,6 +1491,8 @@ impl OperationBundleDescriptor {
         "ak.operation_bundle.station.device_pairing_handoff.v1";
     pub const STATION_HTTP_CORE_CURRENT_V1: &'static str =
         "ak.operation_bundle.station.http_core_current.v1";
+    pub const STATION_HTTP_PEER_WATCH_CURRENT_V1: &'static str =
+        "ak.operation_bundle.station.http_peer_watch_current.v1";
     pub const STATION_INVITE_DELIVERY_V1: &'static str =
         "ak.operation_bundle.station.invite_delivery.v1";
     pub const STATION_KEYPACKAGE_CLAIM_READ_V1: &'static str =
