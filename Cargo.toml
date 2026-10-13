@@ -108,7 +108,7 @@ arkret-test-kit = { version = "0.3.0", path = "crates/test-kit", default-feature
 arkret-wire = { version = "0.3.0", path = "crates/wire", default-features = false }
 atomic-write-file = "0.3.1"
 base64 = { version = "0.23.1", default-features = false, features = ["std"] }
-bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
+bip39 = { version = "3.0.0", default-features = false, features = ["std"] }
 blake3 = { version = "1.8.7", default-features = false }
 bs58 = { version = "0.5.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
