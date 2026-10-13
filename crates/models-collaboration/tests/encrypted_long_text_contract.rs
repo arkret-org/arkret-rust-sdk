@@ -113,8 +113,8 @@ fn producer_normalizes_before_deriving_fallback_size_and_line_count() {
     assert!(block.body.len() <= 4096);
     assert_eq!(block.extra_u64("line_count"), Some(60000));
     assert_eq!(block.extra["attachment"], value);
-    assert!(block.extra.get("blob_ref").is_none());
-    assert!(block.extra.get("media_type").is_none());
+    assert!(!block.extra.contains_key("blob_ref"));
+    assert!(!block.extra.contains_key("media_type"));
     let wrong_size: EncryptedAttachment = serde_json::from_value(attachment()).unwrap();
     assert!(ContentBlock::encrypted_long_text("short", wrong_size).is_err());
 }
