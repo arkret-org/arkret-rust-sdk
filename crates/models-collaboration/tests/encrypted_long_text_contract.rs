@@ -26,6 +26,54 @@ fn content() -> Value {
 }
 
 #[test]
+fn encrypted_media_resolves_by_resource_and_rejects_conflicting_authenticated_metadata() {
+    let main = attachment();
+    let mut other = main.clone();
+    other["blob_ref"] = json!(format!("ak:blob:sha256:{}", "cd".repeat(32)));
+    let value = json!({"kind":"ak.content.file", "body":"private.md", "blob_ref":main["blob_ref"],
+        "mime_type":main["media_type"],"size_bytes":main["size_bytes"],"attachments":[other,main]});
+    let resolved = ContentBlock::from_value(value.clone())
+        .unwrap()
+        .rendered_encrypted_attachment()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        resolved.blob_ref().as_str(),
+        value["blob_ref"].as_str().unwrap()
+    );
+    for (field, changed) in [
+        (
+            "blob_ref",
+            json!(format!("ak:blob:sha256:{}", "ef".repeat(32))),
+        ),
+        ("mime_type", json!("image/png")),
+        ("size_bytes", json!(1)),
+    ] {
+        let mut changed_value = value.clone();
+        changed_value[field] = changed;
+        assert!(
+            ContentBlock::from_value(changed_value)
+                .unwrap()
+                .rendered_encrypted_attachment()
+                .is_err()
+        );
+    }
+    let mut ambiguous = value;
+    let mut conflict = ambiguous["attachments"][1].clone();
+    conflict["media_type"] = json!("image/png");
+    ambiguous["attachments"]
+        .as_array_mut()
+        .unwrap()
+        .push(conflict);
+    assert!(
+        ContentBlock::from_value(ambiguous)
+            .unwrap()
+            .rendered_encrypted_attachment()
+            .is_err()
+    );
+}
+
+#[test]
 fn required_salt_round_trips_through_sdk_and_formal_schema() {
     let artifacts = default_spec_artifacts_dir().unwrap();
     let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();

@@ -111,12 +111,68 @@ pub enum EncryptedAttachmentKeyAlgorithm {
     Mls,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EncryptedAttachmentGroupStateRef {
     Event(EventId),
     Digest(Hash),
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for EncryptedAttachmentGroupStateRef {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .pattern("^(ak:event:[A-Za-z0-9_-]{44}|sha256:[0-9a-f]{64})$")
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for EncryptedAttachmentGroupStateRef {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        _generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
+    }
+}
+
+impl Serialize for EncryptedAttachmentGroupStateRef {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.event_id().map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(match self {
+            Self::Event(id) => id.as_str(),
+            Self::Digest(hash) => hash.as_str(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for EncryptedAttachmentGroupStateRef {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        if value.starts_with("ak:event:") {
+            return EventId::new(value)
+                .map(Self::Event)
+                .map_err(serde::de::Error::custom);
+        }
+        let hash = Hash::new(value).map_err(serde::de::Error::custom)?;
+        EventId::from_event_digest(&hash).map_err(serde::de::Error::custom)?;
+        Ok(Self::Digest(hash))
+    }
+}
+
+impl EncryptedAttachmentGroupStateRef {
+    /// Resolve the reference spelling only. The caller must still authenticate
+    /// and authorize the exact accepted MLS state before restoring its secret.
+    /// Never replace the raw descriptor reference: it remains bound by AAD.
+    pub fn event_id(&self) -> arkret_wire::Result<EventId> {
+        match self {
+            Self::Event(id) => Ok(id.clone()),
+            Self::Digest(hash) => Ok(EventId::from_event_digest(hash)?),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -228,6 +284,24 @@ pub enum EncryptedAttachment {
 }
 
 impl EncryptedAttachment {
+    pub fn media_type(&self) -> &str {
+        match self {
+            Self::WholeFile(value) => &value.media_type,
+            Self::Stream(value) => &value.media_type,
+        }
+    }
+    pub fn size_bytes(&self) -> u64 {
+        match self {
+            Self::WholeFile(value) => value.size_bytes,
+            Self::Stream(value) => value.size_bytes,
+        }
+    }
+    pub fn blob_ref(&self) -> &BlobRef {
+        match self {
+            Self::WholeFile(value) => &value.blob_ref,
+            Self::Stream(value) => &value.blob_ref,
+        }
+    }
     pub fn key_ref(&self) -> &EncryptedAttachmentKeyRef {
         match self {
             Self::WholeFile(value) => &value.key_ref,
@@ -282,6 +356,52 @@ impl EncryptedAttachment {
 #[cfg(test)]
 mod geometry_tests {
     use super::*;
+
+    #[test]
+    fn proof_hash_is_the_complete_event_content_digest_alias() {
+        for suite in [arkret_canonical::DigestSuite::Sha256] {
+            let event = EventId::from_digest(suite, [7; 32]);
+            let digest = event.event_digest();
+            let alias = EncryptedAttachmentGroupStateRef::Digest(digest);
+            assert_eq!(alias.event_id().unwrap(), event);
+            assert_ne!(
+                serde_json::to_value(alias).unwrap(),
+                serde_json::to_value(EncryptedAttachmentGroupStateRef::Event(event)).unwrap()
+            );
+        }
+        let unsupported = EncryptedAttachmentGroupStateRef::Digest(
+            Hash::new(format!("blake3:{}", "07".repeat(32))).unwrap(),
+        );
+        assert!(unsupported.event_id().is_err());
+        assert!(serde_json::to_value(unsupported).is_err());
+        assert!(
+            serde_json::from_value::<EncryptedAttachmentGroupStateRef>(serde_json::json!(format!(
+                "blake3:{}",
+                "07".repeat(32)
+            )))
+            .is_err()
+        );
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/blob-content-key-fixture.json"
+        ))
+        .unwrap();
+        let case = fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "equivalent_refs")
+            .unwrap();
+        let digest = arkret_canonical::digest(
+            arkret_canonical::DigestSuite::Sha256,
+            case["event_preimage_canonical_bytes_utf8"]
+                .as_str()
+                .unwrap()
+                .as_bytes(),
+        );
+        assert_eq!(digest, case["proof_hash"]);
+        let alias = EncryptedAttachmentGroupStateRef::Digest(Hash::new(digest).unwrap());
+        assert_eq!(alias.event_id().unwrap().as_str(), case["event_ref"]);
+    }
 
     #[test]
     fn derives_empty_exact_boundary_and_maximum_without_overflow() {

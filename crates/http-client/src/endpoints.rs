@@ -4,6 +4,8 @@ mod account;
 mod agent;
 mod applet;
 mod authority;
+#[cfg(target_arch = "wasm32")]
+mod browser_blob;
 mod circle;
 mod data;
 mod events;

@@ -167,6 +167,34 @@ impl Client {
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
     ) -> Result<BlobUploadOutcome> {
+        self.blob_upload_part(metadata, reqwest::multipart::Part::bytes(bytes))
+            .await
+    }
+
+    /// Canonical multipart with a bounded native body source.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn blob_upload_stream<S>(
+        &self,
+        metadata: &BlobUploadMetadata,
+        stream: S,
+    ) -> Result<BlobUploadOutcome>
+    where
+        S: futures_util::Stream<Item = std::result::Result<Vec<u8>, std::io::Error>>
+            + Send
+            + 'static,
+    {
+        let part = reqwest::multipart::Part::stream_with_length(
+            reqwest::Body::wrap_stream(stream),
+            metadata.size_bytes,
+        );
+        self.blob_upload_part(metadata, part).await
+    }
+
+    async fn blob_upload_part(
+        &self,
+        metadata: &BlobUploadMetadata,
+        content: reqwest::multipart::Part,
+    ) -> Result<BlobUploadOutcome> {
         let media_type = metadata
             .media_type
             .as_deref()
@@ -181,7 +209,7 @@ impl Client {
             reqwest::multipart::Part::text(serde_json::to_string(&metadata.encryption)?)
                 .mime_str("application/json")
                 .map_err(|error| Error::Protocol(format!("blob encryption: {error}")))?;
-        let mut content = reqwest::multipart::Part::bytes(bytes)
+        let mut content = content
             .mime_str(media_type)
             .map_err(|error| Error::Protocol(format!("blob media_type: {error}")))?;
         if let Some(filename) = metadata.filename.as_ref() {
