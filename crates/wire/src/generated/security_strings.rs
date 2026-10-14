@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-14.3;
-//! sha256=8f1455da5b16a5ad00faf431f27b95e76e28c3aa086d5e8b1232a86df3cabb72 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-14.4;
+//! sha256=bc26f770247d49a7070977724a4e219963fb9e6312b05fb6fd982286a0b53df4 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=40, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=41, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -348,6 +348,7 @@ pub enum DomainSeparationId {
     IdentityLinkV1,
     KeypackageClaimTerminalReceiptV1,
     KeypackageConsumeReceiptV1,
+    MediaSubjectBindingV1,
     MimiReporterAuthorityProofV1,
     MlsRecipientDurableReceiptV1,
     MlsWelcomeDeliverySignatureV1,
@@ -392,6 +393,7 @@ impl DomainSeparationId {
         Self::IdentityLinkV1,
         Self::KeypackageClaimTerminalReceiptV1,
         Self::KeypackageConsumeReceiptV1,
+        Self::MediaSubjectBindingV1,
         Self::MimiReporterAuthorityProofV1,
         Self::MlsRecipientDurableReceiptV1,
         Self::MlsWelcomeDeliverySignatureV1,
@@ -449,6 +451,7 @@ impl DomainSeparationId {
     pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
         "ak.keypackage.claim_terminal_receipt.v1";
     pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume_receipt.v1";
+    pub const MEDIA_SUBJECT_BINDING_V1: &'static str = "ak.media.subject_binding.v1";
     pub const MIMI_REPORTER_AUTHORITY_PROOF_V1: &'static str =
         "ak.mimi_reporter_authority_proof.v1";
     pub const MLS_RECIPIENT_DURABLE_RECEIPT_V1: &'static str =
@@ -510,6 +513,7 @@ impl DomainSeparationId {
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
             Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
+            Self::MediaSubjectBindingV1 => Self::MEDIA_SUBJECT_BINDING_V1,
             Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
             Self::MlsRecipientDurableReceiptV1 => Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
             Self::MlsWelcomeDeliverySignatureV1 => Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1,
@@ -583,6 +587,7 @@ impl DomainSeparationId {
                 Some(Self::KeypackageClaimTerminalReceiptV1)
             }
             Self::KEYPACKAGE_CONSUME_RECEIPT_V1 => Some(Self::KeypackageConsumeReceiptV1),
+            Self::MEDIA_SUBJECT_BINDING_V1 => Some(Self::MediaSubjectBindingV1),
             Self::MIMI_REPORTER_AUTHORITY_PROOF_V1 => Some(Self::MimiReporterAuthorityProofV1),
             Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1 => Some(Self::MlsRecipientDurableReceiptV1),
             Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1 => Some(Self::MlsWelcomeDeliverySignatureV1),

@@ -11,7 +11,7 @@
 // sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=0726e92679a034d958f290919dca9450871ac2f9c29dbb97f1a2f93ddc6939ec
+// sha256=e0ad298cfeb1fcc4200f4289720d4b0380337d010198cb000a88f7ff3f560a9f
 //
 // Input: schemas/typed-current-result.schema.json
 // sha256=448abceebd5661cb1d2db37d9a28dbe85815f08cf0119282307229865080a78b

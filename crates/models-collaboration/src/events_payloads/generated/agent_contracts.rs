@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=8b8279174d914abd886fafb22ec9d9cfaf6b061168fb526c3200bd83f23b6fc2
+// sha256=caf95541bdb218a86932033eb9da3dac2142fafa32579d115ae1f55f5f4397eb
 //
 // Input: schemas/account-operations.schema.json
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05

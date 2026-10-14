@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Input: registry/proof-context-registry.json
-//! sha256=8f1455da5b16a5ad00faf431f27b95e76e28c3aa086d5e8b1232a86df3cabb72
+//! sha256=bc26f770247d49a7070977724a4e219963fb9e6312b05fb6fd982286a0b53df4
 
 pub struct DomainPrefix;
 
@@ -72,5 +72,9 @@ impl DomainPrefix {
     pub const AK_CONSENT_CURRENT_READ_V1: &'static [u8] = &[
         97, 107, 46, 99, 111, 110, 115, 101, 110, 116, 46, 99, 117, 114, 114, 101, 110, 116, 95,
         114, 101, 97, 100, 46, 118, 49, 0,
+    ];
+    pub const AK_MEDIA_SUBJECT_BINDING_V1: &'static [u8] = &[
+        97, 107, 46, 109, 101, 100, 105, 97, 46, 115, 117, 98, 106, 101, 99, 116, 95, 98, 105, 110,
+        100, 105, 110, 103, 46, 118, 49, 0,
     ];
 }
