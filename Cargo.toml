@@ -108,7 +108,7 @@ arkret-test-kit = { version = "0.3.0", path = "crates/test-kit", default-feature
 arkret-wire = { version = "0.3.0", path = "crates/wire", default-features = false }
 atomic-write-file = "0.3.1"
 base64 = { version = "0.23.1", default-features = false, features = ["std"] }
-bip39 = { version = "2.2.2", default-features = false, features = ["std"] }
+bip39 = { version = "3.0.0", default-features = false, features = ["std"] }
 blake3 = { version = "1.8.7", default-features = false }
 bs58 = { version = "0.5.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
@@ -134,14 +134,14 @@ hmac = { version = "0.13.0", default-features = false }
 # already pulled in by the OpenMLS stack, so this adds no new version churn.
 hpke = { version = "0.14", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 idna = { version = "1.1.0", default-features = true }
-jsonschema = { version = "0.56.0", default-features = false }
+jsonschema = { version = "0.58.6", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
-openmls = { version = "0.9.0", default-features = false }
+openmls = { version = "0.9.1", default-features = false }
 openmls_basic_credential = { version = "0.6.0", default-features = false }
 openmls_rust_crypto = { version = "0.6.0", default-features = false }
 openmls_traits = { version = "0.6.0", default-features = false }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
-precis-profiles = { version = "0.1.13", default-features = false }
+precis-profiles = { version = "0.2.0", default-features = false }
 proptest = { version = "1", default-features = false }
 rand_chacha = { version = "0.10.0", default-features = false }
 rand_core = { version = "0.10.1", default-features = false }
@@ -150,7 +150,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["query"] }
 # OpenAPI 3 schema derives (`ToSchema`) for wire model types. Optional and
 # gated behind each model crate's `openapi` feature so the no-default data
 # graph stays framework-free; enabled by service crates that serve OpenAPI.
-salvo-oapi = { version = "=0.96.0", default-features = false, features = ["rfc9457"] }
+salvo-oapi = { version = "=1.0.1", default-features = false, features = ["rfc9457"] }
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
 zbus = { version = "5.15.0", default-features = false, features = ["blocking-api", "tokio"] }
 secret-service = { version = "5.2.0", default-features = false, features = ["rt-tokio-crypto-rust"] }

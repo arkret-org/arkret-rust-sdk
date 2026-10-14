@@ -3972,8 +3972,8 @@ mod tests {
             },
             circle_item(collaboration.clone(), 0).commit.stream_ref,
             CommitStreamRef::Sidecar {
-                realm_id: collaboration.clone(),
-                sidecar_id: crate::SidecarId::from_event_id(&EventId::from_digest(
+                realm_id: collaboration,
+                sidecar_id: SidecarId::from_event_id(&EventId::from_digest(
                     arkret_canonical::DigestSuite::Sha256,
                     [0x12; 32],
                 )),

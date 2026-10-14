@@ -14,7 +14,7 @@
 // sha256=3de6928e41d50a08e7ff65436cd1da88af39bace51c5a1699cd6596ee7fb7c5b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c5c717d42040392233cf38e4f3236cfeed2d38c2b642d4cf765ba04cf371a3ee
+// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
 
 /// Counterpart: `strand.schema.json#/$defs/strand_track`.
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.

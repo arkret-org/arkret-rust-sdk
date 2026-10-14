@@ -5,7 +5,7 @@
 // sha256=06d7fc8afd97d7ea4d7dff236416df66fb55c068c6f7a761259521121f5f0b02
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c5c717d42040392233cf38e4f3236cfeed2d38c2b642d4cf765ba04cf371a3ee
+// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
 
 /// Counterpart: `realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body`.
 /// A candidate names the authority-signed RealmCommit that admitted its

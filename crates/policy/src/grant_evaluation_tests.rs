@@ -89,7 +89,7 @@ fn grant(
     resources: serde_json::Value,
     constraints: Vec<GrantConstraint>,
 ) -> CapabilityGrant {
-    let id = arkret_wire::GrantId::from_event_id(&arkret_wire::EventId::from_digest(
+    let id = GrantId::from_event_id(&arkret_wire::EventId::from_digest(
         arkret_canonical::DigestSuite::Sha256,
         [seed; 32],
     ));
@@ -1176,7 +1176,7 @@ fn undeclared_families_and_mismatched_classes_fail_closed() {
     let mut regrant = GrantConstraint::authority_control(1, true);
     regrant.evaluation_class = Some(EvaluationClass::GrantLocal);
     for (seed, constraints, admitted) in [
-        (1, vec![claim.clone()], false),
+        (1, vec![claim], false),
         (2, vec![kanban], false),
         (3, vec![lying], false),
         (4, vec![regrant], true),
@@ -1315,15 +1315,15 @@ fn approval_proof_never_discharges_mixed_predicates() {
     for (field, value) in [
         (
             "not_before",
-            serde_json::json!(
-                (now() + TimeDelta::days(1)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-            ),
+            serde_json::json!(arkret_canonical::canonical::format_timestamp_canonical(
+                now() + TimeDelta::days(1)
+            )),
         ),
         (
             "expires_at",
-            serde_json::json!(
-                (now() - TimeDelta::days(1)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-            ),
+            serde_json::json!(arkret_canonical::canonical::format_timestamp_canonical(
+                now() - TimeDelta::days(1)
+            )),
         ),
         ("max_resources", serde_json::json!(0)),
         ("allowed_space_ids", serde_json::json!([LIST_B])),

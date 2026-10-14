@@ -5,7 +5,7 @@
 // sha256=0726e92679a034d958f290919dca9450871ac2f9c29dbb97f1a2f93ddc6939ec
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c5c717d42040392233cf38e4f3236cfeed2d38c2b642d4cf765ba04cf371a3ee
+// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding`.
 /// Authorization state committed into a standard human-device grant.
