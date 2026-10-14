@@ -296,3 +296,35 @@ fn malformed_or_mismatched_outcome_fails_closed() {
     let parsed: StrandWatchCurrentOutcome = serde_json::from_value(different_cell).unwrap();
     assert!(parsed.validate_for_request(&request).is_err());
 }
+
+#[test]
+fn peer_watch_answer_binds_the_nonce_verified_generation_and_rejects_sidecar_heads() {
+    let request: StrandWatchCurrentRequestBody = serde_json::from_value(request()).unwrap();
+    request.validate().unwrap();
+    for value in [
+        never_written(),
+        current(Value::Null),
+        current(json!({"level":"all","level_public":true})),
+    ] {
+        let outcome: StrandWatchCurrentOutcome = serde_json::from_value(value).unwrap();
+        outcome.validate_for_generation(&request, 2).unwrap();
+        assert!(outcome.validate_for_generation(&request, 1).is_err());
+        assert!(outcome.validate_for_generation(&request, 3).is_err());
+        let mut wrong = request.clone();
+        wrong.watcher_actor_id = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            request
+                .watcher_actor_id
+                .as_account_id()
+                .unwrap()
+                .principal_id
+                .clone(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:another-station.example").unwrap(),
+        ));
+        assert!(outcome.validate_for_generation(&wrong, 2).is_err());
+    }
+    let mut invalid = never_written();
+    invalid["stream_head"]["stream_ref"] = json!({"kind":"sidecar","realm_id":REALM,
+        "sidecar_id":arkret_wire::SidecarId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[19;32]))});
+    let outcome: StrandWatchCurrentOutcome = serde_json::from_value(invalid).unwrap();
+    assert!(outcome.validate_for_generation(&request, 2).is_err());
+}

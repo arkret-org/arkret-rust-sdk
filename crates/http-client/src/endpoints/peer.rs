@@ -24,3 +24,25 @@ impl Client {
         Ok(outcome)
     }
 }
+
+impl Client {
+    /// Service-authenticated self-only Watch query to the verified governor.
+    /// The caller supplies its fresh nonce-bound governing generation.
+    pub async fn peer_strand_watch_current(
+        &self,
+        request: &arkret_models_collaboration::strand_watch_operations::StrandWatchCurrentRequestBody,
+        expected_governance_generation: u64,
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::StrandWatchCurrentOutcome>
+    {
+        use arkret_models_collaboration::strand_watch_operations::{
+            PEER_STRAND_WATCH_CURRENT_PATH, StrandWatchCurrentOutcome,
+        };
+        request.validate()?;
+        let outcome: StrandWatchCurrentOutcome =
+            self.post(PEER_STRAND_WATCH_CURRENT_PATH, request).await?;
+        outcome
+            .validate_for_generation(request, expected_governance_generation)
+            .map_err(|error| crate::Error::Protocol(error.to_owned()))?;
+        Ok(outcome)
+    }
+}

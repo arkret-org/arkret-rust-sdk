@@ -471,6 +471,7 @@ impl Client {
         &self,
         request: &StrandWatchCurrentRequestBody,
     ) -> Result<StrandWatchCurrentOutcome> {
+        request.validate()?;
         let outcome: StrandWatchCurrentOutcome = self
             .post("/_arkret/self/strands/watch/current", request)
             .await?;
