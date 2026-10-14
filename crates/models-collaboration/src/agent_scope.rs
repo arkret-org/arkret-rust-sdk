@@ -17,6 +17,66 @@ pub const AGENT_RUNTIME_KEY_POSSESSION_PROOF_CONTEXT: &str =
     ProofContextId::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1;
 pub const AGENT_RUNTIME_KEY_BINDING_KIND: &str = "ak.agent.runtime_key_binding.v1";
 
+/// A runtime key may narrow the immutable provision actions and selectors,
+/// and must preserve every mandatory provision constraint. Service-only
+/// selection does not manufacture a content-resource ceiling.
+pub fn agent_key_scope_within_provision(
+    ceiling: &AgentKeyScope,
+    key_scope: &AgentKeyScope,
+) -> bool {
+    use crate::events_payloads::agent::AgentKeyScopeResourceKind;
+    let content = |kind| {
+        !matches!(
+            kind,
+            AgentKeyScopeResourceKind::Operation | AgentKeyScopeResourceKind::Service
+        )
+    };
+    if key_scope.actions.is_empty()
+        || key_scope.resources.is_empty()
+        || key_scope
+            .actions
+            .iter()
+            .any(|action| !ceiling.actions.contains(action))
+        || ceiling
+            .constraints
+            .iter()
+            .any(|required| !key_scope.constraints.contains(required))
+    {
+        return false;
+    }
+    let has_content = ceiling
+        .resources
+        .iter()
+        .any(|resource| content(resource.kind));
+    key_scope.resources.iter().all(|child| {
+        (content(child.kind) && !has_content)
+            || ceiling.resources.iter().any(|parent| {
+                (parent.kind == child.kind
+                    || (parent.kind == AgentKeyScopeResourceKind::Realm && content(child.kind)))
+                    && parent
+                        .realm_id
+                        .as_ref()
+                        .is_none_or(|id| child.realm_id.as_ref() == Some(id))
+                    && parent
+                        .operation
+                        .as_ref()
+                        .is_none_or(|op| child.operation.as_ref() == Some(op))
+                    && parent
+                        .service_id
+                        .as_ref()
+                        .is_none_or(|id| child.service_id.as_ref() == Some(id))
+                    && parent
+                        .schema_ref
+                        .as_ref()
+                        .is_none_or(|schema| child.schema_ref.as_ref() == Some(schema))
+                    && parent
+                        .resource_ref
+                        .as_ref()
+                        .is_none_or(|reference| child.resource_ref.as_ref() == Some(reference))
+            })
+    })
+}
+
 /// A durable grant may only narrow the immutable provision actions/resources
 /// and must preserve every provision constraint. Service-only selectors do
 /// not manufacture a content resource ceiling (capabilities.md section 9.1).
