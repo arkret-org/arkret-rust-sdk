@@ -4,6 +4,7 @@
   "train": {
     "id": "arkret-salvo-1.0.1-20261014",
     "merge_order": [
+      "savfox",
       "arkret-spec",
       "arkret-rust-sdk",
       "floria",
@@ -111,6 +112,14 @@
       "checkout_path": "flagon",
       "roles": [
         "sdk-openapi-consumer"
+      ]
+    },
+    "savfox": {
+      "repository": "savfox-ai/savfox",
+      "commit": "0cab3b174bd0ba744c9a61109e12b219238c78f8",
+      "checkout_path": "../savfox-ai/savfox",
+      "roles": [
+        "coland-native-agent-build-dependency"
       ]
     }
   },
