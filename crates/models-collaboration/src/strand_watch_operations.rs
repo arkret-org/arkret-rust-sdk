@@ -5,13 +5,33 @@ use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::strand::StrandWatchExpectedValue;
 
-/// `ak.self.strand.watch.read.current.v1` request body.
+/// Canonical body budget shared by the self and signed peer operations.
+pub const STRAND_WATCH_CURRENT_MAX_BYTES: usize = 16 * 1024;
+pub const PEER_STRAND_WATCH_CURRENT_PATH: &str = "/_arkret/peer/strands/watch/current";
+
+/// Shared self/peer request; neither operation enumerates other watchers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchCurrentRequestBody {
     pub realm_id: RealmId,
     pub strand_id: StrandId,
     pub watcher_actor_id: ActorId,
+}
+
+impl StrandWatchCurrentRequestBody {
+    pub fn validate(&self) -> Result<(), arkret_wire::WireError> {
+        if arkret_canonical::canonical_json_bytes(self)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?
+            .len()
+            > STRAND_WATCH_CURRENT_MAX_BYTES
+        {
+            return Err(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::PayloadTooLarge,
+                message: "watch-current request exceeds its canonical budget".to_owned(),
+            });
+        }
+        Ok(())
+    }
 }
 
 /// Closed selector returned with both watch-current outcome branches.
@@ -78,12 +98,45 @@ pub enum StrandWatchCurrentOutcome {
 }
 
 impl StrandWatchCurrentOutcome {
+    pub const fn governance_generation(&self) -> u64 {
+        match self {
+            Self::NeverWritten {
+                governance_generation,
+                ..
+            }
+            | Self::Current {
+                governance_generation,
+                ..
+            } => *governance_generation,
+        }
+    }
+
+    /// The Account Station supplies its fresh nonce-bound verified authority.
+    pub fn validate_for_generation(
+        &self,
+        request: &StrandWatchCurrentRequestBody,
+        generation: u64,
+    ) -> Result<(), &'static str> {
+        self.validate_for_request(request)?;
+        if self.governance_generation() != generation {
+            return Err("watch-current response differs from the verified governing generation");
+        }
+        Ok(())
+    }
+
     /// Reject a validly shaped response for a different requested cell or
     /// Realm. Authorization and current authority verification stay server-side.
     pub fn validate_for_request(
         &self,
         request: &StrandWatchCurrentRequestBody,
     ) -> Result<(), &'static str> {
+        if arkret_canonical::canonical_json_bytes(self)
+            .map_err(|_| "watch-current response is not canonical JSON")?
+            .len()
+            > STRAND_WATCH_CURRENT_MAX_BYTES
+        {
+            return Err("watch-current response exceeds its canonical budget");
+        }
         let (realm_id, head, selector, source) = match self {
             Self::NeverWritten {
                 realm_id,
@@ -103,6 +156,12 @@ impl StrandWatchCurrentOutcome {
                 Some((&result.source_stream_ref, &result.revision)),
             ),
         };
+        if !matches!(
+            &head.stream_ref,
+            CommitStreamRef::Realm { .. } | CommitStreamRef::Circle { .. }
+        ) {
+            return Err("watch-current head is not a Realm or Circle namespace");
+        }
         if realm_id != &request.realm_id || head.stream_ref.realm_id() != &request.realm_id {
             return Err("watch-current response Realm differs from request");
         }
