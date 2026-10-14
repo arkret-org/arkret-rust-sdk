@@ -594,6 +594,46 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
 }
 
 #[test]
+fn ordinary_contact_proof_can_be_signed_after_its_event_authoring_checkpoint() {
+    let fixture = CarrierFixture::new();
+    let mut carrier = fixture.request();
+    let PeerContactSubmitRequestBody::Request {
+        signed_event,
+        request_receipt,
+        ..
+    } = &mut carrier
+    else {
+        unreachable!()
+    };
+    let event_id = signed_event.event_id.clone();
+    let proof = signed_event.producer_proof.as_mut().unwrap();
+    proof.created_at += Duration::seconds(1);
+    proof.jws = arkret_signatures::jws::sign_jws_ed25519(
+        &proof
+            .canonical_binding_bytes(&signed_event.actor_id)
+            .unwrap(),
+        &fixture.device_key,
+    )
+    .unwrap();
+    let confirmed_at = signed_event.created_at + Duration::seconds(2);
+    request_receipt.core.accepted_at = confirmed_at;
+    request_receipt.signature.created_at = confirmed_at;
+    request_receipt.receipt_digest = request_receipt.computed_core_digest().unwrap();
+    request_receipt.signature.jws = fixture
+        .source
+        .sign(&request_receipt.canonical_signing_bytes().unwrap());
+    let verified = authenticate_contact_event_carrier(
+        &carrier,
+        &fixture.source.issuer,
+        DigestSuite::Sha256,
+        confirmed_at,
+        &fixture.source,
+    )
+    .unwrap();
+    assert_eq!(verified.event_id(), &event_id);
+}
+
+#[test]
 fn carrier_projection_binds_exact_method_and_key_without_changing_original_event() {
     let fixture = CarrierFixture::new();
     let carrier = fixture.request();

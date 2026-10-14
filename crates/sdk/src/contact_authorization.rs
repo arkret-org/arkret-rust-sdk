@@ -435,11 +435,12 @@ fn verify_holder(
         return Err(invalid("Contact requires producer_proof"));
     };
     proof.validate_production().map_err(invalid)?;
-    if proof.created_at != event.created_at
-        || &proof.verification_method != signer.verification_method()
-    {
+    // Ordinary Contact Events do not inherit a native atomic unit's shared
+    // authoring checkpoint. The source descriptor binds the exact method/key;
+    // the original proof independently binds its own signing timestamp.
+    if &proof.verification_method != signer.verification_method() {
         return Err(invalid(
-            "producer method or time differs from the source-authenticated exact Event",
+            "producer method differs from the source-authenticated exact Event",
         ));
     }
     let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);

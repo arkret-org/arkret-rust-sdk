@@ -13,16 +13,23 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+anyhow = "1.0.104"
 arkret-canonical = { workspace = true }
 arkret-event-draft = { workspace = true, features = ["test-support"] }
+arkret-identity = { workspace = true }
 arkret-identifiers = { workspace = true }
-arkret-signatures = { workspace = true, features = ["signer"] }
+arkret-models-collaboration = { workspace = true }
+arkret-models-identity = { workspace = true }
+arkret-signatures = { workspace = true, features = ["collaboration", "signer", "webvh"] }
 arkret-wire = { workspace = true, features = ["test-support"] }
 chrono = { workspace = true, features = ["serde"] }
 ed25519-dalek = { workspace = true }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 arkret-canonical = { workspace = true }

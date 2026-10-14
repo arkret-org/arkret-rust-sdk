@@ -14,6 +14,18 @@ def write(path: Path, text: str) -> None:
 
 
 class TestKitProductionGateTests(unittest.TestCase):
+    def test_archived_manifests_are_not_live_source_but_new_repositories_are(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = '[package]\nname = "archive"\n[dependencies]\narkret-test-kit = "0.3.0"\n'
+            for path in ("arkret-work/evidence/source/Cargo.toml", ".codex-tmp/frozen/Cargo.toml"):
+                write(root / path, manifest)
+            self.assertEqual(audit(root, root / "absent.json"), [])
+            write(root / "new-service/crates/worker/Cargo.toml", manifest)
+            errors = audit(root, root / "absent.json")
+            self.assertEqual(len(errors), 1)
+            self.assertIn("new-service/crates/worker/Cargo.toml", errors[0])
+
     def test_fixture_derivation_cannot_return_to_signatures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

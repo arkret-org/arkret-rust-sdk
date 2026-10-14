@@ -11,7 +11,8 @@ manifest states.
 
 The audit walks every ``Cargo.toml`` under the workspace root, so a new
 repository is covered the moment it declares the dependency; nothing has to be
-added to a list first.
+added to a list first. Coordination archives and temporary frozen checkouts
+are not the source tree; their manifests must not be audited as new packages.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CRATE = "arkret-test-kit"
 DEFAULT_DECISIONS = ROOT / "tools" / "test_kit_production_decisions.json"
 SKIPPED_DIRECTORIES = {".git", "target", "node_modules", ".shared-target"}
+NON_SOURCE_ROOTS = {"arkret-work", ".codex-tmp"}
 DEV_SECTIONS = ("dev-dependencies", "dev_dependencies")
 
 
@@ -42,6 +44,8 @@ def manifests(workspace_root: Path) -> list[Path]:
             continue
         for entry in entries:
             if entry.is_dir():
+                if directory == workspace_root and entry.name in NON_SOURCE_ROOTS:
+                    continue
                 if entry.name not in SKIPPED_DIRECTORIES:
                     stack.append(entry)
             elif entry.name == "Cargo.toml":

@@ -30,10 +30,13 @@
 //! reach it can mint any fixture actor's signature.
 
 pub mod authority_objects;
+pub mod contact;
 pub mod hlc;
 pub mod keys;
+pub mod media_ice;
 pub mod negative;
 pub mod proof;
+pub mod service_identity;
 pub mod signed_event;
 pub mod subjects;
 
