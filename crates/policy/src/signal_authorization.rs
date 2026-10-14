@@ -647,7 +647,7 @@ mod tests {
             .current_controller_grants
             .clear();
         assert!(!gate(&evidence));
-        evidence = valid.clone();
+        evidence = valid;
         evidence.agent.as_mut().unwrap().key_scope.actions =
             vec![CapabilityActionId::MESSAGE_CREATE.into()];
         assert!(!gate(&evidence));
