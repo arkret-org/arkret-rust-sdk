@@ -17,7 +17,7 @@
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=fec530d3711c83b9a3bf0c4bc9bb5bee2c350c552440b12a98c5e723f7740529
+// sha256=448abceebd5661cb1d2db37d9a28dbe85815f08cf0119282307229865080a78b
 //
 // Input: schemas/agent-sidecar-exchange-control.schema.json
 // sha256=cd1c305b7dfa2b4ffce9c28c0f41c7d0b31b30a3947f5d2189e43eb9019be802

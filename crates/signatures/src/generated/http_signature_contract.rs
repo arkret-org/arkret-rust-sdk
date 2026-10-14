@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.7;
-//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5
-//! Entries: http_signature_scenarios=7, freshness_profile=ak.http_signature.freshness.v1
+//! Input: registry/contract-registry.json; version=2026-10-14.8;
+//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a
+//! Entries: http_signature_scenarios=8, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HttpSignatureScenario {
@@ -13,6 +13,7 @@ pub enum HttpSignatureScenario {
     MimiProviderV1,
     AppletManagedDeviceV1,
     CallInvitationV1,
+    ConsentCurrentReadV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,6 +99,12 @@ const APPLET_MANAGED_DEVICE_V1_CONDITIONAL_COMPONENTS:
     },
 ];
 const CALL_INVITATION_V1_CONDITIONAL_COMPONENTS: &[HttpSignatureConditionalComponentDescriptor] =
+    &[HttpSignatureConditionalComponentDescriptor {
+        component: "destination-service-endpoint-digest",
+        condition: "the destination is reached through a shared ingress",
+    }];
+const CONSENT_CURRENT_READ_V1_CONDITIONAL_COMPONENTS:
+    &[HttpSignatureConditionalComponentDescriptor] =
     &[HttpSignatureConditionalComponentDescriptor {
         component: "destination-service-endpoint-digest",
         condition: "the destination is reached through a shared ingress",
@@ -286,6 +293,31 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.peer.call.invitation.command.relay.v1",
             "ak.peer.call.invitation.read.admission.v1",
         ],
+    },
+    HttpSignatureScenarioDescriptor {
+        scenario: HttpSignatureScenario::ConsentCurrentReadV1,
+        scenario_id: "ak.http_signature.scenario.consent_current_read.v1",
+        extends: Some(HttpSignatureScenario::ServiceToServiceV1),
+        additional_covered_components: &[
+            "content-digest",
+            "source-service-id",
+            "destination-service-id",
+            "source-trust-domain",
+            "destination-trust-domain",
+        ],
+        conditional_covered_components: CONSENT_CURRENT_READ_V1_CONDITIONAL_COMPONENTS,
+        required_headers: &[
+            "Signature",
+            "Signature-Input",
+            "Arkret-Operation",
+            "Content-Digest",
+            "Source-Service-ID",
+            "Destination-Service-ID",
+            "Source-Trust-Domain",
+            "Destination-Trust-Domain",
+        ],
+        freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &["ak.peer.consent.read.current.v1"],
     },
 ];
 
