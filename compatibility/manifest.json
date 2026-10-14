@@ -2,8 +2,9 @@
   "$schema": "./manifest.schema.json",
   "schema_version": 1,
   "train": {
-    "id": "arkret-v1-main",
+    "id": "arkret-salvo-1.0.1-20261014",
     "merge_order": [
+      "savfox",
       "arkret-spec",
       "arkret-rust-sdk",
       "floria",
@@ -12,13 +13,15 @@
       "garth",
       "chime",
       "inkson",
-      "cotest"
+      "cotest",
+      "bridges",
+      "flagon"
     ]
   },
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "4bf0fa8a3efa603c42e46271de0a352be22d39f8",
+      "commit": "3b0af270d431c4f5c4dc66bbf288bea4bdc7be35",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -28,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "f5fa1f2d71d9e48437a046f21a931996813bb847",
+      "commit": "2fe0c3b922b206598a14a45e54fad222d18087a3",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -38,7 +41,7 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "a0dd7530fdc614b4d7d533f148435ff798b0ce4a",
+      "commit": "d2b3550243a143cb758cb2b697049aa98b49a0d7",
       "checkout_path": "floria",
       "roles": [
         "coland-build-dependency"
@@ -46,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "cadf69e568de0348dcb161b2e81adb7270188ebd",
+      "commit": "32d8775502d222e5818f0d5347c599307770b8a3",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -55,7 +58,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "eb354ca7c320b63d51cc4f39cbe3ee58f950e049",
+      "commit": "cbd62ff415d7953034e9545128311bca07cb7e19",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -64,7 +67,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "6902d6b4681aa3669ac4c84067e0a7fbdba494c8",
+      "commit": "f9d9ea0ac9da4aaee78af11c08b76b115709f70f",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -72,7 +75,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "2117217febc1682e975bac38e419ae91c243cd36",
+      "commit": "4474f37d200655c06ab5cf29d98de90aa2fda45c",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -80,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "935c285a6f84b91335b59f086c235c5aaaa00d6f",
+      "commit": "d53f461afc58396878a9c423cce4a2ad59b47281",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -88,11 +91,35 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "75089deb2cd66ff30ec33507e1f41b1b6558f08b",
+      "commit": "0661a41df71a5070de354ba11d958fe02352eacb",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
         "wire-type-mirror"
+      ]
+    },
+    "bridges": {
+      "repository": "arkret-org/bridges",
+      "commit": "a84210a9819cd00d6d3ef89c83c2b2d7f4974047",
+      "checkout_path": "bridges",
+      "roles": [
+        "sdk-openapi-consumer"
+      ]
+    },
+    "flagon": {
+      "repository": "arkret-org/flagon",
+      "commit": "e7e783b4ef35246d8170828896d4c5b899771226",
+      "checkout_path": "flagon",
+      "roles": [
+        "sdk-openapi-consumer"
+      ]
+    },
+    "savfox": {
+      "repository": "savfox-ai/savfox",
+      "commit": "0cab3b174bd0ba744c9a61109e12b219238c78f8",
+      "checkout_path": "../savfox-ai/savfox",
+      "roles": [
+        "coland-native-agent-build-dependency"
       ]
     }
   },
@@ -978,6 +1005,60 @@
         "-RequireScenario",
         "identity/oidc-login-flow.spec.ts",
         "-ForbidSkippedTests"
+      ]
+    },
+    {
+      "id": "floria.compile",
+      "repository": "floria",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "floria Salvo and SDK OpenAPI integration"
+      },
+      "working_directory": "floria",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "bridges.compile",
+      "repository": "bridges",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "bridges Salvo and SDK OpenAPI integration"
+      },
+      "working_directory": "bridges",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked"
+      ]
+    },
+    {
+      "id": "flagon.compile",
+      "repository": "flagon",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "flagon Salvo and SDK OpenAPI integration"
+      },
+      "working_directory": "flagon",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked"
       ]
     }
   ],

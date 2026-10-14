@@ -206,6 +206,8 @@ fn station_key_error(code: ErrorCode, message: &str) -> WireError {
 }
 
 /// Counterpart: `signal-stream-frame.schema.json#/$defs/delivery_authority`.
+/// Product Signal projection; invitation delivery views require a separate
+/// supported representation and are rejected by this closed decoder.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -452,6 +454,14 @@ mod tests {
                 authorization_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
             },
         };
+        let mut unsupported = serde_json::to_value(&authority).unwrap();
+        unsupported["call_invitation"] = serde_json::json!({});
+        let error = serde_json::from_value::<SignalDeliveryAuthority>(unsupported).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unknown field `call_invitation`")
+        );
         let signal = SignalStreamFrame::signal(envelope, authority);
         signal.validate().unwrap();
         assert_eq!(
