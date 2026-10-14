@@ -11,6 +11,11 @@ use crate::internal_prelude::{Result, WireError};
 use crate::sync_frames::account_subscribe::RealmDetailBaseline;
 use crate::sync_frames::current_results::AccountCurrentView;
 
+mod endpoint_authority;
+pub use endpoint_authority::{
+    MlsCreatorBootstrapAgentAuthority, MlsCreatorBootstrapEndpointAuthority,
+};
+
 crate::string_marker!(MlsCreatorBootstrapOperation, MlsGenesis, "mls_genesis");
 
 /// The whole closed creation intent. Hosts atomically persist it before any
@@ -669,7 +674,7 @@ impl MlsCreatorBootstrapDeviceAuthority {
 pub struct MlsCreatorBootstrapGovernanceEvidence {
     accepted_create: MlsCreatorBootstrapAcceptedCreate,
     genesis_absence: arkret_wire::RealmStateSnapshot,
-    creator_device_authority: MlsCreatorBootstrapDeviceAuthority,
+    creator_authority: MlsCreatorBootstrapEndpointAuthority,
     canonical_proposal_bytes: Vec<u8>,
     proposal_digest: arkret_wire::Hash,
     governance_binding: MlsGovernanceBindingPayload,
@@ -682,6 +687,20 @@ impl MlsCreatorBootstrapGovernanceEvidence {
         genesis_absence: arkret_wire::RealmStateSnapshot,
         creator_device_authority: MlsCreatorBootstrapDeviceAuthority,
     ) -> Result<Self> {
+        Self::new_with_endpoint_authority(
+            intent,
+            accepted_create,
+            genesis_absence,
+            MlsCreatorBootstrapEndpointAuthority::Device(creator_device_authority),
+        )
+    }
+
+    pub fn new_with_endpoint_authority(
+        intent: &MlsCreatorBootstrapIntent,
+        accepted_create: MlsCreatorBootstrapAcceptedCreate,
+        genesis_absence: arkret_wire::RealmStateSnapshot,
+        creator_authority: MlsCreatorBootstrapEndpointAuthority,
+    ) -> Result<Self> {
         let canonical_proposal_bytes = arkret_canonical::canonical_json_bytes(intent.proposal())?;
         let proposal_digest = arkret_wire::Hash::new(arkret_canonical::canonical::digest(
             accepted_create.digest_suite(),
@@ -690,7 +709,7 @@ impl MlsCreatorBootstrapGovernanceEvidence {
         let value = Self {
             accepted_create,
             genesis_absence,
-            creator_device_authority,
+            creator_authority,
             canonical_proposal_bytes,
             proposal_digest,
             governance_binding: intent.proposal().proposed_group_genesis_binding().clone(),
@@ -706,8 +725,8 @@ impl MlsCreatorBootstrapGovernanceEvidence {
             &self.accepted_create,
             &self.genesis_absence,
         )?;
-        self.creator_device_authority.validate_binding(intent)?;
-        let verified_at = self.creator_device_authority.verified_at;
+        self.creator_authority.validate_binding(intent)?;
+        let verified_at = self.creator_authority.verified_at();
         self.accepted_create
             .authority_root
             .validate_fresh_at(verified_at)?;
@@ -736,8 +755,24 @@ impl MlsCreatorBootstrapGovernanceEvidence {
     pub fn governance_binding(&self) -> &MlsGovernanceBindingPayload {
         &self.governance_binding
     }
-    pub fn creator_device_authority(&self) -> &MlsCreatorBootstrapDeviceAuthority {
-        &self.creator_device_authority
+    #[cfg(test)]
+    fn device_authority_mut(&mut self) -> &mut MlsCreatorBootstrapDeviceAuthority {
+        match &mut self.creator_authority {
+            MlsCreatorBootstrapEndpointAuthority::Device(value) => value,
+            _ => panic!("Device fixture required"),
+        }
+    }
+
+    pub fn creator_authority(&self) -> &MlsCreatorBootstrapEndpointAuthority {
+        &self.creator_authority
+    }
+    pub fn creator_device_authority(&self) -> Result<&MlsCreatorBootstrapDeviceAuthority> {
+        match &self.creator_authority {
+            MlsCreatorBootstrapEndpointAuthority::Device(value) => Ok(value),
+            _ => Err(WireError::Protocol(
+                "creator endpoint is not a Device".into(),
+            )),
+        }
     }
 }
 
@@ -808,10 +843,7 @@ impl MlsCreatorBootstrapEpochZero {
                 })
             || &payload.creator_leaf_authority.endpoint != intent.creator_endpoint()
             || payload.creator_leaf_authority.authorization_event_ref
-                != evidence
-                    .creator_device_authority
-                    .projection
-                    .device_authorize_event_id
+                != *evidence.creator_authority.authorization_event_ref()
             || payload.group_info_ref.as_str() != blob_ref(&self.group_info_bytes)
             || payload.ratchet_tree_ref.as_str() != blob_ref(&self.ratchet_tree_bytes)
         {
@@ -987,6 +1019,7 @@ impl MlsCreatorBootstrapAcceptedGenesis {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsCreatorBootstrapWinner {
+    accepted_create: Box<MlsCreatorBootstrapAcceptedCreate>,
     accepted: arkret_wire::CommittedEventFullView,
     canonical_accepted_bytes: Vec<u8>,
     accepted_bytes_digest: arkret_wire::Hash,
@@ -1002,24 +1035,25 @@ impl MlsCreatorBootstrapWinner {
         authority_root: impl Into<MlsCreatorBootstrapAuthority>,
     ) -> Result<Self> {
         let authority_root = authority_root.into();
-        let suite = record
-            .accepted_create()
-            .ok_or_else(|| {
-                WireError::Protocol("creator winner requires accepted scope create".into())
-            })?
-            .digest_suite();
-        let value = Self::from_accepted(record.intent(), suite, accepted, authority_root)?;
+        let create = record.accepted_create().ok_or_else(|| {
+            WireError::Protocol("creator winner requires accepted scope create".into())
+        })?;
+        let value = Self::from_accepted(record.intent(), create.clone(), accepted, authority_root)?;
         value.validate_binding(record)?;
         Ok(value)
     }
 
-    fn from_accepted(
+    /// A winner may precede the local accepted-create checkpoint. The host
+    /// authenticates both originals without ever inventing an absent result.
+    pub fn from_accepted(
         intent: &MlsCreatorBootstrapIntent,
-        suite: arkret_canonical::DigestSuite,
+        accepted_create: MlsCreatorBootstrapAcceptedCreate,
         accepted: arkret_wire::CommittedEventFullView,
         authority_root: impl Into<MlsCreatorBootstrapAuthority>,
     ) -> Result<Self> {
         let authority_root = authority_root.into();
+        accepted_create.validate_binding(intent)?;
+        let suite = accepted_create.digest_suite();
         let payload: crate::events_payloads::MlsGenesisPayload = serde_json::from_value(
             serde_json::Value::Object(accepted.event.payload.clone().into_iter().collect()),
         )
@@ -1028,6 +1062,7 @@ impl MlsCreatorBootstrapWinner {
         })?;
         let bytes = arkret_canonical::canonical_json_bytes(&accepted.event)?;
         let value = Self {
+            accepted_create: Box::new(accepted_create),
             accepted_bytes_digest: arkret_wire::Hash::new(arkret_canonical::canonical::digest(
                 suite, &bytes,
             ))?,
@@ -1045,6 +1080,12 @@ impl MlsCreatorBootstrapWinner {
         intent: &MlsCreatorBootstrapIntent,
         suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
+        self.accepted_create.validate_binding(intent)?;
+        if self.accepted_create.digest_suite() != suite {
+            return Err(WireError::Protocol(
+                "creator winner changed original create digest suite".into(),
+            ));
+        }
         self.accepted.validate_shape()?;
         self.authority_root.validate_shape()?;
         self.authority_root
@@ -1117,9 +1158,7 @@ impl MlsCreatorBootstrapWinner {
     pub fn validate_binding(&self, record: &MlsCreatorBootstrapRecord) -> Result<()> {
         let suite = record
             .accepted_create()
-            .ok_or_else(|| {
-                WireError::Protocol("creator winner lost scope-create authority".into())
-            })?
+            .unwrap_or(&self.accepted_create)
             .digest_suite();
         self.validate_scope_binding(record.intent(), suite)?;
         let original = match record {
@@ -1576,16 +1615,13 @@ impl MlsCreatorBootstrapKnownGenesis {
         authority_root: impl Into<MlsCreatorBootstrapAuthority>,
     ) -> Result<Self> {
         let authority_root = authority_root.into();
-        let suite = record
-            .accepted_create()
-            .ok_or_else(|| {
-                WireError::Protocol("known creator winner lost scope-create authority".into())
-            })?
-            .digest_suite();
+        let create = record.accepted_create().ok_or_else(|| {
+            WireError::Protocol("known creator winner lost scope-create authority".into())
+        })?;
         Ok(Self::Winner {
             winner: Box::new(MlsCreatorBootstrapWinner::from_accepted(
                 record.intent(),
-                suite,
+                create.clone(),
                 accepted,
                 authority_root,
             )?),
@@ -2157,7 +2193,13 @@ impl MlsCreatorBootstrapRecord {
             | Self::Ready {
                 accepted_create, ..
             } => Some(accepted_create),
-            Self::Superseded { loser_record, .. } => loser_record.accepted_create(),
+            Self::Superseded {
+                loser_record,
+                winner,
+                ..
+            } => loser_record
+                .accepted_create()
+                .or(Some(&winner.accepted_create)),
             Self::Rejected {
                 rejected_record, ..
             } => rejected_record.accepted_create(),
@@ -3409,6 +3451,252 @@ mod tests {
         .unwrap()
     }
 
+    fn agent_creator_fixture() -> (
+        MlsCreatorBootstrapIntent,
+        MlsCreatorBootstrapAcceptedCreate,
+        MlsCreatorBootstrapGovernanceEvidence,
+    ) {
+        use arkret_models_identity::signer_key_operations::{
+            CurrentSignerKeyQuerySender, ResolvedSignerKey, SignerKeyQueryOutcome,
+            SignerKeyQuerySelector,
+        };
+        let (mut intent, mut create) = accepted_create(false);
+        let method = DidUrl::new("did:web:alice.example#runtime").unwrap();
+        intent.creator_signer_method = method.clone();
+        intent.creator_endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+            verification_method: method.clone(),
+        };
+        let SelfAuthoritySubmitRequest::Event(original) = &mut intent.signed_scope_create_unit
+        else {
+            unreachable!()
+        };
+        original
+            .event
+            .producer_proof
+            .as_mut()
+            .unwrap()
+            .verification_method = method.clone();
+        create.accepted_event = original.event.clone();
+        create.authority_root.native_bundle_mut().genesis_event = original.event.clone();
+        create.accepted_bytes_digest = Hash::new(arkret_canonical::canonical::digest(
+            create.digest_suite,
+            &arkret_canonical::canonical_json_bytes(&original.event).unwrap(),
+        ))
+        .unwrap();
+        create.validate_binding(&intent).unwrap();
+        let outcome = SignerKeyQueryOutcome::CurrentResolved {
+            selector: SignerKeyQuerySelector::CurrentAdmission {
+                sender: CurrentSignerKeyQuerySender::Agent {
+                    actor: intent.owner_actor_id().clone(),
+                    verification_method: method,
+                },
+            },
+            key: ResolvedSignerKey {
+                public_key_b64u: arkret_wire::Base64UrlString::new(
+                    arkret_canonical::base64url_encode([11; 32]),
+                )
+                .unwrap(),
+                authorization_ref: arkret_wire::CommittedEventRef {
+                    event_id: create.accepted_event.event_id.clone(),
+                    commit_id: create.covering_commit.commit_id.clone(),
+                    stream_ref: create.covering_commit.stream_ref.clone(),
+                    stream_position: 0,
+                },
+                revision: arkret_wire::CurrentRevision {
+                    commit_id: create.covering_commit.commit_id.clone(),
+                    stream_position: 0,
+                },
+                governance_generation: 0,
+            },
+        };
+        let authority = MlsCreatorBootstrapAgentAuthority::from_current_signer_query(
+            &intent,
+            outcome,
+            create.authority_root().unwrap().bundle_issued_at,
+        )
+        .unwrap();
+        let evidence = MlsCreatorBootstrapGovernanceEvidence::new_with_endpoint_authority(
+            &intent,
+            create.clone(),
+            absence_snapshot(&create),
+            MlsCreatorBootstrapEndpointAuthority::Agent(authority),
+        )
+        .unwrap();
+        (intent, create, evidence)
+    }
+
+    #[test]
+    fn agent_creator_pin_rejects_device_historical_foreign_actor_and_method_substitution() {
+        use arkret_models_identity::signer_key_operations::{
+            CurrentSignerKeyQuerySender, SignerKeyQueryOutcome, SignerKeyQuerySelector,
+        };
+        let (intent, _, evidence) = agent_creator_fixture();
+        evidence.validate_binding(&intent).unwrap();
+        assert!(evidence.creator_device_authority().is_err());
+        let MlsCreatorBootstrapEndpointAuthority::Agent(authority) = evidence.creator_authority()
+        else {
+            unreachable!()
+        };
+        let mut other = intent.clone();
+        other.owner_actor_id = ActorId::account(AccountId::new(
+            intent
+                .owner_actor_id()
+                .as_account_id()
+                .unwrap()
+                .principal_id
+                .clone(),
+            DidCoreId::new("ak:did_core:web:foreign.example").unwrap(),
+        ));
+        assert!(authority.validate_binding(&other).is_err());
+        let outcome = SignerKeyQueryOutcome::Unavailable {
+            selector: SignerKeyQuerySelector::CurrentAdmission {
+                sender: CurrentSignerKeyQuerySender::Agent {
+                    actor: intent.owner_actor_id().clone(),
+                    verification_method: intent.creator_signer_method().clone(),
+                },
+            },
+        };
+        assert!(
+            MlsCreatorBootstrapAgentAuthority::from_current_signer_query(
+                &intent,
+                outcome,
+                Utc::now()
+            )
+            .is_err()
+        );
+        let mut changed = serde_json::to_value(authority).unwrap();
+        changed["outcome"]["selector"]["verification_method"] =
+            json!("did:web:alice.example#replacement");
+        assert!(
+            serde_json::from_value::<MlsCreatorBootstrapAgentAuthority>(changed)
+                .unwrap()
+                .validate_binding(&intent)
+                .is_err()
+        );
+        let device = fixture_intent(false);
+        assert!(authority.validate_binding(&device).is_err());
+        let mut changed = serde_json::to_value(authority).unwrap();
+        changed["outcome"]["selector"]["verification_mode"] = json!("historical_event");
+        assert!(serde_json::from_value::<MlsCreatorBootstrapAgentAuthority>(changed).is_err());
+    }
+
+    #[test]
+    fn agent_creator_reloads_all_progress_steps_and_preserves_the_original_signed_bytes() {
+        // Structural local FSM test, not a claim of authenticated Station acceptance.
+        let (intent, create, evidence) = agent_creator_fixture();
+        let unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &unit);
+        let original_bytes = arkret_canonical::canonical_json_bytes(signed.event()).unwrap();
+        let reload = |record: &MlsCreatorBootstrapRecord| {
+            let restored: MlsCreatorBootstrapRecord =
+                serde_json::from_slice(&serde_json::to_vec(record).unwrap()).unwrap();
+            restored.validate().unwrap();
+            restored
+        };
+        let mut record = reload(&MlsCreatorBootstrapRecord::new(intent.clone()).unwrap());
+        record
+            .accept_realm(create.clone(), absence_snapshot(&create))
+            .unwrap();
+        record = reload(&record);
+        record.pin_governance(evidence).unwrap();
+        record = reload(&record);
+        record.persist_epoch_zero(unit.clone()).unwrap();
+        record = reload(&record);
+        record.queue_genesis(signed.clone()).unwrap();
+        record = reload(&record);
+        assert_eq!(
+            record.queued_genesis().unwrap().canonical_signed_bytes,
+            original_bytes
+        );
+        let mut commit = create.covering_commit().clone();
+        commit.stream_position += 1;
+        commit.previous_commit_ref = Some(commit.commit_id.clone());
+        commit.event_ref = signed.event_id().clone();
+        let accepted = MlsCreatorBootstrapAcceptedGenesis::new(
+            &intent,
+            record.queued_genesis().unwrap(),
+            arkret_wire::CommittedEventFullView {
+                event: signed.event().clone(),
+                commit,
+            },
+            create.authority_root().unwrap().clone(),
+        )
+        .unwrap();
+        record.accept_genesis(accepted).unwrap();
+        record = reload(&record);
+        let payload = unit.payload().unwrap();
+        let checks = MlsCreatorBootstrapArtifactChecks {
+            effective_scope: intent.effective_scope().clone(),
+            mls_group_id: intent.mls_group_id().clone(),
+            epoch: 0,
+            cipher_suite: payload.cipher_suite.to_string(),
+            creator_leaf_authority: payload.creator_leaf_authority,
+            group_info_bytes: unit.group_info_bytes().to_vec(),
+            ratchet_tree_bytes: unit.ratchet_tree_bytes().to_vec(),
+        };
+        record
+            .converge_artifacts(MlsCreatorBootstrapArtifacts::new(&record, checks).unwrap())
+            .unwrap();
+        record = reload(&record);
+        record
+            .publish_ready(MlsCreatorBootstrapReadyReceipt::new(&record, 7).unwrap())
+            .unwrap();
+        record = reload(&record);
+        assert_eq!(
+            record.ready_receipt().unwrap().accepted_genesis_event_id(),
+            signed.event_id()
+        );
+        assert_eq!(
+            record.queued_genesis().unwrap().canonical_signed_bytes,
+            original_bytes
+        );
+    }
+
+    #[test]
+    fn accepted_winner_before_the_local_create_checkpoint_terminates_without_fabricating_absence() {
+        let (intent, create, evidence) = agent_creator_fixture();
+        let external_unit = epoch_zero_fixture(&intent, &evidence);
+        let signed = sign_epoch_zero_fixture(&intent, &external_unit);
+        let mut commit = create.covering_commit().clone();
+        commit.stream_position += 1;
+        commit.previous_commit_ref = Some(commit.commit_id.clone());
+        commit.event_ref = signed.event_id().clone();
+        let winner = MlsCreatorBootstrapWinner::from_accepted(
+            &intent,
+            create.clone(),
+            arkret_wire::CommittedEventFullView {
+                event: signed.event().clone(),
+                commit,
+            },
+            create.authority_root().unwrap().clone(),
+        )
+        .unwrap();
+        let before = MlsCreatorBootstrapRecord::new(intent.clone()).unwrap();
+        let mut after = before.clone();
+        after.supersede(winner.clone()).unwrap();
+        let after: MlsCreatorBootstrapRecord =
+            serde_json::from_slice(&serde_json::to_vec(&after).unwrap()).unwrap();
+        after.validate().unwrap();
+        assert_eq!(after.intent(), &intent);
+        assert!(
+            after.epoch_zero().is_none()
+                && after.queued_genesis().is_none()
+                && after.ready_receipt().is_none()
+        );
+        assert_eq!(after.accepted_create(), Some(&create));
+        assert_eq!(
+            before.state(),
+            arkret_wire::MlsCreatorBootstrapState::GenesisIntentPersisted
+        );
+        let MlsCreatorBootstrapRecord::Superseded { loser_record, .. } = &after else {
+            unreachable!()
+        };
+        assert_eq!(loser_record.as_ref(), &before);
+        let mut exact_replay = after.clone();
+        exact_replay.supersede(winner).unwrap();
+        assert_eq!(exact_replay, after);
+    }
+
     fn epoch_zero_fixture(
         intent: &MlsCreatorBootstrapIntent,
         evidence: &MlsCreatorBootstrapGovernanceEvidence,
@@ -3422,7 +3710,7 @@ mod tests {
             ))
             .unwrap()
         };
-        let at = evidence.creator_device_authority.verified_at;
+        let at = evidence.creator_authority.verified_at();
         let payload = crate::events_payloads::MlsGenesisPayload {
             cipher_suite: arkret_wire::NonEmptyString::new(
                 arkret_wire::generated::security_strings::MLS_CIPHERSUITES
@@ -3441,9 +3729,8 @@ mod tests {
                 .unwrap(),
                 endpoint: intent.creator_endpoint().clone(),
                 authorization_event_ref: evidence
-                    .creator_device_authority
-                    .projection
-                    .device_authorize_event_id
+                    .creator_authority
+                    .authorization_event_ref()
                     .clone(),
             },
             governance_binding: evidence.governance_binding.clone(),
@@ -4545,7 +4832,7 @@ mod tests {
         assert_eq!(reopened, record);
         record.pin_governance(evidence.clone()).unwrap();
         let mut changed = evidence;
-        changed.creator_device_authority.verified_at += chrono::TimeDelta::milliseconds(1);
+        changed.device_authority_mut().verified_at += chrono::TimeDelta::milliseconds(1);
         assert!(record.pin_governance(changed).is_err());
         assert_eq!(record, reopened);
     }
@@ -4556,29 +4843,29 @@ mod tests {
         let evidence = pinned_fixture(&intent, &accepted);
         let mut bad = Vec::new();
         let mut changed = evidence.clone();
-        changed.creator_device_authority.account_id.station_id =
+        changed.device_authority_mut().account_id.station_id =
             DidCoreId::new("ak:did_core:web:other.example").unwrap();
         bad.push(changed);
         let mut changed = evidence.clone();
-        changed.creator_device_authority.device_id =
+        changed.device_authority_mut().device_id =
             DeviceId::new("ak:device:0198ff00-0000-7000-8000-000000000002").unwrap();
         bad.push(changed);
         let mut changed = evidence.clone();
         changed
-            .creator_device_authority
+            .device_authority_mut()
             .generation
             .current_device_generation_ref += 1;
         bad.push(changed);
         let mut changed = evidence.clone();
-        changed.creator_device_authority.verified_at =
-            changed.creator_device_authority.projection.expires_at;
+        changed.device_authority_mut().verified_at =
+            changed.device_authority_mut().projection.expires_at;
         bad.push(changed);
         let mut changed = evidence.clone();
         changed
-            .creator_device_authority
+            .device_authority_mut()
             .projection
             .authorization_window
-            .expires_at = Some(changed.creator_device_authority.verified_at);
+            .expires_at = Some(changed.device_authority_mut().verified_at);
         bad.push(changed);
         let mut changed = evidence.clone();
         changed.canonical_proposal_bytes.push(0);
@@ -4589,7 +4876,7 @@ mod tests {
             .authority_root
             .native_bundle_mut()
             .current_assertion
-            .expires_at = changed.creator_device_authority.verified_at;
+            .expires_at = changed.device_authority_mut().verified_at;
         bad.push(changed);
         let mut changed = evidence.clone();
         changed.genesis_absence.visible_stream_heads.clear();
@@ -4609,7 +4896,7 @@ mod tests {
             MlsCreatorBootstrapDeviceAuthority::from_self_keys_query(
                 &intent,
                 &missing,
-                evidence.creator_device_authority.verified_at
+                evidence.creator_authority.verified_at()
             )
             .is_err()
         );

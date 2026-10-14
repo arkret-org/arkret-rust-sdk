@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/mls-creator-bootstrap-transaction-registry.json; version=2026-10-04;
-//! sha256=acbf7bcb47168c4cf81e629b3801d57b7a84261b403b001dc810d2288c2a8e13 Entries: states=11,
-//! transitions=9, state_kinds=4
+//! Input: registry/mls-creator-bootstrap-transaction-registry.json; version=2026-10-14;
+//! sha256=a5764448d4deade6ff70691788d84eae2275cc0a0ad52797ad29277a7f730383 Entries: states=11,
+//! transitions=10, state_kinds=4
 
 use serde::{Deserialize, Serialize};
 
@@ -187,6 +187,7 @@ pub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = 
         allowed_exits: &[
             MlsCreatorBootstrapState::GenesisIntentPersisted,
             MlsCreatorBootstrapState::RealmAccepted,
+            MlsCreatorBootstrapState::Superseded,
             MlsCreatorBootstrapState::Quarantined,
         ],
     },
@@ -295,6 +296,7 @@ pub enum MlsCreatorBootstrapTransition {
     AbsentToGenesisIntentPersisted,
     GenesisIntentPersistedToGenesisIntentPersisted,
     GenesisIntentPersistedToRealmAccepted,
+    GenesisIntentPersistedToSuperseded,
     RealmAcceptedToGovernanceResultPinned,
     GovernanceResultPinnedToEpoch0StatePersisted,
     Epoch0StatePersistedToGenesisQueued,
@@ -308,6 +310,7 @@ impl MlsCreatorBootstrapTransition {
         Self::AbsentToGenesisIntentPersisted,
         Self::GenesisIntentPersistedToGenesisIntentPersisted,
         Self::GenesisIntentPersistedToRealmAccepted,
+        Self::GenesisIntentPersistedToSuperseded,
         Self::RealmAcceptedToGovernanceResultPinned,
         Self::GovernanceResultPinnedToEpoch0StatePersisted,
         Self::Epoch0StatePersistedToGenesisQueued,
@@ -322,6 +325,8 @@ impl MlsCreatorBootstrapTransition {
         "genesis_intent_persisted_to_genesis_intent_persisted";
     pub const GENESIS_INTENT_PERSISTED_TO_REALM_ACCEPTED: &'static str =
         "genesis_intent_persisted_to_realm_accepted";
+    pub const GENESIS_INTENT_PERSISTED_TO_SUPERSEDED: &'static str =
+        "genesis_intent_persisted_to_superseded";
     pub const REALM_ACCEPTED_TO_GOVERNANCE_RESULT_PINNED: &'static str =
         "realm_accepted_to_governance_result_pinned";
     pub const GOVERNANCE_RESULT_PINNED_TO_EPOCH0_STATE_PERSISTED: &'static str =
@@ -342,6 +347,9 @@ impl MlsCreatorBootstrapTransition {
             }
             Self::GenesisIntentPersistedToRealmAccepted => {
                 Self::GENESIS_INTENT_PERSISTED_TO_REALM_ACCEPTED
+            }
+            Self::GenesisIntentPersistedToSuperseded => {
+                Self::GENESIS_INTENT_PERSISTED_TO_SUPERSEDED
             }
             Self::RealmAcceptedToGovernanceResultPinned => {
                 Self::REALM_ACCEPTED_TO_GOVERNANCE_RESULT_PINNED
@@ -368,6 +376,9 @@ impl MlsCreatorBootstrapTransition {
             }
             Self::GENESIS_INTENT_PERSISTED_TO_REALM_ACCEPTED => {
                 Some(Self::GenesisIntentPersistedToRealmAccepted)
+            }
+            Self::GENESIS_INTENT_PERSISTED_TO_SUPERSEDED => {
+                Some(Self::GenesisIntentPersistedToSuperseded)
             }
             Self::REALM_ACCEPTED_TO_GOVERNANCE_RESULT_PINNED => {
                 Some(Self::RealmAcceptedToGovernanceResultPinned)
@@ -422,6 +433,11 @@ pub const MLS_CREATOR_BOOTSTRAP_TRANSITIONS: &[MlsCreatorBootstrapTransitionDesc
         transition: MlsCreatorBootstrapTransition::GenesisIntentPersistedToRealmAccepted,
         from_state: Some(MlsCreatorBootstrapState::GenesisIntentPersisted),
         to_state: MlsCreatorBootstrapState::RealmAccepted,
+    },
+    MlsCreatorBootstrapTransitionDescriptor {
+        transition: MlsCreatorBootstrapTransition::GenesisIntentPersistedToSuperseded,
+        from_state: Some(MlsCreatorBootstrapState::GenesisIntentPersisted),
+        to_state: MlsCreatorBootstrapState::Superseded,
     },
     MlsCreatorBootstrapTransitionDescriptor {
         transition: MlsCreatorBootstrapTransition::RealmAcceptedToGovernanceResultPinned,
