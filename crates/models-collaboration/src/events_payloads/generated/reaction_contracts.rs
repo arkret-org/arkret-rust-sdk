@@ -5,13 +5,13 @@
 // sha256=448abceebd5661cb1d2db37d9a28dbe85815f08cf0119282307229865080a78b
 //
 // Input: schemas/event-payload.schema.json
-// sha256=caf95541bdb218a86932033eb9da3dac2142fafa32579d115ae1f55f5f4397eb
+// sha256=dfb9a2ea866db5740548e42f2b5b9c1612e19afd3d83efdc4e78517cc1515cee
 //
 // Input: schemas/encrypted-envelope.schema.json
 // sha256=5f2752ea44fd1fbc9de2b85e1d89524b11ee593a43ddc700d52484230e874397
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
+// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/reaction_assertion_entry`.
 /// One asserted element of the `message_reactions` keyed set

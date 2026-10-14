@@ -529,6 +529,7 @@ impl KeyState {
     pub fn validate_signer_evidence_delivery(&self) -> Result<()> {
         let has_reference = self.signer_resolution_evidence_ref.is_some();
         if has_reference != self.current_signer_evidence.is_some()
+            || has_reference != self.current_key_authorization.is_some()
             || has_reference == self.active_authorizations.is_empty()
         {
             return Err(WireError::Protocol(
@@ -541,6 +542,93 @@ impl KeyState {
             &self.current_signer_evidence,
         ) {
             evidence.validate_against(evidence_ref)?;
+            let source = self.current_key_authorization.as_ref().ok_or_else(|| {
+                WireError::Protocol("active Agent key source is absent".to_owned())
+            })?;
+            source.validate_shape()?;
+            let event = source.reducer_input().ok_or_else(|| {
+                WireError::Protocol("active Agent authorization source is withheld".to_owned())
+            })?;
+            let commit = source.commit();
+            commit.validate_content_address()?;
+            event.verify_event_id_matches_content_with_digest_suite(
+                self.principal_control_realm_id
+                    .digest_suite_code()
+                    .digest_suite(),
+            )?;
+            let payload = crate::events_payloads::agent::AgentKeyAuthorizePayload::try_from(event)
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
+            let key = arkret_models_identity::agent_signer_evidence::AgentAuthorizedSigningKey::from_event(event)?;
+            event
+                .verify_producer_proof_self_consistency(
+                    self.principal_control_realm_id
+                        .digest_suite_code()
+                        .digest_suite(),
+                )
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
+            let actor = AccountId::new(
+                self.agent_id.clone(),
+                self.controller_account_id.station_id.clone(),
+            );
+            if event.actor_id.as_account_id() != Some(&actor)
+                || event.producer_proof.is_none()
+                || event
+                    .executed_by
+                    .as_ref()
+                    .and_then(arkret_wire::ActorId::as_account_id)
+                    != Some(&self.controller_account_id)
+                || event.authorization_ref.as_deref()
+                    != Some(self.controller_authorization_ref.as_str())
+                || event.realm_id != self.principal_control_realm_id
+                || commit.realm_id != self.principal_control_realm_id
+                || commit.stream_ref
+                    != (arkret_wire::CommitStreamRef::Realm {
+                        realm_id: self.principal_control_realm_id.clone(),
+                    })
+                || commit.event_ref != event.event_id
+                || self.authorized_event_ref.as_ref() != Some(&event.event_id)
+                || self.authorized_verification_method.as_ref() != Some(&key.verification_method)
+                || self.authorized_public_key_digest.as_ref() != Some(&key.public_key_digest)
+                || key.agent_id != self.agent_id
+                || key.controller_principal_id != self.controller_account_id.principal_id
+                || evidence.authenticated_signer_evidence.authority_commit_id != commit.commit_id
+                || evidence.authenticated_signer_evidence.signer_kind
+                    != arkret_models_identity::AuthenticatedSignerKind::Agent
+                || evidence.authenticated_signer_evidence.subject_id != self.agent_id
+                || evidence.authenticated_signer_evidence.verification_method
+                    != key.verification_method
+                || evidence
+                    .authenticated_signer_evidence
+                    .public_key_jwk
+                    .as_map()
+                    .get("kty")
+                    .and_then(Value::as_str)
+                    != Some("OKP")
+                || evidence
+                    .authenticated_signer_evidence
+                    .public_key_jwk
+                    .as_map()
+                    .get("crv")
+                    .and_then(Value::as_str)
+                    != Some("Ed25519")
+                || evidence
+                    .authenticated_signer_evidence
+                    .public_key_jwk
+                    .as_map()
+                    .get("x")
+                    .and_then(Value::as_str)
+                    != Some(key.public_key.key.as_str())
+                || !self.active_authorizations.iter().any(|dot| {
+                    dot.authorized_event_ref == event.event_id
+                        && dot.key_id == payload.key_id
+                        && dot.verification_method == payload.verification_method
+                        && dot.expires_at == payload.expires_at
+                })
+            {
+                return Err(WireError::Protocol(
+                    "current Agent key source differs from its accepted binding".to_owned(),
+                ));
+            }
         }
         Ok(())
     }

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=61dfc936d4795906bf2eaa2ab39f5a0ad8833d024e53eddfdd2a3500fee90e8e
+// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
@@ -19,11 +19,14 @@
 // Input: schemas/authenticated-signer-resolution-evidence.schema.json
 // sha256=c73d83e394428b8904c887a7fa64fc18ea902a19ef0d974b7bbc3f6755c2f11c
 //
+// Input: schemas/service-operation-dtos.schema.json
+// sha256=e0ad298cfeb1fcc4200f4289720d4b0380337d010198cb000a88f7ff3f560a9f
+//
 // Input: schemas/event-payload.schema.json
-// sha256=caf95541bdb218a86932033eb9da3dac2142fafa32579d115ae1f55f5f4397eb
+// sha256=dfb9a2ea866db5740548e42f2b5b9c1612e19afd3d83efdc4e78517cc1515cee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
+// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.
@@ -149,6 +152,9 @@ pub struct KeyState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub current_signer_evidence: Option<KeyStateCurrentSignerEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub current_key_authorization: Option<Box<arkret_wire::CommittedEventView>>,
 }
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_runtime_approval_controller_projection`.

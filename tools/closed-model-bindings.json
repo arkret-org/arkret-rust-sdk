@@ -645,6 +645,14 @@
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
+              },
+              "current_key_authorization": {
+                "name": "current_key_authorization",
+                "visibility": "pub",
+                "type": "Option<Box<arkret_wire::CommittedEventView>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }

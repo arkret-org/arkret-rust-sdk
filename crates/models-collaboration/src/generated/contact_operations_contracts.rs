@@ -11,13 +11,13 @@
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=61dfc936d4795906bf2eaa2ab39f5a0ad8833d024e53eddfdd2a3500fee90e8e
+// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
 //
 // Input: schemas/common-ids.schema.json
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=1651c7a364d583147739726313af4bcf4b1346ca585e5a19e90e50705f09898d
+// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
 
 /// Counterpart: `contact-operations.schema.json#/$defs/contact_list`.
 /// Viewer-specific current Contact rows.
