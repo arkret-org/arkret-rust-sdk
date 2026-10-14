@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Input: registry/proof-context-registry.json
-//! sha256=bc7ec3a4bcb49f80afda2495d84d2a7dfeffca733cf6dcc9ca2899b5c7d308c6
+//! sha256=8f1455da5b16a5ad00faf431f27b95e76e28c3aa086d5e8b1232a86df3cabb72
 
 pub struct DomainPrefix;
 
@@ -68,5 +68,9 @@ impl DomainPrefix {
     pub const AK_CALL_VOLUNTARY_JOIN_V1: &'static [u8] = &[
         97, 107, 46, 99, 97, 108, 108, 46, 118, 111, 108, 117, 110, 116, 97, 114, 121, 95, 106,
         111, 105, 110, 46, 118, 49, 0,
+    ];
+    pub const AK_CONSENT_CURRENT_READ_V1: &'static [u8] = &[
+        97, 107, 46, 99, 111, 110, 115, 101, 110, 116, 46, 99, 117, 114, 114, 101, 110, 116, 95,
+        114, 101, 97, 100, 46, 118, 49, 0,
     ];
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.7;
-//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5
+//! Input: registry/contract-registry.json; version=2026-10-14.8;
+//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a
 //! Entries: operation_bundles=41 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -590,6 +590,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::PeerConsentReadCurrentV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::PeerContactsCommandSubmitV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -767,6 +771,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfConsentCommandRevokeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfConsentReadCurrentV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

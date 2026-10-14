@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.7;
-//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5 Entries: registered=219
+//! Input: registry/contract-registry.json; version=2026-10-14.8;
+//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a Entries: registered=221
 
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +69,7 @@ pub enum ServiceOperationId {
     PeerCallInvitationCommandRelayV1,
     PeerCallInvitationReadAdmissionV1,
     PeerCommittedEventReadScanV1,
+    PeerConsentReadCurrentV1,
     PeerContactsCommandSubmitV1,
     PeerErasureReceiptCommandSubmitV1,
     PeerErasureReceiptResourceGetV1,
@@ -156,6 +157,7 @@ pub enum ServiceOperationId {
     SelfConsentCommandGrantV1,
     SelfConsentCommandRequestV1,
     SelfConsentCommandRevokeV1,
+    SelfConsentReadCurrentV1,
     SelfConsentReadListV1,
     SelfConsentResourceGetV1,
     SelfContactCommandCheckpointV1,
@@ -291,6 +293,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
     ServiceOperationId::PEER_CALL_INVITATION_READ_ADMISSION_V1,
     ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
+    ServiceOperationId::PEER_CONSENT_READ_CURRENT_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
@@ -378,6 +381,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONSENT_COMMAND_GRANT_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_REQUEST_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE_V1,
+    ServiceOperationId::SELF_CONSENT_READ_CURRENT_V1,
     ServiceOperationId::SELF_CONSENT_READ_LIST_V1,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET_V1,
     ServiceOperationId::SELF_CONTACT_COMMAND_CHECKPOINT_V1,
@@ -555,6 +559,7 @@ impl ServiceOperationId {
         Self::PeerCallInvitationCommandRelayV1,
         Self::PeerCallInvitationReadAdmissionV1,
         Self::PeerCommittedEventReadScanV1,
+        Self::PeerConsentReadCurrentV1,
         Self::PeerContactsCommandSubmitV1,
         Self::PeerErasureReceiptCommandSubmitV1,
         Self::PeerErasureReceiptResourceGetV1,
@@ -642,6 +647,7 @@ impl ServiceOperationId {
         Self::SelfConsentCommandGrantV1,
         Self::SelfConsentCommandRequestV1,
         Self::SelfConsentCommandRevokeV1,
+        Self::SelfConsentReadCurrentV1,
         Self::SelfConsentReadListV1,
         Self::SelfConsentResourceGetV1,
         Self::SelfContactCommandCheckpointV1,
@@ -828,6 +834,7 @@ impl ServiceOperationId {
         "ak.peer.call.invitation.read.admission.v1";
     pub const PEER_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
         "ak.peer.committed_event.read.scan.v1";
+    pub const PEER_CONSENT_READ_CURRENT_V1: &'static str = "ak.peer.consent.read.current.v1";
     pub const PEER_CONTACTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.contacts.command.submit.v1";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.erasure_receipt.command.submit.v1";
@@ -970,6 +977,7 @@ impl ServiceOperationId {
     pub const SELF_CONSENT_COMMAND_GRANT_V1: &'static str = "ak.self.consent.command.grant.v1";
     pub const SELF_CONSENT_COMMAND_REQUEST_V1: &'static str = "ak.self.consent.command.request.v1";
     pub const SELF_CONSENT_COMMAND_REVOKE_V1: &'static str = "ak.self.consent.command.revoke.v1";
+    pub const SELF_CONSENT_READ_CURRENT_V1: &'static str = "ak.self.consent.read.current.v1";
     pub const SELF_CONSENT_READ_LIST_V1: &'static str = "ak.self.consent.read.list.v1";
     pub const SELF_CONSENT_RESOURCE_GET_V1: &'static str = "ak.self.consent.resource.get.v1";
     pub const SELF_CONTACT_COMMAND_CHECKPOINT_V1: &'static str =
@@ -1193,6 +1201,7 @@ impl ServiceOperationId {
             Self::PeerCallInvitationCommandRelayV1 => Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
             Self::PeerCallInvitationReadAdmissionV1 => Self::PEER_CALL_INVITATION_READ_ADMISSION_V1,
             Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
+            Self::PeerConsentReadCurrentV1 => Self::PEER_CONSENT_READ_CURRENT_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptCommandSubmitV1 => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptResourceGetV1 => Self::PEER_ERASURE_RECEIPT_RESOURCE_GET_V1,
@@ -1320,6 +1329,7 @@ impl ServiceOperationId {
             Self::SelfConsentCommandGrantV1 => Self::SELF_CONSENT_COMMAND_GRANT_V1,
             Self::SelfConsentCommandRequestV1 => Self::SELF_CONSENT_COMMAND_REQUEST_V1,
             Self::SelfConsentCommandRevokeV1 => Self::SELF_CONSENT_COMMAND_REVOKE_V1,
+            Self::SelfConsentReadCurrentV1 => Self::SELF_CONSENT_READ_CURRENT_V1,
             Self::SelfConsentReadListV1 => Self::SELF_CONSENT_READ_LIST_V1,
             Self::SelfConsentResourceGetV1 => Self::SELF_CONSENT_RESOURCE_GET_V1,
             Self::SelfContactCommandCheckpointV1 => Self::SELF_CONTACT_COMMAND_CHECKPOINT_V1,
@@ -1557,6 +1567,7 @@ impl ServiceOperationId {
                 Some(Self::PeerCallInvitationReadAdmissionV1)
             }
             Self::PEER_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::PeerCommittedEventReadScanV1),
+            Self::PEER_CONSENT_READ_CURRENT_V1 => Some(Self::PeerConsentReadCurrentV1),
             Self::PEER_CONTACTS_COMMAND_SUBMIT_V1 => Some(Self::PeerContactsCommandSubmitV1),
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerErasureReceiptCommandSubmitV1)
@@ -1722,6 +1733,7 @@ impl ServiceOperationId {
             Self::SELF_CONSENT_COMMAND_GRANT_V1 => Some(Self::SelfConsentCommandGrantV1),
             Self::SELF_CONSENT_COMMAND_REQUEST_V1 => Some(Self::SelfConsentCommandRequestV1),
             Self::SELF_CONSENT_COMMAND_REVOKE_V1 => Some(Self::SelfConsentCommandRevokeV1),
+            Self::SELF_CONSENT_READ_CURRENT_V1 => Some(Self::SelfConsentReadCurrentV1),
             Self::SELF_CONSENT_READ_LIST_V1 => Some(Self::SelfConsentReadListV1),
             Self::SELF_CONSENT_RESOURCE_GET_V1 => Some(Self::SelfConsentResourceGetV1),
             Self::SELF_CONTACT_COMMAND_CHECKPOINT_V1 => Some(Self::SelfContactCommandCheckpointV1),
@@ -3360,6 +3372,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerConsentReadCurrentV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/consent/current",
+        grpc: Some("PeerConsent/ReadCurrent"),
+        mq: Some("peer.consent.read.current"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_outcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"requery\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("holder_private_current_read_only"),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerContactsCommandSubmitV1,
@@ -5314,6 +5351,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.consent.revoke"])),
             rationale: None,
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfConsentReadCurrentV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/consent/current",
+        grpc: Some("SelfConsent/ReadCurrent"),
+        mq: Some("self.consent.read.current"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_outcome",
+        ),
+        uncertain_outcome: Some("{\"strategy\":\"requery\"}"),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("holder_private_current_read_only"),
             branch_contract_json: None,
         }),
     },

@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-14.2;
-//! sha256=43cbba0b67b29839cadf20e74112fc5b225ccec6ab153f57d8b47d7d4cda8735 Input: registry/
-//! contract-registry.json; version=2026-10-14.7;
-//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-14.3;
+//! sha256=a0df085696e7e70d02e641ab5de8d47d28ef87d56f592daf39e7b5a215ee3aca Input: registry/
+//! contract-registry.json; version=2026-10-14.8;
+//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
-//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=219
+//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=221
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -275,6 +275,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ErasurePendingIsTerminal),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[],
     &[],
     &[],
     &[],
@@ -646,6 +647,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Reason(
         ReasonCode::SnapshotCapacityExceeded,
     )],
+    &[],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
