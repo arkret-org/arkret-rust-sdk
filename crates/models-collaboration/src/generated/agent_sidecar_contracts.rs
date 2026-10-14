@@ -8,7 +8,7 @@
 // sha256=ea7ed1176398153bc9f81506a687b75d00bb1365f9f54557a519c4a7eae20c17
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
+// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
 //
 // Input: schemas/common-ids.schema.json
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f

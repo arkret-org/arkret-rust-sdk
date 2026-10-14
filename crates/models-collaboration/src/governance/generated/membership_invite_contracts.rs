@@ -14,7 +14,7 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
+// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
 //
 // Input: schemas/agent-membership-cascade.schema.json
 // sha256=c0bb436f9758322f34eeafa870f05761aee9a4c5d7bf3f5783d81c12639d0b5c

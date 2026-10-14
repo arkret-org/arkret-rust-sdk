@@ -764,6 +764,50 @@ fn a_commit_from_an_uncovered_generation_is_refused() {
     );
 }
 
+#[test]
+fn historical_replica_witness_binds_the_exact_commit_and_current_tenure() {
+    let chain = chain();
+    let verified = verify(&chain).unwrap();
+    let commit = &chain.bundle.genesis_commit;
+    let witness = verified
+        .verify_historical_commit(commit, &chain.keys)
+        .unwrap();
+    let current = &chain.item.commit;
+    assert!(witness.binds(
+        &commit.realm_id,
+        verified.current_generation(),
+        verified.current_service_id(),
+        &current.authority_ref,
+        commit
+    ));
+    assert!(!witness.binds(
+        &commit.realm_id,
+        2,
+        verified.current_service_id(),
+        &current.authority_ref,
+        commit
+    ));
+    let mut changed = commit.clone();
+    changed.stream_position += 1;
+    assert!(!witness.binds(
+        &commit.realm_id,
+        verified.current_generation(),
+        verified.current_service_id(),
+        &current.authority_ref,
+        &changed
+    ));
+    assert!(
+        verified
+            .verify_historical_commit(&changed, &chain.keys)
+            .is_err()
+    );
+    assert!(
+        verified
+            .verify_historical_commit(current, &chain.keys)
+            .is_err()
+    );
+}
+
 /// Negative 10 — a commit that names the wrong installing record for its own
 /// generation.
 #[test]

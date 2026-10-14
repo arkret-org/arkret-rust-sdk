@@ -82,7 +82,8 @@ pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, 
 pub use realm_authority_chain::{
     RealmAuthorityChainError, RealmAuthorityConvergenceError, RealmAuthorityFreshness,
     RealmAuthorityKeyDirectory, RealmAuthorityKeyLookup, RealmAuthorityKeyMap,
-    VerifiedRealmAuthority, converge_verified_realm_authorities, verify_realm_authority_bundle,
+    VerifiedHistoricalRealmCommit, VerifiedRealmAuthority, converge_verified_realm_authorities,
+    verify_realm_authority_bundle,
 };
 pub use records::*;
 pub use registration_anchor::validate_principal_registration_anchor;

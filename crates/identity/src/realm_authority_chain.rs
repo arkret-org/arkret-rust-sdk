@@ -316,7 +316,57 @@ pub struct VerifiedRealmAuthority {
     chain_and_cut_identity: Vec<u8>,
 }
 
+/// An exact historical Commit verified against a complete current chain.
+/// Private fields prevent a storage caller from inventing a lower-tenure allowance.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedHistoricalRealmCommit {
+    realm_id: RealmId,
+    current_generation: u64,
+    current_authority: GenerationAuthority,
+    commit: RealmCommit,
+}
+
+impl VerifiedHistoricalRealmCommit {
+    pub fn binds(
+        &self,
+        realm_id: &RealmId,
+        generation: u64,
+        service_id: &DidCoreId,
+        authority_ref: &RealmCommitAuthorityRef,
+        commit: &RealmCommit,
+    ) -> bool {
+        &self.realm_id == realm_id
+            && self.current_generation == generation
+            && &self.current_authority.service_id == service_id
+            && self.current_authority.admits(authority_ref)
+            && &self.commit == commit
+            && commit.governance_generation < generation
+    }
+}
+
 impl VerifiedRealmAuthority {
+    /// Carry the verified historical signature and frozen head checks into
+    /// the receiver's locked replica transaction without admitting a new Event.
+    pub fn verify_historical_commit(
+        &self,
+        commit: &RealmCommit,
+        keys: &dyn RealmAuthorityKeyDirectory,
+    ) -> ChainResult<VerifiedHistoricalRealmCommit> {
+        self.verify_commit(commit, keys)?;
+        if commit.governance_generation >= self.current_generation {
+            return Err(E::GenerationMismatch("Commit is not historical".into()));
+        }
+        Ok(VerifiedHistoricalRealmCommit {
+            realm_id: self.realm_id.clone(),
+            current_generation: self.current_generation,
+            current_authority: self
+                .generations
+                .get(&self.current_generation)
+                .ok_or_else(|| E::GenerationMismatch("current generation is absent".into()))?
+                .clone(),
+            commit: commit.clone(),
+        })
+    }
     #[must_use]
     pub fn realm_id(&self) -> &RealmId {
         &self.realm_id
