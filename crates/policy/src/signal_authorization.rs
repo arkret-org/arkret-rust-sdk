@@ -647,7 +647,7 @@ mod tests {
             .current_controller_grants
             .clear();
         assert!(!gate(&evidence));
-        evidence = valid;
+        evidence = valid.clone();
         evidence.agent.as_mut().unwrap().key_scope.actions =
             vec![CapabilityActionId::MESSAGE_CREATE.into()];
         assert!(!gate(&evidence));
@@ -655,7 +655,7 @@ mod tests {
             "id":"ak:policy:0198ff00-0000-7000-8000-000000000001", "schema":"ak.schema.policy.v1", "realm_id":REALM,
             "policy_kind":"agent", "rules":[{"rule_id":"deny_execute","kind":"agent","effect":"deny","priority":0,"agent_target":{"kind":"all"},"agent_operations":["execute"]}], "default_effect":"allow", "created_by":actor("ak:did_core:web:station-a.example"), "created_at":"2026-10-01T00:00:00.000Z"
         })).unwrap();
-        evidence = valid.clone();
+        evidence = valid;
         evidence
             .agent
             .as_mut()
