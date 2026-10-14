@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a
-//! Entries: operation_bundles=41 features=12
+//! Input: registry/contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1
+//! Entries: operation_bundles=42 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -533,6 +533,20 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::OpenDevicePairingReadStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.http_audit_operations.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerStrandWatchCommandAuditReadV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfStrandWatchCommandAuditReadV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
@@ -1497,6 +1511,8 @@ impl OperationBundleDescriptor {
     pub const STATION_DESCRIBE_V1: &'static str = "ak.operation_bundle.station.describe.v1";
     pub const STATION_DEVICE_PAIRING_HANDOFF_V1: &'static str =
         "ak.operation_bundle.station.device_pairing_handoff.v1";
+    pub const STATION_HTTP_AUDIT_OPERATIONS_V1: &'static str =
+        "ak.operation_bundle.station.http_audit_operations.v1";
     pub const STATION_HTTP_CORE_CURRENT_V1: &'static str =
         "ak.operation_bundle.station.http_core_current.v1";
     pub const STATION_HTTP_PEER_WATCH_CURRENT_V1: &'static str =

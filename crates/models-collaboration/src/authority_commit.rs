@@ -5,6 +5,7 @@
 //! `arkret-wire`; this module adds the registered aggregate and replication
 //! branches without inventing a generic federation envelope.
 
+mod audit_atomic;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -18,6 +19,7 @@ use arkret_wire::{
     MlsWelcomeDelivery, RealmAuthorityBundle, RealmAuthorityHandoff, RealmCommit, RealmCommitId,
     RealmId, RealmStateSnapshot, Result, UuidV7, WireError, detached_signature_service_id,
 };
+pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -719,6 +721,7 @@ pub enum SelfAuthoritySubmitRequest {
     OrdinaryRealmBootstrap(OrdinaryRealmBootstrapUnitSubmission),
     DirectConversationFounding(DirectConversationFoundingUnitSubmission),
     MembershipCompensation(MembershipCompensationUnitSubmission),
+    AuditPairedEvent(AuditPairedEventUnitSubmission),
 }
 
 impl SelfAuthoritySubmitRequest {
@@ -729,6 +732,7 @@ impl SelfAuthoritySubmitRequest {
             Self::OrdinaryRealmBootstrap(value) => value.validate(),
             Self::DirectConversationFounding(value) => value.validate(),
             Self::MembershipCompensation(value) => value.validate(),
+            Self::AuditPairedEvent(value) => value.validate(),
         }
     }
 }
@@ -742,6 +746,7 @@ impl SelfAuthoritySubmitRequest {
 pub enum PeerRegisteredAtomicUnit {
     DirectConversationFounding(DirectConversationFoundingFederationSubmission),
     MembershipCompensation(MembershipCompensationFederationSubmission),
+    AuditPairedEvent(AuditPairedEventFederationSubmission),
 }
 
 impl PeerRegisteredAtomicUnit {
@@ -749,6 +754,7 @@ impl PeerRegisteredAtomicUnit {
         match self {
             Self::DirectConversationFounding(value) => value.validate(),
             Self::MembershipCompensation(value) => value.validate(),
+            Self::AuditPairedEvent(value) => value.validate(),
         }
     }
 }
@@ -1018,6 +1024,7 @@ pub struct PeerRegisteredAtomicUnitRequest {
 pub enum PeerAuthoritySubmitRequest {
     AuthorityForwardEvent(PeerAuthorityForwardEventRequest),
     AuthorityForwardMls(PeerAuthorityForwardMlsRequest),
+    AuthorityForwardAtomic(PeerAuthorityForwardAtomicRequest),
     CommittedReplication(PeerCommittedReplicationRequest),
     RegisteredAtomicUnit(PeerRegisteredAtomicUnitRequest),
 }
@@ -1027,6 +1034,7 @@ impl PeerAuthoritySubmitRequest {
         match self {
             Self::AuthorityForwardEvent(value) => value.validate(),
             Self::AuthorityForwardMls(value) => value.validate(),
+            Self::AuthorityForwardAtomic(value) => value.validate(),
             Self::CommittedReplication(value) => {
                 if value.replications.is_empty() || value.replications.len() > 100 {
                     return Err(WireError::Protocol(
@@ -1035,6 +1043,13 @@ impl PeerAuthoritySubmitRequest {
                 }
                 for replication in &value.replications {
                     replication.validate()?;
+                    if is_audit_paired_event_slot(&replication.event_submission.event)? {
+                        return Err(WireError::ProtocolCode {
+                            code: ErrorCode::FailedPrecondition,
+                            message: "audit pair slots require whole registered atomic replication"
+                                .to_owned(),
+                        });
+                    }
                 }
                 Ok(())
             }
@@ -1162,6 +1177,7 @@ pub enum SelfAuthoritySubmitOutcome {
     OrdinaryRealmBootstrap(OrdinaryRealmBootstrapAcceptanceOutcome),
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
+    AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
 }
 
 impl SelfAuthoritySubmitOutcome {
@@ -1171,6 +1187,7 @@ impl SelfAuthoritySubmitOutcome {
             Self::OrdinaryRealmBootstrap(value) => value.validate(),
             Self::DirectConversationFounding(value) => value.validate(),
             Self::MembershipCompensation(value) => value.validate(),
+            Self::AuditPairedEvent(value) => value.validate(),
         }
     }
 
@@ -1191,8 +1208,18 @@ impl SelfAuthoritySubmitOutcome {
             ) | (
                 SelfAuthoritySubmitRequest::MembershipCompensation(_),
                 Self::MembershipCompensation(_)
+            ) | (
+                SelfAuthoritySubmitRequest::AuditPairedEvent(_),
+                Self::AuditPairedEvent(_)
             )
         );
+        if let (
+            SelfAuthoritySubmitRequest::AuditPairedEvent(request),
+            Self::AuditPairedEvent(outcome),
+        ) = (request, self)
+        {
+            outcome.validate_for_request(request)?;
+        }
         if branch_matches {
             if let (
                 SelfAuthoritySubmitRequest::DirectConversationFounding(request),
@@ -1249,7 +1276,7 @@ pub enum PeerCommittedReplicationOutcomeRecord {
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardOutcome {
     pub branch: AuthorityForwardBranch,
-    pub outcome: arkret_wire::AuthoritySubmitOutcome,
+    pub outcome: PeerAuthorityForwardOutcomeValue,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1274,6 +1301,7 @@ pub struct RegisteredAtomicUnitRejection {
 pub enum RegisteredAtomicUnitKind {
     DirectConversationFounding,
     MembershipCompensation,
+    AuditPairedEvent,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1291,6 +1319,7 @@ pub enum RegisteredAtomicUnitRejectionStatus {
 pub enum PeerRegisteredAtomicUnitOutcomeValue {
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
+    AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
     Rejected(RegisteredAtomicUnitRejection),
 }
 
@@ -1339,6 +1368,7 @@ impl PeerAuthoritySubmitOutcome {
                 PeerRegisteredAtomicUnitOutcomeValue::MembershipCompensation(value) => {
                     value.validate()
                 }
+                PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(value) => value.validate(),
                 PeerRegisteredAtomicUnitOutcomeValue::Rejected(value) => {
                     validate_reason_code(&value.reason_code)?;
                     if let Some(details) = &value.details {
@@ -1357,8 +1387,18 @@ impl PeerAuthoritySubmitOutcome {
             (
                 PeerAuthoritySubmitRequest::AuthorityForwardEvent(_)
                 | PeerAuthoritySubmitRequest::AuthorityForwardMls(_),
-                Self::AuthorityForward(_),
+                Self::AuthorityForward(PeerAuthorityForwardOutcome {
+                    outcome: PeerAuthorityForwardOutcomeValue::Ordinary(_),
+                    ..
+                }),
             ) => Ok(()),
+            (
+                PeerAuthoritySubmitRequest::AuthorityForwardAtomic(request),
+                Self::AuthorityForward(PeerAuthorityForwardOutcome {
+                    outcome: PeerAuthorityForwardOutcomeValue::AuditPairedEvent(outcome),
+                    ..
+                }),
+            ) => outcome.validate_for_request(&request.atomic_submission),
             (
                 PeerAuthoritySubmitRequest::CommittedReplication(request),
                 Self::CommittedReplication(outcome),
@@ -1383,6 +1423,9 @@ impl PeerAuthoritySubmitOutcome {
                     PeerRegisteredAtomicUnit::MembershipCompensation(_) => {
                         RegisteredAtomicUnitKind::MembershipCompensation
                     }
+                    PeerRegisteredAtomicUnit::AuditPairedEvent(_) => {
+                        RegisteredAtomicUnitKind::AuditPairedEvent
+                    }
                 };
                 let outcome_kind = match &outcome.outcome {
                     PeerRegisteredAtomicUnitOutcomeValue::DirectConversationFounding(_) => {
@@ -1391,8 +1434,28 @@ impl PeerAuthoritySubmitOutcome {
                     PeerRegisteredAtomicUnitOutcomeValue::MembershipCompensation(_) => {
                         RegisteredAtomicUnitKind::MembershipCompensation
                     }
+                    PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(_) => {
+                        RegisteredAtomicUnitKind::AuditPairedEvent
+                    }
                     PeerRegisteredAtomicUnitOutcomeValue::Rejected(value) => value.unit_kind,
                 };
+                if let (
+                    PeerRegisteredAtomicUnit::AuditPairedEvent(request),
+                    PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(outcome),
+                ) = (&request.unit, &outcome.outcome)
+                {
+                    if outcome
+                        .commits
+                        .iter()
+                        .zip(&request.committed_events)
+                        .any(|(commit, slot)| commit != &slot.source_commit)
+                    {
+                        return Err(WireError::Protocol(
+                            "replicated audit outcome differs from the exact source Commits"
+                                .to_owned(),
+                        ));
+                    }
+                }
                 if request_kind == outcome_kind {
                     Ok(())
                 } else {
@@ -1671,6 +1734,10 @@ pub fn authority_forward_body_digest<T: Serialize>(body: &T) -> Result<Hash> {
         .as_object_mut()
         .ok_or_else(|| WireError::Protocol("authority forward body must be an object".into()))?
         .remove("producer_device_evidence");
+    unsigned
+        .as_object_mut()
+        .expect("validated object")
+        .remove("atomic_producer_evidence");
     Ok(Hash::new(arkret_canonical::canonical_sha256(&unsigned)?)?)
 }
 

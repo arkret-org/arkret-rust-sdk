@@ -824,3 +824,191 @@ fn genesis_material_members_bound_the_pair_to_the_group_state_material_response(
         );
     }
 }
+
+fn audit_fixture() -> Value {
+    serde_json::from_str(
+        &fs::read_to_string(
+            artifacts_dir().join("fixtures/registered-atomic-unit-and-watch-audit-fixture.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn registered_audit_carriers_roundtrip_the_actual_spec_schema() {
+    use arkret_models_collaboration::authority_commit::{
+        AuditPairedEventUnitSubmission, PeerAuthorityForwardAtomicRequest,
+    };
+    use arkret_models_collaboration::strand_watch_operations::{
+        WatchAuditReadOutcome, WatchAuditReadRequest,
+    };
+    for case in audit_fixture()["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+    {
+        if case["expect_valid"] != true {
+            continue;
+        }
+        let value = case["instance"].clone();
+        let reference = case["schema_ref"].as_str().unwrap();
+        let (file, fragment) = reference
+            .strip_prefix("schemas/")
+            .unwrap()
+            .split_once('#')
+            .unwrap();
+        let fragment = format!("#{fragment}");
+        match reference {
+            refid if refid.ends_with("/audit_paired_event_unit_submission") => {
+                assert_schema_and_serde::<AuditPairedEventUnitSubmission>(file, &fragment, value)
+            }
+            refid if refid.ends_with("/peer_submit_request") => {
+                assert_schema_and_serde::<PeerAuthorityForwardAtomicRequest>(file, &fragment, value)
+            }
+            refid if refid.ends_with("/watch_audit_read_request") => {
+                assert_schema_and_serde::<WatchAuditReadRequest>(file, &fragment, value)
+            }
+            refid if refid.ends_with("/watch_audit_read_outcome") => {
+                assert_schema_and_serde::<WatchAuditReadOutcome>(file, &fragment, value)
+            }
+            _ => panic!("unhandled positive audit schema vector {reference}"),
+        }
+    }
+}
+
+#[test]
+fn audit_pair_validates_direction_target_and_producer_for_real_event_digests() {
+    use arkret_models_collaboration::authority_commit::{
+        AuditPairedEventUnitSubmission, is_audit_paired_event_slot,
+    };
+    for name in ["closed_watch_pair", "closed_circle_pair"] {
+        let fixture = audit_fixture();
+        let case = fixture["schema_validation_cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == name)
+            .unwrap();
+        let pair: AuditPairedEventUnitSubmission =
+            serde_json::from_value(case["instance"].clone()).unwrap();
+        pair.validate().unwrap();
+        assert!(is_audit_paired_event_slot(&pair.events[0].event).unwrap());
+        assert!(is_audit_paired_event_slot(&pair.events[1].event).unwrap());
+        let mut reversed = pair.clone();
+        reversed.events.swap(0, 1);
+        assert!(reversed.validate().is_err());
+        let mut mutated = pair.clone();
+        mutated.events[1].event.semantic_refs.clear();
+        assert!(mutated.validate().is_err());
+        let mut wrong_writer = pair.clone();
+        wrong_writer.events[1].event.actor_id = pair.events[0].event.actual_signer().clone();
+        wrong_writer.events[1].event.payload.insert(
+            "target_ref".to_owned(),
+            json!(pair.events[0].event.realm_id),
+        );
+        assert!(wrong_writer.validate().is_err());
+    }
+}
+
+#[test]
+fn audited_read_derives_selector_only_from_the_signed_intent() {
+    use arkret_models_collaboration::strand_watch_operations::{
+        PeerWatchAuditReadRequest, WatchAuditReadRequest,
+    };
+    let fixture = audit_fixture();
+    let case = fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "closed_audited_read")
+        .unwrap();
+    let request: WatchAuditReadRequest = serde_json::from_value(case["instance"].clone()).unwrap();
+    request.validate().unwrap();
+    let selector = request.selector().unwrap();
+    assert_eq!(selector.realm_id, request.audit_submission.event.realm_id);
+    assert_ne!(
+        selector.watcher_actor_id,
+        request.audit_submission.event.actor_id
+    );
+    let peer = PeerWatchAuditReadRequest {
+        audit_submission: request.audit_submission.clone(),
+        producer_device_evidence: None,
+        producer_agent_evidence: None,
+    };
+    assert!(peer.validate_carrier_shape().is_err());
+    let mut unsigned = case["instance"].clone();
+    unsigned["watcher_actor_id"] = json!(request.audit_submission.event.actor_id);
+    assert!(serde_json::from_value::<WatchAuditReadRequest>(unsigned).is_err());
+}
+
+#[test]
+fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
+    use arkret_models_collaboration::authority_commit::{
+        PeerAuthorityForwardAtomicRequest, authority_forward_body_digest,
+    };
+    let fixture = audit_fixture();
+    let case = fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| {
+            case["schema_ref"]
+                .as_str()
+                .is_some_and(|reference| reference.ends_with("/peer_submit_request"))
+                && case["expect_valid"] == true
+        })
+        .unwrap();
+    let mut request: PeerAuthorityForwardAtomicRequest =
+        serde_json::from_value(case["instance"].clone()).unwrap();
+    let digest = authority_forward_body_digest(&request).unwrap();
+    for (slot, evidence) in request
+        .atomic_submission
+        .events
+        .iter()
+        .zip(&mut request.atomic_producer_evidence)
+    {
+        let mut source = producer_device_evidence();
+        let producer = slot.event.human_device_producer().unwrap().unwrap();
+        let core = &mut source.device_projection_attestation.attestation;
+        core.account_id = producer.account_id;
+        core.device_id = producer.device_id;
+        core.event_authorization.event_id = slot.event.event_id.clone();
+        core.event_authorization.verification_method = slot
+            .event
+            .producer_proof
+            .as_ref()
+            .unwrap()
+            .verification_method
+            .clone();
+        core.event_authorization.forward_body_digest = digest.clone();
+        *evidence =
+            arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {
+                producer_device_evidence: source,
+            };
+    }
+    request.validate().unwrap();
+    let mut wrong_event = request.clone();
+    if let arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {
+        producer_device_evidence,
+    } = &mut wrong_event.atomic_producer_evidence[1]
+    {
+        producer_device_evidence
+            .device_projection_attestation
+            .attestation
+            .event_authorization
+            .event_id = request.atomic_submission.events[0].event.event_id.clone();
+    }
+    assert!(wrong_event.validate().is_err());
+    let mut mixed_cut = request;
+    if let arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {
+        producer_device_evidence,
+    } = &mut mixed_cut.atomic_producer_evidence[1]
+    {
+        producer_device_evidence
+            .device_projection_attestation
+            .attestation
+            .event_authorization
+            .governance_generation += 1;
+    }
+    assert!(mixed_cut.validate().is_err());
+}

@@ -46,3 +46,21 @@ impl Client {
         Ok(outcome)
     }
 }
+
+impl Client {
+    /// First-admission audited read to a freshly verified current governor.
+    pub async fn peer_strand_watch_audit_read(
+        &self,
+        request: &arkret_models_collaboration::strand_watch_operations::PeerWatchAuditReadRequest,
+        expected_governance_generation: u64,
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
+        use arkret_models_collaboration::strand_watch_operations::{
+            PEER_STRAND_WATCH_AUDIT_PATH, WatchAuditReadOutcome,
+        };
+        request.validate()?;
+        let outcome: WatchAuditReadOutcome =
+            self.post(PEER_STRAND_WATCH_AUDIT_PATH, request).await?;
+        outcome.validate_for_request(&request.logical_request(), expected_governance_generation)?;
+        Ok(outcome)
+    }
+}

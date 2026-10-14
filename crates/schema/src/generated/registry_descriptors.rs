@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=150, approval_carriers=3, schemas=228, account_data_patterns=24
+//! special_forms=15, actions=150, approval_carriers=3, schemas=229, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -992,7 +992,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &["allowed_circle_ids"],
-        required_evaluator_checks: &[],
+        required_evaluator_checks: &["audit_pair_required"],
         target_event_kinds: &[event_kind_str::CIRCLE_MEMBER_STATE],
         grant_authority_actions: &[],
         profile: None,
@@ -3857,6 +3857,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::VIEW_V1,
         file: "schemas/view.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::WATCH_AUDIT_OPERATIONS_V1,
+        file: "schemas/watch-audit-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::WEBSOCKET_AUTHENTICATE_FRAME_V1,

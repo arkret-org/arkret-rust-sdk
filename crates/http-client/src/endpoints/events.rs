@@ -775,3 +775,21 @@ mod tests {
         assert!(stream.resume_cursor().is_none());
     }
 }
+
+impl Client {
+    /// Commit an authorized audit and obtain its frozen exact Watch observation.
+    pub async fn strand_watch_audit_read(
+        &self,
+        request: &arkret_models_collaboration::strand_watch_operations::WatchAuditReadRequest,
+        expected_governance_generation: u64,
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
+        use arkret_models_collaboration::strand_watch_operations::{
+            SELF_STRAND_WATCH_AUDIT_PATH, WatchAuditReadOutcome,
+        };
+        request.validate()?;
+        let outcome: WatchAuditReadOutcome =
+            self.post(SELF_STRAND_WATCH_AUDIT_PATH, request).await?;
+        outcome.validate_for_request(request, expected_governance_generation)?;
+        Ok(outcome)
+    }
+}

@@ -186,3 +186,183 @@ impl StrandWatchCurrentOutcome {
         Ok(())
     }
 }
+
+/// Audited reads commit one audit Event and freeze a private observation.
+pub const STRAND_WATCH_AUDIT_MAX_BYTES: usize = 1024 * 1024;
+pub const SELF_STRAND_WATCH_AUDIT_PATH: &str = "/_arkret/self/strands/watch/audit-read";
+pub const PEER_STRAND_WATCH_AUDIT_PATH: &str = "/_arkret/peer/strands/watch/audit-read";
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatchAuditReadRequest {
+    pub audit_submission: arkret_wire::EventAdmissionSubmission,
+}
+
+impl WatchAuditReadRequest {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        use crate::events_payloads::audit::{AuditAccessedKind, AuditAccessedPayload};
+        let event = &self.audit_submission.event;
+        self.audit_submission.validate()?;
+        event.verify_event_id_matches_content_with_digest_suite(
+            arkret_canonical::DigestSuite::Sha256,
+        )?;
+        event.verify_producer_proof_self_consistency(arkret_canonical::DigestSuite::Sha256)?;
+        let payload: AuditAccessedPayload =
+            serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+        if event.kind != arkret_wire::EventKind::AuditAccessed
+            || payload.access_kind != AuditAccessedKind::WatchAuditRead
+            || payload.writer_actor_id != event.actor_id
+            || event.actor_id.as_account_id().is_none()
+            || event.actual_signer().as_account_id().is_none()
+            || payload.target_actor_id.is_none()
+            || payload.paired_event_id.is_some()
+            || payload.late_recovery_original_event_id.is_some()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "audited read requires one exact Account-produced Watch audit intent".to_owned(),
+            ));
+        }
+        if !matches!(
+            event.scope_ref,
+            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+        ) {
+            return Err(arkret_wire::WireError::Protocol(
+                "audited read requires a Realm or Circle stream".to_owned(),
+            ));
+        }
+        self.selector()?;
+        validate_audit_budget(self)
+    }
+
+    pub fn selector(&self) -> arkret_wire::Result<StrandWatchCurrentRequestBody> {
+        let payload: crate::events_payloads::audit::AuditAccessedPayload =
+            serde_json::from_value(serde_json::to_value(&self.audit_submission.event.payload)?)?;
+        Ok(StrandWatchCurrentRequestBody {
+            realm_id: self.audit_submission.event.realm_id.clone(),
+            strand_id: payload.target_ref.to_string().parse()?,
+            watcher_actor_id: payload.target_actor_id.ok_or_else(|| {
+                arkret_wire::WireError::Protocol("audited read lacks its exact target".to_owned())
+            })?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerWatchAuditReadRequest {
+    pub audit_submission: arkret_wire::EventAdmissionSubmission,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub producer_device_evidence:
+        Option<arkret_models_identity::ForwardAccountDeviceSignerEvidence>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub producer_agent_evidence: Option<arkret_models_identity::AgentProducerEvidence>,
+}
+
+impl PeerWatchAuditReadRequest {
+    pub fn validate_carrier_shape(&self) -> arkret_wire::Result<()> {
+        if self.producer_device_evidence.is_some() == self.producer_agent_evidence.is_some() {
+            return Err(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::SchemaViolation,
+                message: "peer audit requires exactly one producer evidence member".to_owned(),
+            });
+        }
+        validate_audit_budget(self)
+    }
+    pub fn logical_request(&self) -> WatchAuditReadRequest {
+        WatchAuditReadRequest {
+            audit_submission: self.audit_submission.clone(),
+        }
+    }
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.logical_request().validate()?;
+        if self.producer_device_evidence.is_some() == self.producer_agent_evidence.is_some() {
+            return Err(arkret_wire::WireError::Protocol(
+                "peer audited read requires exactly one actual-producer closure".to_owned(),
+            ));
+        }
+        crate::authority_commit::validate_producer_device_evidence_presence(
+            &self.audit_submission.event,
+            self.producer_device_evidence.as_ref(),
+        )?;
+        crate::authority_commit::validate_producer_agent_evidence_presence(
+            &self.audit_submission.event,
+            self.producer_agent_evidence.as_ref(),
+        )?;
+        if let Some(device) = &self.producer_device_evidence {
+            let source = &device
+                .device_projection_attestation
+                .attestation
+                .event_authorization;
+            if source.event_id != self.audit_submission.event.event_id
+                || source.forward_body_digest
+                    != crate::authority_commit::authority_forward_body_digest(self)?
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "audited read producer authorization must bind its exact audit and body"
+                        .to_owned(),
+                ));
+            }
+        }
+        validate_audit_budget(self)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatchAuditReadOutcome {
+    pub audit_commit: arkret_wire::RealmCommit,
+    pub current: StrandWatchCurrentOutcome,
+}
+
+impl WatchAuditReadOutcome {
+    pub fn validate_for_request(
+        &self,
+        request: &WatchAuditReadRequest,
+        generation: u64,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        validate_audit_budget(self)?;
+        self.audit_commit.validate_shape()?;
+        let event = &request.audit_submission.event;
+        arkret_wire::CommittedEventFullView {
+            event: event.clone(),
+            commit: self.audit_commit.clone(),
+        }
+        .validate_shape()?;
+        self.current
+            .validate_for_generation(&request.selector()?, generation)
+            .map_err(|detail| arkret_wire::WireError::Protocol(detail.to_owned()))?;
+        let head = match &self.current {
+            StrandWatchCurrentOutcome::NeverWritten { stream_head, .. }
+            | StrandWatchCurrentOutcome::Current { stream_head, .. } => stream_head,
+        };
+        if self.audit_commit.governance_generation != generation
+            || head.commit_id != self.audit_commit.commit_id
+            || head.stream_position != self.audit_commit.stream_position
+            || head.stream_ref != self.audit_commit.stream_ref
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "audited read observation must bind the exact audit Commit cut".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_audit_budget(value: &impl Serialize) -> arkret_wire::Result<()> {
+    if arkret_canonical::canonical_json_bytes(value)?.len() > STRAND_WATCH_AUDIT_MAX_BYTES {
+        return Err(arkret_wire::WireError::ProtocolCode {
+            code: arkret_wire::ErrorCode::PayloadTooLarge,
+            message: "Watch audited read exceeds its canonical body budget".to_owned(),
+        });
+    }
+    Ok(())
+}

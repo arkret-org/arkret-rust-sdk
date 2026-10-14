@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a
+//! Input: registry/contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1
 //! Entries: http_signature_scenarios=8, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -129,6 +129,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.peer.keys.read.lookup.v1",
             "ak.peer.mls.command.attest_add.v1",
             "ak.peer.mls.read.roster_authority.v1",
+            "ak.peer.strand.watch.command.audit_read.v1",
             "ak.peer.strand.watch.read.current.v1",
             "ak.self.applet.authority.read.material.v1",
             "ak.self.applet.bot.command.preview.v1",

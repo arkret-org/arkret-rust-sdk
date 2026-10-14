@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-26;
 //! sha256=e7e3d1e742ea74acadf57fab9554b6a39d6a0a082de7f847c6098f3610a341f6 Input: registry/
-//! contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a
+//! contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -229,6 +229,13 @@ const DIRECT_CONVERSATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = &[
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
+        condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
+        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
+    },
+    RealmBootstrapSlotDescriptor {
+        event_kind: event_kind_str::MEMBER_STATE,
+        presence: RealmBootstrapPresence::Required,
+        id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsPeerParticipantAndMembershipIsJoin),
         expected_revision: None,
     },
@@ -238,13 +245,6 @@ const DIRECT_CONVERSATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = &[
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: Some(RealmBootstrapCondition::MainStrandAndScopeCircleIdIsNull),
         expected_revision: None,
-    },
-    RealmBootstrapSlotDescriptor {
-        event_kind: event_kind_str::MEMBER_STATE,
-        presence: RealmBootstrapPresence::Required,
-        id_source: None,
-        condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
-        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
     },
 ];
 
@@ -370,6 +370,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfCurrentPrincipalReadResolveV1,
             ServiceOperationId::SelfCurrentResultsReadExactV1,
             ServiceOperationId::SelfRealmReadStreamsV1,
+            ServiceOperationId::SelfStrandWatchCommandAuditReadV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -393,6 +394,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerKeysReadLookupV1,
             ServiceOperationId::PeerSignalCommandRelayV1,
             ServiceOperationId::PeerStrandWatchReadCurrentV1,
+            ServiceOperationId::PeerStrandWatchCommandAuditReadV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -779,7 +781,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-14";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-14.8";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-14.8";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-14.8";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-14.10";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-14.10";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-14.10";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

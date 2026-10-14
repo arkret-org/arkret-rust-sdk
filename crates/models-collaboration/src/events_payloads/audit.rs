@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum AuditAccessedKind {
     WatchSetOthers,
+    CircleMemberSetOthers,
     WatchAuditRead,
     #[serde(rename = "e2ee_late_recovery")]
     E2EELateRecovery,

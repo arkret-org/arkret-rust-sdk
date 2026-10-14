@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a Entries: schema_ids=228,
-//! active=228
+//! Input: registry/contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1 Entries: schema_ids=229,
+//! active=229
 
 use serde::{Deserialize, Serialize};
 
@@ -221,6 +221,7 @@ pub enum SchemaId {
     TimeV1,
     TransportBindingV1,
     ViewV1,
+    WatchAuditOperationsV1,
     WebsocketAuthenticateFrameV1,
     WebsocketChallengeFrameV1,
     WebsocketClientFrameV1,
@@ -453,6 +454,7 @@ impl SchemaId {
         Self::TimeV1,
         Self::TransportBindingV1,
         Self::ViewV1,
+        Self::WatchAuditOperationsV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
         Self::WebsocketClientFrameV1,
@@ -685,6 +687,7 @@ impl SchemaId {
         Self::TimeV1,
         Self::TransportBindingV1,
         Self::ViewV1,
+        Self::WatchAuditOperationsV1,
         Self::WebsocketAuthenticateFrameV1,
         Self::WebsocketChallengeFrameV1,
         Self::WebsocketClientFrameV1,
@@ -1334,6 +1337,8 @@ impl SchemaId {
     /// transports.
     pub const TRANSPORT_BINDING_V1: &'static str = "ak.schema.transport_binding.v1";
     pub const VIEW_V1: &'static str = "ak.schema.view.v1";
+    /// Side-effecting own-Station audited Watch read broker, frozen result and source audit Commit.
+    pub const WATCH_AUDIT_OPERATIONS_V1: &'static str = "ak.schema.watch_audit_operations.v1";
     /// Client authentication and reauthentication response frame.
     pub const WEBSOCKET_AUTHENTICATE_FRAME_V1: &'static str =
         "ak.schema.websocket_authenticate_frame.v1";
@@ -1610,6 +1615,7 @@ impl SchemaId {
             Self::TimeV1 => Self::TIME_V1,
             Self::TransportBindingV1 => Self::TRANSPORT_BINDING_V1,
             Self::ViewV1 => Self::VIEW_V1,
+            Self::WatchAuditOperationsV1 => Self::WATCH_AUDIT_OPERATIONS_V1,
             Self::WebsocketAuthenticateFrameV1 => Self::WEBSOCKET_AUTHENTICATE_FRAME_V1,
             Self::WebsocketChallengeFrameV1 => Self::WEBSOCKET_CHALLENGE_FRAME_V1,
             Self::WebsocketClientFrameV1 => Self::WEBSOCKET_CLIENT_FRAME_V1,
@@ -1895,6 +1901,7 @@ impl SchemaId {
             Self::TimeV1 => "schemas/time.schema.json",
             Self::TransportBindingV1 => "schemas/transport-binding.schema.json",
             Self::ViewV1 => "schemas/view.schema.json",
+            Self::WatchAuditOperationsV1 => "schemas/watch-audit-operations.schema.json",
             Self::WebsocketAuthenticateFrameV1 => "schemas/websocket-frame.schema.json",
             Self::WebsocketChallengeFrameV1 => "schemas/websocket-frame.schema.json",
             Self::WebsocketClientFrameV1 => "schemas/websocket-frame.schema.json",
@@ -2162,6 +2169,7 @@ impl SchemaId {
             Self::TIME_V1 => Some(Self::TimeV1),
             Self::TRANSPORT_BINDING_V1 => Some(Self::TransportBindingV1),
             Self::VIEW_V1 => Some(Self::ViewV1),
+            Self::WATCH_AUDIT_OPERATIONS_V1 => Some(Self::WatchAuditOperationsV1),
             Self::WEBSOCKET_AUTHENTICATE_FRAME_V1 => Some(Self::WebsocketAuthenticateFrameV1),
             Self::WEBSOCKET_CHALLENGE_FRAME_V1 => Some(Self::WebsocketChallengeFrameV1),
             Self::WEBSOCKET_CLIENT_FRAME_V1 => Some(Self::WebsocketClientFrameV1),
