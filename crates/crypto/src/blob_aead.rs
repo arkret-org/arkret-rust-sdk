@@ -36,9 +36,7 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
-use arkret_canonical::canonical::{
-    ContentHasher, DigestSuite, canonical_json_bytes, digest_hex, digest_suite,
-};
+use arkret_canonical::canonical::{ContentHasher, DigestSuite, canonical_json_bytes, digest_suite};
 use arkret_models_crypto::{
     AttachmentContentKeySalt, EncryptedAttachment, EncryptedAttachmentGroupStateRef,
     EncryptedAttachmentKeyRef,
@@ -151,6 +149,111 @@ pub struct StreamEncryptParams {
     pub media_type: String,
     /// Segment size in bytes; bounded by [`MIN_SEGMENT_SIZE`] / [`MAX_SEGMENT_SIZE`].
     pub segment_bytes: u32,
+}
+
+/// Freeze this per-object prefix before starting incremental encryption.
+pub fn fresh_stream_nonce_prefix() -> Result<[u8; NONCE_PREFIX_LEN]> {
+    let mut prefix = [0; NONCE_PREFIX_LEN];
+    getrandom::fill(&mut prefix).map_err(|e| Error::Crypto(e.to_string()))?;
+    Ok(prefix)
+}
+
+/// Incremental producer with no plaintext or ciphertext accumulation.
+pub struct StreamEncryptor {
+    cipher: XChaCha20Poly1305,
+    params: StreamEncryptParams,
+    prefix: [u8; NONCE_PREFIX_LEN],
+    prefix_b64: String,
+    epoch: u64,
+    size: u64,
+    count: u32,
+    next: u32,
+    failed: bool,
+    hasher: ContentHasher,
+}
+
+impl StreamEncryptor {
+    pub fn new(
+        size: u64,
+        key: &[u8; 32],
+        params: &StreamEncryptParams,
+        frozen_prefix: [u8; NONCE_PREFIX_LEN],
+        resolver: &impl AttachmentGroupStateEpochResolver,
+    ) -> Result<Self> {
+        Ok(Self {
+            cipher: cipher_from_key(key)?,
+            params: params.clone(),
+            prefix: frozen_prefix,
+            prefix_b64: base64url_encode(frozen_prefix),
+            epoch: attachment_epoch(&params.key_ref, resolver)?,
+            size,
+            count: stream_segment_count(size, params.segment_bytes)?,
+            next: 0,
+            failed: false,
+            hasher: ContentHasher::new(params.digest_suite),
+        })
+    }
+
+    pub fn push_segment(&mut self, plaintext: &[u8]) -> Result<Vec<u8>> {
+        let expected = self
+            .size
+            .saturating_sub(u64::from(self.next) * u64::from(self.params.segment_bytes))
+            .min(u64::from(self.params.segment_bytes));
+        if self.failed || self.next >= self.count || plaintext.len() as u64 != expected {
+            self.failed = true;
+            return Err(protocol(
+                "schema_violation",
+                "plaintext segment differs from frozen stream geometry",
+            ));
+        }
+        let last = self.next == self.count - 1;
+        let nonce = segment_nonce(&self.prefix, self.next, last);
+        let context = StreamSegmentAadContext {
+            key_ref: &self.params.key_ref,
+            content_key_salt: &self.params.content_key_salt,
+            epoch: self.epoch,
+            nonce_prefix_b64: &self.prefix_b64,
+            segment_count: self.count,
+            media_type: &self.params.media_type,
+            size_bytes: self.size,
+        };
+        let aad = stream_segment_aad(&context, self.next, last)?;
+        let ciphertext = self
+            .cipher
+            .encrypt(
+                &nonce.into(),
+                Payload {
+                    msg: plaintext,
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| Error::Crypto("segment AEAD encryption failed".into()))?;
+        self.hasher.update(&ciphertext);
+        self.next += 1;
+        Ok(ciphertext)
+    }
+
+    pub fn finish(self) -> Result<EncryptedAttachment> {
+        if self.failed || self.next != self.count {
+            return Err(protocol(
+                "schema_violation",
+                "plaintext stream is incomplete",
+            ));
+        }
+        typed_envelope(AttachmentEnvelopeFields {
+            blob_ref: format!("ak:blob:{}", self.hasher.finish()),
+            encrypted: true,
+            scheme: SCHEME_STREAM.into(),
+            encryption_algorithm: ALG_STREAM_XCHACHA.into(),
+            key_ref: self.params.key_ref,
+            content_key_salt: self.params.content_key_salt,
+            size_bytes: self.size,
+            media_type: self.params.media_type,
+            nonce: None,
+            nonce_prefix: Some(self.prefix_b64),
+            segment_bytes: Some(self.params.segment_bytes),
+        })
+    }
 }
 
 /// Resolves an attachment group-state reference to the epoch of the exact
@@ -268,78 +371,23 @@ pub fn encrypt_stream(
     params: &StreamEncryptParams,
     resolver: &impl AttachmentGroupStateEpochResolver,
 ) -> Result<(Vec<u8>, EncryptedAttachment)> {
-    // Enforce the §6 hard limits on the send path too: an envelope outside
-    // them is not interoperable and every conforming receiver MUST reject it.
-    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&params.segment_bytes) {
-        return Err(protocol(
-            "schema_violation",
-            &format!(
-                "segment_bytes={} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}] \
-                 (scalability-constraints.md §6)",
-                params.segment_bytes
-            ),
-        ));
-    }
-    let segment_count = stream_segment_count(plaintext.len() as u64, params.segment_bytes)?;
-    let epoch = attachment_epoch(&params.key_ref, resolver)?;
-    let cipher = cipher_from_key(content_key)?;
-
-    let mut nonce_prefix = [0u8; NONCE_PREFIX_LEN];
-    getrandom::fill(&mut nonce_prefix).map_err(|error| Error::Crypto(error.to_string()))?;
-    let nonce_prefix_b64 = base64url_encode(nonce_prefix);
-
-    let segment_bytes = params.segment_bytes as usize;
-    let size_bytes = plaintext.len() as u64;
-
+    let count = stream_segment_count(plaintext.len() as u64, params.segment_bytes)?;
+    let mut encoder = StreamEncryptor::new(
+        plaintext.len() as u64,
+        content_key,
+        params,
+        fresh_stream_nonce_prefix()?,
+        resolver,
+    )?;
     let mut ciphertext = Vec::new();
-    let aad_context = StreamSegmentAadContext {
-        key_ref: &params.key_ref,
-        content_key_salt: &params.content_key_salt,
-        epoch,
-        nonce_prefix_b64: &nonce_prefix_b64,
-        segment_count,
-        media_type: &params.media_type,
-        size_bytes,
-    };
-
-    for segment_index in 0..segment_count {
-        let start = segment_index as usize * segment_bytes;
-        let end = start.saturating_add(segment_bytes).min(plaintext.len());
-        let chunk = &plaintext[start..end];
-        let last = segment_index == segment_count - 1;
-        let nonce = segment_nonce(&nonce_prefix, segment_index, last);
-        let aad = stream_segment_aad(&aad_context, segment_index, last)?;
-        let segment_ct = cipher
-            .encrypt(
-                &nonce.into(),
-                Payload {
-                    msg: chunk,
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| Error::Crypto("segment AEAD encryption failed".to_owned()))?;
-        ciphertext.extend_from_slice(&segment_ct);
+    for index in 0..count {
+        let start = index as usize * params.segment_bytes as usize;
+        let end = start
+            .saturating_add(params.segment_bytes as usize)
+            .min(plaintext.len());
+        ciphertext.extend_from_slice(&encoder.push_segment(&plaintext[start..end])?);
     }
-
-    let envelope = AttachmentEnvelopeFields {
-        blob_ref: format!(
-            "ak:blob:{}:{}",
-            params.digest_suite.as_str(),
-            digest_hex(params.digest_suite, &ciphertext)
-        ),
-        encrypted: true,
-        scheme: SCHEME_STREAM.to_owned(),
-        encryption_algorithm: ALG_STREAM_XCHACHA.to_owned(),
-        key_ref: params.key_ref.clone(),
-        content_key_salt: params.content_key_salt.clone(),
-        size_bytes,
-        media_type: params.media_type.clone(),
-        nonce: None,
-        nonce_prefix: Some(nonce_prefix_b64),
-        segment_bytes: Some(params.segment_bytes),
-    };
-
-    Ok((ciphertext, typed_envelope(envelope)?))
+    Ok((ciphertext, encoder.finish()?))
 }
 
 // ─── streaming decrypt ──────────────────────────────────────────────────────
@@ -717,6 +765,52 @@ mod tests {
             media_type: "video/mp4".to_owned(),
             segment_bytes,
         }
+    }
+
+    #[test]
+    fn incremental_producer_reuses_a_frozen_prefix_and_commits_every_segment() {
+        for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
+            let mut params = params(MIN_SEGMENT_SIZE);
+            params.digest_suite = suite;
+            let size = 257 * u64::from(MIN_SEGMENT_SIZE) + 7;
+            let prefix = [23; 19];
+            let mut first =
+                StreamEncryptor::new(size, &key(), &params, prefix, &winning_epoch).unwrap();
+            let mut retry =
+                StreamEncryptor::new(size, &key(), &params, prefix, &winning_epoch).unwrap();
+            let mut hasher = ContentHasher::new(suite);
+            let mut parts = Vec::new();
+            for index in 0..258 {
+                let length = if index == 257 {
+                    7
+                } else {
+                    MIN_SEGMENT_SIZE as usize
+                };
+                let input = vec![(index % 251) as u8; length];
+                let ciphertext = first.push_segment(&input).unwrap();
+                assert_eq!(ciphertext, retry.push_segment(&input).unwrap());
+                assert!(ciphertext.len() <= MIN_SEGMENT_SIZE as usize + TAG_LEN);
+                hasher.update(&ciphertext);
+                parts.push(ciphertext);
+            }
+            let envelope = first.finish().unwrap();
+            assert_eq!(envelope, retry.finish().unwrap());
+            assert_eq!(
+                envelope.blob_ref().as_str(),
+                format!("ak:blob:{}", hasher.finish())
+            );
+            let mut decryptor = StreamDecryptor::new(&envelope, &key(), &winning_epoch).unwrap();
+            for (index, part) in parts.iter().enumerate() {
+                let plaintext = decryptor.push_segment(index as u32, part).unwrap();
+                assert!(plaintext.iter().all(|b| *b == (index % 251) as u8));
+            }
+            decryptor.finish().unwrap();
+        }
+        let mut invalid =
+            StreamEncryptor::new(1025, &key(), &params(1024), [1; 19], &winning_epoch).unwrap();
+        assert!(invalid.push_segment(&[0; 1023]).is_err());
+        assert!(invalid.push_segment(&[0; 1024]).is_err());
+        assert!(invalid.finish().is_err());
     }
 
     fn winning_epoch(_group_state_ref: &EncryptedAttachmentGroupStateRef) -> Option<u64> {

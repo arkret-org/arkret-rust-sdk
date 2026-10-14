@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.8;
-//! sha256=e357124cdc22c9ef1c3c8fa1363c4a72e0eb92e8e956faf3d25e94b41a50421a Entries: registered=221
+//! Input: registry/contract-registry.json; version=2026-10-14.10;
+//! sha256=0a43197d25faff0fc055fe856e0d751fbdad67a5e01a53b71219839ec97387a1 Entries: registered=223
 
 use serde::{Deserialize, Serialize};
 
@@ -85,6 +85,7 @@ pub enum ServiceOperationId {
     PeerRealmJoinReadBootstrapV1,
     PeerRealmJoinReadPreviewV1,
     PeerSignalCommandRelayV1,
+    PeerStrandWatchCommandAuditReadV1,
     PeerStrandWatchReadCurrentV1,
     RootIdentityCommandSubmitDidOperationV1,
     RootIdentityDocumentResourceGetV1,
@@ -226,6 +227,7 @@ pub enum ServiceOperationId {
     SelfSignerKeysReadResolveV1,
     SelfSpaceReadListV1,
     SelfStrandReadListV1,
+    SelfStrandWatchCommandAuditReadV1,
     SelfStrandWatchReadCurrentV1,
     SelfThirdPartyInviteReadAcceptanceAttestationV1,
     ServerReadDescribeV1,
@@ -309,6 +311,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY_V1,
+    ServiceOperationId::PEER_STRAND_WATCH_COMMAND_AUDIT_READ_V1,
     ServiceOperationId::PEER_STRAND_WATCH_READ_CURRENT_V1,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1,
     ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1,
@@ -450,6 +453,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SPACE_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
+    ServiceOperationId::SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1,
     ServiceOperationId::SELF_STRAND_WATCH_READ_CURRENT_V1,
     ServiceOperationId::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
@@ -575,6 +579,7 @@ impl ServiceOperationId {
         Self::PeerRealmJoinReadBootstrapV1,
         Self::PeerRealmJoinReadPreviewV1,
         Self::PeerSignalCommandRelayV1,
+        Self::PeerStrandWatchCommandAuditReadV1,
         Self::PeerStrandWatchReadCurrentV1,
         Self::RootIdentityCommandSubmitDidOperationV1,
         Self::RootIdentityDocumentResourceGetV1,
@@ -716,6 +721,7 @@ impl ServiceOperationId {
         Self::SelfSignerKeysReadResolveV1,
         Self::SelfSpaceReadListV1,
         Self::SelfStrandReadListV1,
+        Self::SelfStrandWatchCommandAuditReadV1,
         Self::SelfStrandWatchReadCurrentV1,
         Self::SelfThirdPartyInviteReadAcceptanceAttestationV1,
         Self::ServerReadDescribeV1,
@@ -858,6 +864,8 @@ impl ServiceOperationId {
         "ak.peer.realm_join.read.bootstrap.v1";
     pub const PEER_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.peer.realm_join.read.preview.v1";
     pub const PEER_SIGNAL_COMMAND_RELAY_V1: &'static str = "ak.peer.signal.command.relay.v1";
+    pub const PEER_STRAND_WATCH_COMMAND_AUDIT_READ_V1: &'static str =
+        "ak.peer.strand.watch.command.audit_read.v1";
     pub const PEER_STRAND_WATCH_READ_CURRENT_V1: &'static str =
         "ak.peer.strand.watch.read.current.v1";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1: &'static str =
@@ -1090,6 +1098,8 @@ impl ServiceOperationId {
         "ak.self.signer_keys.read.resolve.v1";
     pub const SELF_SPACE_READ_LIST_V1: &'static str = "ak.self.space.read.list.v1";
     pub const SELF_STRAND_READ_LIST_V1: &'static str = "ak.self.strand.read.list.v1";
+    pub const SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1: &'static str =
+        "ak.self.strand.watch.command.audit_read.v1";
     pub const SELF_STRAND_WATCH_READ_CURRENT_V1: &'static str =
         "ak.self.strand.watch.read.current.v1";
     pub const SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1: &'static str =
@@ -1219,6 +1229,9 @@ impl ServiceOperationId {
             Self::PeerRealmJoinReadBootstrapV1 => Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
             Self::PeerRealmJoinReadPreviewV1 => Self::PEER_REALM_JOIN_READ_PREVIEW_V1,
             Self::PeerSignalCommandRelayV1 => Self::PEER_SIGNAL_COMMAND_RELAY_V1,
+            Self::PeerStrandWatchCommandAuditReadV1 => {
+                Self::PEER_STRAND_WATCH_COMMAND_AUDIT_READ_V1
+            }
             Self::PeerStrandWatchReadCurrentV1 => Self::PEER_STRAND_WATCH_READ_CURRENT_V1,
             Self::RootIdentityCommandSubmitDidOperationV1 => {
                 Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1
@@ -1428,6 +1441,9 @@ impl ServiceOperationId {
             Self::SelfSignerKeysReadResolveV1 => Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
             Self::SelfSpaceReadListV1 => Self::SELF_SPACE_READ_LIST_V1,
             Self::SelfStrandReadListV1 => Self::SELF_STRAND_READ_LIST_V1,
+            Self::SelfStrandWatchCommandAuditReadV1 => {
+                Self::SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1
+            }
             Self::SelfStrandWatchReadCurrentV1 => Self::SELF_STRAND_WATCH_READ_CURRENT_V1,
             Self::SelfThirdPartyInviteReadAcceptanceAttestationV1 => {
                 Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1
@@ -1593,6 +1609,9 @@ impl ServiceOperationId {
             Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1 => Some(Self::PeerRealmJoinReadBootstrapV1),
             Self::PEER_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::PeerRealmJoinReadPreviewV1),
             Self::PEER_SIGNAL_COMMAND_RELAY_V1 => Some(Self::PeerSignalCommandRelayV1),
+            Self::PEER_STRAND_WATCH_COMMAND_AUDIT_READ_V1 => {
+                Some(Self::PeerStrandWatchCommandAuditReadV1)
+            }
             Self::PEER_STRAND_WATCH_READ_CURRENT_V1 => Some(Self::PeerStrandWatchReadCurrentV1),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1 => {
                 Some(Self::RootIdentityCommandSubmitDidOperationV1)
@@ -1860,6 +1879,9 @@ impl ServiceOperationId {
             Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1 => Some(Self::SelfSignerKeysReadResolveV1),
             Self::SELF_SPACE_READ_LIST_V1 => Some(Self::SelfSpaceReadListV1),
             Self::SELF_STRAND_READ_LIST_V1 => Some(Self::SelfStrandReadListV1),
+            Self::SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1 => {
+                Some(Self::SelfStrandWatchCommandAuditReadV1)
+            }
             Self::SELF_STRAND_WATCH_READ_CURRENT_V1 => Some(Self::SelfStrandWatchReadCurrentV1),
             Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1 => {
                 Some(Self::SelfThirdPartyInviteReadAcceptanceAttestationV1)
@@ -3491,7 +3513,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             target: None,
             rationale: None,
             branch_contract_json: Some(
-                "{\"discriminator\":{\"description\":\"Closed peer ingress semantic branch. Schema validation proves that final otherwise can only be registered_atomic_unit.\",\"request_path\":\"/branch\"},\"effect_branches\":[{\"effect\":{\"event_kind_sources\":[\"$request.event_submission.event.kind\",\"$request.mls_submission.commit_event.kind\"],\"event_submission_path\":\"/event_submission\",\"kind\":\"event_log\",\"rationale\":\"Only the verified current governance Station performs first admission and signs the new RealmCommit.\"},\"equals\":\"authority_forward\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"stores_exact_source_committed_replicas_without_new_event_finality_resigning_or_second_fanout\"},\"equals\":\"committed_replication\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"atomically_materializes_a_registered_source_committed_unit_without_new_event_finality_resigning_or_second_fanout\"},\"otherwise\":true}]}",
+                "{\"discriminator\":{\"description\":\"Closed peer ingress semantic branch. Schema validation proves that final otherwise can only be registered_atomic_unit.\",\"request_path\":\"/branch\"},\"effect_branches\":[{\"effect\":{\"event_kind_sources\":[\"$request.event_submission.event.kind\",\"$request.mls_submission.commit_event.kind\",\"$request.atomic_submission.events[*].event.kind\"],\"kind\":\"event_log\",\"rationale\":\"Only the verified current governance Station performs first admission and signs the new RealmCommit.\"},\"equals\":\"authority_forward\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"stores_exact_source_committed_replicas_without_new_event_finality_resigning_or_second_fanout\"},\"equals\":\"committed_replication\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"atomically_materializes_a_registered_source_committed_unit_without_new_event_finality_resigning_or_second_fanout\"},\"otherwise\":true}]}",
             ),
         }),
     },
@@ -3735,6 +3757,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerStrandWatchCommandAuditReadV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/strands/watch/audit-read",
+        grpc: Some("PeerStrandWatch/AuditRead"),
+        mq: Some("peer.strand.watch.command.audit_read"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/watch-audit-operations.schema.json#/$defs/peer_watch_audit_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.audit.accessed"])),
+            rationale: None,
             branch_contract_json: None,
         }),
     },
@@ -6859,6 +6906,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfStrandWatchCommandAuditReadV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/strands/watch/audit-read",
+        grpc: Some("SelfStrandWatch/AuditRead"),
+        mq: Some("self.strand.watch.command.audit_read"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.audit.accessed"])),
+            rationale: None,
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfStrandWatchReadCurrentV1,

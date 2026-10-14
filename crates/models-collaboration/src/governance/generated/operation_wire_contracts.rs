@@ -8,7 +8,7 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Input: schemas/event-payload.schema.json
-// sha256=de27d59cb9c0ba1d3406094e8270d20e117f9583ea8f1ef314e561fde7a2161f
+// sha256=8b8279174d914abd886fafb22ec9d9cfaf6b061168fb526c3200bd83f23b6fc2
 //
 // Input: schemas/typed-current-result.schema.json
 // sha256=448abceebd5661cb1d2db37d9a28dbe85815f08cf0119282307229865080a78b

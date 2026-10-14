@@ -129,6 +129,81 @@ impl MlsPayloadType for MessageMetadata {
 }
 
 impl ContentBlock {
+    /// Resolve the private descriptor for this content's actual media resource.
+    /// Attachment list order is not a resource selector.
+    pub fn rendered_encrypted_attachment(&self) -> Result<Option<EncryptedAttachment>> {
+        if self.kind == ContentBlockKind::LongText {
+            self.validate_long_text()?;
+            return self
+                .extra
+                .get("attachment")
+                .map(|value| {
+                    serde_json::from_value(value.clone())
+                        .map_err(|error| WireError::Protocol(format!("attachment: {error}")))
+                })
+                .transpose();
+        }
+        let Some(value) = self.extra.get("attachments") else {
+            return Ok(None);
+        };
+        let descriptors: Vec<EncryptedAttachment> = serde_json::from_value(value.clone())
+            .map_err(|error| WireError::Protocol(format!("attachments: {error}")))?;
+        if descriptors.is_empty() {
+            return Ok(None);
+        }
+        let reference = self.blob_ref().ok_or_else(|| {
+            WireError::Protocol("encrypted media requires its content blob_ref".into())
+        })?;
+        let mut matching = descriptors
+            .into_iter()
+            .filter(|descriptor| descriptor.blob_ref().as_str() == reference);
+        let descriptor = matching.next().ok_or_else(|| {
+            WireError::Protocol("encrypted descriptor does not bind the content resource".into())
+        })?;
+        if matching.any(|other| other != descriptor) {
+            return Err(WireError::Protocol(
+                "encrypted resource has ambiguous descriptors".into(),
+            ));
+        }
+        if self.extra.contains_key("mime_type") && self.mime_type() != Some(descriptor.media_type())
+        {
+            return Err(WireError::Protocol(
+                "content MIME differs from encrypted descriptor".into(),
+            ));
+        }
+        if self.extra.contains_key("size_bytes")
+            && self.size_bytes() != Some(descriptor.size_bytes())
+        {
+            return Err(WireError::Protocol(
+                "content size differs from encrypted descriptor".into(),
+            ));
+        }
+        Ok(Some(descriptor))
+    }
+    /// Canonical references from structured media and the sole long-text carrier.
+    pub fn referenced_blobs(&self) -> Result<Vec<String>> {
+        let mut refs = std::collections::BTreeSet::new();
+        if let Some(reference) = self.blob_ref() {
+            BlobRef::new(reference.to_owned())?;
+            refs.insert(reference.to_owned());
+        }
+        if let Some(value) = self.extra.get("attachment") {
+            let descriptor: EncryptedAttachment = serde_json::from_value(value.clone())
+                .map_err(|e| WireError::Protocol(format!("attachment: {e}")))?;
+            refs.insert(descriptor.blob_ref().as_str().to_owned());
+        }
+        if let Some(value) = self.extra.get("attachments") {
+            let descriptors: Vec<EncryptedAttachment> = serde_json::from_value(value.clone())
+                .map_err(|e| WireError::Protocol(format!("attachments: {e}")))?;
+            for descriptor in descriptors {
+                refs.insert(descriptor.blob_ref().as_str().to_owned());
+            }
+        }
+        for part in &self.parts {
+            refs.extend(part.referenced_blobs()?);
+        }
+        Ok(refs.into_iter().collect())
+    }
     /// Build the sole E2EE long-text carrier with an existing typed descriptor.
     pub fn encrypted_long_text(full_body: &str, attachment: EncryptedAttachment) -> Result<Self> {
         let EncryptedAttachment::Stream(ref stream) = attachment else {
@@ -142,9 +217,24 @@ impl ContentBlock {
                 "long-text plaintext size differs from descriptor".into(),
             ));
         }
-        let block = Self::new(ContentBlockKind::LongText, long_text_prefix(&normalized))
+        Self::encrypted_long_text_summary(
+            &long_text_prefix(&normalized),
+            long_text_line_count(&normalized),
+            attachment,
+        )
+    }
+
+    /// Build from a summary frozen with the normalized source commitment.
+    /// The streaming caller authenticates the complete body; no full-body copy
+    /// is needed to construct its private long-text wire carrier.
+    pub fn encrypted_long_text_summary(
+        prefix: &str,
+        line_count: u64,
+        attachment: EncryptedAttachment,
+    ) -> Result<Self> {
+        let block = Self::new(ContentBlockKind::LongText, prefix)
             .with_field("body_kind", Value::String("prefix".into()))
-            .with_field("line_count", Value::from(long_text_line_count(&normalized)))
+            .with_field("line_count", Value::from(line_count))
             .with_field(
                 "attachment",
                 serde_json::to_value(attachment)
@@ -1152,7 +1242,7 @@ fn validate_media_content_block(block: &Value) -> ContentBlockValidationResult<(
     let has_blob_ref = block
         .get("blob_ref")
         .and_then(Value::as_str)
-        .is_some_and(|value| value.starts_with("ak:blob:sha256:"));
+        .is_some_and(|value| BlobRef::new(value.to_owned()).is_ok());
     let has_url = block
         .get("url")
         .and_then(Value::as_str)
