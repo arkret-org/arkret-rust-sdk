@@ -14021,7 +14021,7 @@
               "kid": {
                 "name": "kid",
                 "visibility": "pub",
-                "type": "DidCoreId",
+                "type": "DidUrl",
                 "attributes": []
               },
               "signature_algorithm": {

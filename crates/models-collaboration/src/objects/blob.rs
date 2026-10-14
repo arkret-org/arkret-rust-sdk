@@ -7,7 +7,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionScheme, WholeFileEncryptedAttachment, WholeFileEncryptionAlgorithm,
     WholeFileEncryptionScheme,
 };
-use arkret_wire::{ActorId, BlobId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
+use arkret_wire::{ActorId, BlobId, BlobRef, DidCoreId, DidUrl, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

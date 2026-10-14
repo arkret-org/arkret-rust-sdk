@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.5;
-//! sha256=0a01d20dd29d360883a8373c753678bcb22ce21e1d1c1aa7d85fa1ffaf84bbf7 Entries: registered=218
+//! Input: registry/contract-registry.json; version=2026-10-14.7;
+//! sha256=751bbaad6848e7587128b03aeda6276d35a42cceb2d9715ee4350c47531303a5 Entries: registered=219
 
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +84,7 @@ pub enum ServiceOperationId {
     PeerRealmJoinReadBootstrapV1,
     PeerRealmJoinReadPreviewV1,
     PeerSignalCommandRelayV1,
+    PeerStrandWatchReadCurrentV1,
     RootIdentityCommandSubmitDidOperationV1,
     RootIdentityDocumentResourceGetV1,
     RootIdentityLogReadListV1,
@@ -305,6 +306,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY_V1,
+    ServiceOperationId::PEER_STRAND_WATCH_READ_CURRENT_V1,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1,
     ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1,
     ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
@@ -568,6 +570,7 @@ impl ServiceOperationId {
         Self::PeerRealmJoinReadBootstrapV1,
         Self::PeerRealmJoinReadPreviewV1,
         Self::PeerSignalCommandRelayV1,
+        Self::PeerStrandWatchReadCurrentV1,
         Self::RootIdentityCommandSubmitDidOperationV1,
         Self::RootIdentityDocumentResourceGetV1,
         Self::RootIdentityLogReadListV1,
@@ -848,6 +851,8 @@ impl ServiceOperationId {
         "ak.peer.realm_join.read.bootstrap.v1";
     pub const PEER_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.peer.realm_join.read.preview.v1";
     pub const PEER_SIGNAL_COMMAND_RELAY_V1: &'static str = "ak.peer.signal.command.relay.v1";
+    pub const PEER_STRAND_WATCH_READ_CURRENT_V1: &'static str =
+        "ak.peer.strand.watch.read.current.v1";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1: &'static str =
         "ak.root.identity.command.submit_did_operation.v1";
     pub const ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1: &'static str =
@@ -1205,6 +1210,7 @@ impl ServiceOperationId {
             Self::PeerRealmJoinReadBootstrapV1 => Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
             Self::PeerRealmJoinReadPreviewV1 => Self::PEER_REALM_JOIN_READ_PREVIEW_V1,
             Self::PeerSignalCommandRelayV1 => Self::PEER_SIGNAL_COMMAND_RELAY_V1,
+            Self::PeerStrandWatchReadCurrentV1 => Self::PEER_STRAND_WATCH_READ_CURRENT_V1,
             Self::RootIdentityCommandSubmitDidOperationV1 => {
                 Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1
             }
@@ -1576,6 +1582,7 @@ impl ServiceOperationId {
             Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1 => Some(Self::PeerRealmJoinReadBootstrapV1),
             Self::PEER_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::PeerRealmJoinReadPreviewV1),
             Self::PEER_SIGNAL_COMMAND_RELAY_V1 => Some(Self::PeerSignalCommandRelayV1),
+            Self::PEER_STRAND_WATCH_READ_CURRENT_V1 => Some(Self::PeerStrandWatchReadCurrentV1),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1 => {
                 Some(Self::RootIdentityCommandSubmitDidOperationV1)
             }
@@ -3691,6 +3698,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("ephemeral_signal_must_not_be_durable_event"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerStrandWatchReadCurrentV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/strands/watch/current",
+        grpc: Some("PeerStrandWatch/Current"),
+        mq: Some("peer.strand.watch.query.current"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(16384),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("read_only_exact_current_projection_no_event_or_durable_mutation"),
             branch_contract_json: None,
         }),
     },
