@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "9d9ea8482bb402078f3e9dd370fb87fd655821f4",
+      "commit": "3b0af270d431c4f5c4dc66bbf288bea4bdc7be35",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "ad97f5df8dec5bc0c8b135170cb1775cd8456fc0",
+      "commit": "511bbfe7c10bf6200cc0872b2bfe880ebd8a0f88",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "4a86fef03e0d45ac7c40a983a7015ee84eba62f6",
+      "commit": "929051140659edef95c532930389f0138fc698d2",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "d536f305a3be2a91cd632e0095b3fc6c4727e792",
+      "commit": "0661a41df71a5070de354ba11d958fe02352eacb",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
