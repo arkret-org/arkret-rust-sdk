@@ -10,7 +10,76 @@
     "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
     "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
     "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32"
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32",
+    "call-invitation-operations.schema.json#/$defs/media": "crate::call_invitation::CallInvitationMedia",
+    "call-invitation-operations.schema.json#/$defs/invitation_proof": "crate::call_invitation::CallInvitationProof",
+    "call-invitation-operations.schema.json#/$defs/admission_proof": "crate::call_invitation::CallInvitationAdmissionProof",
+    "call-invitation-operations.schema.json#/$defs/voluntary_join_proof": "crate::call_invitation::CallVoluntaryJoinProof",
+    "call-invitation-operations.schema.json#/$defs/send_outcome/properties/status": "crate::call_invitation::CallInvitationSendStatus",
+    "call-invitation-operations.schema.json#/$defs/admission_request_body/properties/admission_phase": "crate::call_invitation::CallInvitationAdmissionPhase",
+    "call-invitation-operations.schema.json#/$defs/invitation_join_context/properties/kind": "crate::call_invitation::CallInvitationJoinKind",
+    "call-invitation-operations.schema.json#/$defs/voluntary_join_context/properties/kind": "crate::call_invitation::CallVoluntaryJoinKind",
+    "call-invitation-operations.schema.json#/$defs/refresh_join_context/properties/kind": "crate::call_invitation::CallRefreshJoinKind",
+    "call-invitation-operations.schema.json#/$defs/invitation_envelope": "crate::call_invitation::CallInvitationEnvelope",
+    "call-invitation-operations.schema.json#/$defs/send_request_body": "crate::call_invitation::CallInvitationSendRequestBody",
+    "call-invitation-operations.schema.json#/$defs/send_outcome": "crate::call_invitation::CallInvitationSendOutcome",
+    "call-invitation-operations.schema.json#/$defs/admission_request_body": "crate::call_invitation::CallInvitationAdmissionRequestBody",
+    "call-invitation-operations.schema.json#/$defs/admission_outcome": "crate::call_invitation::CallInvitationAdmissionOutcome",
+    "call-invitation-operations.schema.json#/$defs/delivery_view": "crate::call_invitation::CallInvitationDeliveryView",
+    "call-invitation-operations.schema.json#/$defs/invitation_join_context": "crate::call_invitation::CallInvitationJoinContext",
+    "call-invitation-operations.schema.json#/$defs/voluntary_join_context": "crate::call_invitation::CallVoluntaryJoinContext",
+    "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity": "crate::call_invitation::CallMediaRosterIdentity",
+    "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding": "crate::call_invitation::CallMediaSubjectBinding",
+    "call-invitation-operations.schema.json#/$defs/refresh_join_context": "crate::call_invitation::CallRefreshJoinContext",
+    "call-invitation-operations.schema.json#/$defs/join_context": "crate::call_invitation::CallMediaJoinContext",
+    "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind": "crate::call_invitation::ConsentCurrentSelectorKind",
+    "typed-current-result.schema.json#/$defs/consent_result/properties/selector": "crate::call_invitation::ConsentCurrentSelector",
+    "typed-current-result.schema.json#/$defs/consent_result": "crate::call_invitation::ConsentCurrentRow",
+    "consent-operations.schema.json#/$defs/consent_current_read_proof": "crate::call_invitation::ConsentCurrentReadProof",
+    "consent-operations.schema.json#/$defs/consent_current_read_request_body": "crate::call_invitation::ConsentCurrentReadRequestBody",
+    "consent-operations.schema.json#/$defs/consent_current_read_outcome": "crate::call_invitation::ConsentCurrentReadOutcome",
+    "common-ids.schema.json#/$defs/did_url": "arkret_wire::DidUrl",
+    "consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind": "crate::consent_private::ConsentPrivateHolderSessionContextKind",
+    "consent-private-operations.schema.json#/$defs/holder_session_context": "crate::consent_private::ConsentPrivateHolderSessionContext",
+    "consent-private-operations.schema.json#/$defs/station_context/properties/kind": "crate::consent_private::ConsentPrivateStationContextKind",
+    "consent-private-operations.schema.json#/$defs/station_context": "crate::consent_private::ConsentPrivateStationContext",
+    "consent-private-operations.schema.json#/$defs/proxy_request/properties/context": "crate::consent_private::ConsentPrivateContext",
+    "consent-private-operations.schema.json#/$defs/list_command/properties/body": "crate::consent_private::ConsentPrivateEmptyBody",
+    "consent-private-operations.schema.json#/$defs/list_command/properties/kind": "crate::consent_private::ConsentPrivateListCommandKind",
+    "consent-private-operations.schema.json#/$defs/list_command": "crate::consent_private::ConsentPrivateListCommand",
+    "consent-private-operations.schema.json#/$defs/version_command/properties/body": "crate::consent_private::ConsentPrivateVersionBody",
+    "consent-private-operations.schema.json#/$defs/version_command/properties/kind": "crate::consent_private::ConsentPrivateVersionCommandKind",
+    "consent-private-operations.schema.json#/$defs/version_command": "crate::consent_private::ConsentPrivateVersionCommand",
+    "consent-private-operations.schema.json#/$defs/effects_command/properties/kind": "crate::consent_private::ConsentPrivateEffectsCommandKind",
+    "consent-private-operations.schema.json#/$defs/effects_command": "crate::consent_private::ConsentPrivateEffectsCommand",
+    "consent-private-operations.schema.json#/$defs/invite_policy_command/properties/kind": "crate::consent_private::ConsentPrivateInvitePolicyCommandKind",
+    "consent-private-operations.schema.json#/$defs/invite_policy_command": "crate::consent_private::ConsentPrivateInvitePolicyCommand",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_command/properties/body": "crate::consent_private::ConsentPrivateInviteDeliveryBody",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_command/properties/kind": "crate::consent_private::ConsentPrivateInviteDeliveryCommandKind",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_command": "crate::consent_private::ConsentPrivateInviteDeliveryCommand",
+    "consent-private-operations.schema.json#/$defs/request_command/properties/body": "crate::consent_private::ConsentPrivateRequestBody",
+    "consent-private-operations.schema.json#/$defs/request_command/properties/kind": "crate::consent_private::ConsentPrivateRequestCommandKind",
+    "consent-private-operations.schema.json#/$defs/request_command": "crate::consent_private::ConsentPrivateRequestCommand",
+    "consent-private-operations.schema.json#/$defs/command": "crate::consent_private::ConsentPrivateCommand",
+    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0": "crate::consent_private::ConsentPrivateHolderQuarantineCell",
+    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0": "crate::consent_private::ConsentPrivateInviteDeliveryCell",
+    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0": "crate::consent_private::ConsentPrivateInviteReceivePolicyCell",
+    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body": "crate::consent_private::ConsentPrivateEffects",
+    "consent-private-operations.schema.json#/$defs/list_outcome/properties/kind": "crate::consent_private::ConsentPrivateListOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/list_outcome": "crate::consent_private::ConsentPrivateListOutcome",
+    "consent-private-operations.schema.json#/$defs/version_outcome/properties/kind": "crate::consent_private::ConsentPrivateVersionOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/version_outcome": "crate::consent_private::ConsentPrivateVersionOutcome",
+    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/kind": "crate::consent_private::ConsentPrivateEffectsOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/effects_outcome": "crate::consent_private::ConsentPrivateEffectsOutcome",
+    "consent-private-operations.schema.json#/$defs/invite_policy_outcome/properties/kind": "crate::consent_private::ConsentPrivateInvitePolicyOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/invite_policy_outcome": "crate::consent_private::ConsentPrivateInvitePolicyOutcome",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_outcome/properties/kind": "crate::consent_private::ConsentPrivateInviteDeliveryOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_outcome": "crate::consent_private::ConsentPrivateInviteDeliveryOutcome",
+    "consent-private-operations.schema.json#/$defs/request_outcome/properties/kind": "crate::consent_private::ConsentPrivateRequestOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/request_outcome": "crate::consent_private::ConsentPrivateRequestOutcome",
+    "consent-private-operations.schema.json#/$defs/command_outcome": "crate::consent_private::ConsentPrivateCommandOutcome",
+    "consent-private-operations.schema.json#/$defs/proxy_request": "crate::consent_private::ConsentPrivateProxyRequest",
+    "consent-private-operations.schema.json#/$defs/proxy_outcome": "crate::consent_private::ConsentPrivateProxyOutcome"
   },
   "families": [
     {
@@ -105,7 +174,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// §5.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// \u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -143,14 +212,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// §5.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration — natural-language tier guessing",
+              "/// \u00a75.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration \u2014 natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
               "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_after =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift §5.4",
+              "/// same value. Two separately maintained constants are exactly the drift \u00a75.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -220,7 +289,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest — digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest \u2014 digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -262,7 +331,7 @@
             "attributes": [
               "/// Signed identity receipt from a DID registry",
               "/// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).",
-              "/// The registry / witness endorsement of a key-log head travels here —",
+              "/// The registry / witness endorsement of a key-log head travels here \u2014",
               "/// never inside the key-log entry's `proofs[]`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -3079,7 +3148,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` — `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` \u2014 `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3299,7 +3368,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` §5.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` \u00a75.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -3820,7 +3889,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` \u2014 writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -4475,7 +4544,7 @@
               "///",
               "/// The item is a read-side View over the accepted `moderation_report` typed",
               "/// current result and the `moderation_state` records that point at it, not a",
-              "/// second stored state (content-moderation.md §3.3): `id` is the report Event",
+              "/// second stored state (content-moderation.md \u00a73.3): `id` is the report Event",
               "/// id retyped to `moderation_queue_item`, `report` is the complete accepted",
               "/// report payload and `created_at` the accepting Commit time.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -4913,11 +4982,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration \u2014 the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` §3.3).",
+              "/// (`discovery/object-addressing.md` \u00a73.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5613,7 +5682,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` §3.5).",
+              "/// (`zh/discovery/profiles-presence.md` \u00a73.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5666,7 +5735,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens — the",
+              "/// payload kind is the `kind` const. One type both seals and opens \u2014 the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6371,7 +6440,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` §2.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` \u00a72.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -9249,7 +9318,7 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read — never",
+              "/// caller writes back against the `revision` of the exact entry it read \u2014 never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
               "/// `account-current-result.schema.json#/$defs/current`.",
@@ -9386,7 +9455,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone —",
+              "/// RealmCommit witness, so this binding names the authorization Event alone \u2014",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -10845,6 +10914,7 @@
           "rust": {
             "signature": "pub struct ConsentValue",
             "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "/// Closed `typed-current-result.schema.json#/$defs/consent_value`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -10948,7 +11018,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class",
+              "/// \u00a77.5.0 / \u00a77.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -11060,7 +11130,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management §7.6.1).",
+              "/// summary of one stored envelope (key-management \u00a77.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -11637,6 +11707,14 @@
                 "visibility": "pub",
                 "type": "DetachedObjectSignature",
                 "attributes": []
+              },
+              "pcr_private_state_digest": {
+                "name": "pcr_private_state_digest",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"deserialize_optional_original_digest\")]"
+                ]
               }
             }
           }
@@ -12090,7 +12168,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple — gate, Realm, applicant, policy revision, creation time —",
+              "/// The binding tuple \u2014 gate, Realm, applicant, policy revision, creation time \u2014",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -12188,7 +12266,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here —",
+              "/// inkson call sites tried to emit are intentionally NOT representable here \u2014",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
@@ -12580,6 +12658,12 @@
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"crate::serde_absence::deserialize_non_null_optional\"\n    )]"
                 ]
+              },
+              "pcr_private_state": {
+                "name": "pcr_private_state",
+                "visibility": "pub",
+                "type": "Option<PcrPrivateHandoffManifest>",
+                "attributes": []
               }
             }
           }
@@ -12629,6 +12713,55 @@
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"crate::serde_absence::deserialize_non_null_optional\"\n    )]"
                 ]
+              }
+            }
+          }
+        },
+        {
+          "name": "PcrPrivateHandoffManifest",
+          "schema": "authority-commit-operations.schema.json#/$defs/pcr_private_handoff_manifest",
+          "rust": {
+            "signature": "pub struct PcrPrivateHandoffManifest",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "effective_stream_head": {
+                "name": "effective_stream_head",
+                "visibility": "pub",
+                "type": "CommitStreamHead",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "state_digest": {
+                "name": "state_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
               }
             }
           }
@@ -13269,10 +13402,116 @@
                 "type": "DidUrl",
                 "attributes": []
               },
+              "subject_binding_digest": {
+                "name": "subject_binding_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
               "sig": {
                 "name": "sig",
                 "visibility": "pub",
                 "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRosterAssertion",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion",
+          "rust": {
+            "signature": "pub struct CallRosterAssertion",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallRosterDelta",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRosterCurrentValue",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_value",
+          "rust": {
+            "signature": "pub struct CallRosterCurrentValue",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "assertions": {
+                "name": "assertions",
+                "visibility": "pub",
+                "type": "Vec<CallRosterAssertion>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallModerationAssertion",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion",
+          "rust": {
+            "signature": "pub struct CallModerationAssertion",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallModerationDelta",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallModerationCurrentValue",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_value",
+          "rust": {
+            "signature": "pub struct CallModerationCurrentValue",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "assertions": {
+                "name": "assertions",
+                "visibility": "pub",
+                "type": "Vec<CallModerationAssertion>",
                 "attributes": []
               }
             }
@@ -14048,6 +14287,1595 @@
           }
         }
       ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/call_invitation_contracts.rs",
+      "types": [
+        {
+          "name": "CallInvitationMedia",
+          "schema": "call-invitation-operations.schema.json#/$defs/media"
+        },
+        {
+          "name": "CallInvitationProof",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_proof"
+        },
+        {
+          "name": "CallInvitationAdmissionProof",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_proof"
+        },
+        {
+          "name": "CallVoluntaryJoinProof",
+          "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_proof"
+        },
+        {
+          "name": "CallInvitationSendStatus",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome/properties/status"
+        },
+        {
+          "name": "CallInvitationAdmissionPhase",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body/properties/admission_phase"
+        },
+        {
+          "name": "CallInvitationJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context/properties/kind"
+        },
+        {
+          "name": "CallVoluntaryJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context/properties/kind"
+        },
+        {
+          "name": "CallRefreshJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context/properties/kind"
+        },
+        {
+          "name": "CallInvitationEnvelope",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_envelope",
+          "rust": {
+            "signature": "pub struct CallInvitationEnvelope",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "inviter_actor_id": {
+                "name": "inviter_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "scope_ref": {
+                "name": "scope_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "call_id": {
+                "name": "call_id",
+                "visibility": "pub",
+                "type": "arkret_wire::CallId",
+                "attributes": []
+              },
+              "media": {
+                "name": "media",
+                "visibility": "pub",
+                "type": "CallInvitationMedia",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "proof": {
+                "name": "proof",
+                "visibility": "pub",
+                "type": "CallInvitationProof",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationSendRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_request_body",
+          "rust": {
+            "signature": "pub struct CallInvitationSendRequestBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "invitation": {
+                "name": "invitation",
+                "visibility": "pub",
+                "type": "CallInvitationEnvelope",
+                "attributes": []
+              },
+              "envelope": {
+                "name": "envelope",
+                "visibility": "pub",
+                "type": "arkret_wire::SignalEnvelope",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationSendOutcome",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome",
+          "rust": {
+            "signature": "pub struct CallInvitationSendOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "CallInvitationSendStatus",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationAdmissionRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body",
+          "rust": {
+            "signature": "pub struct CallInvitationAdmissionRequestBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "invitation": {
+                "name": "invitation",
+                "visibility": "pub",
+                "type": "CallInvitationEnvelope",
+                "attributes": []
+              },
+              "envelope": {
+                "name": "envelope",
+                "visibility": "pub",
+                "type": "arkret_wire::SignalEnvelope",
+                "attributes": []
+              },
+              "admission_phase": {
+                "name": "admission_phase",
+                "visibility": "pub",
+                "type": "CallInvitationAdmissionPhase",
+                "attributes": []
+              },
+              "audience_actor_id": {
+                "name": "audience_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_actor_id": {
+                "name": "subject_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_device_id": {
+                "name": "subject_device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "focus_id": {
+                "name": "focus_id",
+                "visibility": "pub",
+                "type": "Option<String>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "desired_media": {
+                "name": "desired_media",
+                "visibility": "pub",
+                "type": "Option<CallInvitationMedia>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationAdmissionOutcome",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome",
+          "rust": {
+            "signature": "pub struct CallInvitationAdmissionOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_digest": {
+                "name": "request_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "admitted": {
+                "name": "admitted",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "authority_generation": {
+                "name": "authority_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "evaluated_at": {
+                "name": "evaluated_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "proof": {
+                "name": "proof",
+                "visibility": "pub",
+                "type": "CallInvitationAdmissionProof",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationDeliveryView",
+          "schema": "call-invitation-operations.schema.json#/$defs/delivery_view",
+          "rust": {
+            "signature": "pub struct CallInvitationDeliveryView",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "invitation": {
+                "name": "invitation",
+                "visibility": "pub",
+                "type": "CallInvitationEnvelope",
+                "attributes": []
+              },
+              "request": {
+                "name": "request",
+                "visibility": "pub",
+                "type": "CallInvitationAdmissionRequestBody",
+                "attributes": []
+              },
+              "outcome": {
+                "name": "outcome",
+                "visibility": "pub",
+                "type": "CallInvitationAdmissionOutcome",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationJoinContext",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context",
+          "rust": {
+            "signature": "pub struct CallInvitationJoinContext",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "CallInvitationJoinKind",
+                "attributes": []
+              },
+              "invitation": {
+                "name": "invitation",
+                "visibility": "pub",
+                "type": "CallInvitationEnvelope",
+                "attributes": []
+              },
+              "envelope": {
+                "name": "envelope",
+                "visibility": "pub",
+                "type": "arkret_wire::SignalEnvelope",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallVoluntaryJoinContext",
+          "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context",
+          "rust": {
+            "signature": "pub struct CallVoluntaryJoinContext",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "CallVoluntaryJoinKind",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "created_at": {
+                "name": "created_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "proof": {
+                "name": "proof",
+                "visibility": "pub",
+                "type": "CallVoluntaryJoinProof",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallMediaRosterIdentity",
+          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity",
+          "rust": {
+            "signature": "pub struct CallMediaRosterIdentity",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallMediaSubjectBinding",
+          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding",
+          "rust": {
+            "signature": "pub struct CallMediaSubjectBinding",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "call_id": {
+                "name": "call_id",
+                "visibility": "pub",
+                "type": "arkret_wire::CallId",
+                "attributes": []
+              },
+              "subject_actor_id": {
+                "name": "subject_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_device_id": {
+                "name": "subject_device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "roster_identity": {
+                "name": "roster_identity",
+                "visibility": "pub",
+                "type": "CallMediaRosterIdentity",
+                "attributes": []
+              },
+              "focus_id": {
+                "name": "focus_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "participant_id": {
+                "name": "participant_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "media": {
+                "name": "media",
+                "visibility": "pub",
+                "type": "CallInvitationMedia",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "issuer_kid": {
+                "name": "issuer_kid",
+                "visibility": "pub",
+                "type": "arkret_wire::DidUrl",
+                "attributes": []
+              },
+              "sig": {
+                "name": "sig",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRefreshJoinContext",
+          "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context",
+          "rust": {
+            "signature": "pub struct CallRefreshJoinContext",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "CallRefreshJoinKind",
+                "attributes": []
+              },
+              "participant_id": {
+                "name": "participant_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "subject_binding": {
+                "name": "subject_binding",
+                "visibility": "pub",
+                "type": "CallMediaSubjectBinding",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallMediaJoinContext",
+          "schema": "call-invitation-operations.schema.json#/$defs/join_context"
+        },
+        {
+          "name": "ConsentCurrentSelectorKind",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind"
+        },
+        {
+          "name": "ConsentCurrentSelector",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector",
+          "rust": {
+            "signature": "pub struct ConsentCurrentSelector",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentCurrentSelectorKind",
+                "attributes": []
+              },
+              "consent_id": {
+                "name": "consent_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ConsentId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentCurrentRow",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result",
+          "rust": {
+            "signature": "pub struct ConsentCurrentRow",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "selector": {
+                "name": "selector",
+                "visibility": "pub",
+                "type": "ConsentCurrentSelector",
+                "attributes": []
+              },
+              "source_stream_ref": {
+                "name": "source_stream_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommitStreamRef",
+                "attributes": []
+              },
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "arkret_wire::CurrentRevision",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "crate::consent_operations::ConsentValue",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentCurrentReadProof",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_proof"
+        },
+        {
+          "name": "ConsentCurrentReadRequestBody",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_request_body",
+          "rust": {
+            "signature": "pub struct ConsentCurrentReadRequestBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "peer": {
+                "name": "peer",
+                "visibility": "pub",
+                "type": "crate::events_payloads::consent::ConsentPeer",
+                "attributes": []
+              },
+              "consent_scope": {
+                "name": "consent_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ConsentScope",
+                "attributes": []
+              },
+              "audience_actor_id": {
+                "name": "audience_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentCurrentReadOutcome",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome",
+          "rust": {
+            "signature": "pub struct ConsentCurrentReadOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_digest": {
+                "name": "request_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "effective_stream_head": {
+                "name": "effective_stream_head",
+                "visibility": "pub",
+                "type": "arkret_wire::CommitStreamHead",
+                "attributes": []
+              },
+              "consents": {
+                "name": "consents",
+                "visibility": "pub",
+                "type": "Vec<ConsentCurrentRow>",
+                "attributes": []
+              },
+              "evaluated_at": {
+                "name": "evaluated_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "proof": {
+                "name": "proof",
+                "visibility": "pub",
+                "type": "ConsentCurrentReadProof",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/consent_private_contracts.rs",
+      "types": [
+        {
+          "name": "ConsentPrivateHolderSessionContextKind",
+          "schema": "consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateHolderSessionContext",
+          "schema": "consent-private-operations.schema.json#/$defs/holder_session_context",
+          "rust": {
+            "signature": "pub struct ConsentPrivateHolderSessionContext",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateHolderSessionContextKind",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateStationContextKind",
+          "schema": "consent-private-operations.schema.json#/$defs/station_context/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateStationContext",
+          "schema": "consent-private-operations.schema.json#/$defs/station_context",
+          "rust": {
+            "signature": "pub struct ConsentPrivateStationContext",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateStationContextKind",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateContext",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_request/properties/context",
+          "openapi": false,
+          "eq": false
+        },
+        {
+          "name": "ConsentPrivateEmptyBody",
+          "schema": "consent-private-operations.schema.json#/$defs/list_command/properties/body",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEmptyBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {}
+          }
+        },
+        {
+          "name": "ConsentPrivateListCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/list_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateListCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/list_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateListCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateListCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateEmptyBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateVersionBody",
+          "schema": "consent-private-operations.schema.json#/$defs/version_command/properties/body",
+          "rust": {
+            "signature": "pub struct ConsentPrivateVersionBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "consent_id": {
+                "name": "consent_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ConsentId",
+                "attributes": []
+              },
+              "commit_id": {
+                "name": "commit_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommitId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateVersionCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/version_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateVersionCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/version_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateVersionCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateVersionCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateVersionBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateEffectsCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateEffectsCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEffectsCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateEffectsCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateEmptyBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInvitePolicyCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateInvitePolicyCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInvitePolicyCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateInvitePolicyCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "crate::governance::invite_addressing::InviteReceivePolicy",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryBody",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_command/properties/body",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInviteDeliveryBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "notification_source_service_id": {
+                "name": "notification_source_service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "delivery": {
+                "name": "delivery",
+                "visibility": "pub",
+                "type": "crate::governance::invite_addressing::InviteDeliveryRequestBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInviteDeliveryCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateInviteDeliveryCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateInviteDeliveryBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateRequestBody",
+          "schema": "consent-private-operations.schema.json#/$defs/request_command/properties/body",
+          "rust": {
+            "signature": "pub struct ConsentPrivateRequestBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "requester_actor_id": {
+                "name": "requester_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "request": {
+                "name": "request",
+                "visibility": "pub",
+                "type": "crate::consent_operations::ConsentRequestRequestBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateRequestCommandKind",
+          "schema": "consent-private-operations.schema.json#/$defs/request_command/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateRequestCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/request_command",
+          "rust": {
+            "signature": "pub struct ConsentPrivateRequestCommand",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateRequestCommandKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateRequestBody",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateCommand",
+          "schema": "consent-private-operations.schema.json#/$defs/command",
+          "openapi": false,
+          "eq": false
+        },
+        {
+          "name": "ConsentPrivateHolderQuarantineCell",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0",
+          "rust": {
+            "signature": "pub struct ConsentPrivateHolderQuarantineCell",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "content": {
+                "name": "content",
+                "visibility": "pub",
+                "type": "crate::governance::holder_quarantine::HolderQuarantine",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryCell",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInviteDeliveryCell",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "content": {
+                "name": "content",
+                "visibility": "pub",
+                "type": "crate::governance::invite_addressing::InviteDelivery",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInviteReceivePolicyCell",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInviteReceivePolicyCell",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "content": {
+                "name": "content",
+                "visibility": "pub",
+                "type": "crate::governance::invite_addressing::InviteReceivePolicy",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateEffects",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEffects",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "holder_quarantine": {
+                "name": "holder_quarantine",
+                "visibility": "pub",
+                "type": "Option<ConsentPrivateHolderQuarantineCell>",
+                "attributes": []
+              },
+              "invite_delivery": {
+                "name": "invite_delivery",
+                "visibility": "pub",
+                "type": "Option<ConsentPrivateInviteDeliveryCell>",
+                "attributes": []
+              },
+              "invite_receive_policy": {
+                "name": "invite_receive_policy",
+                "visibility": "pub",
+                "type": "Option<ConsentPrivateInviteReceivePolicyCell>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateListOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/list_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateListOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/list_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateListOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateListOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "crate::consent_operations::ConsentList",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateVersionOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/version_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateVersionOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/version_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateVersionOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateVersionOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "crate::consent_operations::ConsentView",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateEffectsOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateEffectsOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEffectsOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateEffectsOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateEffects",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInvitePolicyOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateInvitePolicyOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInvitePolicyOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateInvitePolicyOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "ConsentPrivateInviteReceivePolicyCell",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateInviteDeliveryOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateInviteDeliveryOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateInviteDeliveryOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "crate::governance::invite_addressing::InviteDeliveryOutcome",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateRequestOutcomeKind",
+          "schema": "consent-private-operations.schema.json#/$defs/request_outcome/properties/kind",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateRequestOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/request_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateRequestOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "ConsentPrivateRequestOutcomeKind",
+                "attributes": []
+              },
+              "body": {
+                "name": "body",
+                "visibility": "pub",
+                "type": "crate::consent_operations::ConsentRequestOutcome",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateCommandOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/command_outcome",
+          "openapi": false,
+          "eq": false
+        },
+        {
+          "name": "ConsentPrivateProxyRequest",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_request",
+          "rust": {
+            "signature": "pub struct ConsentPrivateProxyRequest",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "context": {
+                "name": "context",
+                "visibility": "pub",
+                "type": "ConsentPrivateContext",
+                "attributes": []
+              },
+              "command": {
+                "name": "command",
+                "visibility": "pub",
+                "type": "ConsentPrivateCommand",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateProxyOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateProxyOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_digest": {
+                "name": "request_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "effective_stream_head": {
+                "name": "effective_stream_head",
+                "visibility": "pub",
+                "type": "arkret_wire::CommitStreamHead",
+                "attributes": []
+              },
+              "evaluated_at": {
+                "name": "evaluated_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "outcome": {
+                "name": "outcome",
+                "visibility": "pub",
+                "type": "ConsentPrivateCommandOutcome",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateEffectsPublishStatus",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome/properties/status",
+          "openapi": false,
+          "copy": true
+        },
+        {
+          "name": "ConsentPrivateEffectsPublishRequest",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEffectsPublishRequest",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "effective_stream_head": {
+                "name": "effective_stream_head",
+                "visibility": "pub",
+                "type": "arkret_wire::CommitStreamHead",
+                "attributes": []
+              },
+              "evaluated_at": {
+                "name": "evaluated_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "effects": {
+                "name": "effects",
+                "visibility": "pub",
+                "type": "crate::consent_private::ConsentPrivateEffects",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ConsentPrivateEffectsPublishOutcome",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome",
+          "rust": {
+            "signature": "pub struct ConsentPrivateEffectsPublishOutcome",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_digest": {
+                "name": "request_digest",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "ConsentPrivateEffectsPublishStatus",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "retained_binding_reasons": {
@@ -14324,6 +16152,24 @@
       "schema": "signal-stream-frame.schema.json#/$defs/agent_product_authority",
       "category": "domain_semantics",
       "reason": "The retained domain validator binds Signal envelope time, committed heads, actors, grants and historical/current policies across these fields; replacing it with a generated member-only parser would erase those authorization checks."
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::ServiceSigningKey",
+      "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key",
+      "category": "domain_semantics",
+      "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingRequestBody",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body",
+      "category": "domain_semantics",
+      "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingOutcome",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
+      "category": "domain_semantics",
+      "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
     }
   ],
   "retained_exemptions": [

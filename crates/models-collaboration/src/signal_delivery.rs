@@ -220,6 +220,12 @@ pub struct SignalDeliveryAuthority {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub product_authority: Option<Box<SignalProductAuthority>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub call_invitation: Option<Box<crate::call_invitation::CallInvitationDeliveryView>>,
 }
 
 impl SignalDeliveryAuthority {
@@ -233,6 +239,9 @@ impl SignalDeliveryAuthority {
                 ErrorCode::SchemaViolation,
                 "Signal delivery authority does not bind the exact sender",
             ));
+        }
+        if let Some(delivery) = &self.call_invitation {
+            delivery.validate_for_envelope(envelope, &self.recipient_account_id)?;
         }
         if let Some(authority) = &self.product_authority {
             authority.validate_for_envelope(envelope)?;
@@ -445,6 +454,7 @@ mod tests {
     fn stream_frames_are_closed_and_bounded() {
         let envelope = envelope(SignalClass::Session, 30);
         let authority = SignalDeliveryAuthority {
+            call_invitation: None,
             product_authority: None,
             recipient_account_id: envelope.sender_actor_id.as_account_id().unwrap().clone(),
             key: StationSigningKey {
@@ -455,13 +465,16 @@ mod tests {
             },
         };
         let mut unsupported = serde_json::to_value(&authority).unwrap();
-        unsupported["call_invitation"] = serde_json::json!({});
+        unsupported["unregistered_invitation"] = serde_json::json!({});
         let error = serde_json::from_value::<SignalDeliveryAuthority>(unsupported).unwrap_err();
         assert!(
             error
                 .to_string()
-                .contains("unknown field `call_invitation`")
+                .contains("unknown field `unregistered_invitation`")
         );
+        let mut malformed = serde_json::to_value(&authority).unwrap();
+        malformed["call_invitation"] = serde_json::json!({});
+        assert!(serde_json::from_value::<SignalDeliveryAuthority>(malformed).is_err());
         let signal = SignalStreamFrame::signal(envelope, authority);
         signal.validate().unwrap();
         assert_eq!(

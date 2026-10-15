@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::consent::ConsentPeer;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentState {

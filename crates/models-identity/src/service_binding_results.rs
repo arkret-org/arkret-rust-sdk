@@ -5,8 +5,8 @@
 //! authority or a portable authorization credential.
 
 use arkret_wire::{
-    AccountId, CommittedEventRef, CurrentRevision, Did, DidCoreId, DidUrl, ErrorCode, RealmId,
-    ReasonCode, RequestId, Result, ServiceKind, WireError,
+    Did, DidCoreId, DidUrl, ErrorCode, RealmId, ReasonCode, RequestId, Result, ServiceKind,
+    WireError,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -85,14 +85,13 @@ impl ServiceSigningKey {
 #[serde(deny_unknown_fields)]
 pub struct MediaServiceBindingRequestBody {
     pub request_id: RequestId,
-    pub account_id: AccountId,
     pub realm_id: RealmId,
 }
 
 impl MediaServiceBindingRequestBody {
     pub fn validate(&self) -> Result<()> {
         binding_bytes(self, true)?;
-        self.account_id.validate()
+        Ok(())
     }
 }
 
@@ -101,14 +100,9 @@ impl MediaServiceBindingRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct MediaServiceBindingOutcome {
     pub request_id: RequestId,
-    pub account_id: AccountId,
     pub realm_id: RealmId,
     pub route: ServiceResolutionProjection,
     pub signing_keys: Vec<ServiceSigningKey>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub assignment_ref: CommittedEventRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub revision: CurrentRevision,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -118,24 +112,16 @@ pub struct MediaServiceBindingOutcome {
 impl MediaServiceBindingOutcome {
     pub fn validate(&self) -> Result<()> {
         binding_bytes(self, false)?;
-        self.account_id.validate()?;
         self.route.validate()?;
-        if self.route.service_kind != ServiceKind::MediaService.as_str() {
-            return Err(binding_error(
-                ErrorCode::SchemaViolation,
-                "media service route must project the media_service kind",
-            ));
-        }
-        if self.assignment_ref.stream_ref
-            != (arkret_wire::CommitStreamRef::Realm {
-                realm_id: self.realm_id.clone(),
-            })
-            || (self.assignment_ref.commit_id != self.revision.commit_id
-                && self.assignment_ref.stream_position > self.revision.stream_position)
+        if ![
+            ServiceKind::Station.as_str(),
+            ServiceKind::MediaService.as_str(),
+        ]
+        .contains(&self.route.service_kind.as_str())
         {
             return Err(binding_error(
-                ErrorCode::StateMismatch,
-                "media service assignment is not covered by the current Realm-stream revision",
+                ErrorCode::SchemaViolation,
+                "media issuer must retain its verified station or media_service role",
             ));
         }
         if self.signing_keys.is_empty() || self.signing_keys.len() > 16 {
@@ -173,10 +159,7 @@ impl MediaServiceBindingOutcome {
     ) -> Result<()> {
         request.validate()?;
         self.validate()?;
-        if self.request_id != request.request_id
-            || self.account_id != request.account_id
-            || self.realm_id != request.realm_id
-        {
+        if self.request_id != request.request_id || self.realm_id != request.realm_id {
             return Err(binding_error(
                 ErrorCode::StateMismatch,
                 "media service result differs from the exact request",
@@ -204,5 +187,69 @@ impl MediaServiceBindingOutcome {
         self.signing_keys
             .iter()
             .any(|key| &key.verification_method == issuer_kid)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn media_binding_uses_the_registered_closed_shape_and_actual_issuer_role() {
+        let request = MediaServiceBindingRequestBody {
+            request_id: RequestId::new_v7_at(1_740_000_000_000),
+            realm_id: RealmId::new("ak:realm:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM")
+                .unwrap(),
+        };
+        let wire = serde_json::to_value(&request).unwrap();
+        assert_eq!(wire.as_object().unwrap().len(), 2);
+        let mut extra = wire.clone();
+        extra["account_id"] = serde_json::json!({});
+        assert!(serde_json::from_value::<MediaServiceBindingRequestBody>(extra).is_err());
+        let did = Did::new("did:web:issuer.example").unwrap();
+        let now = arkret_canonical::normalize_timestamp_canonical(Utc::now());
+        let mut outcome = MediaServiceBindingOutcome {
+            request_id: request.request_id.clone(),
+            realm_id: request.realm_id.clone(),
+            route: ServiceResolutionProjection {
+                service_id: arkret_wire::project_did_to_core_id(&did).unwrap(),
+                service_kind: "station".into(),
+                did: did.clone(),
+                method_history_head: format!("sha256:{}", "1".repeat(64)),
+                version_id: "1-fixture".into(),
+                resolution_event_ref: format!("did-web-document-sha256:{}", "1".repeat(64)),
+                base_url: "https://issuer.example/".into(),
+            },
+            signing_keys: vec![ServiceSigningKey {
+                verification_method: DidUrl::new("did:web:issuer.example#assertion").unwrap(),
+                public_key_b64u: arkret_canonical::base64url_encode([7; 32]),
+            }],
+            observed_at: now,
+            expires_at: now + Duration::seconds(300),
+        };
+        outcome
+            .validate_for_request(&request, &outcome.route.service_id)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&outcome)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .len(),
+            6
+        );
+        for field in ["account_id", "assignment_ref", "revision"] {
+            let mut changed = serde_json::to_value(&outcome).unwrap();
+            changed[field] = serde_json::json!({});
+            assert!(
+                serde_json::from_value::<MediaServiceBindingOutcome>(changed).is_err(),
+                "{field}"
+            );
+        }
+        outcome.route.service_kind = "push_gateway".into();
+        assert!(outcome.validate().is_err());
+        outcome.route.service_kind = "station".into();
+        outcome.signing_keys[0].verification_method =
+            DidUrl::new("did:web:other.example#assertion").unwrap();
+        assert!(outcome.validate().is_err());
     }
 }

@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-26;
 //! sha256=e7e3d1e742ea74acadf57fab9554b6a39d6a0a082de7f847c6098f3610a341f6 Input: registry/
-//! contract-registry.json; version=2026-10-15.1;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d
+//! contract-registry.json; version=2026-10-15.5;
+//! sha256=29f963de4ebe2e8e0d661699ced37f1eb0b2468ce07c8fe98659bcc6772411b6
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -485,6 +485,8 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfConsentCommandRequestV1,
             ServiceOperationId::SelfConsentReadCurrentV1,
             ServiceOperationId::PeerConsentReadCurrentV1,
+            ServiceOperationId::PeerConsentCommandProxyV1,
+            ServiceOperationId::PeerConsentCommandPublishEffectsV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -780,8 +782,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-15.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-15.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-14.10";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-15.1";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-15.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-15.5";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-15.3";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-15.5";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

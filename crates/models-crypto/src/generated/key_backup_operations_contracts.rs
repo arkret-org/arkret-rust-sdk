@@ -14,13 +14,13 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
+// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
+// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
 
 /// Counterpart: `keys-operations.schema.json#/$defs/backup_active_series_state`.
 /// `keys-operations.schema.json#/$defs/backup_active_series_state`.

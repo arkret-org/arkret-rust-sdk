@@ -188,7 +188,9 @@ class Generator:
             return self.representation(row, node)
         if any(key in node for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas")):
             raise ValueError(f"unsupported object composition: {pointer}")
-        traits = ["Clone", "Debug", "PartialEq", "Eq", "serde::Serialize", "serde::Deserialize"]
+        traits = ["Clone", "Debug", "PartialEq", "serde::Serialize", "serde::Deserialize"]
+        if row.get("eq", True):
+            traits.insert(3, "Eq")
         if row.get("copy"):
             traits.insert(1, "Copy")
         if row.get("default") or row.get("default_variant"):
@@ -214,12 +216,13 @@ class Generator:
                 lines.append(f"    {rust_name(kind)}({self.names[target]}),")
             if not kinds:
                 raise ValueError(f"empty union: {pointer}")
-        elif "enum" in node:
-            if node.get("type") != "string":
+        elif "enum" in node or "const" in node:
+            values = node.get("enum", [node.get("const")])
+            if node.get("type", "string") != "string" or not all(isinstance(value, str) for value in values):
                 raise ValueError(f"unsupported enum: {pointer}")
             lines += [f"pub enum {name} {{"]
             variants = set()
-            for value in node["enum"]:
+            for value in values:
                 variant = rust_name(value)
                 if variant in variants:
                     raise ValueError(f"duplicate Rust variant: {variant}")
@@ -227,7 +230,7 @@ class Generator:
                 if value == row.get("default_variant"):
                     lines.append("    #[default]")
                 lines += [f"    #[serde(rename = {json.dumps(value)})]", f"    {variant},"]
-            if row.get("default_variant") and row["default_variant"] not in node["enum"]:
+            if row.get("default_variant") and row["default_variant"] not in values:
                 raise ValueError(f"default variant absent: {pointer}")
         else:
             if node.get("type") != "object" or node.get("additionalProperties") is not False:

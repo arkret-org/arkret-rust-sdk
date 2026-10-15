@@ -326,7 +326,15 @@ pub fn validate_verification_method_relationship(
         });
     }
     let property = relationship.property_name();
-    let relationship_value = document.raw_properties.get(property).ok_or_else(|| {
+    let normalized = document.raw_properties.contains_key("did");
+    let wire_property = if normalized {
+        match relationship {
+            DidVerificationRelationship::AssertionMethod => "assertion_methods",
+        }
+    } else {
+        property
+    };
+    let relationship_value = document.raw_properties.get(wire_property).ok_or_else(|| {
         BindingVerifyError::VerificationRelationshipMissing {
             did: document.id.clone(),
             relationship: property,
@@ -338,9 +346,16 @@ pub fn validate_verification_method_relationship(
     };
     let presented = verification_method.as_str();
     let authorized = entries.iter().any(|entry| {
-        let reference = entry
-            .as_str()
-            .or_else(|| entry.as_object()?.get("id")?.as_str());
+        let reference = entry.as_str().or_else(|| {
+            entry
+                .as_object()?
+                .get(if normalized {
+                    "verification_method"
+                } else {
+                    "id"
+                })?
+                .as_str()
+        });
         reference.is_some_and(|reference| {
             absolutize_document_reference(&document.id, reference) == presented
         })
@@ -391,13 +406,32 @@ fn verification_method_controller<'a>(
     document: &'a DidDocument,
     verification_method: &str,
 ) -> Option<&'a str> {
-    let methods = document.raw_properties.get("verificationMethod")?;
+    let normalized = document.raw_properties.contains_key("did");
+    let methods = document.raw_properties.get(if normalized {
+        "verification_methods"
+    } else {
+        "verificationMethod"
+    })?;
     let entries = methods.as_array()?;
     entries.iter().find_map(|entry| {
         let object = entry.as_object()?;
-        let id = object.get("id")?.as_str()?;
+        let id = object
+            .get(if normalized {
+                "verification_method"
+            } else {
+                "id"
+            })?
+            .as_str()?;
         (absolutize_document_reference(&document.id, id) == verification_method)
-            .then(|| object.get("controller")?.as_str())
+            .then(|| {
+                object
+                    .get(if normalized {
+                        "controller_did"
+                    } else {
+                        "controller"
+                    })?
+                    .as_str()
+            })
             .flatten()
     })
 }
@@ -1222,6 +1256,52 @@ mod tests {
         assert!(matches!(
             validate(&pinned),
             Err(BindingVerifyError::DocumentIssuerMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn normalized_assertion_relationship_preserves_membership_and_controller_checks() {
+        let method = verification_method();
+        let mut pinned = document(method.as_str());
+        pinned
+            .raw_properties
+            .insert("assertionMethod".to_owned(), serde_json::json!([method]));
+        let projection = arkret_models_identity::normalized_did_document(&pinned).unwrap();
+        let mut normalized: DidDocument = serde_json::from_value(projection).unwrap();
+        let validate = |document: &DidDocument| {
+            validate_verification_method_relationship(
+                document,
+                &method,
+                &did(),
+                DidVerificationRelationship::AssertionMethod,
+            )
+        };
+        validate(&normalized)
+            .expect("the authenticated normalized form retains the same assertion authority");
+        normalized
+            .raw_properties
+            .get_mut("verification_methods")
+            .unwrap()[0]["controller_did"] = serde_json::json!("did:web:other.example");
+        assert!(matches!(
+            validate(&normalized),
+            Err(BindingVerifyError::VerificationMethodControllerMismatch { .. })
+        ));
+        normalized
+            .raw_properties
+            .get_mut("verification_methods")
+            .unwrap()[0]["controller_did"] = serde_json::to_value(did()).unwrap();
+        normalized.raw_properties.insert(
+            "assertion_methods".to_owned(),
+            serde_json::json!([{"verification_method":"did:web:other.example#key-1"}]),
+        );
+        assert!(matches!(
+            validate(&normalized),
+            Err(BindingVerifyError::VerificationMethodRelationshipMismatch { .. })
+        ));
+        normalized.raw_properties.remove("assertion_methods");
+        assert!(matches!(
+            validate(&normalized),
+            Err(BindingVerifyError::VerificationRelationshipMissing { .. })
         ));
     }
 

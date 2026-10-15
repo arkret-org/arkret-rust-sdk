@@ -306,6 +306,44 @@ impl OwnStationResultClient {
         let value = self.client.realm_state_snapshot_head(realm_id).await?;
         self.bind(realm_id.clone(), value)
     }
+    pub async fn media_service_binding(
+        &self,
+        request: &arkret_models_identity::MediaServiceBindingRequestBody,
+        accepted_service_id: &arkret_wire::DidCoreId,
+    ) -> Result<
+        BoundOwnStationResponse<
+            (
+                arkret_models_identity::MediaServiceBindingRequestBody,
+                arkret_wire::DidCoreId,
+            ),
+            arkret_models_identity::MediaServiceBindingOutcome,
+        >,
+    > {
+        self.check_session()?;
+        let value = self
+            .client
+            .media_service_binding(request, accepted_service_id)
+            .await?;
+        self.bind((request.clone(), accepted_service_id.clone()), value)
+    }
+    pub async fn consent_current(
+        &self,
+        request: &arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,
+    ) -> Result<
+        BoundOwnStationResponse<
+            arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,
+            arkret_models_collaboration::call_invitation::ConsentCurrentReadOutcome,
+        >,
+    > {
+        self.check_session()?;
+        if &request.holder_account_id != self.session.account_id() {
+            return Err(protocol(
+                "Consent current belongs only to the exact authenticated holder",
+            ));
+        }
+        let value = self.client.consent_current_read(request).await?;
+        self.bind(request.clone(), value)
+    }
     pub async fn snapshot_by_ref(
         &self,
         realm_id: &RealmId,

@@ -428,7 +428,8 @@
       "generator": "closed-models",
       "outputs": [
         "crates/models-discovery/src/generated/directory.rs",
-        "crates/models-discovery/src/generated/presence.rs"
+        "crates/models-discovery/src/generated/presence.rs",
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs"
       ],
       "owner": "arkret-models-discovery",
       "mode": "closed-schema-model",
@@ -2013,6 +2014,60 @@
       ],
       "provides": [
         "RejectedProfileId"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/consent_private_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/consent-private-operations.schema.json"
+      ],
+      "provides": [
+        "ConsentPrivateHolderSessionContextKind",
+        "ConsentPrivateHolderSessionContext",
+        "ConsentPrivateStationContextKind",
+        "ConsentPrivateStationContext",
+        "ConsentPrivateContext",
+        "ConsentPrivateEmptyBody",
+        "ConsentPrivateListCommandKind",
+        "ConsentPrivateListCommand",
+        "ConsentPrivateVersionBody",
+        "ConsentPrivateVersionCommandKind",
+        "ConsentPrivateVersionCommand",
+        "ConsentPrivateEffectsCommandKind",
+        "ConsentPrivateEffectsCommand",
+        "ConsentPrivateInvitePolicyCommandKind",
+        "ConsentPrivateInvitePolicyCommand",
+        "ConsentPrivateInviteDeliveryBody",
+        "ConsentPrivateInviteDeliveryCommandKind",
+        "ConsentPrivateInviteDeliveryCommand",
+        "ConsentPrivateRequestBody",
+        "ConsentPrivateRequestCommandKind",
+        "ConsentPrivateRequestCommand",
+        "ConsentPrivateCommand",
+        "ConsentPrivateHolderQuarantineCell",
+        "ConsentPrivateInviteDeliveryCell",
+        "ConsentPrivateInviteReceivePolicyCell",
+        "ConsentPrivateEffects",
+        "ConsentPrivateListOutcomeKind",
+        "ConsentPrivateListOutcome",
+        "ConsentPrivateVersionOutcomeKind",
+        "ConsentPrivateVersionOutcome",
+        "ConsentPrivateEffectsOutcomeKind",
+        "ConsentPrivateEffectsOutcome",
+        "ConsentPrivateInvitePolicyOutcomeKind",
+        "ConsentPrivateInvitePolicyOutcome",
+        "ConsentPrivateInviteDeliveryOutcomeKind",
+        "ConsentPrivateInviteDeliveryOutcome",
+        "ConsentPrivateRequestOutcomeKind",
+        "ConsentPrivateRequestOutcome",
+        "ConsentPrivateCommandOutcome",
+        "ConsentPrivateProxyRequest",
+        "ConsentPrivateProxyOutcome"
       ]
     }
   ]

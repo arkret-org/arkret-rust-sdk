@@ -87,6 +87,7 @@ impl PresenceVisibility {
         match value {
             "public" => Some(Self::Public),
             "contacts_only" => Some(Self::ContactsOnly),
+            "consent_only" => Some(Self::ConsentOnly),
             "nobody" => Some(Self::Nobody),
             _ => None,
         }
@@ -96,6 +97,7 @@ impl PresenceVisibility {
         match self {
             Self::Public => "public",
             Self::ContactsOnly => "contacts_only",
+            Self::ConsentOnly => "consent_only",
             Self::Nobody => "nobody",
         }
     }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-15.1;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d
+//! Input: registry/contract-registry.json; version=2026-10-15.5;
+//! sha256=29f963de4ebe2e8e0d661699ced37f1eb0b2468ce07c8fe98659bcc6772411b6
 //! Entries: operation_bundles=42 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -601,6 +601,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerCommittedEventReadScanV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerConsentCommandProxyV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerConsentCommandPublishEffectsV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

@@ -14,18 +14,30 @@ impl ParticipantBinding {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipantMedia {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub audio: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub video: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub screen: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "CallParticipantWire")]
 pub struct CallParticipant {
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -45,7 +57,7 @@ pub struct CallParticipant {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallParticipantWire {
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -92,6 +104,17 @@ impl TryFrom<CallParticipantWire> for CallParticipant {
 
 impl CallParticipant {
     pub fn validate_binding_carrier(&self) -> std::result::Result<(), &'static str> {
+        if self.participant_binding.is_some() {
+            self.signed_media()
+                .map_err(|_| "participant binding requires the complete issued media range")?;
+        }
+
+        if self
+            .joined_at
+            .is_some_and(|at| at.timestamp_millis().rem_euclid(300_000) != 0)
+        {
+            return Err(arkret_wire::ErrorCode::SCHEMA_VIOLATION);
+        }
         let present = [
             self.participant_id.is_some(),
             self.participant_binding.is_some(),
@@ -126,7 +149,7 @@ pub struct CallParticipantRemoval {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 // Tagged wire union; boxing a variant changes the public constructor shape
 // without changing the JSON.
 #[allow(clippy::large_enum_variant)]
@@ -144,13 +167,13 @@ pub enum CallRosterDelta {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CallModerationDelta {
     RemoveParticipant {
         removal: CallParticipantRemoval,
     },
     RestoreParticipant {
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
@@ -650,6 +673,12 @@ impl CallCreatePayload {
 pub struct CallStateTransition {
     pub from: CallLifecycleState,
     pub to: CallLifecycleState,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
 }
 
 /// The lifecycle current includes the accepted creation's null predecessor;
@@ -746,6 +775,11 @@ pub struct CallTranscriptTransition {
 impl CallStatePayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
         // v1 has no per-leg current selector or CAS carrier for moderator mute.
+        if self.state_transition.as_ref().is_some_and(|t| {
+            (t.to == CallLifecycleState::Failed) != t.failure_reason_code.is_some()
+        }) {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         if self.mute_override.is_some() {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
@@ -959,3 +993,130 @@ mod call_current_tests {
 }
 
 include!("generated/call_contracts.rs");
+
+/// Validate immutable provenance before folding a complete Call assertion axis.
+fn validate_call_assertion_sources<'a>(
+    assertions: impl IntoIterator<Item = (&'a str, &'a arkret_wire::RealmCommit)>,
+    stream: &arkret_wire::CommitStreamRef,
+    revision: &CurrentRevision,
+    write_index: usize,
+) -> Result<()> {
+    let mut previous: Option<&str> = None;
+    let mut positions = std::collections::BTreeSet::new();
+    let mut latest = None;
+    for (tag, commit) in assertions {
+        commit.validate_shape()?;
+        if commit.stream_ref != *stream
+            || commit.realm_id != *stream.realm_id()
+            || tag != format!("{}:{}", commit.event_ref, write_index)
+            || previous.is_some_and(|old| old >= tag)
+            || !positions.insert(commit.stream_position)
+            || commit.stream_position > revision.stream_position
+        {
+            return schema_violation("Call assertion provenance, order or source differs");
+        }
+        previous = Some(tag);
+        if latest.is_none_or(|old: &arkret_wire::RealmCommit| {
+            old.stream_position < commit.stream_position
+        }) {
+            latest = Some(commit);
+        }
+    }
+    if latest.is_none_or(|last| {
+        last.commit_id != revision.commit_id || last.stream_position != revision.stream_position
+    }) {
+        return schema_violation("Call axis revision must equal its latest assertion Commit");
+    }
+    Ok(())
+}
+
+impl CallRosterCurrentValue {
+    pub fn validate_sources(
+        &self,
+        stream: &arkret_wire::CommitStreamRef,
+        revision: &CurrentRevision,
+    ) -> Result<()> {
+        validate_call_assertion_sources(
+            self.assertions
+                .iter()
+                .map(|a| (a.tag_id.as_str(), &a.source_commit)),
+            stream,
+            revision,
+            8,
+        )
+    }
+    pub fn active_participants(&self) -> Vec<(CallParticipant, arkret_wire::RealmCommit)> {
+        let mut assertions: Vec<_> = self.assertions.iter().collect();
+        assertions.sort_by_key(|a| a.source_commit.stream_position);
+        let mut active: Vec<(CallParticipant, arkret_wire::RealmCommit)> = Vec::new();
+        for a in assertions {
+            match &a.value {
+                CallRosterDelta::Join { participant } => {
+                    active.retain(|(p, _)| {
+                        p.actor_id != participant.actor_id || p.device_id != participant.device_id
+                    });
+                    active.push((participant.clone(), a.source_commit.clone()));
+                }
+                CallRosterDelta::Leave {
+                    actor_id,
+                    device_id,
+                    ..
+                } => active.retain(|(p, _)| &p.actor_id != actor_id || &p.device_id != device_id),
+            }
+        }
+        active
+    }
+}
+impl CallModerationCurrentValue {
+    pub fn validate_sources(
+        &self,
+        stream: &arkret_wire::CommitStreamRef,
+        revision: &CurrentRevision,
+    ) -> Result<()> {
+        validate_call_assertion_sources(
+            self.assertions
+                .iter()
+                .map(|a| (a.tag_id.as_str(), &a.source_commit)),
+            stream,
+            revision,
+            7,
+        )
+    }
+    pub fn active_removals(&self) -> Vec<CallParticipantRemoval> {
+        let mut assertions: Vec<_> = self.assertions.iter().collect();
+        assertions.sort_by_key(|a| a.source_commit.stream_position);
+        let mut active: Vec<CallParticipantRemoval> = Vec::new();
+        for a in assertions {
+            match &a.value {
+                CallModerationDelta::RemoveParticipant { removal } => {
+                    active.retain(|r| {
+                        r.actor_id != removal.actor_id || r.device_id != removal.device_id
+                    });
+                    active.push(removal.clone());
+                }
+                CallModerationDelta::RestoreParticipant { actor_id, .. } => active.retain(|r| {
+                    &r.actor_id != actor_id || r.action != CallParticipantRemovalAction::Ban
+                }),
+            }
+        }
+        active
+    }
+}
+
+impl CallParticipant {
+    pub fn signed_media(&self) -> Result<crate::call_invitation::CallInvitationMedia> {
+        let media = self.media.as_ref().ok_or_else(|| {
+            arkret_wire::WireError::Protocol("signed participant requires media range".to_owned())
+        })?;
+        match (media.audio, media.video, media.screen) {
+            (Some(audio), Some(video), Some(screen)) => {
+                Ok(crate::call_invitation::CallInvitationMedia {
+                    audio,
+                    video,
+                    screen,
+                })
+            }
+            _ => schema_violation("signed participant media requires all three non-null flags"),
+        }
+    }
+}

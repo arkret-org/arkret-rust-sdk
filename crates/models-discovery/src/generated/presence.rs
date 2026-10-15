@@ -8,10 +8,10 @@
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Input: schemas/presence-visibility.schema.json
-//! sha256=0eef99181e5f32cce0018bc214966f754a6aff5a3d4292380631fd787a36ee62
+//! sha256=192566c5b63dfce24f74ea1360a0f763b64c07c5b0a0676667023479a60bde74
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
+//! sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
 
 /// Counterpart: `presence-preference.schema.json#/properties/manual_state`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -62,6 +62,8 @@ pub enum PresenceVisibility {
     Public,
     #[serde(rename = "contacts_only")]
     ContactsOnly,
+    #[serde(rename = "consent_only")]
+    ConsentOnly,
     #[serde(rename = "nobody")]
     Nobody,
 }

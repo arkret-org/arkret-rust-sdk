@@ -1351,6 +1351,222 @@
     {
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalAgentProductAuthority",
       "schema": "signal-stream-frame.schema.json#/$defs/agent_product_authority"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationMedia",
+      "schema": "call-invitation-operations.schema.json#/$defs/media"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationProof",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionProof",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallVoluntaryJoinProof",
+      "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationEnvelope",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_envelope"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/send_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendOutcome",
+      "schema": "call-invitation-operations.schema.json#/$defs/send_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionOutcome",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationDeliveryView",
+      "schema": "call-invitation-operations.schema.json#/$defs/delivery_view"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationJoinContext",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallVoluntaryJoinContext",
+      "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaRosterIdentity",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaSubjectBinding",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallRefreshJoinContext",
+      "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentSelector",
+      "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentRow",
+      "schema": "typed-current-result.schema.json#/$defs/consent_result"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadProof",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadRequestBody",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadOutcome",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::PcrPrivateHandoffManifest",
+      "schema": "authority-commit-operations.schema.json#/$defs/pcr_private_handoff_manifest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateHolderSessionContext",
+      "schema": "consent-private-operations.schema.json#/$defs/holder_session_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateStationContext",
+      "schema": "consent-private-operations.schema.json#/$defs/station_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEmptyBody",
+      "schema": "consent-private-operations.schema.json#/$defs/list_command/properties/body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateListCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/list_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateVersionBody",
+      "schema": "consent-private-operations.schema.json#/$defs/version_command/properties/body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateVersionCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/version_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInvitePolicyCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_policy_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryBody",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_command/properties/body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateRequestBody",
+      "schema": "consent-private-operations.schema.json#/$defs/request_command/properties/body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateRequestCommand",
+      "schema": "consent-private-operations.schema.json#/$defs/request_command"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateHolderQuarantineCell",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryCell",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteReceivePolicyCell",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffects",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateListOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/list_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateVersionOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/version_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInvitePolicyOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateRequestOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/request_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyRequest",
+      "schema": "consent-private-operations.schema.json#/$defs/proxy_request"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/proxy_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishRequest",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishOutcome",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome"
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::ServiceSigningKey",
+      "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key"
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingRequestBody",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingOutcome",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterAssertion",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationAssertion",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_value"
     }
   ],
   "exemptions": [

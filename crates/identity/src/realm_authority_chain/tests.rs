@@ -297,6 +297,7 @@ fn chain() -> Chain {
     );
     let handoff = seal_handoff(
         RealmAuthorityHandoff {
+            pcr_private_state_digest: None,
             handoff_id: RealmAuthorityHandoffId::from_digest([0x21; 32]),
             realm_id: realm_id(),
             from_generation: 0,
@@ -1464,6 +1465,25 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     };
     // Build a canonical Genesis first: its content address is the Realm identity on every reopen.
     let mut genesis = chain.bundle.genesis_event.clone();
+    let object = arkret_models_collaboration::events_payloads::realm::RealmGenesis::new(
+        arkret_models_collaboration::events_payloads::realm::RealmPurpose::Collaboration,
+        arkret_wire::GenesisSalt::new(arkret_canonical::base64url_encode([31; 32])).unwrap(),
+        arkret_wire::TrustDomainId::new("ak:trust_domain:founder.example").unwrap(),
+        arkret_wire::SecurityClass::Standard,
+        core_id(STATION_A),
+        arkret_wire::JoinRule::Invite,
+        HistoryAccess::AllHistoryForCurrentMembers,
+        arkret_wire::Discoverability::Unlisted,
+        None,
+        None,
+    )
+    .unwrap();
+    genesis.payload = serde_json::from_value(
+        arkret_models_collaboration::events_payloads::realm::RealmCreatePayload::new(object)
+            .to_value()
+            .unwrap(),
+    )
+    .unwrap();
     genesis.scope_ref = ScopeRef::RealmGenesis;
     genesis.producer_proof = None;
     let genesis = finalize_event(genesis);
@@ -1585,6 +1605,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     .unwrap();
     verify(&chain).unwrap();
     let request = AuthorityHandoffRequest {
+        pcr_private_state: None,
         handoff,
         final_stream_heads: heads,
         snapshot,

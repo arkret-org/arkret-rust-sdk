@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-15.1;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-15.5;
+//! sha256=29f963de4ebe2e8e0d661699ced37f1eb0b2468ce07c8fe98659bcc6772411b6 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=150, approval_carriers=3, schemas=229, account_data_patterns=24
+//! special_forms=15, actions=150, approval_carriers=3, schemas=230, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3281,6 +3281,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONSENT_OPERATIONS_V1,
         file: "schemas/consent-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONSENT_PRIVATE_OPERATIONS_V1,
+        file: "schemas/consent-private-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_OPERATIONS_V1,

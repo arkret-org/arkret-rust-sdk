@@ -27,7 +27,7 @@ pub enum PinScope {
 
 use crate::{
     AccountId, AccountabilityScopeSet, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId,
-    DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
+    ConsentId, DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -363,6 +363,15 @@ pub struct CommitStreamHead {
 impl RealmAuthorityHandoff {
     pub fn validate_shape(&self) -> Result<()> {
         if self
+            .pcr_private_state_digest
+            .as_ref()
+            .is_some_and(|digest| !digest.as_str().starts_with("sha256:"))
+        {
+            return Err(WireError::Protocol(
+                "PCR private state digest requires fixed SHA256".into(),
+            ));
+        }
+        if self
             .historical_signer_facts_digest
             .as_ref()
             .is_some_and(|digest| !digest.as_str().starts_with("sha256:"))
@@ -544,8 +553,21 @@ impl RealmAuthorityBundle {
             &self.genesis_commit.signature,
         )?);
         let mut last_handoff = None;
+        let genesis_payload = serde_json::to_value(&self.genesis_event.payload)?;
+        let private_control = matches!(
+            genesis_payload
+                .pointer("/object/purpose")
+                .and_then(serde_json::Value::as_str),
+            Some("principal_control" | "agent_control" | "applet_managed_control")
+        );
         for transition in &self.authority_transitions {
             transition.validate_shape()?;
+            if transition.handoff.pcr_private_state_digest.is_some() != private_control {
+                return Err(WireError::Protocol(
+                    "handoff private state commitment applicability differs from inception purpose"
+                        .into(),
+                ));
+            }
             if transition.handoff.realm_id != self.realm_id
                 || transition.handoff.from_generation != expected_generation
                 || expected_service.as_ref() != Some(&transition.handoff.from_service_id)
@@ -1331,6 +1353,19 @@ pub enum CurrentSelector {
     CallState {
         call_id: CallId,
     },
+    Consent {
+        consent_id: ConsentId,
+    },
+    CallFocus {
+        call_id: CallId,
+    },
+    CallRoster {
+        call_id: CallId,
+    },
+    CallModeration {
+        call_id: CallId,
+    },
+    RealmMediaService,
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
@@ -1507,6 +1542,19 @@ enum FlatCurrentSelector {
     CallState {
         call_id: CallId,
     },
+    Consent {
+        consent_id: ConsentId,
+    },
+    CallFocus {
+        call_id: CallId,
+    },
+    CallRoster {
+        call_id: CallId,
+    },
+    CallModeration {
+        call_id: CallId,
+    },
+    RealmMediaService,
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
@@ -1831,6 +1879,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         primary_conflict_domain,
                     },
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
+                    FlatCurrentSelector::Consent { consent_id } => Self::Consent { consent_id },
+                    FlatCurrentSelector::CallFocus { call_id } => Self::CallFocus { call_id },
+                    FlatCurrentSelector::CallRoster { call_id } => Self::CallRoster { call_id },
+                    FlatCurrentSelector::CallModeration { call_id } => {
+                        Self::CallModeration { call_id }
+                    }
+                    FlatCurrentSelector::RealmMediaService => Self::RealmMediaService,
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
                     }

@@ -190,17 +190,31 @@ where
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CallMediaDesiredMedia {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub audio: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub video: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub screen: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CallMediaTokenExchangeRequestBody {
     pub realm_id: RealmId,
     pub call_id: CallId,
@@ -209,8 +223,13 @@ pub struct CallMediaTokenExchangeRequestBody {
     pub focus_id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_refs: Vec<GrantId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub desired_media: Option<CallMediaDesiredMedia>,
+    pub join_context: crate::call_invitation::CallMediaJoinContext,
 }
 
 pub use crate::events_payloads::call::ParticipantBinding as CallMediaParticipantBinding;
@@ -303,6 +322,8 @@ struct CallMediaTokenExchangeOutcomeWire {
     call_id: CallId,
     actor_id: ActorId,
     device_id: DeviceId,
+    roster_identity: crate::call_invitation::CallMediaRosterIdentity,
+    subject_binding: crate::call_invitation::CallMediaSubjectBinding,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -321,6 +342,8 @@ pub struct CallMediaTokenExchangeOutcome {
     pub call_id: CallId,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
+    pub roster_identity: crate::call_invitation::CallMediaRosterIdentity,
+    pub subject_binding: crate::call_invitation::CallMediaSubjectBinding,
 }
 
 impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcome {
@@ -352,6 +375,8 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
             call_id: value.call_id,
             actor_id: value.actor_id,
             device_id: value.device_id,
+            roster_identity: value.roster_identity,
+            subject_binding: value.subject_binding,
         })
     }
 }

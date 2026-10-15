@@ -15,6 +15,15 @@ SPEC.loader.exec_module(GENERATOR)
 
 
 class ProfileRequirementGeneratorTests(unittest.TestCase):
+    def test_closed_realm_allowlist_is_projected_from_the_profile(self) -> None:
+        generated = GENERATOR.generate(
+            SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",
+            SPEC_ARTIFACTS / "registry" / "contract-registry.json",
+        )
+        self.assertIn("pub realm_event_kind_allowlist: Option<&'static [&'static str]>", generated)
+        self.assertIn("realm_event_kind_allowlist: Some(&[", generated)
+        self.assertIn("event_kind_str::REALM_GOVERNANCE_STATION_CHANGE", generated)
+
     def test_registered_event_kinds_reuse_generated_constants(self) -> None:
         generated = GENERATOR.generate(
             SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",

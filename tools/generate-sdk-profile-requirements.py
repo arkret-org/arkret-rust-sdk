@@ -194,6 +194,7 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
         "    pub enforcement_phases: &'static [ProfileEnforcementPhase],",
         "    pub operation_requirements: &'static [ProfileOperationRequirement],",
         "    pub required_event_kinds: &'static [&'static str],",
+        "    pub realm_event_kind_allowlist: Option<&'static [&'static str]>,",
         "    pub required_schemas: &'static [&'static str],",
         "    pub rejected_event_kinds: &'static [&'static str],",
         "    pub required_fixtures: &'static [&'static str],",
@@ -227,6 +228,12 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
             non_event_rule(item, registered_event_kinds)
             for item in row.get("non_event_grant_authority_rules", [])
         )
+        policy = row.get("realm_event_kind_policy")
+        allowlist = "None"
+        if policy is not None:
+            if policy.get("allowlist_only") is not True or not policy.get("allowed_event_kinds"):
+                raise ValueError(f"unsupported or empty Realm event-kind policy: {profile_id}")
+            allowlist = "Some(" + event_kind_slice(policy["allowed_event_kinds"], registered_event_kinds) + ")"
         lines.extend(
             [
                 f"        map.insert({rust_string(profile_id)}, ProfileRequirements {{",
@@ -236,6 +243,7 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
                 f"            operation_requirements: &[{ops}],",
                 "            required_event_kinds: "
                 f"{event_kind_slice(row.get('required_event_kinds', []), registered_event_kinds)},",
+                f"            realm_event_kind_allowlist: {allowlist},",
                 f"            required_schemas: {rust_slice(row.get('required_schemas', []))},",
                 "            rejected_event_kinds: "
                 f"{event_kind_slice(row.get('rejected_event_kinds', []), registered_event_kinds)},",

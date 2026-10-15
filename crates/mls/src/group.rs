@@ -562,6 +562,21 @@ impl ArkretMlsGroup {
         self.group.epoch().as_u64()
     }
 
+    /// Read the governance binding authenticated by the live RFC 9420 GroupContext.
+    pub fn authenticated_governance_binding(&self) -> Result<MlsGovernanceBindingPayload> {
+        let extension = self
+            .group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "MLS governance binding GroupContext extension is missing".to_owned(),
+                )
+            })?;
+        MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
+            .map_err(|error| Error::Protocol(error.to_string()))
+    }
+
     /// The effective security scope this group serves.
     pub fn scope(&self) -> &ScopeRef {
         &self.scope

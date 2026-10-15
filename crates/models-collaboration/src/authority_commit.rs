@@ -866,6 +866,16 @@ pub struct PeerAuthorityForwardEventRequest {
 }
 
 impl PeerAuthorityForwardEventRequest {
+    /// Structural candidate only. Admission must independently establish the
+    /// actual accepted inception/purpose and execute the registered native unit.
+    pub fn is_native_pcr_candidate(&self) -> bool {
+        self.producer_device_evidence.is_none()
+            && self.producer_agent_evidence.is_none()
+            && self.event_submission.event.kind != EventKind::RealmCreate
+            && arkret_wire::requirements_for(arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1)
+                .and_then(|profile| profile.realm_event_kind_allowlist)
+                .is_some_and(|kinds| kinds.contains(&self.event_submission.event.kind.as_str()))
+    }
     pub fn new_agent(
         event_submission: EventAdmissionSubmission,
         mls_genesis_material: Option<MlsGenesisMaterial>,
@@ -921,6 +931,9 @@ impl PeerAuthorityForwardEventRequest {
                         .to_owned(),
                 });
             }
+        }
+        if self.is_native_pcr_candidate() {
+            return Ok(());
         }
         validate_producer_agent_evidence_presence(
             &self.event_submission.event,
@@ -1598,6 +1611,42 @@ impl AuthorityHandoffRequest {
             ));
         }
         self.authority_bundle.validate_shape()?;
+        let genesis: crate::events_payloads::realm::RealmCreatePayload = serde_json::from_value(
+            serde_json::to_value(&self.authority_bundle.genesis_event.payload)?,
+        )?;
+        let private_control = matches!(
+            genesis.object.purpose,
+            crate::events_payloads::RealmPurpose::PrincipalControl
+                | crate::events_payloads::RealmPurpose::AgentControl
+                | crate::events_payloads::RealmPurpose::AppletManagedControl
+        );
+        match (
+            &self.pcr_private_state,
+            &self.handoff.pcr_private_state_digest,
+        ) {
+            (Some(manifest), Some(digest)) if private_control => {
+                manifest.validate()?;
+                if manifest.realm_id != self.handoff.realm_id
+                    || manifest.governance_generation != self.handoff.from_generation
+                    || self
+                        .final_stream_heads
+                        .iter()
+                        .find(|head| matches!(head.stream_ref, CommitStreamRef::Realm { .. }))
+                        != Some(&manifest.effective_stream_head)
+                    || manifest.digest()? != *digest
+                {
+                    return Err(WireError::Protocol(
+                        "PCR private handoff manifest and signed final cut differ".into(),
+                    ));
+                }
+            }
+            (None, None) if !private_control => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "PCR private handoff manifest applicability mismatch".into(),
+                ));
+            }
+        }
         if self.final_stream_heads.is_empty()
             || !self
                 .final_stream_heads
@@ -1656,6 +1705,33 @@ impl AuthorityHandoffRequest {
             ));
         }
         Ok(())
+    }
+}
+
+impl PcrPrivateHandoffManifest {
+    pub fn validate(&self) -> Result<()> {
+        let nonce = arkret_canonical::base64url_decode(&self.nonce).map_err(|_| {
+            WireError::Protocol("PCR private handoff nonce must be Base64URL".into())
+        })?;
+        if nonce.len() < 16
+            || self.nonce.len() > 64
+            || arkret_canonical::base64url_encode(&nonce) != self.nonce
+            || !self.state_digest.as_str().starts_with("sha256:")
+            || self.effective_stream_head.stream_ref
+                != (CommitStreamRef::Realm {
+                    realm_id: self.realm_id.clone(),
+                })
+        {
+            return Err(WireError::Protocol(
+                "PCR private handoff nonce, digest or Realm head invalid".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
     }
 }
 

@@ -35,6 +35,19 @@ class ClosedModelsTests(unittest.TestCase):
         self.assertNotIn("= 20", output)
         self.assertIn("sha256=", output)
 
+    def test_string_const_and_partial_equality_representation(self):
+        self.schema = {"const": "holder_session"}
+        row = self.bindings["families"][0]["types"][0]
+        row["eq"] = False
+        output = self.generate()
+        self.assertIn('serde(rename = "holder_session")', output)
+        self.assertIn("HolderSession,", output)
+        self.assertIn("PartialEq, serde::Serialize", output)
+        self.assertNotIn("PartialEq, Eq,", output)
+        self.schema = {"const": 42}
+        with self.assertRaisesRegex(ValueError, "unsupported enum"):
+            self.generate()
+
     def representation(self):
         row = self.bindings["families"][0]["types"][0]
         row["rust"] = {"signature": "pub struct Example", "attributes": ['#[derive(serde::Serialize, serde::Deserialize)]', '#[serde(deny_unknown_fields)]'], "members": {
