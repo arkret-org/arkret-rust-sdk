@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-10.1;
-//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9
+//! Input: registry/error-code-registry.json; version=2026-10-16.1;
+//! sha256=d23b95ce5465ffead6ad25942afe4bfe287884480c6e3889423a7c394690249d
 //! Entries: reason_codes=309, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2061,7 +2061,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
-        description: "An agent runtime requested a high-risk session scope that requires out-of-band controller approval. The top-level service error is claim_required; error.details carries this reason_code and an opaque approval_request_id. The runtime MUST NOT receive a CAPTCHA, OTP, or browser challenge. See zh/identity/key-management.md §3.2.",
+        description: "The sole missing explicit owned-Agent content grant can be supplied by the controller while all other current gates are satisfied. The top-level service error is HTTP403 claim_required; RFC9457 direct extensions carry reason_code=human_approval_required and an opaque approval_request_id. The identifier is correlation only, not a bearer, authority source or private-intent lookup. The controller supplies an accepted capability/delegation Event and the runtime retries with signed accepted Event references. No CAPTCHA, OTP, browser challenge or independent approval permission system is introduced. See zh/authz/owned-agent-authority.md section 2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::IDENTITY_CREATION_ALREADY_ACCEPTED,

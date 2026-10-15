@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-15.1;
-//! sha256=27e9314bdd914058b9d551e5ce9e73479ac88ac2c9b8ace69eb3844ee403243c Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-16.1;
+//! sha256=ae5148978b0dd98e45c8435b191d3dbe3ac2cbd1c4d24dd8289f707af2dbc723 Input: registry/
 //! contract-registry.json; version=2026-10-15.5;
 //! sha256=29f963de4ebe2e8e0d661699ced37f1eb0b2468ce07c8fe98659bcc6772411b6 Input: registry/
-//! error-code-registry.json; version=2026-10-10.1;
-//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=225
+//! error-code-registry.json; version=2026-10-16.1;
+//! sha256=d23b95ce5465ffead6ad25942afe4bfe287884480c6e3889423a7c394690249d Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -116,6 +116,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::AgentProvisionScopeMigrationRequired),
         OperationSpecificError::Reason(ReasonCode::AgentKeyScopeReauthorizationRequired),
         OperationSpecificError::Reason(ReasonCode::AgentSessionScopeRefreshRequired),
+        OperationSpecificError::Reason(ReasonCode::HumanApprovalRequired),
         OperationSpecificError::Reason(ReasonCode::AccountabilityGrantMissing),
         OperationSpecificError::Reason(ReasonCode::AgentRequestedScopeCommitmentInvalid),
         OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
