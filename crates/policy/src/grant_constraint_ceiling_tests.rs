@@ -217,3 +217,74 @@ fn external_quota_never_gets_a_synthetic_grant_reservation() {
         GrantEvaluation::Unsatisfied
     ));
 }
+
+#[test]
+fn agent_event_projection_ceiling_uses_exact_accepted_collection_facts() {
+    use crate::agent_content_ceiling::require_key_scope_content_ceiling;
+    let actor = actor();
+    let mut event = WireResourceSelector::realm(REALM.parse().unwrap());
+    event.kind = ResourceSelectorKind::Event;
+    event.event_id = Some(
+        arkret_wire::EventId::new("ak:event:AZ6GqZWWvnQ2KFwbBD-MenomzWNz-31MUAuKzBXIP0zv").unwrap(),
+    );
+    let mut facts = OperationFacts {
+        strand_id: Some(STRAND.into()),
+        track: Some("discussion".into()),
+        ..Default::default()
+    };
+    let scope: arkret_models_collaboration::events_payloads::agent::AgentKeyScope =
+        serde_json::from_value(serde_json::json!({
+            "actions":["ak.event.read","ak.message.create"],
+            "resources":[{"kind":"strand","realm_id":REALM,"resource_ref":STRAND}]
+        }))
+        .unwrap();
+    fn read<'a>(
+        actor: &'a ActorId,
+        event: &'a WireResourceSelector,
+        facts: &'a OperationFacts,
+    ) -> AuthorizationOperation<'a> {
+        AuthorizationOperation {
+            actor,
+            actions: &[CapabilityActionId::EVENT_READ],
+            target: event,
+            at: at(),
+            facts,
+        }
+    }
+    assert!(require_key_scope_content_ceiling(&scope, &read(&actor, &event, &facts)).is_ok());
+    assert!(
+        !resource_selector_covers(&target(REALM), &event),
+        "generic grant selector matching must remain exact"
+    );
+    facts.strand_id = None;
+    assert!(require_key_scope_content_ceiling(&scope, &read(&actor, &event, &facts)).is_err());
+    facts.strand_id = Some("ak:strand:Aa-h0nYxlvhQk1U9H0yQTY4hZEVTz0be75pj6U70n7qy".into());
+    assert!(require_key_scope_content_ceiling(&scope, &read(&actor, &event, &facts)).is_err());
+    facts.strand_id = Some(STRAND.into());
+    let mut wrong = scope.clone();
+    wrong.resources[0].realm_id = Some(OTHER_REALM.parse().unwrap());
+    assert!(require_key_scope_content_ceiling(&wrong, &read(&actor, &event, &facts)).is_err());
+    let write = AuthorizationOperation {
+        actions: &[CapabilityActionId::MESSAGE_CREATE],
+        ..read(&actor, &event, &facts)
+    };
+    assert!(require_key_scope_content_ceiling(&scope, &write).is_err());
+    let mut bounded = scope.clone();
+    bounded.constraints = serde_json::from_value(serde_json::json!([{"constraint_kind":"scope_limitation","effect":"allow","allowed_tracks":["discussion"]}])).unwrap();
+    assert!(require_key_scope_content_ceiling(&bounded, &read(&actor, &event, &facts)).is_ok());
+    facts.track = None;
+    assert!(require_key_scope_content_ceiling(&bounded, &read(&actor, &event, &facts)).is_err());
+    facts.track = Some("discussion".into());
+    bounded.constraints = serde_json::from_value(serde_json::json!([{"constraint_kind":"scope_limitation","effect":"deny","denied_tracks":["discussion"]}])).unwrap();
+    assert!(require_key_scope_content_ceiling(&bounded, &read(&actor, &event, &facts)).is_err());
+    let circle = "ak:circle:AcsXlJSItqSzy43Swu0nFz2ijj4Yaf0RgjmoTeivRt8M";
+    let circle_scope = serde_json::from_value(serde_json::json!({"actions":["ak.event.read"],"resources":[{"kind":"circle","realm_id":REALM,"resource_ref":circle}]})).unwrap();
+    facts.circle_id = Some(circle.into());
+    assert!(
+        require_key_scope_content_ceiling(&circle_scope, &read(&actor, &event, &facts)).is_ok()
+    );
+    facts.circle_id = None;
+    assert!(
+        require_key_scope_content_ceiling(&circle_scope, &read(&actor, &event, &facts)).is_err()
+    );
+}
