@@ -155,6 +155,18 @@ pub struct GhostActorProfileFields {
 }
 
 impl GhostActorProfileFields {
+    /// Extract only the reserved identity members from an independently
+    /// validated extensible ActorProfile. Other display/interaction members
+    /// are not part of this closed identity carrier.
+    pub fn from_profile_fields(
+        fields: &std::collections::BTreeMap<String, serde_json::Value>,
+    ) -> Result<Self> {
+        Ok(serde_json::from_value(serde_json::json!({
+            "managed_by_applet":fields.get("managed_by_applet"),
+            "external_ref":fields.get("external_ref"),
+        }))?)
+    }
+
     pub fn new(managed_by_applet: AppletId, external_ref: GhostExternalTuple) -> Self {
         Self {
             managed_by_applet,
@@ -166,6 +178,39 @@ impl GhostActorProfileFields {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reserved_ghost_identity_allows_other_profile_members_without_widening_its_carrier() {
+        let fields = std::collections::BTreeMap::from([
+            (
+                "managed_by_applet".into(),
+                serde_json::json!("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"),
+            ),
+            (
+                "external_ref".into(),
+                serde_json::json!({"protocol":"slack","instance_id":"tenant","external_id":"user"}),
+            ),
+            ("bio".into(), serde_json::json!("Display bio")),
+            (
+                "applet_interaction".into(),
+                serde_json::json!({"mode":"private","effective_scope":{"kind":"realm","realm_id":"ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"}}),
+            ),
+        ]);
+        let identity = GhostActorProfileFields::from_profile_fields(&fields).unwrap();
+        assert_eq!(identity.external_ref.external_id, "user");
+        assert!(
+            serde_json::from_value::<GhostActorProfileFields>(
+                serde_json::to_value(&fields).unwrap()
+            )
+            .is_err()
+        );
+        let mut missing = fields.clone();
+        missing.remove("external_ref");
+        assert!(GhostActorProfileFields::from_profile_fields(&missing).is_err());
+        let mut changed = fields;
+        changed.insert("external_ref".into(),serde_json::json!({"protocol":"slack","instance_id":"tenant","external_id":"user","other":"hidden"}));
+        assert!(GhostActorProfileFields::from_profile_fields(&changed).is_err());
+    }
 
     #[test]
     fn ghost_preview_request_is_closed() {

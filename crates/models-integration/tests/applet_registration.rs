@@ -1039,6 +1039,18 @@ fn management_target_digest_uses_business_body_and_only_drops_outer_evidence() {
         applet_id: applet.clone(),
         request_body: Box::new(body.clone()),
     };
+    let original_intent = review.canonical_intent_digest().unwrap();
+    let mut attached_review = review.clone();
+    attached_review.target = attached.clone();
+    assert_eq!(
+        original_intent,
+        attached_review.canonical_intent_digest().unwrap()
+    );
+    attached_review.request_id.push_str("-other");
+    assert_ne!(
+        original_intent,
+        attached_review.canonical_intent_digest().unwrap()
+    );
     assert_eq!(digest, attached.canonical_target_digest().unwrap());
     assert_ne!(
         digest.as_str(),

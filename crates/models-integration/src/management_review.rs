@@ -53,6 +53,19 @@ pub struct ManagementReviewRequestBody {
     pub target: ManagementReviewTarget,
 }
 impl ManagementReviewRequestBody {
+    /// Immutable private intent uses the actual target digest, so attaching
+    /// outer creation votes cannot change or circularly redefine the request.
+    pub fn canonical_intent_digest(&self) -> arkret_wire::Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::canonical_sha256(
+            &serde_json::json!({
+                "request_id":self.request_id,"effective_scope":self.effective_scope,
+                "management_operation":self.management_operation,"requester_actor_id":self.requester_actor_id,
+                "target_digest":self.target.canonical_target_digest()?
+            }),
+        )?)?)
+    }
+
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let valid = match (&self.management_operation, &self.target) {
             (

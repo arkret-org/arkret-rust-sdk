@@ -245,6 +245,7 @@ fn native_management_creation_omits_only_outer_evidence_and_binds_ledger() {
                 ledger,
             )
         };
+    signature.validate().unwrap();
     verify(&signature, &digest, &binding).unwrap();
     let mut attached = body;
     attached["approval_signatures"] = json!([signature]);

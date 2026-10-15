@@ -1017,7 +1017,12 @@ impl ApprovalSignature {
             ));
         }
         if self.input.approval_target == ApprovalTarget::Operation
-            && self.input.operation != crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1
+            && !matches!(
+                self.input.operation.as_str(),
+                crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1
+                    | crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1
+                    | crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1
+            )
         {
             return Err(WireError::Protocol(
                 "approval operation target has no registered evidence carrier".into(),
@@ -2829,6 +2834,45 @@ mod tests {
             },
         };
         assert!(approval.validate().is_err());
+    }
+
+    #[test]
+    fn approval_operation_shape_accepts_creation_carriers_without_opening_other_operations() {
+        use crate::ManagementOperation;
+
+        for (operation, management_operation, action) in [
+            (
+                crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
+                ManagementOperation::CreateBot,
+                CapabilityActionId::AppletBotProvision,
+            ),
+            (
+                crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
+                ManagementOperation::MapGhost,
+                CapabilityActionId::AppletGhostProvision,
+            ),
+        ] {
+            let mut approval = approval_shape_fixture();
+            approval.input.approval_target = ApprovalTarget::Operation;
+            approval.input.operation = operation.into();
+            approval.input.action = action;
+            approval.input.approval_context = ApprovalContext::Management {
+                request_id: "original-creation-review".into(),
+                management_operation,
+                effective_scope: ScopeRef::Realm {
+                    realm_id: approval.input.realm_id.clone(),
+                },
+            };
+            approval.validate().unwrap();
+            for unregistered_carrier in [
+                crate::ServiceOperationId::SELF_MANAGEMENT_REVIEW_COMMAND_DECIDE_V1,
+                crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PREVIEW_V1,
+                crate::ServiceOperationId::SELF_APPLET_COMMAND_INSTALL_V1,
+            ] {
+                approval.input.operation = unregistered_carrier.into();
+                assert!(approval.validate().is_err(), "{unregistered_carrier}");
+            }
+        }
     }
 
     #[test]
