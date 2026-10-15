@@ -46,12 +46,15 @@ pub fn require_key_scope_content_ceiling(
         .collect::<Vec<_>>();
     let verdict = if resources.is_empty() {
         crate::grant_evaluation::evaluate_constraint_ceiling(operation, &scope.constraints)
+    } else if resources.iter().any(|resource| {
+        crate::grant_evaluation::resource_selector_covers(resource, operation.target)
+            || event_projection_scope_covers(resource, operation)
+    }) {
+        // The collection qualifies this Event projection's resource ceiling.
+        // Mandatory constraints still see the unchanged actual Event and facts.
+        crate::grant_evaluation::evaluate_constraint_ceiling(operation, &scope.constraints)
     } else {
-        crate::grant_evaluation::evaluate_resource_constraint_ceiling(
-            operation,
-            &resources,
-            &scope.constraints,
-        )
+        GrantEvaluation::Unsatisfied
     };
     match verdict {
         GrantEvaluation::Allowed(_) => Ok(()),
@@ -63,6 +66,45 @@ pub fn require_key_scope_content_ceiling(
         GrantEvaluation::Quarantined | GrantEvaluation::RequiresReview => Err(unavailable(
             "Agent content ceiling requires unresolved quarantine or review evidence",
         )),
+    }
+}
+
+/// EventRead projects content in an explicitly registered Strand/Circle scope.
+/// Facts must come from the accepted producer at the caller's authority cut.
+/// This is not generic selector inheritance or an independent read grant.
+fn event_projection_scope_covers(
+    resource: &arkret_wire::WireResourceSelector,
+    operation: &AuthorizationOperation<'_>,
+) -> bool {
+    use arkret_wire::ResourceSelectorKind as Kind;
+    if operation.target.kind != Kind::Event
+        || operation.target.realm_id.is_none()
+        || operation.actions != [CapabilityActionId::EVENT_READ].as_slice()
+        || resource
+            .realm_id
+            .as_ref()
+            .is_some_and(|realm| operation.target.realm_id.as_ref() != Some(realm))
+    {
+        return false;
+    }
+    match resource.kind {
+        Kind::Strand => resource.strand_id.as_ref().is_some_and(|strand| {
+            operation.facts.strand_id.as_deref() == Some(strand.as_str())
+                && operation
+                    .target
+                    .strand_id
+                    .as_ref()
+                    .is_none_or(|target| target == strand)
+        }),
+        Kind::Circle => resource.circle_id.as_ref().is_some_and(|circle| {
+            operation.facts.circle_id.as_deref() == Some(circle.as_str())
+                && operation
+                    .target
+                    .circle_id
+                    .as_ref()
+                    .is_none_or(|target| target == circle)
+        }),
+        _ => false,
     }
 }
 
