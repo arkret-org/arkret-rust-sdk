@@ -97,6 +97,39 @@ pub fn verify_native_control_event_approval(
     )
 }
 
+/// Verify an operation without borrowing an Event or a management ledger.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_native_control_operation_approval(
+    control: &NativeIdentityControlKey,
+    signature: &arkret_wire::ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: arkret_wire::CapabilityActionId,
+    realm: &arkret_wire::RealmId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: chrono::DateTime<chrono::Utc>,
+) -> std::result::Result<(), arkret_signatures::approval_signature::ApprovalEventVerificationError>
+{
+    use arkret_signatures::approval_signature::ApprovalEventVerificationError as Error;
+    if control.method() != &signature.proof.verification_method {
+        return Err(Error::Binding);
+    }
+    let key = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: control.public_key().to_vec(),
+    };
+    arkret_signatures::approval_signature::verify_operation_approval_signature_with_verified_controller(
+        signature,
+        expected_digest,
+        operation,
+        action,
+        realm,
+        initiating_actor,
+        at,
+        &key,
+        Some(control.principal()),
+    )
+}
+
 /// Bind management review to its authenticated historical native approver.
 #[allow(clippy::too_many_arguments)]
 pub fn verify_native_control_management_event_approval(

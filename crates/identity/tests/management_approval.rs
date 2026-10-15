@@ -3,7 +3,7 @@ use arkret_identity::principal_control::{
     DirectIdentityControlPurpose, NativeIdentityControlKey,
     native_identity_control_key_from_verified_selection,
     verify_native_control_management_event_approval,
-    verify_native_control_management_operation_approval,
+    verify_native_control_management_operation_approval, verify_native_control_operation_approval,
 };
 use arkret_signatures::Ed25519DetachedJwsSigner;
 use arkret_signatures::approval_signature::{
@@ -285,4 +285,130 @@ fn native_management_creation_omits_only_outer_evidence_and_binds_ledger() {
 
 fn did_to_key(control: &NativeIdentityControlKey) -> &str {
     control.method().as_str().split_once('#').unwrap().0
+}
+
+#[test]
+fn native_creation_action_approval_binds_operation_without_inventing_management_context() {
+    let (signer, did, control) = native_approver();
+    let at = Utc.timestamp_opt(1_800_000_000, 0).unwrap();
+    let realm = RealmId::from_event_id(&EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        [5; 32],
+    ));
+    let scope = ScopeRef::Realm {
+        realm_id: realm.clone(),
+    };
+    let service = ActorId::service("ak:did_core:web:service.example".parse().unwrap());
+    let digest = management_creation_request_digest(
+        &json!({"candidate":"original","approval_signatures":[]}),
+    )
+    .unwrap();
+    for (operation, action) in [
+        (
+            ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
+            CapabilityActionId::AppletBotProvision,
+        ),
+        (
+            ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
+            CapabilityActionId::AppletGhostProvision,
+        ),
+    ] {
+        for context in [
+            ApprovalContext::Grant {
+                grant_id: GrantId::from_event_id(&EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [30; 32],
+                )),
+            },
+            ApprovalContext::RealmGovernance {},
+        ] {
+            let mut signature = ApprovalSignature {
+                input: ApprovalSignatureInput {
+                    approval_context: context,
+                    approval_target: ApprovalTarget::Operation,
+                    request_canonical_digest: digest.clone(),
+                    operation: operation.into(),
+                    action,
+                    realm_id: realm.clone(),
+                    initiating_actor_id: service.clone(),
+                    approver_did: did.clone(),
+                    approved_at: at,
+                    nonce: "ABCDEFGHIJKLMNOPQRSTUX".into(),
+                },
+                proof: ApprovalSignatureProof {
+                    kind: ApprovalSignatureProofKind::DetachedJws,
+                    verification_method: control.method().clone(),
+                    jws: String::new(),
+                },
+            };
+            sign(&mut signature, &signer);
+            signature.validate().unwrap();
+            let verify = |vote: &ApprovalSignature| {
+                verify_native_control_operation_approval(
+                    &control, vote, &digest, operation, action, &realm, &service, at,
+                )
+            };
+            verify(&signature).unwrap();
+            let mut wrong = signature.clone();
+            wrong.input.request_canonical_digest = Hash::new(
+                arkret_canonical::canonical_sha256(&json!({"candidate":"changed"})).unwrap(),
+            )
+            .unwrap();
+            sign(&mut wrong, &signer);
+            assert!(matches!(
+                verify(&wrong),
+                Err(ApprovalEventVerificationError::Binding)
+            ));
+            wrong = signature.clone();
+            wrong.input.initiating_actor_id =
+                ActorId::service("ak:did_core:web:other.example".parse().unwrap());
+            sign(&mut wrong, &signer);
+            assert!(matches!(
+                verify(&wrong),
+                Err(ApprovalEventVerificationError::Binding)
+            ));
+            wrong = signature.clone();
+            wrong.input.realm_id = RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [6; 32],
+            ));
+            sign(&mut wrong, &signer);
+            assert!(matches!(
+                verify(&wrong),
+                Err(ApprovalEventVerificationError::Binding)
+            ));
+            wrong = signature.clone();
+            wrong.input.approver_did = Did::new("did:web:substituted.example").unwrap();
+            sign(&mut wrong, &signer);
+            assert!(matches!(
+                verify(&wrong),
+                Err(ApprovalEventVerificationError::Binding)
+            ));
+            wrong = signature.clone();
+            wrong.proof.jws.push('X');
+            assert!(matches!(
+                verify(&wrong),
+                Err(ApprovalEventVerificationError::Signature)
+            ));
+            let binding = ManagementApprovalBinding {
+                request_id: "management-remains-independent",
+                management_operation: if action == CapabilityActionId::AppletBotProvision {
+                    ManagementOperation::CreateBot
+                } else {
+                    ManagementOperation::MapGhost
+                },
+                effective_scope: &scope,
+                created_at: at - TimeDelta::seconds(1),
+                expires_at: at + TimeDelta::seconds(60),
+                requester_actor_id: &service,
+                target_actor_id: None,
+            };
+            assert!(matches!(
+                verify_native_control_management_operation_approval(
+                    &control, &signature, &digest, operation, action, &service, at, &binding,
+                ),
+                Err(ApprovalEventVerificationError::Binding)
+            ));
+        }
+    }
 }

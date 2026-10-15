@@ -257,6 +257,63 @@ pub fn verify_management_operation_approval_signature_with_verified_controller(
     verified_controller: Option<&arkret_wire::DidCoreId>,
 ) -> Result<(), ApprovalEventVerificationError> {
     validate_management_binding(signature, at, binding)?;
+    let realm = binding
+        .effective_scope
+        .realm_id_opt()
+        .ok_or(ApprovalEventVerificationError::Binding)?;
+    verify_operation_approval_signature_with_verified_controller(
+        signature,
+        expected_digest,
+        operation,
+        action,
+        realm,
+        initiating_actor,
+        at,
+        approver_public_key,
+        verified_controller,
+    )
+}
+
+/// Verify only the original operation, its exact initiating actor and signature.
+/// Context-specific eligibility, quorum and nonce consumption remain independent.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_operation_approval_signature(
+    signature: &ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: CapabilityActionId,
+    realm: &arkret_wire::RealmId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+) -> Result<(), ApprovalEventVerificationError> {
+    verify_operation_approval_signature_with_verified_controller(
+        signature,
+        expected_digest,
+        operation,
+        action,
+        realm,
+        initiating_actor,
+        at,
+        approver_public_key,
+        None,
+    )
+}
+
+/// The native adapter supplies the historically authenticated principal; a
+/// did:key verification method must not become the approver's identity.
+#[allow(clippy::too_many_arguments)]
+pub fn verify_operation_approval_signature_with_verified_controller(
+    signature: &ApprovalSignature,
+    expected_digest: &arkret_wire::Hash,
+    operation: &str,
+    action: CapabilityActionId,
+    realm: &arkret_wire::RealmId,
+    initiating_actor: &arkret_wire::ActorId,
+    at: DateTime<Utc>,
+    approver_public_key: &PublicKeyMaterial,
+    verified_controller: Option<&arkret_wire::DidCoreId>,
+) -> Result<(), ApprovalEventVerificationError> {
     signature
         .input
         .validate_approved_at(at)
@@ -266,7 +323,7 @@ pub fn verify_management_operation_approval_signature_with_verified_controller(
         || signature.input.operation != operation
         || signature.input.action != action
         || &signature.input.initiating_actor_id != initiating_actor
-        || binding.effective_scope.realm_id_opt() != Some(&signature.input.realm_id)
+        || realm != &signature.input.realm_id
         || !match verified_controller {
             Some(controller) => {
                 arkret_wire::project_did_to_core_id(&signature.input.approver_did)
