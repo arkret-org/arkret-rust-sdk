@@ -784,6 +784,16 @@ pub struct AgentInceptionInput<'a> {
     pub next_root_public_key_multibase: &'a str,
 }
 
+/// Independent Applet-managed Principal history and operational controller key.
+pub struct AppletManagedInceptionInput<'a> {
+    pub principal_endpoint: &'a Url,
+    pub local_id: &'a str,
+    pub version_time: DateTime<Utc>,
+    pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
+    pub next_root_public_key_multibase: &'a str,
+    pub controller_public_key: &'a [u8; 32],
+}
+
 /// Inputs for the first Agent DID update, published only after the
 /// controller-authored PCR create has been accepted and its Realm id exists.
 pub struct AgentBindingUpdateInput<'a> {
@@ -858,6 +868,52 @@ pub fn prepare_agent_inception(
             agent_document_value(did, service_endpoint, input.controller_principal_id, None)
         },
         validate_agent_did_document_profile,
+    )
+}
+
+/// Prepare an Applet-managed Principal with its own operational controller
+/// method. The method key is separate from both native history update keys;
+/// neither an Agent delegation nor a Device is created by this inception.
+pub fn prepare_applet_managed_inception(
+    input: &AppletManagedInceptionInput<'_>,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
+    let controller_key = encode_ed25519_pubkey_multibase(input.controller_public_key);
+    prepare_identity_inception(
+        input.principal_endpoint,
+        input.principal_endpoint,
+        input.local_id,
+        &[],
+        input.version_time,
+        input.root_seed,
+        input.next_root_public_key_multibase,
+        None,
+        false,
+        |did, endpoint| {
+            let method = format!("{did}#managed-controller");
+            Ok(json!({
+                "@context": ["https://www.w3.org/ns/did/v1"],
+                "id": did,
+                "verificationMethod": [{"id": method, "type": "Multikey", "controller": did,
+                    "publicKeyMultibase": controller_key}],
+                "authentication": [method],
+                "assertionMethod": [method],
+                "alsoKnownAs": [],
+                "service": [station_document_service(did, endpoint)?],
+            }))
+        },
+        |did, document, roots| {
+            let encoded = serde_json::to_string(document)
+                .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+            if roots.iter().any(|root| encoded.contains(*root))
+                || document.get("id").and_then(Value::as_str) != Some(did)
+            {
+                return Err(WebvhInceptionError::InvalidProof(
+                    "managed Principal controller must be independent from history update keys"
+                        .into(),
+                ));
+            }
+            Ok(())
+        },
     )
 }
 

@@ -25,13 +25,14 @@ pub mod inception;
 
 #[cfg(feature = "webvh")]
 pub use inception::{
-    AgentBindingUpdateInput, AgentInceptionInput, PreparedInception, PreparedPrincipalInception,
-    PreparedPrincipalRotation, PreparedServiceRotation, PreparedWebvhRelocation,
-    PrincipalInceptionInput, PrincipalRotationInput, ServiceInceptionInput,
-    ServiceRegistrationInceptionInput, ServiceRotationInput, SubmittedInception,
-    SuppliedPrincipalInceptionInput, ValidatedPrincipalInception, ValidatedWebvhHistoryPoint,
-    WebvhInceptionError, WebvhRelocationInput, prepare_agent_binding_update,
-    prepare_agent_inception, prepare_portable_principal_inception, prepare_principal_inception,
+    AgentBindingUpdateInput, AgentInceptionInput, AppletManagedInceptionInput, PreparedInception,
+    PreparedPrincipalInception, PreparedPrincipalRotation, PreparedServiceRotation,
+    PreparedWebvhRelocation, PrincipalInceptionInput, PrincipalRotationInput,
+    ServiceInceptionInput, ServiceRegistrationInceptionInput, ServiceRotationInput,
+    SubmittedInception, SuppliedPrincipalInceptionInput, ValidatedPrincipalInception,
+    ValidatedWebvhHistoryPoint, WebvhInceptionError, WebvhRelocationInput,
+    prepare_agent_binding_update, prepare_agent_inception, prepare_applet_managed_inception,
+    prepare_portable_principal_inception, prepare_principal_inception,
     prepare_principal_portability_update, prepare_principal_rotation, prepare_service_inception,
     prepare_service_inception_with_did_key_seed, prepare_service_registration_inception,
     prepare_service_registration_inception_with_assertion_keys,

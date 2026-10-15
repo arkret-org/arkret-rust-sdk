@@ -222,6 +222,9 @@ impl HttpDidResolver {
             .map_err(|error| Error::Protocol(error.to_string()))?;
         let builder = HttpClient::builder()
             .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
+            // The validated IP lock must determine the actual connection;
+            // ambient proxies could otherwise resolve a different target.
+            .no_proxy()
             .redirect(reqwest::redirect::Policy::none());
         let builder = crate::tls_roots::apply_explicit_tls_roots(builder)?;
         target
@@ -660,6 +663,69 @@ mod tests {
             detail.contains("egress address 127.0.0.1 is denied: loopback address"),
             "unexpected egress rejection: {detail}"
         );
+    }
+
+    #[test]
+    fn pinned_did_transport_ignores_ambient_proxies() {
+        const CHILD: &str = "ARKRET_DID_PROXY_TEST_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            // A child owns these transport settings; parallel tests and the
+            // host's proxy configuration remain untouched.
+            let outcome = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "http_did_resolver::tests::pinned_did_transport_ignores_ambient_proxies",
+                    "--exact",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .env("HTTP_PROXY", "http://127.0.0.1:9")
+                .env("HTTPS_PROXY", "http://127.0.0.1:9")
+                .env("ALL_PROXY", "http://127.0.0.1:9")
+                .env("NO_PROXY", "")
+                .env("http_proxy", "http://127.0.0.1:9")
+                .env("https_proxy", "http://127.0.0.1:9")
+                .env("all_proxy", "http://127.0.0.1:9")
+                .env("no_proxy", "")
+                .output()
+                .unwrap();
+            assert!(
+                outcome.status.success(),
+                "child transport failed: {} {}",
+                String::from_utf8_lossy(&outcome.stdout),
+                String::from_utf8_lossy(&outcome.stderr)
+            );
+            assert!(
+                String::from_utf8_lossy(&outcome.stdout).contains("1 passed"),
+                "child did not execute its transport test"
+            );
+            return;
+        }
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}/did.json", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut bytes = [0u8; 4096];
+                let size = socket.read(&mut bytes).await.unwrap();
+                assert!(String::from_utf8_lossy(&bytes[..size]).starts_with("GET /did.json "));
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\norigin",
+                    )
+                    .await
+                    .unwrap();
+            });
+            let resolver = HttpDidResolver::with_policy_and_egress(
+                ResolverPolicy::default(),
+                OutboundPolicy::local_development(),
+            )
+            .unwrap();
+            let client = resolver.client_for_url(&url).await.unwrap();
+            let response = client.get(&url).send().await.unwrap();
+            assert_eq!(response.text().await.unwrap(), "origin");
+            server.await.unwrap();
+        });
     }
 
     #[tokio::test]
