@@ -5,7 +5,7 @@
 // sha256=5f2752ea44fd1fbc9de2b85e1d89524b11ee593a43ddc700d52484230e874397
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
+// sha256=b381c96b67ab466bbb82afb539a5bf9f04c5809ca15139346195d6a0eed4e539
 
 /// Counterpart: `encrypted-envelope.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/encrypted-envelope.schema.json`.

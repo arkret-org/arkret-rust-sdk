@@ -19,6 +19,7 @@ pub mod agent_scope;
 pub mod agent_sidecar;
 pub mod applet_installation_authority;
 pub mod authority_commit;
+pub mod call_invitation;
 pub mod call_signal;
 pub mod consent_operations;
 pub mod contact_operations;

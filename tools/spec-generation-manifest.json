@@ -1746,7 +1746,8 @@
         "HistoricalProducerSignerFactEntry",
         "PeerStreamScanOutcome",
         "AuthorityHandoffRequest",
-        "CommittedEventSubmission"
+        "CommittedEventSubmission",
+        "PcrPrivateHandoffManifest"
       ]
     },
     {
@@ -1826,12 +1827,18 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/call-recording-artifact.schema.json",
-        "schemas/event-payload.schema.json"
+        "schemas/event-payload.schema.json",
+        "schemas/realm-commit.schema.json",
+        "schemas/typed-current-result.schema.json"
       ],
       "provides": [
         "CallRecordingArtifact",
         "CallStatePayload",
-        "ParticipantBinding"
+        "ParticipantBinding",
+        "CallRosterAssertion",
+        "CallRosterCurrentValue",
+        "CallModerationAssertion",
+        "CallModerationCurrentValue"
       ]
     },
     {
@@ -2013,6 +2020,72 @@
       ],
       "provides": [
         "RejectedProfileId"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/call-invitation-operations.schema.json"
+      ],
+      "provides": [
+        "CallInvitationMedia",
+        "CallInvitationProof",
+        "CallInvitationEnvelope",
+        "CallInvitationSendRequestBody",
+        "CallInvitationSendStatus",
+        "CallInvitationSendOutcome",
+        "CallInvitationAdmissionStage",
+        "CallInvitationAdmissionOutcome",
+        "CallInvitationDeliveryView",
+        "CallInvitationJoinKind",
+        "CallVoluntaryJoinKind",
+        "CallRefreshJoinKind",
+        "CallInvitationJoinRequestBody",
+        "CallVoluntaryJoinRequestBody",
+        "CallRefreshJoinRequestBody",
+        "CallJoinContext",
+        "CallInvitationAdmissionRequestBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/consent_current_read_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/consent-operations.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "ConsentCurrentKind",
+        "ConsentCurrentSelector",
+        "ConsentCurrentRow",
+        "ConsentCurrentReadRequestBody",
+        "ConsentCurrentReadProof",
+        "ConsentCurrentReadOutcome"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/service_binding_results_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/media-service-binding-result.schema.json"
+      ],
+      "provides": [
+        "ServiceSigningKey",
+        "MediaServiceBindingRequestBody",
+        "MediaServiceBindingOutcome"
       ]
     }
   ]

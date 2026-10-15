@@ -134,6 +134,7 @@ pub use arkret_models_collaboration::authority_commit::{
     validate_historical_signer_fact_inventory, validate_new_human_admission_fact,
     validate_new_human_admission_fact_for_purpose,
 };
+pub use arkret_models_collaboration::call_invitation::*;
 pub use arkret_models_collaboration::call_signal::{
     CallAckSignalData, CallAnswerSignalData, CallCandidateSignalData, CallEndSignalData,
     CallErrorSignalData, CallFocusSignalData, CallInviteSignalData, CallMediaSelection,

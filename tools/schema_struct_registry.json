@@ -1,4 +1,22 @@
 {
+  "exemptions": [
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
+      "reason": "struct-level serde conversion/transparent representation is not an object field set"
+    },
+    {
+      "rust_type": "crates/identity/src/binding_digest.rs::WebvhLogEvidence",
+      "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['kind']."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'subject_ref'], Spec-only=['commit_inclusion', 'completed_at', 'event_digest', 'legal_hold_ref', 'receipt_id', 'redaction_authorization_ref', 'retained_digests', 'scope', 'stub_schema', 'subject', 'trigger']."
+    },
+    {
+      "rust_type": "crates/models-identity/src/handle.rs::Handle",
+      "reason": "struct-level serde conversion/transparent representation is not an object field set"
+    }
+  ],
   "version": 1,
   "mappings": [
     {
@@ -1345,34 +1363,128 @@
       "schema": "applet-edge-operations.schema.json#/$defs/external_ref"
     },
     {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationMedia",
+      "schema": "call-invitation-operations.schema.json#/$defs/media"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationProof",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationEnvelope",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_envelope"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/send_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendOutcome",
+      "schema": "call-invitation-operations.schema.json#/$defs/send_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionOutcome",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationDeliveryView",
+      "schema": "call-invitation-operations.schema.json#/$defs/delivery_view"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationJoinRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallVoluntaryJoinRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallRefreshJoinRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionRequestBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalProductAuthority",
       "schema": "signal-stream-frame.schema.json#/$defs/product_authority"
     },
     {
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalAgentProductAuthority",
       "schema": "signal-stream-frame.schema.json#/$defs/agent_product_authority"
-    }
-  ],
-  "exemptions": [
-    {
-      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
-      "reason": "struct-level serde conversion/transparent representation is not an object field set"
-    },
-    {
-      "rust_type": "crates/identity/src/binding_digest.rs::WebvhLogEvidence",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['kind']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'subject_ref'], Spec-only=['commit_inclusion', 'completed_at', 'event_digest', 'legal_hold_ref', 'receipt_id', 'redaction_authorization_ref', 'retained_digests', 'scope', 'stub_schema', 'subject', 'trigger']."
-    },
-    {
-      "rust_type": "crates/models-identity/src/handle.rs::Handle",
-      "reason": "struct-level serde conversion/transparent representation is not an object field set"
     },
     {
       "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalDeliveryAuthority",
-      "reason": "This closed Rust projection admits product Signal delivery authority and rejects call_invitation material. The schema delivery_authority union additionally permits an invitation delivery view, which this product projection does not implement; serde(deny_unknown_fields) prevents silently accepting that unsupported material."
+      "schema": "signal-stream-frame.schema.json#/$defs/delivery_authority"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs::ConsentCurrentSelector",
+      "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs::ConsentCurrentRow",
+      "schema": "typed-current-result.schema.json#/$defs/consent_result"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs::ConsentCurrentReadRequestBody",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs::ConsentCurrentReadProof",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs::ConsentCurrentReadOutcome",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaTokenExchangeRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaDesiredMedia",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody/properties/desired_media"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaRosterIdentity",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaSubjectBinding",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/service_binding_results_contracts.rs::ServiceSigningKey",
+      "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/service_binding_results_contracts.rs::MediaServiceBindingRequestBody",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/service_binding_results_contracts.rs::MediaServiceBindingOutcome",
+      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::PcrPrivateHandoffManifest",
+      "schema": "authority-commit-operations.schema.json#/$defs/pcr_private_handoff_manifest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterAssertion",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationAssertion",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationCurrentValue",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_value"
     }
   ]
 }

@@ -220,6 +220,12 @@ pub struct SignalDeliveryAuthority {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub product_authority: Option<Box<SignalProductAuthority>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub call_invitation: Option<Box<crate::call_invitation::CallInvitationDeliveryView>>,
 }
 
 impl SignalDeliveryAuthority {
@@ -236,6 +242,21 @@ impl SignalDeliveryAuthority {
         }
         if let Some(authority) = &self.product_authority {
             authority.validate_for_envelope(envelope)?;
+        }
+        if let Some(delivery) = &self.call_invitation {
+            if delivery.invitation.holder_account_id != self.recipient_account_id
+                || delivery.request.invitation != delivery.invitation
+                || delivery.request.envelope != *envelope
+                || delivery.request.admission_phase
+                    != crate::call_invitation::CallInvitationAdmissionStage::ProductDelivery
+                || !delivery.outcome.admitted
+                || delivery.outcome.request_digest != delivery.request.digest()?
+            {
+                return Err(station_key_error(
+                    ErrorCode::SchemaViolation,
+                    "call invitation delivery differs from its recipient or exact envelope",
+                ));
+            }
         }
         Ok(())
     }
@@ -445,6 +466,7 @@ mod tests {
     fn stream_frames_are_closed_and_bounded() {
         let envelope = envelope(SignalClass::Session, 30);
         let authority = SignalDeliveryAuthority {
+            call_invitation: None,
             product_authority: None,
             recipient_account_id: envelope.sender_actor_id.as_account_id().unwrap().clone(),
             key: StationSigningKey {

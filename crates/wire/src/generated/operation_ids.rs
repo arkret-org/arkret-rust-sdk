@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-14.10;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d Entries: registered=223
+//! Input: registry/contract-registry.json; version=2026-10-15.2;
+//! sha256=c4da6e1df197b89e7fc2cde6b7251f54033eea5d4cd377351ec98b97dd354fe4 Entries: registered=224
 
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +69,7 @@ pub enum ServiceOperationId {
     PeerCallInvitationCommandRelayV1,
     PeerCallInvitationReadAdmissionV1,
     PeerCommittedEventReadScanV1,
+    PeerConsentCommandProxyV1,
     PeerConsentReadCurrentV1,
     PeerContactsCommandSubmitV1,
     PeerErasureReceiptCommandSubmitV1,
@@ -295,6 +296,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
     ServiceOperationId::PEER_CALL_INVITATION_READ_ADMISSION_V1,
     ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
+    ServiceOperationId::PEER_CONSENT_COMMAND_PROXY_V1,
     ServiceOperationId::PEER_CONSENT_READ_CURRENT_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
@@ -563,6 +565,7 @@ impl ServiceOperationId {
         Self::PeerCallInvitationCommandRelayV1,
         Self::PeerCallInvitationReadAdmissionV1,
         Self::PeerCommittedEventReadScanV1,
+        Self::PeerConsentCommandProxyV1,
         Self::PeerConsentReadCurrentV1,
         Self::PeerContactsCommandSubmitV1,
         Self::PeerErasureReceiptCommandSubmitV1,
@@ -840,6 +843,7 @@ impl ServiceOperationId {
         "ak.peer.call.invitation.read.admission.v1";
     pub const PEER_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
         "ak.peer.committed_event.read.scan.v1";
+    pub const PEER_CONSENT_COMMAND_PROXY_V1: &'static str = "ak.peer.consent.command.proxy.v1";
     pub const PEER_CONSENT_READ_CURRENT_V1: &'static str = "ak.peer.consent.read.current.v1";
     pub const PEER_CONTACTS_COMMAND_SUBMIT_V1: &'static str = "ak.peer.contacts.command.submit.v1";
     pub const PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1: &'static str =
@@ -1211,6 +1215,7 @@ impl ServiceOperationId {
             Self::PeerCallInvitationCommandRelayV1 => Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
             Self::PeerCallInvitationReadAdmissionV1 => Self::PEER_CALL_INVITATION_READ_ADMISSION_V1,
             Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
+            Self::PeerConsentCommandProxyV1 => Self::PEER_CONSENT_COMMAND_PROXY_V1,
             Self::PeerConsentReadCurrentV1 => Self::PEER_CONSENT_READ_CURRENT_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
             Self::PeerErasureReceiptCommandSubmitV1 => Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1,
@@ -1583,6 +1588,7 @@ impl ServiceOperationId {
                 Some(Self::PeerCallInvitationReadAdmissionV1)
             }
             Self::PEER_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::PeerCommittedEventReadScanV1),
+            Self::PEER_CONSENT_COMMAND_PROXY_V1 => Some(Self::PeerConsentCommandProxyV1),
             Self::PEER_CONSENT_READ_CURRENT_V1 => Some(Self::PeerConsentReadCurrentV1),
             Self::PEER_CONTACTS_COMMAND_SUBMIT_V1 => Some(Self::PeerContactsCommandSubmitV1),
             Self::PEER_ERASURE_RECEIPT_COMMAND_SUBMIT_V1 => {
@@ -3394,6 +3400,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerConsentCommandProxyV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/consent/proxy",
+        grpc: Some("PeerConsent/Proxy"),
+        mq: Some("peer.consent.command.proxy"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/consent-private-operations.schema.json#/$defs/proxy_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/consent-private-operations.schema.json#/$defs/proxy_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "read_or_authority_local_private_queue_policy_and_delivery_effects_no_synthetic_event",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerConsentReadCurrentV1,

@@ -4,9 +4,10 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, AppletId, CallId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
-    KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId,
-    RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId, SpaceId, StrandId,
+    ActorProfileId, AppletId, CallId, CircleId, ConsentId, Did, DidCoreId, EventId, GrantId, Hash,
+    InviteId, KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId,
+    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId,
+    SpaceId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -1220,6 +1221,7 @@ pub enum CurrentSelector {
     RealmHistoryAccess,
     RealmPreviewPolicy,
     RealmReadReceiptPolicy,
+    RealmMediaService,
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -1331,6 +1333,18 @@ pub enum CurrentSelector {
     CallState {
         call_id: CallId,
     },
+    CallFocus {
+        call_id: CallId,
+    },
+    CallRoster {
+        call_id: CallId,
+    },
+    CallModeration {
+        call_id: CallId,
+    },
+    Consent {
+        consent_id: ConsentId,
+    },
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
     ModerationReport {
@@ -1421,6 +1435,7 @@ enum FlatCurrentSelector {
     RealmHistoryAccess,
     RealmPreviewPolicy,
     RealmReadReceiptPolicy,
+    RealmMediaService,
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -1506,6 +1521,18 @@ enum FlatCurrentSelector {
     },
     CallState {
         call_id: CallId,
+    },
+    CallFocus {
+        call_id: CallId,
+    },
+    CallRoster {
+        call_id: CallId,
+    },
+    CallModeration {
+        call_id: CallId,
+    },
+    Consent {
+        consent_id: ConsentId,
     },
     /// The accepted `ak.self.moderation.report` Event's own id
     /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
@@ -1661,6 +1688,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_history_access"
                 | "realm_preview_policy"
                 | "realm_read_receipt_policy"
+                | "realm_media_service"
                 | "realm_tombstone"
                 | "realm_archive"
                 | "realm_freeze"
@@ -1683,6 +1711,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_history_access" => Self::RealmHistoryAccess,
                     "realm_preview_policy" => Self::RealmPreviewPolicy,
                     "realm_read_receipt_policy" => Self::RealmReadReceiptPolicy,
+                    "realm_media_service" => Self::RealmMediaService,
                     "realm_tombstone" => Self::RealmTombstone,
                     "realm_archive" => Self::RealmArchive,
                     "realm_freeze" => Self::RealmFreeze,
@@ -1730,6 +1759,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmPreviewPolicy => Self::RealmPreviewPolicy,
                     FlatCurrentSelector::RealmReadReceiptPolicy => Self::RealmReadReceiptPolicy,
+                    FlatCurrentSelector::RealmMediaService => Self::RealmMediaService,
                     FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
                     FlatCurrentSelector::RealmArchive => Self::RealmArchive,
                     FlatCurrentSelector::RealmFreeze => Self::RealmFreeze,
@@ -1831,6 +1861,12 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         primary_conflict_domain,
                     },
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
+                    FlatCurrentSelector::CallFocus { call_id } => Self::CallFocus { call_id },
+                    FlatCurrentSelector::CallRoster { call_id } => Self::CallRoster { call_id },
+                    FlatCurrentSelector::CallModeration { call_id } => {
+                        Self::CallModeration { call_id }
+                    }
+                    FlatCurrentSelector::Consent { consent_id } => Self::Consent { consent_id },
                     FlatCurrentSelector::ModerationReport { event_id } => {
                         Self::ModerationReport { event_id }
                     }
@@ -2891,6 +2927,7 @@ mod tests {
                 CurrentSelector::RealmReadReceiptPolicy,
                 "realm_read_receipt_policy",
             ),
+            (CurrentSelector::RealmMediaService, "realm_media_service"),
             (CurrentSelector::RealmTombstone, "realm_tombstone"),
             (CurrentSelector::RealmArchive, "realm_archive"),
             (CurrentSelector::RealmFreeze, "realm_freeze"),

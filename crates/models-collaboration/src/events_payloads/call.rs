@@ -25,7 +25,7 @@ pub struct CallParticipantMedia {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "CallParticipantWire")]
 pub struct CallParticipant {
-    pub actor_id: ActorId,
+    pub actor_id: DidCoreId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -45,7 +45,7 @@ pub struct CallParticipant {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallParticipantWire {
-    actor_id: ActorId,
+    actor_id: DidCoreId,
     device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -126,7 +126,7 @@ pub struct CallParticipantRemoval {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 // Tagged wire union; boxing a variant changes the public constructor shape
 // without changing the JSON.
 #[allow(clippy::large_enum_variant)]
@@ -144,17 +144,17 @@ pub enum CallRosterDelta {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CallModerationDelta {
     RemoveParticipant {
         removal: CallParticipantRemoval,
     },
     RestoreParticipant {
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
-        /// Typed revision of this participant's moderation value the producer
+        /// Typed revision of the complete Call moderation axis the producer
         /// read. The compare is field-for-field.
         expected_revision: CurrentRevision,
     },

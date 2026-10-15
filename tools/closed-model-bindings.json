@@ -1,17 +1,294 @@
 {
-  "version": 1,
-  "references": {
-    "common-ids.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
-    "common-ids.schema.json#/$defs/blob_ref": "arkret_wire::BlobRef",
-    "high-risk-authority-proof.schema.json#/$defs/recovery_session_id": "arkret_wire::RecoverySessionId",
-    "high-risk-authority-proof.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
-    "high-risk-authority-proof.schema.json#/$defs/detached_proof": "arkret_wire::PayloadProof",
-    "common-ids.schema.json#/$defs/did_core_id": "arkret_wire::DidCoreId",
-    "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32"
-  },
+  "retained_models": [
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/circle.rs::CircleMemberStatePayload",
+      "schema": "event-payload.schema.json#/$defs/circle_member_state_payload",
+      "category": "domain_semantics",
+      "reason": "CircleMemberStatePayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::Message",
+      "schema": "message.schema.json",
+      "category": "domain_semantics",
+      "reason": "Message preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/space.rs::SpacePatchPayload",
+      "schema": "event-payload.schema.json#/$defs/space_patch_payload",
+      "category": "domain_semantics",
+      "reason": "SpacePatchPayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewDefinition",
+      "schema": "view.schema.json#/$defs/view_definition",
+      "comparison": "rust_fields_subset",
+      "reason": "ViewDefinition preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
+      "schema": "grant-constraint.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "GrantConstraint preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::Invite",
+      "schema": "invite.schema.json",
+      "category": "domain_semantics",
+      "reason": "Invite preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/interop.rs::ProviderDirectoryMimi",
+      "schema": "mimi-interop.schema.json#/$defs/provider_directory/properties/mimi",
+      "comparison": "rust_fields_subset",
+      "reason": "ProviderDirectoryMimi is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/interop.rs::RoomBindingPayloadBindingScope",
+      "schema": "mimi-interop.schema.json#/$defs/room_binding/properties/payload/properties/binding_scope",
+      "comparison": "rust_fields_subset",
+      "reason": "RoomBindingPayloadBindingScope is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRiskFields",
+      "schema": "morph-customer-risk.schema.json#/properties/fields",
+      "comparison": "rust_fields_subset",
+      "reason": "MorphCustomerRiskFields is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
+      "schema": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "comparison": "rust_fields_subset",
+      "reason": "DocumentMorphProjection is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/view.rs::QueryValue",
+      "schema": "view.schema.json#/$defs/query",
+      "comparison": "rust_fields_subset",
+      "reason": "QueryValue is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::ServiceDescribe",
+      "schema": "service-describe.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "ServiceDescribe preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
+      "schema": "service-describe.schema.json#/properties/auth_metadata",
+      "comparison": "rust_fields_subset",
+      "reason": "AuthMetadata preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::AccountAuthority",
+      "schema": "service-describe.schema.json#/$defs/account_authority",
+      "comparison": "rust_fields_subset",
+      "reason": "AccountAuthority preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
+      "schema": "service-describe.schema.json#/$defs/auth_method",
+      "comparison": "rust_fields_subset",
+      "reason": "AuthMethod preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
+      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange",
+      "comparison": "rust_fields_subset",
+      "reason": "AuthGrantExchange preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::VerifiedProfileEntry",
+      "schema": "service-describe.schema.json#/properties/verified_profiles/items",
+      "comparison": "rust_fields_subset",
+      "reason": "VerifiedProfileEntry is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::PlaintextVisibility",
+      "schema": "service-describe.schema.json#/properties/plaintext_visibility",
+      "comparison": "rust_fields_subset",
+      "reason": "PlaintextVisibility preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::RateLimitPolicy",
+      "schema": "service-describe.schema.json#/properties/rate_limit_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "RateLimitPolicy is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
+      "schema": "applet-package.schema.json#/$defs/webhook_auth",
+      "comparison": "rust_fields_subset",
+      "reason": "WebhookAuth preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointEntry",
+      "schema": "applet-package.schema.json#/$defs/endpoint_entry",
+      "comparison": "rust_fields_subset",
+      "reason": "AppletEndpointEntry preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointPolicy",
+      "schema": "applet-package.schema.json#/$defs/endpoint_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "AppletEndpointPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletLimits",
+      "schema": "applet-package.schema.json#/$defs/limits",
+      "comparison": "rust_fields_subset",
+      "reason": "AppletLimits preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletGhostPolicy",
+      "schema": "applet-package.schema.json#/$defs/ghost_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "AppletGhostPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DelegationPolicy",
+      "schema": "applet-package.schema.json#/$defs/delegation_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "DelegationPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DetachedProof",
+      "schema": "applet-package.schema.json#/$defs/detached_proof",
+      "comparison": "rust_fields_subset",
+      "reason": "DetachedProof preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletError",
+      "schema": "applet.schema.json#/properties/error",
+      "comparison": "rust_fields_subset",
+      "reason": "AppletError is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
+      "category": "artifact_expression"
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::WidgetTokenScope",
+      "schema": "applet-widget-declaration.schema.json#/properties/token_scope",
+      "comparison": "rust_fields_subset",
+      "reason": "WidgetTokenScope preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
+      "schema": "applet-widget-declaration.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "Widget preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicy",
+      "schema": "recovery-policy.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "RecoveryPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecar",
+      "schema": "agent-sidecar.schema.json",
+      "category": "artifact_expression",
+      "reason": "AgentSidecar is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
+      "schema": "contact-operations.schema.json#/$defs/contact_list_row",
+      "category": "domain_semantics",
+      "reason": "ContactListRow uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/device_messages.rs::DeviceMessageEnvelope",
+      "schema": "device-message.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "DeviceMessageEnvelope flattens the closed sender identity XOR enum. The sender branch owns account+device, Agent triple, or service fields; generating a flat member struct would admit mixed identities.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteCancelPayload",
+      "schema": "event-payload.schema.json#/$defs/invite_cancel_payload",
+      "comparison": "rust_fields_subset",
+      "reason": "InviteCancelPayload preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteRevokePayload",
+      "schema": "event-payload.schema.json#/$defs/invite_revoke_payload",
+      "comparison": "rust_fields_subset",
+      "reason": "InviteRevokePayload preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "category": "domain_semantics"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
+      "schema_field_set": "accepted",
+      "category": "domain_semantics",
+      "reason": "KeyPackagesUploadRequestBody flattens its human-device/Agent publisher XOR; schema accepted-field projection excludes intended_realm_id in every legal branch. The handwritten domain decoder enforces that closure and publisher validation."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/circle.rs::Circle",
+      "schema": "circle.schema.json",
+      "category": "artifact_expression",
+      "reason": "Circle is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
+      "schema": "capability-grant.schema.json#/properties/subject/oneOf/1",
+      "category": "artifact_expression",
+      "reason": "ConditionSubjectSelector is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
+    },
+    {
+      "category": "domain_semantics",
+      "reason": "The retained domain validator binds Signal envelope time, committed heads, actors, grants and historical/current policies across these fields; replacing it with a generated member-only parser would erase those authorization checks. Exact live delivery models retain envelope, recipient and current authority validation methods and heterogeneous grant representation; generation does not replace their semantic verifiers.",
+      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalProductAuthority",
+      "schema": "signal-stream-frame.schema.json#/$defs/product_authority"
+    },
+    {
+      "category": "domain_semantics",
+      "reason": "The retained domain validator binds Signal envelope time, committed heads, actors, grants and historical/current policies across these fields; replacing it with a generated member-only parser would erase those authorization checks. Exact live delivery models retain envelope, recipient and current authority validation methods and heterogeneous grant representation; generation does not replace their semantic verifiers.",
+      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalAgentProductAuthority",
+      "schema": "signal-stream-frame.schema.json#/$defs/agent_product_authority"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalDeliveryAuthority",
+      "schema": "signal-stream-frame.schema.json#/$defs/delivery_authority",
+      "category": "domain_semantics",
+      "reason": "Exact live delivery models retain envelope, recipient and current authority validation methods and heterogeneous grant representation; generation does not replace their semantic verifiers."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaTokenExchangeRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody",
+      "category": "domain_semantics",
+      "reason": "Media exchange retains registered provider/signature helpers and strict optional member presence while the mandatory join context is supplied by the closed generated union."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaDesiredMedia",
+      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody/properties/desired_media",
+      "category": "domain_semantics",
+      "reason": "Media exchange retains registered provider/signature helpers and strict optional member presence while the mandatory join context is supplied by the closed generated union."
+    }
+  ],
   "families": [
     {
       "output": "crates/models-discovery/src/generated/directory.rs",
@@ -10845,8 +11122,9 @@
           "rust": {
             "signature": "pub struct ConsentValue",
             "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "/// Closed `typed-current-result.schema.json#/$defs/consent_value`.",
-              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
@@ -11637,6 +11915,14 @@
                 "visibility": "pub",
                 "type": "DetachedObjectSignature",
                 "attributes": []
+              },
+              "pcr_private_state_digest": {
+                "name": "pcr_private_state_digest",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
               }
             }
           }
@@ -12580,6 +12866,14 @@
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"crate::serde_absence::deserialize_non_null_optional\"\n    )]"
                 ]
+              },
+              "pcr_private_state": {
+                "name": "pcr_private_state",
+                "visibility": "pub",
+                "type": "Option<PcrPrivateHandoffManifest>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
               }
             }
           }
@@ -12629,6 +12923,55 @@
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"crate::serde_absence::deserialize_non_null_optional\"\n    )]"
                 ]
+              }
+            }
+          }
+        },
+        {
+          "name": "PcrPrivateHandoffManifest",
+          "schema": "authority-commit-operations.schema.json#/$defs/pcr_private_handoff_manifest",
+          "rust": {
+            "signature": "pub struct PcrPrivateHandoffManifest",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "holder_account_id": {
+                "name": "holder_account_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AccountId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "effective_stream_head": {
+                "name": "effective_stream_head",
+                "visibility": "pub",
+                "type": "CommitStreamHead",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "state_digest": {
+                "name": "state_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
               }
             }
           }
@@ -13273,6 +13616,112 @@
                 "name": "sig",
                 "visibility": "pub",
                 "type": "String",
+                "attributes": []
+              },
+              "subject_binding_digest": {
+                "name": "subject_binding_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRosterAssertion",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion",
+          "rust": {
+            "signature": "pub struct CallRosterAssertion",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "crate::exact_current_results::CanonicalEventDot",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallRosterDelta",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRosterCurrentValue",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_value",
+          "rust": {
+            "signature": "pub struct CallRosterCurrentValue",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "assertions": {
+                "name": "assertions",
+                "visibility": "pub",
+                "type": "Vec<CallRosterAssertion>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallModerationAssertion",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion",
+          "rust": {
+            "signature": "pub struct CallModerationAssertion",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "crate::exact_current_results::CanonicalEventDot",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallModerationDelta",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallModerationCurrentValue",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_value",
+          "rust": {
+            "signature": "pub struct CallModerationCurrentValue",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "assertions": {
+                "name": "assertions",
+                "visibility": "pub",
+                "type": "Vec<CallModerationAssertion>",
                 "attributes": []
               }
             }
@@ -14048,284 +14497,429 @@
           }
         }
       ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/call_invitation_contracts.rs",
+      "types": [
+        {
+          "name": "CallMediaRosterIdentity",
+          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity"
+        },
+        {
+          "name": "CallMediaSubjectBinding",
+          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding",
+          "rust": {
+            "signature": "pub struct CallMediaSubjectBinding",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              },
+              "call_id": {
+                "name": "call_id",
+                "visibility": "pub",
+                "type": "arkret_wire::CallId",
+                "attributes": []
+              },
+              "subject_actor_id": {
+                "name": "subject_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_device_id": {
+                "name": "subject_device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "roster_identity": {
+                "name": "roster_identity",
+                "visibility": "pub",
+                "type": "CallMediaRosterIdentity",
+                "attributes": []
+              },
+              "focus_id": {
+                "name": "focus_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "participant_id": {
+                "name": "participant_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "media": {
+                "name": "media",
+                "visibility": "pub",
+                "type": "CallInvitationMedia",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "issuer_kid": {
+                "name": "issuer_kid",
+                "visibility": "pub",
+                "type": "arkret_wire::DidUrl",
+                "attributes": []
+              },
+              "sig": {
+                "name": "sig",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallInvitationMedia",
+          "schema": "call-invitation-operations.schema.json#/$defs/media"
+        },
+        {
+          "name": "CallInvitationProof",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_proof"
+        },
+        {
+          "name": "CallInvitationEnvelope",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_envelope"
+        },
+        {
+          "name": "CallInvitationSendRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_request_body"
+        },
+        {
+          "name": "CallInvitationSendStatus",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome/properties/status"
+        },
+        {
+          "name": "CallInvitationSendOutcome",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome"
+        },
+        {
+          "name": "CallInvitationAdmissionStage",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body/properties/admission_phase"
+        },
+        {
+          "name": "CallInvitationAdmissionOutcome",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome"
+        },
+        {
+          "name": "CallInvitationDeliveryView",
+          "schema": "call-invitation-operations.schema.json#/$defs/delivery_view"
+        },
+        {
+          "name": "CallInvitationJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context/properties/kind"
+        },
+        {
+          "name": "CallVoluntaryJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context/properties/kind"
+        },
+        {
+          "name": "CallRefreshJoinKind",
+          "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context/properties/kind"
+        },
+        {
+          "name": "CallInvitationJoinRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/invitation_join_context"
+        },
+        {
+          "name": "CallVoluntaryJoinRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context"
+        },
+        {
+          "name": "CallRefreshJoinRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context"
+        },
+        {
+          "name": "CallJoinContext",
+          "schema": "call-invitation-operations.schema.json#/$defs/join_context"
+        },
+        {
+          "name": "CallInvitationAdmissionRequestBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body",
+          "rust": {
+            "signature": "pub struct CallInvitationAdmissionRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "invitation": {
+                "name": "invitation",
+                "visibility": "pub",
+                "type": "CallInvitationEnvelope",
+                "attributes": []
+              },
+              "envelope": {
+                "name": "envelope",
+                "visibility": "pub",
+                "type": "arkret_wire::SignalEnvelope",
+                "attributes": []
+              },
+              "admission_phase": {
+                "name": "admission_phase",
+                "visibility": "pub",
+                "type": "CallInvitationAdmissionStage",
+                "attributes": []
+              },
+              "audience_actor_id": {
+                "name": "audience_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_actor_id": {
+                "name": "subject_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "subject_device_id": {
+                "name": "subject_device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "focus_id": {
+                "name": "focus_id",
+                "visibility": "pub",
+                "type": "Option<String>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
+              },
+              "desired_media": {
+                "name": "desired_media",
+                "visibility": "pub",
+                "type": "Option<CallInvitationMedia>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "inline": true
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/consent_current_read_contracts.rs",
+      "types": [
+        {
+          "name": "ConsentCurrentKind",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind"
+        },
+        {
+          "name": "ConsentCurrentSelector",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector"
+        },
+        {
+          "name": "ConsentCurrentRow",
+          "schema": "typed-current-result.schema.json#/$defs/consent_result"
+        },
+        {
+          "name": "ConsentCurrentReadRequestBody",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_request_body"
+        },
+        {
+          "name": "ConsentCurrentReadProof",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_proof"
+        },
+        {
+          "name": "ConsentCurrentReadOutcome",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome"
+        }
+      ],
+      "inline": true
+    },
+    {
+      "output": "crates/models-identity/src/generated/service_binding_results_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "ServiceSigningKey",
+          "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key",
+          "rust": {
+            "signature": "pub struct ServiceSigningKey",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "verification_method": {
+                "name": "verification_method",
+                "visibility": "pub",
+                "type": "DidUrl",
+                "attributes": []
+              },
+              "public_key_b64u": {
+                "name": "public_key_b64u",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "MediaServiceBindingRequestBody",
+          "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body",
+          "rust": {
+            "signature": "pub struct MediaServiceBindingRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_id": {
+                "name": "request_id",
+                "visibility": "pub",
+                "type": "RequestId",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "MediaServiceBindingOutcome",
+          "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
+          "rust": {
+            "signature": "pub struct MediaServiceBindingOutcome",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "request_id": {
+                "name": "request_id",
+                "visibility": "pub",
+                "type": "RequestId",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "route": {
+                "name": "route",
+                "visibility": "pub",
+                "type": "ServiceResolutionProjection",
+                "attributes": []
+              },
+              "signing_keys": {
+                "name": "signing_keys",
+                "visibility": "pub",
+                "type": "Vec<ServiceSigningKey>",
+                "attributes": []
+              },
+              "observed_at": {
+                "name": "observed_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   ],
+  "version": 1,
   "retained_binding_reasons": {
     "references": "References bind to existing validated SDK identifier/proof leaves and closed marker types; domain verification remains handwritten.",
     "threshold": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
   },
-  "retained_models": [
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/circle.rs::CircleMemberStatePayload",
-      "schema": "event-payload.schema.json#/$defs/circle_member_state_payload",
-      "category": "domain_semantics",
-      "reason": "CircleMemberStatePayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::Message",
-      "schema": "message.schema.json",
-      "category": "domain_semantics",
-      "reason": "Message preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/space.rs::SpacePatchPayload",
-      "schema": "event-payload.schema.json#/$defs/space_patch_payload",
-      "category": "domain_semantics",
-      "reason": "SpacePatchPayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewDefinition",
-      "schema": "view.schema.json#/$defs/view_definition",
-      "comparison": "rust_fields_subset",
-      "reason": "ViewDefinition preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
-      "schema": "grant-constraint.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "GrantConstraint preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::Invite",
-      "schema": "invite.schema.json",
-      "category": "domain_semantics",
-      "reason": "Invite preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/interop.rs::ProviderDirectoryMimi",
-      "schema": "mimi-interop.schema.json#/$defs/provider_directory/properties/mimi",
-      "comparison": "rust_fields_subset",
-      "reason": "ProviderDirectoryMimi is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/interop.rs::RoomBindingPayloadBindingScope",
-      "schema": "mimi-interop.schema.json#/$defs/room_binding/properties/payload/properties/binding_scope",
-      "comparison": "rust_fields_subset",
-      "reason": "RoomBindingPayloadBindingScope is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRiskFields",
-      "schema": "morph-customer-risk.schema.json#/properties/fields",
-      "comparison": "rust_fields_subset",
-      "reason": "MorphCustomerRiskFields is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
-      "schema": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
-      "comparison": "rust_fields_subset",
-      "reason": "DocumentMorphProjection is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/view.rs::QueryValue",
-      "schema": "view.schema.json#/$defs/query",
-      "comparison": "rust_fields_subset",
-      "reason": "QueryValue is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::ServiceDescribe",
-      "schema": "service-describe.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "ServiceDescribe preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
-      "schema": "service-describe.schema.json#/properties/auth_metadata",
-      "comparison": "rust_fields_subset",
-      "reason": "AuthMetadata preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AccountAuthority",
-      "schema": "service-describe.schema.json#/$defs/account_authority",
-      "comparison": "rust_fields_subset",
-      "reason": "AccountAuthority preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
-      "schema": "service-describe.schema.json#/$defs/auth_method",
-      "comparison": "rust_fields_subset",
-      "reason": "AuthMethod preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
-      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange",
-      "comparison": "rust_fields_subset",
-      "reason": "AuthGrantExchange preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::VerifiedProfileEntry",
-      "schema": "service-describe.schema.json#/properties/verified_profiles/items",
-      "comparison": "rust_fields_subset",
-      "reason": "VerifiedProfileEntry is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::PlaintextVisibility",
-      "schema": "service-describe.schema.json#/properties/plaintext_visibility",
-      "comparison": "rust_fields_subset",
-      "reason": "PlaintextVisibility preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::RateLimitPolicy",
-      "schema": "service-describe.schema.json#/properties/rate_limit_policy",
-      "comparison": "rust_fields_subset",
-      "reason": "RateLimitPolicy is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
-      "schema": "applet-package.schema.json#/$defs/webhook_auth",
-      "comparison": "rust_fields_subset",
-      "reason": "WebhookAuth preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointEntry",
-      "schema": "applet-package.schema.json#/$defs/endpoint_entry",
-      "comparison": "rust_fields_subset",
-      "reason": "AppletEndpointEntry preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointPolicy",
-      "schema": "applet-package.schema.json#/$defs/endpoint_policy",
-      "comparison": "rust_fields_subset",
-      "reason": "AppletEndpointPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletLimits",
-      "schema": "applet-package.schema.json#/$defs/limits",
-      "comparison": "rust_fields_subset",
-      "reason": "AppletLimits preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletGhostPolicy",
-      "schema": "applet-package.schema.json#/$defs/ghost_policy",
-      "comparison": "rust_fields_subset",
-      "reason": "AppletGhostPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DelegationPolicy",
-      "schema": "applet-package.schema.json#/$defs/delegation_policy",
-      "comparison": "rust_fields_subset",
-      "reason": "DelegationPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DetachedProof",
-      "schema": "applet-package.schema.json#/$defs/detached_proof",
-      "comparison": "rust_fields_subset",
-      "reason": "DetachedProof preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletError",
-      "schema": "applet.schema.json#/properties/error",
-      "comparison": "rust_fields_subset",
-      "reason": "AppletError is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
-      "category": "artifact_expression"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::WidgetTokenScope",
-      "schema": "applet-widget-declaration.schema.json#/properties/token_scope",
-      "comparison": "rust_fields_subset",
-      "reason": "WidgetTokenScope preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
-      "schema": "applet-widget-declaration.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "Widget preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicy",
-      "schema": "recovery-policy.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "RecoveryPolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecar",
-      "schema": "agent-sidecar.schema.json",
-      "category": "artifact_expression",
-      "reason": "AgentSidecar is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
-      "schema": "contact-operations.schema.json#/$defs/contact_list_row",
-      "category": "domain_semantics",
-      "reason": "ContactListRow uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/device_messages.rs::DeviceMessageEnvelope",
-      "schema": "device-message.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "DeviceMessageEnvelope flattens the closed sender identity XOR enum. The sender branch owns account+device, Agent triple, or service fields; generating a flat member struct would admit mixed identities.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteCancelPayload",
-      "schema": "event-payload.schema.json#/$defs/invite_cancel_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "InviteCancelPayload preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteRevokePayload",
-      "schema": "event-payload.schema.json#/$defs/invite_revoke_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "InviteRevokePayload preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadRequestBody",
-      "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
-      "schema_field_set": "accepted",
-      "category": "domain_semantics",
-      "reason": "KeyPackagesUploadRequestBody flattens its human-device/Agent publisher XOR; schema accepted-field projection excludes intended_realm_id in every legal branch. The handwritten domain decoder enforces that closure and publisher validation."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::Circle",
-      "schema": "circle.schema.json",
-      "category": "artifact_expression",
-      "reason": "Circle is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
-      "schema": "capability-grant.schema.json#/properties/subject/oneOf/1",
-      "category": "artifact_expression",
-      "reason": "ConditionSubjectSelector is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalProductAuthority",
-      "schema": "signal-stream-frame.schema.json#/$defs/product_authority",
-      "category": "domain_semantics",
-      "reason": "The retained domain validator binds Signal envelope time, committed heads, actors, grants and historical/current policies across these fields; replacing it with a generated member-only parser would erase those authorization checks."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalAgentProductAuthority",
-      "schema": "signal-stream-frame.schema.json#/$defs/agent_product_authority",
-      "category": "domain_semantics",
-      "reason": "The retained domain validator binds Signal envelope time, committed heads, actors, grants and historical/current policies across these fields; replacing it with a generated member-only parser would erase those authorization checks."
-    }
-  ],
+  "references": {
+    "common-ids.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
+    "common-ids.schema.json#/$defs/blob_ref": "arkret_wire::BlobRef",
+    "high-risk-authority-proof.schema.json#/$defs/recovery_session_id": "arkret_wire::RecoverySessionId",
+    "high-risk-authority-proof.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
+    "high-risk-authority-proof.schema.json#/$defs/detached_proof": "arkret_wire::PayloadProof",
+    "common-ids.schema.json#/$defs/did_core_id": "arkret_wire::DidCoreId",
+    "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32",
+    "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
+    "common-ids.schema.json#/$defs/actor_id": "arkret_wire::ActorId",
+    "common-ids.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
+    "event-envelope.schema.json#/$defs/scope_ref": "arkret_wire::ScopeRef",
+    "signal-envelope.schema.json": "arkret_wire::SignalEnvelope",
+    "call-invitation-operations.schema.json#/$defs/invitation_envelope/properties/call_id": "arkret_wire::CallId",
+    "call-invitation-operations.schema.json#/$defs/invitation_envelope/properties/envelope_digest": "arkret_wire::Hash",
+    "call-invitation-operations.schema.json#/$defs/admission_outcome/properties/request_digest": "arkret_wire::Hash",
+    "call-invitation-operations.schema.json#/$defs/invitation_proof/properties/verification_method": "arkret_wire::DidUrl",
+    "call-invitation-operations.schema.json#/$defs/admission_proof": "CallInvitationProof",
+    "call-invitation-operations.schema.json#/$defs/voluntary_join_proof": "CallInvitationProof",
+    "call-invitation-operations.schema.json#/$defs/admission_request_body": "CallInvitationAdmissionRequestBody",
+    "consent-operations.schema.json#/$defs/consent_peer": "crate::events_payloads::consent::ConsentPeer",
+    "consent-operations.schema.json#/$defs/consent_scope": "arkret_wire::ConsentScope",
+    "typed-current-result.schema.json#/$defs/consent_value": "crate::consent_operations::ConsentValue",
+    "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/consent_id": "arkret_wire::ConsentId",
+    "typed-current-result.schema.json#/$defs/revision": "arkret_wire::CurrentRevision",
+    "realm-commit.schema.json#/$defs/stream_ref": "arkret_wire::CommitStreamRef",
+    "realm-commit.schema.json#/$defs/stream_head": "arkret_wire::CommitStreamHead",
+    "consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/request_digest": "arkret_wire::Hash",
+    "event-payload.schema.json#/$defs/consent_grant_payload/properties/consent_id": "arkret_wire::ConsentId",
+    "common-ids.schema.json#/$defs/did_url": "arkret_wire::DidUrl",
+    "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity": "CallMediaRosterIdentity",
+    "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding": "CallMediaSubjectBinding",
+    "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding/properties/call_id": "arkret_wire::CallId",
+    "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding/properties/participant_binding_digest": "arkret_wire::Hash",
+    "event-payload.schema.json#/$defs/participant_binding/properties/issuer_kid": "arkret_wire::DidUrl",
+    "event-envelope.schema.json#/$defs/digest": "arkret_wire::Hash"
+  },
   "retained_exemptions": [
     {
       "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
@@ -14345,11 +14939,6 @@
     {
       "rust_type": "crates/models-identity/src/handle.rs::Handle",
       "reason": "struct-level serde conversion/transparent representation is not an object field set",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/signal_delivery.rs::SignalDeliveryAuthority",
-      "reason": "This closed Rust projection admits product Signal delivery authority and rejects call_invitation material. The schema delivery_authority union additionally permits an invitation delivery view, which this product projection does not implement; serde(deny_unknown_fields) prevents silently accepting that unsupported material.",
       "category": "domain_semantics"
     }
   ]

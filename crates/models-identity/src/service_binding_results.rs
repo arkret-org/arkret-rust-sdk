@@ -1,12 +1,12 @@
 //! Own-Station projection of the currently assigned Realm media service.
 //!
-//! The route is anchored by an exact committed assignment Event and the
-//! current Realm-stream revision. It is a bounded routing cache, not a second
+//! The Station anchors the route in the Realm's accepted current result.
+//! The response is a bounded routing cache, not a second
 //! authority or a portable authorization credential.
 
 use arkret_wire::{
-    AccountId, CommittedEventRef, CurrentRevision, Did, DidCoreId, DidUrl, ErrorCode, RealmId,
-    ReasonCode, RequestId, Result, ServiceKind, WireError,
+    Did, DidCoreId, DidUrl, ErrorCode, RealmId, ReasonCode, RequestId, Result, ServiceKind,
+    WireError,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -35,14 +35,6 @@ fn binding_bytes(value: &impl Serialize, request: bool) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ServiceSigningKey {
-    pub verification_method: DidUrl,
-    pub public_key_b64u: String,
 }
 
 impl ServiceSigningKey {
@@ -80,62 +72,25 @@ impl ServiceSigningKey {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MediaServiceBindingRequestBody {
-    pub request_id: RequestId,
-    pub account_id: AccountId,
-    pub realm_id: RealmId,
-}
-
 impl MediaServiceBindingRequestBody {
     pub fn validate(&self) -> Result<()> {
-        binding_bytes(self, true)?;
-        self.account_id.validate()
+        binding_bytes(self, true)
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MediaServiceBindingOutcome {
-    pub request_id: RequestId,
-    pub account_id: AccountId,
-    pub realm_id: RealmId,
-    pub route: ServiceResolutionProjection,
-    pub signing_keys: Vec<ServiceSigningKey>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub assignment_ref: CommittedEventRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub revision: CurrentRevision,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 impl MediaServiceBindingOutcome {
     pub fn validate(&self) -> Result<()> {
         binding_bytes(self, false)?;
-        self.account_id.validate()?;
         self.route.validate()?;
-        if self.route.service_kind != ServiceKind::MediaService.as_str() {
-            return Err(binding_error(
-                ErrorCode::SchemaViolation,
-                "media service route must project the media_service kind",
-            ));
-        }
-        if self.assignment_ref.stream_ref
-            != (arkret_wire::CommitStreamRef::Realm {
-                realm_id: self.realm_id.clone(),
-            })
-            || (self.assignment_ref.commit_id != self.revision.commit_id
-                && self.assignment_ref.stream_position > self.revision.stream_position)
+        if ![
+            ServiceKind::Station.as_str(),
+            ServiceKind::MediaService.as_str(),
+        ]
+        .contains(&self.route.service_kind.as_str())
         {
             return Err(binding_error(
-                ErrorCode::StateMismatch,
-                "media service assignment is not covered by the current Realm-stream revision",
+                ErrorCode::SchemaViolation,
+                "media issuer route must retain its verified station or media_service kind",
             ));
         }
         if self.signing_keys.is_empty() || self.signing_keys.len() > 16 {
@@ -173,10 +128,7 @@ impl MediaServiceBindingOutcome {
     ) -> Result<()> {
         request.validate()?;
         self.validate()?;
-        if self.request_id != request.request_id
-            || self.account_id != request.account_id
-            || self.realm_id != request.realm_id
-        {
+        if self.request_id != request.request_id || self.realm_id != request.realm_id {
             return Err(binding_error(
                 ErrorCode::StateMismatch,
                 "media service result differs from the exact request",
@@ -206,3 +158,5 @@ impl MediaServiceBindingOutcome {
             .any(|key| &key.verification_method == issuer_kid)
     }
 }
+
+include!("generated/service_binding_results_contracts.rs");

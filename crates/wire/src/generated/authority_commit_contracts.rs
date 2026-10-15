@@ -5,19 +5,19 @@
 // sha256=5a3d386837724180dd7a845741ff3b9d0de57966d2f29177bcc21cebb17f5e7c
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=2c16d34f11af288de64af2ee31ea59f1cc46e006dc9091b41aae46d3ea686662
+// sha256=4b492fa36b18cf744a9db73407517b38384782f9181bbdda7732d842c114b3e6
 //
 // Input: schemas/authz-operations.schema.json
 // sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=e0ad298cfeb1fcc4200f4289720d4b0380337d010198cb000a88f7ff3f560a9f
+// sha256=ff3723be2839fd0ebb89296b6e3a61a209be5e24d0bbbd37b21870dd55799a39
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=448abceebd5661cb1d2db37d9a28dbe85815f08cf0119282307229865080a78b
+// sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
 //
 // Input: schemas/realm-authority-handoff.schema.json
-// sha256=409c541cd5312829fe6fabadea1b8940ab48e353a457675a557852df561150fd
+// sha256=7a4750baf79fb6afdb9afb0fc303c6f9d9a328a6b586071b08b9b997262fad23
 //
 // Input: schemas/account-operations.schema.json
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
@@ -26,7 +26,7 @@
 // sha256=8210f845973478d08b65e26163fea3a08729c0e4946ac2efcfabe1b5ff086f9a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
+// sha256=b381c96b67ab466bbb82afb539a5bf9f04c5809ca15139346195d6a0eed4e539
 
 /// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_row`.
 /// One established authority stream the caller may know exists
@@ -95,6 +95,12 @@ pub struct RealmAuthorityHandoff {
         deserialize_with = "deserialize_optional_original_digest"
     )]
     pub historical_signer_facts_digest: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub pcr_private_state_digest: Option<Hash>,
     pub snapshot_ref: RealmSnapshotId,
     pub change_event_ref: EventId,
     pub change_commit_id: RealmCommitId,

@@ -306,6 +306,47 @@ impl OwnStationResultClient {
         let value = self.client.realm_state_snapshot_head(realm_id).await?;
         self.bind(realm_id.clone(), value)
     }
+    pub async fn consent_current_read(
+        &self,
+        request: &arkret_models_collaboration::consent_operations::ConsentCurrentReadRequestBody,
+    ) -> Result<
+        BoundOwnStationResponse<
+            arkret_models_collaboration::consent_operations::ConsentCurrentReadRequestBody,
+            arkret_models_collaboration::consent_operations::ConsentCurrentReadOutcome,
+        >,
+    > {
+        self.check_session()?;
+        if &request.holder_account_id != self.session.account_id() {
+            return Err(crate::Error::Protocol(
+                "Consent current read names another authenticated holder".into(),
+            ));
+        }
+        let value = self.client.consent_current_read(request).await?;
+        value.validate_for_request(request, chrono::Utc::now())?;
+        self.bind(request.clone(), value)
+    }
+    pub async fn media_service_binding(
+        &self,
+        request: &arkret_models_identity::MediaServiceBindingRequestBody,
+        accepted_service_id: &DidCoreId,
+    ) -> Result<
+        BoundOwnStationResponse<
+            arkret_models_identity::MediaServiceBindingRequestBody,
+            arkret_models_identity::MediaServiceBindingOutcome,
+        >,
+    > {
+        self.check_session()?;
+        let value = self
+            .client
+            .media_service_binding(request, accepted_service_id)
+            .await?;
+        if !value.is_reusable_at(chrono::Utc::now()) {
+            return Err(protocol(
+                "media binding is outside its current reuse window",
+            ));
+        }
+        self.bind(request.clone(), value)
+    }
     pub async fn snapshot_by_ref(
         &self,
         realm_id: &RealmId,

@@ -190,12 +190,25 @@ where
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CallMediaDesiredMedia {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub audio: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub video: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub screen: Option<bool>,
 }
 
@@ -207,10 +220,109 @@ pub struct CallMediaTokenExchangeRequestBody {
     pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub focus_id: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub capability_refs: Vec<GrantId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub capability_refs: Option<Vec<GrantId>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub desired_media: Option<CallMediaDesiredMedia>,
+    pub join_context: crate::call_invitation::CallJoinContext,
+}
+
+impl CallMediaTokenExchangeRequestBody {
+    pub fn voluntary_join_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        if !matches!(
+            self.join_context,
+            crate::call_invitation::CallJoinContext::Voluntary(_)
+        ) {
+            return Err(arkret_wire::WireError::Protocol(
+                "token request is not an affirmative voluntary join".into(),
+            ));
+        }
+        let mut value = serde_json::to_value(self)?;
+        value
+            .get_mut("join_context")
+            .and_then(serde_json::Value::as_object_mut)
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol("token join context is not an object".into())
+            })?
+            .remove("proof");
+        let mut bytes = crate::call_invitation::CALL_VOLUNTARY_JOIN_SIGNING_LABEL
+            .as_bytes()
+            .to_vec();
+        bytes.push(0);
+        bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+
+    pub fn invitation_media(&self) -> crate::call_invitation::CallInvitationMedia {
+        crate::call_invitation::CallInvitationMedia {
+            audio: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.audio)
+                .unwrap_or(true),
+            video: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.video)
+                .unwrap_or(true),
+            screen: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.screen)
+                .unwrap_or(false),
+        }
+    }
+
+    pub fn validate_join_context_at(&self, now: DateTime<Utc>) -> arkret_wire::Result<()> {
+        use crate::call_invitation::CallJoinContext;
+        match &self.join_context {
+            CallJoinContext::Invitation(context) => {
+                context
+                    .invitation
+                    .validate_for_envelope(&context.envelope, now)?;
+                if context.invitation.holder_account_id
+                    != *self.actor_id.as_account_id().ok_or_else(|| {
+                        arkret_wire::WireError::Protocol(
+                            "invited token subject is not a holder Account".into(),
+                        )
+                    })?
+                    || context.invitation.call_id != self.call_id
+                    || context.invitation.scope_ref.realm_id() != &self.realm_id
+                    || !context.invitation.media.permits(&self.invitation_media())
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "token request differs from its first-contact invitation".into(),
+                    ));
+                }
+            }
+            CallJoinContext::Voluntary(context) => {
+                if context.created_at > now
+                    || context.expires_at <= now
+                    || context.expires_at <= context.created_at
+                    || context.expires_at > context.created_at + chrono::Duration::seconds(60)
+                    || !(22..=64).contains(&context.nonce.len())
+                    || !context
+                        .nonce
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "voluntary join intent is expired or malformed".into(),
+                    ));
+                }
+            }
+            CallJoinContext::Refresh(_) => {}
+        }
+        Ok(())
+    }
 }
 
 pub use crate::events_payloads::call::ParticipantBinding as CallMediaParticipantBinding;
@@ -296,6 +408,8 @@ struct CallMediaTokenExchangeOutcomeWire {
     backend_token: MediaBackendToken,
     participant_id: String,
     participant_binding: CallMediaParticipantBinding,
+    roster_identity: crate::call_invitation::CallMediaRosterIdentity,
+    subject_binding: crate::call_invitation::CallMediaSubjectBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     backend_kind: MediaBackendKind,
@@ -314,6 +428,8 @@ pub struct CallMediaTokenExchangeOutcome {
     pub backend_token: MediaBackendToken,
     pub participant_id: String,
     pub participant_binding: CallMediaParticipantBinding,
+    pub roster_identity: crate::call_invitation::CallMediaRosterIdentity,
+    pub subject_binding: crate::call_invitation::CallMediaSubjectBinding,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub backend_kind: MediaBackendKind,
@@ -346,6 +462,8 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
             backend_token: value.backend_token,
             participant_id: value.participant_id,
             participant_binding: value.participant_binding,
+            roster_identity: value.roster_identity,
+            subject_binding: value.subject_binding,
             expires_at: value.expires_at,
             backend_kind: value.backend_kind,
             realm_id: value.realm_id,

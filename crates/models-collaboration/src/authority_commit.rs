@@ -1558,6 +1558,54 @@ pub fn validate_reason_code(value: &str) -> Result<()> {
 impl AuthorityHandoffRequest {
     pub fn validate_shape(&self) -> Result<()> {
         self.handoff.validate_shape()?;
+        let private_purpose = self
+            .authority_bundle
+            .genesis_event
+            .payload
+            .get("object")
+            .and_then(|object| object.get("purpose"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|purpose| {
+                matches!(
+                    purpose,
+                    "principal_control" | "agent_control" | "applet_managed_control"
+                )
+            });
+        match (
+            &self.pcr_private_state,
+            &self.handoff.pcr_private_state_digest,
+            private_purpose,
+        ) {
+            (Some(manifest), Some(digest), true) => {
+                let nonce = arkret_canonical::base64url_decode(&manifest.nonce)?;
+                if manifest.realm_id != self.handoff.realm_id
+                    || manifest.governance_generation != self.handoff.from_generation
+                    || !self
+                        .final_stream_heads
+                        .contains(&manifest.effective_stream_head)
+                    || manifest.effective_stream_head.stream_ref
+                        != (CommitStreamRef::Realm {
+                            realm_id: manifest.realm_id.clone(),
+                        })
+                    || nonce.len() < 16
+                    || manifest.nonce.len() > 64
+                    || arkret_canonical::base64url_encode(&nonce) != manifest.nonce
+                    || !manifest.state_digest.as_str().starts_with("sha256:")
+                    || digest.as_str() != arkret_canonical::canonical_sha256(manifest)?
+                {
+                    return Err(WireError::Protocol(
+                        "PCR handoff private manifest does not bind the signed frozen cut".into(),
+                    ));
+                }
+                manifest.holder_account_id.validate()?;
+            }
+            (None, None, false) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "PCR handoff requires its exact private manifest and signed digest".into(),
+                ));
+            }
+        }
         let unsigned_snapshot = arkret_canonical::canonical::unsigned_value(
             &self.snapshot,
             &["snapshot_id", "signature"],

@@ -305,6 +305,7 @@ fn chain() -> Chain {
             to_service_id: core_id(STATION_B),
             final_stream_heads_digest: hash('a'),
             historical_signer_facts_digest: None,
+            pcr_private_state_digest: None,
             snapshot_ref: RealmSnapshotId::from_digest([0x44; 32]),
             change_event_ref: change_event.event_id.clone(),
             change_commit_id: change_commit.commit_id.clone(),
@@ -1585,6 +1586,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     .unwrap();
     verify(&chain).unwrap();
     let request = AuthorityHandoffRequest {
+        pcr_private_state: None,
         handoff,
         final_stream_heads: heads,
         snapshot,

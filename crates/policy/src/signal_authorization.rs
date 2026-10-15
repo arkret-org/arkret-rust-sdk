@@ -143,6 +143,37 @@ pub fn typing_visible(
     ) && product_policies_allow(&authority.current_product_policies, &operation)
 }
 
+/// Exact Call scope permission at the signed Signal basis and current cut.
+pub fn call_invitation_allowed(
+    authority: &SignalProductAuthority,
+    sender: &ActorId,
+    scope: &ScopeRef,
+    now: DateTime<Utc>,
+) -> bool {
+    let target = match scope {
+        ScopeRef::Realm { realm_id } => WireResourceSelector::realm(realm_id.clone()),
+        ScopeRef::Circle {
+            realm_id,
+            circle_id,
+        } => WireResourceSelector::circle(realm_id.clone(), circle_id.clone()),
+        _ => return false,
+    };
+    let facts = OperationFacts {
+        circle_id: scope.circle_id().map(ToString::to_string),
+        object_kind: Some("call".into()),
+        ..Default::default()
+    };
+    resource_actions_allowed(
+        authority,
+        sender,
+        scope,
+        &target,
+        &facts,
+        now,
+        &[CapabilityActionId::CALL_SIGNAL_SEND],
+    )
+}
+
 fn strand_actions_allowed(
     authority: &SignalProductAuthority,
     sender: &ActorId,
@@ -152,9 +183,6 @@ fn strand_actions_allowed(
     required_actions: &[&str],
     object_kind: Option<&str>,
 ) -> bool {
-    if authority.current_realm_head.stream_ref != (arkret_wire::CommitStreamRef::Realm { realm_id: scope.realm_id().clone() })
-        || arkret_wire::CommitStreamRef::from_scope(scope, None).ok().as_ref() != Some(&authority.current_scope_head.stream_ref)
-        || authority.grants.iter().chain(&authority.current_grants).any(|g| !matches!(&g.subject, arkret_models_collaboration::governance::grant_constraint::CapabilitySubject::Actor(actor) if actor == sender)) { return false; }
     let target = WireResourceSelector::strand(scope.realm_id().clone(), strand.clone());
     let facts = OperationFacts {
         strand_id: Some(strand.to_string()),
@@ -166,14 +194,37 @@ fn strand_actions_allowed(
         object_kind: object_kind.map(str::to_owned),
         ..Default::default()
     };
+    resource_actions_allowed(
+        authority,
+        sender,
+        scope,
+        &target,
+        &facts,
+        now,
+        required_actions,
+    )
+}
+
+fn resource_actions_allowed(
+    authority: &SignalProductAuthority,
+    sender: &ActorId,
+    scope: &ScopeRef,
+    target: &WireResourceSelector,
+    facts: &OperationFacts,
+    now: DateTime<Utc>,
+    required_actions: &[&str],
+) -> bool {
+    if authority.current_realm_head.stream_ref != (arkret_wire::CommitStreamRef::Realm { realm_id: scope.realm_id().clone() })
+        || arkret_wire::CommitStreamRef::from_scope(scope, None).ok().as_ref() != Some(&authority.current_scope_head.stream_ref)
+        || authority.grants.iter().chain(&authority.current_grants).any(|g| !matches!(&g.subject, arkret_models_collaboration::governance::grant_constraint::CapabilitySubject::Actor(actor) if actor == sender)) { return false; }
     for &action in required_actions {
         let actions = [action];
         let operation = AuthorizationOperation {
             actor: sender,
             actions: &actions,
-            target: &target,
+            target,
             at: now,
-            facts: &facts,
+            facts,
         };
         if !allows(
             &operation,
@@ -429,6 +480,60 @@ mod tests {
             "policy_kind":"access", "rules":rules, "default_effect":default,
             "created_by":actor("ak:did_core:web:station-a.example"), "created_at":"2026-10-01T00:00:00.000Z"
         })).unwrap()
+    }
+
+    #[test]
+    fn call_invitation_requires_the_exact_actor_scope_and_original_current_grant() {
+        let sender = actor("ak:did_core:web:station-a.example");
+        let scope = ScopeRef::Circle {
+            realm_id: REALM.parse().unwrap(),
+            circle_id: arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [21; 32],
+            )),
+        };
+        let mut evidence = material();
+        evidence.current_scope_head.stream_ref = CommitStreamRef::from_scope(&scope, None).unwrap();
+        evidence.grants[0].actions = vec![CapabilityActionId::CALL_SIGNAL_SEND.into()];
+        evidence.grants[0].resources = vec![WireResourceSelector::circle(
+            scope.realm_id().clone(),
+            scope.circle_id().unwrap().clone(),
+        )];
+        evidence.current_grants = evidence.grants.clone();
+        let gate = |evidence: &SignalProductAuthority| {
+            call_invitation_allowed(evidence, &sender, &scope, at())
+        };
+        assert!(gate(&evidence));
+        assert!(!call_invitation_allowed(
+            &evidence,
+            &actor("ak:did_core:web:station-b.example"),
+            &scope,
+            at()
+        ));
+        let mut denied = evidence.clone();
+        denied.grants.clear();
+        assert!(!gate(&denied));
+        let mut denied = evidence.clone();
+        denied.current_grants.clear();
+        assert!(!gate(&denied));
+        let mut denied = evidence.clone();
+        denied.current_grants[0].id = arkret_wire::GrantId::from_event_id(
+            &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [22; 32]),
+        );
+        assert!(!gate(&denied));
+        let mut denied = evidence.clone();
+        denied.current_grants[0].resources = vec![WireResourceSelector::circle(
+            scope.realm_id().clone(),
+            arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [23; 32],
+            )),
+        )];
+        assert!(!gate(&denied));
+        evidence.current_product_policies.push(policy(
+            serde_json::json!([{"rule_id":"deny_call","kind":"action","effect":"deny","actions":[CapabilityActionId::CALL_SIGNAL_SEND]}]), "allow",
+        ));
+        assert!(!gate(&evidence));
     }
 
     #[test]

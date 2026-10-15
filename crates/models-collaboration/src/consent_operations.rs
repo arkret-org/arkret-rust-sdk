@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::consent::ConsentPeer;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsentState {
@@ -283,3 +284,83 @@ mod tests {
 }
 
 include!("generated/consent_operations_contracts.rs");
+
+include!("generated/consent_current_read_contracts.rs");
+
+impl ConsentCurrentReadRequestBody {
+    pub fn digest(&self) -> Result<arkret_wire::Hash> {
+        Ok(arkret_wire::Hash::new(
+            arkret_wire::canonical::canonical_sha256(&serde_json::to_value(self)?)?,
+        )?)
+    }
+    pub fn validate(&self) -> Result<()> {
+        self.holder_account_id.validate()?;
+        if self.audience_actor_id
+            != arkret_wire::ActorId::service(self.holder_account_id.station_id.clone())
+            || !(22..=64).contains(&self.nonce.len())
+            || !self
+                .nonce
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        {
+            return Err(WireError::Protocol(
+                "Consent current read is not bound to its holder hosting Station".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl ConsentCurrentReadOutcome {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .ok_or_else(|| WireError::Protocol("Consent current outcome is not an object".into()))?
+            .remove("proof");
+        let mut bytes = b"ak.consent.current_read.v1\0".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+    pub fn validate_for_request(
+        &self,
+        request: &ConsentCurrentReadRequestBody,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        request.validate()?;
+        let stream = arkret_wire::CommitStreamRef::Realm {
+            realm_id: self.realm_id.clone(),
+        };
+        if self.request_digest != request.digest()?
+            || self.effective_stream_head.stream_ref != stream
+            || self.evaluated_at > now
+            || self.expires_at <= now
+            || self.expires_at <= self.evaluated_at
+            || self.expires_at > self.evaluated_at + chrono::Duration::seconds(30)
+        {
+            return Err(WireError::Protocol(
+                "Consent current outcome differs from its outstanding request or current window"
+                    .into(),
+            ));
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        for row in &self.consents {
+            if row.selector.consent_id != row.value.consent_id
+                || row.value.peer != request.peer
+                || !ids.insert(row.selector.consent_id.clone())
+                || row.source_stream_ref != stream
+                || !(row.value.consent_scope == request.consent_scope
+                    || row.value.consent_scope == ConsentScope::Any)
+                || row.revision.stream_position > self.effective_stream_head.stream_position
+                || (row.revision.stream_position == self.effective_stream_head.stream_position
+                    && row.revision.commit_id != self.effective_stream_head.commit_id)
+            {
+                return Err(WireError::Protocol(
+                    "Consent current row differs from its exact holder query and source head"
+                        .into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}

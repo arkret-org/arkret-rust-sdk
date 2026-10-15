@@ -5,10 +5,13 @@
 // sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
 //
 // Input: schemas/event-payload.schema.json
-// sha256=dfb9a2ea866db5740548e42f2b5b9c1612e19afd3d83efdc4e78517cc1515cee
+// sha256=36cd224e905e42c33740bf6c3c3d893497e38b5305cadc8d0fb51c1cfdba9c0d
+//
+// Input: schemas/typed-current-result.schema.json
+// sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a09494f9b20fd0b06cee86eb504c26b02dab5a7b147a7e5a1034a07d05811aef
+// sha256=b381c96b67ab466bbb82afb539a5bf9f04c5809ca15139346195d6a0eed4e539
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
@@ -81,5 +84,38 @@ pub struct ParticipantBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
+    pub subject_binding_digest: arkret_wire::Hash,
     pub sig: String,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_assertion`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallRosterAssertion {
+    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub source_commit: arkret_wire::RealmCommit,
+    pub value: CallRosterDelta,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_value`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallRosterCurrentValue {
+    pub assertions: Vec<CallRosterAssertion>,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_assertion`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallModerationAssertion {
+    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub source_commit: arkret_wire::RealmCommit,
+    pub value: CallModerationDelta,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_value`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallModerationCurrentValue {
+    pub assertions: Vec<CallModerationAssertion>,
 }

@@ -76,6 +76,22 @@ impl SignalSubscribeFrameStream {
 }
 
 impl Client {
+    pub async fn consent_current_read(
+        &self,
+        request: &arkret_models_collaboration::consent_operations::ConsentCurrentReadRequestBody,
+    ) -> Result<arkret_models_collaboration::consent_operations::ConsentCurrentReadOutcome> {
+        request.validate()?;
+        self.post("/_arkret/self/consent/current", request).await
+    }
+    pub async fn call_invitation_send(
+        &self,
+        request: &arkret_models_collaboration::call_invitation::CallInvitationSendRequestBody,
+    ) -> Result<arkret_models_collaboration::call_invitation::CallInvitationSendOutcome> {
+        request
+            .invitation
+            .validate_for_envelope(&request.envelope, chrono::Utc::now())?;
+        self.post("/_arkret/self/rtc/invitation", request).await
+    }
     /// Send one encrypted Signal envelope.
     pub async fn signal_send(&self, envelope: &SignalEnvelope) -> Result<SignalSubmitOutcome> {
         self.signal_send_with_transport_observation(envelope)

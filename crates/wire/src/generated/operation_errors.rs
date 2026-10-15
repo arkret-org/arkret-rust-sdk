@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-14.4;
-//! sha256=2dcd583ef40c3902709d16bafd13d037161c234e3ee7ec04f964e80bcbb41ff7 Input: registry/
-//! contract-registry.json; version=2026-10-15.1;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-14.5;
+//! sha256=156f6bad1eda90992647f1c6bcc609f2143ed42506ae80a362704acbd3726e11 Input: registry/
+//! contract-registry.json; version=2026-10-15.4;
+//! sha256=c4da6e1df197b89e7fc2cde6b7251f54033eea5d4cd377351ec98b97dd354fe4 Input: registry/
 //! error-code-registry.json; version=2026-10-10.1;
-//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=223
+//! sha256=d35db776d700c1c6c3e706ac1e305472a80f944c596e2bf68ab722f7ccd4c3d9 Entries: operations=224
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -275,6 +275,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ErasurePendingIsTerminal),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[],
     &[],
     &[],
     &[],

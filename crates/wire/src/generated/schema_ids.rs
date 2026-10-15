@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-15.1;
-//! sha256=8b9ccd1e97bee7ce3e3004beaf961145d12518808f60ee1c72c07f393ba43c1d Entries: schema_ids=229,
-//! active=229
+//! Input: registry/contract-registry.json; version=2026-10-15.4;
+//! sha256=c4da6e1df197b89e7fc2cde6b7251f54033eea5d4cd377351ec98b97dd354fe4 Entries: schema_ids=230,
+//! active=230
 
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +77,7 @@ pub enum SchemaId {
     CommittedEventSubscribeFrameV1,
     CommonIdsV1,
     ConsentOperationsV1,
+    ConsentPrivateOperationsV1,
     ContactOperationsV1,
     ContactRemarkV1,
     ContactScopeUpdateV1,
@@ -310,6 +311,7 @@ impl SchemaId {
         Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
+        Self::ConsentPrivateOperationsV1,
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
@@ -543,6 +545,7 @@ impl SchemaId {
         Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
+        Self::ConsentPrivateOperationsV1,
         Self::ContactOperationsV1,
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
@@ -924,6 +927,10 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface holder-private consent typed current
     /// result operations (ak.self.consent.*); see zh/identity/consent-model.md.
     pub const CONSENT_OPERATIONS_V1: &'static str = "ak.schema.consent_operations.v1";
+    /// Closed six-command private holder-hosting proxy to the PCR authority; no generic transaction
+    /// or synthetic Event.
+    pub const CONSENT_PRIVATE_OPERATIONS_V1: &'static str =
+        "ak.schema.consent_private_operations.v1";
     /// Closed request/response DTO bundle for the Contact lifecycle: request, respond, reject,
     /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
     /// receipts and the peer Contact carrier, plus the contact-list projection.
@@ -1465,6 +1472,7 @@ impl SchemaId {
             Self::CommittedEventSubscribeFrameV1 => Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
+            Self::ConsentPrivateOperationsV1 => Self::CONSENT_PRIVATE_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
@@ -1739,6 +1747,7 @@ impl SchemaId {
             }
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
+            Self::ConsentPrivateOperationsV1 => "schemas/consent-private-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
@@ -2019,6 +2028,7 @@ impl SchemaId {
             Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1 => Some(Self::CommittedEventSubscribeFrameV1),
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
+            Self::CONSENT_PRIVATE_OPERATIONS_V1 => Some(Self::ConsentPrivateOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
