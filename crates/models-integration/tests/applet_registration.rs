@@ -950,6 +950,124 @@ fn bot_commit_has_closed_bundle_and_exact_signed_bindings() {
 }
 
 #[test]
+fn management_target_digest_uses_business_body_and_only_drops_outer_evidence() {
+    use arkret_models_integration::management_review::*;
+    use arkret_wire::{
+        ApprovalContext, ApprovalSignature, ApprovalSignatureInput, ApprovalSignatureProof,
+        ApprovalSignatureProofKind, ApprovalTarget, CapabilityActionId, ManagementOperation,
+    };
+    let (mut body, _) = sample_bot_request_body();
+    let applet = body
+        .authoring_request
+        .basis
+        .bot()
+        .unwrap()
+        .applet_id
+        .clone();
+    let target = ManagementReviewTarget::BotCreation {
+        applet_id: applet.clone(),
+        request_body: Box::new(body.clone()),
+    };
+    let digest = target.canonical_target_digest().unwrap();
+    let review = ManagementReviewRequestBody {
+        request_id: "ak:request:01904100-0000-7000-8000-000000000021".into(),
+        effective_scope: body
+            .authoring_request
+            .basis
+            .bot()
+            .unwrap()
+            .effective_scope
+            .clone(),
+        management_operation: ManagementOperation::CreateBot,
+        requester_actor_id: ActorId::service(body.authoring_request.basis.service_id().clone()),
+        target: target.clone(),
+    };
+    review.validate().unwrap();
+    let mut wrong_applet = review.clone();
+    let ManagementReviewTarget::BotCreation { applet_id, .. } = &mut wrong_applet.target else {
+        unreachable!()
+    };
+    *applet_id = AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap();
+    assert!(wrong_applet.validate().is_err());
+    let mut wrong_scope = review.clone();
+    wrong_scope.effective_scope = ScopeRef::Realm {
+        realm_id: RealmId::from_event_id(&EventId::from_digest(
+            canonical::DigestSuite::Sha256,
+            [209; 32],
+        )),
+    };
+    assert!(wrong_scope.validate().is_err());
+    let mut coerced_service = review.clone();
+    coerced_service.requester_actor_id = ActorId::account(arkret_wire::AccountId::new(
+        body.authoring_request.basis.service_id().clone(),
+        body.authoring_request.basis.target_station_id().clone(),
+    ));
+    assert!(
+        coerced_service.validate().is_err(),
+        "a Service must not become an Account with the same principal"
+    );
+    assert_eq!(
+        digest,
+        arkret_wire::management_creation_request_digest(&body).unwrap()
+    );
+    body.approval_signatures.push(ApprovalSignature {
+        input: ApprovalSignatureInput {
+            approval_context: ApprovalContext::Management {
+                management_operation: ManagementOperation::CreateBot,
+                effective_scope: ScopeRef::Realm { realm_id: realm() },
+                request_id: "ak:request:01904100-0000-7000-8000-000000000021".into(),
+            },
+            approval_target: ApprovalTarget::Operation,
+            request_canonical_digest: digest.clone(),
+            operation: "ak.self.applet.bot.command.provision.v1".into(),
+            action: CapabilityActionId::AppletBotProvision,
+            realm_id: realm(),
+            initiating_actor_id: ActorId::service(
+                body.authoring_request.basis.service_id().clone(),
+            ),
+            approver_did: did("admin"),
+            approved_at: body.authoring_request.issued_at,
+            nonce: "ABCDEFGHIJKLMNOPQRSTUV".into(),
+        },
+        proof: ApprovalSignatureProof {
+            kind: ApprovalSignatureProofKind::DetachedJws,
+            verification_method: DidUrl::new(format!("{}#approval", did("admin"))).unwrap(),
+            jws: "structural-evidence".into(),
+        },
+    });
+    let attached = ManagementReviewTarget::BotCreation {
+        applet_id: applet.clone(),
+        request_body: Box::new(body.clone()),
+    };
+    assert_eq!(digest, attached.canonical_target_digest().unwrap());
+    assert_ne!(
+        digest.as_str(),
+        canonical::canonical_sha256(&attached).unwrap(),
+        "private target wrapper is not the business digest"
+    );
+    body.managed_actor_bundle.profile_event.payload.insert(
+        "approval_signatures".into(),
+        json!(["nested original data"]),
+    );
+    assert_ne!(
+        digest,
+        ManagementReviewTarget::BotCreation {
+            applet_id: applet,
+            request_body: Box::new(body.clone())
+        }
+        .canonical_target_digest()
+        .unwrap()
+    );
+    let event = ManagementReviewTarget::Event {
+        event: Box::new(body.managed_actor_bundle.profile_event.clone()),
+    };
+    assert_eq!(
+        event.canonical_target_digest().unwrap().as_str(),
+        canonical::canonical_sha256(&body.managed_actor_bundle.profile_event).unwrap()
+    );
+}
+
+#[test]
 fn install_preview_has_only_package_and_authoring_basis() {
     let package = finalized_package_with_required_fields();
     let evidence = sample_epoch_evidence(&package.service_id);
@@ -1538,6 +1656,35 @@ fn committed_managed_request_roundtrip_uses_signed_purpose_not_untagged_order() 
         approval_signatures: vec![],
         existing_managed_actor: None,
     };
+    let ghost_target = arkret_models_integration::ManagementReviewTarget::GhostCreation {
+        applet_id: ghost
+            .authoring_request
+            .basis
+            .ghost()
+            .unwrap()
+            .applet_id
+            .clone(),
+        request_body: Box::new(ghost.clone()),
+    };
+    assert_eq!(
+        ghost_target.canonical_target_digest().unwrap(),
+        arkret_wire::management_creation_request_digest(&ghost).unwrap()
+    );
+    arkret_models_integration::ManagementReviewRequestBody {
+        request_id: "ak:request:01904100-0000-7000-8000-000000000022".into(),
+        effective_scope: ghost
+            .authoring_request
+            .basis
+            .ghost()
+            .unwrap()
+            .effective_scope
+            .clone(),
+        management_operation: arkret_wire::ManagementOperation::MapGhost,
+        requester_actor_id: ActorId::service(ghost.authoring_request.basis.service_id().clone()),
+        target: ghost_target,
+    }
+    .validate()
+    .unwrap();
     let ghost_wire =
         serde_json::to_value(AppletManagedActorCommittedRequest::Ghost(Box::new(ghost))).unwrap();
     assert!(ghost_wire.get("existing_managed_actor").is_none());

@@ -128,7 +128,7 @@ pub use recovery_authority::{
     RecoveryCompletionAttestationAuthData, UnsignedRecoveryCompletionAttestation,
     UnsignedRecoveryCompletionAttestationBody,
 };
-pub use request_digest::framed_request_digest;
+pub use request_digest::{framed_request_digest, management_creation_request_digest};
 pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };

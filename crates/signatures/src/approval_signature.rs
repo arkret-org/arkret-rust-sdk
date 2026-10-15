@@ -214,18 +214,7 @@ fn validate_management_binding(
     Ok(())
 }
 
-/// Digest of an original registered creation body with only its outer evidence omitted.
-pub fn management_creation_request_digest<T: serde::Serialize>(
-    request: &T,
-) -> arkret_wire::Result<arkret_wire::Hash> {
-    let mut value = serde_json::to_value(request)?;
-    value
-        .as_object_mut()
-        .ok_or_else(|| WireError::Protocol("management creation request must be an object".into()))?
-        .remove("approval_signatures");
-    arkret_wire::Hash::new(arkret_canonical::canonical::canonical_sha256(&value)?)
-        .map_err(Into::into)
-}
+pub use arkret_wire::management_creation_request_digest;
 
 /// Verify operation-target management approval over the immutable body digest.
 /// This neither accepts the body nor consumes a private review ledger record.

@@ -25,6 +25,23 @@ pub enum ManagementReviewTarget {
         request_body: Box<GhostActorProvisionRequestBody>,
     },
 }
+
+impl ManagementReviewTarget {
+    /// The actual business target, independent of the private request envelope.
+    /// Creation removes only the final body's outer approval evidence; nested
+    /// data and all original producer proofs remain in the signed target.
+    pub fn canonical_target_digest(&self) -> arkret_wire::Result<Hash> {
+        match self {
+            Self::Event { event } => Ok(Hash::new(arkret_canonical::canonical_sha256(event)?)?),
+            Self::BotCreation { request_body, .. } => {
+                arkret_wire::management_creation_request_digest(request_body)
+            }
+            Self::GhostCreation { request_body, .. } => {
+                arkret_wire::management_creation_request_digest(request_body)
+            }
+        }
+    }
+}
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -40,15 +57,43 @@ impl ManagementReviewRequestBody {
         let valid = match (&self.management_operation, &self.target) {
             (
                 ManagementOperation::CreateBot,
-                ManagementReviewTarget::BotCreation { request_body, .. },
+                ManagementReviewTarget::BotCreation {
+                    applet_id,
+                    request_body,
+                },
             ) => {
                 request_body.authoring_request.purpose
                     == crate::AppletManagedActorPurpose::ProvisionBot
+                    && request_body
+                        .authoring_request
+                        .basis
+                        .bot()
+                        .is_some_and(|basis| {
+                            &basis.applet_id == applet_id
+                                && basis.effective_scope == self.effective_scope
+                                && self.requester_actor_id
+                                    == ActorId::service(basis.service_id.clone())
+                        })
             }
             (
                 ManagementOperation::MapGhost,
-                ManagementReviewTarget::GhostCreation { request_body, .. },
-            ) => request_body.validate().is_ok(),
+                ManagementReviewTarget::GhostCreation {
+                    applet_id,
+                    request_body,
+                },
+            ) => {
+                request_body.validate().is_ok()
+                    && request_body
+                        .authoring_request
+                        .basis
+                        .ghost()
+                        .is_some_and(|basis| {
+                            &basis.applet_id == applet_id
+                                && basis.effective_scope == self.effective_scope
+                                && self.requester_actor_id
+                                    == ActorId::service(basis.service_id.clone())
+                        })
+            }
             (ManagementOperation::Join, ManagementReviewTarget::Event { event }) => {
                 event.kind.as_str() == event_kind_str::MEMBER_STATE
             }
@@ -60,7 +105,18 @@ impl ManagementReviewRequestBody {
             ),
             _ => false,
         };
-        if self.request_id.is_empty() || !valid {
+        let event_binding = match &self.target {
+            ManagementReviewTarget::Event { event } => event.scope_ref == self.effective_scope,
+            _ => true,
+        };
+        if self.request_id.is_empty()
+            || !valid
+            || !event_binding
+            || !matches!(
+                self.effective_scope,
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            )
+        {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid management review target".into(),
             ));

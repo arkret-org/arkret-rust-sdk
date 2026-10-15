@@ -1,4 +1,4 @@
-//! Domain-separated digest over an exact canonical request body.
+//! Canonical digests over exact registered request bodies.
 //!
 //! Several own-Station and service-to-service results bind themselves to the
 //! request that produced them without echoing the request members back. The
@@ -27,9 +27,42 @@ where
     Ok(Hash::new(canonical::sha256_digest(preimage))?)
 }
 
+/// The original management creation body, removing only its outer evidence.
+/// This is plain SHA-256(JCS(body)); it introduces no new signature domain.
+pub fn management_creation_request_digest<T: Serialize + ?Sized>(request: &T) -> Result<Hash> {
+    let mut value = serde_json::to_value(request)?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| {
+            crate::WireError::Protocol("management creation request must be an object".into())
+        })?
+        .remove("approval_signatures");
+    Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::framed_request_digest;
+
+    #[test]
+    fn management_creation_digest_retains_nested_originals_and_rejects_nonobjects() {
+        let original = serde_json::json!({"authoring_request":{"proof":"original"},"managed_actor_bundle":{"approval_signatures":["nested"]},"approval_signatures":["outer"]});
+        let digest = super::management_creation_request_digest(&original).unwrap();
+        let mut another_vote = original.clone();
+        another_vote["approval_signatures"] = serde_json::json!(["another outer"]);
+        assert_eq!(
+            digest,
+            super::management_creation_request_digest(&another_vote).unwrap()
+        );
+        another_vote["managed_actor_bundle"]["approval_signatures"] =
+            serde_json::json!(["changed nested original"]);
+        assert_ne!(
+            digest,
+            super::management_creation_request_digest(&another_vote).unwrap()
+        );
+        assert!(super::management_creation_request_digest(&serde_json::json!([])).is_err());
+        assert!(super::management_creation_request_digest(&serde_json::Value::Null).is_err());
+    }
 
     #[test]
     fn the_label_separates_two_otherwise_identical_bodies() {

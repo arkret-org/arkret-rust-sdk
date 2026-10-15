@@ -6,8 +6,8 @@
 //! An allow result still requires controller, grant, membership and delivery gates.
 
 use arkret_models_collaboration::governance::operation_wire::{
-    AppletPolicyOperation, AppletPolicyTarget, Policy, PolicyResourceKind, PolicyResourceSelector,
-    PolicyRuleKind,
+    AppletPolicyOperation, AppletPolicyTarget, ManagementReviewRequirement, Policy,
+    PolicyResourceKind, PolicyResourceSelector, PolicyRuleKind,
 };
 use arkret_wire::{
     ActorId, AppletId, CapabilityActionId, PolicyEffect, PolicyKind, RealmId, ScopeRef,
@@ -73,13 +73,29 @@ fn content_action(action: &str) -> bool {
     })
 }
 
-/// `None` means unknown/stale/incomplete, not an absent Policy. `Some(&[])`
-/// is valid only after the caller has proved complete current absence across
-/// every applicable Realm/Circle/Strand layer. Never construct it from a cache miss.
+/// The effect and every applicable highest-priority review requirement are
+/// selected together. A consumer must satisfy all requirements; selecting a
+/// single permissive rule cannot erase another Policy or same-priority vote.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AppletManagementDecision {
+    pub effect: PolicyEffect,
+    pub review_requirements: Vec<ManagementReviewRequirement>,
+}
+
 pub fn evaluate_applet_management(
     policies: Option<&[Policy]>,
     context: &AppletManagementContext<'_>,
 ) -> Result<PolicyEffect, AppletManagementError> {
+    select_applet_management(policies, context).map(|decision| decision.effect)
+}
+
+/// `None` means unknown/stale/incomplete, not an absent Policy. `Some(&[])`
+/// is valid only after the caller has proved complete current absence across
+/// every applicable Realm/Circle/Strand layer. Never construct it from a cache miss.
+pub fn select_applet_management(
+    policies: Option<&[Policy]>,
+    context: &AppletManagementContext<'_>,
+) -> Result<AppletManagementDecision, AppletManagementError> {
     let policies = policies.ok_or(AppletManagementError::IncompleteCurrent)?;
     let resources = context
         .resources
@@ -113,6 +129,7 @@ pub fn evaluate_applet_management(
     }
     let mut ids = std::collections::BTreeSet::new();
     let mut result = PolicyEffect::Allow;
+    let mut review_requirements = Vec::new();
     for policy in policies {
         policy
             .validate()
@@ -137,7 +154,7 @@ pub fn evaluate_applet_management(
         {
             continue;
         }
-        let mut matched: Option<(i64, PolicyEffect)> = None;
+        let mut matched: Option<(i64, PolicyEffect, Vec<ManagementReviewRequirement>)> = None;
         for rule in &policy.rules {
             if rule.kind != PolicyRuleKind::Applet
                 || rule
@@ -203,53 +220,74 @@ pub fn evaluate_applet_management(
                     continue;
                 }
             }
+            let requirements = if rule.effect == PolicyEffect::RequireReview {
+                vec![
+                    rule.review_requirement
+                        .clone()
+                        .ok_or(AppletManagementError::InvalidPolicy)?,
+                ]
+            } else {
+                Vec::new()
+            };
             matched = Some(match matched {
-                Some((priority, effect)) if priority == rule.priority => {
-                    (priority, stricter(effect, rule.effect.clone()))
+                Some((priority, effect, mut prior)) if priority == rule.priority => {
+                    prior.extend(requirements);
+                    (priority, stricter(effect, rule.effect.clone()), prior)
                 }
                 Some(existing) if existing.0 > rule.priority => existing,
-                _ => (rule.priority, rule.effect.clone()),
+                _ => (rule.priority, rule.effect.clone(), requirements),
             });
         }
-        result = stricter(
-            result,
-            matched.map_or_else(
-                || {
-                    if policy.default_effect == PolicyEffect::RequireReview {
-                        let op = match context.operation {
-                            AppletPolicyOperation::Join => {
-                                Some(arkret_wire::ManagementOperation::Join)
-                            }
-                            AppletPolicyOperation::Publish => {
-                                Some(arkret_wire::ManagementOperation::Publish)
-                            }
-                            AppletPolicyOperation::CreateBot => {
-                                Some(arkret_wire::ManagementOperation::CreateBot)
-                            }
-                            AppletPolicyOperation::MapGhost => {
-                                Some(arkret_wire::ManagementOperation::MapGhost)
-                            }
-                            _ => None,
-                        };
-                        if op.is_some_and(|op| {
-                            policy
-                                .default_operations
-                                .as_ref()
-                                .is_some_and(|ops| ops.contains(&op))
-                        }) {
-                            PolicyEffect::RequireReview
-                        } else {
-                            PolicyEffect::Deny
-                        }
-                    } else {
-                        policy.default_effect.clone()
-                    }
-                },
-                |(_, effect)| effect,
-            ),
-        );
+        let (effect, requirements) = if let Some((_, effect, requirements)) = matched {
+            (effect, requirements)
+        } else if policy.default_effect == PolicyEffect::RequireReview {
+            let operation = match context.operation {
+                AppletPolicyOperation::Join => Some(arkret_wire::ManagementOperation::Join),
+                AppletPolicyOperation::Publish => Some(arkret_wire::ManagementOperation::Publish),
+                AppletPolicyOperation::CreateBot => {
+                    Some(arkret_wire::ManagementOperation::CreateBot)
+                }
+                AppletPolicyOperation::MapGhost => Some(arkret_wire::ManagementOperation::MapGhost),
+                _ => None,
+            };
+            if operation.is_some_and(|operation| {
+                policy
+                    .default_operations
+                    .as_ref()
+                    .is_some_and(|operations| operations.contains(&operation))
+            }) {
+                (
+                    PolicyEffect::RequireReview,
+                    vec![
+                        policy
+                            .default_review_requirement
+                            .clone()
+                            .ok_or(AppletManagementError::InvalidPolicy)?,
+                    ],
+                )
+            } else {
+                (PolicyEffect::Deny, Vec::new())
+            }
+        } else {
+            (policy.default_effect.clone(), Vec::new())
+        };
+        if effect == PolicyEffect::RequireReview {
+            review_requirements.extend(requirements);
+        }
+        result = stricter(result, effect);
     }
-    Ok(result)
+    if result != PolicyEffect::RequireReview {
+        review_requirements.clear();
+    }
+    for requirement in &review_requirements {
+        requirement
+            .validate()
+            .map_err(|_| AppletManagementError::InvalidPolicy)?;
+    }
+    Ok(AppletManagementDecision {
+        effect: result,
+        review_requirements,
+    })
 }
 
 #[cfg(test)]
@@ -258,6 +296,105 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    #[test]
+    fn review_selection_keeps_all_highest_priority_and_parent_requirements() {
+        let realm = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [43; 32],
+        ));
+        let scope = ScopeRef::Realm {
+            realm_id: realm.clone(),
+        };
+        let applet = AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap();
+        let requester =
+            ActorId::service(DidCoreId::new("ak:did_core:web:creator.example").unwrap());
+        let approver = ActorId::account(arkret_wire::AccountId::new(
+            "ak:did_core:web:admin.example".parse().unwrap(),
+            "ak:did_core:web:station.example".parse().unwrap(),
+        ));
+        let requirement = |age| ManagementReviewRequirement {
+            approver_actor_ids: vec![approver.clone()],
+            threshold: 1,
+            max_age_seconds: age,
+        };
+        let resources = [PolicyResourceSelector {
+            kind: PolicyResourceKind::Realm,
+            realm_id: Some(realm.clone()),
+            resource_ref: Some(realm.to_string()),
+        }];
+        let at = "2026-10-16T00:00:00.000Z".parse().unwrap();
+        let context = AppletManagementContext {
+            realm_id: &realm,
+            requester_actor_id: &requester,
+            applet_id: &applet,
+            effective_scope: &scope,
+            managed_actor_id: None,
+            operation: AppletPolicyOperation::CreateBot,
+            content_action: None,
+            resources: Some(&resources),
+            at,
+        };
+        let rule = |id, priority, age| {
+            json!({"rule_id":id,"kind":"applet","effect":"require_review","priority":priority,
+            "applet_target":{"kind":"all"},"applet_operations":["create_bot"],"review_requirement":requirement(age)})
+        };
+        let policy:Policy=serde_json::from_value(json!({"schema":"ak.schema.policy.v1","id":"ak:policy:0198ff00-0000-7000-8000-000000000001",
+            "realm_id":realm,"policy_kind":"applet","rules":[rule("low",1,120),rule("first",5,60),rule("second",5,20)],
+            "default_effect":"allow","created_by":requester,"created_at":arkret_canonical::format_timestamp_canonical(at)})).unwrap();
+        assert_eq!(
+            select_applet_management(Some(&[policy.clone()]), &context).unwrap(),
+            AppletManagementDecision {
+                effect: PolicyEffect::RequireReview,
+                review_requirements: vec![requirement(60), requirement(20)]
+            }
+        );
+        let mut parent_value = serde_json::to_value(&policy).unwrap();
+        parent_value["id"] = json!("ak:policy:0198ff00-0000-7000-8000-000000000002");
+        parent_value["rules"] = json!([{"rule_id":"other_operation","kind":"applet","effect":"allow","priority":0,
+            "applet_target":{"kind":"all"},"applet_operations":["map_ghost"]}]);
+        parent_value["default_effect"] = json!("require_review");
+        parent_value["default_operations"] = json!(["create_bot"]);
+        parent_value["default_review_requirement"] = json!(requirement(5));
+        let mut parent: Policy = serde_json::from_value(parent_value).unwrap();
+        assert_eq!(
+            select_applet_management(Some(&[policy.clone(), parent.clone()]), &context).unwrap(),
+            AppletManagementDecision {
+                effect: PolicyEffect::RequireReview,
+                review_requirements: vec![requirement(60), requirement(20), requirement(5)]
+            }
+        );
+        let mut higher_allow = policy.clone();
+        higher_allow.rules[1].priority = 6;
+        higher_allow.rules[1].effect = PolicyEffect::Allow;
+        higher_allow.rules[1].review_requirement = None;
+        assert_eq!(
+            select_applet_management(Some(&[higher_allow]), &context).unwrap(),
+            AppletManagementDecision {
+                effect: PolicyEffect::Allow,
+                review_requirements: vec![]
+            }
+        );
+        let mut same_priority_deny = policy.clone();
+        same_priority_deny.rules[1].effect = PolicyEffect::Deny;
+        same_priority_deny.rules[1].review_requirement = None;
+        assert_eq!(
+            select_applet_management(Some(&[same_priority_deny, parent.clone()]), &context)
+                .unwrap(),
+            AppletManagementDecision {
+                effect: PolicyEffect::Deny,
+                review_requirements: vec![]
+            }
+        );
+        parent.default_operations = Some(vec![arkret_wire::ManagementOperation::MapGhost]);
+        assert_eq!(
+            select_applet_management(Some(&[policy, parent]), &context).unwrap(),
+            AppletManagementDecision {
+                effect: PolicyEffect::Deny,
+                review_requirements: vec![]
+            }
+        );
+    }
+
     #[test]
     fn defaults_exceptions_and_cross_policy_denial_remain_distinct() {
         let realm = RealmId::from_event_id(&EventId::from_digest(
