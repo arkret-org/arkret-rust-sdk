@@ -336,6 +336,7 @@ impl OwnStationResultClient {
         >,
     > {
         self.check_session()?;
+        request.validate()?;
         if &request.holder_account_id != self.session.account_id() {
             return Err(protocol(
                 "Consent current belongs only to the exact authenticated holder",

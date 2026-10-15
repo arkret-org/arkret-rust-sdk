@@ -22,6 +22,7 @@ impl Client {
         &self,
         request: &arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,
     ) -> Result<arkret_models_collaboration::call_invitation::ConsentCurrentReadOutcome> {
+        request.validate()?;
         let outcome: arkret_models_collaboration::call_invitation::ConsentCurrentReadOutcome =
             self.post("/_arkret/self/consent/current", request).await?;
         outcome.validate_for_request(request, outcome.governance_generation, chrono::Utc::now())?;

@@ -46,6 +46,8 @@ pub mod agent;
 ))]
 pub mod agent_evidence;
 #[cfg(feature = "collaboration")]
+pub mod call_invitation;
+#[cfg(feature = "collaboration")]
 pub mod contact_receipt;
 #[cfg(feature = "collaboration")]
 #[cfg(feature = "collaboration")]

@@ -244,3 +244,78 @@ impl CallMediaSubjectBinding {
         domain_signing_input("ak.media.subject_binding.v1", self, "sig")
     }
 }
+
+impl CallInvitationMedia {
+    pub fn from_selection(media: &crate::call_signal::CallMediaSelection) -> Self {
+        Self {
+            audio: media.audio,
+            video: media.video,
+            screen: media.screen.unwrap_or(false),
+        }
+    }
+    pub fn permits(&self, desired: &Self) -> bool {
+        desired.is_nonempty() && desired.is_subset_of(self)
+    }
+}
+impl CallInvitationEnvelope {
+    pub fn validate_plaintext(
+        &self,
+        plaintext: &crate::call_signal::CallSignalPlaintext,
+    ) -> arkret_wire::Result<()> {
+        let crate::call_signal::CallSignalData::Invite(invite) = &plaintext.signal else {
+            return Err(invalid("call invitation plaintext is not Invite"));
+        };
+        if self.call_id != plaintext.call_id
+            || self.media != CallInvitationMedia::from_selection(&invite.media)
+        {
+            return Err(invalid(
+                "call invitation plaintext differs from signed relation",
+            ));
+        }
+        Ok(())
+    }
+}
+pub fn call_invitation_envelope_digest(
+    envelope: &arkret_wire::SignalEnvelope,
+) -> arkret_wire::Result<String> {
+    canonical_request_digest(envelope)
+}
+pub fn consent_value_permits_call(
+    value: &crate::consent_operations::ConsentValue,
+    inviter: &arkret_wire::ActorId,
+    media: &CallInvitationMedia,
+    now: chrono::DateTime<chrono::Utc>,
+) -> bool {
+    let crate::events_payloads::consent::ConsentPeer::Actor { actor_id } = &value.peer;
+    media.is_nonempty()
+        && actor_id == inviter
+        && value.status == crate::consent_operations::ConsentState::Active
+        && (value.consent_scope == media.consent_scope()
+            || value.consent_scope == arkret_wire::ConsentScope::Any)
+        && value.not_before.is_none_or(|start| start <= now)
+        && value.expires_at.is_none_or(|end| now < end)
+        && value.constraints.as_ref().is_none_or(Vec::is_empty)
+}
+
+impl ConsentCurrentReadRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.holder_account_id.validate()?;
+        if self.audience_actor_id
+            != arkret_wire::ActorId::service(self.holder_account_id.station_id.clone())
+            || !valid_nonce(&self.nonce)
+        {
+            return Err(invalid(
+                "Consent read does not bind its exact holder hosting Station and fresh nonce",
+            ));
+        }
+        Ok(())
+    }
+    pub fn digest(&self) -> arkret_wire::Result<String> {
+        canonical_request_digest(self)
+    }
+}
+impl CallInvitationAdmissionRequestBody {
+    pub fn digest(&self) -> arkret_wire::Result<String> {
+        canonical_request_digest(self)
+    }
+}

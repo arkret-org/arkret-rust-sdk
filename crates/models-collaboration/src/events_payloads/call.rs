@@ -177,7 +177,7 @@ pub enum CallModerationDelta {
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
-        /// Typed revision of this participant's moderation value the producer
+        /// Typed revision of the complete Call moderation axis the producer
         /// read. The compare is field-for-field.
         expected_revision: CurrentRevision,
     },
@@ -1006,6 +1006,7 @@ fn validate_call_assertion_sources<'a>(
     let mut latest = None;
     for (tag, commit) in assertions {
         commit.validate_shape()?;
+        commit.validate_content_address()?;
         if commit.stream_ref != *stream
             || commit.realm_id != *stream.realm_id()
             || tag != format!("{}:{}", commit.event_ref, write_index)
@@ -1042,29 +1043,8 @@ impl CallRosterCurrentValue {
                 .map(|a| (a.tag_id.as_str(), &a.source_commit)),
             stream,
             revision,
-            8,
+            7,
         )
-    }
-    pub fn active_participants(&self) -> Vec<(CallParticipant, arkret_wire::RealmCommit)> {
-        let mut assertions: Vec<_> = self.assertions.iter().collect();
-        assertions.sort_by_key(|a| a.source_commit.stream_position);
-        let mut active: Vec<(CallParticipant, arkret_wire::RealmCommit)> = Vec::new();
-        for a in assertions {
-            match &a.value {
-                CallRosterDelta::Join { participant } => {
-                    active.retain(|(p, _)| {
-                        p.actor_id != participant.actor_id || p.device_id != participant.device_id
-                    });
-                    active.push((participant.clone(), a.source_commit.clone()));
-                }
-                CallRosterDelta::Leave {
-                    actor_id,
-                    device_id,
-                    ..
-                } => active.retain(|(p, _)| &p.actor_id != actor_id || &p.device_id != device_id),
-            }
-        }
-        active
     }
 }
 impl CallModerationCurrentValue {
@@ -1079,27 +1059,8 @@ impl CallModerationCurrentValue {
                 .map(|a| (a.tag_id.as_str(), &a.source_commit)),
             stream,
             revision,
-            7,
+            6,
         )
-    }
-    pub fn active_removals(&self) -> Vec<CallParticipantRemoval> {
-        let mut assertions: Vec<_> = self.assertions.iter().collect();
-        assertions.sort_by_key(|a| a.source_commit.stream_position);
-        let mut active: Vec<CallParticipantRemoval> = Vec::new();
-        for a in assertions {
-            match &a.value {
-                CallModerationDelta::RemoveParticipant { removal } => {
-                    active.retain(|r| {
-                        r.actor_id != removal.actor_id || r.device_id != removal.device_id
-                    });
-                    active.push(removal.clone());
-                }
-                CallModerationDelta::RestoreParticipant { actor_id, .. } => active.retain(|r| {
-                    &r.actor_id != actor_id || r.action != CallParticipantRemovalAction::Ban
-                }),
-            }
-        }
-        active
     }
 }
 

@@ -380,3 +380,78 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
         })
     }
 }
+
+impl CallMediaTokenExchangeRequestBody {
+    pub fn voluntary_join_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        crate::call_invitation::voluntary_join_signing_input_from_value(&serde_json::to_value(
+            self,
+        )?)
+    }
+    pub fn invitation_media(&self) -> crate::call_invitation::CallInvitationMedia {
+        crate::call_invitation::CallInvitationMedia {
+            audio: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.audio)
+                .unwrap_or(true),
+            video: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.video)
+                .unwrap_or(true),
+            screen: self
+                .desired_media
+                .as_ref()
+                .and_then(|m| m.screen)
+                .unwrap_or(false),
+        }
+    }
+
+    pub fn validate_join_context_at(&self, now: DateTime<Utc>) -> arkret_wire::Result<()> {
+        use crate::call_invitation::CallMediaJoinContext;
+        match &self.join_context {
+            CallMediaJoinContext::Invitation(context) => {
+                context
+                    .invitation
+                    .validate_for_envelope(&context.envelope)?;
+                if context.invitation.expires_at <= now || context.envelope.expires_at <= now {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "invitation expired".into(),
+                    ));
+                }
+                if context.invitation.holder_account_id
+                    != *self.actor_id.as_account_id().ok_or_else(|| {
+                        arkret_wire::WireError::Protocol(
+                            "invited token subject is not a holder Account".into(),
+                        )
+                    })?
+                    || context.invitation.call_id != self.call_id
+                    || context.invitation.scope_ref.realm_id() != &self.realm_id
+                    || !context.invitation.media.permits(&self.invitation_media())
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "token request differs from its first-contact invitation".into(),
+                    ));
+                }
+            }
+            CallMediaJoinContext::Voluntary(context) => {
+                if context.created_at > now
+                    || context.expires_at <= now
+                    || context.expires_at <= context.created_at
+                    || context.expires_at > context.created_at + chrono::Duration::seconds(60)
+                    || !crate::call_invitation::valid_nonce(&context.nonce)
+                    || !context
+                        .nonce
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "voluntary join intent is expired or malformed".into(),
+                    ));
+                }
+            }
+            CallMediaJoinContext::Refresh(_) => {}
+        }
+        Ok(())
+    }
+}

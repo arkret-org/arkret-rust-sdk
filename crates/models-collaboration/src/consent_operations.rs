@@ -284,3 +284,8 @@ mod tests {
 }
 
 include!("generated/consent_operations_contracts.rs");
+
+pub use crate::call_invitation::{
+    ConsentCurrentReadOutcome, ConsentCurrentReadProof, ConsentCurrentReadRequestBody,
+    ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
+};

@@ -297,7 +297,6 @@ fn chain() -> Chain {
     );
     let handoff = seal_handoff(
         RealmAuthorityHandoff {
-            pcr_private_state_digest: None,
             handoff_id: RealmAuthorityHandoffId::from_digest([0x21; 32]),
             realm_id: realm_id(),
             from_generation: 0,
@@ -306,6 +305,7 @@ fn chain() -> Chain {
             to_service_id: core_id(STATION_B),
             final_stream_heads_digest: hash('a'),
             historical_signer_facts_digest: None,
+            pcr_private_state_digest: None,
             snapshot_ref: RealmSnapshotId::from_digest([0x44; 32]),
             change_event_ref: change_event.event_id.clone(),
             change_commit_id: change_commit.commit_id.clone(),
