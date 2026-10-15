@@ -850,18 +850,6 @@ pub struct ContentBlockMediaAttachment {
     pub caption: String,
 }
 
-/// Payload for `ak.message.create`.
-///
-/// Producers must choose exactly one of `content` or `encrypted_content`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MessageAgentContext {
-    pub agent_id: DidCoreId,
-    pub operator_or_controller: String,
-    pub execution_purpose: String,
-    pub authorization_ref: String,
-}
-
 /// A producer-visible replacement declaration for one accepted poll response.
 /// The governance Station verifies both Event refs against the same poll,
 /// actor and effective scope; this pair is not a vote-winner selector.
@@ -872,6 +860,8 @@ pub struct PollResponseHead {
     pub response_event_ref: EventId,
 }
 
+/// Payload for `ak.message.create`; attribution belongs to the Event envelope.
+/// Producers must choose exactly one of `content` or `encrypted_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageCreatePayload {
@@ -889,8 +879,6 @@ pub struct MessageCreatePayload {
     pub blob_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_context: Option<MessageAgentContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mimi_provenance: Option<MimiMessageProvenance>,
     #[serde(
@@ -940,7 +928,6 @@ impl MessageCreatePayload {
             encrypted_metadata: None,
             blob_refs: Vec::new(),
             reply_to_id: None,
-            agent_context: None,
             mimi_provenance: None,
             poll_response_heads: Vec::new(),
         }
@@ -972,7 +959,6 @@ impl MessageCreatePayload {
             encrypted_metadata: None,
             blob_refs: Vec::new(),
             reply_to_id: None,
-            agent_context: None,
             mimi_provenance: None,
             poll_response_heads: Vec::new(),
         }
@@ -1291,3 +1277,28 @@ fn json_integer(value: &Value) -> bool {
 }
 
 include!("generated/message_contracts.rs");
+
+#[cfg(test)]
+mod attribution_tests {
+    use serde_json::json;
+
+    use super::MessageCreatePayload;
+
+    #[test]
+    fn message_payload_rejects_obsolete_agent_context() {
+        let mut value = json!({
+            "strand_id": "ak:strand:AUOjN8M8xm-W1G1Ve9UR6sHKJh7JPG7bM8ZDnzcGJ2Vh",
+            "track_name": "discussion",
+            "content": {"kind": "ak.content.text", "body": "Envelope attribution"},
+        });
+        serde_json::from_value::<MessageCreatePayload>(value.clone()).expect("ordinary Message");
+        value["agent_context"] = json!({
+            "agent_id": "ak:did_core:web:agent.example",
+            "operator_or_controller": "controller",
+            "execution_purpose": "reply",
+            "authorization_ref": "grant",
+        });
+        let error = serde_json::from_value::<MessageCreatePayload>(value).unwrap_err();
+        assert!(error.to_string().contains("unknown field `agent_context`"));
+    }
+}

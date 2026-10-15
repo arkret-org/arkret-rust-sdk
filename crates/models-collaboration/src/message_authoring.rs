@@ -72,7 +72,6 @@ impl MessageAuthoringIntent {
             encrypted_metadata: None,
             blob_refs: self.blob_refs.clone(),
             reply_to_id: self.reply_to_id.clone(),
-            agent_context: None,
             mimi_provenance: None,
             poll_response_heads: Vec::new(),
         };

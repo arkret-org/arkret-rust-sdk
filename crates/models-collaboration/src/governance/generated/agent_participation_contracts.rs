@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
+// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
