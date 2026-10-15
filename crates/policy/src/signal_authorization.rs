@@ -259,7 +259,7 @@ fn strand_actions_allowed(
 /// Policy only restricts an independently granted action. Unknown condition,
 /// server, quota or extension inputs cannot be assumed to match or not match.
 /// Known action/resource mismatch excludes a rule before unknown predicates.
-fn product_policies_allow(
+pub fn product_policies_allow(
     policies: &[arkret_models_collaboration::governance::operation_wire::Policy],
     operation: &AuthorizationOperation<'_>,
 ) -> bool {
