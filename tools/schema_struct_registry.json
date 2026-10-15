@@ -1567,6 +1567,10 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationCurrentValue",
       "schema": "typed-current-result.schema.json#/$defs/call_moderation_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/device_identity_contracts.rs::AppletManagedDeviceScope",
+      "schema": "event-payload.schema.json#/$defs/applet_managed_device_scope"
     }
   ],
   "exemptions": [

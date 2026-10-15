@@ -1471,7 +1471,10 @@ impl AppletManagedDeviceMetadata {
         {
             return Err(WireError::Protocol("invalid managed Device nonce".into()));
         }
-        if self.effective_scope.realm_id_opt().is_none() {
+        if !matches!(
+            self.effective_scope,
+            ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+        ) {
             return Err(WireError::Protocol(
                 "managed Device needs business scope".into(),
             ));

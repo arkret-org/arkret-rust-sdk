@@ -4,8 +4,9 @@ use std::collections::BTreeSet;
 
 use arkret_models_crypto::RecoveryAuthorityKind;
 use arkret_wire::{
-    AccountId, AppletId, DeviceId, DidCoreId, DomainSeparationId, Event, EventKind, Hash,
-    NonEmptyString, PolicyId, RecoverySessionId, Result, WireError, canonical,
+    AccountId, AppletId, CapabilityActionId, DeviceId, DidCoreId, DomainSeparationId, Event,
+    EventKind, Hash, NonEmptyString, PolicyId, RecoverySessionId, Result, ScopeRef, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -232,6 +233,80 @@ pub enum DeviceOrPrincipalRef {
     Principal(DidCoreId),
 }
 
+/// Canonical, non-empty signed pairs; constructors never normalize signed data.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct AppletManagedDeviceScopes(Vec<AppletManagedDeviceScope>);
+
+impl AppletManagedDeviceScopes {
+    pub fn new(entries: Vec<AppletManagedDeviceScope>) -> Result<Self> {
+        if entries.is_empty() {
+            return Err(WireError::Protocol(
+                "managed Device scopes must not be empty".into(),
+            ));
+        }
+        let mut previous: Option<Vec<u8>> = None;
+        for entry in &entries {
+            if !matches!(
+                entry.effective_scope,
+                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            ) || entry.actions.is_empty()
+                || entry
+                    .actions
+                    .windows(2)
+                    .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
+            {
+                return Err(WireError::Protocol(
+                    "invalid managed Device scope/action pair".into(),
+                ));
+            }
+            let key = canonical::canonical_json_bytes(&entry.effective_scope)?;
+            if previous.as_ref().is_some_and(|prior| prior >= &key) {
+                return Err(WireError::Protocol(
+                    "managed Device scopes must be sorted and unique".into(),
+                ));
+            }
+            previous = Some(key);
+        }
+        Ok(Self(entries))
+    }
+
+    pub fn entries(&self) -> &[AppletManagedDeviceScope] {
+        &self.0
+    }
+
+    /// Only exact authoritative scopes match. No ancestor or cross-entry union.
+    pub fn permits(&self, scope: &ScopeRef, actions: &[CapabilityActionId]) -> bool {
+        !actions.is_empty()
+            && self.0.iter().any(|entry| {
+                &entry.effective_scope == scope
+                    && actions.iter().all(|action| entry.actions.contains(action))
+            })
+    }
+
+    /// Scope membership for the four registered Device control operations only.
+    pub fn contains_scope(&self, scope: &ScopeRef) -> bool {
+        self.0.iter().any(|entry| &entry.effective_scope == scope)
+    }
+}
+
+impl<'de> Deserialize<'de> for AppletManagedDeviceScopes {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Self::new(Vec::<AppletManagedDeviceScope>::deserialize(deserializer)?)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+/// Branch-discriminated by DeviceAuthorizePayload, never a managed string codec.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DeviceAuthorizationScopes {
+    AppletManaged(AppletManagedDeviceScopes),
+    Ordinary(Vec<NonEmptyString>),
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceAuthorizePayload {
@@ -242,7 +317,7 @@ pub struct DeviceAuthorizePayload {
     pub device_key_algorithm: NonEmptyString,
     pub authorized_by: DeviceOrPrincipalRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scopes: Option<Vec<NonEmptyString>>,
+    pub scopes: Option<DeviceAuthorizationScopes>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub not_before: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -269,8 +344,11 @@ struct DeviceAuthorizePayloadWire {
     algorithms: Vec<NonEmptyString>,
     device_key_algorithm: NonEmptyString,
     authorized_by: DeviceOrPrincipalRef,
-    #[serde(default)]
-    scopes: Option<Vec<NonEmptyString>>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    scopes: Option<DeviceAuthorizationScopes>,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     not_before: DateTime<Utc>,
     #[serde(default)]
@@ -365,10 +443,20 @@ impl DeviceAuthorizePayload {
         if applet_branch && (!matches!(self.expires_at, Some(Some(_))) || self.scopes.is_none()) {
             return Err("device_authorize_applet_managed_delegation_requires_bounds");
         }
-        if let Some(scopes) = &self.scopes
-            && (scopes.is_empty() || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len())
-        {
-            return Err("device_authorize_scopes_must_be_non_empty_and_unique");
+        match &self.scopes {
+            Some(DeviceAuthorizationScopes::AppletManaged(_)) if !applet_branch => {
+                return Err("device_authorize_managed_scopes_on_ordinary_branch");
+            }
+            Some(DeviceAuthorizationScopes::Ordinary(_)) if applet_branch => {
+                return Err("device_authorize_managed_scopes_require_pairs");
+            }
+            Some(DeviceAuthorizationScopes::Ordinary(scopes))
+                if scopes.is_empty()
+                    || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len() =>
+            {
+                return Err("device_authorize_scopes_must_be_non_empty_and_unique");
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -872,3 +960,113 @@ mod device_revoke_tests {
 }
 
 include!("generated/device_identity_contracts.rs");
+
+#[cfg(test)]
+mod managed_scope_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn canonical_spec_scope_vectors_are_consumed_without_cross_pair_expansion() {
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../arkret-spec/spec/v1/artifacts/fixtures/applet-device-scope-fixture.json"
+        )))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let parsed =
+                serde_json::from_value::<AppletManagedDeviceScopes>(case["scopes"].clone());
+            assert_eq!(
+                parsed.is_ok(),
+                case["valid"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+            if let Ok(scopes) = parsed {
+                let scope: ScopeRef = serde_json::from_value(case["scope"].clone()).unwrap();
+                let actions: Vec<CapabilityActionId> =
+                    serde_json::from_value(case["actions"].clone()).unwrap();
+                assert_eq!(
+                    scopes.permits(&scope, &actions),
+                    case["permits"].as_bool().unwrap(),
+                    "{}",
+                    case["name"]
+                );
+                assert!(!scopes.permits(&scope, &[]));
+                assert_eq!(serde_json::to_value(scopes).unwrap(), case["scopes"]);
+            }
+        }
+    }
+
+    #[test]
+    fn operation_descriptors_consume_every_formal_rule_and_reject_other_operations() {
+        use arkret_wire::{
+            ManagedDeviceScopeRule, ServiceOperationId, applet_managed_device_scope_rule,
+        };
+        let registry: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../../../arkret-spec/spec/v1/artifacts/registry/applet-managed-authority-registry.json"))).unwrap();
+        let rules = registry["device_authentication"]["operation_scope_rules"]
+            .as_array()
+            .unwrap();
+        assert_eq!(rules.len(), 21);
+        for rule in rules {
+            let operation =
+                ServiceOperationId::from_wire(rule["operation_id"].as_str().unwrap()).unwrap();
+            match applet_managed_device_scope_rule(operation).unwrap() {
+                ManagedDeviceScopeRule::AllActions(actions) => {
+                    assert_eq!(rule["mode"], "all_actions");
+                    assert_eq!(serde_json::to_value(actions).unwrap(), rule["actions"]);
+                }
+                ManagedDeviceScopeRule::SubmittedBusinessActions => {
+                    assert_eq!(rule["mode"], "submitted_business_actions")
+                }
+                ManagedDeviceScopeRule::DeviceControl(_) => {
+                    assert_eq!(rule["mode"], "device_control")
+                }
+            }
+        }
+        assert!(
+            applet_managed_device_scope_rule(
+                ServiceOperationId::SelfManagementReviewCommandRequestV1
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn managed_authorize_and_possession_bind_the_complete_paired_list() {
+        let scope = json!({"kind":"realm","realm_id":"ak:realm:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"});
+        let mut value = json!({
+            "device_id":"ak:device:01964137-0000-7000-8000-000000000001",
+            "device_public_key_did":"did:key:z6Mkdevice",
+            "hpke_key":"z6LShpke", "algorithms":["Ed25519"], "device_key_algorithm":"Ed25519",
+            "authorized_by":"ak:did_core:webvh:z6mkcontroller",
+            "authorization_binding_kind":"applet_managed_delegation", "authorized_generation_ref":1,
+            "scopes":[{"effective_scope":scope,"actions":["ak.event.read"]}],
+            "not_before":"2026-10-16T00:00:00.000Z", "expires_at":"2026-10-17T00:00:00.000Z",
+            "device_signature":"AA", "applet_id":"ak:applet:01964137-0000-7000-8000-000000000002"
+        });
+        let payload: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+        let account = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        let input = payload.device_possession_signature_input(&account).unwrap();
+        let body: Value =
+            serde_json::from_slice(input.splitn(2, |b| *b == b'\n').nth(1).unwrap()).unwrap();
+        assert_eq!(body["scopes"], value["scopes"]);
+        value["scopes"][0]["actions"] = json!(["ak.event.read", "ak.message.create"]);
+        let extended: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+        assert_ne!(
+            input,
+            extended
+                .device_possession_signature_input(&account)
+                .unwrap()
+        );
+        value["scopes"] = json!(["ak.event.read"]);
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(value.clone()).is_err());
+        value["scopes"] = Value::Null;
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(value).is_err());
+    }
+}

@@ -1,3 +1,5 @@
+pub mod applet_managed_device_rules;
+pub use applet_managed_device_rules::*;
 pub mod account_data_keys;
 pub mod authority_set_ids;
 pub mod authority_sources;

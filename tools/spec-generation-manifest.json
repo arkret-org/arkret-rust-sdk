@@ -2069,6 +2069,18 @@
         "ConsentPrivateProxyRequest",
         "ConsentPrivateProxyOutcome"
       ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/applet_managed_device_rules.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/applet-managed-authority-registry.json",
+        "registry/contract-registry.json"
+      ]
     }
   ]
 }
