@@ -9690,6 +9690,14 @@
                 "type": "SessionGrantAgentScopeRequest",
                 "attributes": []
               },
+              "approval_evidence_refs": {
+                "name": "approval_evidence_refs",
+                "visibility": "pub",
+                "type": "Option<Vec<EventId>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
               "requested_scope_disclosure": {
                 "name": "requested_scope_disclosure",
                 "visibility": "pub",

@@ -123,6 +123,7 @@ impl HumanSessionGrantRequest {
 impl AgentSessionGrantRequest {
     pub fn validate(&self) -> Result<()> {
         self.proof.validate_structure()?;
+        validate_agent_session_approval_evidence_refs(self.approval_evidence_refs.as_deref())?;
         if self.requested_scope.is_empty()
             || self
                 .requested_scope
@@ -156,6 +157,21 @@ impl AgentSessionGrantRequest {
         proof.remove("request_canonical_digest");
         Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
     }
+}
+
+fn validate_agent_session_approval_evidence_refs(refs: Option<&[EventId]>) -> Result<()> {
+    if refs.is_some_and(|refs| {
+        refs.is_empty()
+            || refs.len() > 32
+            || refs
+                .windows(2)
+                .any(|pair| pair[0].as_str() >= pair[1].as_str())
+    }) {
+        return Err(WireError::Protocol(
+            "approval_evidence_refs must contain 1..32 unique EventIds in canonical order".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -246,6 +262,7 @@ pub struct UnsignedAgentSessionGrantRequest {
     /// surfaces meet without a boundary reparse.
     pub agent_key_authorization_ref: EventId,
     pub agent_scope_request: SessionGrantAgentScopeRequest,
+    pub approval_evidence_refs: Option<Vec<EventId>>,
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     pub dpop_binding_proof: SessionGrantDpopBindingProof,
     pub proof: UnsignedAgentSessionGrantProof,
@@ -276,6 +293,7 @@ impl UnsignedAgentSessionGrantRequest {
             requested_scope,
             agent_key_authorization_ref,
             agent_scope_request,
+            approval_evidence_refs: None,
             requested_scope_disclosure,
             dpop_binding_proof,
             proof,
@@ -283,7 +301,14 @@ impl UnsignedAgentSessionGrantRequest {
     }
 
     pub fn canonical_request_digest(&self) -> Result<Hash> {
+        validate_agent_session_approval_evidence_refs(self.approval_evidence_refs.as_deref())?;
         Hash::new(canonical::canonical_sha256(&self.unsigned_request_value())?).map_err(Into::into)
+    }
+
+    pub fn with_approval_evidence_refs(mut self, refs: Vec<EventId>) -> Result<Self> {
+        validate_agent_session_approval_evidence_refs(Some(&refs))?;
+        self.approval_evidence_refs = Some(refs);
+        Ok(self)
     }
 
     pub fn attach_signature(self, signature: NonEmptyString) -> Result<SessionGrantRequestBody> {
@@ -293,6 +318,7 @@ impl UnsignedAgentSessionGrantRequest {
             requested_scope: self.requested_scope,
             agent_key_authorization_ref: self.agent_key_authorization_ref,
             agent_scope_request: self.agent_scope_request,
+            approval_evidence_refs: self.approval_evidence_refs,
             requested_scope_disclosure: self.requested_scope_disclosure,
             dpop_binding_proof: self.dpop_binding_proof,
             proof: AgentSessionGrantProof {
@@ -314,6 +340,7 @@ impl UnsignedAgentSessionGrantRequest {
             "requested_scope": &self.requested_scope,
             "agent_key_authorization_ref": &self.agent_key_authorization_ref,
             "agent_scope_request": &self.agent_scope_request,
+            "approval_evidence_refs": &self.approval_evidence_refs,
             "requested_scope_disclosure": &self.requested_scope_disclosure,
             "dpop_binding_proof": &self.dpop_binding_proof,
             "proof": {
@@ -326,6 +353,9 @@ impl UnsignedAgentSessionGrantRequest {
             },
         });
         let object = value.as_object_mut().expect("session request is an object");
+        if self.approval_evidence_refs.is_none() {
+            object.remove("approval_evidence_refs");
+        }
         if object
             .get("requested_scope_disclosure")
             .is_some_and(Value::is_null)
@@ -1314,6 +1344,44 @@ mod tests {
             .unwrap()
             .insert("agent_key_authorization_ref".to_owned(), json!("not-an-id"));
         assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
+    }
+
+    #[test]
+    fn agent_approval_references_are_canonical_and_bound_to_the_signed_intent() {
+        let first = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [1; 32]);
+        let second = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [2; 32]);
+        let original = unsigned_agent_request().canonical_request_digest().unwrap();
+        let unsigned = unsigned_agent_request()
+            .with_approval_evidence_refs(vec![first.clone()])
+            .unwrap();
+        assert_ne!(unsigned.canonical_request_digest().unwrap(), original);
+        let SessionGrantRequestBody::Agent(mut signed) = unsigned
+            .attach_signature(NonEmptyString::new("A".repeat(86)).unwrap())
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        signed.validate().unwrap();
+        signed.approval_evidence_refs = Some(vec![second.clone()]);
+        assert!(signed.validate().is_err());
+        assert!(
+            unsigned_agent_request()
+                .with_approval_evidence_refs(Vec::new())
+                .is_err()
+        );
+        assert!(
+            unsigned_agent_request()
+                .with_approval_evidence_refs(vec![first.clone(), first.clone()])
+                .is_err()
+        );
+        assert!(
+            unsigned_agent_request()
+                .with_approval_evidence_refs(vec![second, first])
+                .is_err()
+        );
+        let mut value = serde_json::to_value(signed_agent_request()).unwrap();
+        value["approval_evidence_refs"] = Value::Null;
+        assert!(serde_json::from_value::<AgentSessionGrantRequest>(value).is_err());
     }
 
     #[test]

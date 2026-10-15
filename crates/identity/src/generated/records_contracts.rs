@@ -5,7 +5,7 @@
 // sha256=3a9c3ba080d5b7d12158330e325fc7a5e9048312f012bae545d24976f018a15c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
+// sha256=b257098f22d86bc6df1aedba2505bb77e493706f81c77fbf48be9755e324fe59
 
 /// Counterpart: `identity-receipt.schema.json`.
 /// Signed identity receipt from a DID registry

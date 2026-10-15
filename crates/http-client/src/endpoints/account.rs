@@ -631,6 +631,7 @@ mod tests {
                 strand_ids: Vec::new(),
                 track_names: Vec::new(),
             },
+            approval_evidence_refs: None,
             requested_scope_disclosure: None,
             dpop_binding_proof: SessionGrantDpopBindingProof {
                 proof_jwt: "holder.proof.jwt".to_owned(),
