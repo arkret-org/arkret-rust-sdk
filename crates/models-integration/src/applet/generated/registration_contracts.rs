@@ -14,7 +14,7 @@
 // sha256=e37fbee7e8449347f9fd34508bf93e3ea709db3cd9e31e01ece79b0c0f0f09ae
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
+// sha256=b257098f22d86bc6df1aedba2505bb77e493706f81c77fbf48be9755e324fe59
 
 /// Counterpart: `applet-registration-epoch-transcript.schema.json#/$defs/did_method_version`.
 /// Method-specific version evidence captured with an Applet registration

@@ -8,7 +8,7 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
+// sha256=b257098f22d86bc6df1aedba2505bb77e493706f81c77fbf48be9755e324fe59
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/member_roster`.
 /// Counterpart for

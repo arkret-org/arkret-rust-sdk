@@ -14,13 +14,13 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=36e5a56549700189157622d316488eb920a2f2aba8e368caedfc14b91dd8be5c
+// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
 //
 // Input: schemas/agent-membership-cascade.schema.json
 // sha256=c0bb436f9758322f34eeafa870f05761aee9a4c5d7bf3f5783d81c12639d0b5c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
+// sha256=b257098f22d86bc6df1aedba2505bb77e493706f81c77fbf48be9755e324fe59
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` typed current result

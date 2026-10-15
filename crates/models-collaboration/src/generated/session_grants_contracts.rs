@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=ff3723be2839fd0ebb89296b6e3a61a209be5e24d0bbbd37b21870dd55799a39
+// sha256=13ad6809e32efa463de5ce3fa44c9e3ae788db50bc7a1973f56c0e988a901020
 //
 // Input: schemas/agent-requested-scope-disclosure.schema.json
 // sha256=0f1d7f670bdbaab69f35732b248d1d5f01d004f11c50e9feeb0cbc726af06b57
@@ -11,7 +11,7 @@
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e2e41b9d9b5da297b85bcf0625d64744849f300d860c9e74d0c6d3be8869a6aa
+// sha256=b257098f22d86bc6df1aedba2505bb77e493706f81c77fbf48be9755e324fe59
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,6 +21,9 @@ pub struct AgentSessionGrantRequest {
     pub requested_scope: Vec<String>,
     pub agent_key_authorization_ref: EventId,
     pub agent_scope_request: SessionGrantAgentScopeRequest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub approval_evidence_refs: Option<Vec<EventId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
