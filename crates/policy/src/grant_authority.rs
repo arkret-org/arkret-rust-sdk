@@ -74,6 +74,8 @@ pub enum AuthorityError {
     Depth,
     #[error("grant_revoked_upstream")]
     Closed,
+    #[error("revision_unavailable")]
+    Unproved,
     #[error("managed child drops or widens parent constraints")]
     Constraints,
 }
@@ -299,8 +301,11 @@ fn walk<'g>(
     if !visiting.insert(grant.id.clone()) {
         return Err(AuthorityError::Cycle);
     }
-    if !active(grant, at, action) || grant.issuer_authority_refs.is_empty() {
+    if !active(grant, at, action) {
         return Err(AuthorityError::Closed);
+    }
+    if grant.issuer_authority_refs.is_empty() {
+        return Err(AuthorityError::Unproved);
     }
     let mut contributed = false;
     for source in &grant.issuer_authority_refs {
@@ -315,7 +320,7 @@ fn walk<'g>(
                 }
             }
             IssuerAuthorityRef::Grant { grant_id } => {
-                let parent = grants.get(grant_id).ok_or(AuthorityError::Closed)?;
+                let parent = grants.get(grant_id).ok_or(AuthorityError::Unproved)?;
                 if !matches!(&parent.subject,CapabilitySubject::Actor(actor) if actor==&grant.issuer_id)
                     || parent.realm_id != grant.realm_id
                 {
@@ -351,4 +356,72 @@ fn walk<'g>(
     }
     output.insert(grant.id.clone(), grant);
     Ok(())
+}
+
+/// Effective grants held by this complete Actor for one actual operation.
+/// Known inactive lineages do not contribute. Unproved or invalid lineages
+/// fail the entire decision, including its global refusal set.
+pub fn current_subject_grants<'g>(
+    actor: &ActorId,
+    action: &str,
+    target: &WireResourceSelector,
+    grants: &'g BTreeMap<GrantId, CapabilityGrant>,
+    at: DateTime<Utc>,
+    root_current: impl Fn(&IssuerAuthorityRef) -> bool,
+) -> Result<Vec<&'g CapabilityGrant>, AuthorityError> {
+    let mut current = Vec::new();
+    for grant in grants.values().filter(|grant| {
+        matches!(&grant.subject,CapabilitySubject::Actor(subject) if subject==actor)
+            && contributes(grant, action, target)
+    }) {
+        match current_sources(grant, action, target, grants, at, &root_current) {
+            Ok(_) => current.push(grant),
+            Err(AuthorityError::Closed) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(current)
+}
+
+/// An explicitly approved Service business source for this managed role. A
+/// member-derived read does not need an invented Account child grant.
+/// Structural qualification only: current lineage, constraints and the actual
+/// resource target remain separate mandatory checks.
+pub fn managed_service_source(
+    grant: &CapabilityGrant,
+    service: &ActorId,
+    applet: &arkret_wire::AppletId,
+    epoch: &arkret_wire::Hash,
+    role: ManagedActorRole,
+    action: &str,
+) -> bool {
+    let Some(binding) = binding(&grant.constraints) else {
+        return false;
+    };
+    let controls = grant
+        .constraints
+        .iter()
+        .filter(|c| {
+            c.constraint_kind == GrantConstraintKind::AuthorityControl
+                && c.constraint_subkind.is_none()
+        })
+        .collect::<Vec<_>>();
+    matches!(service, ActorId::Service { .. })
+        && grant
+            .actions
+            .iter()
+            .any(|held| crate::action_grants_authority_for(held, action).unwrap_or(false))
+        && matches!(&grant.subject,CapabilitySubject::Actor(subject) if subject==service)
+        && binding.applet_id.as_ref() == Some(applet)
+        && binding.executed_by.as_ref() == Some(service)
+        && binding.registration_epoch.as_ref() == Some(epoch)
+        && (binding.applies_to_actions.is_empty()
+            || binding
+                .applies_to_actions
+                .iter()
+                .any(|a| a.as_str() == action))
+        && !controls.is_empty()
+        && controls
+            .iter()
+            .all(|c| c.allowed_managed_actor_roles.contains(&role))
 }
