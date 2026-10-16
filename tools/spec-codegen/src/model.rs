@@ -163,6 +163,7 @@ pub struct ApprovalEligibilityOverride {
     pub action: String,
     pub eligibility_kind: String,
     pub carrier_id: String,
+    pub approver_capability_action: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

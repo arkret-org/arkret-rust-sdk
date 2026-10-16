@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-15.5;
-//! sha256=29f963de4ebe2e8e0d661699ced37f1eb0b2468ce07c8fe98659bcc6772411b6 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-16;
+//! sha256=e037c4bae4bff07fc8fa8d7b2575ac74db875514829395aa899fae57c0745d03 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
 //! special_forms=15, actions=150, approval_carriers=3, schemas=230, account_data_patterns=24
@@ -76,6 +76,7 @@ pub struct CapabilityActionDescriptor {
     pub event_mapping_kind: &'static str,
     pub approval_requirement_eligibility: ApprovalRequirementEligibility,
     pub approval_evidence_carrier_id: Option<&'static str>,
+    pub approver_capability_action: Option<CapabilityActionId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -465,6 +466,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionReject,
@@ -480,6 +482,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionRequest,
@@ -495,6 +498,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentDraftPropose,
@@ -510,6 +514,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentJoin,
@@ -525,6 +530,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentKeyAuthorize,
@@ -540,6 +546,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentKeyRevoke,
@@ -555,6 +562,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentPublish,
@@ -570,6 +578,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarExchangeControl,
@@ -585,6 +594,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarPublish,
@@ -600,6 +610,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentSidecarWrite,
@@ -615,6 +626,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletBotProvision,
@@ -634,6 +646,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::RegisteredOperationCarrier,
         approval_evidence_carrier_id: Some("applet_bot_provision.approval_signatures"),
+        approver_capability_action: Some(CapabilityActionId::RealmAdmin),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletBridgeError,
@@ -649,6 +662,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletGhostProvision,
@@ -669,6 +683,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::RegisteredOperationCarrier,
         approval_evidence_carrier_id: Some("applet_ghost_provision.approval_signatures"),
+        approver_capability_action: Some(CapabilityActionId::RealmAdmin),
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletJoin,
@@ -684,6 +699,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletPublish,
@@ -702,6 +718,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ApprovalVote,
@@ -718,6 +735,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditAccessed,
@@ -733,6 +751,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditExport,
@@ -749,6 +768,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AuditQuery,
@@ -765,6 +785,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallJoin,
@@ -780,6 +801,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallModerate,
@@ -795,6 +817,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallRecord,
@@ -813,6 +836,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallScreenShare,
@@ -828,6 +852,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallSignalSend,
@@ -844,6 +869,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallTranscribe,
@@ -859,6 +885,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityGrant,
@@ -874,6 +901,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityRelinquish,
@@ -889,6 +917,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CapabilityRevoke,
@@ -904,6 +933,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleAudit,
@@ -920,6 +950,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleCreate,
@@ -935,6 +966,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleManage,
@@ -956,6 +988,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberAdd,
@@ -971,6 +1004,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberAddOthers,
@@ -986,6 +1020,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CircleMemberManage,
@@ -1001,6 +1036,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ConsentGrant,
@@ -1016,6 +1052,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ConsentRevoke,
@@ -1031,6 +1068,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ContactScopeUpdate,
@@ -1050,6 +1088,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::EventRead,
@@ -1066,6 +1105,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteAccept,
@@ -1081,6 +1121,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteCancel,
@@ -1096,6 +1137,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteClaim,
@@ -1111,6 +1153,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteCreate,
@@ -1126,6 +1169,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteRevoke,
@@ -1141,6 +1185,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteThirdParty,
@@ -1156,6 +1201,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateLeave,
@@ -1175,6 +1221,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateRemove,
@@ -1194,6 +1241,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberLeaveOwn,
@@ -1212,6 +1260,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MemberRejoinOwn,
@@ -1230,6 +1279,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageCreate,
@@ -1245,6 +1295,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageMentionBroadcast,
@@ -1267,6 +1318,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRedact,
@@ -1282,6 +1334,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRedactOwn,
@@ -1297,6 +1350,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageRevise,
@@ -1312,6 +1366,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageReviseOwn,
@@ -1327,6 +1382,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MessageStreamSend,
@@ -1346,6 +1402,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsCommit,
@@ -1361,6 +1418,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsGenesis,
@@ -1376,6 +1434,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecision,
@@ -1391,6 +1450,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecisionLift,
@@ -1406,6 +1466,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphArchive,
@@ -1421,6 +1482,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphCreate,
@@ -1436,6 +1498,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphRead,
@@ -1452,6 +1515,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphRestore,
@@ -1467,6 +1531,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphStageSet,
@@ -1482,6 +1547,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MorphUpdate,
@@ -1497,6 +1563,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::NotificationAck,
@@ -1513,6 +1580,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::NotificationRead,
@@ -1529,6 +1597,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectArchive,
@@ -1547,6 +1616,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectRead,
@@ -1563,6 +1633,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadContent,
@@ -1579,6 +1650,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadHistory,
@@ -1595,6 +1667,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectReadMetadata,
@@ -1611,6 +1684,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectRestore,
@@ -1630,6 +1704,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ObjectStageSet,
@@ -1648,6 +1723,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "polymorphic_object",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinAdd,
@@ -1663,6 +1739,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinRemove,
@@ -1678,6 +1755,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PinReorder,
@@ -1693,6 +1771,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicyAction,
@@ -1708,6 +1787,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicyManage,
@@ -1733,6 +1813,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PolicySet,
@@ -1748,6 +1829,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::PresenceBroadcast,
@@ -1764,6 +1846,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReactionAdd,
@@ -1779,6 +1862,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReactionRemove,
@@ -1794,6 +1878,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReadCursorAdvance,
@@ -1809,6 +1894,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAdmin,
@@ -1842,6 +1928,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAlias,
@@ -1857,6 +1944,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmArchive,
@@ -1872,6 +1960,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAuthorityReset,
@@ -1887,6 +1976,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmCreate,
@@ -1902,6 +1992,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmDestroy,
@@ -1917,6 +2008,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmDiscover,
@@ -1933,6 +2025,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmFreeze,
@@ -1948,6 +2041,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmGovernanceStationChange,
@@ -1963,6 +2057,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmLink,
@@ -1978,6 +2073,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmMediaService,
@@ -1993,6 +2089,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmNotificationAudit,
@@ -2009,6 +2106,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmOwner,
@@ -2217,6 +2315,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmOwnerTransfer,
@@ -2232,6 +2331,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmPlaintextVisibleServices,
@@ -2247,6 +2347,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmPreviewPolicy,
@@ -2262,6 +2363,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmProfile,
@@ -2277,6 +2379,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmSearchPolicy,
@@ -2292,6 +2395,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmSetDefaultStrand,
@@ -2307,6 +2411,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmTombstone,
@@ -2322,6 +2427,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ReceiptBroadcast,
@@ -2338,6 +2444,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationCreate,
@@ -2353,6 +2460,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationTombstone,
@@ -2368,6 +2476,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RelationUpdate,
@@ -2383,6 +2492,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RsvpSet,
@@ -2398,6 +2508,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SchemaDefine,
@@ -2413,6 +2524,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAccountReadDescribeV1,
@@ -2429,6 +2541,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAccountStreamSubscribeV1,
@@ -2445,6 +2558,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandDeactivateV1,
@@ -2460,6 +2574,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandPauseV1,
@@ -2475,6 +2590,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandProvisionV1,
@@ -2490,6 +2606,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandRenewPairingV1,
@@ -2506,6 +2623,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentCommandResumeV1,
@@ -2521,6 +2639,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentParticipationResourceReplaceV1,
@@ -2539,6 +2658,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfAgentSidecarCommandEnsureV1,
@@ -2557,6 +2677,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "aggregate_admin",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobCommandPresignV1,
@@ -2573,6 +2694,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobResourceGetV1,
@@ -2589,6 +2711,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobResourceHeadV1,
@@ -2605,6 +2728,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfBlobUploadCreateV1,
@@ -2621,6 +2745,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfCommittedEventReadScanV1,
@@ -2637,6 +2762,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfCommittedEventStreamSubscribeV1,
@@ -2653,6 +2779,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfRealmStateSnapshotReadByRefV1,
@@ -2669,6 +2796,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SelfRealmStateSnapshotReadManifestHeadV1,
@@ -2685,6 +2813,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceArchive,
@@ -2700,6 +2829,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceCreate,
@@ -2715,6 +2845,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceParent,
@@ -2730,6 +2861,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceRestore,
@@ -2745,6 +2877,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceTombstone,
@@ -2760,6 +2893,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::SpaceUpdate,
@@ -2775,6 +2909,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandAdmin,
@@ -2791,6 +2926,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandArchive,
@@ -2806,6 +2942,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandCreate,
@@ -2821,6 +2958,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandMove,
@@ -2836,6 +2974,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandRead,
@@ -2852,6 +2991,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandReorder,
@@ -2867,6 +3007,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandRestore,
@@ -2882,6 +3023,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandStageSet,
@@ -2897,6 +3039,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandTracksUpdate,
@@ -2912,6 +3055,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandUpdate,
@@ -2927,6 +3071,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandWatchSet,
@@ -2942,6 +3087,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::StrandWatchSetOthers,
@@ -2957,6 +3103,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::TypingBroadcast,
@@ -2973,6 +3120,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
         approval_evidence_carrier_id: None,
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewCreate,
@@ -2988,6 +3136,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewReconcile,
@@ -3003,6 +3152,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ViewUpdate,
@@ -3018,6 +3168,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
 ];
 

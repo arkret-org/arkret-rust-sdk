@@ -39,3 +39,33 @@ fn non_event_action_without_an_override_is_not_approval_eligible() {
     );
     assert!(approval_evidence_carrier_for_action(descriptor.action).is_none());
 }
+
+#[test]
+fn only_registered_creation_approvals_use_an_explicit_administrator_grant() {
+    let overridden = arkret_schema::REGISTERED_CAPABILITY_ACTIONS
+        .iter()
+        .filter_map(|descriptor| {
+            descriptor
+                .approver_capability_action
+                .map(|action| (descriptor.action, action))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        overridden,
+        vec![
+            (
+                CapabilityActionId::AppletBotProvision,
+                CapabilityActionId::RealmAdmin
+            ),
+            (
+                CapabilityActionId::AppletGhostProvision,
+                CapabilityActionId::RealmAdmin
+            ),
+        ]
+    );
+    for (action, _) in overridden {
+        let carrier = approval_evidence_carrier_for_action(action).unwrap();
+        assert_eq!(carrier.allowed_target_kinds, &["operation"]);
+        assert_eq!(carrier.carrier_class, "non_event_operation");
+    }
+}

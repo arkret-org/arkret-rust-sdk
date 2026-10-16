@@ -507,6 +507,13 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         .collect::<BTreeSet<_>>();
     let mut overridden_actions = BTreeSet::new();
     for row in &approval.action_overrides {
+        let expected_approver_action = match row.action.as_str() {
+            "ak.applet.bot.provision" | "ak.applet.ghost.provision" => Some("ak.realm.admin"),
+            _ => None,
+        };
+        if row.approver_capability_action.as_deref() != expected_approver_action {
+            bail!("incorrect approver capability action for {}", row.action);
+        }
         if !overridden_actions.insert(row.action.as_str()) {
             bail!("duplicate approval eligibility override for {}", row.action);
         }
@@ -541,9 +548,19 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             .expect("override carrier existence checked above");
         let aggregate_carrier = action.event_mapping_kind == "operation_verb"
             && !action.target_event_kinds.is_empty()
-            && inputs.operations.operations.iter().find(|operation| operation.operation_id == carrier.operation_id)
+            && inputs
+                .operations
+                .operations
+                .iter()
+                .find(|operation| operation.operation_id == carrier.operation_id)
                 .and_then(|operation| operation.durable_effect.as_ref())
-                .is_some_and(|effect| effect.kind == "event_log" && action.target_event_kinds.iter().all(|kind| effect.event_kinds.contains(kind)));
+                .is_some_and(|effect| {
+                    effect.kind == "event_log"
+                        && action
+                            .target_event_kinds
+                            .iter()
+                            .all(|kind| effect.event_kinds.contains(kind))
+                });
         if !(action.event_mapping_kind == "non_event_surface" || aggregate_carrier)
             || row.eligibility_kind != "registered_operation_carrier"
             || carrier.carrier_class != "non_event_operation"
@@ -868,6 +885,7 @@ pub struct CapabilityActionDescriptor {
     pub event_mapping_kind: &'static str,
     pub approval_requirement_eligibility: ApprovalRequirementEligibility,
     pub approval_evidence_carrier_id: Option<&'static str>,
+    pub approver_capability_action: Option<CapabilityActionId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -934,9 +952,18 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     );
     for row in actions {
         let (approval_eligibility, approval_carrier_id) = approval_resolution(inputs, row);
+        let approver_action = inputs
+            .capability_actions
+            .approval_requirement_eligibility
+            .action_overrides
+            .iter()
+            .find(|entry| entry.action == row.action)
+            .and_then(|entry| entry.approver_capability_action.as_deref())
+            .map(|action| format!("Some(CapabilityActionId::{})", variant(action, &["ak."])))
+            .unwrap_or_else(|| "None".to_owned());
         writeln!(
             output,
-            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {}, approval_requirement_eligibility: ApprovalRequirementEligibility::{}, approval_evidence_carrier_id: {} }},",
+            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {}, approval_requirement_eligibility: ApprovalRequirementEligibility::{}, approval_evidence_carrier_id: {}, approver_capability_action: {} }},",
             variant(&row.action, &["ak."]),
             rust_string(&row.category),
             variant(&row.risk_tier, &[]),
@@ -950,6 +977,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
             rust_string(&row.event_mapping_kind),
             variant(approval_eligibility, &[]),
             option_string(approval_carrier_id),
+            approver_action,
         )
         .expect("write to String");
     }
