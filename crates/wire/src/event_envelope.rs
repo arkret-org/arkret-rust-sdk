@@ -957,11 +957,12 @@ const PLACEHOLDER_EVENT_ID: &str = "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 /// Verification-method fragment prefix that marks a human Account device key.
 pub const HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
 
-/// Human Account device that actually signed an Event.
+/// Account Device shape of the actual Event producer; this does not prove its role.
 ///
 /// It exists exactly when the actual signer (`executed_by`, else `actor_id`)
 /// is an Account and the producer proof method fragment is an `ak:device:`
-/// id. Every human-device producer, whatever the Event kind, resolves through
+/// id. Human and accepted Applet-managed Device producers share this shape. Role and
+/// native provenance must be established independently. Every device producer resolves through
 /// this one rule; there is no Control / Data split.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HumanDeviceProducer {
@@ -976,7 +977,7 @@ impl Event {
         self.executed_by.as_ref().unwrap_or(&self.actor_id)
     }
 
-    /// Resolve the human-device producer of this Event, if any.
+    /// Resolve the Account Device shape of this Event, if any; no role authority is inferred.
     ///
     /// Returns `Ok(None)` for Service, Agent and other non-device signers. A
     /// missing producer proof or an `ak:device:` fragment that is not a

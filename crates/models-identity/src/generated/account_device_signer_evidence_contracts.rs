@@ -5,7 +5,7 @@
 // sha256=be138f3d8efb65161e94f9c0c5891c4dd2016168aeb8f89d519e0508fa748022
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=08dd3be10645b0c4e133fe72a1a0f80596e47ca0c707a290dcd23d1116f56607
+// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
 
 /// Counterpart: `account-device-signer-evidence.schema.json`.
 /// `account-device-signer-evidence.schema.json` exact two-member root.

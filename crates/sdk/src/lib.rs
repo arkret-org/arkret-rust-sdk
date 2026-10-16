@@ -129,10 +129,10 @@ pub use arkret_models_collaboration::agent_scope::{
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
 pub use arkret_models_collaboration::authority_commit::{
-    HistoricalProducerSignerFactEntry, HumanHistoricalSignerFact, PeerStreamScanOutcome,
+    AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry, PeerStreamScanOutcome,
     authority_forward_body_digest, historical_signer_facts_digest,
-    validate_historical_signer_fact_inventory, validate_new_human_admission_fact,
-    validate_new_human_admission_fact_for_purpose,
+    validate_historical_signer_fact_inventory, validate_new_account_device_admission_fact,
+    validate_new_account_device_admission_fact_for_purpose,
 };
 pub use arkret_models_collaboration::call_invitation::*;
 pub use arkret_models_collaboration::call_signal::{

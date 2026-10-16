@@ -5,7 +5,7 @@
 // sha256=c73d83e394428b8904c887a7fa64fc18ea902a19ef0d974b7bbc3f6755c2f11c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=08dd3be10645b0c4e133fe72a1a0f80596e47ca0c707a290dcd23d1116f56607
+// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
 
 /// Counterpart: `authenticated-signer-resolution-evidence.schema.json#/$defs/base`.
 /// Content-addressed signer resolution evidence.

@@ -67,18 +67,18 @@ fn deserialize_signing_account_actor<'de, D: serde::Deserializer<'de>>(
     let actor = ActorId::deserialize(deserializer)?;
     if actor.as_account_id().is_none() {
         return Err(serde::de::Error::custom(
-            "Human signer fact requires a complete Account actor",
+            "Account Device signer fact requires a complete Account actor",
         ));
     }
     Ok(actor)
 }
 
-impl HumanHistoricalSignerFact {
+impl AccountDeviceHistoricalSignerFact {
     pub fn digest(&self) -> Result<Hash> {
         self.key.validate()?;
         if self.actor.as_account_id().is_none() {
             return Err(WireError::Protocol(
-                "Human signer fact requires an Account actor".into(),
+                "Account Device signer fact requires an Account actor".into(),
             ));
         }
         Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
@@ -93,12 +93,13 @@ impl HumanHistoricalSignerFact {
         self.key.validate()?;
         event.verify_producer_proof_self_consistency(suite)?;
         let producer = event.human_device_producer()?.ok_or_else(|| {
-            WireError::Protocol("Human signer fact is forbidden for non-device producers".into())
+            WireError::Protocol(
+                "Account Device signer fact is forbidden for non-device producers".into(),
+            )
         })?;
-        let proof = event
-            .producer_proof
-            .as_ref()
-            .ok_or_else(|| WireError::Protocol("Human Event lacks producer proof".into()))?;
+        let proof = event.producer_proof.as_ref().ok_or_else(|| {
+            WireError::Protocol("Account Device Event lacks producer proof".into())
+        })?;
         if self.event_id != event.event_id
             || self.actor != *event.actual_signer()
             || self.actor.as_account_id() != Some(&producer.account_id)
@@ -106,7 +107,7 @@ impl HumanHistoricalSignerFact {
             || self.verification_method != proof.verification_method
         {
             return Err(WireError::Protocol(
-                "Human signer fact does not bind the exact Event producer".into(),
+                "Account Device signer fact does not bind the exact Event producer".into(),
             ));
         }
         Ok(())
@@ -122,7 +123,8 @@ impl HumanHistoricalSignerFact {
         self.validate_event_binding(&full.event, suite)?;
         if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?) {
             return Err(WireError::Protocol(
-                "original governance Commit does not bind this exact Human signer fact".into(),
+                "original governance Commit does not bind this exact Account Device signer fact"
+                    .into(),
             ));
         }
         Ok(())
@@ -218,12 +220,12 @@ impl ServiceHistoricalSignerFact {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum HistoricalProducerSignerFact {
-    Human(HumanHistoricalSignerFact),
+    AccountDevice(AccountDeviceHistoricalSignerFact),
     Service(ServiceHistoricalSignerFact),
 }
-impl From<HumanHistoricalSignerFact> for HistoricalProducerSignerFact {
-    fn from(fact: HumanHistoricalSignerFact) -> Self {
-        Self::Human(fact)
+impl From<AccountDeviceHistoricalSignerFact> for HistoricalProducerSignerFact {
+    fn from(fact: AccountDeviceHistoricalSignerFact) -> Self {
+        Self::AccountDevice(fact)
     }
 }
 impl From<ServiceHistoricalSignerFact> for HistoricalProducerSignerFact {
@@ -234,26 +236,26 @@ impl From<ServiceHistoricalSignerFact> for HistoricalProducerSignerFact {
 impl HistoricalProducerSignerFact {
     pub fn event_id(&self) -> &EventId {
         match self {
-            Self::Human(f) => &f.event_id,
+            Self::AccountDevice(f) => &f.event_id,
             Self::Service(f) => &f.event_id,
         }
     }
-    pub fn as_human(&self) -> Option<&HumanHistoricalSignerFact> {
-        if let Self::Human(f) = self {
+    pub fn as_account_device(&self) -> Option<&AccountDeviceHistoricalSignerFact> {
+        if let Self::AccountDevice(f) = self {
             Some(f)
         } else {
             None
         }
     }
-    pub fn as_human_mut(&mut self) -> Option<&mut HumanHistoricalSignerFact> {
+    pub fn as_account_device_mut(&mut self) -> Option<&mut AccountDeviceHistoricalSignerFact> {
         match self {
-            Self::Human(fact) => Some(fact),
+            Self::AccountDevice(fact) => Some(fact),
             Self::Service(_) => None,
         }
     }
     pub fn digest(&self) -> Result<Hash> {
         match self {
-            Self::Human(f) => f.digest(),
+            Self::AccountDevice(f) => f.digest(),
             Self::Service(f) => f.digest(),
         }
     }
@@ -263,7 +265,7 @@ impl HistoricalProducerSignerFact {
         suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         match self {
-            Self::Human(f) => f.validate_event_binding(event, suite),
+            Self::AccountDevice(f) => f.validate_event_binding(event, suite),
             Self::Service(f) => f.validate_event_binding(event, suite),
         }
     }
@@ -273,7 +275,7 @@ impl HistoricalProducerSignerFact {
         suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         match self {
-            Self::Human(f) => f.validate_commit_binding(full, suite),
+            Self::AccountDevice(f) => f.validate_commit_binding(full, suite),
             Self::Service(f) => f.validate_commit_binding(full, suite),
         }
     }
@@ -319,14 +321,16 @@ impl PeerStreamScanOutcome {
                 facts
                     .next()
                     .ok_or_else(|| {
-                        WireError::Protocol("peer Full row lacks original Human signer fact".into())
+                        WireError::Protocol(
+                            "peer Full row lacks original Account Device signer fact".into(),
+                        )
                     })?
                     .validate_target(full)?;
             }
         }
         if facts.next().is_some() {
             return Err(WireError::Protocol(
-                "peer scan contains extra or unordered Human signer facts".into(),
+                "peer scan contains extra or unordered Account Device signer facts".into(),
             ));
         }
         Ok(())
@@ -1866,12 +1870,14 @@ pub fn authority_forward_body_digest<T: Serialize>(body: &T) -> Result<Hash> {
 }
 
 /// New admission is distinct from decoding an exact legacy accepted original.
-pub fn validate_new_human_admission_fact(
+pub fn validate_new_account_device_admission_fact(
     event: &Event,
-    fact: Option<&HumanHistoricalSignerFact>,
+    fact: Option<&AccountDeviceHistoricalSignerFact>,
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
-    let source = fact.cloned().map(HistoricalProducerSignerFact::Human);
+    let source = fact
+        .cloned()
+        .map(HistoricalProducerSignerFact::AccountDevice);
     validate_new_producer_admission_fact(event, source.as_ref(), suite)
 }
 
@@ -1881,7 +1887,7 @@ pub fn validate_new_producer_admission_fact(
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
     match (event.human_device_producer()?, fact) {
-        (Some(_), Some(HistoricalProducerSignerFact::Human(fact))) => {
+        (Some(_), Some(HistoricalProducerSignerFact::AccountDevice(fact))) => {
             fact.validate_event_binding(event, suite)
         }
         (None, Some(HistoricalProducerSignerFact::Service(fact))) => {
@@ -1945,7 +1951,7 @@ pub fn validate_historical_signer_fact_inventory(
 
 /// Native control Realms retain their own admission proof family even when a controller device
 /// signs.
-pub fn validate_new_human_admission_fact_for_purpose(
+pub fn validate_new_account_device_admission_fact_for_purpose(
     event: &Event,
     purpose: crate::events_payloads::RealmPurpose,
     fact: Option<&HistoricalProducerSignerFact>,
@@ -1961,7 +1967,7 @@ pub fn validate_new_human_admission_fact_for_purpose(
         | crate::events_payloads::RealmPurpose::AppletManagedControl => {
             if fact.is_some() {
                 return Err(WireError::Protocol(
-                    "native control Realm admission must not use ordinary Human signer facts"
+                    "native control Realm admission must not use ordinary Account Device signer facts"
                         .into(),
                 ));
             }

@@ -8,7 +8,7 @@
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=08dd3be10645b0c4e133fe72a1a0f80596e47ca0c707a290dcd23d1116f56607
+// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
 
 /// Counterpart: `event-payload.schema.json#/$defs/circle_create_payload`.
 /// Counterpart for

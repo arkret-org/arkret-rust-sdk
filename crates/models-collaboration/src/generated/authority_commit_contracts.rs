@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=4b492fa36b18cf744a9db73407517b38384782f9181bbdda7732d842c114b3e6
+// sha256=4d7c3617527e889b63faecdb003e6e8e3993478a7ffa37b45bbb0bbd40fe300a
 //
 // Input: schemas/common-ids.schema.json
 // sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=08dd3be10645b0c4e133fe72a1a0f80596e47ca0c707a290dcd23d1116f56607
+// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
@@ -21,11 +21,12 @@ pub struct MlsGenesisMaterial {
     pub ratchet_tree_bytes_b64: String,
 }
 
-/// Counterpart: `authority-commit-operations.schema.json#/$defs/human_historical_signer_fact`.
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/account_device_historical_signer_fact`.
 /// Immutable authorization source, with no target Commit coordinate.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HumanHistoricalSignerFact {
+pub struct AccountDeviceHistoricalSignerFact {
     pub event_id: EventId,
     #[serde(deserialize_with = "deserialize_signing_account_actor")]
     pub actor: ActorId,

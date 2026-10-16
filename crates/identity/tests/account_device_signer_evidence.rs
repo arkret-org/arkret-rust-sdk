@@ -578,7 +578,7 @@ fn non_device_producer_has_no_forwarded_evidence_to_verify() {
 #[test]
 fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body() {
     use arkret_identity::account_device_signer_evidence::{
-        verify_forwarded_human_signer_fact, verify_historical_human_event_signature,
+        verify_forwarded_human_signer_fact, verify_historical_account_device_event_signature,
     };
     let station = station(74, "station.example");
     let event = human_event(&station);
@@ -609,7 +609,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
             .attestation
             .attested_at
     );
-    verify_historical_human_event_signature(&event, &fact, DigestSuite::Sha256).unwrap();
+    verify_historical_account_device_event_signature(&event, &fact, DigestSuite::Sha256).unwrap();
     assert!(
         verify(
             &evidence,
@@ -630,7 +630,8 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
         ))
         .unwrap();
     assert!(
-        verify_historical_human_event_signature(&event, &wrong_key, DigestSuite::Sha256).is_err()
+        verify_historical_account_device_event_signature(&event, &wrong_key, DigestSuite::Sha256)
+            .is_err()
     );
     let mut substituted = evidence.clone();
     substituted

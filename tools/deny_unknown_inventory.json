@@ -5554,13 +5554,13 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::HumanHistoricalSignerFact",
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AccountDeviceHistoricalSignerFact",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/generated/authority_commit_contracts.rs",
       "line": 27,
       "kind": "struct",
-      "value_kind": "HumanHistoricalSignerFact",
-      "spec_pointer": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact",
+      "value_kind": "AccountDeviceHistoricalSignerFact",
+      "spec_pointer": "authority-commit-operations.schema.json#/$defs/account_device_historical_signer_fact",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,

@@ -4495,7 +4495,7 @@
               "producer_signer_fact": {
                 "name": "producer_signer_fact",
                 "visibility": "pub",
-                "type": "Option<crate::authority_commit::HumanHistoricalSignerFact>",
+                "type": "Option<crate::authority_commit::AccountDeviceHistoricalSignerFact>",
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"deserialize_non_null_optional\"\n    )]"
                 ]
@@ -12533,10 +12533,10 @@
           }
         },
         {
-          "name": "HumanHistoricalSignerFact",
-          "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact",
+          "name": "AccountDeviceHistoricalSignerFact",
+          "schema": "authority-commit-operations.schema.json#/$defs/account_device_historical_signer_fact",
           "rust": {
-            "signature": "pub struct HumanHistoricalSignerFact",
+            "signature": "pub struct AccountDeviceHistoricalSignerFact",
             "attributes": [
               "/// Immutable authorization source, with no target Commit coordinate.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",

@@ -1743,7 +1743,7 @@
       ],
       "provides": [
         "MlsGenesisMaterial",
-        "HumanHistoricalSignerFact",
+        "AccountDeviceHistoricalSignerFact",
         "HistoricalProducerSignerFactEntry",
         "PeerStreamScanOutcome",
         "AuthorityHandoffRequest",

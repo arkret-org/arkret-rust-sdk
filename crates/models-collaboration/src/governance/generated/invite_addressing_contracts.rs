@@ -5,13 +5,13 @@
 // sha256=6a86ebab62e42642d14fcd077e135d1302383fd561f76682c4c9775c11c6b751
 //
 // Input: schemas/invite-delivery-request.schema.json
-// sha256=592415fdf0fb9addd2419a1ad25ba4ea432fdf5ec6a9bdbcf5719a9ac0388e43
+// sha256=4a6e807e145b808dd141f97cb0575b1715ba8e1003b859edf43c200d8b693a37
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=4b492fa36b18cf744a9db73407517b38384782f9181bbdda7732d842c114b3e6
+// sha256=4d7c3617527e889b63faecdb003e6e8e3993478a7ffa37b45bbb0bbd40fe300a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=08dd3be10645b0c4e133fe72a1a0f80596e47ca0c707a290dcd23d1116f56607
+// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
 
 /// Counterpart: `invite-delivery.schema.json`.
 /// Strong cell value for the `ak.account.invite_delivery` account-data key
@@ -73,7 +73,7 @@ pub struct InviteDeliveryRequestBody {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_non_null_optional"
     )]
-    pub producer_signer_fact: Option<crate::authority_commit::HumanHistoricalSignerFact>,
+    pub producer_signer_fact: Option<crate::authority_commit::AccountDeviceHistoricalSignerFact>,
     pub authority_locator_hints: Vec<RealmJoinCandidate>,
     pub invite_address: InviteAddress,
     pub introduction_evidence: IntroductionEvidence,

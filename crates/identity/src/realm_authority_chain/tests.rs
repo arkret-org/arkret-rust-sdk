@@ -1010,8 +1010,8 @@ fn same_method_rotation_current_key_cannot_replace_historical_key() {
 #[test]
 fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature() {
     use arkret_models_collaboration::authority_commit::{
-        HistoricalProducerSignerFactEntry, HumanHistoricalSignerFact,
-        historical_signer_facts_digest, validate_new_human_admission_fact,
+        AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry,
+        historical_signer_facts_digest, validate_new_account_device_admission_fact,
     };
     use arkret_models_identity::ResolvedSignerKey;
     use arkret_signatures::{Ed25519DetachedJwsSigner, SignEventOptions, sign_event};
@@ -1059,7 +1059,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     )
     .unwrap();
     let event = authored.into_event();
-    let fact = HumanHistoricalSignerFact {
+    let fact = AccountDeviceHistoricalSignerFact {
         event_id: event.event_id.clone(),
         actor,
         device_id: device,
@@ -1090,20 +1090,28 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         },
         accepted_at: issued_at(),
     };
-    validate_new_human_admission_fact(&event, Some(&fact), arkret_canonical::DigestSuite::Sha256)
-        .unwrap();
+    validate_new_account_device_admission_fact(
+        &event,
+        Some(&fact),
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
     assert!(
-        validate_new_human_admission_fact(&event, None, arkret_canonical::DigestSuite::Sha256)
-            .is_err()
+        validate_new_account_device_admission_fact(
+            &event,
+            None,
+            arkret_canonical::DigestSuite::Sha256
+        )
+        .is_err()
     );
-    use arkret_models_collaboration::authority_commit::validate_new_human_admission_fact_for_purpose;
+    use arkret_models_collaboration::authority_commit::validate_new_account_device_admission_fact_for_purpose;
     use arkret_models_collaboration::events_payloads::RealmPurpose;
     for purpose in [
         RealmPurpose::PrincipalControl,
         RealmPurpose::AgentControl,
         RealmPurpose::AppletManagedControl,
     ] {
-        validate_new_human_admission_fact_for_purpose(
+        validate_new_account_device_admission_fact_for_purpose(
             &event,
             purpose,
             None,
@@ -1111,7 +1119,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         )
         .unwrap();
         assert!(
-            validate_new_human_admission_fact_for_purpose(
+            validate_new_account_device_admission_fact_for_purpose(
                 &event,
                 purpose,
                 Some(&fact.clone().into()),
@@ -1124,7 +1132,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         RealmPurpose::Collaboration,
         RealmPurpose::DirectConversation,
     ] {
-        validate_new_human_admission_fact_for_purpose(
+        validate_new_account_device_admission_fact_for_purpose(
             &event,
             purpose,
             Some(&fact.clone().into()),
@@ -1132,7 +1140,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         )
         .unwrap();
         assert!(
-            validate_new_human_admission_fact_for_purpose(
+            validate_new_account_device_admission_fact_for_purpose(
                 &event,
                 purpose,
                 None,
@@ -1146,19 +1154,20 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     accepted.commit.event_ref = accepted.event.event_id.clone();
     accepted.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
     accepted.commit = seal_fact(accepted.commit);
-    let verified = crate::account_device_signer_evidence::verify_historical_human_committed_event(
-        &accepted,
-        &fact,
-        &authority,
-        &chain.keys,
-        arkret_canonical::DigestSuite::Sha256,
-    )
-    .unwrap();
+    let verified =
+        crate::account_device_signer_evidence::verify_historical_account_device_committed_event(
+            &accepted,
+            &fact,
+            &authority,
+            &chain.keys,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
     assert_eq!(verified.fact(), &fact);
     let mut alternate = fact.clone();
     alternate.key.revision.stream_position += 1;
     assert!(
-        crate::account_device_signer_evidence::verify_historical_human_committed_event(
+        crate::account_device_signer_evidence::verify_historical_account_device_committed_event(
             &accepted,
             &alternate,
             &authority,
@@ -1188,7 +1197,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     wrong_accepted.commit.producer_signer_fact_digest = Some(wrong.digest().unwrap());
     wrong_accepted.commit = seal_fact(wrong_accepted.commit);
     assert!(
-        crate::account_device_signer_evidence::verify_historical_human_committed_event(
+        crate::account_device_signer_evidence::verify_historical_account_device_committed_event(
             &wrong_accepted,
             &wrong,
             &authority,
@@ -1305,7 +1314,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         "original-invite-delivery",
     ).unwrap();
     let verified_invite =
-        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
             &delivery,
             &authority,
             &chain.keys,
@@ -1315,7 +1324,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     let reopened: InviteDeliveryRequestBody =
         serde_json::from_value(serde_json::to_value(&delivery).unwrap()).unwrap();
     reopened.validate_for_submission().unwrap();
-    crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+    crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
         &reopened,
         &authority,
         &chain.keys,
@@ -1329,7 +1338,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [99; 32]);
     sibling_target.invite_commit = seal_fact(sibling_target.invite_commit);
     assert!(
-        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
             &sibling_target,
             &authority,
             &chain.keys
@@ -1345,7 +1354,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         .revision
         .stream_position += 1;
     assert!(
-        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
             &wrong_source,
             &authority,
             &chain.keys
@@ -1358,7 +1367,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     wrong_invite_key.invite_commit = seal_fact(wrong_invite_key.invite_commit);
     wrong_invite_key.validate_minimal().unwrap();
     assert!(
-        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
             &wrong_invite_key,
             &authority,
             &chain.keys
@@ -1370,7 +1379,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         seal_commit(wrong_governance.invite_commit, STATION_B, &signing_key(22));
     wrong_governance.validate_minimal().unwrap();
     assert!(
-        crate::account_device_signer_evidence::verify_invite_delivery_human_signer(
+        crate::account_device_signer_evidence::verify_invite_delivery_account_device_signer(
             &wrong_governance,
             &authority,
             &chain.keys

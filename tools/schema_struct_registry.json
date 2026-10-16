@@ -1220,8 +1220,8 @@
       "schema": "authority-commit-operations.schema.json#/$defs/handoff_request"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::HumanHistoricalSignerFact",
-      "schema": "authority-commit-operations.schema.json#/$defs/human_historical_signer_fact"
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AccountDeviceHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/account_device_historical_signer_fact"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::HistoricalProducerSignerFactEntry",

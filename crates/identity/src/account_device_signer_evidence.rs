@@ -142,7 +142,7 @@ pub fn verify_forwarded_human_producer(
     let method = event
         .producer_proof
         .as_ref()
-        .ok_or_else(|| signature_invalid("Human Event lacks producer proof"))?;
+        .ok_or_else(|| signature_invalid("Account Device Event lacks producer proof"))?;
     if source.event_id != event.event_id
         || source.verification_method != method.verification_method
         || &source.destination_service_id != destination_service_id
@@ -272,18 +272,18 @@ pub fn verify_forwarded_human_producer(
 
 /// Source fact obtained only after the original Station proof and actual Event Ed verify.
 #[derive(Clone, Debug)]
-pub struct VerifiedHumanHistoricalSignerFact {
-    fact: arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact,
+pub struct VerifiedAccountDeviceHistoricalSignerFact {
+    fact: arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact,
 }
-impl VerifiedHumanHistoricalSignerFact {
+impl VerifiedAccountDeviceHistoricalSignerFact {
     pub fn fact(
         &self,
-    ) -> &arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact {
+    ) -> &arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact {
         &self.fact
     }
     pub fn into_fact(
         self,
-    ) -> arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact {
+    ) -> arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact {
         self.fact
     }
 }
@@ -296,7 +296,7 @@ pub fn verify_forwarded_human_signer_fact(
     forward_body_digest: &arkret_wire::Hash,
     digest_suite: DigestSuite,
     now: DateTime<Utc>,
-) -> Result<VerifiedHumanHistoricalSignerFact> {
+) -> Result<VerifiedAccountDeviceHistoricalSignerFact> {
     verify_forwarded_human_producer(
         evidence,
         event,
@@ -319,7 +319,7 @@ pub fn verify_forwarded_human_signer_fact(
     let raw = key
         .ed25519_bytes()
         .map_err(|error| signature_invalid(error.to_string()))?;
-    let fact = arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact {
+    let fact = arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact {
         event_id: event.event_id.clone(),
         actor: event.actual_signer().clone(),
         device_id: core.device_id.clone(),
@@ -336,29 +336,30 @@ pub fn verify_forwarded_human_signer_fact(
         accepted_at: source.accepted_at,
     };
     fact.validate_event_binding(event, digest_suite)?;
-    Ok(VerifiedHumanHistoricalSignerFact { fact })
+    Ok(VerifiedAccountDeviceHistoricalSignerFact { fact })
 }
 
-/// Verify original governance authority separately from the historical Human Event signature.
-pub fn verify_historical_human_committed_event(
+/// Verify original governance authority separately from the historical Account Device Event
+/// signature.
+pub fn verify_historical_account_device_committed_event(
     full: &arkret_wire::CommittedEventFullView,
-    fact: &arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact,
+    fact: &arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact,
     authority: &crate::realm_authority_chain::VerifiedRealmAuthority,
     keys: &dyn crate::realm_authority_chain::RealmAuthorityKeyDirectory,
     digest_suite: DigestSuite,
-) -> Result<VerifiedHumanHistoricalSignerFact> {
+) -> Result<VerifiedAccountDeviceHistoricalSignerFact> {
     fact.validate_commit_binding(full, digest_suite)?;
     authority
         .verify_committed_item(full, keys)
         .map_err(|error| signature_invalid(error.to_string()))?;
-    verify_historical_human_event_signature(&full.event, fact, digest_suite)?;
-    Ok(VerifiedHumanHistoricalSignerFact { fact: fact.clone() })
+    verify_historical_account_device_event_signature(&full.event, fact, digest_suite)?;
+    Ok(VerifiedAccountDeviceHistoricalSignerFact { fact: fact.clone() })
 }
 
 /// Requires a caller-authenticated original Commit before establishing its authority.
-pub fn verify_historical_human_event_signature(
+pub fn verify_historical_account_device_event_signature(
     event: &Event,
-    fact: &arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact,
+    fact: &arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact,
     digest_suite: DigestSuite,
 ) -> Result<()> {
     fact.validate_event_binding(event, digest_suite)?;
@@ -371,7 +372,7 @@ pub fn verify_historical_human_event_signature(
         event
             .producer_proof
             .as_ref()
-            .ok_or_else(|| signature_invalid("Human Event lacks producer proof"))?,
+            .ok_or_else(|| signature_invalid("Account Device Event lacks producer proof"))?,
         &envelope,
         &event.actor_id,
         &PublicKeyMaterial::Ed25519Raw { bytes: raw },
@@ -381,14 +382,15 @@ pub fn verify_historical_human_event_signature(
     Ok(())
 }
 
-/// Verify every imported Human original under the already-verified historical governance chain.
-/// The caller separately authenticates the new handoff's two signatures and frozen import cut.
-pub fn verify_handoff_human_signer_inventory(
+/// Verify every imported Account Device original under the already-verified historical governance
+/// chain. The caller separately authenticates the new handoff's two signatures and frozen import
+/// cut.
+pub fn verify_handoff_account_device_signer_inventory(
     request: &arkret_models_collaboration::authority_commit::AuthorityHandoffRequest,
     imported: &[arkret_wire::CommittedEventFullView],
     authority: &crate::realm_authority_chain::VerifiedRealmAuthority,
     keys: &dyn crate::realm_authority_chain::RealmAuthorityKeyDirectory,
-) -> Result<Vec<VerifiedHumanHistoricalSignerFact>> {
+) -> Result<Vec<VerifiedAccountDeviceHistoricalSignerFact>> {
     request.validate_new_handoff()?;
     request.validate_imported_signer_facts(imported)?;
     let mut verified = Vec::new();
@@ -408,7 +410,7 @@ pub fn verify_handoff_human_signer_inventory(
             full.event.event_id.digest_suite_code().as_str(),
         )
         .map_err(|error| signature_invalid(error.to_string()))?;
-        let Some(human) = entry.producer_signer_fact.as_human() else {
+        let Some(human) = entry.producer_signer_fact.as_account_device() else {
             verify_historical_producer_committed_event(
                 full,
                 &entry.producer_signer_fact,
@@ -418,7 +420,7 @@ pub fn verify_handoff_human_signer_inventory(
             )?;
             continue;
         };
-        verified.push(verify_historical_human_committed_event(
+        verified.push(verify_historical_account_device_committed_event(
             full, human, authority, keys, suite,
         )?);
     }
@@ -426,11 +428,11 @@ pub fn verify_handoff_human_signer_inventory(
 }
 
 /// Verify the exact privately delivered Invite original; current receiver policy remains separate.
-pub fn verify_invite_delivery_human_signer(
+pub fn verify_invite_delivery_account_device_signer(
     request: &arkret_models_collaboration::governance::invite_addressing::InviteDeliveryRequestBody,
     authority: &crate::realm_authority_chain::VerifiedRealmAuthority,
     keys: &dyn crate::realm_authority_chain::RealmAuthorityKeyDirectory,
-) -> Result<VerifiedHumanHistoricalSignerFact> {
+) -> Result<VerifiedAccountDeviceHistoricalSignerFact> {
     request.validate_minimal()?;
     if request.invite_event.kind != arkret_wire::EventKind::InviteCreate {
         return Err(signature_invalid(
@@ -438,13 +440,13 @@ pub fn verify_invite_delivery_human_signer(
         ));
     }
     let fact = request.producer_signer_fact.as_ref().ok_or_else(|| {
-        signature_invalid("Invite Full original lacks its immutable Human signer source")
+        signature_invalid("Invite Full original lacks its immutable Account Device signer source")
     })?;
     let suite = arkret_canonical::canonical::digest_suite(
         request.invite_event.event_id.digest_suite_code().as_str(),
     )
     .map_err(|error| signature_invalid(error.to_string()))?;
-    verify_historical_human_committed_event(
+    verify_historical_account_device_committed_event(
         &arkret_wire::CommittedEventFullView {
             event: request.invite_event.clone(),
             commit: request.invite_commit.clone(),
@@ -456,7 +458,8 @@ pub fn verify_invite_delivery_human_signer(
     )
 }
 
-/// Verify a Commit-bound historical Human or Service original without consulting current keys.
+/// Verify a Commit-bound historical Account Device or Service original without consulting current
+/// keys.
 pub fn verify_historical_producer_event_signature(
     event: &Event,
     fact: &arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact,
@@ -464,7 +467,9 @@ pub fn verify_historical_producer_event_signature(
 ) -> Result<()> {
     use arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact as F;
     match fact {
-        F::Human(fact) => verify_historical_human_event_signature(event, fact, suite),
+        F::AccountDevice(fact) => {
+            verify_historical_account_device_event_signature(event, fact, suite)
+        }
         F::Service(fact) => {
             fact.validate_event_binding(event, suite)?;
             let raw = arkret_canonical::base64url_decode(fact.key.public_key_b64u.as_str())

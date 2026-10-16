@@ -292,7 +292,7 @@ fn idempotency_key_is_bounded_like_the_schema() {
 
 #[test]
 fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
-    use arkret_models_collaboration::authority_commit::HumanHistoricalSignerFact;
+    use arkret_models_collaboration::authority_commit::AccountDeviceHistoricalSignerFact;
     use arkret_models_identity::ResolvedSignerKey;
     use arkret_wire::{CommittedEventRef, CurrentRevision, RealmCommitId};
     let mut body = sdk_parse(&delivery_body()).unwrap();
@@ -361,7 +361,7 @@ fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
     body.invite_event = authored.into_event();
     body.invite_commit.event_ref = body.invite_event.event_id.clone();
     let producer = body.invite_event.human_device_producer().unwrap().unwrap();
-    let fact = HumanHistoricalSignerFact {
+    let fact = AccountDeviceHistoricalSignerFact {
         event_id: body.invite_event.event_id.clone(),
         actor: body.invite_event.actual_signer().clone(),
         device_id: producer.device_id,

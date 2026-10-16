@@ -434,7 +434,7 @@ impl InviteDeliveryRequestBody {
     pub fn new(
         invite_event: Event,
         invite_commit: RealmCommit,
-        producer_signer_fact: Option<crate::authority_commit::HumanHistoricalSignerFact>,
+        producer_signer_fact: Option<crate::authority_commit::AccountDeviceHistoricalSignerFact>,
         authority_locator_hints: Vec<RealmJoinCandidate>,
         invite_address: InviteAddress,
         introduction_evidence: IntroductionEvidence,
@@ -466,7 +466,7 @@ impl InviteDeliveryRequestBody {
         let suite = arkret_canonical::canonical::digest_suite(
             self.invite_event.event_id.digest_suite_code().as_str(),
         )?;
-        crate::authority_commit::validate_new_human_admission_fact(
+        crate::authority_commit::validate_new_account_device_admission_fact(
             &self.invite_event,
             self.producer_signer_fact.as_ref(),
             suite,
