@@ -57,6 +57,30 @@ impl CommitStreamRef {
         }
     }
 
+    /// The resource scope of this independent stream. Authenticate the
+    /// accepted stream source before using this structural projection.
+    pub fn scope_ref(&self) -> ScopeRef {
+        match self {
+            Self::Realm { realm_id } => ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            Self::Circle {
+                realm_id,
+                circle_id,
+            } => ScopeRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id: circle_id.clone(),
+            },
+            Self::Sidecar {
+                realm_id,
+                sidecar_id,
+            } => ScopeRef::Sidecar {
+                realm_id: realm_id.clone(),
+                sidecar_id: sidecar_id.clone(),
+            },
+        }
+    }
+
     pub fn from_scope(scope: &ScopeRef, genesis_realm_id: Option<RealmId>) -> Result<Self> {
         match scope {
             ScopeRef::RealmGenesis => genesis_realm_id
@@ -2448,6 +2472,46 @@ impl CommittedEventView {
         }
     }
 
+    /// Scope of the actual disclosed resource. Circle creation uses a Realm
+    /// authorization shell, while its full private object belongs to the Circle.
+    /// This structural projection does not authenticate or authorize the source.
+    pub fn disclosure_scope(&self) -> Result<ScopeRef> {
+        self.validate_shape()?;
+        if let Self::Full(view) = self
+            && view.event.kind == crate::EventKind::CircleCreate
+        {
+            if !matches!(&view.event.scope_ref, ScopeRef::Realm { realm_id } if realm_id==&view.event.realm_id)
+            {
+                return Err(WireError::Protocol(
+                    "Circle creation requires its Realm authorization shell".into(),
+                ));
+            }
+            return Ok(ScopeRef::Circle {
+                realm_id: view.event.realm_id.clone(),
+                circle_id: CircleId::from_event_id(&view.event.event_id),
+            });
+        }
+        Ok(self.commit().stream_ref.scope_ref())
+    }
+
+    /// Narrow an already authorized audience to one exact data scope. Never
+    /// promote withheld bytes; retain the exact Commit when only its stream is
+    /// in scope. Other scopes yield no result rather than a partial Full Event.
+    pub fn into_effective_scope(self, scope: &ScopeRef) -> Result<Option<Self>> {
+        if self.disclosure_scope()? == *scope {
+            return Ok(Some(self));
+        }
+        if self.commit().stream_ref.scope_ref() != *scope {
+            return Ok(None);
+        }
+        Ok(Some(Self::Withheld(CommittedEventWithheldView {
+            commit: self.commit().clone(),
+            event_disclosure: EventDisclosure {
+                status: EventDisclosureStatus::Withheld,
+            },
+        })))
+    }
+
     #[must_use]
     pub fn reducer_input(&self) -> Option<&Event> {
         match self {
@@ -2506,6 +2570,20 @@ pub struct ReadableFloor {
 }
 
 impl StreamScanOutcome {
+    /// Additional scope narrowing after the caller proved the actual requested
+    /// stream and member interval. Empty pages carry no structural scope proof.
+    pub fn into_effective_scope(mut self, scope: &ScopeRef) -> Result<Option<Self>> {
+        let mut events = Vec::with_capacity(self.committed_events.len());
+        for event in self.committed_events {
+            let Some(event) = event.into_effective_scope(scope)? else {
+                return Ok(None);
+            };
+            events.push(event);
+        }
+        self.committed_events = events;
+        Ok(Some(self))
+    }
+
     pub fn validate_for_request(&self, request: &StreamScanRequest) -> Result<()> {
         request.validate()?;
         if self.committed_events.len() > usize::from(request.limit) {
