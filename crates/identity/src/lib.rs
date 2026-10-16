@@ -9,6 +9,7 @@
 pub mod account_device_signer_evidence;
 pub mod agent_authority_evidence;
 pub mod authority_history;
+pub mod contact_producer_identity;
 mod error;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
 // the resolver-free / authority verifier split (`did-usage-and-verification.md`

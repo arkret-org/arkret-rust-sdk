@@ -310,106 +310,12 @@ fn verify_agent_holder_binding(
             "complete Agent DID delegation history is absent".into(),
         ));
     }
-    let point = arkret_signatures::webvh::validate_webvh_history_at(
-        &did,
-        &history.entries,
-        event.created_at,
+    let verified =
+        arkret_identity::verify_did_webvh_v1_chain(&did, &history.entries).map_err(invalid)?;
+    arkret_identity::contact_producer_identity::validate_agent_contact_identity_at(
+        event, holder, &did, &verified,
     )
-    .map_err(invalid)?;
-    arkret_signatures::webvh::validate_agent_did_document_profile(
-        did.as_str(),
-        &point.document,
-        &[],
-    )
-    .map_err(invalid)?;
-    // The complete native chain was authenticated above. Later binding changes
-    // affect new authorization, not the historical identity of this Event.
-    // Exact eligibility at command confirmation is the independently signed
-    // source projection's responsibility; created_at is not live authority.
-    let historical_end = history
-        .entries
-        .iter()
-        .position(|entry| {
-            entry.get("versionId").and_then(serde_json::Value::as_str)
-                == Some(point.version_id.as_str())
-        })
-        .ok_or_else(|| invalid("verified Agent history point is absent from its chain"))?;
-    let historical_entries = &history.entries[..=historical_end];
-    let inception_delegation = historical_entries[0].pointer("/state/service/1");
-    let initial_binding = historical_entries
-        .get(1)
-        .and_then(|e| e.pointer("/state/service/2/serviceEndpoint"));
-    if historical_entries[0].pointer("/state/service/2").is_some() || initial_binding.is_none() {
-        return Err(invalid("Agent binding must first appear in entry one"));
-    }
-    for (index, entry) in historical_entries.iter().enumerate() {
-        let document = entry
-            .get("state")
-            .ok_or_else(|| invalid("Agent history entry has no document"))?;
-        arkret_signatures::webvh::validate_agent_did_document_profile(did.as_str(), document, &[])
-            .map_err(invalid)?;
-        if entry.pointer("/state/service/1") != inception_delegation
-            || (index > 0 && entry.pointer("/state/service/2/serviceEndpoint") != initial_binding)
-        {
-            return Err(invalid(
-                "Agent history rewrites its create-locked delegation or PCR tuple",
-            ));
-        }
-    }
-    let services = point
-        .document
-        .get("service")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| invalid("verified Agent document has no services"))?;
-    let binding = services
-        .get(2)
-        .and_then(|s| s.get("serviceEndpoint"))
-        .ok_or_else(|| {
-            ContactAuthorizationError::MissingMaterial(
-                "Agent PCR binding is absent at publication".into(),
-            )
-        })?;
-    if binding.get("realm_id").and_then(serde_json::Value::as_str) != Some(event.realm_id.as_str())
-        || binding
-            .get("controller_did")
-            .and_then(serde_json::Value::as_str)
-            != Some(controller.principal_id.as_str())
-        || event.scope_ref
-            != (arkret_wire::ScopeRef::Realm {
-                realm_id: event.realm_id.clone(),
-            })
-    {
-        return Err(invalid(
-            "Contact management exceeds the accepted Agent PCR delegation",
-        ));
-    }
-    if event.executed_by.is_some() {
-        let reference = event
-            .authorization_ref
-            .as_ref()
-            .ok_or_else(|| invalid("controller Contact Event omits its authorization source"))?;
-        if arkret_wire::DidUrl::new(reference.as_str()).is_ok()
-            && binding
-                .get("authorization_ref")
-                .and_then(serde_json::Value::as_str)
-                != Some(reference.as_str())
-        {
-            return Err(invalid(
-                "controller DID delegation differs from the locked Agent binding",
-            ));
-        }
-        if arkret_wire::DidUrl::new(reference.as_str()).is_err()
-            && arkret_wire::GrantId::new(reference.as_str()).is_err()
-            && EventId::new(reference.as_str()).is_err()
-        {
-            return Err(invalid(
-                "controller authorization is not the accepted delegation or a materialized grant",
-            ));
-        }
-    }
-    // Source confirmation attests the exact command's internal authorization.
-    // Private key/grant/scope histories do not cross this Contact boundary.
-    Ok(())
+    .map_err(invalid)
 }
 
 fn verify_holder(
