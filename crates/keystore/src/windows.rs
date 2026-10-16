@@ -102,6 +102,10 @@ impl WindowsProtectedKeyStore {
 }
 
 impl KeyStore for WindowsProtectedKeyStore {
+    fn load_first(&self, ids: &[&str]) -> Result<Option<(usize, KeyBytes)>> {
+        self.vault.load_first(ids)
+    }
+
     fn load(&self, id: &str) -> Result<KeyBytes> {
         self.vault.load(id)
     }

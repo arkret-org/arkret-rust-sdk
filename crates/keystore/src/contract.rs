@@ -87,6 +87,23 @@ pub trait KeyStore: Send + Sync {
     /// envelope decoding (PKCS#8, raw seed, etc.).
     fn load(&self, id: &str) -> Result<KeyBytes>;
 
+    /// Load the first present key in priority order, returning its input index.
+    ///
+    /// Only typed misses are skipped. Empty bytes are present, and errors or a
+    /// present value stop the search before any lower-priority key is accessed.
+    /// Backends may read one authenticated snapshot; results must not be cached
+    /// across calls.
+    fn load_first(&self, ids: &[&str]) -> Result<Option<(usize, KeyBytes)>> {
+        for (index, id) in ids.iter().enumerate() {
+            match self.load(id) {
+                Ok(bytes) => return Ok(Some((index, bytes))),
+                Err(error) if error.is_not_found() => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(None)
+    }
+
     /// Persist `key` under `id`. Existing entries with the same id MUST be
     /// overwritten.
     fn store(&self, id: &str, key: &[u8]) -> Result<()>;

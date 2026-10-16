@@ -1,5 +1,49 @@
 use super::*;
 
+#[derive(Default)]
+struct PriorityStore(std::sync::Mutex<Vec<String>>);
+
+impl KeyStore for PriorityStore {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
+        self.0.lock().unwrap().push(id.to_owned());
+        match id {
+            "missing" => Err(KeyStoreError::not_found(id)),
+            "present" => Ok(KeyBytes::new(Vec::new())),
+            "denied" => Err(KeyStoreError::backend("access denied, not found text")),
+            _ => panic!("lower priority key must not be read"),
+        }
+    }
+    fn store(&self, _: &str, _: &[u8]) -> Result<()> {
+        panic!("read only")
+    }
+    fn list(&self) -> Result<Vec<String>> {
+        panic!("enumeration not permitted")
+    }
+    fn delete(&self, _: &str) -> Result<()> {
+        panic!("read only")
+    }
+}
+
+#[test]
+fn priority_read_stops_on_present_empty_or_backend_error_without_enumeration() {
+    let store = PriorityStore::default();
+    assert!(store.load_first(&[]).unwrap().is_none());
+    let (index, bytes) = store
+        .load_first(&["missing", "present", "unreachable"])
+        .unwrap()
+        .unwrap();
+    assert_eq!(index, 1);
+    assert!(bytes.is_empty());
+    assert_eq!(*store.0.lock().unwrap(), ["missing", "present"]);
+    store.0.lock().unwrap().clear();
+    assert!(matches!(
+        store.load_first(&["missing", "denied", "unreachable"]),
+        Err(KeyStoreError::Backend(_))
+    ));
+    assert_eq!(*store.0.lock().unwrap(), ["missing", "denied"]);
+    assert!(store.load_first(&["missing"]).unwrap().is_none());
+}
+
 struct ImportOnly;
 
 impl KeyStore for ImportOnly {

@@ -234,6 +234,23 @@ impl EncryptedFileKeyStore {
 }
 
 impl KeyStore for EncryptedFileKeyStore {
+    fn load_first(&self, ids: &[&str]) -> Result<Option<(usize, KeyBytes)>> {
+        let Some(first) = ids.first() else {
+            return Ok(None);
+        };
+        validate_id(first)?;
+        self.with_shared_lock(|| {
+            let entries = self.read_entries()?;
+            for (index, id) in ids.iter().enumerate() {
+                validate_id(id)?;
+                if let Some(bytes) = entries.get(&(self.namespace.clone(), (*id).to_owned())) {
+                    return Ok(Some((index, bytes.clone())));
+                }
+            }
+            Ok(None)
+        })
+    }
+
     fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         self.with_shared_lock(|| {
@@ -578,6 +595,40 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn priority_read_is_fresh_namespaced_read_only_and_rejects_tampering() {
+        let directory = TestDirectory::new("priority");
+        let path = directory.file();
+        let store = EncryptedFileKeyStore::new(&path, "inkson", [7; 32]).unwrap();
+        let writer = EncryptedFileKeyStore::new(&path, "inkson", [7; 32]).unwrap();
+        let other = EncryptedFileKeyStore::new(&path, "other", [7; 32]).unwrap();
+        writer.store("older", b"old").unwrap();
+        other.store("newer", b"other namespace").unwrap();
+        let before = fs::read(&path).unwrap();
+        let (index, value) = store.load_first(&["newer", "older", ""]).unwrap().unwrap();
+        assert_eq!(index, 1);
+        assert_eq!(value.as_slice(), b"old");
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(store.load_first(&[]).unwrap().is_none());
+        assert!(store.load_first(&["absent"]).unwrap().is_none());
+        assert!(matches!(
+            store.load_first(&["absent", ""]),
+            Err(KeyStoreError::InvalidId { .. })
+        ));
+        writer.store("newer", b"rotated").unwrap();
+        let (index, value) = store.load_first(&["newer", "older"]).unwrap().unwrap();
+        assert_eq!(index, 0);
+        assert_eq!(value.as_slice(), b"rotated");
+        writer.delete("newer").unwrap();
+        assert_eq!(store.load_first(&["newer", "older"]).unwrap().unwrap().0, 1);
+        let mut corrupted = fs::read(&path).unwrap();
+        let last = corrupted.len() - 1;
+        corrupted[last] ^= 1;
+        fs::write(&path, &corrupted).unwrap();
+        assert!(store.load_first(&["absent", "older"]).is_err());
+        assert_eq!(fs::read(&path).unwrap(), corrupted);
     }
 
     #[test]
