@@ -1363,3 +1363,376 @@ fn approval_proof_never_discharges_mixed_predicates() {
         }
     }
 }
+
+fn managed_control(regrant: bool, depth: u64) -> GrantConstraint {
+    let mut c = constraint(
+        GrantConstraintKind::AuthorityControl,
+        GrantConstraintEffect::Allow,
+    );
+    c.authority_regrant_allowed = Some(regrant);
+    c.max_authority_depth = Some(depth);
+    c.allowed_managed_actor_roles =
+        vec![arkret_models_collaboration::governance::grant_constraint::ManagedActorRole::Ghost];
+    c
+}
+fn typed_managed_parent(seed: u8, actions: &[&str]) -> CapabilityGrant {
+    let mut p = grant(seed, actions, realm_wide(), vec![managed_control(false, 0)]);
+    let service = ActorId::service("ak:did_core:web:bridge.example".parse().unwrap());
+    p.subject = arkret_models_collaboration::governance::grant_constraint::CapabilitySubject::Actor(
+        service.clone(),
+    );
+    p.constraints.push(GrantConstraint::applet_authority(
+        "ak:applet:019d10e0-0000-7000-8000-000000000001"
+            .parse()
+            .unwrap(),
+        service,
+        format!("sha256:{}", "1".repeat(64)).parse().unwrap(),
+    ));
+    p
+}
+fn typed_managed_child(
+    parents: &[&CapabilityGrant],
+) -> arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilitySubject, IssuerAuthorityRef,
+    };
+    let CapabilitySubject::Actor(service) = &parents[0].subject else {
+        panic!("Service source")
+    };
+    let mut constraints = parents[0].constraints.clone();
+    for c in &mut constraints {
+        if c.constraint_subkind == Some(GrantConstraintSubkind::AppletAuthority) {
+            c.executed_by = Some(actor());
+        } else if c.constraint_kind == GrantConstraintKind::AuthorityControl {
+            c.allowed_managed_actor_roles.clear();
+            c.authority_regrant_allowed = Some(false);
+            c.max_authority_depth = Some(0);
+        }
+    }
+    arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody {
+        schema: parents[0].schema.clone(),
+        realm_id: parents[0].realm_id.clone(),
+        issuer_id: service.clone(),
+        subject: CapabilitySubject::Actor(actor()),
+        actions: parents
+            .iter()
+            .flat_map(|p| p.actions.iter().cloned())
+            .collect(),
+        resources: parents[0].resources.clone(),
+        constraints,
+        issuer_authority_refs: parents
+            .iter()
+            .map(|p| IssuerAuthorityRef::Grant {
+                grant_id: p.id.clone(),
+            })
+            .collect(),
+        issued_at: at("2026-10-01T18:41:32.000Z"),
+    }
+}
+#[test]
+fn managed_source_contributions_cover_actions_resources_and_full_identity() {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilitySubject, ManagedActorRole,
+    };
+
+    use crate::grant_authority::{AuthorityError, validate_managed_service_sources as validate};
+    let a = typed_managed_parent(201, &["ak.message.create"]);
+    let b = typed_managed_parent(202, &["ak.event.read"]);
+    let mut c = typed_managed_child(&[&a, &b]);
+    assert!(validate(&c, &[&a, &b], ManagedActorRole::Ghost).is_ok());
+    c.actions.push("ak.strand.create".into());
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Coverage)
+    );
+    c.actions.pop();
+    c.resources = vec![WireResourceSelector::realm(
+        "ak:realm:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62"
+            .parse()
+            .unwrap(),
+    )];
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Coverage)
+    );
+    c.resources = a.resources.clone();
+    let mut other = b.clone();
+    other.subject = CapabilitySubject::Actor(actor());
+    assert_eq!(
+        validate(&c, &[&a, &other], ManagedActorRole::Ghost),
+        Err(AuthorityError::Coverage)
+    );
+    c.constraints
+        .iter_mut()
+        .find(|v| v.constraint_subkind == Some(GrantConstraintSubkind::AppletAuthority))
+        .unwrap()
+        .executed_by = Some(c.issuer_id.clone());
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Constraints)
+    );
+}
+#[test]
+fn managed_window_hygiene_uses_each_actions_contributors() {
+    use arkret_models_collaboration::governance::grant_constraint::ManagedActorRole;
+
+    use crate::grant_authority::{AuthorityError, validate_managed_service_sources as validate};
+    let mut a = typed_managed_parent(203, &["ak.message.create"]);
+    let mut b = typed_managed_parent(204, &["ak.event.read"]);
+    let temporal = |from, until| {
+        let mut c = constraint(GrantConstraintKind::Temporal, GrantConstraintEffect::Allow);
+        c.not_before = Some(at(from));
+        c.expires_at = Some(at(until));
+        c
+    };
+    a.constraints.push(temporal(
+        "2026-10-01T00:00:00.000Z",
+        "2026-10-05T00:00:00.000Z",
+    ));
+    b.constraints.push(temporal(
+        "2026-10-03T00:00:00.000Z",
+        "2026-10-07T00:00:00.000Z",
+    ));
+    let mut c = typed_managed_child(&[&a, &b]);
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Window)
+    );
+    let t = c
+        .constraints
+        .iter_mut()
+        .find(|c| c.constraint_kind == GrantConstraintKind::Temporal)
+        .unwrap();
+    t.not_before = Some(at("2026-10-03T00:00:00.000Z"));
+    assert!(validate(&c, &[&a, &b], ManagedActorRole::Ghost).is_ok());
+    c.constraints
+        .iter_mut()
+        .find(|c| c.constraint_kind == GrantConstraintKind::Temporal)
+        .unwrap()
+        .expires_at = Some(at("2026-10-06T00:00:00.000Z"));
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Window)
+    );
+}
+#[test]
+fn current_authority_is_action_local_and_deduplicates_shared_ancestors() {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilityGrantStatus, CapabilitySubject, IssuerAuthorityRef,
+    };
+
+    use crate::grant_authority::{AuthorityError, current_sources};
+    let mut ancestor = grant(
+        205,
+        &["ak.message.create", "ak.event.read"],
+        realm_wide(),
+        vec![managed_control(true, 2)],
+    );
+    ancestor.subject = CapabilitySubject::Actor(actor());
+    let mut a = typed_managed_parent(206, &["ak.message.create"]);
+    let mut b = typed_managed_parent(207, &["ak.event.read"]);
+    a.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+        grant_id: ancestor.id.clone(),
+    }];
+    b.issuer_authority_refs = a.issuer_authority_refs.clone();
+    let mut child = grant(
+        208,
+        &["ak.message.create", "ak.event.read"],
+        realm_wide(),
+        vec![],
+    );
+    let CapabilitySubject::Actor(service) = &a.subject else {
+        panic!("Service source")
+    };
+    child.issuer_id = service.clone();
+    child.issuer_authority_refs = vec![
+        IssuerAuthorityRef::Grant {
+            grant_id: a.id.clone(),
+        },
+        IssuerAuthorityRef::Grant {
+            grant_id: b.id.clone(),
+        },
+    ];
+    b.status = CapabilityGrantStatus::Revoked;
+    let mut grants = std::collections::BTreeMap::from([
+        (a.id.clone(), a.clone()),
+        (b.id.clone(), b.clone()),
+        (ancestor.id.clone(), ancestor.clone()),
+        (child.id.clone(), child.clone()),
+    ]);
+    let now = at("2026-10-01T18:41:32.000Z");
+    let target = realm();
+    let sources =
+        current_sources(&child, "ak.message.create", &target, &grants, now, |_| true).unwrap();
+    assert_eq!(sources.len(), 2);
+    assert!(sources.iter().any(|s| s.id == ancestor.id));
+    assert!(matches!(
+        current_sources(&child, "ak.event.read", &target, &grants, now, |_| true),
+        Err(AuthorityError::Closed)
+    ));
+    assert!(matches!(
+        current_sources(&child, "ak.message.create", &target, &grants, now, |_| {
+            false
+        }),
+        Err(AuthorityError::Closed)
+    ));
+    b.status = CapabilityGrantStatus::Active;
+    b.actions = vec!["ak.message.create".into()];
+    grants.insert(b.id.clone(), b);
+    assert_eq!(
+        current_sources(&child, "ak.message.create", &target, &grants, now, |_| true)
+            .unwrap()
+            .len(),
+        3
+    );
+    grants.get_mut(&ancestor.id).unwrap().issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+        grant_id: ancestor.id.clone(),
+    }];
+    assert!(current_sources(&child, "ak.message.create", &target, &grants, now, |_| true).is_err());
+}
+#[test]
+fn authority_source_evaluation_keeps_the_original_service_quota_key() {
+    let mut parent = typed_managed_parent(209, &["ak.realm.owner"]);
+    parent.constraints = vec![rate(GrantConstraintScope::PerRealm)];
+    let arkret_models_collaboration::governance::grant_constraint::CapabilitySubject::Actor(
+        service,
+    ) = &parent.subject
+    else {
+        panic!("Service")
+    };
+    let target = realm();
+    let facts = OperationFacts::default();
+    let actions = ["ak.message.create"];
+    let operation = AuthorizationOperation {
+        actor: service,
+        actions: &actions,
+        target: &target,
+        at: at("2026-10-01T18:41:32.000Z"),
+        facts: &facts,
+    };
+    let GrantEvaluation::Allowed(satisfied) =
+        evaluate_authority_sources_with_verified_approvals(&operation, [&parent], &[])
+    else {
+        panic!("implied source action")
+    };
+    assert_eq!(satisfied[0].grant.id, parent.id);
+    assert_eq!(satisfied[0].reservations[0].grant_id, parent.id);
+    assert!(
+        satisfied[0].reservations[0]
+            .counter_key
+            .contains(service.signing_principal_id().as_str())
+    );
+    assert!(matches!(
+        evaluate_grants(&operation, [&parent]),
+        GrantEvaluation::Unnamed
+    ));
+}
+
+#[test]
+fn managed_sources_split_resources_without_joining_unrelated_current_fences() {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilityGrantStatus, CapabilitySubject, IssuerAuthorityRef, ManagedActorRole,
+    };
+
+    use crate::grant_authority::{
+        AuthorityError, current_sources, validate_managed_service_sources,
+    };
+    let mut a = typed_managed_parent(210, &["ak.message.create"]);
+    let mut b = typed_managed_parent(211, &["ak.message.create"]);
+    a.resources = vec![strand(STRAND_A)];
+    b.resources = vec![strand(STRAND_B)];
+    let mut body = typed_managed_child(&[&a, &b]);
+    body.actions = vec!["ak.message.create".into()];
+    body.resources.extend(b.resources.clone());
+    assert!(validate_managed_service_sources(&body, &[&a, &b], ManagedActorRole::Ghost).is_ok());
+    let mut child = grant(
+        212,
+        &["ak.message.create"],
+        realm_wide(),
+        body.constraints.clone(),
+    );
+    child.issuer_id = body.issuer_id;
+    child.subject = body.subject;
+    child.resources = body.resources;
+    child.issuer_authority_refs = body.issuer_authority_refs;
+    b.status = CapabilityGrantStatus::Revoked;
+    let rows =
+        std::collections::BTreeMap::from([(a.id.clone(), a.clone()), (b.id.clone(), b.clone())]);
+    assert_eq!(
+        current_sources(
+            &child,
+            "ak.message.create",
+            &strand(STRAND_A),
+            &rows,
+            now(),
+            |_| true
+        )
+        .unwrap()
+        .len(),
+        1
+    );
+    assert!(matches!(
+        current_sources(
+            &child,
+            "ak.message.create",
+            &strand(STRAND_B),
+            &rows,
+            now(),
+            |_| true
+        ),
+        Err(AuthorityError::Closed)
+    ));
+    let mut wrong = a.clone();
+    wrong.subject = CapabilitySubject::Actor(ActorId::account(arkret_wire::AccountId::new(
+        actor().signing_principal_id().clone(),
+        "ak:did_core:web:other-station.example".parse().unwrap(),
+    )));
+    let mut ordinary = grant(
+        213,
+        &["ak.message.create"],
+        realm_wide(),
+        vec![managed_control(false, 0)],
+    );
+    ordinary.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+        grant_id: wrong.id.clone(),
+    }];
+    let rows = std::collections::BTreeMap::from([(wrong.id.clone(), wrong)]);
+    assert!(matches!(
+        current_sources(
+            &ordinary,
+            "ak.message.create",
+            &strand(STRAND_A),
+            &rows,
+            now(),
+            |_| true
+        ),
+        Err(AuthorityError::Coverage)
+    ));
+}
+#[test]
+fn current_source_graph_accepts_four_levels_and_rejects_a_fifth() {
+    use arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef;
+
+    use crate::grant_authority::{AuthorityError, current_sources};
+    let mut rows = std::collections::BTreeMap::new();
+    let mut previous = None;
+    for index in 0..5 {
+        let mut node = grant(
+            214 + index,
+            &["ak.message.create"],
+            realm_wide(),
+            vec![managed_control(true, 4)],
+        );
+        if let Some(id) = previous {
+            node.issuer_authority_refs = vec![IssuerAuthorityRef::Grant { grant_id: id }];
+        }
+        previous = Some(node.id.clone());
+        rows.insert(node.id.clone(), node.clone());
+        let result = current_sources(&node, "ak.message.create", &realm(), &rows, now(), |_| true);
+        if index < 4 {
+            assert_eq!(result.unwrap().len(), usize::from(index));
+        } else {
+            assert!(matches!(result, Err(AuthorityError::Depth)));
+        }
+    }
+}

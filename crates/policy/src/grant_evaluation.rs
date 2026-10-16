@@ -419,14 +419,35 @@ pub fn evaluate_grants_with_verified_approvals<'g>(
     grants: impl IntoIterator<Item = &'g CapabilityGrant>,
     approvals: &[VerifiedGrantApproval],
 ) -> GrantEvaluation<'g> {
+    evaluate_with_matching(operation, grants, approvals, false)
+}
+
+/// Evaluate original issuer sources using authority action implication while
+/// retaining the actual operation action, subject, constraints and quota keys.
+pub fn evaluate_authority_sources_with_verified_approvals<'g>(
+    operation: &AuthorizationOperation<'_>,
+    grants: impl IntoIterator<Item = &'g CapabilityGrant>,
+    approvals: &[VerifiedGrantApproval],
+) -> GrantEvaluation<'g> {
+    evaluate_with_matching(operation, grants, approvals, true)
+}
+fn evaluate_with_matching<'g>(
+    operation: &AuthorizationOperation<'_>,
+    grants: impl IntoIterator<Item = &'g CapabilityGrant>,
+    approvals: &[VerifiedGrantApproval],
+    authority: bool,
+) -> GrantEvaluation<'g> {
     let mut named = Vec::new();
     for grant in grants {
         for action in operation.actions {
-            if grant.actions.iter().any(|named| named.as_str() == *action)
-                && grant
-                    .resources
-                    .iter()
-                    .any(|resource| resource_selector_covers(resource, operation.target))
+            if grant.actions.iter().any(|named| {
+                named.as_str() == *action
+                    || (authority
+                        && crate::action_grants_authority_for(named, action).unwrap_or(false))
+            }) && grant
+                .resources
+                .iter()
+                .any(|resource| resource_selector_covers(resource, operation.target))
             {
                 named.push((grant, *action));
             }
