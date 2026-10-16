@@ -1736,3 +1736,151 @@ fn current_source_graph_accepts_four_levels_and_rejects_a_fifth() {
         }
     }
 }
+
+#[test]
+fn a_missing_global_refusal_source_is_not_a_known_revocation() {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilityGrantStatus, CapabilitySubject, IssuerAuthorityRef,
+    };
+
+    use crate::grant_authority::{AuthorityError, current_subject_grants};
+    let allow = typed_managed_parent(220, &["ak.message.create"]);
+    let CapabilitySubject::Actor(service) = &allow.subject else {
+        panic!("Service")
+    };
+    let mut ancestor = grant(
+        221,
+        &["ak.message.create"],
+        realm_wide(),
+        vec![managed_control(true, 2)],
+    );
+    let mut deny = typed_managed_parent(222, &["ak.message.create"]);
+    let mut constraint = constraint(
+        GrantConstraintKind::ScopeLimitation,
+        GrantConstraintEffect::Deny,
+    );
+    constraint.denied_strand_ids = vec![STRAND_A.into()];
+    deny.constraints.push(constraint);
+    deny.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
+        grant_id: ancestor.id.clone(),
+    }];
+    let mut rows = std::collections::BTreeMap::from([
+        (allow.id.clone(), allow.clone()),
+        (deny.id.clone(), deny.clone()),
+    ]);
+    assert!(matches!(
+        current_subject_grants(
+            service,
+            "ak.message.create",
+            &strand(STRAND_A),
+            &rows,
+            now(),
+            |_| true
+        ),
+        Err(AuthorityError::Unproved)
+    ));
+    ancestor.status = CapabilityGrantStatus::Revoked;
+    rows.insert(ancestor.id.clone(), ancestor.clone());
+    assert_eq!(
+        current_subject_grants(
+            service,
+            "ak.message.create",
+            &strand(STRAND_A),
+            &rows,
+            now(),
+            |_| true
+        )
+        .unwrap()
+        .len(),
+        1
+    );
+    ancestor.status = CapabilityGrantStatus::Active;
+    rows.insert(ancestor.id.clone(), ancestor);
+    let current = current_subject_grants(
+        service,
+        "ak.message.create",
+        &strand(STRAND_A),
+        &rows,
+        now(),
+        |_| true,
+    )
+    .unwrap();
+    let facts = OperationFacts::default();
+    let target = strand(STRAND_A);
+    let actions = ["ak.message.create"];
+    let operation = AuthorizationOperation {
+        actor: service,
+        actions: &actions,
+        target: &target,
+        at: now(),
+        facts: &facts,
+    };
+    assert!(matches!(
+        evaluate_authority_sources_with_verified_approvals(&operation, current, &[]),
+        GrantEvaluation::Denied
+    ));
+}
+
+#[test]
+fn member_read_source_requires_explicit_managed_role_and_exact_applet_binding() {
+    use arkret_models_collaboration::governance::grant_constraint::{
+        CapabilitySubject, ManagedActorRole,
+    };
+
+    use crate::grant_authority::managed_service_source;
+    let mut source = typed_managed_parent(223, &["ak.event.read"]);
+    let CapabilitySubject::Actor(service) = source.subject.clone() else {
+        panic!("Service")
+    };
+    let binding = source
+        .constraints
+        .iter()
+        .find(|c| c.constraint_subkind == Some(GrantConstraintSubkind::AppletAuthority))
+        .unwrap();
+    let applet = binding.applet_id.clone().unwrap();
+    let epoch = binding.registration_epoch.clone().unwrap();
+    assert!(managed_service_source(
+        &source,
+        &service,
+        &applet,
+        &epoch,
+        ManagedActorRole::Ghost,
+        "ak.event.read"
+    ));
+    assert!(!managed_service_source(
+        &source,
+        &service,
+        &applet,
+        &epoch,
+        ManagedActorRole::Bot,
+        "ak.event.read"
+    ));
+    assert!(!managed_service_source(
+        &source,
+        &service,
+        &applet,
+        &epoch,
+        ManagedActorRole::Ghost,
+        "ak.object.read_content"
+    ));
+    let wrong = format!("sha256:{}", "2".repeat(64)).parse().unwrap();
+    assert!(!managed_service_source(
+        &source,
+        &service,
+        &applet,
+        &wrong,
+        ManagedActorRole::Ghost,
+        "ak.event.read"
+    ));
+    source
+        .constraints
+        .retain(|c| c.constraint_subkind == Some(GrantConstraintSubkind::AppletAuthority));
+    assert!(!managed_service_source(
+        &source,
+        &service,
+        &applet,
+        &epoch,
+        ManagedActorRole::Ghost,
+        "ak.event.read"
+    ));
+}
