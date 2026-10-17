@@ -47,7 +47,8 @@ impl Client {
         self.managed_device_signature_identity = None;
         self
     }
-    /// Configure accepted Device transport. Every request receives a fresh random nonce.
+    /// Configure accepted Device transport. Every HTTP attempt, including an
+    /// automatic retry, receives a fresh random nonce before signing.
     pub fn with_managed_device_http_signer(
         mut self,
         metadata: arkret_models_integration::AppletManagedDeviceMetadata,
@@ -303,5 +304,297 @@ mod tests {
         );
         assert!(ghost_actor_provision_path("../other/ghosts").is_err());
         assert!(ghost_actor_provision_path("applet%2Fescape").is_err());
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod native_retry_tests {
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::time::Duration;
+
+    use arkret_models_integration::AppletManagedDeviceMetadata;
+    use arkret_signatures::http_signature::{
+        HttpSignatureScenario, SignatureVerificationPolicy, verify_signed_canonical_json_message,
+    };
+    use arkret_signatures::{
+        Ed25519DetachedJwsSigner, EventProofBuilder, PublicKeyMaterial, SignEventOptions,
+        sign_event, verify_ed25519_detached_jws_proof_with_digest_suite,
+    };
+    use arkret_wire::{
+        AccountId, ActorId, AppletId, AuthoredEvent, DeviceId, DidCoreId, Event,
+        EventAdmissionSubmission, EventId, EventKind, ScopeRef, StrandId,
+    };
+    use ed25519_dalek::SigningKey;
+    use serde_json::{Value, json};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use crate::{Client, ClientRequestOptions, HttpMessageSigner, RetryConfig};
+
+    async fn read_request(
+        stream: &mut tokio::net::TcpStream,
+    ) -> (String, Vec<(String, String)>, Vec<u8>) {
+        let mut bytes = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let header_end = loop {
+            let count = stream.read(&mut chunk).await.unwrap();
+            assert!(count > 0);
+            bytes.extend_from_slice(&chunk[..count]);
+            if let Some(offset) = bytes.windows(4).position(|part| part == b"\r\n\r\n") {
+                break offset + 4;
+            }
+            assert!(bytes.len() < 64 * 1024);
+        };
+        let head = std::str::from_utf8(&bytes[..header_end]).unwrap();
+        let mut lines = head.split("\r\n");
+        let line = lines.next().unwrap().to_owned();
+        let headers: Vec<_> = lines
+            .filter(|line| !line.is_empty())
+            .map(|line| {
+                let (name, value) = line.split_once(':').unwrap();
+                (name.to_ascii_lowercase(), value.trim().to_owned())
+            })
+            .collect();
+        let length: usize = header(&headers, "content-length").parse().unwrap();
+        while bytes.len() < header_end + length {
+            let count = stream.read(&mut chunk).await.unwrap();
+            assert!(count > 0);
+            bytes.extend_from_slice(&chunk[..count]);
+        }
+        assert_eq!(bytes.len(), header_end + length);
+        (line, headers, bytes[header_end..].to_vec())
+    }
+
+    fn header<'a>(headers: &'a [(String, String)], name: &str) -> &'a str {
+        let values: Vec<_> = headers
+            .iter()
+            .filter(|(key, _)| key.eq_ignore_ascii_case(name))
+            .collect();
+        assert_eq!(values.len(), 1, "exactly one {name}");
+        values[0].1.as_str()
+    }
+
+    #[tokio::test]
+    async fn managed_device_attempts_refresh_nonce_without_changing_original_event_or_idempotency()
+    {
+        for retries in [0, 1] {
+            let device_key = SigningKey::from_bytes(&[81; 32]);
+            let public_key = device_key.verifying_key();
+            let fingerprint =
+                arkret_canonical::ed25519_pubkey_to_did_key_multibase(public_key.as_bytes());
+            let method = format!("did:key:{fingerprint}#{fingerprint}");
+            let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+            let account = AccountId::new(
+                DidCoreId::new("ak:did_core:web:managed.example").unwrap(),
+                station.clone(),
+            );
+            let realm = arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [82; 32],
+            ));
+            let scope = ScopeRef::Realm {
+                realm_id: realm.clone(),
+            };
+            let applet_id =
+                AppletId::new("ak:applet:01964137-0000-7000-8000-000000000081").unwrap();
+            let metadata = AppletManagedDeviceMetadata {
+                account_id: account.clone(),
+                device_id: DeviceId::new("ak:device:01964137-0000-7000-8000-000000000081").unwrap(),
+                authorization_event_id: EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [83; 32],
+                ),
+                applet_id: applet_id.clone(),
+                effective_scope: scope.clone(),
+                nonce: arkret_canonical::base64url_encode([84; 16]),
+            };
+            let event = Event {
+                event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [85; 32]),
+                kind: EventKind::MessageCreate,
+                realm_id: realm,
+                scope_ref: scope,
+                actor_id: ActorId::account(account),
+                created_at: "2026-10-17T00:00:00.000Z".parse().unwrap(),
+                semantic_refs: Vec::new(),
+                payload: serde_json::from_value(json!({
+                    "strand_id": StrandId::from_event_id(&EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [86; 32])),
+                    "track_name": "discussion",
+                    "content": {"kind": "ak.content.text", "body": "one immutable Device original"}
+                })).unwrap(),
+                executed_by: None,
+                authorization_ref: Some(arkret_wire::GrantId::from_event_id(&EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [87; 32])).into()),
+                applet_id: Some(applet_id),
+                external_ref: None,
+                producer_proof: None,
+            };
+            let mut authored = AuthoredEvent::finalize_with_digest_suite(
+                event,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap();
+            sign_event(
+                &mut authored,
+                &Ed25519DetachedJwsSigner::new(device_key.clone(), method.clone()),
+                SignEventOptions::new()
+                    .with_created_at("2026-10-17T00:00:00.000Z".parse().unwrap()),
+            )
+            .unwrap();
+            let submission = EventAdmissionSubmission::new(authored.into_event());
+            let original = arkret_canonical::canonical::canonical_json_bytes(&submission).unwrap();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let target = format!("http://{address}/_arkret/self/events");
+            let expected_station = station.clone();
+            let expected_metadata = metadata.clone();
+            let expected_body = original.clone();
+            let expected_method = method.clone();
+            // This receiver tests transport signatures and replay identity. It
+            // does not fabricate Realm admission, Commit or authorization state.
+            let receiver = tokio::spawn(async move {
+                let mut nonces = BTreeSet::new();
+                let mut originals = BTreeMap::new();
+                let mut signatures = BTreeSet::new();
+                let policy = SignatureVerificationPolicy::for_scenario(
+                    HttpSignatureScenario::AppletManagedDeviceV1,
+                    &["content-digest", "idempotency-key"],
+                )
+                .unwrap();
+                for attempt in 0..=retries {
+                    let (mut stream, _) = listener.accept().await.unwrap();
+                    let (line, headers, body) = read_request(&mut stream).await;
+                    assert_eq!(line, "POST /_arkret/self/events HTTP/1.1");
+                    assert_eq!(body, expected_body);
+                    assert_eq!(
+                        header(&headers, "arkret-operation"),
+                        "ak.self.events.command.submit.v1"
+                    );
+                    assert_eq!(
+                        header(&headers, "destination-service-id"),
+                        expected_station.as_str()
+                    );
+                    assert!(!headers.iter().any(|(name, _)| matches!(
+                        name.as_str(),
+                        "authorization" | "dpop" | "source-service-id"
+                    )));
+                    let verified = verify_signed_canonical_json_message(
+                        "POST",
+                        &target,
+                        &address.to_string(),
+                        "/_arkret/self/events",
+                        headers.iter().map(|(name, value)| (name, value)),
+                        false,
+                        &body,
+                        &public_key,
+                        &policy,
+                        chrono::Utc::now().timestamp(),
+                    )
+                    .unwrap();
+                    assert_eq!(verified.signature_input.key_id, expected_method);
+                    let presented = AppletManagedDeviceMetadata::from_header_value(header(
+                        &headers,
+                        AppletManagedDeviceMetadata::HEADER,
+                    ))
+                    .unwrap();
+                    assert_ne!(presented.nonce, expected_metadata.nonce);
+                    assert_eq!(
+                        arkret_canonical::base64url_decode(&presented.nonce)
+                            .unwrap()
+                            .len(),
+                        16
+                    );
+                    let mut identity = presented.clone();
+                    identity.nonce = expected_metadata.nonce.clone();
+                    assert_eq!(identity, expected_metadata);
+                    assert!(
+                        nonces.insert(presented.nonce.clone()),
+                        "a consumed Device nonce cannot authenticate a retry"
+                    );
+                    assert!(signatures.insert(header(&headers, "signature").to_owned()));
+                    let received: EventAdmissionSubmission = serde_json::from_slice(&body).unwrap();
+                    let event = &received.event;
+                    verify_ed25519_detached_jws_proof_with_digest_suite(
+                        event.producer_proof.as_ref().unwrap(),
+                        &EventProofBuilder::new().envelope_bytes(event).unwrap(),
+                        &event.actor_id,
+                        &PublicKeyMaterial::Ed25519Raw {
+                            bytes: public_key.to_bytes().to_vec(),
+                        },
+                        arkret_canonical::DigestSuite::Sha256,
+                    )
+                    .unwrap();
+                    let key = header(&headers, "idempotency-key").to_owned();
+                    if let Some(original) = originals.get(&key) {
+                        assert_eq!(original, &body);
+                    } else {
+                        originals.insert(key, body.clone());
+                    }
+                    // Altering just the covered nonce invalidates this attempt.
+                    let mut altered = headers.clone();
+                    let mut altered_metadata = presented;
+                    altered_metadata.nonce = expected_metadata.nonce.clone();
+                    altered
+                        .iter_mut()
+                        .find(|(name, _)| {
+                            name.eq_ignore_ascii_case(AppletManagedDeviceMetadata::HEADER)
+                        })
+                        .unwrap()
+                        .1 = altered_metadata.to_header_value().unwrap();
+                    assert!(
+                        verify_signed_canonical_json_message(
+                            "POST",
+                            &target,
+                            &address.to_string(),
+                            "/_arkret/self/events",
+                            altered.iter().map(|(name, value)| (name, value)),
+                            false,
+                            &body,
+                            &public_key,
+                            &policy,
+                            chrono::Utc::now().timestamp()
+                        )
+                        .is_err()
+                    );
+                    let status = if attempt < retries {
+                        "503 Service Unavailable"
+                    } else {
+                        "200 OK"
+                    };
+                    stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: 4\r\nConnection: close\r\n\r\nnull").as_bytes()).await.unwrap();
+                }
+                assert_eq!(nonces.len(), retries + 1);
+                assert_eq!(originals.len(), 1);
+            });
+            let client = Client::builder(url::Url::parse(&format!("http://{address}/")).unwrap())
+                .allow_insecure_localhost()
+                .timeout(Duration::from_secs(10))
+                .retry(
+                    RetryConfig {
+                        base_delay: Duration::from_millis(1),
+                        ..RetryConfig::standard(retries)
+                    }
+                    .with_jitter(false),
+                )
+                .build()
+                .unwrap()
+                .with_managed_device_http_signer(
+                    metadata,
+                    station,
+                    HttpMessageSigner::new(method, device_key),
+                )
+                .unwrap();
+            let answer: Value = client
+                .post_with_options(
+                    "/_arkret/self/events",
+                    &submission,
+                    &ClientRequestOptions::new().idempotency_key("same-original-device-event"),
+                )
+                .await
+                .unwrap();
+            assert!(answer.is_null());
+            receiver.await.unwrap();
+            assert_eq!(
+                arkret_canonical::canonical::canonical_json_bytes(&submission).unwrap(),
+                original
+            );
+        }
     }
 }

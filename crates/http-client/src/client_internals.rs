@@ -192,11 +192,6 @@ impl Client {
                         "operation is not eligible for managed Device authentication".into(),
                     ));
                 }
-                let mut metadata = metadata.clone();
-                let mut nonce = [0u8; 16];
-                getrandom::fill(&mut nonce)
-                    .map_err(|e| Error::Protocol(format!("Device nonce entropy: {e}")))?;
-                metadata.nonce = arkret_canonical::base64url_encode(nonce);
                 return Ok(builder
                     .header(
                         arkret_models_integration::AppletManagedDeviceMetadata::HEADER,
@@ -588,6 +583,28 @@ impl Client {
                 "DPoP",
                 HeaderValue::from_str(&proof)
                     .map_err(|error| Error::Protocol(format!("DPoP proof: {error}")))?,
+            );
+        }
+        // Native Device nonces, like DPoP proofs, bind one HTTP attempt. A
+        // retry clones the immutable inner body and operation identity, but
+        // must not replay the nonce already consumed by an earlier attempt.
+        let metadata_header = arkret_models_integration::AppletManagedDeviceMetadata::HEADER;
+        if self.managed_device_signature_identity.is_some()
+            && let Some(value) = request.headers().get(metadata_header)
+        {
+            let value = value
+                .to_str()
+                .map_err(|error| Error::Protocol(format!("Device metadata: {error}")))?;
+            let mut metadata =
+                arkret_models_integration::AppletManagedDeviceMetadata::from_header_value(value)?;
+            let mut nonce = [0u8; 16];
+            getrandom::fill(&mut nonce)
+                .map_err(|error| Error::Protocol(format!("Device nonce entropy: {error}")))?;
+            metadata.nonce = arkret_canonical::base64url_encode(nonce);
+            request.headers_mut().insert(
+                metadata_header,
+                HeaderValue::from_str(&metadata.to_header_value()?)
+                    .map_err(|error| Error::Protocol(format!("Device metadata: {error}")))?,
             );
         }
         let signature_scenario = signature_scenario.or_else(|| {
