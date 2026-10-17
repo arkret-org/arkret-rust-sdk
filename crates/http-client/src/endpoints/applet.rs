@@ -603,4 +603,164 @@ mod native_retry_tests {
             );
         }
     }
+    #[tokio::test]
+    async fn managed_device_claim_binds_original_transaction_id_across_real_http_attempts() {
+        use arkret_models_crypto::{
+            KeyPackagesClaimRequestBody, PeerKeyPackageRequesterAuthorization,
+        };
+        use ed25519_dalek::Signer as _;
+        let key = SigningKey::from_bytes(&[92; 32]);
+        let public = key.verifying_key();
+        let fingerprint = arkret_canonical::ed25519_pubkey_to_did_key_multibase(public.as_bytes());
+        let transport_method = format!("did:key:{fingerprint}#{fingerprint}");
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let account = AccountId::new(
+            DidCoreId::new("ak:did_core:web:managed.example").unwrap(),
+            station.clone(),
+        );
+        let device = DeviceId::new("ak:device:01964137-0000-7000-8000-000000000092").unwrap();
+        let authorization = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [93; 32]);
+        let scope = ScopeRef::Realm {
+            realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [94; 32],
+            )),
+        };
+        let metadata = AppletManagedDeviceMetadata {
+            account_id: account.clone(),
+            device_id: device.clone(),
+            authorization_event_id: authorization.clone(),
+            applet_id: AppletId::new("ak:applet:01964137-0000-7000-8000-000000000092").unwrap(),
+            effective_scope: scope.clone(),
+            nonce: arkret_canonical::base64url_encode([95; 16]),
+        };
+        let method = format!("did:web:managed.example#{device}");
+        let at = arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now());
+        let mut entropy = [0u8; 32];
+        getrandom::fill(&mut entropy).unwrap();
+        let id = arkret_canonical::base64url_encode(entropy);
+        let mut body:KeyPackagesClaimRequestBody=serde_json::from_value(json!({
+            "claim_request_id":id,"target_account_id":account,"requester_account_id":account,"intended_realm_id":scope.realm_id(),"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
+            "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(1)),"target_device_ids":[device],"service_binding":{"source_id":station,"destination_id":station},
+            "requester_authorization":{"kind":"device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","sig":"AA"}}
+        })).unwrap();
+        let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
+            &body.unsigned_request(),
+            &body.service_binding,
+            &body.requester_authorization,
+        )
+        .unwrap();
+        let PeerKeyPackageRequesterAuthorization::Device { signature, .. } =
+            &mut body.requester_authorization
+        else {
+            unreachable!()
+        };
+        *signature = arkret_signatures::keypackages::keypackage_signature_from_bytes(
+            &method,
+            &key.sign(&input).to_bytes(),
+        )
+        .unwrap();
+        body.validate_shape().unwrap();
+        let original = arkret_canonical::canonical_json_bytes(&body).unwrap();
+        let expected = original.clone();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let receiver = tokio::spawn(async move {
+            let policy = SignatureVerificationPolicy::for_scenario(
+                HttpSignatureScenario::AppletManagedDeviceV1,
+                &["content-digest", "idempotency-key"],
+            )
+            .unwrap();
+            let mut nonces = BTreeSet::new();
+            // This receiver verifies the emitted request and signatures only.
+            // It always refuses and never fabricates an accepted claim.
+            for attempt in 0..2 {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let (line, headers, bytes) = read_request(&mut stream).await;
+                assert_eq!(line, "POST /_arkret/self/keys/keypackages/claim HTTP/1.1");
+                assert_eq!(bytes, expected);
+                assert_eq!(header(&headers, "idempotency-key"), id);
+                assert!(!headers.iter().any(|(name, _)| matches!(
+                    name.as_str(),
+                    "authorization" | "dpop" | "source-service-id"
+                )));
+                assert_eq!(
+                    header(&headers, "arkret-operation"),
+                    "ak.self.keys.keypackages.command.claim.v1"
+                );
+                verify_signed_canonical_json_message(
+                    "POST",
+                    &format!("http://{address}/_arkret/self/keys/keypackages/claim"),
+                    &address.to_string(),
+                    "/_arkret/self/keys/keypackages/claim",
+                    headers.iter().map(|(k, v)| (k, v)),
+                    false,
+                    &bytes,
+                    &public,
+                    &policy,
+                    chrono::Utc::now().timestamp(),
+                )
+                .unwrap();
+                let received: KeyPackagesClaimRequestBody = serde_json::from_slice(&bytes).unwrap();
+                let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
+                    &received.unsigned_request(),
+                    &received.service_binding,
+                    &received.requester_authorization,
+                )
+                .unwrap();
+                let PeerKeyPackageRequesterAuthorization::Device {
+                    verification_method,
+                    signature,
+                    ..
+                } = &received.requester_authorization
+                else {
+                    unreachable!()
+                };
+                arkret_signatures::keypackages::verify_keypackage_signing_input(
+                    public.as_bytes(),
+                    verification_method.as_str(),
+                    &input,
+                    signature,
+                )
+                .unwrap();
+                let metadata = AppletManagedDeviceMetadata::from_header_value(header(
+                    &headers,
+                    AppletManagedDeviceMetadata::HEADER,
+                ))
+                .unwrap();
+                assert!(nonces.insert(metadata.nonce));
+                let status = if attempt == 0 {
+                    "503 Service Unavailable"
+                } else {
+                    "400 Bad Request"
+                };
+                stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Type: application/problem+json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}").as_bytes()).await.unwrap();
+            }
+            assert_eq!(nonces.len(), 2);
+        });
+        let client = Client::builder(url::Url::parse(&format!("http://{address}/")).unwrap())
+            .allow_insecure_localhost()
+            .timeout(Duration::from_secs(10))
+            .retry(
+                RetryConfig {
+                    base_delay: Duration::from_millis(1),
+                    ..RetryConfig::standard(1)
+                }
+                .with_jitter(false),
+            )
+            .build()
+            .unwrap()
+            .with_managed_device_http_signer(
+                metadata,
+                station,
+                HttpMessageSigner::new(transport_method, key),
+            )
+            .unwrap();
+        assert!(client.keypackages_claim(&body).await.is_err());
+        receiver.await.unwrap();
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(&body).unwrap(),
+            original
+        );
+    }
 }

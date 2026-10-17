@@ -501,8 +501,12 @@ impl Client {
         &self,
         request: &KeyPackagesClaimRequestBody,
     ) -> Result<KeyPackagesClaimOutcome> {
-        self.post("/_arkret/self/keys/keypackages/claim", request)
-            .await
+        self.post_with_options(
+            "/_arkret/self/keys/keypackages/claim",
+            request,
+            &ClientRequestOptions::new().idempotency_key(request.claim_request_id.as_str()),
+        )
+        .await
     }
 
     pub async fn keypackages_consume(
