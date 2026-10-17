@@ -1376,6 +1376,44 @@ impl AppletInstallRequestBody {
     pub fn applet_package(&self) -> &AppletPackage {
         &self.applet_package
     }
+
+    /// The existing installation originals that record explicit MLS consent.
+    /// This checks declarations only. Acceptance must independently verify the
+    /// admin, original Event proofs, exact grants and current Realm/Circle Policy.
+    pub fn e2ee_join_authorization_refs(&self) -> Result<Vec<EventId>> {
+        let package = &self.applet_package;
+        if package.e2ee_policy.mls_join_requested != Some(true) {
+            return Ok(Vec::new());
+        }
+        let basis = &self.authoring_request_basis;
+        basis.validate()?;
+        if !package.e2ee_policy.enabled
+            || !package
+                .claimed_profiles
+                .iter()
+                .any(|profile| profile == arkret_wire::ProfileId::APPLET_E2EE_JOIN_V1)
+            || !basis.approval_request.e2ee_join_allowed
+            || basis.e2ee_policy.as_ref().and_then(|p| p.mls_join_allowed) != Some(true)
+        {
+            return Err(WireError::Protocol(
+                "applet_e2ee_join_unauthorized: explicit installation MLS consent is absent"
+                    .to_owned(),
+            ));
+        }
+        let mut refs = vec![basis.registration_event.event_id.clone()];
+        refs.extend(
+            basis
+                .capability_grant_events
+                .iter()
+                .map(|event| event.event_id.clone()),
+        );
+        if refs.iter().collect::<std::collections::BTreeSet<_>>().len() != refs.len() {
+            return Err(WireError::Protocol(
+                "applet_e2ee_join_unauthorized: installation originals are not unique".to_owned(),
+            ));
+        }
+        Ok(refs)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
