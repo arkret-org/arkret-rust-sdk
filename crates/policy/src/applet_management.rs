@@ -27,6 +27,9 @@ pub struct AppletManagementContext<'a> {
     /// One actual content action, not an owner aggregate or service operation.
     /// Authorizing multiple actions requires evaluating every action separately.
     pub content_action: Option<CapabilityActionId>,
+    /// A registered, action-free Device control context. Consumers still
+    /// prove the real owner, scope, current installation and native signature.
+    pub device_control: Option<ServiceOperationId>,
     /// Complete actual resource identities, including the exact Realm anchor.
     /// Strand/Space facts are actual scope facts, never navigation ancestors.
     pub resources: Option<&'a [PolicyResourceSelector]>,
@@ -97,10 +100,14 @@ pub fn select_applet_management(
     context: &AppletManagementContext<'_>,
 ) -> Result<AppletManagementDecision, AppletManagementError> {
     let policies = policies.ok_or(AppletManagementError::IncompleteCurrent)?;
+    let scoped_publication = context.operation == AppletPolicyOperation::Execute
+        && context.device_control == Some(ServiceOperationId::SelfKeysKeypackagesUploadCreateV1)
+        && context.content_action.is_none();
     let resources = context
         .resources
         .ok_or(AppletManagementError::InvalidOperationContext)?;
-    if context.effective_scope.realm_id_opt() != Some(context.realm_id)
+    if (context.device_control.is_some() && !scoped_publication)
+        || context.effective_scope.realm_id_opt() != Some(context.realm_id)
         || !resources.iter().any(|resource| {
             resource.kind == PolicyResourceKind::Realm
                 && resource.realm_id.as_ref() == Some(context.realm_id)
@@ -123,7 +130,8 @@ pub fn select_applet_management(
                 | AppletPolicyOperation::Deliver
                 | AppletPolicyOperation::Serve
                 | AppletPolicyOperation::Invoke
-        ) && context.content_action.is_none())
+        ) && context.content_action.is_none()
+            && !scoped_publication)
     {
         return Err(AppletManagementError::InvalidOperationContext);
     }
@@ -324,6 +332,7 @@ mod tests {
         }];
         let at = "2026-10-16T00:00:00.000Z".parse().unwrap();
         let context = AppletManagementContext {
+            device_control: None,
             realm_id: &realm,
             requester_actor_id: &requester,
             applet_id: &applet,
@@ -412,6 +421,7 @@ mod tests {
             resource_ref: Some(realm.to_string()),
         }];
         let context = AppletManagementContext {
+            device_control: None,
             realm_id: &realm,
             requester_actor_id: &requester,
             applet_id: &applet,
@@ -455,6 +465,64 @@ mod tests {
         assert_eq!(
             evaluate_applet_management(Some(&[review]), &context),
             Ok(PolicyEffect::Deny)
+        );
+    }
+    #[test]
+    fn keypackage_device_control_is_explicit_and_cannot_replace_a_business_action() {
+        let realm = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [44; 32],
+        ));
+        let scope = ScopeRef::Realm {
+            realm_id: realm.clone(),
+        };
+        let applet = AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap();
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            "ak:did_core:web:managed.example".parse().unwrap(),
+            "ak:did_core:web:station.example".parse().unwrap(),
+        ));
+        let resources = [PolicyResourceSelector {
+            kind: PolicyResourceKind::Realm,
+            realm_id: Some(realm.clone()),
+            resource_ref: Some(realm.to_string()),
+        }];
+        let mut context = AppletManagementContext {
+            realm_id: &realm,
+            requester_actor_id: &actor,
+            applet_id: &applet,
+            effective_scope: &scope,
+            managed_actor_id: Some(&actor),
+            operation: AppletPolicyOperation::Execute,
+            content_action: None,
+            device_control: Some(ServiceOperationId::SelfKeysKeypackagesUploadCreateV1),
+            resources: Some(&resources),
+            at: Utc::now(),
+        };
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Ok(PolicyEffect::Allow)
+        );
+        context.device_control = None;
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Err(AppletManagementError::InvalidOperationContext)
+        );
+        context.device_control = Some(ServiceOperationId::SelfEventsCommandSubmitV1);
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Err(AppletManagementError::InvalidOperationContext)
+        );
+        context.device_control = Some(ServiceOperationId::SelfKeysKeypackagesUploadCreateV1);
+        context.content_action = Some(CapabilityActionId::MessageCreate);
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Err(AppletManagementError::InvalidOperationContext)
+        );
+        context.content_action = None;
+        context.operation = AppletPolicyOperation::Read;
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Err(AppletManagementError::InvalidOperationContext)
         );
     }
 }
