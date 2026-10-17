@@ -1401,14 +1401,6 @@
       "schema": "call-invitation-operations.schema.json#/$defs/voluntary_join_context"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaRosterIdentity",
-      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallMediaSubjectBinding",
-      "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallRefreshJoinContext",
       "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context"
     },

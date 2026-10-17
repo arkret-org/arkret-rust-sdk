@@ -4116,6 +4116,61 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/agent_session_authority.rs::read_at_cut:844e09119b2b8947",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/agent_session_authority.rs::read_at_cut:b1a22febe07fe47a",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::release_in_connection:7a32af1e173bbca7",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::release_in_connection:f0466a5a1f7aa3c1",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::write_axes:3ef465915c0c3004",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
       "path": "coland/crates/storage-postgres/src/morph_projection_reads.rs",
       "symbol": "comments_for_document",
       "data_field": "body,content",
@@ -4308,17 +4363,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/state/account_decode.rs::run_browser_retired_account_contract:1907cebbd83044f5",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:inkson/src/views/chat/composer/commands.rs::send_encrypted_message:a5525d8ff7042b4e",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
@@ -4376,7 +4420,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/global_search.rs::local_decrypted_index_search:7743b4722018f6c6",
+      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local:0de6862782c6cf20",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4387,7 +4431,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/global_search.rs::local_decrypted_index_search:8a6b57e644bab54d",
+      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local:33cd123dd34bb0e8",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4515,7 +4559,7 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/admin/queries.rs::admin_list_capabilities:104cb43b62e8ad14",
+      "finding": "json_path_mutation:coland/crates/http/src/routing/admin/queries.rs::admin_list_capabilities:4c7bacacdf01920b",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

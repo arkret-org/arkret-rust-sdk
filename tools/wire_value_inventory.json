@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 474,
+    "total": 478,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -71,7 +71,7 @@
     },
     "by_category": {
       "closed_dispatch": 1,
-      "json_authoring": 61,
+      "json_authoring": 65,
       "json_path_mutation": 68,
       "paired_api": 14,
       "public_value_field": 330
@@ -80,15 +80,15 @@
       "independent": 13,
       "internal_or_fixture": 14,
       "open_json": 75,
-      "polymorphic_boundary": 372
+      "polymorphic_boundary": 376
     },
     "by_lifecycle": {
-      "retained_boundary": 474
+      "retained_boundary": 478
     },
     "by_decision": {
       "independent": 13,
       "open": 75,
-      "raw": 386
+      "raw": 390
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 182,
@@ -96,18 +96,18 @@
       "chime": 3,
       "coauth": 44,
       "codmin": 1,
-      "coland": 182,
+      "coland": 187,
       "flagon": 1,
       "floria": 12,
       "garth": 3,
-      "inkson": 42
+      "inkson": 41
     },
     "by_schema_shape": {
       "closed": 8,
       "open_json": 2,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 394
+      "unknown": 398
     }
   },
   "entries": [
@@ -8199,7 +8199,7 @@
       "field": "member_identity_events",
       "discriminator": null,
       "data_field": "member_identity_events",
-      "rust_type": "BTreeMap<String, BTreeMap<String, Vec<Value>>>",
+      "rust_type": "im::OrdMap<String, im::OrdMap<String, super::account_items::Shared<Vec<Value>>>>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8209,7 +8209,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public BTreeMap<String, BTreeMap<String, Vec<Value>>> field"
+      "evidence": "public im::OrdMap<String, im::OrdMap<String, super::account_items::Shared<Vec<Value>>>> field"
     },
     {
       "finding": "inkson/src/state/types.rs::ClientLocalState.presence_projection",
@@ -8224,7 +8224,7 @@
       "field": "presence_projection",
       "discriminator": null,
       "data_field": "presence_projection",
-      "rust_type": "Vec<Value>",
+      "rust_type": "super::account_items::Shared<Vec<Value>>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8234,7 +8234,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public super::account_items::Shared<Vec<Value>> field"
     },
     {
       "finding": "inkson/src/state/types.rs::ClientLocalState.realm_tree_projections",
@@ -8249,7 +8249,7 @@
       "field": "realm_tree_projections",
       "discriminator": null,
       "data_field": "realm_tree_projections",
-      "rust_type": "BTreeMap<String, Value>",
+      "rust_type": "im::OrdMap<String, Value>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8259,7 +8259,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public BTreeMap<String, Value> field"
+      "evidence": "public im::OrdMap<String, Value> field"
     },
     {
       "finding": "inkson/src/state/types.rs::ClientLocalState.saved_account_data",
@@ -8274,7 +8274,7 @@
       "field": "saved_account_data",
       "discriminator": null,
       "data_field": "saved_account_data",
-      "rust_type": "BTreeMap<String, Value>",
+      "rust_type": "im::OrdMap<String, Value>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8284,7 +8284,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public BTreeMap<String, Value> field"
+      "evidence": "public im::OrdMap<String, Value> field"
     },
     {
       "finding": "inkson/src/state/types.rs::ClientLocalState.scheduled_send_account_data",
@@ -8299,7 +8299,7 @@
       "field": "scheduled_send_account_data",
       "discriminator": null,
       "data_field": "scheduled_send_account_data",
-      "rust_type": "BTreeMap<String, Value>",
+      "rust_type": "im::OrdMap<String, Value>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8309,7 +8309,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public BTreeMap<String, Value> field"
+      "evidence": "public im::OrdMap<String, Value> field"
     },
     {
       "finding": "inkson/src/state/types.rs::ClientLocalState.to_device_inbox",
@@ -8324,7 +8324,7 @@
       "field": "to_device_inbox",
       "discriminator": null,
       "data_field": "to_device_inbox",
-      "rust_type": "Vec<Value>",
+      "rust_type": "super::account_items::Shared<Vec<Value>>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "polymorphic_boundary",
@@ -8334,7 +8334,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public super::account_items::Shared<Vec<Value>> field"
     },
     {
       "finding": "inkson/src/state/types.rs::RawOperationRecord.payload",
@@ -9162,6 +9162,131 @@
       "evidence": "json!({ \"action\": arkret_wire::CapabilityActionId::AGENT_KEY_AUTHORIZE, \"outcome\": \"accepted\", \"reason_code\": arkret_wire::ReasonCode::SUPERSEDED_BY_REPAIRING, \"event_id\": event.event_id, \"commit_id\": commit.commit_id, \"realm_id\": event.realm_id, \"agent_id\": payload.agent_id, ..."
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/agent_session_authority.rs::read_at_cut:844e09119b2b8947",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/agent_session_authority.rs",
+      "path": "coland/crates/storage-postgres/src/agent_session_authority.rs",
+      "owner": "read_at_cut",
+      "owner_repository": "coland",
+      "symbol": "read_at_cut",
+      "field": "kind,realm_id",
+      "discriminator": "kind",
+      "data_field": "kind,realm_id",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
+      "evidence": "serde_json::json!({\"kind\":\"realm\",\"realm_id\":realm})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/agent_session_authority.rs::read_at_cut:b1a22febe07fe47a",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/agent_session_authority.rs",
+      "path": "coland/crates/storage-postgres/src/agent_session_authority.rs",
+      "owner": "read_at_cut",
+      "owner_repository": "coland",
+      "symbol": "read_at_cut",
+      "field": "kind,realm_id",
+      "discriminator": "kind",
+      "data_field": "kind,realm_id",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
+      "evidence": "serde_json::json!({\"kind\":\"strand\",\"realm_id\":realm,\"resource_ref\":strand})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::release_in_connection:7a32af1e173bbca7",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "path": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "owner": "release_in_connection",
+      "owner_repository": "coland",
+      "symbol": "release_in_connection",
+      "field": "kind,realm_id",
+      "discriminator": "kind",
+      "data_field": "kind,realm_id",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
+      "evidence": "serde_json::json!({\"kind\":\"circle\",\"realm_id\":realm_id,\"circle_id\":circle_id})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::release_in_connection:f0466a5a1f7aa3c1",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "path": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "owner": "release_in_connection",
+      "owner_repository": "coland",
+      "symbol": "release_in_connection",
+      "field": "kind,realm_id",
+      "discriminator": "kind",
+      "data_field": "kind,realm_id",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
+      "evidence": "serde_json::json!({\"kind\":\"realm\",\"realm_id\":realm_id})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::write_axes:3ef465915c0c3004",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "path": "coland/crates/storage-postgres/src/call_state_current_results.rs",
+      "owner": "write_axes",
+      "owner_repository": "coland",
+      "symbol": "write_axes",
+      "field": "call_id,kind",
+      "discriminator": "kind",
+      "data_field": "call_id,kind",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
+      "evidence": "serde_json::json!({\"kind\":kind,\"call_id\":call})"
+    },
+    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/morph_projection_reads.rs::comments_for_document:980f2870b73f34c0",
       "category": "json_authoring",
       "rust_field": null,
@@ -9562,31 +9687,6 @@
       "evidence": "serde_json::json!({ \"service_id\": service_id.map(arkret_sdk::DidCoreId::as_str), \"actor_id\": actor_id, \"device_id\": device_id.as_str(), })"
     },
     {
-      "finding": "json_authoring:inkson/src/state/account_decode.rs::run_browser_retired_account_contract:1907cebbd83044f5",
-      "category": "json_authoring",
-      "rust_field": null,
-      "crate": null,
-      "file": "inkson/src/state/account_decode.rs",
-      "path": "inkson/src/state/account_decode.rs",
-      "owner": "run_browser_retired_account_contract",
-      "owner_repository": "inkson",
-      "symbol": "run_browser_retired_account_contract",
-      "field": "event_id,kind",
-      "discriminator": "kind",
-      "data_field": "event_id,kind",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "serde_json::json!([{ \"event\":{\"event_id\":\"retired\",\"kind\":\"ak.message.create\",\"actor_seq\":7}, \"accepted_ref\":{} }])"
-    },
-    {
       "finding": "json_authoring:inkson/src/views/chat/composer/commands.rs::send_encrypted_message:a5525d8ff7042b4e",
       "category": "json_authoring",
       "rust_field": null,
@@ -9712,15 +9812,15 @@
       "evidence": "json!({ \"kind\": event_kind_str::MESSAGE_CREATE, \"event_id\": message.id.clone(), \"realm_id\": message.realm_id.clone(), \"strand_id\": message.strand_id.clone(), \"actor_id\": actor_id, \"created_at\": arkret_sdk::canonical::format_timestamp_canonical(redacted_at), })"
     },
     {
-      "finding": "json_authoring:inkson/src/views/global_search.rs::local_decrypted_index_search:7743b4722018f6c6",
+      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local:0de6862782c6cf20",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
       "file": "inkson/src/views/global_search.rs",
       "path": "inkson/src/views/global_search.rs",
-      "owner": "local_decrypted_index_search",
+      "owner": "search_local",
       "owner_repository": "inkson",
-      "symbol": "local_decrypted_index_search",
+      "symbol": "search_local",
       "field": "body",
       "discriminator": null,
       "data_field": "body",
@@ -9734,18 +9834,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "serde_json::json!({ \"event_id\": event.event_id.as_deref(), \"strand_id\": event.strand_id.as_deref(), \"body\": event.body.as_str(), })"
+      "evidence": "json!({\"event_id\": message.id, \"strand_id\": message.strand_id, \"body\": body})"
     },
     {
-      "finding": "json_authoring:inkson/src/views/global_search.rs::local_decrypted_index_search:8a6b57e644bab54d",
+      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local:33cd123dd34bb0e8",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
       "file": "inkson/src/views/global_search.rs",
       "path": "inkson/src/views/global_search.rs",
-      "owner": "local_decrypted_index_search",
+      "owner": "search_local",
       "owner_repository": "inkson",
-      "symbol": "local_decrypted_index_search",
+      "symbol": "search_local",
       "field": "body,content",
       "discriminator": "kind",
       "data_field": "body,content",
@@ -9759,7 +9859,7 @@
       "action": "Retain as a local UI search-result object; never route it to protocol authoring.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "kind=\"message\" is a local search-result category, not an Arkret EventKind; content is presentation data and no field selects an Event payload schema.",
-      "evidence": "json!({ \"realm_id\": realm_id, \"kind\": \"message\", \"surface\": \"message\", \"event_id\": event_ref, \"message_id\": event_ref, \"actor_id\": event.sender, \"content\": { \"body\": body }, \"index_profile\": arkret_sdk::ProfileId::SEARCH_CLIENT_INDEX_V1, \"index_source\": \"local_decrypted_client..."
+      "evidence": "json!({ \"realm_id\": message.realm_id, \"strand_id\": message.strand_id, \"kind\": \"message\", \"surface\": \"message\", \"event_id\": message.id, \"message_id\": message.id, \"actor_id\": original.event.actor_id, \"covering_commit\": original.commit, \"content\": {\"body\": body}, \"source_event_id..."
     },
     {
       "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:5fc6f9254f46ba31",
@@ -9987,7 +10087,7 @@
       "evidence": "filters.insert(\"status\".to_owned(), raw);"
     },
     {
-      "finding": "json_path_mutation:coland/crates/http/src/routing/admin/queries.rs::admin_list_capabilities:104cb43b62e8ad14",
+      "finding": "json_path_mutation:coland/crates/http/src/routing/admin/queries.rs::admin_list_capabilities:4c7bacacdf01920b",
       "category": "json_path_mutation",
       "rust_field": null,
       "crate": null,
@@ -10009,7 +10109,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
-      "evidence": "filters.insert(\"realm_id\".to_owned(), realm.clone());"
+      "evidence": "filters.insert(\"realm_id\".to_owned(), realm.to_string());"
     },
     {
       "finding": "json_path_mutation:coland/crates/http/src/routing/admin/queries.rs::admin_list_capabilities:be215aaef3f867d6",

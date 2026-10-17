@@ -2,10 +2,7 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/call-invitation-operations.schema.json
-//! sha256=96619c1b09e1c7b37350464b6802f1fe91f03b12273e738179b820da2b49aa43
-//!
-//! Input: schemas/service-operation-dtos.schema.json
-//! sha256=13ad6809e32efa463de5ce3fa44c9e3ae788db50bc7a1973f56c0e988a901020
+//! sha256=9a61991cfa249e3408148adab0261a5005337c5591ea4bd6eda2fad6653186be
 //!
 //! Input: schemas/typed-current-result.schema.json
 //! sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
@@ -14,7 +11,7 @@
 //! sha256=90c045bc2fadaa4481370039731723349f25656f7d89c24668082fe0a0a5fd48
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
+//! sha256=6fcfadb0c7e06a31e4528be5ebd9b087cda5b2394c144df9292de9b946c7d7a8
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -202,35 +199,6 @@ pub struct CallVoluntaryJoinContext {
     pub proof: CallVoluntaryJoinProof,
 }
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity`.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct CallMediaRosterIdentity {
-    pub actor_id: arkret_wire::DidCoreId,
-    pub device_id: arkret_wire::DeviceId,
-}
-
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding`.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct CallMediaSubjectBinding {
-    pub realm_id: arkret_wire::RealmId,
-    pub call_id: arkret_wire::CallId,
-    pub subject_actor_id: arkret_wire::ActorId,
-    pub subject_device_id: arkret_wire::DeviceId,
-    pub roster_identity: CallMediaRosterIdentity,
-    pub focus_id: String,
-    pub participant_id: String,
-    pub media: CallInvitationMedia,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub nonce: String,
-    pub issuer_kid: arkret_wire::DidUrl,
-    pub sig: String,
-}
-
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/refresh_join_context`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -238,7 +206,6 @@ pub struct CallMediaSubjectBinding {
 pub struct CallRefreshJoinContext {
     pub kind: CallRefreshJoinKind,
     pub participant_id: String,
-    pub subject_binding: CallMediaSubjectBinding,
 }
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/join_context`.
