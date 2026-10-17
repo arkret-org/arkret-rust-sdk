@@ -288,6 +288,7 @@ impl KeyPackageClaimRecord {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackageUploadEntry {
+    #[serde(deserialize_with = "deserialize_mls_keypackage_identity")]
     pub keypackage_id: String,
     pub keypackage_ref: String,
     pub keypackage: Base64UrlString,
@@ -305,6 +306,40 @@ pub struct KeyPackageUploadEntry {
         deserialize_with = "deserialize_upload_last_resort"
     )]
     pub last_resort: Option<bool>,
+}
+
+pub(crate) fn validate_mls_keypackage_identity(
+    value: &str,
+) -> std::result::Result<(), &'static str> {
+    let Some(suffix) = value.strip_prefix("ak:mls:kp:") else {
+        return Err("KeyPackage identity must use ak:mls:kp:<canonical UUIDv7>");
+    };
+    let bytes = suffix.as_bytes();
+    if bytes.len() != 36
+        || bytes[14] != b'7'
+        || !matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
+        || !bytes.iter().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                *byte == b'-'
+            } else {
+                byte.is_ascii_digit() || matches!(*byte, b'a'..=b'f')
+            }
+        })
+    {
+        return Err("KeyPackage identity must use ak:mls:kp:<canonical UUIDv7>");
+    }
+    Ok(())
+}
+
+fn deserialize_mls_keypackage_identity<'de, D>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    validate_mls_keypackage_identity(&value).map_err(serde::de::Error::custom)?;
+    Ok(value)
 }
 
 fn deserialize_upload_last_resort<'de, D>(

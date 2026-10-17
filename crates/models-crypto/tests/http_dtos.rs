@@ -658,3 +658,78 @@ fn terminal_receipt_optional_refs_follow_the_terminal_state() {
         .validate_shape()
         .unwrap();
 }
+
+#[test]
+fn keypackage_upload_identity_matches_registered_schema_and_precedes_signing() {
+    use arkret_models_crypto::{KeyPackageUploadEntry, KeyPackagesUploadUnsignedRequest};
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/keypackage-write-transcript-fixture.json",
+    )
+    .unwrap();
+    let unsigned = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "upload_batch_required_fields")
+        .unwrap()["unsigned_request"]
+        .clone();
+    let entry = unsigned["keypackages"][0].clone();
+    let mut registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
+        .unwrap()
+        .expect("this conformance test requires the formal spec checkout");
+    let schema =
+        arkret_schema_conformance::spec_json_artifact("schemas/keypackage-operations.schema.json")
+            .unwrap();
+    registry
+        .register_fragment(
+            "test:mls_keypackage_entry",
+            schema,
+            "#/$defs/keypackage_upload_entry",
+        )
+        .unwrap();
+    registry
+        .validate_value("test:mls_keypackage_entry", &entry)
+        .unwrap();
+    let original: KeyPackagesUploadUnsignedRequest = serde_json::from_value(unsigned).unwrap();
+    assert!(arkret_models_crypto::keypackages_upload_signing_input(&original).is_ok());
+    for invalid in [
+        "opaque-package",
+        "ak:mls:kp:",
+        "ak:mls:kp:01964137-0000-4000-8000-000000000001",
+        "ak:mls:kp:01964137-0000-7000-7000-000000000001",
+        "ak:mls:kp:01964137-0000-7000-c000-000000000001",
+        "ak:mls:kp:01964137-0000-7000-8000-00000000000A",
+        "ak:mls:kp:01964137-0000-7000-8000-000000000001x",
+        "ak:mls:kp:01964137000070008000000000000001",
+    ] {
+        let mut wire = entry.clone();
+        wire["keypackage_id"] = json!(invalid);
+        assert!(
+            registry
+                .validate_value("test:mls_keypackage_entry", &wire)
+                .is_err(),
+            "{invalid}"
+        );
+        assert!(
+            serde_json::from_value::<KeyPackageUploadEntry>(wire).is_err(),
+            "{invalid}"
+        );
+        let mut body = original.clone();
+        body.keypackages[0].keypackage_id = invalid.to_owned();
+        assert!(body.validate_shape().is_err(), "{invalid}");
+        assert!(
+            arkret_models_crypto::keypackages_upload_signing_input(&body).is_err(),
+            "{invalid}"
+        );
+    }
+    let mut duplicate = original;
+    duplicate.keypackages.push(duplicate.keypackages[0].clone());
+    assert!(duplicate.validate_shape().is_err());
+    assert!(arkret_models_crypto::keypackages_upload_signing_input(&duplicate).is_err());
+    assert!(
+        serde_json::from_value::<KeyPackagesUploadUnsignedRequest>(
+            serde_json::to_value(duplicate).unwrap()
+        )
+        .is_err()
+    );
+}

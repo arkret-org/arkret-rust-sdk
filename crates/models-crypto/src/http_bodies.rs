@@ -277,6 +277,13 @@ impl KeyPackagesUploadUnsignedRequest {
         if self.keypackages.is_empty() {
             return Err("KeyPackage upload requires at least one entry");
         }
+        let mut identities = BTreeSet::new();
+        for entry in &self.keypackages {
+            crate::artifacts_keys::validate_mls_keypackage_identity(&entry.keypackage_id)?;
+            if !identities.insert(entry.keypackage_id.as_str()) {
+                return Err("KeyPackage upload requires unique KeyPackage identities");
+            }
+        }
         match (
             &self.device_id,
             &self.agent_verification_method,
