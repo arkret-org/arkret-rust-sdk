@@ -1,7 +1,7 @@
 //! RFC 9180 HPKE base-mode helpers for the Arkret X25519 profile.
 //!
-//! This module owns only the cryptographic framing shared by current backup
-//! protocols. Callers provide protocol-specific `info` and AAD bytes and must
+//! This module owns only the cryptographic framing shared by Device delegation
+//! and current backup protocols. Callers provide protocol-specific `info` and AAD bytes and must
 //! keep those domains distinct.
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
@@ -9,6 +9,7 @@ use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;
 use hpke::{Deserializable, OpModeR, OpModeS, Serializable, single_shot_open, single_shot_seal};
+use zeroize::Zeroizing;
 
 use crate::{Error, Result};
 
@@ -17,6 +18,62 @@ type HpkeAead = ChaCha20Poly1305;
 type HpkeKdf = HkdfSha256;
 
 const HPKE_ENCAPSULATED_KEY_LEN: usize = 32;
+
+/// Independently generated RFC 9180 Device key material. Hosts must make the
+/// private bytes durable in encrypted custody before publishing the public key.
+pub struct X25519HpkeKeyPair {
+    private_key: Zeroizing<Vec<u8>>,
+    public_key: [u8; 32],
+}
+
+impl std::fmt::Debug for X25519HpkeKeyPair {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("X25519HpkeKeyPair")
+            .field("private_key", &"<redacted>")
+            .field("public_key", &self.public_key)
+            .finish()
+    }
+}
+
+impl X25519HpkeKeyPair {
+    pub fn private_key(&self) -> &[u8] {
+        self.private_key.as_slice()
+    }
+
+    pub fn public_key(&self) -> &[u8; 32] {
+        &self.public_key
+    }
+}
+
+pub fn generate_x25519_keypair() -> Result<X25519HpkeKeyPair> {
+    let mut entropy_probe = [0_u8; 1];
+    getrandom::fill(&mut entropy_probe).map_err(|error| {
+        Error::Crypto(format!("OS CSPRNG unavailable for HPKE keygen: {error}"))
+    })?;
+    let (private_key, public_key) = <HpkeKem as hpke::Kem>::gen_keypair();
+    let public_key = public_key
+        .to_bytes()
+        .as_slice()
+        .try_into()
+        .map_err(|_| Error::Crypto("HPKE generated a non-X25519 public key".into()))?;
+    Ok(X25519HpkeKeyPair {
+        private_key: Zeroizing::new(private_key.to_bytes().to_vec()),
+        public_key,
+    })
+}
+
+/// Recompute the public half when restoring encrypted Device custody.
+pub fn x25519_public_key(private_key: &[u8]) -> Result<[u8; 32]> {
+    let private_key = <HpkeKem as hpke::Kem>::PrivateKey::from_bytes(private_key)
+        .map_err(|_| Error::Protocol("Device HPKE private key must be 32-byte X25519".into()))?;
+    let public_key = <HpkeKem as hpke::Kem>::sk_to_pk(&private_key);
+    public_key
+        .to_bytes()
+        .as_slice()
+        .try_into()
+        .map_err(|_| Error::Crypto("HPKE returned a non-X25519 public key".into()))
+}
 
 /// Encrypt one plaintext with RFC 9180 base mode using
 /// DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, and ChaCha20-Poly1305.
@@ -99,6 +156,46 @@ pub fn open_x25519_chacha20poly1305(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn independently_generated_device_keys_open_only_their_own_hpke_delivery() {
+        let first = generate_x25519_keypair().unwrap();
+        let second = generate_x25519_keypair().unwrap();
+        assert_eq!(first.private_key().len(), 32);
+        assert_ne!(first.public_key(), second.public_key());
+        assert_ne!(first.private_key(), second.private_key());
+        assert_eq!(
+            x25519_public_key(first.private_key()).unwrap(),
+            *first.public_key()
+        );
+        let sealed = seal_x25519_chacha20poly1305(
+            first.public_key(),
+            b"durable Device secret",
+            b"device runtime test",
+            b"full Account and scope",
+        )
+        .unwrap();
+        assert_eq!(
+            open_x25519_chacha20poly1305(
+                first.private_key(),
+                &sealed,
+                b"device runtime test",
+                b"full Account and scope",
+            )
+            .unwrap(),
+            b"durable Device secret"
+        );
+        assert!(
+            open_x25519_chacha20poly1305(
+                second.private_key(),
+                &sealed,
+                b"device runtime test",
+                b"full Account and scope",
+            )
+            .is_err()
+        );
+        assert!(!format!("{first:?}").contains(&base64url_encode(first.private_key())));
+    }
 
     fn keypair() -> (Vec<u8>, Vec<u8>) {
         let (private_key, public_key) = <HpkeKem as hpke::Kem>::gen_keypair();

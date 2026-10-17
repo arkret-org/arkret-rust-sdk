@@ -433,7 +433,10 @@ mod native_retry_tests {
             .unwrap();
             sign_event(
                 &mut authored,
-                &Ed25519DetachedJwsSigner::new(device_key.clone(), method.clone()),
+                &Ed25519DetachedJwsSigner::new(
+                    device_key.clone(),
+                    format!("did:web:managed.example#{}", metadata.device_id),
+                ),
                 SignEventOptions::new()
                     .with_created_at("2026-10-17T00:00:00.000Z".parse().unwrap()),
             )
@@ -511,6 +514,9 @@ mod native_retry_tests {
                     assert!(signatures.insert(header(&headers, "signature").to_owned()));
                     let received: EventAdmissionSubmission = serde_json::from_slice(&body).unwrap();
                     let event = &received.event;
+                    let producer = event.human_device_producer().unwrap().unwrap();
+                    assert_eq!(producer.account_id, expected_metadata.account_id);
+                    assert_eq!(producer.device_id, expected_metadata.device_id);
                     verify_ed25519_detached_jws_proof_with_digest_suite(
                         event.producer_proof.as_ref().unwrap(),
                         &EventProofBuilder::new().envelope_bytes(event).unwrap(),
