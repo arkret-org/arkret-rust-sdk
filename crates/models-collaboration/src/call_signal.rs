@@ -1,6 +1,8 @@
 //! Closed plaintext carried by encrypted `ak.call.signal` envelopes.
 
-use arkret_wire::{CallId, DeviceId, DidCoreId, NonEmptyString, Result, WireError, canonical};
+use arkret_wire::{
+    ActorId, CallId, DeviceId, DidCoreId, NonEmptyString, Result, WireError, canonical,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -238,7 +240,7 @@ pub enum CallModerationAction {
 pub struct CallModerationSignalData {
     pub action: CallModerationAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<DidCoreId>,
+    pub target_actor_id: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -247,10 +249,18 @@ pub struct CallModerationSignalData {
 
 impl CallModerationSignalData {
     pub fn validate(&self) -> Result<()> {
-        let needs_target = self.action != CallModerationAction::EndForAll;
-        let has_target = self.target_actor_id.is_some()
-            && (self.action == CallModerationAction::Ban || self.target_device_id.is_some());
-        if needs_target != has_target {
+        let valid_target = match self.action {
+            CallModerationAction::Kick => {
+                self.target_actor_id.is_some() && self.target_device_id.is_some()
+            }
+            CallModerationAction::Ban => {
+                self.target_actor_id.is_some() && self.target_device_id.is_none()
+            }
+            CallModerationAction::EndForAll => {
+                self.target_actor_id.is_none() && self.target_device_id.is_none()
+            }
+        };
+        if !valid_target {
             return Err(WireError::Protocol(
                 "kick/ban moderation requires its target; end_for_all forbids a target".to_owned(),
             ));

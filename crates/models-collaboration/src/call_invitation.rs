@@ -234,17 +234,6 @@ impl ConsentCurrentReadOutcome {
     }
 }
 
-impl CallMediaSubjectBinding {
-    pub fn signature_input(&self) -> arkret_wire::Result<Vec<u8>> {
-        if !valid_nonce(&self.nonce) {
-            return Err(arkret_wire::WireError::Protocol(
-                "private subject receipt nonce is invalid".to_owned(),
-            ));
-        }
-        domain_signing_input("ak.media.subject_binding.v1", self, "sig")
-    }
-}
-
 impl CallInvitationMedia {
     pub fn from_selection(media: &crate::call_signal::CallMediaSelection) -> Self {
         Self {

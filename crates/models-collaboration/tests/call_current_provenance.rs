@@ -33,6 +33,13 @@ fn revision(commit: &RealmCommit) -> CurrentRevision {
     }
 }
 
+fn participant_actor(station: &str) -> arkret_wire::ActorId {
+    arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+        "ak:did_core:web:participant.example".parse().unwrap(),
+        station.parse().unwrap(),
+    ))
+}
+
 fn join(commit: RealmCommit, device: &str) -> CallRosterAssertion {
     CallRosterAssertion {
         tag_id: CanonicalEventDot::new(commit.event_ref.clone(), 7)
@@ -40,7 +47,7 @@ fn join(commit: RealmCommit, device: &str) -> CallRosterAssertion {
             .to_string(),
         source_commit: commit,
         value: serde_json::from_value(json!({"op":"join", "participant":{
-            "actor_id":"ak:did_core:web:anonymous.example", "device_id":device
+            "actor_id":participant_actor("ak:did_core:web:station.example"), "device_id":device
         }}))
         .unwrap(),
     }
@@ -66,7 +73,7 @@ fn complete_roster_folds_by_commit_order_and_leave_guards_whole_axis() {
             .to_string(),
         source_commit: leave.clone(),
         value: CallRosterDelta::Leave {
-            actor_id: "ak:did_core:web:anonymous.example".parse().unwrap(),
+            actor_id: participant_actor("ak:did_core:web:station.example"),
             device_id: "first".into(),
             expected_revision: expected,
         },
@@ -130,6 +137,49 @@ fn immutable_provenance_rejects_conflicting_dots_streams_and_duplicate_positions
             .validate_for_axis(&first.stream_ref, &revision(&first))
             .is_err()
     );
+}
+
+#[test]
+fn roster_keeps_same_principal_at_different_stations_separate() {
+    let first = commit(0x11, 3);
+    let second = commit(0x22, 5);
+    let mut other_station = join(second.clone(), "same-device");
+    let CallRosterDelta::Join { participant } = &mut other_station.value else {
+        unreachable!()
+    };
+    participant.actor_id = participant_actor("ak:did_core:web:other-station.example");
+    let roster = CallRosterCurrentValue { assertions: vec![] }
+        .with_assertion(join(first, "same-device"))
+        .unwrap()
+        .with_assertion(other_station)
+        .unwrap();
+    assert_eq!(roster.effective_participants().unwrap().len(), 2);
+    let left = commit(0x33, 8);
+    let roster = roster
+        .with_assertion(CallRosterAssertion {
+            tag_id: CanonicalEventDot::new(left.event_ref.clone(), 7)
+                .unwrap()
+                .to_string(),
+            source_commit: left.clone(),
+            value: CallRosterDelta::Leave {
+                actor_id: participant_actor("ak:did_core:web:station.example"),
+                device_id: "same-device".into(),
+                expected_revision: revision(&second),
+            },
+        })
+        .unwrap();
+    roster
+        .validate_for_axis(&left.stream_ref, &revision(&left))
+        .unwrap();
+    let active = roster.effective_participants().unwrap();
+    assert_eq!(active.len(), 1);
+    assert_eq!(
+        active[0].actor_id,
+        participant_actor("ak:did_core:web:other-station.example")
+    );
+    assert!(serde_json::from_value::<CallRosterDelta>(json!({
+        "op":"join", "participant":{"actor_id":"ak:did_core:web:participant.example","device_id":"same-device"}
+    })).is_err());
 }
 
 #[test]

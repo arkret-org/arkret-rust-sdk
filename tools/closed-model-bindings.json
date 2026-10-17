@@ -28,8 +28,6 @@
     "call-invitation-operations.schema.json#/$defs/delivery_view": "crate::call_invitation::CallInvitationDeliveryView",
     "call-invitation-operations.schema.json#/$defs/invitation_join_context": "crate::call_invitation::CallInvitationJoinContext",
     "call-invitation-operations.schema.json#/$defs/voluntary_join_context": "crate::call_invitation::CallVoluntaryJoinContext",
-    "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity": "crate::call_invitation::CallMediaRosterIdentity",
-    "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding": "crate::call_invitation::CallMediaSubjectBinding",
     "call-invitation-operations.schema.json#/$defs/refresh_join_context": "crate::call_invitation::CallRefreshJoinContext",
     "call-invitation-operations.schema.json#/$defs/join_context": "crate::call_invitation::CallMediaJoinContext",
     "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind": "crate::call_invitation::ConsentCurrentSelectorKind",
@@ -13435,12 +13433,6 @@
                 "type": "DidUrl",
                 "attributes": []
               },
-              "subject_binding_digest": {
-                "name": "subject_binding_digest",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              },
               "sig": {
                 "name": "sig",
                 "visibility": "pub",
@@ -14709,120 +14701,6 @@
           }
         },
         {
-          "name": "CallMediaRosterIdentity",
-          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaRosterIdentity",
-          "rust": {
-            "signature": "pub struct CallMediaRosterIdentity",
-            "attributes": [
-              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "actor_id": {
-                "name": "actor_id",
-                "visibility": "pub",
-                "type": "arkret_wire::DidCoreId",
-                "attributes": []
-              },
-              "device_id": {
-                "name": "device_id",
-                "visibility": "pub",
-                "type": "arkret_wire::DeviceId",
-                "attributes": []
-              }
-            }
-          }
-        },
-        {
-          "name": "CallMediaSubjectBinding",
-          "schema": "service-operation-dtos.schema.json#/$defs/CallMediaSubjectBinding",
-          "rust": {
-            "signature": "pub struct CallMediaSubjectBinding",
-            "attributes": [
-              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "realm_id": {
-                "name": "realm_id",
-                "visibility": "pub",
-                "type": "arkret_wire::RealmId",
-                "attributes": []
-              },
-              "call_id": {
-                "name": "call_id",
-                "visibility": "pub",
-                "type": "arkret_wire::CallId",
-                "attributes": []
-              },
-              "subject_actor_id": {
-                "name": "subject_actor_id",
-                "visibility": "pub",
-                "type": "arkret_wire::ActorId",
-                "attributes": []
-              },
-              "subject_device_id": {
-                "name": "subject_device_id",
-                "visibility": "pub",
-                "type": "arkret_wire::DeviceId",
-                "attributes": []
-              },
-              "roster_identity": {
-                "name": "roster_identity",
-                "visibility": "pub",
-                "type": "CallMediaRosterIdentity",
-                "attributes": []
-              },
-              "focus_id": {
-                "name": "focus_id",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              },
-              "participant_id": {
-                "name": "participant_id",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              },
-              "media": {
-                "name": "media",
-                "visibility": "pub",
-                "type": "CallInvitationMedia",
-                "attributes": []
-              },
-              "expires_at": {
-                "name": "expires_at",
-                "visibility": "pub",
-                "type": "chrono::DateTime<chrono::Utc>",
-                "attributes": [
-                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
-                ]
-              },
-              "nonce": {
-                "name": "nonce",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              },
-              "issuer_kid": {
-                "name": "issuer_kid",
-                "visibility": "pub",
-                "type": "arkret_wire::DidUrl",
-                "attributes": []
-              },
-              "sig": {
-                "name": "sig",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              }
-            }
-          }
-        },
-        {
           "name": "CallRefreshJoinContext",
           "schema": "call-invitation-operations.schema.json#/$defs/refresh_join_context",
           "rust": {
@@ -14843,12 +14721,6 @@
                 "name": "participant_id",
                 "visibility": "pub",
                 "type": "String",
-                "attributes": []
-              },
-              "subject_binding": {
-                "name": "subject_binding",
-                "visibility": "pub",
-                "type": "CallMediaSubjectBinding",
                 "attributes": []
               }
             }

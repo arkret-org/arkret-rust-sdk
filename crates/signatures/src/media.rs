@@ -178,15 +178,15 @@ fn did_from_kid(kid: &str) -> &str {
     kid.split('#').next().unwrap_or(kid)
 }
 
-/// The ten authoritative fields the participant binding signature covers
+/// The nine authoritative fields the participant binding signature covers
 /// (`media-service-binding.md` §3). Serialized via canonical JSON, which sorts
 /// keys, so the on-wire signing bytes are stable regardless of declaration
 /// order. Coordinates come from the exact enclosing carrier. Only the
-/// compact binding supplies expiry, issuer method and the private-receipt commitment; media comes
+/// compact binding supplies expiry and issuer method; media comes
 /// from the exact issued range.
 #[derive(Serialize)]
 pub struct ParticipantBindingContext<'a> {
-    pub actor_id: &'a DidCoreId,
+    pub actor_id: &'a ActorId,
     pub call_id: &'a CallId,
     pub device_id: &'a DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -195,7 +195,6 @@ pub struct ParticipantBindingContext<'a> {
     pub participant_id: &'a str,
     pub realm_id: &'a RealmId,
     pub issuer_kid: &'a str,
-    pub subject_binding_digest: &'a str,
     pub media: arkret_models_collaboration::call_invitation::CallInvitationMedia,
 }
 
@@ -204,11 +203,11 @@ pub struct ParticipantBindingContext<'a> {
 /// ```text
 /// "ak.media.participant_binding.v1" || 0x00 ||
 /// canonical_json({ actor_id, call_id, device_id, expires_at,
-///                  focus_id, participant_id, realm_id, media, issuer_kid, subject_binding_digest })
+///                  focus_id, participant_id, realm_id, media, issuer_kid })
 /// ```
 ///
 /// The first segment is the fixed ASCII label, then a single `0x00`, then the
-/// canonical JSON of exactly the ten authoritative fields. Implementations
+/// canonical JSON of exactly the nine authoritative fields. Implementations
 /// MUST NOT introduce a private domain prefix or fold metadata into the input.
 ///
 /// This is `pub` so issuers (e.g. coland) can lock their construction against
@@ -218,16 +217,15 @@ pub struct ParticipantBindingContext<'a> {
 impl<'a> ParticipantBindingContext<'a> {
     pub fn from_outcome(outcome: &'a CallMediaTokenExchangeOutcome) -> Self {
         Self {
-            actor_id: &outcome.roster_identity.actor_id,
+            actor_id: &outcome.actor_id,
             call_id: &outcome.call_id,
-            device_id: &outcome.roster_identity.device_id,
+            device_id: &outcome.device_id,
             expires_at: outcome.participant_binding.expires_at,
             focus_id: &outcome.focus_id,
             participant_id: &outcome.participant_id,
             realm_id: &outcome.realm_id,
             issuer_kid: outcome.participant_binding.issuer_kid.as_str(),
-            subject_binding_digest: &outcome.participant_binding.subject_binding_digest,
-            media: outcome.subject_binding.media.clone(),
+            media: outcome.media.clone(),
         }
     }
 }
@@ -297,7 +295,6 @@ impl VerifiedCallParticipant {
                 .ok_or_else(|| Error::Protocol("participant ID is missing".to_owned()))?,
             realm_id: &event.realm_id,
             issuer_kid: binding.issuer_kid.as_str(),
-            subject_binding_digest: &binding.subject_binding_digest,
             media: participant
                 .signed_media()
                 .map_err(|e| Error::Protocol(e.to_string()))?,
@@ -308,7 +305,8 @@ impl VerifiedCallParticipant {
             &binding.sig,
         ) {
             return Err(Error::Protocol(
-                "participant_binding_invalid: anonymous tuple signature differs".to_owned(),
+                "participant_binding_invalid: complete participant tuple signature differs"
+                    .to_owned(),
             ));
         }
         Ok(Some(Self {
@@ -379,7 +377,7 @@ fn verify_issuer_signature(
 /// - `participant_binding.sig` verifies as Ed25519(ed25519) signatures over the normative
 ///   `signing_input` ([`participant_binding_signing_input`]) under the issuer verifying keys in
 ///   `anchors`. A failed signature or missing key rejects with `token_issuer_unauthorised`. Because
-///   the signature covers the ten authoritative fields, tampering with any of them fails
+///   the signature covers the nine authoritative fields, tampering with any of them fails
 ///   verification.
 ///
 /// The caller resolves the media-service service DID document and supplies the
@@ -419,8 +417,6 @@ pub fn verify_call_media_token_outcome(
         || outcome.actor_id != request.actor_id
         || outcome.device_id != request.device_id
         || outcome.expires_at != binding.expires_at
-        || outcome.roster_identity.device_id == request.device_id
-        || &outcome.roster_identity.actor_id == request.actor_id.signing_principal_id()
     {
         return Err(Error::Protocol(
             "participant_binding_invalid: outcome tuple does not match the exact request"
@@ -433,7 +429,7 @@ pub fn verify_call_media_token_outcome(
     validate_token_ttl(now, outcome.expires_at)?;
 
     // Verification path (spec §3): the participant binding signature is the
-    // single issuer assertion over the ten-field tuple signing_input. A failing
+    // single issuer assertion over the nine-field tuple signing_input. A failing
     // signature — or a key the anchors do not publish — is
     // `token_issuer_unauthorised`.
     let signing_input =
@@ -446,49 +442,11 @@ pub fn verify_call_media_token_outcome(
         "participant_binding",
     )?;
 
-    let receipt = &outcome.subject_binding;
-    let media = request
-        .desired_media
-        .as_ref()
-        .map(
-            |m| arkret_models_collaboration::call_invitation::CallInvitationMedia {
-                audio: m.audio.unwrap_or(true),
-                video: m.video.unwrap_or(true),
-                screen: m.screen.unwrap_or(false),
-            },
-        )
-        .unwrap_or(
-            arkret_models_collaboration::call_invitation::CallInvitationMedia {
-                audio: true,
-                video: true,
-                screen: false,
-            },
-        );
-    if receipt.realm_id != request.realm_id
-        || receipt.call_id != request.call_id
-        || receipt.subject_actor_id != request.actor_id
-        || receipt.subject_device_id != request.device_id
-        || receipt.roster_identity != outcome.roster_identity
-        || receipt.focus_id != request.focus_id
-        || receipt.participant_id != outcome.participant_id
-        || receipt.media != media
-        || receipt.issuer_kid != binding.issuer_kid
-        || receipt.expires_at != binding.expires_at
-        || binding.subject_binding_digest
-            != arkret_models_collaboration::call_invitation::canonical_request_digest(receipt)?
-    {
+    if outcome.media != request.invitation_media() {
         return Err(Error::Protocol(
-            "participant_binding_invalid: private subject receipt differs from exact exchange"
-                .to_owned(),
+            "participant_binding_invalid: signed issued media differs from the request".to_owned(),
         ));
     }
-    verify_issuer_signature(
-        anchors,
-        receipt.issuer_kid.as_str(),
-        &receipt.sig,
-        &receipt.signature_input()?,
-        "subject_binding",
-    )?;
 
     Ok(CallMediaTokenVerification {
         issuer_did: Did::new(issuer_did.to_owned())?,
@@ -547,38 +505,6 @@ mod tests {
         expires_at: DateTime<Utc>,
     ) -> CallMediaTokenExchangeOutcome {
         let identity = "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
-        let roster_identity =
-            arkret_models_collaboration::call_invitation::CallMediaRosterIdentity {
-                actor_id: DidCoreId::new(format!(
-                    "ak:did_core:key:{}",
-                    arkret_canonical::ed25519_pubkey_to_did_key_multibase(
-                        SigningKey::from_bytes(&[99u8; 32])
-                            .verifying_key()
-                            .as_bytes()
-                    )
-                ))
-                .unwrap(),
-                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap(),
-            };
-        let subject_binding =
-            arkret_models_collaboration::call_invitation::CallMediaSubjectBinding {
-                realm_id: request.realm_id.clone(),
-                call_id: request.call_id.clone(),
-                subject_actor_id: request.actor_id.clone(),
-                subject_device_id: request.device_id.clone(),
-                roster_identity: roster_identity.clone(),
-                focus_id: request.focus_id.clone(),
-                participant_id: identity.clone(),
-                media: arkret_models_collaboration::call_invitation::CallInvitationMedia {
-                    audio: true,
-                    video: true,
-                    screen: false,
-                },
-                nonce: arkret_canonical::base64url_encode([47u8; 32]),
-                expires_at,
-                issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
-                sig: String::new(),
-            };
         CallMediaTokenExchangeOutcome {
             realm_id: request.realm_id.clone(),
             call_id: request.call_id.clone(),
@@ -591,13 +517,11 @@ mod tests {
             participant_id: identity,
             participant_binding: CallMediaParticipantBinding {
                 sig: String::new(),
-                subject_binding_digest: String::new(),
                 issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
                 expires_at,
             },
             expires_at,
-            roster_identity,
-            subject_binding,
+            media: request.invitation_media(),
         }
     }
 
@@ -605,15 +529,6 @@ mod tests {
     /// mutating `outcome` in place. Call this AFTER any tampering so the
     /// signature covers the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
-        outcome.subject_binding.sig = arkret_canonical::base64url_encode(
-            key.sign(&outcome.subject_binding.signature_input().unwrap())
-                .to_bytes(),
-        );
-        outcome.participant_binding.subject_binding_digest =
-            arkret_models_collaboration::call_invitation::canonical_request_digest(
-                &outcome.subject_binding,
-            )
-            .unwrap();
         let input =
             participant_binding_signing_input(&ParticipantBindingContext::from_outcome(outcome))
                 .unwrap();
@@ -737,7 +652,7 @@ mod tests {
         let err = verify_call_media_token_outcome(&request, &wrong_key, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
 
-        // Tamper each of the ten authoritative fields AFTER signing → the
+        // Tamper each of the nine authoritative fields AFTER signing → the
         // recomputed signing_input no longer matches the signature.
         // participant_id has one carrier; changing it invalidates the signature.
         let mut t_identity = signed_outcome(&request, &key, expires_at);
@@ -797,55 +712,33 @@ mod tests {
         assert!(verify_call_media_token_outcome(&request, &id_mismatch, &anchors, now).is_err());
     }
     #[test]
-    fn private_receipt_and_public_media_commitment_cannot_be_reassigned() {
-        let request = token_request();
+    fn complete_account_device_and_media_are_directly_signed() {
+        let mut request = token_request();
+        request.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            actor("alice"),
+            actor("station_a"),
+        ));
         let key = issuer_key();
         let now = Utc::now();
         let anchors = anchors_with_issuer_key(&key);
         let accepted = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
-        let mut wrong_subject = request.clone();
-        wrong_subject.actor_id = ActorId::service(actor("other"));
-        let mut forged = accepted.clone();
-        forged.actor_id = wrong_subject.actor_id.clone();
-        forged.subject_binding.subject_actor_id = wrong_subject.actor_id.clone();
-        // Even possession of this issuer key cannot change the private mapping
-        // while retaining the exact already-accepted public commitment.
-        forged.subject_binding.sig = arkret_canonical::base64url_encode(
-            key.sign(&forged.subject_binding.signature_input().unwrap())
-                .to_bytes(),
-        );
-        assert!(
-            verify_call_media_token_outcome(&wrong_subject, &forged, &anchors, now)
-                .unwrap_err()
-                .to_string()
-                .contains("participant_binding_invalid")
-        );
+        verify_call_media_token_outcome(&request, &accepted, &anchors, now).unwrap();
+        let mut wrong_request = request.clone();
+        wrong_request.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            actor("alice"),
+            actor("station_b"),
+        ));
+        let mut changed = accepted.clone();
+        changed.actor_id = wrong_request.actor_id.clone();
+        assert!(verify_call_media_token_outcome(&wrong_request, &changed, &anchors, now).is_err());
         let mut media = accepted.clone();
-        media.subject_binding.media.screen = true;
-        assert!(
-            verify_call_media_token_outcome(&request, &media, &anchors, now)
-                .unwrap_err()
-                .to_string()
-                .contains("token_issuer_unauthorised")
-        );
-        let mut alias = accepted.clone();
-        alias.roster_identity.device_id =
-            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000a").unwrap();
-        assert!(verify_call_media_token_outcome(&request, &alias, &anchors, now).is_err());
-        let mut nonce = accepted.clone();
-        nonce.subject_binding.nonce = arkret_canonical::base64url_encode([48u8; 32]);
-        assert!(verify_call_media_token_outcome(&request, &nonce, &anchors, now).is_err());
-        let mut named = accepted;
-        let alternate = "did:webvh:z6mkfixturemedia:media.example#alternate";
-        let mut same_key = anchors;
-        same_key.insert_key(alternate, key.verifying_key()).unwrap();
-        named.participant_binding.issuer_kid = arkret_wire::DidUrl::new(alternate).unwrap();
-        assert!(
-            verify_call_media_token_outcome(&request, &named, &same_key, now)
-                .unwrap_err()
-                .to_string()
-                .contains("token_issuer_unauthorised")
-        );
+        media.media.screen = true;
+        assert!(verify_call_media_token_outcome(&request, &media, &anchors, now).is_err());
+        let mut device = accepted.clone();
+        device.device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000a").unwrap();
+        wrong_request = request.clone();
+        wrong_request.device_id = device.device_id.clone();
+        assert!(verify_call_media_token_outcome(&wrong_request, &device, &anchors, now).is_err());
     }
 
     #[test]
@@ -861,9 +754,10 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
         verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap();
         let compact = serde_json::to_value(&outcome.participant_binding).unwrap();
-        assert_eq!(compact.as_object().unwrap().len(), 4);
-        assert!(compact.get("subject_binding_digest").is_some());
+        assert_eq!(compact.as_object().unwrap().len(), 3);
+        assert!(compact.get("subject_binding_digest").is_none());
         for field in [
+            "subject_binding_digest",
             "scheme",
             "issued_at",
             "realm_id",

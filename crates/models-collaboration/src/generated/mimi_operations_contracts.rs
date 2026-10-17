@@ -17,10 +17,10 @@
 // sha256=1da40835f537bb2d61f690537162e825b6dc11a8fcb97b8ca7824b02fe137329
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=13ad6809e32efa463de5ce3fa44c9e3ae788db50bc7a1973f56c0e988a901020
+// sha256=32238f873daa77303a2e6cc8484e057a69a03e6735d7562183346041a6bfdcaf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
+// sha256=6fcfadb0c7e06a31e4528be5ebd9b087cda5b2394c144df9292de9b946c7d7a8
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
 /// Counterpart for

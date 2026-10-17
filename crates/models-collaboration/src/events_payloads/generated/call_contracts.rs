@@ -5,13 +5,13 @@
 // sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
 //
 // Input: schemas/event-payload.schema.json
-// sha256=bbfbef39757a86226a800089a927b95e33f25c63437c6e17c5e1abfea16072ac
+// sha256=b42ab7eb500df851ff7e7c4ad9383751d8e8dd62ccae338246d81a59bf646259
 //
 // Input: schemas/typed-current-result.schema.json
 // sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a815d160b11bd278cacb26a2d096a99bf7042e5f84772a439fcda2a7f9dedf7c
+// sha256=6fcfadb0c7e06a31e4528be5ebd9b087cda5b2394c144df9292de9b946c7d7a8
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
@@ -84,7 +84,6 @@ pub struct ParticipantBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
-    pub subject_binding_digest: String,
     pub sig: String,
 }
 

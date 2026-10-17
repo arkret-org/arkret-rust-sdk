@@ -37,7 +37,7 @@ pub struct CallParticipantMedia {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "CallParticipantWire")]
 pub struct CallParticipant {
-    pub actor_id: DidCoreId,
+    pub actor_id: ActorId,
     pub device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -57,7 +57,7 @@ pub struct CallParticipant {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallParticipantWire {
-    actor_id: DidCoreId,
+    actor_id: ActorId,
     device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -158,7 +158,7 @@ pub enum CallRosterDelta {
         participant: CallParticipant,
     },
     Leave {
-        actor_id: DidCoreId,
+        actor_id: ActorId,
         device_id: String,
         /// Typed revision of the roster value the producer read. The compare is
         /// field-for-field, not a bare Commit ID and not a counter.

@@ -322,8 +322,7 @@ struct CallMediaTokenExchangeOutcomeWire {
     call_id: CallId,
     actor_id: ActorId,
     device_id: DeviceId,
-    roster_identity: crate::call_invitation::CallMediaRosterIdentity,
-    subject_binding: crate::call_invitation::CallMediaSubjectBinding,
+    media: crate::call_invitation::CallInvitationMedia,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -342,8 +341,7 @@ pub struct CallMediaTokenExchangeOutcome {
     pub call_id: CallId,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
-    pub roster_identity: crate::call_invitation::CallMediaRosterIdentity,
-    pub subject_binding: crate::call_invitation::CallMediaSubjectBinding,
+    pub media: crate::call_invitation::CallInvitationMedia,
 }
 
 impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcome {
@@ -375,8 +373,7 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
             call_id: value.call_id,
             actor_id: value.actor_id,
             device_id: value.device_id,
-            roster_identity: value.roster_identity,
-            subject_binding: value.subject_binding,
+            media: value.media,
         })
     }
 }
