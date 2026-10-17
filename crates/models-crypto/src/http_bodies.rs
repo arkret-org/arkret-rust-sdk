@@ -1776,6 +1776,14 @@ pub fn keypackages_consume_signing_input(
     keypackage_signing_input(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN, unsigned)
 }
 
+/// Recovery identity covers the complete signed command, including the outer
+/// signature. This is distinct from the unsigned signature transcript.
+pub fn keypackages_consume_request_digest(
+    body: &KeyPackagesConsumeRequestBody,
+) -> arkret_canonical::Result<String> {
+    arkret_canonical::canonical_sha256(body)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
