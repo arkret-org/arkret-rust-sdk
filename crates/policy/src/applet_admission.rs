@@ -6,10 +6,7 @@ use arkret_models_collaboration::governance::grant_constraint::{
     CapabilitySubject, GrantConstraintEffect, GrantConstraintKind, GrantConstraintSubkind,
 };
 use arkret_models_integration::AppletRegistrationPayload;
-use arkret_wire::{
-    ActorId, DidCoreId, Event, GrantId, ResourceMatchScope, Result, ScopeRef, WireError,
-    WireResourceSelector,
-};
+use arkret_wire::{ActorId, DidCoreId, Event, GrantId, Result, WireError};
 
 /// Authenticate the frozen authority Events with the caller's historical
 /// verifier, then derive the only permitted admission Station. No Station ID
@@ -50,18 +47,6 @@ pub fn validate_applet_installation_coordinates(
     let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
     let target = registration_event.actor_id.route_service_id();
     let fail = || WireError::Protocol("Applet installation authority binding mismatch".to_owned());
-    let resource = match &event.scope_ref {
-        ScopeRef::Realm { realm_id } => WireResourceSelector::realm(realm_id.clone()),
-        ScopeRef::Circle {
-            realm_id,
-            circle_id,
-        } => {
-            let mut resource = WireResourceSelector::circle(realm_id.clone(), circle_id.clone());
-            resource.match_scope = Some(ResourceMatchScope::Exact);
-            resource
-        }
-        _ => return Err(fail()),
-    };
     let bindings = grant
         .constraints
         .iter()
@@ -86,7 +71,8 @@ pub fn validate_applet_installation_coordinates(
             .actions
             .iter()
             .any(|action| action == event.kind.as_str())
-        || grant.resources.as_slice() != [resource]
+        || grant.resources.len() != 1
+        || !grant.resources[0].is_exact_scope(&event.scope_ref)
         || binding.constraint_kind != GrantConstraintKind::AuthorityControl
         || binding.effect != GrantConstraintEffect::Allow
         || binding.applet_id.as_ref() != Some(&registration.applet_id)

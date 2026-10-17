@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-16.1;
-//! sha256=94f1b32228a90431c7f6972117108b1caa46aa91bf723d33e5a2f053d51c079c Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-17;
+//! sha256=d922a3ce35503bb5134aa98b8fd1fa57a4aafb6c8b4ca475692ab145df06fa62 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
 //! special_forms=15, actions=150, approval_carriers=3, schemas=230, account_data_patterns=24
@@ -690,8 +690,11 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         category: "management",
         risk_tier: CapabilityRiskTier::Medium,
         required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MEMBER_STATE],
+        required_evaluator_checks: &["applet_managed_self_join"],
+        target_event_kinds: &[
+            event_kind_str::CIRCLE_MEMBER_STATE,
+            event_kind_str::MEMBER_STATE,
+        ],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,

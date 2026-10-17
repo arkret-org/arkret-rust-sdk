@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize, de};
 
 use crate::{
     BlobRef, CircleId, DidCoreId, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
-    RelationId, Result, SpaceId, StrandId, ViewId, WireError,
+    RelationId, Result, ScopeRef, SpaceId, StrandId, ViewId, WireError,
 };
 
 /// Opaque object reference wire scalar (`ak:object:...` and friends).
@@ -137,6 +137,26 @@ impl WireResourceSelector {
         selector
     }
 
+    /// Name exactly one Realm or Circle installation scope. The registered
+    /// default for an omitted match_scope is exact; realm_wide and additional
+    /// identifying fields cannot be normalized into that scope.
+    pub fn is_exact_scope(&self, scope: &ScopeRef) -> bool {
+        let expected = match scope {
+            ScopeRef::Realm { realm_id } => Self::realm(realm_id.clone()),
+            ScopeRef::Circle {
+                realm_id,
+                circle_id,
+            } => Self::circle(realm_id.clone(), circle_id.clone()),
+            _ => return false,
+        };
+        if !matches!(self.match_scope, None | Some(ResourceMatchScope::Exact)) {
+            return false;
+        }
+        let mut candidate = self.clone();
+        candidate.match_scope = None;
+        candidate == expected
+    }
+
     pub fn validate(&self) -> Result<()> {
         let realm_scoped = matches!(
             self.kind,
@@ -248,6 +268,44 @@ impl<'de> Deserialize<'de> for WireResourceSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exact_scope_preserves_default_exact_and_refuses_wide_or_other_identifiers() {
+        let event = EventId::from_digest(crate::canonical::DigestSuite::Sha256, [231; 32]);
+        let realm = RealmId::from_event_id(&event);
+        let circle = CircleId::from_event_id(&event);
+        for scope in [
+            ScopeRef::Realm {
+                realm_id: realm.clone(),
+            },
+            ScopeRef::Circle {
+                realm_id: realm.clone(),
+                circle_id: circle.clone(),
+            },
+        ] {
+            let mut selector = match &scope {
+                ScopeRef::Realm { realm_id } => WireResourceSelector::realm(realm_id.clone()),
+                ScopeRef::Circle {
+                    realm_id,
+                    circle_id,
+                } => WireResourceSelector::circle(realm_id.clone(), circle_id.clone()),
+                _ => unreachable!(),
+            };
+            assert!(selector.is_exact_scope(&scope));
+            selector.match_scope = Some(ResourceMatchScope::Exact);
+            assert!(selector.is_exact_scope(&scope));
+            selector.match_scope = Some(ResourceMatchScope::RealmWide);
+            assert!(!selector.is_exact_scope(&scope));
+            selector.match_scope = None;
+            selector.strand_id = Some(StrandId::from_event_id(&event));
+            assert!(!selector.is_exact_scope(&scope));
+        }
+        let scope = ScopeRef::Circle {
+            realm_id: realm.clone(),
+            circle_id: circle,
+        };
+        assert!(!WireResourceSelector::realm(realm).is_exact_scope(&scope));
+    }
 
     #[test]
     fn selector_rejects_missing_conditional_fields_and_unknown_fields() {

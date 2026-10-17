@@ -109,6 +109,15 @@ impl ManagementReviewRequestBody {
             }
             (ManagementOperation::Join, ManagementReviewTarget::Event { event }) => {
                 event.kind.as_str() == event_kind_str::MEMBER_STATE
+                    || (event.kind.as_str() == event_kind_str::CIRCLE_MEMBER_STATE
+                        && event.applet_id.is_some()
+                        && event.executed_by.is_none()
+                        && matches!(event.actor_id, ActorId::Account { .. })
+                        && serde_json::from_value::<arkret_models_collaboration::events_payloads::circle::CircleMemberStatePayload>(serde_json::json!(&event.payload))
+                            .is_ok_and(|payload| payload.member_id == event.actor_id
+                                && payload.membership == arkret_models_collaboration::governance::circle::CircleMembership::Join
+                                && matches!(&event.scope_ref, ScopeRef::Circle { realm_id, circle_id }
+                                    if realm_id == &event.realm_id && circle_id == &payload.circle_id)))
             }
             (ManagementOperation::Publish, ManagementReviewTarget::Event { event }) => matches!(
                 event.kind.as_str(),

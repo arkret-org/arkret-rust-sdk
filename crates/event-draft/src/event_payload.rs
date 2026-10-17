@@ -80,6 +80,22 @@ pub struct EventPayloadBinding {
     pub payload_type: &'static str,
 }
 
+// Keep each concrete decoder in its own frame. The erased dispatch covers all
+// Event kinds, whose combined debug-build temporaries otherwise exhaust the
+// default stack when called through the HTTP admission middleware.
+#[inline(never)]
+fn validate_typed_payload<K: EventSpec>(payload: &Value) -> Result<()> {
+    let typed: K::Payload =
+        serde_json::from_value(payload.clone()).map_err(|source| WireError::PayloadInvalid {
+            kind: K::KIND_STR,
+            reason: source.to_string(),
+        })?;
+    K::validate_payload(&typed).map_err(|error| WireError::PayloadInvalid {
+        kind: K::KIND_STR,
+        reason: error.to_string(),
+    })
+}
+
 macro_rules! event_payload_accessors {
     ($($marker:ty => ($name:ident, $ty:ty $(, $validate:expr)?)),+ $(,)?) => {
         pub const EVENT_PAYLOAD_BINDINGS: &[EventPayloadBinding] = &[
@@ -115,20 +131,7 @@ macro_rules! event_payload_accessors {
             arkret_wire::forbidden_wire::validate_event_payload_forbidden_fields(kind, payload)?;
             $(
                 if *kind == <$marker>::KIND {
-                    let typed: <$marker as EventSpec>::Payload =
-                        serde_json::from_value(payload.clone()).map_err(|source| {
-                            WireError::PayloadInvalid {
-                                kind: <$marker>::KIND_STR,
-                                reason: source.to_string(),
-                            }
-                        })?;
-                    <$marker as EventSpec>::validate_payload(&typed).map_err(|error| {
-                        WireError::PayloadInvalid {
-                            kind: <$marker>::KIND_STR,
-                            reason: error.to_string(),
-                        }
-                    })?;
-                    return Ok(());
+                    return validate_typed_payload::<$marker>(payload);
                 }
             )+
             Err(WireError::Protocol(format!(

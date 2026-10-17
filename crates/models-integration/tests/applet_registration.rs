@@ -1750,3 +1750,83 @@ fn committed_managed_request_roundtrip_uses_signed_purpose_not_untagged_order() 
         serde_json::from_value::<AppletManagedActorCommittedRequest>(neither_ghost_branch).is_err()
     );
 }
+
+#[test]
+fn management_circle_join_requires_the_original_native_account_and_exact_circle() {
+    use arkret_models_integration::management_review::*;
+    use arkret_wire::{CurrentRevision, ManagementOperation};
+    let (body, _) = sample_bot_request_body();
+    let mut event = body
+        .managed_actor_bundle
+        .managed_actor_provision_event
+        .clone();
+    let circle = CircleId::from_event_id(&event.event_id);
+    let scope = ScopeRef::Circle {
+        realm_id: realm(),
+        circle_id: circle.clone(),
+    };
+    event.kind = arkret_wire::EventKind::CircleMemberState;
+    event.realm_id = realm();
+    event.scope_ref = scope.clone();
+    event.executed_by = None;
+    event.applet_id = Some(
+        body.authoring_request
+            .basis
+            .bot()
+            .unwrap()
+            .applet_id
+            .clone(),
+    );
+    event.actor_id = body.managed_actor_bundle.profile_event.actor_id.clone();
+    event.payload = serde_json::from_value(json!({
+        "circle_id":circle,"member_id":event.actor_id,"membership":"join",
+        "parent_membership_revision":CurrentRevision {commit_id:RealmCommitId::from_digest([223;32]),stream_position:5},
+        "expected_membership":null
+    })).unwrap();
+    let request = ManagementReviewRequestBody {
+        request_id: "native-circle-target".into(),
+        effective_scope: scope,
+        management_operation: ManagementOperation::Join,
+        requester_actor_id: ActorId::service(body.authoring_request.basis.service_id().clone()),
+        target: ManagementReviewTarget::Event {
+            event: Box::new(event),
+        },
+    };
+    request.validate().unwrap();
+    for mutation in 0..6 {
+        let mut changed = request.clone();
+        let ManagementReviewTarget::Event { event } = &mut changed.target else {
+            unreachable!()
+        };
+        match mutation {
+            0 => event.applet_id = None,
+            1 => event.executed_by = Some(changed.requester_actor_id.clone()),
+            2 => event.actor_id = changed.requester_actor_id.clone(),
+            3 => {
+                event
+                    .payload
+                    .insert("member_id".into(), json!(changed.requester_actor_id));
+            }
+            4 => {
+                event.payload.insert("membership".into(), json!("leave"));
+            }
+            _ => {
+                event.scope_ref = ScopeRef::Realm { realm_id: realm() };
+                changed.effective_scope = event.scope_ref.clone();
+            }
+        }
+        assert!(
+            changed.validate().is_err(),
+            "native Circle target mutation {mutation}"
+        );
+    }
+    let descriptor = arkret_schema::capability_actions_for_event_kind(
+        arkret_wire::event_kind_str::CIRCLE_MEMBER_STATE,
+    )
+    .find(|row| row.action == arkret_wire::CapabilityActionId::AppletJoin)
+    .unwrap();
+    assert_eq!(
+        descriptor.required_evaluator_checks,
+        &["applet_managed_self_join"]
+    );
+}
