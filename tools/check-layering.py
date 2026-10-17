@@ -151,15 +151,18 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # and decodes them through the wire vocabulary. `publish = false`, and it is
     # excluded from `default-members`.
     "arkret-schema-conformance": {"arkret-schema", "arkret-wire"},
-    # Dev-only shared protocol test material. It takes exactly the crates a
-    # canonical signed Event needs and nothing else: no service, product or
-    # model-composition crate, so it cannot become a second place where
-    # protocol behavior is defined. `publish = false`, excluded from
-    # `default-members`, and `tools/test_kit_production_gate.py` keeps it out of
-    # every production dependency graph.
+    # Dev-only shared protocol test material. Contact/media fixtures consume
+    # their owning model crates; native service fixtures use arkret-identity's
+    # real WebVH resolver instead of duplicating identity verification.
+    # No service, product or umbrella crate is allowed. `publish = false`,
+    # excluded from `default-members`, and test_kit_production_gate.py keeps
+    # deterministic signing material out of production dependency graphs.
     "arkret-test-kit": _WIRE
     | {
         "arkret-event-draft",
+        "arkret-identity",
+        "arkret-models-collaboration",
+        "arkret-models-identity",
         "arkret-signatures",
     },
     "arkret-event-draft": _WIRE

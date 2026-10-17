@@ -980,7 +980,7 @@ fn management_target_digest_uses_business_body_and_only_drops_outer_evidence() {
             .clone(),
         management_operation: ManagementOperation::CreateBot,
         requester_actor_id: ActorId::service(body.authoring_request.basis.service_id().clone()),
-        target: target.clone(),
+        target,
     };
     review.validate().unwrap();
     let mut wrong_applet = review.clone();
@@ -1040,7 +1040,7 @@ fn management_target_digest_uses_business_body_and_only_drops_outer_evidence() {
         request_body: Box::new(body.clone()),
     };
     let original_intent = review.canonical_intent_digest().unwrap();
-    let mut attached_review = review.clone();
+    let mut attached_review = review;
     attached_review.target = attached.clone();
     assert_eq!(
         original_intent,

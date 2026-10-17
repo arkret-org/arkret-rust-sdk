@@ -5,7 +5,7 @@
 //! sha256=f6daa1b04c930fa94f35073ef259484c65ec93aec729b3fb982b67649cbd06d7
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=6fcfadb0c7e06a31e4528be5ebd9b087cda5b2394c144df9292de9b946c7d7a8
+//! sha256=14ce06e703487b8afdca6c0a5335ef346a965acc5f9443d89af8470d63109b0f
 
 /// Counterpart:
 /// `consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind`.
@@ -43,8 +43,8 @@ pub struct ConsentPrivateStationContext {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum ConsentPrivateContext {
-    HolderSession(crate::consent_private::ConsentPrivateHolderSessionContext),
-    Station(crate::consent_private::ConsentPrivateStationContext),
+    HolderSession(ConsentPrivateHolderSessionContext),
+    Station(ConsentPrivateStationContext),
 }
 
 /// Counterpart: `consent-private-operations.schema.json#/$defs/list_command/properties/body`.
@@ -171,14 +171,18 @@ pub struct ConsentPrivateRequestCommand {
 
 /// Counterpart: `consent-private-operations.schema.json#/$defs/command`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 #[serde(untagged)]
 pub enum ConsentPrivateCommand {
-    List(crate::consent_private::ConsentPrivateListCommand),
-    Version(crate::consent_private::ConsentPrivateVersionCommand),
-    Effects(crate::consent_private::ConsentPrivateEffectsCommand),
-    InvitePolicy(crate::consent_private::ConsentPrivateInvitePolicyCommand),
-    InviteDelivery(crate::consent_private::ConsentPrivateInviteDeliveryCommand),
-    Request(crate::consent_private::ConsentPrivateRequestCommand),
+    List(ConsentPrivateListCommand),
+    Version(ConsentPrivateVersionCommand),
+    Effects(ConsentPrivateEffectsCommand),
+    InvitePolicy(ConsentPrivateInvitePolicyCommand),
+    InviteDelivery(ConsentPrivateInviteDeliveryCommand),
+    Request(ConsentPrivateRequestCommand),
 }
 
 /// Counterpart:
@@ -319,12 +323,12 @@ pub struct ConsentPrivateRequestOutcome {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum ConsentPrivateCommandOutcome {
-    List(crate::consent_private::ConsentPrivateListOutcome),
-    Version(crate::consent_private::ConsentPrivateVersionOutcome),
-    Effects(crate::consent_private::ConsentPrivateEffectsOutcome),
-    InvitePolicy(crate::consent_private::ConsentPrivateInvitePolicyOutcome),
-    InviteDelivery(crate::consent_private::ConsentPrivateInviteDeliveryOutcome),
-    Request(crate::consent_private::ConsentPrivateRequestOutcome),
+    List(ConsentPrivateListOutcome),
+    Version(ConsentPrivateVersionOutcome),
+    Effects(ConsentPrivateEffectsOutcome),
+    InvitePolicy(ConsentPrivateInvitePolicyOutcome),
+    InviteDelivery(ConsentPrivateInviteDeliveryOutcome),
+    Request(ConsentPrivateRequestOutcome),
 }
 
 /// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_request`.
@@ -379,7 +383,7 @@ pub struct ConsentPrivateEffectsPublishRequest {
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub effects: crate::consent_private::ConsentPrivateEffects,
+    pub effects: ConsentPrivateEffects,
 }
 
 /// Counterpart: `consent-private-operations.schema.json#/$defs/effects_publish_outcome`.

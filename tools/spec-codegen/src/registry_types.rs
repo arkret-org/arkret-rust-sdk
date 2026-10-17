@@ -1144,8 +1144,12 @@ fn generate_capability_discovery(artifacts_dir: &Path) -> Result<GeneratedOutput
     let mut bundle_constants = String::from("\nimpl OperationBundleDescriptor {\n");
     for bundle in &bundles {
         let id = string(bundle, "operation_bundle_id")?;
-        writeln!(bundle_constants, "    pub const {}: &'static str = {};",
-            associated_name(id, &["ak.operation_bundle."]), rust_string(id))?;
+        writeln!(
+            bundle_constants,
+            "    pub const {}: &'static str = {};",
+            associated_name(id, &["ak.operation_bundle."]),
+            rust_string(id)
+        )?;
     }
     bundle_constants.push_str("}\n");
     for bundle in bundles {
@@ -3027,9 +3031,166 @@ fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutpu
     })
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManagedDeviceRule {
+    operation_id: String,
+    mode: String,
+    actions: Vec<String>,
+    control_rule: Option<String>,
+}
+
+fn managed_device_rules(auth: &Value) -> Result<Vec<ManagedDeviceRule>> {
+    let operations: Vec<String> = serde_json::from_value(
+        auth.get("operations")
+            .context("managed Device device_authentication.operations missing")?
+            .clone(),
+    )
+    .context("decode managed Device device_authentication.operations")?;
+    let rules: Vec<ManagedDeviceRule> = serde_json::from_value(
+        auth.get("operation_scope_rules").context("managed Device device_authentication.operation_scope_rules missing; update the pinned specification")?.clone(),
+    ).context("decode managed Device device_authentication.operation_scope_rules")?;
+    if rules
+        .iter()
+        .map(|rule| rule.operation_id.as_str())
+        .collect::<Vec<_>>()
+        != operations.iter().map(String::as_str).collect::<Vec<_>>()
+        || operations.iter().collect::<BTreeSet<_>>().len() != operations.len()
+    {
+        bail!("managed Device operation rules differ from the exact allowlist");
+    }
+    Ok(rules)
+}
+
+fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(
+        artifacts_dir,
+        "registry/applet-managed-authority-registry.json",
+    )?;
+    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let registered_operations = contracts
+        .section_array("operation_registry", "operations")?
+        .into_iter()
+        .map(|r| string(r, "operation_id"))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let registered_actions = contracts
+        .section_array("capability_action_registry", "actions")?
+        .into_iter()
+        .map(|r| string(r, "action"))
+        .collect::<Result<BTreeSet<_>>>()?;
+    let auth = artifact
+        .value
+        .get("device_authentication")
+        .context("managed Device rules missing")?;
+    let rules = managed_device_rules(auth).with_context(|| artifact.source.relative_path)?;
+    let mut output = header(
+        &[&artifact.source, &contracts.source],
+        &format!("managed_device_operations={}", rules.len()),
+    );
+    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
+    for rule in rules {
+        if !registered_operations.contains(rule.operation_id.as_str())
+            || rule
+                .actions
+                .iter()
+                .any(|a| !registered_actions.contains(a.as_str()))
+        {
+            bail!("managed Device rule contains unregistered operation/action");
+        }
+        let value = match rule.mode.as_str() {
+            "all_actions" if !rule.actions.is_empty() && rule.control_rule.is_none() => {
+                let actions = rule
+                    .actions
+                    .iter()
+                    .map(|a| format!("CapabilityActionId::{}", variant(a, &["ak."])))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("ManagedDeviceScopeRule::AllActions(&[{actions}])")
+            }
+            "submitted_business_actions"
+                if rule.actions.is_empty() && rule.control_rule.is_none() =>
+            {
+                "ManagedDeviceScopeRule::SubmittedBusinessActions".into()
+            }
+            "device_control" if rule.actions.is_empty() => {
+                let control = rule.control_rule.context("Device control rule missing")?;
+                if !matches!(
+                    control.as_str(),
+                    "own_exact_previously_delivered_items_ack"
+                        | "own_exact_keypackage_revoke"
+                        | "own_scope_bound_keypackage_upload"
+                        | "own_exact_durable_welcome_receipt_consume"
+                ) {
+                    bail!("unknown managed Device control exception");
+                }
+                format!(
+                    "ManagedDeviceScopeRule::DeviceControl(ManagedDeviceControl::{})",
+                    variant(&control, &[])
+                )
+            }
+            _ => bail!("invalid managed Device scope rule"),
+        };
+        writeln!(
+            output,
+            "        ServiceOperationId::{} => {value},",
+            variant(&rule.operation_id, &["ak."])
+        )?;
+    }
+    output.push_str("        _ => return None,\n    })\n}\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/applet_managed_device_rules.rs".into(),
+        contents: output,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn managed_device_rules_reject_stale_or_malformed_specification() {
+        let artifact = Artifact::load(
+            &spec_artifacts(),
+            "registry/applet-managed-authority-registry.json",
+        )
+        .unwrap();
+        let auth = &artifact.value["device_authentication"];
+        let rules = managed_device_rules(auth).unwrap();
+        assert_eq!(rules.len(), auth["operations"].as_array().unwrap().len());
+
+        let mut missing = auth.clone();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("operation_scope_rules");
+        assert!(
+            managed_device_rules(&missing)
+                .unwrap_err()
+                .to_string()
+                .contains("update the pinned specification")
+        );
+
+        let mut null = auth.clone();
+        null["operation_scope_rules"] = Value::Null;
+        assert!(
+            managed_device_rules(&null)
+                .unwrap_err()
+                .to_string()
+                .contains("device_authentication.operation_scope_rules")
+        );
+
+        let mut incomplete = auth.clone();
+        incomplete["operation_scope_rules"]
+            .as_array_mut()
+            .unwrap()
+            .pop();
+        assert!(
+            managed_device_rules(&incomplete)
+                .unwrap_err()
+                .to_string()
+                .contains("exact allowlist")
+        );
+    }
 
     fn operation_row(id: &str, grpc: &str, mq: &str) -> Map<String, Value> {
         serde_json::json!({
@@ -3047,18 +3208,19 @@ mod tests {
     }
 
     fn spec_artifacts() -> std::path::PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
+        crate::spec_artifacts()
     }
 
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 25);
+        assert_eq!(outputs.len(), 26);
         for required in [
             "crates/wire/src/generated/reducer_managed_patch_paths.rs",
             "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
             "crates/wire/src/generated/operation_errors.rs",
+            "crates/wire/src/generated/applet_managed_device_rules.rs",
             "crates/wire/src/generated/security_strings.rs",
             "crates/wire/src/generated/preimage_commitments.rs",
             "crates/wire/src/error_codes/error_code.rs",
@@ -3416,53 +3578,4 @@ mod tests {
             "@&lt;controller&gt;/&lt;agent&gt; &amp; peer"
         );
     }
-}
-
-fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    #[derive(serde::Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Rule {
-        operation_id: String,
-        mode: String,
-        actions: Vec<String>,
-        control_rule: Option<String>,
-    }
-    let artifact = Artifact::load(artifacts_dir, "registry/applet-managed-authority-registry.json")?;
-    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
-    let registered_operations = contracts.section_array("operation_registry", "operations")?
-        .into_iter().map(|r| string(r, "operation_id")).collect::<Result<BTreeSet<_>>>()?;
-    let registered_actions = contracts.section_array("capability_action_registry", "actions")?
-        .into_iter().map(|r| string(r, "action")).collect::<Result<BTreeSet<_>>>()?;
-    let auth = artifact.value.get("device_authentication").context("managed Device rules missing")?;
-    let operations: Vec<String> = serde_json::from_value(auth["operations"].clone())?;
-    let rules: Vec<Rule> = serde_json::from_value(auth["operation_scope_rules"].clone())?;
-    if rules.iter().map(|r| r.operation_id.as_str()).collect::<Vec<_>>() != operations.iter().map(String::as_str).collect::<Vec<_>>()
-        || operations.iter().collect::<BTreeSet<_>>().len() != operations.len() {
-        bail!("managed Device operation rules differ from the exact allowlist");
-    }
-    let mut output = header(&[&artifact.source, &contracts.source], &format!("managed_device_operations={}", rules.len()));
-    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
-    for rule in rules {
-        if !registered_operations.contains(rule.operation_id.as_str()) || rule.actions.iter().any(|a| !registered_actions.contains(a.as_str())) {
-            bail!("managed Device rule contains unregistered operation/action");
-        }
-        let value = match rule.mode.as_str() {
-            "all_actions" if !rule.actions.is_empty() && rule.control_rule.is_none() => {
-                let actions = rule.actions.iter().map(|a| format!("CapabilityActionId::{}", variant(a, &["ak."]))).collect::<Vec<_>>().join(", ");
-                format!("ManagedDeviceScopeRule::AllActions(&[{actions}])")
-            }
-            "submitted_business_actions" if rule.actions.is_empty() && rule.control_rule.is_none() => "ManagedDeviceScopeRule::SubmittedBusinessActions".into(),
-            "device_control" if rule.actions.is_empty() => {
-                let control = rule.control_rule.context("Device control rule missing")?;
-                if !matches!(control.as_str(), "own_exact_previously_delivered_items_ack" | "own_exact_keypackage_revoke" | "own_scope_bound_keypackage_upload" | "own_exact_durable_welcome_receipt_consume") {
-                    bail!("unknown managed Device control exception");
-                }
-                format!("ManagedDeviceScopeRule::DeviceControl(ManagedDeviceControl::{})", variant(&control, &[]))
-            }
-            _ => bail!("invalid managed Device scope rule"),
-        };
-        writeln!(output, "        ServiceOperationId::{} => {value},", variant(&rule.operation_id, &["ak."]))?;
-    }
-    output.push_str("        _ => return None,\n    })\n}\n");
-    Ok(GeneratedOutput { relative_path: "crates/wire/src/generated/applet_managed_device_rules.rs".into(), contents: output })
 }

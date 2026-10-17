@@ -11,7 +11,7 @@
 //! sha256=90c045bc2fadaa4481370039731723349f25656f7d89c24668082fe0a0a5fd48
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=6fcfadb0c7e06a31e4528be5ebd9b087cda5b2394c144df9292de9b946c7d7a8
+//! sha256=14ce06e703487b8afdca6c0a5335ef346a965acc5f9443d89af8470d63109b0f
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -211,11 +211,15 @@ pub struct CallRefreshJoinContext {
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/join_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 #[serde(untagged)]
 pub enum CallMediaJoinContext {
-    Invitation(crate::call_invitation::CallInvitationJoinContext),
-    Voluntary(crate::call_invitation::CallVoluntaryJoinContext),
-    Refresh(crate::call_invitation::CallRefreshJoinContext),
+    Invitation(CallInvitationJoinContext),
+    Voluntary(CallVoluntaryJoinContext),
+    Refresh(CallRefreshJoinContext),
 }
 
 /// Counterpart:

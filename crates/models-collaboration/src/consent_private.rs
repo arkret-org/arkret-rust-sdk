@@ -292,16 +292,15 @@ impl ConsentPrivateEffects {
             }
             cell.content.validate()?;
         }
-        if let Some(cell) = &self.invite_receive_policy {
-            if cell.revision == 0
+        if let Some(cell) = &self.invite_receive_policy
+            && (cell.revision == 0
                 || cell.content.account_id != *holder
                 || cell.content.schema
-                    != crate::governance::invite_addressing::InviteReceivePolicy::SCHEMA
-            {
-                return Err(invalid(
-                    "private receive policy revision, schema or holder mismatch",
-                ));
-            }
+                    != crate::governance::invite_addressing::InviteReceivePolicy::SCHEMA)
+        {
+            return Err(invalid(
+                "private receive policy revision, schema or holder mismatch",
+            ));
         }
         Ok(())
     }
@@ -481,7 +480,7 @@ mod publication_tests {
             status: ConsentPrivateEffectsPublishStatus::Applied,
         };
         ack.validate_for_request(&request).unwrap();
-        wrong = request.clone();
+        wrong = request;
         wrong.nonce = arkret_canonical::base64url_encode([18; 32]);
         assert!(ack.validate_for_request(&wrong).is_err());
     }

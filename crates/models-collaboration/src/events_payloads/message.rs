@@ -218,7 +218,7 @@ impl ContentBlock {
             ));
         }
         Self::encrypted_long_text_summary(
-            &long_text_prefix(&normalized),
+            long_text_prefix(&normalized),
             long_text_line_count(&normalized),
             attachment,
         )

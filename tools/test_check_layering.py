@@ -46,6 +46,16 @@ class LayeringTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("arkret-models-discovery: forbidden edge -> arkret-models-collaboration", output)
 
+    def test_shared_fixtures_reuse_identity_and_models_but_not_services(self) -> None:
+        result, output = self.run_gate({"arkret-test-kit": [
+            "arkret-identity", "arkret-models-collaboration", "arkret-models-identity",
+        ]})
+        self.assertEqual(result, 0, output)
+        for forbidden in ["arkret-server", "arkret-http-client", "arkret"]:
+            with self.subTest(forbidden=forbidden):
+                result, output = self.run_gate({"arkret-test-kit": [forbidden]})
+                self.assertEqual(result, 1, output)
+
     def test_model_to_behavior_edge_is_still_rejected(self) -> None:
         result, output = self.run_gate({"arkret-models-collaboration": ["arkret-identity"]})
         self.assertEqual(result, 1)

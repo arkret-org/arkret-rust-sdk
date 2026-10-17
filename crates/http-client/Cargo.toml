@@ -72,10 +72,10 @@ getrandom = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # Managed Device request nonces use the browser's Crypto.getRandomValues backend.
 getrandom = { workspace = true, features = ["wasm_js"] }
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = ["AbortController", "AbortSignal", "Blob", "BlobPropertyBag", "FormData", "Headers", "Request", "RequestInit", "RequestCredentials", "RequestRedirect", "Response", "ReadableStream", "ReadableStreamDefaultReader", "Window"] }
+wasm-bindgen = "0.2.129"
+wasm-bindgen-futures = "0.4.79"
+js-sys = "0.3.106"
+web-sys = { version = "0.3.106", features = ["AbortController", "AbortSignal", "Blob", "BlobPropertyBag", "FormData", "Headers", "Request", "RequestInit", "RequestCredentials", "RequestRedirect", "Response", "ReadableStream", "ReadableStreamDefaultReader", "Window"] }
 
 [lints]
 workspace = true

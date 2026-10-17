@@ -104,6 +104,10 @@ impl MlsCreatorBootstrapAgentAuthority {
     rename_all = "snake_case",
     deny_unknown_fields
 )]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
 pub enum MlsCreatorBootstrapEndpointAuthority {
     Device(MlsCreatorBootstrapDeviceAuthority),
     Agent(MlsCreatorBootstrapAgentAuthority),

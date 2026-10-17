@@ -52,6 +52,10 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/applet.rs"),
     ),
     (
+        "endpoints/browser_blob.rs",
+        include_str!("../src/endpoints/browser_blob.rs"),
+    ),
+    (
         "endpoints/circle.rs",
         include_str!("../src/endpoints/circle.rs"),
     ),

@@ -309,12 +309,12 @@ impl OwnStationResultClient {
     pub async fn media_service_binding(
         &self,
         request: &arkret_models_identity::MediaServiceBindingRequestBody,
-        accepted_service_id: &arkret_wire::DidCoreId,
+        accepted_service_id: &DidCoreId,
     ) -> Result<
         BoundOwnStationResponse<
             (
                 arkret_models_identity::MediaServiceBindingRequestBody,
-                arkret_wire::DidCoreId,
+                DidCoreId,
             ),
             arkret_models_identity::MediaServiceBindingOutcome,
         >,

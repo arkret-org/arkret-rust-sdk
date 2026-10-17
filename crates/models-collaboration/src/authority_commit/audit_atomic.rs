@@ -120,7 +120,7 @@ impl AuditPairedEventUnitSubmission {
             || payload.access_kind != access_kind
             || payload.writer_actor_id != business.actor_id
             || payload.target_actor_id.as_ref() != Some(&target)
-            || payload.target_ref.to_string() != target_ref
+            || payload.target_ref != target_ref
             || payload.paired_event_id.as_ref() != Some(&business.event_id)
             || refs.len() != 1
             || !refs[0].critical

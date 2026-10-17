@@ -15,7 +15,7 @@ fn commit(byte: u8, position: u64) -> RealmCommit {
         "authority_ref": event,
         "committed_at":"2026-10-15T00:00:00.000Z"
     });
-    let id = RealmCommitId::from_digest(sha256_bytes(&canonical_json_bytes(&value).unwrap()));
+    let id = RealmCommitId::from_digest(sha256_bytes(canonical_json_bytes(&value).unwrap()));
     value["commit_id"] = json!(id);
     value["signature"] = json!({
         "context":"ak.realm_commit_signature.v1", "signature_algorithm":"Ed25519",

@@ -269,7 +269,7 @@ fn agent_event_projection_ceiling_uses_exact_accepted_collection_facts() {
         ..read(&actor, &event, &facts)
     };
     assert!(require_key_scope_content_ceiling(&scope, &write).is_err());
-    let mut bounded = scope.clone();
+    let mut bounded = scope;
     bounded.constraints = serde_json::from_value(serde_json::json!([{"constraint_kind":"scope_limitation","effect":"allow","allowed_tracks":["discussion"]}])).unwrap();
     assert!(require_key_scope_content_ceiling(&bounded, &read(&actor, &event, &facts)).is_ok());
     facts.track = None;

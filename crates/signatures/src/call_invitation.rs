@@ -222,7 +222,7 @@ mod tests {
         assert!(verify_call_invitation(&invitation, &changed, &key, now()).is_err());
         let request = CallInvitationAdmissionRequestBody {
             invitation: invitation.clone(),
-            envelope: envelope.clone(),
+            envelope,
             admission_phase: CallInvitationAdmissionPhase::MediaToken,
             audience_actor_id: ActorId::service("ak:did_core:web:media.example".parse().unwrap()),
             subject_actor_id: ActorId::account(invitation.holder_account_id.clone()),
@@ -235,10 +235,7 @@ mod tests {
         };
         let method = DidUrl::new("did:web:station.example#key-1").unwrap();
         let mut outcome = CallInvitationAdmissionOutcome {
-            request_digest: arkret_models_collaboration::call_invitation::canonical_request_digest(
-                &request,
-            )
-            .unwrap(),
+            request_digest: canonical_request_digest(&request).unwrap(),
             admitted: true,
             authority_generation: 4,
             evaluated_at: now(),

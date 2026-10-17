@@ -43,6 +43,7 @@ class Generator:
             if "rust" not in row
         }
         self.names.update(bindings["references"])
+        self.local_aliases: dict[str, str] = {}
         self.inputs: dict[str, bytes] = {}
 
     def node(self, pointer: str) -> dict:
@@ -130,6 +131,8 @@ class Generator:
             binding = rust["members"][wire]
             attributes = list(binding["attributes"])
             typ = binding["type"]
+            for qualified, local in self.local_aliases.items():
+                typ = re.sub(r"(?<![\w:])" + re.escape(qualified) + r"(?![\w:])", local, typ)
             if wire in required:
                 if any("skip_serializing_if" in attr for attr in attributes):
                     raise ValueError(f"required member cannot be omitted by its Rust representation: {pointer}/{wire}")
@@ -199,6 +202,8 @@ class Generator:
         if row.get("openapi", True):
             lines.append('#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]')
         lines.append(f'#[derive({", ".join(traits)})]')
+        if row.get("expect_large_enum_variant"):
+            lines.append('#[expect(clippy::large_enum_variant, reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy.")]')
         if "oneOf" in node:
             lines += ['#[serde(untagged)]', f"pub enum {name} {{"]
             kinds = set()
@@ -259,8 +264,16 @@ class Generator:
 
     def generate(self) -> dict[str, str]:
         outputs = {}
+        qualified_names = self.names.copy()
         for family in self.bindings["families"]:
             self.inputs = {}
+            self.names = qualified_names.copy()
+            self.local_aliases = {}
+            for row in family["types"]:
+                qualified = self.names.get(row["schema"], "")
+                if qualified.endswith("::" + row["name"]):
+                    self.names[row["schema"]] = row["name"]
+                    self.local_aliases[qualified] = row["name"]
             contents = "\n".join(self.declaration(row) for row in family["types"])
             header = ["//! @generated; do not edit by hand.", "//! Generator: tools/generate-closed-models.py"]
             for path, raw in self.inputs.items():
@@ -270,6 +283,7 @@ class Generator:
             if family.get("inline"):
                 header = [line.replace("//!", "//", 1) for line in header]
             outputs[family["output"]] = "\n".join(header) + "\n\n" + contents
+        self.names = qualified_names
         return outputs
 
 

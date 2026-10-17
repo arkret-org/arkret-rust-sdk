@@ -96,7 +96,7 @@ pub fn validate_agent_contact_identity_at(
     )
     .map_err(invalid)?;
     if project_did_to_core_id(&head_did).map_err(invalid)?
-        != project_did_to_core_id(&did).map_err(invalid)?
+        != project_did_to_core_id(did).map_err(invalid)?
         || actor.route_service_id() != &controller.station_id
     {
         return Err(invalid("native head or controller Station differs"));
@@ -107,7 +107,7 @@ pub fn validate_agent_contact_identity_at(
     }
     // The shared historical selector also checks monotonic times and deactivation.
     let point = arkret_signatures::webvh::validate_webvh_history_at(
-        &did,
+        did,
         &history.raw_entries,
         event.created_at,
     )

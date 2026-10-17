@@ -1456,12 +1456,12 @@ pub fn event_runtime_contract(event_kind: &str) -> Option<&'static EventRuntimeC
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     use super::*;
 
     fn spec_artifacts() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts")
+        crate::spec_artifacts()
     }
 
     #[test]

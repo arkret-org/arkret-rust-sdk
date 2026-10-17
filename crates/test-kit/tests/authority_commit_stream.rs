@@ -49,7 +49,7 @@ fn signed_authority_material_preserves_independent_streams_and_refuses_bad_succe
         None,
     )
     .unwrap();
-    let private_genesis = event(circle.clone(), 0);
+    let private_genesis = event(circle, 0);
     let private_first = signed_commit(
         &method,
         &authority,
@@ -97,7 +97,7 @@ fn signed_authority_material_preserves_independent_streams_and_refuses_bad_succe
             &authority,
             &next_event,
             0,
-            Some(first.commit_id.clone()),
+            Some(first.commit_id),
             genesis.event_id.clone(),
             None
         )
@@ -110,7 +110,7 @@ fn signed_authority_material_preserves_independent_streams_and_refuses_bad_succe
             &next_event,
             1,
             None,
-            genesis.event_id.clone(),
+            genesis.event_id,
             None
         )
         .is_err()

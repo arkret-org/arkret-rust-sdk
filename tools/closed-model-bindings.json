@@ -13461,7 +13461,7 @@
               "source_commit": {
                 "name": "source_commit",
                 "visibility": "pub",
-                "type": "arkret_wire::RealmCommit",
+                "type": "RealmCommit",
                 "attributes": []
               },
               "value": {
@@ -13511,7 +13511,7 @@
               "source_commit": {
                 "name": "source_commit",
                 "visibility": "pub",
-                "type": "arkret_wire::RealmCommit",
+                "type": "RealmCommit",
                 "attributes": []
               },
               "value": {
@@ -14728,7 +14728,8 @@
         },
         {
           "name": "CallMediaJoinContext",
-          "schema": "call-invitation-operations.schema.json#/$defs/join_context"
+          "schema": "call-invitation-operations.schema.json#/$defs/join_context",
+          "expect_large_enum_variant": true
         },
         {
           "name": "ConsentCurrentSelectorKind",
@@ -15268,7 +15269,8 @@
           "name": "ConsentPrivateCommand",
           "schema": "consent-private-operations.schema.json#/$defs/command",
           "openapi": false,
-          "eq": false
+          "eq": false,
+          "expect_large_enum_variant": true
         },
         {
           "name": "ConsentPrivateHolderQuarantineCell",

@@ -80,15 +80,6 @@ pub fn objects() -> (RealmCommit, RealmAuthorityHandoff) {
     )
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn authority_objects_reproduce_independent_canonical_and_signature_bytes() {
-        let (commit, handoff) = super::objects();
-        super::assert_canonical_objects(&commit, &handoff);
-    }
-}
-
 /// Real generation-zero authority Commit material for an explicit independent
 /// stream coordinate. This checks signatures and shape, not live admission or
 /// stream provenance. Callers verify each successor against its actual head.
@@ -144,4 +135,13 @@ pub fn signed_commit(
         },
     )?;
     Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn authority_objects_reproduce_independent_canonical_and_signature_bytes() {
+        let (commit, handoff) = super::objects();
+        super::assert_canonical_objects(&commit, &handoff);
+    }
 }

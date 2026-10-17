@@ -113,7 +113,7 @@ impl CallParticipant {
             .joined_at
             .is_some_and(|at| at.timestamp_millis().rem_euclid(300_000) != 0)
         {
-            return Err(arkret_wire::ErrorCode::SCHEMA_VIOLATION);
+            return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         let present = [
             self.participant_id.is_some(),
@@ -996,8 +996,8 @@ include!("generated/call_contracts.rs");
 
 /// Validate immutable provenance before folding a complete Call assertion axis.
 fn validate_call_assertion_sources<'a>(
-    assertions: impl IntoIterator<Item = (&'a str, &'a arkret_wire::RealmCommit)>,
-    stream: &arkret_wire::CommitStreamRef,
+    assertions: impl IntoIterator<Item = (&'a str, &'a RealmCommit)>,
+    stream: &CommitStreamRef,
     revision: &CurrentRevision,
     write_index: usize,
 ) -> Result<()> {
@@ -1017,9 +1017,7 @@ fn validate_call_assertion_sources<'a>(
             return schema_violation("Call assertion provenance, order or source differs");
         }
         previous = Some(tag);
-        if latest.is_none_or(|old: &arkret_wire::RealmCommit| {
-            old.stream_position < commit.stream_position
-        }) {
+        if latest.is_none_or(|old: &RealmCommit| old.stream_position < commit.stream_position) {
             latest = Some(commit);
         }
     }
@@ -1034,7 +1032,7 @@ fn validate_call_assertion_sources<'a>(
 impl CallRosterCurrentValue {
     pub fn validate_sources(
         &self,
-        stream: &arkret_wire::CommitStreamRef,
+        stream: &CommitStreamRef,
         revision: &CurrentRevision,
     ) -> Result<()> {
         validate_call_assertion_sources(
@@ -1050,7 +1048,7 @@ impl CallRosterCurrentValue {
 impl CallModerationCurrentValue {
     pub fn validate_sources(
         &self,
-        stream: &arkret_wire::CommitStreamRef,
+        stream: &CommitStreamRef,
         revision: &CurrentRevision,
     ) -> Result<()> {
         validate_call_assertion_sources(
@@ -1067,7 +1065,7 @@ impl CallModerationCurrentValue {
 impl CallParticipant {
     pub fn signed_media(&self) -> Result<crate::call_invitation::CallInvitationMedia> {
         let media = self.media.as_ref().ok_or_else(|| {
-            arkret_wire::WireError::Protocol("signed participant requires media range".to_owned())
+            WireError::Protocol("signed participant requires media range".to_owned())
         })?;
         match (media.audio, media.video, media.screen) {
             (Some(audio), Some(video), Some(screen)) => {

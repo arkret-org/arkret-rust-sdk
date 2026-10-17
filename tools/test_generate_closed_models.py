@@ -35,6 +35,20 @@ class ClosedModelsTests(unittest.TestCase):
         self.assertNotIn("= 20", output)
         self.assertIn("sha256=", output)
 
+    def test_local_generated_references_do_not_keep_qualified_reexports(self):
+        self.schema["properties"]["first"] = {"$ref": "#/$defs/child"}
+        self.schema["$defs"] = {"child": {"const": "child"}}
+        child_schema = "example.schema.json#/$defs/child"
+        self.bindings["references"][child_schema] = "crate::example::Child"
+        self.bindings["families"][0]["types"].append({"name": "Child", "schema": child_schema})
+        output = self.generate()
+        self.assertIn("pub first: Option<Child>", output)
+        self.assertNotIn("Option<crate::example::Child>", output)
+
+        self.bindings["families"][0]["types"].pop()
+        output = self.generate()
+        self.assertIn("pub first: Option<crate::example::Child>", output)
+
     def test_string_const_and_partial_equality_representation(self):
         self.schema = {"const": "holder_session"}
         row = self.bindings["families"][0]["types"][0]

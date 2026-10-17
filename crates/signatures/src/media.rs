@@ -734,9 +734,9 @@ mod tests {
         let mut media = accepted.clone();
         media.media.screen = true;
         assert!(verify_call_media_token_outcome(&request, &media, &anchors, now).is_err());
-        let mut device = accepted.clone();
+        let mut device = accepted;
         device.device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000a").unwrap();
-        wrong_request = request.clone();
+        wrong_request = request;
         wrong_request.device_id = device.device_id.clone();
         assert!(verify_call_media_token_outcome(&wrong_request, &device, &anchors, now).is_err());
     }

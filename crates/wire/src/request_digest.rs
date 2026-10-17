@@ -48,7 +48,7 @@ mod tests {
     fn management_creation_digest_retains_nested_originals_and_rejects_nonobjects() {
         let original = serde_json::json!({"authoring_request":{"proof":"original"},"managed_actor_bundle":{"approval_signatures":["nested"]},"approval_signatures":["outer"]});
         let digest = super::management_creation_request_digest(&original).unwrap();
-        let mut another_vote = original.clone();
+        let mut another_vote = original;
         another_vote["approval_signatures"] = serde_json::json!(["another outer"]);
         assert_eq!(
             digest,

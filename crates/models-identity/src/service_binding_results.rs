@@ -202,7 +202,7 @@ mod tests {
         };
         let wire = serde_json::to_value(&request).unwrap();
         assert_eq!(wire.as_object().unwrap().len(), 2);
-        let mut extra = wire.clone();
+        let mut extra = wire;
         extra["account_id"] = serde_json::json!({});
         assert!(serde_json::from_value::<MediaServiceBindingRequestBody>(extra).is_err());
         let did = Did::new("did:web:issuer.example").unwrap();

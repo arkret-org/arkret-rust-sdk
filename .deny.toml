@@ -14,6 +14,15 @@ ignore = [
     # Remove this entry when that upstream chain replaces proc-macro-error2;
     # other advisories remain failures, including newly reported notices.
     { id = "RUSTSEC-2026-0173", reason = "transitive OpenMLS hax macro dependency with no compatible replacement" },
+    # zbus 6 merged these crates into its own names/wire modules. These are
+    # maintenance notices, not vulnerabilities. secret-service 5.2 still
+    # requires zbus 5, including a shared Connection for our mutation lease.
+    # Remove all three entries when secret-service supports zbus 6, then
+    # migrate the complete Secret Service/lease graph together.
+    # https://github.com/z-galaxy/zbus/issues/2043
+    { id = "RUSTSEC-2026-0370", reason = "zvariant is required by secret-service's latest stable zbus 5 backend; upstream zbus 6 migration pending" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names is required by secret-service's latest stable zbus 5 backend; upstream zbus 6 migration pending" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive is required by secret-service's latest stable zbus 5 backend; upstream zbus 6 migration pending" },
 ]
 
 [licenses]
@@ -30,6 +39,9 @@ allow = [
     "MIT",
     "MIT-0",
     "MPL-2.0",
+    # LLVM libFuzzer bundled by the existing development-only libfuzzer-sys.
+    # https://spdx.org/licenses/NCSA.html
+    "NCSA",
     "Unicode-3.0",
     "Zlib",
 ]
@@ -42,4 +54,3 @@ wildcards = "allow"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/openmls/openmls.git"]

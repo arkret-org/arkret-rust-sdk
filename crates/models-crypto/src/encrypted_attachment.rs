@@ -359,16 +359,15 @@ mod geometry_tests {
 
     #[test]
     fn proof_hash_is_the_complete_event_content_digest_alias() {
-        for suite in [arkret_canonical::DigestSuite::Sha256] {
-            let event = EventId::from_digest(suite, [7; 32]);
-            let digest = event.event_digest();
-            let alias = EncryptedAttachmentGroupStateRef::Digest(digest);
-            assert_eq!(alias.event_id().unwrap(), event);
-            assert_ne!(
-                serde_json::to_value(alias).unwrap(),
-                serde_json::to_value(EncryptedAttachmentGroupStateRef::Event(event)).unwrap()
-            );
-        }
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        let event = EventId::from_digest(suite, [7; 32]);
+        let digest = event.event_digest();
+        let alias = EncryptedAttachmentGroupStateRef::Digest(digest);
+        assert_eq!(alias.event_id().unwrap(), event);
+        assert_ne!(
+            serde_json::to_value(alias).unwrap(),
+            serde_json::to_value(EncryptedAttachmentGroupStateRef::Event(event)).unwrap()
+        );
         let unsupported = EncryptedAttachmentGroupStateRef::Digest(
             Hash::new(format!("blake3:{}", "07".repeat(32))).unwrap(),
         );

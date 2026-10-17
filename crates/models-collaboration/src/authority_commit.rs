@@ -1460,18 +1460,15 @@ impl PeerAuthoritySubmitOutcome {
                     PeerRegisteredAtomicUnit::AuditPairedEvent(request),
                     PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(outcome),
                 ) = (&request.unit, &outcome.outcome)
-                {
-                    if outcome
+                    && outcome
                         .commits
                         .iter()
                         .zip(&request.committed_events)
                         .any(|(commit, slot)| commit != &slot.source_commit)
-                    {
-                        return Err(WireError::Protocol(
-                            "replicated audit outcome differs from the exact source Commits"
-                                .to_owned(),
-                        ));
-                    }
+                {
+                    return Err(WireError::Protocol(
+                        "replicated audit outcome differs from the exact source Commits".to_owned(),
+                    ));
                 }
                 if request_kind == outcome_kind {
                     Ok(())

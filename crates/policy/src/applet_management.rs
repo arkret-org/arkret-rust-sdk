@@ -351,7 +351,7 @@ mod tests {
             "realm_id":realm,"policy_kind":"applet","rules":[rule("low",1,120),rule("first",5,60),rule("second",5,20)],
             "default_effect":"allow","created_by":requester,"created_at":arkret_canonical::format_timestamp_canonical(at)})).unwrap();
         assert_eq!(
-            select_applet_management(Some(&[policy.clone()]), &context).unwrap(),
+            select_applet_management(Some(std::slice::from_ref(&policy)), &context).unwrap(),
             AppletManagementDecision {
                 effect: PolicyEffect::RequireReview,
                 review_requirements: vec![requirement(60), requirement(20)]
@@ -454,13 +454,11 @@ mod tests {
         let mut review = policy(1, false);
         review.default_effect = PolicyEffect::RequireReview;
         review.default_operations = Some(vec![arkret_wire::ManagementOperation::Join]);
-        review.default_review_requirement = Some(
-            arkret_models_collaboration::governance::operation_wire::ManagementReviewRequirement {
-                approver_actor_ids: vec![requester.clone()],
-                threshold: 1,
-                max_age_seconds: 300,
-            },
-        );
+        review.default_review_requirement = Some(ManagementReviewRequirement {
+            approver_actor_ids: vec![requester.clone()],
+            threshold: 1,
+            max_age_seconds: 300,
+        });
         review.rules[0].applet_operations = Some(vec![AppletPolicyOperation::MapGhost]);
         assert_eq!(
             evaluate_applet_management(Some(&[review]), &context),

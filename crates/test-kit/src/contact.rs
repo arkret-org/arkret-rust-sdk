@@ -239,14 +239,14 @@ impl ContactCeremonyFixture {
         let initial_request = requester.current(
             responder.peer(),
             round_id.clone(),
-            &[request.event_id.clone()],
+            std::slice::from_ref(&request.event_id),
             false,
             at,
         )?;
         let initial_response = responder.current(
             requester.peer(),
             round_id.clone(),
-            &[accepted.event_id.clone()],
+            std::slice::from_ref(&accepted.event_id),
             false,
             at,
         )?;

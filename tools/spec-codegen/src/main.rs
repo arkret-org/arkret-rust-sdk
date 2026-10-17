@@ -10,6 +10,14 @@ use std::{env, fs};
 use anyhow::{Context, Result, bail};
 use model::SpecInputs;
 
+#[cfg(test)]
+fn spec_artifacts() -> PathBuf {
+    env::var_os("ARKRET_SPEC_ARTIFACTS").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts"),
+        PathBuf::from,
+    )
+}
+
 fn main() -> Result<()> {
     let mut args = env::args_os().skip(1);
     let mut artifacts_dir = None;

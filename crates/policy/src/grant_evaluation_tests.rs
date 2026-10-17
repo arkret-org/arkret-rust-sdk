@@ -1656,8 +1656,7 @@ fn managed_sources_split_resources_without_joining_unrelated_current_fences() {
     child.resources = body.resources;
     child.issuer_authority_refs = body.issuer_authority_refs;
     b.status = CapabilityGrantStatus::Revoked;
-    let rows =
-        std::collections::BTreeMap::from([(a.id.clone(), a.clone()), (b.id.clone(), b.clone())]);
+    let rows = std::collections::BTreeMap::from([(a.id.clone(), a.clone()), (b.id.clone(), b)]);
     assert_eq!(
         current_sources(
             &child,
@@ -1682,7 +1681,7 @@ fn managed_sources_split_resources_without_joining_unrelated_current_fences() {
         ),
         Err(AuthorityError::Closed)
     ));
-    let mut wrong = a.clone();
+    let mut wrong = a;
     wrong.subject = CapabilitySubject::Actor(ActorId::account(arkret_wire::AccountId::new(
         actor().signing_principal_id().clone(),
         "ak:did_core:web:other-station.example".parse().unwrap(),

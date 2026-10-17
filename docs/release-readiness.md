@@ -3,6 +3,10 @@
 Current target: active Arkret v1 SDK `0.3.x` development line. Workspace crate
 versions remain `0.3.0` until an explicit release cut.
 
+The SDK does not commit Cargo.lock files. Generate a local lockfile with
+`cargo generate-lockfile` before running any checks with `--locked`; CI resolves
+fresh compatible dependencies for each run.
+
 This repository is ready for a local `0.3.x` release-candidate cut only when
 these gates pass:
 
@@ -16,11 +20,10 @@ these gates pass:
 - `cargo clippy --all-features --all-targets -- -D warnings`
 - `cargo test --all-features`
 - `python tools/check-publish-order.py`
-- `cargo package --workspace --locked --no-verify`
+- `cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify`
 - `cargo doc --no-deps --all-features --workspace`
-- `cargo deny check --config .deny.toml`
-- `cargo audit --deny warnings --ignore RUSTSEC-2026-0124`
-- `cargo run -p arkret-schema --example spec_drift_report`
+- `cargo deny --config .deny.toml check`
+- `cargo run -p arkret-schema-conformance --example spec_drift_report`
 - Public Rust API changes follow the current Spec during unpublished
   development. Adjacent commits are not a release compatibility baseline.
   Coordinated consumer compatibility requires an explicitly dispatched exact

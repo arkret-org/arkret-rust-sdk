@@ -39,6 +39,9 @@ jobs:
         with:
           toolchain: "1.98"
           components: clippy
+      - name: Resolve current compatible dependencies
+        working-directory: arkret-rust-sdk
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
@@ -124,6 +127,8 @@ jobs:
         with:
           toolchain: "1.98"
           components: clippy
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - name: Install native Secret Service
         if: runner.os == 'Linux'
@@ -192,6 +197,8 @@ jobs:
         with:
           toolchain: "1.98"
           targets: wasm32-unknown-unknown
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
       - name: Run manifest SDK browser compile checks
@@ -216,6 +223,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - name: Build docs
         env:
@@ -233,6 +242,8 @@ jobs:
           # Pinned MSRV — bumping requires a workspace Cargo.toml change and
           # a CHANGELOG entry. Keeping a separate job documents the contract.
           toolchain: "1.98"
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-features --locked
 
@@ -241,6 +252,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           # `.deny.toml` at repo root drives the policy. Run all checks so
@@ -277,6 +290,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
+      - name: Resolve current compatible dependencies
+        working-directory: arkret-rust-sdk
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
@@ -306,6 +322,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - run: python tools/check-publish-order.py
       - run: cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify
@@ -343,6 +361,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.98"
+      - name: Resolve current compatible dependencies
+        working-directory: arkret-rust-sdk
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk

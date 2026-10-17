@@ -49,6 +49,8 @@ jobs:
         with:
           toolchain: "1.98"
           components: rustfmt, clippy
+      - name: Resolve current compatible dependencies
+        run: cargo generate-lockfile
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
