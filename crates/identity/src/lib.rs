@@ -7,6 +7,8 @@
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
 pub mod account_device_signer_evidence;
+pub mod managed_actor_provenance;
+pub use managed_actor_provenance::*;
 pub mod agent_authority_evidence;
 pub mod authority_history;
 pub mod contact_producer_identity;

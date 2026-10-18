@@ -6,6 +6,7 @@
 //! branches without inventing a generic federation envelope.
 
 mod audit_atomic;
+mod managed_provenance;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -21,6 +22,7 @@ use arkret_wire::{
 };
 pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
+pub use managed_provenance::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -868,14 +870,35 @@ pub struct PeerAuthorityForwardEventRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_managed_provenance: Option<ForwardManagedActorProvenance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardEventRequest {
+    pub fn new_managed(
+        event_submission: EventAdmissionSubmission,
+        mls_genesis_material: Option<MlsGenesisMaterial>,
+        producer_device_evidence: ForwardAccountDeviceSignerEvidence,
+        producer_managed_provenance: ForwardManagedActorProvenance,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            event_submission,
+            mls_genesis_material,
+            producer_device_evidence: Some(producer_device_evidence),
+            producer_managed_provenance: Some(producer_managed_provenance),
+            producer_agent_evidence: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
     /// Structural candidate only. Admission must independently establish the
     /// actual accepted inception/purpose and execute the registered native unit.
     pub fn is_native_pcr_candidate(&self) -> bool {
         self.producer_device_evidence.is_none()
+            && self.producer_managed_provenance.is_none()
             && self.producer_agent_evidence.is_none()
             && self.event_submission.event.kind != EventKind::RealmCreate
             && arkret_wire::requirements_for(arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1)
@@ -892,6 +915,7 @@ impl PeerAuthorityForwardEventRequest {
             event_submission,
             mls_genesis_material,
             producer_device_evidence: None,
+            producer_managed_provenance: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
         request.validate()?;
@@ -911,6 +935,7 @@ impl PeerAuthorityForwardEventRequest {
             event_submission,
             mls_genesis_material,
             producer_device_evidence,
+            producer_managed_provenance: None,
             producer_agent_evidence: None,
         };
         request.validate()?;
@@ -945,6 +970,14 @@ impl PeerAuthorityForwardEventRequest {
             &self.event_submission.event,
             self.producer_agent_evidence.as_ref(),
         )?;
+        if let Some(source) = &self.producer_managed_provenance {
+            if self.producer_device_evidence.is_none() || self.producer_agent_evidence.is_some() {
+                return Err(WireError::Protocol(
+                    "managed provenance requires a real Account Device source".into(),
+                ));
+            }
+            source.validate()?;
+        }
         self.account_device_producer().map(drop)
     }
 
@@ -968,10 +1001,28 @@ pub struct PeerAuthorityForwardMlsRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_managed_provenance: Option<ForwardManagedActorProvenance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardMlsRequest {
+    pub fn new_managed(
+        mls_submission: MlsCommitSubmission,
+        producer_device_evidence: ForwardAccountDeviceSignerEvidence,
+        producer_managed_provenance: ForwardManagedActorProvenance,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            mls_submission,
+            producer_device_evidence: Some(producer_device_evidence),
+            producer_managed_provenance: Some(producer_managed_provenance),
+            producer_agent_evidence: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
     pub fn new_agent(
         mls_submission: MlsCommitSubmission,
         producer_agent_evidence: AgentProducerEvidence,
@@ -980,6 +1031,7 @@ impl PeerAuthorityForwardMlsRequest {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             producer_device_evidence: None,
+            producer_managed_provenance: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
         request.validate()?;
@@ -995,6 +1047,7 @@ impl PeerAuthorityForwardMlsRequest {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             producer_device_evidence,
+            producer_managed_provenance: None,
             producer_agent_evidence: None,
         };
         request.validate()?;
@@ -1007,6 +1060,14 @@ impl PeerAuthorityForwardMlsRequest {
             &self.mls_submission.commit_event,
             self.producer_agent_evidence.as_ref(),
         )?;
+        if let Some(source) = &self.producer_managed_provenance {
+            if self.producer_device_evidence.is_none() || self.producer_agent_evidence.is_some() {
+                return Err(WireError::Protocol(
+                    "managed provenance requires a real Account Device source".into(),
+                ));
+            }
+            source.validate()?;
+        }
         self.account_device_producer().map(drop)
     }
 
