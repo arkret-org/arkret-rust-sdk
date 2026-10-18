@@ -86,6 +86,49 @@ pub fn build_authenticated_webvh_service_resolution(
     Ok(resolution)
 }
 
+/// Build immutable service history directly from the did:key identifier.
+/// No resolver projection or caller-supplied document becomes a trust root.
+pub fn build_authenticated_did_key_service_resolution(
+    service_id: DidCoreId,
+    service_kind: String,
+    did: Did,
+    now: DateTime<Utc>,
+) -> Result<AuthenticatedServiceResolution> {
+    if did.method() != "key" {
+        return Err(IdentityError::Protocol(
+            "immutable service expansion requires did:key".to_owned(),
+        ));
+    }
+    let document = DidKeyResolver::new().resolve_did(&did)?.document;
+    let head = arkret_canonical::sha256_digest(did.as_str().as_bytes());
+    let version = format!(
+        "synthetic-did-sha256:{}",
+        head.trim_start_matches("sha256:")
+    );
+    let resolution = AuthenticatedServiceResolution {
+        service_id,
+        service_kind,
+        method_history_evidence: ResolutionMethodHistoryEvidence::DidKeyExpansion {
+            boundary: ResolutionMethodEvidenceBoundary {
+                from_method_history_head: head.clone(),
+                from_version_id: version.clone(),
+                to_method_history_head: head,
+                to_version_id: version,
+            },
+            evidence: ResolutionDidBindingEvidenceReceipt {
+                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                method: "key".to_owned(),
+                document_digest: arkret_models_identity::normalized_did_document_digest(&document)
+                    .map_err(wire)?,
+                method_proofs: Vec::new(),
+            },
+        },
+        normalized_did_document: document,
+    };
+    verify_authenticated_service_resolution_history(&resolution, &resolution.service_id, now)?;
+    Ok(resolution)
+}
+
 /// Build current no-history evidence from a DID document independently verified by the adapter.
 pub fn build_authenticated_did_web_service_resolution(
     service_id: DidCoreId,
@@ -419,7 +462,7 @@ pub fn authenticated_service_document_at(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn verify_webvh_history(
+pub(crate) fn verify_webvh_history(
     did: &Did,
     document: &DidDocument,
     boundary: &ResolutionMethodEvidenceBoundary,
@@ -716,4 +759,60 @@ pub fn discover_webvh_current_did(expected_core: &DidCoreId, raw_log_bytes: &[u8
     }
     crate::verify_did_webvh_v1_chain_bytes(&did, raw_log_bytes)?;
     Ok(did)
+}
+
+#[cfg(test)]
+mod immutable_service_history_tests {
+    use super::*;
+
+    #[test]
+    fn immutable_service_expansion_selects_only_its_actual_identifier_key() {
+        let key = ed25519_dalek::SigningKey::from_bytes(&[147; 32]);
+        let multibase =
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(key.verifying_key().as_bytes());
+        let did = Did::new(format!("did:key:{multibase}")).unwrap();
+        let service = project_did_to_core_id(&did).unwrap();
+        let at = "2026-10-18T00:00:00Z".parse().unwrap();
+        let resolution = build_authenticated_did_key_service_resolution(
+            service.clone(),
+            "applet_service".to_owned(),
+            did.clone(),
+            at,
+        )
+        .unwrap();
+        let historical = authenticated_service_document_at(&resolution, &service, at).unwrap();
+        let method = arkret_wire::DidUrl::new(format!("{did}#{multibase}")).unwrap();
+        let material = crate::public_key_material_from_document(&historical, &method).unwrap();
+        assert_eq!(
+            material.ed25519_bytes().unwrap(),
+            *key.verifying_key().as_bytes()
+        );
+        let other = Did::new(format!(
+            "did:key:{}",
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                ed25519_dalek::SigningKey::from_bytes(&[148; 32])
+                    .verifying_key()
+                    .as_bytes()
+            )
+        ))
+        .unwrap();
+        assert!(
+            build_authenticated_did_key_service_resolution(
+                project_did_to_core_id(&other).unwrap(),
+                "applet_service".to_owned(),
+                did,
+                at,
+            )
+            .is_err()
+        );
+        assert!(
+            build_authenticated_did_key_service_resolution(
+                service,
+                "applet_service".to_owned(),
+                Did::new("did:web:mutable.arkret.org").unwrap(),
+                at,
+            )
+            .is_err()
+        );
+    }
 }

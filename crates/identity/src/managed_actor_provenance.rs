@@ -44,12 +44,14 @@ pub struct ManagedForwardVerificationContext<'a> {
 }
 
 /// Authenticated immutable source. It does not grant membership, installation or an action.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VerifiedManagedActorProvenance {
     original: ForwardManagedActorProvenance,
     account: AccountId,
     role: AppletManagedActorRole,
     source_time: DateTime<Utc>,
+    event_id: arkret_wire::EventId,
+    forward_body_digest: arkret_wire::Hash,
 }
 
 impl VerifiedManagedActorProvenance {
@@ -64,6 +66,25 @@ impl VerifiedManagedActorProvenance {
     }
     pub fn source_time(&self) -> DateTime<Utc> {
         self.source_time
+    }
+
+    /// A private verified token cannot be moved to another Event or another
+    /// forward body when a consumer carries it into its accepting transaction.
+    pub fn ensure_target(
+        &self,
+        event: &Event,
+        forward_body_digest: &arkret_wire::Hash,
+    ) -> Result<()> {
+        if event.event_id != self.event_id
+            || event.actor_id.as_account_id() != Some(&self.account)
+            || forward_body_digest != &self.forward_body_digest
+        {
+            return Err(rejected(
+                ErrorCode::SignatureInvalid,
+                "managed source token belongs to another Event or forward body",
+            ));
+        }
+        Ok(())
     }
 
     /// Invoke again at the effect boundary; earlier verification cannot extend the source lease.
@@ -156,8 +177,19 @@ fn verify(
     let account = producer.account_id;
     let originals = &source.creation;
     let provision = &originals.provision.event;
+    if !matches!(
+        &provision.scope_ref,
+        ScopeRef::Realm { realm_id } | ScopeRef::Circle { realm_id, .. }
+            if realm_id == &provision.realm_id
+    ) {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "managed creation requires its original Realm or Circle installation scope",
+        ));
+    }
     let payload: AppletManagedActorProvisionPayload = decode(provision)?;
     payload.validate()?;
+    verify_applet_managed_initial_resolution(&payload, originals.provision.commit.committed_at)?;
     if payload.actor_id != ActorId::account(account.clone())
         || &payload.applet_id != context.applet_id
         || &payload.service_id != context.applet_service_id
@@ -173,6 +205,12 @@ fn verify(
     let service_actor = ActorId::service(payload.service_id.clone());
     let authorization = AuthorizationRef::from(payload.applet_authority_ref.clone());
     let core = &device.device_projection_attestation.attestation;
+    if core.authorization_window.expires_at.is_none() {
+        return Err(rejected(
+            ErrorCode::DeviceUnauthorized,
+            "managed Device authorization requires its original finite window",
+        ));
+    }
     for original in originals.entries() {
         let item = &original.event;
         if item.actual_signer() != &service_actor
@@ -270,6 +308,7 @@ fn verify(
     }
     let accountability = &originals.accountability.event;
     let endorsement: AccountabilityGrantPayload = decode(accountability)?;
+    endorsement.validate_lifecycle_at(originals.accountability.commit.committed_at)?;
     if accountability.realm_id != provision.realm_id
         || accountability.scope_ref != provision.scope_ref
         || accountability.actor_id != service_actor
@@ -402,8 +441,6 @@ fn verify(
         || value.subject_id != endorsement.subject_id
         || value.accountability_scope != scopes
         || value.grant_status != AccountabilityGrantStatus::Active
-        || value.not_before != endorsement.not_before
-        || value.expires_at != endorsement.expires_at
         || core.attested_at < value.not_before
         || context.now < value.not_before
         || value.expires_at.is_some_and(|end| context.now >= end)
@@ -440,13 +477,17 @@ fn verify(
             .authorization_window
             .expires_at
             .is_some_and(|end| source.current.expires_at > end)
-        || endorsement
+        || source
+            .current
+            .accountability
+            .result
+            .value
             .expires_at
             .is_some_and(|end| source.current.expires_at > end)
     {
         return Err(rejected(
             ErrorCode::DeviceUnauthorized,
-            "managed source exceeds an original expiry ceiling",
+            "managed source exceeds its Device or actual current endorsement expiry ceiling",
         ));
     }
     let verified = VerifiedManagedActorProvenance {
@@ -454,6 +495,8 @@ fn verify(
         account,
         role: payload.actor_role,
         source_time: core.attested_at,
+        event_id: event.event_id.clone(),
+        forward_body_digest: body_digest.clone(),
     };
     verified.ensure_live(context.now)?;
     Ok(verified)
@@ -483,6 +526,126 @@ fn verify_original_commit(
         &key,
     )?;
     Ok(())
+}
+
+/// Original Service signatures never substitute for the Principal's native
+/// self-certifying chain, witness thresholds or effective inception version.
+pub fn verify_applet_managed_initial_resolution(
+    payload: &AppletManagedActorProvisionPayload,
+    accepted_at: DateTime<Utc>,
+) -> Result<crate::DidDocument> {
+    payload.validate()?;
+    let did = &payload.initial_resolution.did;
+    let (receipt, entries, witnesses) = payload.method_history_evidence.webvh_material();
+    let mut log_bytes = Vec::new();
+    for entry in entries {
+        log_bytes.extend(arkret_canonical::canonical_json_bytes(entry)?);
+        log_bytes.push(b'\n');
+    }
+    let witness_bytes = arkret_canonical::canonical_json_bytes(witnesses)?;
+    let verified =
+        crate::verify_did_webvh_v1_chain_and_witness_bytes(did, &log_bytes, Some(&witness_bytes))
+            .map_err(|error| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                &format!("managed Principal native history does not verify: {error}",),
+            )
+        })?;
+    let terminal = verified.log.raw_entries.last().ok_or_else(|| {
+        rejected(
+            ErrorCode::SignatureInvalid,
+            "managed Principal native history has no terminal entry",
+        )
+    })?;
+    if verified.log.head_version_id != payload.initial_resolution.version_id
+        || arkret_canonical::canonical_sha256(terminal)?
+            != payload.initial_resolution.method_history_head
+    {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "managed Principal native terminal differs from its original resolution",
+        ));
+    }
+    let effective = arkret_signatures::webvh::validate_webvh_history_at(did, entries, accepted_at)
+        .map_err(|error| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                &format!("managed Principal original effective history does not verify: {error}",),
+            )
+        })?;
+    // Managed Principals carry an independent operational controller. Human
+    // identity-anchor document restrictions do not apply, but no history root
+    // may appear in any of their operational DID documents.
+    let roots = entries
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .pointer("/parameters/updateKeys")
+                .and_then(serde_json::Value::as_array)
+        })
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect::<Vec<_>>();
+    for entry in entries {
+        let state = entry.get("state").ok_or_else(|| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                "managed Principal history omits its document",
+            )
+        })?;
+        let document: crate::DidDocument = serde_json::from_value(state.clone())?;
+        document.validate()?;
+        let encoded = serde_json::to_string(state)?;
+        if roots.iter().any(|root| encoded.contains(root)) {
+            return Err(rejected(
+                ErrorCode::SignatureInvalid,
+                "managed Principal operational document exposes a history root",
+            ));
+        }
+    }
+    if effective.version_id != payload.initial_resolution.version_id {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "managed Principal initial resolution was not effective at its original acceptance",
+        ));
+    }
+    let document: crate::DidDocument = serde_json::from_value(verified.log.head_state)?;
+    if arkret_models_identity::normalized_did_document_digest(&document)? != receipt.document_digest
+    {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "managed Principal method receipt names a different original document",
+        ));
+    }
+    let first = verified.log.entries.first().ok_or_else(|| {
+        rejected(
+            ErrorCode::SignatureInvalid,
+            "managed Principal native history has no inception",
+        )
+    })?;
+    let complete = arkret_models_identity::ResolutionMethodEvidenceBoundary {
+        from_method_history_head: arkret_canonical::canonical_sha256(&entries[0])?,
+        from_version_id: first.version_id.clone(),
+        to_method_history_head: payload.initial_resolution.method_history_head.clone(),
+        to_version_id: payload.initial_resolution.version_id.clone(),
+    };
+    crate::service_resolution_evidence::verify_webvh_history(
+        did,
+        &document,
+        &complete,
+        receipt,
+        entries,
+        witnesses,
+        &payload.initial_resolution.method_history_head,
+        &payload.initial_resolution.version_id,
+    )
+    .map_err(|error| {
+        rejected(
+            ErrorCode::SignatureInvalid,
+            &format!("managed Principal original method receipt does not verify: {error}",),
+        )
+    })?;
+    Ok(document)
 }
 
 fn service_key(
@@ -525,7 +688,7 @@ fn exact_ref(event: &Event, role: &str, id: &arkret_wire::EventId) -> bool {
         .iter()
         .filter(|reference| reference.role == role);
     refs.next()
-        .is_some_and(|reference| reference.id == id.as_str())
+        .is_some_and(|reference| reference.critical && reference.id == id.as_str())
         && refs.next().is_none()
 }
 

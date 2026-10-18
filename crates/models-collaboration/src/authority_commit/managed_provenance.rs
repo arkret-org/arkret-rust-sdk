@@ -54,9 +54,7 @@ impl ManagedCreationOriginals {
                 || commit.event_ref != event.event_id
                 || commit.realm_id != event.realm_id
                 || commit.stream_ref
-                    != (CommitStreamRef::Realm {
-                        realm_id: event.realm_id.clone(),
-                    })
+                    != CommitStreamRef::from_scope(&event.scope_ref, Some(event.realm_id.clone()))?
             {
                 return Err(malformed(
                     "managed creation original kind or Commit binding differs",
@@ -162,6 +160,15 @@ impl ForwardManagedActorProvenance {
             &profile.result.revision,
             &profile.commit,
         )?;
+        if profile.result.source_stream_ref
+            != (CommitStreamRef::Realm {
+                realm_id: profile.realm_id.clone(),
+            })
+        {
+            return Err(malformed(
+                "managed Profile current requires its exact PCR Realm stream",
+            ));
+        }
         validate_current(
             &accountability.realm_id,
             &accountability.result.source_stream_ref,
@@ -181,10 +188,7 @@ fn validate_current(
 ) -> Result<()> {
     commit.verify_commit_id_matches_content()?;
     if &commit.realm_id != realm
-        || stream
-            != &(CommitStreamRef::Realm {
-                realm_id: realm.clone(),
-            })
+        || stream.realm_id() != realm
         || stream != &commit.stream_ref
         || revision.commit_id != commit.commit_id
         || revision.stream_position != commit.stream_position
