@@ -198,6 +198,90 @@ fn evidence_with(
     }
 }
 
+// Shared only by SDK facade regressions; this is not a production constructor.
+#[allow(dead_code)]
+pub(crate) fn verified_forward_fixture(
+    provenance: Option<
+        arkret_models_collaboration::authority_commit::ForwardManagedActorProvenance,
+    >,
+) -> (
+    arkret_models_collaboration::authority_commit::PeerAuthoritySubmitRequest,
+    arkret_identity::VerifiedProducerEvent,
+    arkret_models_identity::AuthenticatedServiceResolution,
+) {
+    use arkret_models_collaboration::authority_commit::{
+        PeerAuthorityForwardEventRequest, PeerAuthoritySubmitRequest, authority_forward_body_digest,
+    };
+    let origin = station(74, "station.example");
+    static PRIVATE_KEY: std::sync::OnceLock<[u8; 32]> = std::sync::OnceLock::new();
+    let seed = *PRIVATE_KEY.get_or_init(|| {
+        let mut seed = [0_u8; 32];
+        getrandom::fill(&mut seed).expect("OS entropy for private SDK regression custody");
+        seed
+    });
+    let key = SigningKey::from_bytes(&seed);
+    let principal = station(75, "account.example");
+    let principal_did = &principal.service_resolution.normalized_did_document.id;
+    let actor = ActorId::account(AccountId::new(
+        principal.service_id.clone(),
+        origin.service_id.clone(),
+    ));
+    let method = DidUrl::new(format!("{principal_did}#{DEVICE}")).unwrap();
+    let event = device_event_with_method(
+        actor.clone(),
+        method.as_str(),
+        origin.registered_at + Duration::seconds(30),
+        seed,
+    );
+    let context = arkret_identity::ProducerVerificationContext {
+        actor: actor.clone(),
+        verification_method: method.clone(),
+        public_key: arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+            bytes: key.verifying_key().to_bytes().to_vec(),
+        },
+        digest_suite: DigestSuite::Sha256,
+    };
+    let token = arkret_identity::VerifiedProducerEvent::verify(event.clone(), &context).unwrap();
+    let mut request = PeerAuthorityForwardEventRequest::new(
+        arkret_wire::EventAdmissionSubmission::new(event),
+        None,
+        Some(evidence_with(&origin, |core| {
+            core.account_id = actor.as_account_id().unwrap().clone();
+            core.event_authorization.event_id = token.event().event_id.clone();
+            core.event_authorization.verification_method = method.clone();
+            core.device_signing_key_did = DidKey::new(format!(
+                "did:key:{}",
+                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                    &key.verifying_key().to_bytes()
+                )
+            ))
+            .unwrap();
+        })),
+    )
+    .unwrap();
+    request.producer_managed_provenance = provenance;
+    let digest = authority_forward_body_digest(&request).unwrap();
+    let mut attestation = request
+        .producer_device_evidence
+        .as_ref()
+        .unwrap()
+        .device_projection_attestation
+        .attestation
+        .clone();
+    attestation.event_authorization.forward_body_digest = digest;
+    request
+        .producer_device_evidence
+        .as_mut()
+        .unwrap()
+        .device_projection_attestation = sign_raw(attestation, &origin.method, &origin.signing_key);
+    request.validate().unwrap();
+    (
+        PeerAuthoritySubmitRequest::AuthorityForwardEvent(request),
+        token,
+        origin.service_resolution,
+    )
+}
+
 fn signed_root() -> AccountDeviceSignerEvidence {
     let station = station(74, "station.example");
     let attestation = sign_device_projection_attestation(
@@ -218,6 +302,20 @@ fn device_event(
     created_at: DateTime<Utc>,
     seed: [u8; 32],
 ) -> Event {
+    device_event_with_method(
+        actor,
+        &format!("{PRINCIPAL_DID}#{fragment}"),
+        created_at,
+        seed,
+    )
+}
+
+fn device_event_with_method(
+    actor: ActorId,
+    method: &str,
+    created_at: DateTime<Utc>,
+    seed: [u8; 32],
+) -> Event {
     let event = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.realm.policy_bundle",
         ScopeRef::Realm {
@@ -227,7 +325,10 @@ fn device_event(
             )),
         },
         actor,
-        json!({"policy": "fixture"}),
+        serde_json::to_value(
+            arkret_models_collaboration::events_payloads::realm::RealmPolicyBundlePayload::new(1),
+        )
+        .unwrap(),
         created_at,
     )
     .unwrap();
@@ -235,7 +336,7 @@ fn device_event(
         AuthoredEvent::finalize_with_digest_suite(event, DigestSuite::Sha256).unwrap();
     sign_event(
         &mut authored,
-        &Ed25519DetachedJwsSigner::from_seed(seed, format!("{PRINCIPAL_DID}#{fragment}")),
+        &Ed25519DetachedJwsSigner::from_seed(seed, method),
         SignEventOptions::new().with_created_at(created_at),
     )
     .unwrap();
@@ -374,7 +475,7 @@ fn source_station_and_attestation_signature_bind_the_origin() {
     );
 
     // Step 2: attestation signed by another Station's registered key.
-    let foreign = crate::station(75, "foreign.example");
+    let foreign = self::station(75, "foreign.example");
     let mut foreign_signed = evidence.clone();
     foreign_signed.device_projection_attestation = sign_raw(
         forward_core(&station),

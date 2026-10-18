@@ -34,6 +34,7 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+getrandom = { workspace = true }
 arkret-signatures = { workspace = true, features = ["signer"] }
 arkret-schema-conformance = { workspace = true }
 arkret-schema = { workspace = true }

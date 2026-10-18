@@ -9,7 +9,8 @@ use arkret_models_collaboration::agent_operations::{
 };
 use arkret_models_collaboration::agent_scope::AgentKeyPairRequestBody;
 use arkret_models_collaboration::authority_commit::{
-    PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit, SelfAuthoritySubmitRequest,
+    ForwardManagedActorProvenance, PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit,
+    SelfAuthoritySubmitRequest,
 };
 use arkret_models_collaboration::consent_operations::{
     ConsentGrantRequestBody, ConsentRevokeRequestBody,
@@ -388,11 +389,49 @@ request!(
 );
 
 impl sealed::Sealed for PeerAuthoritySubmitRequest {}
+
+fn managed_forward_events<'a>(
+    event: &'a Event,
+    source: Option<&'a ForwardManagedActorProvenance>,
+) -> Vec<&'a Event> {
+    std::iter::once(event)
+        .chain(source.into_iter().flat_map(|source| {
+            source
+                .creation
+                .entries()
+                .into_iter()
+                .map(|entry| &entry.event)
+        }))
+        .collect()
+}
+
+fn managed_forward_commits(source: Option<&ForwardManagedActorProvenance>) -> Vec<&RealmCommit> {
+    let Some(source) = source else {
+        return Vec::new();
+    };
+    source
+        .creation
+        .entries()
+        .into_iter()
+        .map(|entry| &entry.commit)
+        .chain([
+            &source.current.profile.commit,
+            &source.current.accountability.commit,
+        ])
+        .collect()
+}
+
 impl PublicationRequest for PeerAuthoritySubmitRequest {
     fn producer_events(&self) -> Vec<&Event> {
         match self {
-            Self::AuthorityForwardEvent(value) => vec![&value.event_submission.event],
-            Self::AuthorityForwardMls(value) => vec![&value.mls_submission.commit_event],
+            Self::AuthorityForwardEvent(value) => managed_forward_events(
+                &value.event_submission.event,
+                value.producer_managed_provenance.as_ref(),
+            ),
+            Self::AuthorityForwardMls(value) => managed_forward_events(
+                &value.mls_submission.commit_event,
+                value.producer_managed_provenance.as_ref(),
+            ),
             Self::AuthorityForwardAtomic(value) => value
                 .atomic_submission
                 .events
@@ -424,9 +463,13 @@ impl PublicationRequest for PeerAuthoritySubmitRequest {
 
     fn realm_commits(&self) -> Vec<&RealmCommit> {
         match self {
-            Self::AuthorityForwardEvent(_)
-            | Self::AuthorityForwardMls(_)
-            | Self::AuthorityForwardAtomic(_) => Vec::new(),
+            Self::AuthorityForwardEvent(value) => {
+                managed_forward_commits(value.producer_managed_provenance.as_ref())
+            }
+            Self::AuthorityForwardMls(value) => {
+                managed_forward_commits(value.producer_managed_provenance.as_ref())
+            }
+            Self::AuthorityForwardAtomic(_) => Vec::new(),
             Self::CommittedReplication(value) => value
                 .replications
                 .iter()

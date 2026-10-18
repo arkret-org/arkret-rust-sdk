@@ -10,7 +10,7 @@ unverified request cannot supply that trust.
 | --- | --- |
 | Event, actor private Event, MLS Commit, Message submit, batch | Exact Event envelopes in wire order |
 | Self authority Event/MLS/bootstrap/Direct/compensation/audit pair | Every original in the registered typed variant |
-| Peer authority forwarding/replication/registered unit | Every original Event and source RealmCommit; Commit verification uses the authenticated Realm authority chain |
+| Peer authority forwarding/replication/registered unit | Every original Event and source RealmCommit; managed first-forward also carries its four creation Events, four creation Commits and two current covering Commits. Commit verification uses the authenticated Realm authority chain |
 | Human registration | Root and founding Device together, native registration anchor, exact Account actor and adapter derived initial resolution; no standalone Root bypass |
 | Profile, Device pairing, account data, read cursor | The embedded signed Event |
 | Agent provision/key pairing/lifecycle | The commit or authorization Event; prepare carries no Event |

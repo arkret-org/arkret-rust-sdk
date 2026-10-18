@@ -34,6 +34,9 @@ const STATION_DID: &str = "did:webvh:zstationscid:station.example";
 const SERVICE_DID: &str = "did:webvh:zservicescid:applet.example";
 const GHOST_DID: &str = "did:webvh:zghostscid:applet.example:actors:slack:u123";
 
+#[path = "../../identity/tests/account_device_signer_evidence.rs"]
+mod forward_device_fixture;
+
 fn issued_at() -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 0).unwrap()
 }
@@ -186,6 +189,142 @@ fn authored_unit() -> (
     let service = signer(0x22, SERVICE_DID);
     let bundle = author_applet_managed_actor_bundle(&request, authoring_input(), &service).unwrap();
     (request, bundle)
+}
+
+// Real producer bytes and Commit signatures for the SDK publication boundary.
+// This is deliberately not an accepted-identity or liveness authority fixture.
+fn publication_provenance() -> arkret::ForwardManagedActorProvenance {
+    use arkret::{
+        ForwardManagedActorProvenance, ManagedCreationAcceptedEvent, ManagedCreationOriginals,
+    };
+    let (_, bundle) = authored_unit();
+    let provision = signed_pcr_commit(&bundle.managed_actor_provision_event, None, None);
+    let genesis = signed_pcr_commit(&bundle.pcr_genesis_event, None, None);
+    let accountability =
+        signed_pcr_commit(&bundle.accountability_grant_event, Some(&genesis), None);
+    let profile = signed_pcr_commit(&bundle.profile_event, Some(&accountability), None);
+    let profile_id = arkret_wire::ActorProfileId::from_event_id(&bundle.profile_event.event_id);
+    let definition =
+        serde_json::from_value(bundle.profile_event.payload["object"].clone()).unwrap();
+    let value = arkret_models_identity::ActorProfile::materialize_create(
+        definition,
+        profile_id.clone(),
+        profile.realm_id.clone(),
+        bundle.profile_event.created_at,
+    )
+    .unwrap();
+    let grant = serde_json::from_value(
+        serde_json::to_value(&bundle.accountability_grant_event.payload).unwrap(),
+    )
+    .unwrap();
+    let projection = arkret_models_collaboration::governance::accountability::AccountabilityProjection::from_grant(&grant).unwrap();
+    let (_, _, resolution) = forward_device_fixture::verified_forward_fixture(None);
+    let current = serde_json::from_value(json!({
+        "profile": {"realm_id":profile.realm_id,"result":{
+            "selector":{"kind":"actor_profile","actor_profile_id":profile_id},
+            "source_stream_ref":profile.stream_ref,
+            "revision":{"commit_id":profile.commit_id,"stream_position":profile.stream_position},
+            "value":value}, "commit":profile},
+        "accountability": {"realm_id":accountability.realm_id,"result":{
+            "selector":{"kind":"identity_accountability","issuer_id":projection.issuer_id,"subject_id":projection.subject_id,"accountability_scope":projection.accountability_scope},
+            "source_stream_ref":accountability.stream_ref,
+            "revision":{"commit_id":accountability.commit_id,"stream_position":accountability.stream_position},
+            "value":projection}, "commit":accountability},
+        "expires_at":arkret_canonical::format_timestamp_canonical(Utc::now()+chrono::Duration::minutes(5))
+    })).unwrap();
+    let source = ForwardManagedActorProvenance {
+        creation: ManagedCreationOriginals {
+            provision: ManagedCreationAcceptedEvent {
+                event: bundle.managed_actor_provision_event,
+                commit: provision,
+            },
+            pcr_genesis: ManagedCreationAcceptedEvent {
+                event: bundle.pcr_genesis_event,
+                commit: genesis,
+            },
+            accountability: ManagedCreationAcceptedEvent {
+                event: bundle.accountability_grant_event,
+                commit: accountability,
+            },
+            profile: ManagedCreationAcceptedEvent {
+                event: bundle.profile_event,
+                commit: profile,
+            },
+        },
+        service_resolution: resolution,
+        current,
+    };
+    source.validate().unwrap();
+    source
+}
+
+#[test]
+fn managed_forward_publication_requires_verified_private_originals_and_authority_commits() {
+    use arkret_identity::{PublicationRequest, VerifiedSubmission};
+    let (baseline, token, _) = forward_device_fixture::verified_forward_fixture(None);
+    let verified =
+        VerifiedSubmission::from_verified_events(baseline, std::slice::from_ref(&token)).unwrap();
+    let (request, ..) =
+        forward_device_fixture::verified_forward_fixture(Some(publication_provenance()));
+    request.validate().unwrap();
+    assert!(
+        VerifiedSubmission::from_verified_events(request.clone(), std::slice::from_ref(&token))
+            .is_err(),
+        "an unverified creation/current provenance must not acquire a verified submission"
+    );
+    assert!(
+        verified.rebind(request.clone()).is_err(),
+        "rebinding must not introduce unverified originals or authority Commits"
+    );
+    assert_eq!(request.producer_events().len(), 5);
+    assert_eq!(request.realm_commits().len(), 6);
+}
+
+#[test]
+fn managed_forward_publication_binds_each_creation_and_current_commit_signature() {
+    use arkret_identity::PublicationRequest;
+    let (request, ..) =
+        forward_device_fixture::verified_forward_fixture(Some(publication_provenance()));
+    let originals = request
+        .realm_commits()
+        .into_iter()
+        .cloned()
+        .collect::<Vec<_>>();
+    for index in 0..6 {
+        let mut changed = request.clone();
+        let arkret_models_collaboration::authority_commit::PeerAuthoritySubmitRequest::AuthorityForwardEvent(forward) = &mut changed
+        else {
+            unreachable!()
+        };
+        let source = forward.producer_managed_provenance.as_mut().unwrap();
+        let commit = match index {
+            0 => &mut source.creation.provision.commit,
+            1 => &mut source.creation.pcr_genesis.commit,
+            2 => &mut source.creation.accountability.commit,
+            3 => &mut source.creation.profile.commit,
+            4 => &mut source.current.profile.commit,
+            5 => &mut source.current.accountability.commit,
+            _ => unreachable!(),
+        };
+        commit.signature = arkret_signatures::detached_object::sign_detached_object(
+            &arkret_canonical::unsigned_value(commit, &["signature"]).unwrap(),
+            arkret_wire::DetachedSignatureContext::RealmCommit,
+            DidUrl::new(format!("{STATION_DID}#key-1")).unwrap(),
+            commit.committed_at,
+            &SigningKey::from_bytes(&[209; 32]),
+        )
+        .unwrap();
+        changed.validate().unwrap();
+        assert_ne!(
+            originals,
+            changed
+                .realm_commits()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            "a covering Commit signature was absent from the immutable publication footprint: {index}"
+        );
+    }
 }
 
 #[test]
