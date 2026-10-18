@@ -13,8 +13,8 @@ use arkret_schema::{
     RealmBootstrapPresence, RealmBootstrapProfile, realm_bootstrap_profile_descriptor,
 };
 use arkret_wire::{
-    ActorId, CommitStreamHead, CommitStreamRef, DetachedSignatureContext, DidCoreId, DidUrl,
-    ErrorCode, Event, EventAdmissionSubmission, EventId, EventKind, Hash, HumanDeviceProducer,
+    AccountDeviceProducer, ActorId, CommitStreamHead, CommitStreamRef, DetachedSignatureContext,
+    DidCoreId, DidUrl, ErrorCode, Event, EventAdmissionSubmission, EventId, EventKind, Hash,
     MembershipCompensationAction, MembershipCompensationDelegationRef, MlsCommitSubmission,
     MlsWelcomeDelivery, RealmAuthorityBundle, RealmAuthorityHandoff, RealmCommit, RealmCommitId,
     RealmId, RealmStateSnapshot, Result, UuidV7, WireError, detached_signature_service_id,
@@ -92,7 +92,7 @@ impl AccountDeviceHistoricalSignerFact {
     ) -> Result<()> {
         self.key.validate()?;
         event.verify_producer_proof_self_consistency(suite)?;
-        let producer = event.human_device_producer()?.ok_or_else(|| {
+        let producer = event.account_device_producer()?.ok_or_else(|| {
             WireError::Protocol(
                 "Account Device signer fact is forbidden for non-device producers".into(),
             )
@@ -289,7 +289,7 @@ impl HistoricalProducerSignerFactEntry {
             || self.target.stream_position != full.commit.stream_position
         {
             return Err(WireError::Protocol(
-                "Human signer inventory names another exact Commit".into(),
+                "Account Device signer inventory names another exact Commit".into(),
             ));
         }
         let suite = arkret_canonical::canonical::digest_suite(
@@ -766,26 +766,28 @@ impl PeerRegisteredAtomicUnit {
 /// Enforce the Event-determined presence of `producer_device_evidence`.
 ///
 /// The member is not optional in the protocol sense: it MUST be present
-/// exactly when the Event's actual signer is a human Account device
-/// ([`Event::human_device_producer`]) and MUST be absent otherwise. A missing
-/// or superfluous member is a `schema_violation`. Returns the human-device
+/// exactly when the Event's actual signer has the Account Device shape
+/// ([`Event::account_device_producer`]) and MUST be absent otherwise. A missing
+/// or superfluous member is a `schema_violation`. Returns the Account Device
 /// producer that the carried evidence has to be verified against.
 pub fn validate_producer_device_evidence_presence(
     event: &Event,
     producer_device_evidence: Option<&ForwardAccountDeviceSignerEvidence>,
-) -> Result<Option<HumanDeviceProducer>> {
-    let producer = event.human_device_producer()?;
+) -> Result<Option<AccountDeviceProducer>> {
+    let producer = event.account_device_producer()?;
     match (&producer, producer_device_evidence) {
         (Some(_), Some(_)) | (None, None) => Ok(producer),
         (Some(_), None) => Err(WireError::ProtocolCode {
             code: ErrorCode::SchemaViolation,
-            message: "authority_forward of a human-device producer requires producer_device_evidence"
-                .to_owned(),
+            message:
+                "authority_forward of an Account Device producer requires producer_device_evidence"
+                    .to_owned(),
         }),
         (None, Some(_)) => Err(WireError::ProtocolCode {
             code: ErrorCode::SchemaViolation,
-            message: "producer_device_evidence is forbidden unless the producer is a human Account device"
-                .to_owned(),
+            message:
+                "producer_device_evidence is forbidden unless the producer is an Account Device"
+                    .to_owned(),
         }),
     }
 }
@@ -797,7 +799,7 @@ pub fn validate_producer_agent_evidence_presence(
     evidence: Option<&AgentProducerEvidence>,
 ) -> Result<()> {
     let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-    let required = producer.as_account_id().is_some() && event.human_device_producer()?.is_none();
+    let required = producer.as_account_id().is_some() && event.account_device_producer()?.is_none();
     if required != evidence.is_some() {
         return Err(WireError::ProtocolCode {
             code: ErrorCode::SchemaViolation,
@@ -898,7 +900,7 @@ impl PeerAuthorityForwardEventRequest {
     /// Build a validated forward. `mls_genesis_material` carries the two
     /// referenced Blobs of an `ak.mls.genesis` and is `None` for every other
     /// kind; `producer_device_evidence` is the freshly signed evidence for a
-    /// human-device producer and `None` otherwise.
+    /// Account Device producer and `None` otherwise.
     pub fn new(
         event_submission: EventAdmissionSubmission,
         mls_genesis_material: Option<MlsGenesisMaterial>,
@@ -943,12 +945,12 @@ impl PeerAuthorityForwardEventRequest {
             &self.event_submission.event,
             self.producer_agent_evidence.as_ref(),
         )?;
-        self.human_device_producer().map(drop)
+        self.account_device_producer().map(drop)
     }
 
-    /// Human-device producer of the forwarded Event, after enforcing the
+    /// Account Device producer of the forwarded Event, after enforcing the
     /// presence rule for `producer_device_evidence`.
-    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+    pub fn account_device_producer(&self) -> Result<Option<AccountDeviceProducer>> {
         validate_producer_device_evidence_presence(
             &self.event_submission.event,
             self.producer_device_evidence.as_ref(),
@@ -1005,12 +1007,12 @@ impl PeerAuthorityForwardMlsRequest {
             &self.mls_submission.commit_event,
             self.producer_agent_evidence.as_ref(),
         )?;
-        self.human_device_producer().map(drop)
+        self.account_device_producer().map(drop)
     }
 
-    /// Human-device producer of the Commit Event, after enforcing the
+    /// Account Device producer of the Commit Event, after enforcing the
     /// presence rule for `producer_device_evidence`.
-    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+    pub fn account_device_producer(&self) -> Result<Option<AccountDeviceProducer>> {
         validate_producer_device_evidence_presence(
             &self.mls_submission.commit_event,
             self.producer_device_evidence.as_ref(),
@@ -1883,7 +1885,7 @@ pub fn validate_new_producer_admission_fact(
     fact: Option<&HistoricalProducerSignerFact>,
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
-    match (event.human_device_producer()?, fact) {
+    match (event.account_device_producer()?, fact) {
         (Some(_), Some(HistoricalProducerSignerFact::AccountDevice(fact))) => {
             fact.validate_event_binding(event, suite)
         }
@@ -1892,7 +1894,7 @@ pub fn validate_new_producer_admission_fact(
         }
         (None, None) if event.applet_id.is_none() || !matches!(event.actual_signer(), ActorId::Service { .. }) => Ok(()),
         _ => Err(WireError::Protocol(
-            "new ordinary admission requires the immutable fact of its actual Human or Applet Service producer"
+            "new ordinary admission requires the immutable fact of its actual Account Device or Applet Service producer"
                 .into(),
         )),
     }

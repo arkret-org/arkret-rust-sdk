@@ -514,7 +514,7 @@ mod native_retry_tests {
                     assert!(signatures.insert(header(&headers, "signature").to_owned()));
                     let received: EventAdmissionSubmission = serde_json::from_slice(&body).unwrap();
                     let event = &received.event;
-                    let producer = event.human_device_producer().unwrap().unwrap();
+                    let producer = event.account_device_producer().unwrap().unwrap();
                     assert_eq!(producer.account_id, expected_metadata.account_id);
                     assert_eq!(producer.device_id, expected_metadata.device_id);
                     verify_ed25519_detached_jws_proof_with_digest_suite(

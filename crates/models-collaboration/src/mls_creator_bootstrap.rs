@@ -99,7 +99,7 @@ impl MlsCreatorBootstrapIntent {
         let proof = create.producer_proof.as_ref().ok_or_else(|| {
             WireError::Protocol("creator intent requires the exact signed create unit".into())
         })?;
-        let device_producer = create.human_device_producer()?;
+        let device_producer = create.account_device_producer()?;
         let endpoint_matches = match &self.creator_endpoint {
             arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => {
                 device_id == &self.creator_device_id && device_producer.is_some()
@@ -1104,7 +1104,7 @@ impl MlsCreatorBootstrapWinner {
             WireError::Protocol(format!("invalid winning Genesis payload: {error}"))
         })?;
         payload.validate()?;
-        let producer = self.accepted.event.human_device_producer()?;
+        let producer = self.accepted.event.account_device_producer()?;
         let endpoint_matches = match &payload.creator_leaf_authority.endpoint {
             arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => {
                 producer.is_some_and(|producer| &producer.device_id == device_id)

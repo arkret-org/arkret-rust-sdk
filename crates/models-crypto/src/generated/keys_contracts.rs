@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=63e01fdb55f85564c68436b3405091890fe2f5a141f77dbe50aa67925c48626c
+// sha256=2a393bda818d429b831ec5fd50ea9bf45959c38943326ec783dce15fc8499e5d
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=14ce06e703487b8afdca6c0a5335ef346a965acc5f9443d89af8470d63109b0f
+// sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
 
 /// Counterpart:
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
@@ -146,11 +146,11 @@ pub struct PeerQueryAccountDeviceEntry {
     pub device_keys: PeerQueryDeviceKeys,
 }
 
-/// Counterpart: `keys-operations.schema.json#/$defs/human_event_authorization`.
+/// Counterpart: `keys-operations.schema.json#/$defs/account_device_event_authorization`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HumanEventAuthorization {
+pub struct AccountDeviceEventAuthorization {
     pub event_id: EventId,
     pub verification_method: arkret_wire::DidUrl,
     pub destination_service_id: arkret_wire::DidCoreId,
@@ -181,7 +181,7 @@ pub struct ForwardDeviceProjectionAttestationCore {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub authorization_window: DeviceAuthorizationWindow,
-    pub event_authorization: HumanEventAuthorization,
+    pub event_authorization: AccountDeviceEventAuthorization,
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/forward_device_projection_attestation`.

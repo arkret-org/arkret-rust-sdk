@@ -46,7 +46,7 @@ impl AppletCommittedEvent {
             event: self.event.clone(),
         }
         .validate_shape()?;
-        let producer = self.event.human_device_producer()?;
+        let producer = self.event.account_device_producer()?;
         match (producer, self.producer_device_evidence.as_ref()) {
             (Some(producer), Some(evidence)) => {
                 if evidence.service_resolution.service_kind != "station" {

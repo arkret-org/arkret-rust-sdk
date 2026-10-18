@@ -6192,10 +6192,10 @@
           }
         },
         {
-          "name": "HumanEventAuthorization",
-          "schema": "keys-operations.schema.json#/$defs/human_event_authorization",
+          "name": "AccountDeviceEventAuthorization",
+          "schema": "keys-operations.schema.json#/$defs/account_device_event_authorization",
           "rust": {
-            "signature": "pub struct HumanEventAuthorization",
+            "signature": "pub struct AccountDeviceEventAuthorization",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6337,7 +6337,7 @@
               "event_authorization": {
                 "name": "event_authorization",
                 "visibility": "pub",
-                "type": "HumanEventAuthorization",
+                "type": "AccountDeviceEventAuthorization",
                 "attributes": []
               }
             }

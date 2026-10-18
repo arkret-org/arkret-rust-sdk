@@ -1236,8 +1236,8 @@
       "schema": "authority-commit-operations.schema.json#/$defs/committed_event_submission"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/keys_contracts.rs::HumanEventAuthorization",
-      "schema": "keys-operations.schema.json#/$defs/human_event_authorization"
+      "rust_type": "crates/models-crypto/src/generated/keys_contracts.rs::AccountDeviceEventAuthorization",
+      "schema": "keys-operations.schema.json#/$defs/account_device_event_authorization"
     },
     {
       "rust_type": "crates/models-crypto/src/generated/keys_contracts.rs::ForwardDeviceProjectionAttestationCore",

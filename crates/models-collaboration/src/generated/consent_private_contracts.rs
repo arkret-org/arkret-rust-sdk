@@ -5,7 +5,7 @@
 //! sha256=f6daa1b04c930fa94f35073ef259484c65ec93aec729b3fb982b67649cbd06d7
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=14ce06e703487b8afdca6c0a5335ef346a965acc5f9443d89af8470d63109b0f
+//! sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
 
 /// Counterpart:
 /// `consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind`.

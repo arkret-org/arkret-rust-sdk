@@ -1,13 +1,12 @@
 use arkret_canonical::DigestSuite;
 use arkret_identity::account_device_signer_evidence::{
-    verify_current_account_device_signer_evidence, verify_forwarded_human_producer,
+    verify_current_account_device_signer_evidence, verify_forwarded_account_device_producer,
     verify_historical_account_device_signer_evidence,
 };
 use arkret_identity::build_authenticated_webvh_service_resolution;
 use arkret_models_crypto::{
-    DeviceAuthorizationWindow, DeviceProjectionAttestationCore, DeviceStatus,
-    ForwardDeviceProjectionAttestation, ForwardDeviceProjectionAttestationCore,
-    HumanEventAuthorization,
+    AccountDeviceEventAuthorization, DeviceAuthorizationWindow, DeviceProjectionAttestationCore,
+    DeviceStatus, ForwardDeviceProjectionAttestation, ForwardDeviceProjectionAttestationCore,
 };
 use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
 use arkret_models_identity::{AccountDeviceSignerEvidence, ForwardAccountDeviceSignerEvidence};
@@ -151,7 +150,7 @@ fn forward_core(station: &Station) -> ForwardDeviceProjectionAttestationCore {
         },
         stream_position: 3,
     };
-    value["event_authorization"] = serde_json::to_value(HumanEventAuthorization {
+    value["event_authorization"] = serde_json::to_value(AccountDeviceEventAuthorization {
         event_id: human_event(station).event_id,
         verification_method: DidUrl::new(format!("{PRINCIPAL_DID}#{DEVICE}")).unwrap(),
         destination_service_id: destination(),
@@ -261,7 +260,7 @@ fn rejection(
     source: &DidCoreId,
     now: DateTime<Utc>,
 ) -> Option<ErrorCode> {
-    verify_forwarded_human_producer(
+    verify_forwarded_account_device_producer(
         evidence,
         event,
         source,
@@ -335,7 +334,7 @@ fn fresh_forwarded_evidence_admits_the_human_device_producer() {
     let station = station(74, "station.example");
     let evidence = evidence_with(&station, |_| {});
     let event = human_event(&station);
-    let producer = verify_forwarded_human_producer(
+    let producer = verify_forwarded_account_device_producer(
         &evidence,
         &event,
         &station.service_id,
@@ -470,7 +469,7 @@ fn stale_or_out_of_window_evidence_is_unauthorized() {
     let overlong = evidence_with(&station, |core| {
         core.authorization_window.expires_at = Some(core.attested_at + Duration::seconds(40));
     });
-    verify_forwarded_human_producer(
+    verify_forwarded_account_device_producer(
         &overlong,
         &event,
         &station.service_id,
@@ -578,7 +577,8 @@ fn non_device_producer_has_no_forwarded_evidence_to_verify() {
 #[test]
 fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body() {
     use arkret_identity::account_device_signer_evidence::{
-        verify_forwarded_human_signer_fact, verify_historical_account_device_event_signature,
+        verify_forwarded_account_device_signer_fact,
+        verify_historical_account_device_event_signature,
     };
     let station = station(74, "station.example");
     let event = human_event(&station);
@@ -586,7 +586,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
     let verify = |evidence: &ForwardAccountDeviceSignerEvidence,
                   destination: &DidCoreId,
                   digest: &arkret_wire::Hash| {
-        verify_forwarded_human_signer_fact(
+        verify_forwarded_account_device_signer_fact(
             evidence,
             &event,
             &station.service_id,

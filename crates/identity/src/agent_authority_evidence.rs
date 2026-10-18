@@ -56,7 +56,7 @@ pub fn verify_forwarded_agent_producer(
             "Agent producer must be an Account",
         )
     })?;
-    if &account.station_id != source_station || event.human_device_producer()?.is_some() {
+    if &account.station_id != source_station || event.account_device_producer()?.is_some() {
         return Err(rejected(
             ErrorCode::SignatureInvalid,
             "Agent producer Source-Service-ID or class differs",
@@ -321,7 +321,7 @@ fn verify_dependency(
             account_device_signer_evidence,
             ..
         } => {
-            let producer = event.human_device_producer()?.ok_or_else(|| {
+            let producer = event.account_device_producer()?.ok_or_else(|| {
                 rejected(
                     ErrorCode::SignatureInvalid,
                     "historical signer is not a human device",
@@ -408,7 +408,7 @@ fn verify_dependency(
                 || authorization
                     .expires_at
                     .is_some_and(|end| event.created_at >= end)
-                || event.human_device_producer()?.is_some()
+                || event.account_device_producer()?.is_some()
             {
                 return Err(rejected(
                     ErrorCode::SignatureInvalid,

@@ -360,7 +360,11 @@ fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
     authored.attach_proof(proof);
     body.invite_event = authored.into_event();
     body.invite_commit.event_ref = body.invite_event.event_id.clone();
-    let producer = body.invite_event.human_device_producer().unwrap().unwrap();
+    let producer = body
+        .invite_event
+        .account_device_producer()
+        .unwrap()
+        .unwrap();
     let fact = AccountDeviceHistoricalSignerFact {
         event_id: body.invite_event.event_id.clone(),
         actor: body.invite_event.actual_signer().clone(),

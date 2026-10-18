@@ -482,7 +482,7 @@ fn producer_device_evidence() -> ForwardAccountDeviceSignerEvidence {
                     "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
                 )
                 .unwrap(),
-                event_authorization: arkret_models_crypto::HumanEventAuthorization {
+                event_authorization: arkret_models_crypto::AccountDeviceEventAuthorization {
                     event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [41; 32]),
                     verification_method: DidUrl::new(format!(
                         "did:webvh:z6mkfixture:alice.example#{DEVICE_FRAGMENT}"
@@ -610,7 +610,7 @@ fn human_device_producer_requires_producer_device_evidence() {
     let PeerAuthoritySubmitRequest::AuthorityForwardEvent(request) = parsed else {
         panic!("authority_forward Event branch expected");
     };
-    let producer = request.human_device_producer().unwrap().unwrap();
+    let producer = request.account_device_producer().unwrap().unwrap();
     assert_eq!(producer.device_id.as_str(), DEVICE_FRAGMENT);
     assert_eq!(
         serde_json::to_value(&producer.account_id).unwrap(),
@@ -968,7 +968,7 @@ fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
         .zip(&mut request.atomic_producer_evidence)
     {
         let mut source = producer_device_evidence();
-        let producer = slot.event.human_device_producer().unwrap().unwrap();
+        let producer = slot.event.account_device_producer().unwrap().unwrap();
         let core = &mut source.device_projection_attestation.attestation;
         core.account_id = producer.account_id;
         core.device_id = producer.device_id;

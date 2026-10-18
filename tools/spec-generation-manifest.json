@@ -1133,7 +1133,7 @@
         "PeerQueryDeviceRecord",
         "QueryAccountDeviceEntry",
         "PeerQueryAccountDeviceEntry",
-        "HumanEventAuthorization",
+        "AccountDeviceEventAuthorization",
         "ForwardDeviceProjectionAttestationCore",
         "ForwardDeviceProjectionAttestation"
       ]

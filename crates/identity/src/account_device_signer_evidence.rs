@@ -6,7 +6,7 @@ use arkret_canonical::DigestSuite;
 use arkret_models_identity::{AccountDeviceSignerEvidence, ForwardAccountDeviceSignerEvidence};
 use arkret_signatures::{Ed25519DetachedJwsVerifier, EventProofBuilder, PublicKeyMaterial};
 use arkret_wire::{
-    AccountId, DeviceId, Did, DidCoreId, ErrorCode, Event, HumanDeviceProducer, WireError,
+    AccountDeviceProducer, AccountId, DeviceId, Did, DidCoreId, ErrorCode, Event, WireError,
 };
 use chrono::{DateTime, Utc};
 
@@ -96,13 +96,17 @@ fn method_controller(method: &str) -> Option<Did> {
     Did::new(did.to_owned()).ok()
 }
 
-/// Admit the human-device producer of an Event forwarded by another Station.
+/// Admit the real Account Device producer of an Event forwarded by another Station.
 ///
 /// This is the governance Station's whole cross-Station signer resolution for
-/// a human Account device: the `producer_device_evidence` carried by
+/// a real Account Device: the `producer_device_evidence` carried by
 /// `authority_forward` is the only admissible source. Every failure is a
 /// [`WireError::ProtocolCode`] carrying an already-active error code, and the
-/// caller MUST reject with zero writes. The steps run in this order:
+/// caller MUST reject with zero writes. This verifies the shared signed carrier;
+/// the origin proves native Human or managed authorization and original pairs,
+/// and the governor independently proves accepted provenance and current business
+/// authority. Device shape, Applet labels and this fact never establish those roles.
+/// The steps run in this order:
 ///
 /// 1. the authenticated `Source-Service-ID` equals the attested `account_id.station_id`
 ///    (`signature_invalid`);
@@ -116,12 +120,12 @@ fn method_controller(method: &str) -> Option<Did> {
 ///
 /// Step 5 starts with the key-free producer-proof self-consistency
 /// ([`Event::verify_producer_proof_self_consistency`]). An Event whose actual
-/// signer is not a human Account device has no evidence to verify
+/// signer is not a real Account Device has no evidence to verify
 /// (`schema_violation`). `now` is supplied by the caller; this
 /// function never reads a clock. An exact duplicate of an already committed
 /// Event returns its original outcome before this check runs, so an expired
 /// evidence object never turns a committed Event into a failure.
-pub fn verify_forwarded_human_producer(
+pub fn verify_forwarded_account_device_producer(
     evidence: &ForwardAccountDeviceSignerEvidence,
     event: &Event,
     source_service_id: &DidCoreId,
@@ -129,11 +133,11 @@ pub fn verify_forwarded_human_producer(
     forward_body_digest: &arkret_wire::Hash,
     digest_suite: DigestSuite,
     now: DateTime<Utc>,
-) -> Result<HumanDeviceProducer> {
-    let producer = event.human_device_producer()?.ok_or_else(|| {
+) -> Result<AccountDeviceProducer> {
+    let producer = event.account_device_producer()?.ok_or_else(|| {
         rejected(
             ErrorCode::SchemaViolation,
-            "producer_device_evidence is forbidden unless the producer is a human Account device",
+            "producer_device_evidence is forbidden unless the producer is a real Account Device",
         )
     })?;
     let attestation = &evidence.device_projection_attestation;
@@ -158,7 +162,7 @@ pub fn verify_forwarded_human_producer(
             && source.authorization_ref.stream_position != source.revision.stream_position)
     {
         return Err(signature_invalid(
-            "forward evidence does not bind the exact original Human source and destination",
+            "forward evidence does not bind the exact original Account Device source and destination",
         ));
     }
     let station_id = &core.account_id.station_id;
@@ -288,7 +292,7 @@ impl VerifiedAccountDeviceHistoricalSignerFact {
     }
 }
 
-pub fn verify_forwarded_human_signer_fact(
+pub fn verify_forwarded_account_device_signer_fact(
     evidence: &ForwardAccountDeviceSignerEvidence,
     event: &Event,
     source_service_id: &DidCoreId,
@@ -297,7 +301,7 @@ pub fn verify_forwarded_human_signer_fact(
     digest_suite: DigestSuite,
     now: DateTime<Utc>,
 ) -> Result<VerifiedAccountDeviceHistoricalSignerFact> {
-    verify_forwarded_human_producer(
+    verify_forwarded_account_device_producer(
         evidence,
         event,
         source_service_id,

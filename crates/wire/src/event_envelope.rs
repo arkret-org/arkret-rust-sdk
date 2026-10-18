@@ -954,8 +954,8 @@ mod scope_mls_group_id_tests {
 /// only has to parse.
 const PLACEHOLDER_EVENT_ID: &str = "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-/// Verification-method fragment prefix that marks a human Account device key.
-pub const HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
+/// Verification-method fragment prefix that marks an Account Device key shape.
+pub const ACCOUNT_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
 
 /// Account Device shape of the actual Event producer; this does not prove its role.
 ///
@@ -965,7 +965,7 @@ pub const HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX: &str = "ak:device:";
 /// native provenance must be established independently. Every device producer resolves through
 /// this one rule; there is no Control / Data split.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HumanDeviceProducer {
+pub struct AccountDeviceProducer {
     pub account_id: crate::AccountId,
     pub device_id: arkret_identifiers::DeviceId,
 }
@@ -982,7 +982,7 @@ impl Event {
     /// Returns `Ok(None)` for Service, Agent and other non-device signers. A
     /// missing producer proof or an `ak:device:` fragment that is not a
     /// canonical device id is a `schema_violation`.
-    pub fn human_device_producer(&self) -> Result<Option<HumanDeviceProducer>> {
+    pub fn account_device_producer(&self) -> Result<Option<AccountDeviceProducer>> {
         let proof = self
             .producer_proof
             .as_ref()
@@ -996,7 +996,7 @@ impl Event {
         let Some((_, fragment)) = proof.verification_method.as_str().split_once('#') else {
             return Ok(None);
         };
-        if !fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX) {
+        if !fragment.starts_with(ACCOUNT_DEVICE_METHOD_FRAGMENT_PREFIX) {
             return Ok(None);
         }
         let device_id = arkret_identifiers::DeviceId::new(fragment.to_owned()).map_err(|_| {
@@ -1005,7 +1005,7 @@ impl Event {
                 message: "producer proof device fragment is not a canonical device id".to_owned(),
             }
         })?;
-        Ok(Some(HumanDeviceProducer {
+        Ok(Some(AccountDeviceProducer {
             account_id: account_id.clone(),
             device_id,
         }))
@@ -1025,7 +1025,7 @@ impl Event {
     ///    (`signature_invalid`).
     ///
     /// A missing proof or a method without a DID URL fragment is a
-    /// `schema_violation`. Returns the human-device producer when there is one,
+    /// `schema_violation`. Returns the Account Device producer shape when there is one,
     /// so a receiver hosting that Account can still verify the key against its
     /// own device authorization. Events admitted through the
     /// `registration_anchor` variant are out of scope: their closed verifier
@@ -1034,7 +1034,7 @@ impl Event {
     pub fn verify_producer_proof_self_consistency(
         &self,
         digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<Option<HumanDeviceProducer>> {
+    ) -> Result<Option<AccountDeviceProducer>> {
         let rejected = |code, message: &str| WireError::ProtocolCode {
             code,
             message: message.to_owned(),
@@ -1072,7 +1072,7 @@ impl Event {
             ));
         }
         if signer.as_account_id().is_some()
-            && fragment.starts_with(HUMAN_DEVICE_METHOD_FRAGMENT_PREFIX)
+            && fragment.starts_with(ACCOUNT_DEVICE_METHOD_FRAGMENT_PREFIX)
             && arkret_identifiers::DeviceId::new(fragment.to_owned()).is_err()
         {
             return Err(rejected(
@@ -1080,7 +1080,7 @@ impl Event {
                 "producer proof device fragment is not a complete device_id",
             ));
         }
-        self.human_device_producer()
+        self.account_device_producer()
     }
 }
 
