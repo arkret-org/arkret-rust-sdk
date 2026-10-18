@@ -5,7 +5,7 @@
 // sha256=5a3d386837724180dd7a845741ff3b9d0de57966d2f29177bcc21cebb17f5e7c
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=7fa699b11a1cfc032094c1d4413c59357f5754f1ae9de6c9bc83adc990f36811
+// sha256=ec344de6d49aed996a07d6b0771d13d9fb7124a24ebf6e8afe5954da7ec581ab
 //
 // Input: schemas/authz-operations.schema.json
 // sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832

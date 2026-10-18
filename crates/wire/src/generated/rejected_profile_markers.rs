@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Rejection markers only; these are never active or claimable profiles.
 //! Input: registry/contract-registry.json
-//! sha256=129e32d99a2a0b0412f3719b173c9e1190034327ba659189520e726ee5d884ac
+//! sha256=05c63c647d64a429e34f662bcc99038ef96463b814605f9d623ec6b95834d605
 
 pub struct RejectedProfileId;
 
