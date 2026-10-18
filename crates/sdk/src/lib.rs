@@ -103,12 +103,15 @@ pub use arkret_identifiers::{
     project_did_to_core_id,
 };
 pub use arkret_identity as identity;
-pub use arkret_identity::jws;
 pub use arkret_identity::service_identity::{
     DidCoreIdentityBundle, DidCoreIdentityDiagnostic, DidCoreIdentityKeyRef,
     DidCoreIdentityProviderRef, DidCoreIdentityState, FileIdentityBundleBackend,
     IdentityBundleBackend, IdentityBundleBackendAvailability, KeyStoreIdentityBundleBackend,
     LocalDidCoreIdentity, ResolvedService, StoredDidCoreIdentity,
+};
+pub use arkret_identity::{
+    ProducerVerificationContext, PublicationRequest, VerifiedProducerEvent, VerifiedRealmCommit,
+    VerifiedSubmission, jws, verify_pcr_genesis_events,
 };
 pub use arkret_keystore::{
     KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,

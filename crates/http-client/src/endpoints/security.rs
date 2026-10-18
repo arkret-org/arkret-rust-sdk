@@ -1,5 +1,6 @@
 //! Durable security transaction and recovery-authority endpoint methods.
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_crypto::{
     SecurityTransaction, SecurityTransactionContinueRequest, SecurityTransactionCreateRequest,
 };
@@ -12,7 +13,7 @@ use crate::{Client, Error, Result, reject_path_segment};
 impl Client {
     pub async fn create_security_transaction(
         &self,
-        request: &SecurityTransactionCreateRequest,
+        request: &VerifiedSubmission<SecurityTransactionCreateRequest>,
     ) -> Result<SecurityTransaction> {
         let outcome: SecurityTransaction = self
             .post("/_arkret/self/security-transactions", request)
@@ -23,10 +24,7 @@ impl Client {
             &request_bytes,
             outcome.request_digest.as_str(),
         )?;
-        let request_transaction_id = match request {
-            SecurityTransactionCreateRequest::Recovery(request) => &request.transaction_id,
-            SecurityTransactionCreateRequest::SecurityRotation(request) => &request.transaction_id,
-        };
+        let request_transaction_id = request.transaction_id();
         if &outcome.transaction_id != request_transaction_id {
             return Err(Error::Protocol(
                 "security transaction create response changed transaction_id".to_owned(),

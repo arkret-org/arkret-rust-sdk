@@ -70,9 +70,7 @@ pub enum Error {
         #[from] arkret_models_collaboration::sync_frames::account_subscribe::StreamTraceError,
     ),
 
-    /// DID resolution failure raised by the native `HttpDidResolver`
-    /// (`arkret-identity` is a native-only dependency of this crate).
-    #[cfg(not(target_arch = "wasm32"))]
+    /// Identity or immutable publication verification failure.
     #[error(transparent)]
     Identity(#[from] arkret_identity::IdentityError),
 }

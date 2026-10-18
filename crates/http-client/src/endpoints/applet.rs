@@ -1,5 +1,6 @@
 //! Applet endpoint methods on [`Client`].
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
     AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
@@ -78,7 +79,7 @@ impl Client {
         &self,
         applet_id: &str,
         idempotency_key: &str,
-        request: &arkret_models_integration::AppletBotProvisionRequestBody,
+        request: &VerifiedSubmission<arkret_models_integration::AppletBotProvisionRequestBody>,
     ) -> Result<arkret_models_integration::AppletBotProvisionOutcome> {
         reject_path_segment(applet_id)?;
         self.post_with_options(
@@ -155,7 +156,7 @@ impl Client {
     pub async fn applet_install(
         &self,
         idempotency_key: &str,
-        request: &AppletInstallRequestBody,
+        request: &VerifiedSubmission<AppletInstallRequestBody>,
     ) -> Result<AppletInstallOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/self/applets/install", request, &options)
@@ -176,7 +177,7 @@ impl Client {
         &self,
         applet_id: &str,
         idempotency_key: &str,
-        request: &AppletRevokeRequestBody,
+        request: &VerifiedSubmission<AppletRevokeRequestBody>,
     ) -> Result<AppletRevokeOutcome> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/revoke");
@@ -190,7 +191,7 @@ impl Client {
         &self,
         applet_id: &str,
         idempotency_key: &str,
-        request: &GhostActorProvisionRequestBody,
+        request: &VerifiedSubmission<GhostActorProvisionRequestBody>,
     ) -> Result<GhostActorProvisionOutcome> {
         request.validate()?;
         let path = ghost_actor_provision_path(applet_id)?;
@@ -211,7 +212,7 @@ impl Client {
     pub async fn applet_transaction(
         &self,
         idempotency_key: &str,
-        request: &AppletTransactionRequestBody,
+        request: &VerifiedSubmission<AppletTransactionRequestBody>,
     ) -> Result<AppletTransactionOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/edge/applet/transactions", request, &options)
@@ -223,7 +224,7 @@ impl Client {
     pub async fn applet_transaction_from_service(
         &self,
         idempotency_key: &str,
-        request: &AppletTransactionRequestBody,
+        request: &VerifiedSubmission<AppletTransactionRequestBody>,
         source_id: &DidCoreId,
         destination_id: &DidCoreId,
     ) -> Result<AppletTransactionOutcome> {

@@ -1,5 +1,6 @@
 //! Circle governance endpoint methods on [`Client`].
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
     CircleMembershipOutcome, CircleReadView, CircleScopeRotateOutcome,
@@ -24,14 +25,17 @@ impl Client {
             .await
     }
 
-    pub async fn circle_create(&self, request: &CircleCreateRequestBody) -> Result<CircleView> {
+    pub async fn circle_create(
+        &self,
+        request: &VerifiedSubmission<CircleCreateRequestBody>,
+    ) -> Result<CircleView> {
         self.post("/_arkret/self/circles", request).await
     }
 
     pub async fn circle_member_add(
         &self,
         circle_id: &str,
-        request: &CircleMemberRequestBody,
+        request: &VerifiedSubmission<CircleMemberRequestBody>,
     ) -> Result<CircleMembershipOutcome> {
         reject_path_segment(circle_id)?;
         self.post(
@@ -45,7 +49,7 @@ impl Client {
         &self,
         circle_id: &str,
         actor_id: &ActorId,
-        request: &CircleMemberDeleteRequestBody,
+        request: &VerifiedSubmission<CircleMemberDeleteRequestBody>,
     ) -> Result<CircleMembershipOutcome> {
         reject_path_segment(circle_id)?;
         let actor_id = circle_member_actor_path_segment(actor_id);
@@ -58,7 +62,7 @@ impl Client {
         &self,
         circle_id: &str,
         idempotency_key: &str,
-        request: &CircleScopeRotateRequestBody,
+        request: &VerifiedSubmission<CircleScopeRotateRequestBody>,
     ) -> Result<CircleScopeRotateOutcome> {
         reject_path_segment(circle_id)?;
         let path = format!("/_arkret/self/circles/{circle_id}/scope-rotate");

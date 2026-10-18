@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
@@ -436,7 +437,7 @@ impl OwnStationResultClient {
     }
     pub async fn submit_to_realm_authority(
         &self,
-        request: &SelfAuthoritySubmitRequest,
+        request: &VerifiedSubmission<SelfAuthoritySubmitRequest>,
         options: &ClientRequestOptions,
     ) -> Result<BoundOwnStationResponse<SelfAuthoritySubmitRequest, SelfAuthoritySubmitOutcome>>
     {
@@ -445,7 +446,7 @@ impl OwnStationResultClient {
             .client
             .submit_to_realm_authority(request, options)
             .await?;
-        self.bind(request.clone(), value)
+        self.bind(request.wire().clone(), value)
     }
 }
 

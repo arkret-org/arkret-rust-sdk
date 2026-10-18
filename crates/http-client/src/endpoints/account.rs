@@ -1,12 +1,18 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::account_operations::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
+use arkret_models_collaboration::consent_operations::{
+    ConsentGrantRequestBody, ConsentRequestOutcome, ConsentRequestRequestBody,
+    ConsentRevokeRequestBody, ConsentView,
+};
 use arkret_models_collaboration::contact_operations::{
-    ContactAcceptRequestBody, ContactList, ContactOperationOutcome, ContactOperationRequestBody,
+    ContactAcceptRequestBody, ContactCommitRequestBody, ContactList, ContactOperationOutcome,
+    ContactOperationRequestBody, ContactRejectRequestBody, ContactScopeUpdateRequestBody,
     ContactTombstoneRequestBody,
 };
 use arkret_models_collaboration::device_pairing::{
@@ -17,6 +23,13 @@ use arkret_models_collaboration::device_pairing::{
 };
 use arkret_models_collaboration::direct_conversation::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+};
+use arkret_models_collaboration::governance::authorization::{
+    AuthzCheckOutcome, AuthzCheckRequestBody,
+};
+use arkret_models_collaboration::governance::invite_addressing::InviteReceivePolicy;
+use arkret_models_collaboration::objects::read_receipts::{
+    ReadCursorAdvanceRequestBody, ReadMarkerOutcome,
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
 use arkret_models_collaboration::session_grants::{
@@ -55,6 +68,92 @@ type BoxAccountSubscribeFrameStream =
 #[cfg(target_arch = "wasm32")]
 type BoxAccountSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>>>>;
+
+impl Client {
+    pub async fn contacts_reject(
+        &self,
+        request: &VerifiedSubmission<ContactRejectRequestBody>,
+    ) -> Result<ContactOperationOutcome> {
+        self.post("/_arkret/self/contacts/reject", request).await
+    }
+
+    pub async fn contacts_scope_update(
+        &self,
+        request: &VerifiedSubmission<ContactScopeUpdateRequestBody>,
+    ) -> Result<ContactOperationOutcome> {
+        self.post("/_arkret/self/contacts/scope-update", request)
+            .await
+    }
+
+    /// Retry one frozen, verified Contact commit at its registered operation.
+    pub async fn submit_contact_event(
+        &self,
+        request: &VerifiedSubmission<ContactCommitRequestBody>,
+    ) -> Result<ContactOperationOutcome> {
+        let path = match request.signed_event.kind {
+            arkret_wire::EventKind::ContactRequested => "/_arkret/self/contacts/request",
+            arkret_wire::EventKind::ContactAccepted => "/_arkret/self/contacts/respond",
+            arkret_wire::EventKind::ContactRejected => "/_arkret/self/contacts/reject",
+            arkret_wire::EventKind::ContactScopeUpdate => "/_arkret/self/contacts/scope-update",
+            arkret_wire::EventKind::ContactTombstone => "/_arkret/self/contacts/tombstone",
+            _ => return Err(Error::Protocol("unregistered Contact commit Event".into())),
+        };
+        self.post(path, request).await
+    }
+
+    pub async fn replace_invite_receive_policy(
+        &self,
+        policy: &InviteReceivePolicy,
+    ) -> Result<InviteReceivePolicy> {
+        self.put("/_arkret/self/invite-receive-policy", policy)
+            .await
+    }
+
+    pub async fn consent_grant(
+        &self,
+        request: &VerifiedSubmission<ConsentGrantRequestBody>,
+    ) -> Result<ConsentView> {
+        let outcome: ConsentView = self
+            .post(arkret_wire::PATH_SELF_CONSENT_RESULTS_GRANT, request)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    pub async fn consent_revoke(
+        &self,
+        request: &VerifiedSubmission<ConsentRevokeRequestBody>,
+    ) -> Result<ConsentView> {
+        let outcome: ConsentView = self
+            .post(arkret_wire::PATH_SELF_CONSENT_RESULTS_REVOKE, request)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    pub async fn consent_request(
+        &self,
+        request: &ConsentRequestRequestBody,
+    ) -> Result<ConsentRequestOutcome> {
+        request.validate()?;
+        let outcome: ConsentRequestOutcome = self
+            .post(arkret_wire::PATH_SELF_CONSENT_REQUEST, request)
+            .await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    pub async fn advance_read_cursor(
+        &self,
+        request: &VerifiedSubmission<ReadCursorAdvanceRequestBody>,
+    ) -> Result<ReadMarkerOutcome> {
+        self.post("/_arkret/self/read-cursors", request).await
+    }
+
+    pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
+        self.post("/_arkret/self/authz/check", request).await
+    }
+}
 
 /// Validated account-subscribe frame stream bound to its request context.
 pub struct AccountSubscribeFrameStream {
@@ -179,7 +278,7 @@ impl Client {
 
     pub async fn account_register(
         &self,
-        request: &AccountRegisterRequestBody,
+        request: &VerifiedSubmission<AccountRegisterRequestBody>,
     ) -> Result<AccountRegisterOutcome> {
         request.validate()?;
         let outcome: AccountRegisterOutcome =
@@ -201,7 +300,7 @@ impl Client {
 
     pub async fn account_update_profile(
         &self,
-        request: &AccountUpdateProfileRequestBody,
+        request: &VerifiedSubmission<AccountUpdateProfileRequestBody>,
     ) -> Result<AccountUpdateProfileOutcome> {
         request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
@@ -209,7 +308,7 @@ impl Client {
 
     pub async fn account_device_pair(
         &self,
-        request: &AccountDevicePairRequestBody,
+        request: &VerifiedSubmission<AccountDevicePairRequestBody>,
     ) -> Result<AccountDevicePairOutcome> {
         self.post("/_arkret/gate/account/device-pair", request)
             .await
@@ -504,14 +603,14 @@ impl Client {
 
     pub async fn contacts_request(
         &self,
-        request: &ContactOperationRequestBody,
+        request: &VerifiedSubmission<ContactOperationRequestBody>,
     ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_REQUEST, request).await
     }
 
     pub async fn contacts_respond(
         &self,
-        request: &ContactAcceptRequestBody,
+        request: &VerifiedSubmission<ContactAcceptRequestBody>,
     ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_RESPOND, request).await
     }
@@ -527,7 +626,7 @@ impl Client {
 
     pub async fn contacts_tombstone(
         &self,
-        request: &ContactTombstoneRequestBody,
+        request: &VerifiedSubmission<ContactTombstoneRequestBody>,
     ) -> Result<ContactOperationOutcome> {
         self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
     }

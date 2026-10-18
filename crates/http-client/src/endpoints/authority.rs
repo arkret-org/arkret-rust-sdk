@@ -1,5 +1,6 @@
 //! Authority-commit submission, replication, discovery, and handoff methods.
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
     AuthorityHandoffRequest, PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest,
     PeerStreamScanOutcome, SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
@@ -49,7 +50,7 @@ impl Client {
     /// to the current Realm governance Station.
     pub async fn submit_to_realm_authority(
         &self,
-        request: &SelfAuthoritySubmitRequest,
+        request: &VerifiedSubmission<SelfAuthoritySubmitRequest>,
         options: &ClientRequestOptions,
     ) -> Result<SelfAuthoritySubmitOutcome> {
         request.validate()?;
@@ -63,7 +64,7 @@ impl Client {
     /// Submit one explicitly discriminated peer Event ingress branch.
     pub async fn submit_to_peer_authority(
         &self,
-        request: &PeerAuthoritySubmitRequest,
+        request: &VerifiedSubmission<PeerAuthoritySubmitRequest>,
         options: &ClientRequestOptions,
     ) -> Result<PeerAuthoritySubmitOutcome> {
         request.validate()?;

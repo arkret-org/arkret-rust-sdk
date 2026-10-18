@@ -10,6 +10,7 @@
 //! "the Realm's position": a Realm's Circles and Sidecars are separate streams
 //! and a single number could not name a point in all of them.
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
@@ -227,7 +228,7 @@ impl Client {
     /// stored outcome, so the canonical request bytes are reused on retry.
     pub async fn submit_actor_private_event(
         &self,
-        request: &ActorPrivateEventSubmitRequestBody,
+        request: &VerifiedSubmission<ActorPrivateEventSubmitRequestBody>,
     ) -> Result<ActorPrivateEventSubmitOutcome> {
         request.validate()?;
         let outcome: ActorPrivateEventSubmitOutcome = self
@@ -243,7 +244,7 @@ impl Client {
     /// `RealmCommit` is what places it at one `stream_position` of one stream.
     pub async fn submit_event(
         &self,
-        submission: &EventAdmissionSubmission,
+        submission: &VerifiedSubmission<EventAdmissionSubmission>,
     ) -> Result<AuthoritySubmitOutcome> {
         self.submit_event_with_options(submission, &ClientRequestOptions::default())
             .await
@@ -251,10 +252,11 @@ impl Client {
 
     pub async fn submit_event_with_options(
         &self,
-        submission: &EventAdmissionSubmission,
+        submission: &VerifiedSubmission<EventAdmissionSubmission>,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
-        let request = SelfAuthoritySubmitRequest::Event(submission.clone());
+        let request =
+            submission.rebind(SelfAuthoritySubmitRequest::Event(submission.wire().clone()))?;
         match self.submit_to_realm_authority(&request, options).await? {
             SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
             _ => Err(Error::Protocol(
@@ -272,7 +274,7 @@ impl Client {
     /// added in, and no later message can repair that.
     pub async fn submit_mls_commit(
         &self,
-        submission: &MlsCommitSubmission,
+        submission: &VerifiedSubmission<MlsCommitSubmission>,
     ) -> Result<AuthoritySubmitOutcome> {
         self.submit_mls_commit_with_options(submission, &ClientRequestOptions::default())
             .await
@@ -280,10 +282,12 @@ impl Client {
 
     pub async fn submit_mls_commit_with_options(
         &self,
-        submission: &MlsCommitSubmission,
+        submission: &VerifiedSubmission<MlsCommitSubmission>,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
-        let request = SelfAuthoritySubmitRequest::MlsCommit(submission.clone());
+        let request = submission.rebind(SelfAuthoritySubmitRequest::MlsCommit(
+            submission.wire().clone(),
+        ))?;
         match self.submit_to_realm_authority(&request, options).await? {
             SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
             _ => Err(Error::Protocol(
@@ -611,7 +615,9 @@ impl Client {
     /// Commit an authorized audit and obtain its frozen exact Watch observation.
     pub async fn strand_watch_audit_read(
         &self,
-        request: &arkret_models_collaboration::strand_watch_operations::WatchAuditReadRequest,
+        request: &VerifiedSubmission<
+            arkret_models_collaboration::strand_watch_operations::WatchAuditReadRequest,
+        >,
         expected_governance_generation: u64,
     ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
         use arkret_models_collaboration::strand_watch_operations::{

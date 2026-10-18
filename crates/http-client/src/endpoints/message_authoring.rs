@@ -1,5 +1,6 @@
 //! Message submission through the Realm governance authority.
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
     SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
 };
@@ -13,13 +14,15 @@ impl Client {
     /// the governance Station's returned RealmCommit.
     pub async fn self_message_submit(
         &self,
-        request: &MessageSubmitRequestBody,
+        request: &VerifiedSubmission<MessageSubmitRequestBody>,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
         request.validate()?;
         match self
             .submit_to_realm_authority(
-                &SelfAuthoritySubmitRequest::Event(request.submission.clone()),
+                &request.rebind(SelfAuthoritySubmitRequest::Event(
+                    request.submission.clone(),
+                ))?,
                 options,
             )
             .await?

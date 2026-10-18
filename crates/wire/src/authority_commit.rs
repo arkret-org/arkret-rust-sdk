@@ -290,19 +290,24 @@ impl RealmCommit {
     /// it does not authenticate the governing signature or establish authority.
     pub fn validate_content_address(&self) -> Result<()> {
         self.validate_shape()?;
-        let mut body = serde_json::to_value(self)?;
-        let object = body.as_object_mut().ok_or_else(|| {
-            WireError::Protocol("RealmCommit identity is not an object".to_owned())
-        })?;
-        object.remove("commit_id");
-        object.remove("signature");
-        let bytes = crate::canonical::canonical_json_bytes(&body)?;
+        let bytes = self.canonical_id_bytes()?;
         if self.commit_id != RealmCommitId::from_digest(crate::canonical::sha256_bytes(&bytes)) {
             return Err(WireError::Protocol(
                 "RealmCommit ID differs from its canonical content".to_owned(),
             ));
         }
         Ok(())
+    }
+
+    /// The one canonical body used to derive a RealmCommit content address.
+    pub fn canonical_id_bytes(&self) -> Result<Vec<u8>> {
+        let mut body = serde_json::to_value(self)?;
+        let object = body.as_object_mut().ok_or_else(|| {
+            WireError::Protocol("RealmCommit identity is not an object".to_owned())
+        })?;
+        object.remove("commit_id");
+        object.remove("signature");
+        Ok(crate::canonical::canonical_json_bytes(&body)?)
     }
 
     /// Compatibility name for the one canonical content-address verifier.

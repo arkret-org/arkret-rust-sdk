@@ -182,6 +182,10 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # is cycle-free), mirroring the batch 4b auth->keystore precedent.
     "arkret-identity": _WIRE
     | {
+        # Immutable publication values reuse the complete typed payload gate.
+        "arkret-models-crypto",
+        "arkret-event-draft",
+        "arkret-models-integration",
         "arkret-models-identity",
         # a9bb7df46fefb7f0103faca311ca23e8b17c24b7 introduced portable
         # authority verification. This behavior layer consumes the canonical
@@ -242,8 +246,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     "arkret-retry": set(),
     # arkret-egress-policy: the did:web / did:webvh resolver in this crate is one
     # of the outbound fetchers the SSRF deny-list exists for.
-    # arkret-schema: the events endpoint submits a `PreparedStandardEvent`, the
-    # prepared-event contract owned by the schema crate.
+    # arkret-identity owns immutable verified publication carriers; schema owns
+    # the native managed-operation contract descriptors used by this transport.
     "arkret-http-client": _WIRE
     | {
         "arkret-models-identity",

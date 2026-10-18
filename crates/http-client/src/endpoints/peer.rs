@@ -51,7 +51,9 @@ impl Client {
     /// First-admission audited read to a freshly verified current governor.
     pub async fn peer_strand_watch_audit_read(
         &self,
-        request: &arkret_models_collaboration::strand_watch_operations::PeerWatchAuditReadRequest,
+        request: &arkret_identity::VerifiedSubmission<
+            arkret_models_collaboration::strand_watch_operations::PeerWatchAuditReadRequest,
+        >,
         expected_governance_generation: u64,
     ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
         use arkret_models_collaboration::strand_watch_operations::{

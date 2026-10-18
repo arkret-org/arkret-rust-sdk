@@ -1,6 +1,7 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
 use arkret_canonical::base64url::base64_standard_encode;
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::device_messages::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
@@ -550,7 +551,7 @@ impl Client {
     pub async fn account_data_replace(
         &self,
         account_data_key: &str,
-        request: &AccountDataReplaceRequestBody,
+        request: &VerifiedSubmission<AccountDataReplaceRequestBody>,
     ) -> Result<AccountDataRow> {
         reject_path_segment(account_data_key)?;
         self.put(
@@ -568,7 +569,7 @@ impl Client {
     pub async fn account_data_delete(
         &self,
         account_data_key: &str,
-        request: &AccountDataDeleteRequestBody,
+        request: &VerifiedSubmission<AccountDataDeleteRequestBody>,
     ) -> Result<AccountDataDeleteOutcome> {
         reject_path_segment(account_data_key)?;
         let path = format!("/_arkret/self/account_data/{account_data_key}");

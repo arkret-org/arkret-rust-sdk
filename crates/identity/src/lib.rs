@@ -32,6 +32,7 @@ pub mod registration_anchor;
 mod resolvers;
 pub mod service_identity;
 pub mod service_resolution_evidence;
+pub mod submission;
 pub mod test_material;
 #[cfg(test)]
 mod tests;
@@ -92,6 +93,10 @@ pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
 pub use service_resolution_evidence::*;
+pub use submission::{
+    ProducerVerificationContext, PublicationRequest, VerifiedProducerEvent, VerifiedRealmCommit,
+    VerifiedSubmission, verify_pcr_genesis_events,
+};
 pub use verifier::{
     BindingResolveError, BindingResolveRequest, BindingVerifyError, DidVerificationRelationship,
     public_key_material_from_binding, public_key_material_from_document,

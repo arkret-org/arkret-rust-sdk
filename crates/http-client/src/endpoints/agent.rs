@@ -1,5 +1,6 @@
 //! Agent endpoint methods on [`Client`].
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::agent_operations::{
     AgentDeactivateRequestBody, AgentKeyPairOutcome, AgentKeyPairRequestBody,
     AgentLifecycleOutcome, AgentList, AgentPauseRequestBody, AgentProvisionOutcome,
@@ -27,6 +28,49 @@ const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
+    pub async fn resolve_agent_pairing(
+        &self,
+        request: &arkret_models_collaboration::agent_operations::AgentPairingResolveRequestBody,
+    ) -> Result<arkret_models_collaboration::agent_operations::AgentPairingBootstrap> {
+        let builder = self.canonical_json_body(
+            self.public_request(Method::POST, "/_arkret/open/agent-pairing/resolve")?,
+            request,
+        )?;
+        self.send_json(builder).await
+    }
+
+    pub async fn request_agent_runtime_approval(
+        &self,
+        request: &arkret_models_collaboration::agent_scope::AgentRuntimeApprovalRequestBody,
+    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalOutcome> {
+        request.validate()?;
+        let builder = self.canonical_json_body(
+            self.public_request(
+                Method::POST,
+                "/_arkret/open/agent-pairing/runtime-key-requests",
+            )?,
+            request,
+        )?;
+        self.send_json(builder).await
+    }
+
+    pub async fn agent_runtime_approval_status(
+        &self,
+        request: &arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusRequestBody,
+    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusOutcome>
+    {
+        let builder = self.canonical_json_body(
+            self.public_request(
+                Method::POST,
+                "/_arkret/open/agent-pairing/runtime-key-requests/status",
+            )?,
+            request,
+        )?;
+        let outcome: arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusOutcome = self.send_json(builder).await?;
+        outcome.validate_signer_evidence_delivery()?;
+        Ok(outcome)
+    }
+
     /// `POST /_arkret/self/signer-keys/query`
     /// (`ak.self.signer_keys.read.resolve.v1`).
     ///
@@ -62,7 +106,7 @@ impl Client {
     /// (`ak.gate.account.command.pair_agent_key.v1`).
     pub async fn agent_key_pair(
         &self,
-        request: &AgentKeyPairRequestBody,
+        request: &VerifiedSubmission<AgentKeyPairRequestBody>,
     ) -> Result<AgentKeyPairOutcome> {
         let builder = self.request(Method::POST, AGENT_KEY_PAIR_PATH)?.header(
             "Idempotency-Key",
@@ -75,7 +119,7 @@ impl Client {
     /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision.v1`).
     pub async fn agent_provision(
         &self,
-        request: &AgentProvisionRequestBody,
+        request: &VerifiedSubmission<AgentProvisionRequestBody>,
     ) -> Result<AgentProvisionOutcome> {
         self.post(AGENTS_PATH, request).await
     }
@@ -112,7 +156,7 @@ impl Client {
     pub async fn agent_pause(
         &self,
         agent_id: &str,
-        request: &AgentPauseRequestBody,
+        request: &VerifiedSubmission<AgentPauseRequestBody>,
     ) -> Result<AgentLifecycleOutcome> {
         let path = format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
@@ -123,7 +167,7 @@ impl Client {
     pub async fn agent_resume(
         &self,
         agent_id: &str,
-        request: &AgentResumeRequestBody,
+        request: &VerifiedSubmission<AgentResumeRequestBody>,
     ) -> Result<AgentLifecycleOutcome> {
         let path = format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
@@ -134,7 +178,7 @@ impl Client {
     pub async fn agent_deactivate(
         &self,
         agent_id: &str,
-        request: &AgentDeactivateRequestBody,
+        request: &VerifiedSubmission<AgentDeactivateRequestBody>,
     ) -> Result<AgentLifecycleOutcome> {
         let path = format!(
             "{}/{}/deactivate",
@@ -177,7 +221,7 @@ impl Client {
     /// (`ak.self.agent.sidecar.command.ensure.v1`).
     pub async fn agent_sidecar_ensure(
         &self,
-        request: &SidecarEnsureRequestBody,
+        request: &VerifiedSubmission<SidecarEnsureRequestBody>,
     ) -> Result<SidecarEnsureOutcome> {
         self.post(AGENT_SIDECAR_ENSURE_PATH, request).await
     }

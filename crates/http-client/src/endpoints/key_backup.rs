@@ -11,6 +11,37 @@ use arkret_wire::BackupId;
 use crate::{Client, Result, reject_path_segment};
 
 impl Client {
+    pub async fn publish_recovery_policy(
+        &self,
+        request: &arkret_identity::VerifiedSubmission<arkret_wire::EventAdmissionSubmission>,
+    ) -> Result<arkret_models_crypto::RecoveryPolicyPublishOutcome> {
+        arkret_models_crypto::RecoveryPolicyPublishRequest::new(request.wire().clone())?;
+        self.post("/_arkret/root/identity/recovery-policy", request)
+            .await
+    }
+
+    pub async fn create_recovery_session(
+        &self,
+        request: &arkret_models_crypto::RecoverySessionCreateRequestBody,
+    ) -> Result<arkret_models_crypto::RecoverySession> {
+        self.post("/_arkret/root/identity/recovery-sessions", request)
+            .await
+    }
+
+    pub async fn submit_recovery_proof(
+        &self,
+        session_id: &str,
+        request: &arkret_models_crypto::RecoverySessionProofSubmitRequestBody,
+    ) -> Result<arkret_models_crypto::RecoverySessionProofSubmitOutcome> {
+        reject_path_segment(session_id)?;
+        request.proof.validate_shape()?;
+        self.post(
+            &format!("/_arkret/root/identity/recovery-sessions/{session_id}/proofs"),
+            request,
+        )
+        .await
+    }
+
     pub async fn put_key_backup(
         &self,
         backup_id: &BackupId,

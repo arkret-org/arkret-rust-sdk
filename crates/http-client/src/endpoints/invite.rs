@@ -7,6 +7,12 @@
 //! pepper, per-invite ephemeral key and delivery target; none of them ever
 //! crosses one of these responses.
 
+use arkret_models_collaboration::governance::invite_addressing::{
+    INVITE_LOCATOR_ISSUE_PATH, INVITE_LOCATOR_RESOLVE_PATH, INVITE_LOCATOR_ROTATE_PATH,
+    InviteDeliveryOutcome, InviteLocatorIssueOutcome, InviteLocatorIssueRequestBody,
+    InviteLocatorResolveRequestBody, InviteLocatorRotateRequestBody, PrincipalLocator,
+    SelfInviteDispatchRequestBody,
+};
 use arkret_models_collaboration::governance::third_party_invite::{
     ThirdPartyInviteAcceptanceAttestationOutcome, ThirdPartyInviteAcceptanceAttestationRequestBody,
     ThirdPartyInviteActivationOutcome, ThirdPartyInviteActivationRequestBody,
@@ -17,6 +23,46 @@ use arkret_models_collaboration::governance::third_party_invite::{
 use crate::{Client, Result};
 
 impl Client {
+    /// Resolve public introduction evidence without forwarding session credentials.
+    pub async fn resolve_invite_locator(
+        &self,
+        request: &InviteLocatorResolveRequestBody,
+    ) -> Result<PrincipalLocator> {
+        request.validate_minimal()?;
+        let builder = self.canonical_json_body(
+            self.public_request(reqwest::Method::POST, INVITE_LOCATOR_RESOLVE_PATH)?,
+            request,
+        )?;
+        let locator: PrincipalLocator = self.send_json(builder).await?;
+        locator.validate_minimal()?;
+        Ok(locator)
+    }
+
+    pub async fn issue_invite_locator(
+        &self,
+        request: &InviteLocatorIssueRequestBody,
+    ) -> Result<InviteLocatorIssueOutcome> {
+        request.validate_minimal()?;
+        self.post(INVITE_LOCATOR_ISSUE_PATH, request).await
+    }
+
+    pub async fn rotate_invite_locator(
+        &self,
+        request: &InviteLocatorRotateRequestBody,
+    ) -> Result<InviteLocatorIssueOutcome> {
+        request.validate_minimal()?;
+        self.post(INVITE_LOCATOR_ROTATE_PATH, request).await
+    }
+
+    /// Dispatch an already accepted Event by its immutable identifier.
+    pub async fn dispatch_invite(
+        &self,
+        request: &SelfInviteDispatchRequestBody,
+    ) -> Result<InviteDeliveryOutcome> {
+        request.validate_minimal()?;
+        self.post("/_arkret/self/invites/dispatch", request).await
+    }
+
     /// `POST /_arkret/open/third-party-invites/provision`
     /// (`ak.open.third_party_invite.command.provision.v1`).
     ///

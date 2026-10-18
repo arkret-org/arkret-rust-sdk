@@ -84,26 +84,20 @@ pub struct AcceptedSecurityTransactionStep {
     pub accepted_at: DateTime<Utc>,
 }
 
-/// Exact signed producer Events frozen as one transaction-owned submit unit.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PreparedEventBatchRequest {
-    pub events: Vec<Event>,
-}
-
+/// Exact signed producer submission batch frozen for the durable transaction.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreparedEventUnit {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub request: PreparedEventBatchRequest,
+    pub request: arkret_wire::EventsSubmitBatchRequestBody,
     pub request_digest: Hash,
 }
 
 impl PreparedEventUnit {
     pub fn new(
         digest_suite: arkret_canonical::DigestSuite,
-        request: PreparedEventBatchRequest,
+        request: arkret_wire::EventsSubmitBatchRequestBody,
     ) -> Result<Self> {
         let request_digest = digest_value(digest_suite, &request)?;
         Ok(Self {
@@ -113,6 +107,7 @@ impl PreparedEventUnit {
     }
 
     pub fn validate(&self) -> Result<()> {
+        self.request.validate()?;
         validate_digest_of(
             "prepared Event request",
             &self.request,
@@ -494,7 +489,7 @@ impl SecurityTransaction {
                             .request
                             .events
                             .first()
-                            .is_none_or(|event| proposal.proposal_event_id != event.event_id)
+                            .is_none_or(|slot| proposal.proposal_event_id != slot.event.event_id)
                         {
                             return protocol("revoke proposal changed the prepared Event");
                         }
@@ -502,12 +497,9 @@ impl SecurityTransaction {
                     (Some(proposal), Some(outcome)) => {
                         if proposal.proposal_event_id != outcome.proposal_event_id
                             || proposal.covering_commit_id != outcome.covering_commit_id
-                            || plan
-                                .revoke_unit
-                                .request
-                                .events
-                                .first()
-                                .is_none_or(|event| proposal.proposal_event_id != event.event_id)
+                            || plan.revoke_unit.request.events.first().is_none_or(|slot| {
+                                proposal.proposal_event_id != slot.event.event_id
+                            })
                         {
                             return protocol(
                                 "revoke command outcome changed its covering proposal",
@@ -1227,20 +1219,36 @@ fn validate_prepared_plan_matches_intent(
     Ok(())
 }
 
+fn validate_native_control_unit(unit: &PreparedEventUnit) -> Result<()> {
+    unit.validate()?;
+    // Native PCR control has no registered capability-action approval carrier.
+    // Preserve the shared admission DTO, but never silently discard its evidence.
+    if unit
+        .request
+        .events
+        .iter()
+        .any(|slot| slot.approval_signatures.is_some())
+    {
+        return protocol("native PCR control unit does not accept approval_signatures");
+    }
+    Ok(())
+}
+
 fn validate_recovery_event_unit(
     account_id: &AccountId,
     unit: &PreparedEventUnit,
     commit_intent: &RecoveryCommitIntent,
     binding: Option<&PcrPolicyRecoveryBinding>,
 ) -> Result<()> {
-    unit.validate()?;
+    validate_native_control_unit(unit)?;
     commit_intent.validate()?;
-    let [reanchor, authorize]: &[Event; RECOVERY_UNIT_EVENT_COUNT] =
+    let [reanchor, authorize]: &[arkret_wire::EventAdmissionSubmission; RECOVERY_UNIT_EVENT_COUNT] =
         unit.request.events.as_slice().try_into().map_err(|_| {
             WireError::Protocol(
                 "recovery unit requires exactly reanchor and authorize Events".to_owned(),
             )
         })?;
+    let (reanchor, authorize) = (&reanchor.event, &authorize.event);
     let account_actor = ActorId::account(account_id.clone());
     if reanchor.kind != EventKind::DeviceReanchor
         || authorize.kind != EventKind::DeviceAuthorize
@@ -1297,7 +1305,7 @@ fn validate_security_rotation_plan(
     account_id: &AccountId,
     plan: &SecurityRotationPlan,
 ) -> Result<()> {
-    plan.revoke_unit.validate()?;
+    validate_native_control_unit(&plan.revoke_unit)?;
     let [revoke]: &[_; 1] = plan
         .revoke_unit
         .request
@@ -1307,6 +1315,7 @@ fn validate_security_rotation_plan(
         .map_err(|_| {
             WireError::Protocol("security rotation revoke unit requires one Event".to_owned())
         })?;
+    let revoke = &revoke.event;
     if revoke.kind != EventKind::DeviceRevoke
         || revoke.actor_id != ActorId::account(account_id.clone())
     {
@@ -1350,7 +1359,7 @@ fn validate_security_rotation_plan(
                 );
             }
         }
-        rotation.active_series_unit.validate()?;
+        validate_native_control_unit(&rotation.active_series_unit)?;
         let [active_series]: &[_; 1] = rotation
             .active_series_unit
             .request
@@ -1362,6 +1371,7 @@ fn validate_security_rotation_plan(
                     "backup active-series unit requires exactly one Event".to_owned(),
                 )
             })?;
+        let active_series = &active_series.event;
         if active_series.kind != EventKind::KeyBackupActiveSeries
             || active_series.event_id != binding.active_series_event_id
             || active_series.actor_id != ActorId::account(account_id.clone())

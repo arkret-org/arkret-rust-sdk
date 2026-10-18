@@ -22,12 +22,16 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn post<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
+    pub(crate) async fn post<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+    ) -> Result<R> {
         let builder = self.canonical_json_body(self.request(Method::POST, path)?, body)?;
         self.send_json(builder).await
     }
 
-    pub async fn post_with_options<T: Serialize, R: DeserializeOwned>(
+    pub(crate) async fn post_with_options<T: Serialize, R: DeserializeOwned>(
         &self,
         path: &str,
         body: &T,
@@ -55,12 +59,16 @@ impl Client {
         self.send_json_protocol_replay_safe(builder).await
     }
 
-    pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
+    pub(crate) async fn put<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+    ) -> Result<R> {
         let builder = self.canonical_json_body(self.request(Method::PUT, path)?, body)?;
         self.send_json(builder).await
     }
 
-    pub async fn put_with_options<T: Serialize, R: DeserializeOwned>(
+    pub(crate) async fn put_with_options<T: Serialize, R: DeserializeOwned>(
         &self,
         path: &str,
         body: &T,
@@ -83,7 +91,7 @@ impl Client {
     /// produce it. `ak.self.keys.backups.resource.delete.v1` was the first such
     /// endpoint and open-coded this; `ak.self.account_data.resource.delete.v1` is the
     /// second, so it belongs beside the other verbs instead.
-    pub async fn delete_with_body<T: Serialize, R: DeserializeOwned>(
+    pub(crate) async fn delete_with_body<T: Serialize, R: DeserializeOwned>(
         &self,
         path: &str,
         body: &T,

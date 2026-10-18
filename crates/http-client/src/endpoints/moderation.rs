@@ -1,5 +1,6 @@
 //! Moderation endpoint methods on [`Client`].
 
+use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::governance::moderation::{
     ModerationReportOutcome, ModerationReportRequestBody,
 };
@@ -9,7 +10,7 @@ use crate::{Client, Result};
 impl Client {
     pub async fn moderation_report(
         &self,
-        request: &ModerationReportRequestBody,
+        request: &VerifiedSubmission<ModerationReportRequestBody>,
     ) -> Result<ModerationReportOutcome> {
         request.validate()?;
         let expected_report_id = request.report_id()?;

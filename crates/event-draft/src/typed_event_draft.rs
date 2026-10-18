@@ -201,6 +201,18 @@ impl ValidatedExtensionPayload {
         &self.manifest_id
     }
 
+    /// Bind a signed extension envelope to the exact manifest-validated payload.
+    /// Validation of its identity and producer proof belongs to the verifier.
+    pub fn validate_event(&self, event: &arkret_wire::Event) -> Result<()> {
+        event.validate_for_submit_structural()?;
+        if event.kind != self.kind || event.payload != self.payload {
+            return Err(EventDraftError::Protocol(
+                "extension Event differs from the manifest-validated payload".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn author(self, context: EventAuthoringContext) -> Result<AuthoredEvent> {
         EventIntent::new(
             self.kind,

@@ -76,6 +76,18 @@ impl SignalSubscribeFrameStream {
 }
 
 impl Client {
+    /// Relay an exact peer Signal batch under its registered retry policy.
+    pub async fn relay_signals(
+        &self,
+        request: &arkret_wire::SignalRelayRequest,
+    ) -> Result<arkret_wire::SignalRelayOutcome> {
+        request.validate()?;
+        let outcome: arkret_wire::SignalRelayOutcome =
+            self.post("/_arkret/peer/signal", request).await?;
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
     /// Send one encrypted Signal envelope.
     pub async fn signal_send(&self, envelope: &SignalEnvelope) -> Result<SignalSubmitOutcome> {
         self.signal_send_with_transport_observation(envelope)
