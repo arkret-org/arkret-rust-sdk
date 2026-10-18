@@ -4984,7 +4984,7 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::validate_content_address:fa751b582c4c97b1",
+      "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::canonical_id_bytes:fa751b582c4c97b1",
       "classification": "polymorphic_boundary",
       "adjudication": "manual",
       "lifecycle": "retained_boundary",

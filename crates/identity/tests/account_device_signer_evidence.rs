@@ -134,6 +134,7 @@ fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
         producer_device_evidence: None,
+        producer_managed_provenance: None,
         producer_agent_evidence: None,
     })
     .unwrap()
@@ -693,6 +694,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
         producer_device_evidence: Some(evidence),
+        producer_managed_provenance: None,
         producer_agent_evidence: None,
     };
     let actual_body_digest = authority_forward_body_digest(&body).unwrap();

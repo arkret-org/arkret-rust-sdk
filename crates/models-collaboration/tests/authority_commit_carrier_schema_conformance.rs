@@ -1012,3 +1012,186 @@ fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
     }
     assert!(mixed_cut.validate().is_err());
 }
+
+/// Shape fixture only; these placeholders never establish accepted source authority.
+fn managed_forward_source_shape() -> Value {
+    let submission = approved_event_submission();
+    let realm = submission["event"]["realm_id"].clone();
+    let stream = json!({"kind":"realm", "realm_id":realm});
+    let commit = source_commit_for(&submission);
+    let profile_id = arkret_wire::ActorProfileId::from_event_id(
+        &serde_json::from_value::<EventId>(submission["event"]["event_id"].clone()).unwrap(),
+    );
+    let principal = "ak:did_core:web:managed.arkret.org";
+    let service = "ak:did_core:web:applet.arkret.org";
+    let timestamp = "2026-09-20T00:00:00.000Z";
+    let hash = format!("sha256:{}", "5".repeat(64));
+    let applet = "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb";
+    let resolution = json!({"did":"did:webvh:z6mkshape:managed.arkret.org", "method_history_head":"head-1", "version_id":"1-shape"});
+    let provision_payload = json!({
+        "schema":"ak.schema.applet_managed_actor_provision.v1", "applet_id":applet,
+        "service_id":service, "actor_id":submission["event"]["actor_id"], "actor_role":"bot",
+        "initial_resolution":resolution,
+        "method_history_evidence":{
+            "evidence_kind":"webvh_log",
+            "boundary":{"from_method_history_head":"head-1","from_version_id":"1-shape",
+                "to_method_history_head":"head-1","to_version_id":"1-shape"},
+            "evidence":{"kind":"ak.did.binding_evidence.v1","method":"webvh", "document_digest":hash,
+                "method_proofs":[{"kind":"webvh_log","history_head":"head-1", "witnesses":[],"witness_proofs_digest":hash}]},
+            "log_entries":[{"versionId":"1-shape"}], "witness_records":[]
+        },
+        "registration_ref":submission["event"]["event_id"],
+        "applet_authority_ref":arkret_wire::GrantId::from_event_id(&serde_json::from_value::<EventId>(submission["event"]["event_id"].clone()).unwrap())
+    });
+    let genesis_payload = json!({"object":{
+        "schema":"ak.schema.realm_genesis.v1", "purpose":"applet_managed_control",
+        "genesis_salt":"A".repeat(43),"trust_domain":"ak:trust_domain:arkret.org",
+        "security_class":"high_assurance","governance_station_id":service,
+        "initial_join_rule":"closed","initial_history_access":"since_join","initial_discoverability":"secret",
+        "initial_resolution":resolution
+    }});
+    let accountability_payload = json!({
+        "schema":"ak.schema.accountability_grant.v1", "issuer_id":service,"subject_id":principal,
+        "accountability_scope":"contracted_service", "not_before":timestamp,"grant_status":"active",
+        "proof":{"kind":"detached_jws","verification_method":"did:web:applet.arkret.org#signing",
+            "payload_digest":hash,"created_at":timestamp,"jws":"eyJhbGciOiJFZERTQSJ9..AA"}
+    });
+    let profile_payload = json!({"object":{
+        "principal_id":principal,"actor_kind":"bot","display_name":"Shape-only managed Profile",
+        "accountable_principal_ids":[service],"profile_fields":{"managed_by_applet":applet}
+    }});
+    let mut creation = serde_json::Map::new();
+    for (slot, kind) in [
+        ("provision", "ak.applet.managed_actor.provision"),
+        ("pcr_genesis", "ak.realm.create"),
+        ("accountability", "ak.identity.accountability_grant"),
+        ("profile", "ak.profile.create"),
+    ] {
+        let mut event = submission["event"].clone();
+        event["kind"] = json!(kind);
+        event["applet_id"] = json!(applet);
+        event["authorization_ref"] = provision_payload["applet_authority_ref"].clone();
+        if matches!(slot, "provision" | "accountability") {
+            event["actor_id"] = json!({"kind":"service","service_id":service});
+            event.as_object_mut().unwrap().remove("executed_by");
+        } else {
+            event["executed_by"] = json!({"kind":"service","service_id":service});
+        }
+        if slot == "pcr_genesis" {
+            event.as_object_mut().unwrap().remove("realm_id");
+            event["scope_ref"] = json!({"kind":"realm_genesis"});
+            event["semantic_refs"] = json!([{"id":submission["event"]["event_id"],
+                "role":"applet_managed_actor_provision", "critical":true}]);
+        }
+        event["payload"] = match slot {
+            "provision" => provision_payload.clone(),
+            "pcr_genesis" => genesis_payload.clone(),
+            "accountability" => accountability_payload.clone(),
+            "profile" => profile_payload.clone(),
+            _ => unreachable!(),
+        };
+        creation.insert(slot.into(), json!({"event":event,"commit":commit}));
+    }
+    let revision = json!({"commit_id":commit["commit_id"],"stream_position":0});
+    json!({
+        "creation":creation,
+        "service_resolution":producer_device_evidence().service_resolution,
+        "current":{
+            "profile":{"realm_id":realm,"result":{
+                "selector":{"kind":"actor_profile","actor_profile_id":profile_id},
+                "source_stream_ref":stream,"revision":revision,
+                "value":{"id":profile_id,"schema":"ak.schema.actor_profile.v1",
+                    "realm_id":realm,"principal_id":principal,"actor_kind":"bot",
+                    "display_name":"Shape-only managed Profile","created_at":"2026-09-20T00:00:00.000Z"}
+            },"commit":commit},
+            "accountability":{"realm_id":realm,"result":{
+                "selector":{"kind":"identity_accountability","issuer_id":service,
+                    "subject_id":principal,"accountability_scope":["contracted_service"]},
+                "source_stream_ref":stream,"revision":revision,
+                "value":{"issuer_id":service,"subject_id":principal,
+                    "accountability_scope":["contracted_service"],"not_before":"2026-09-20T00:00:00.000Z",
+                    "grant_status":"active"}
+            },"commit":commit},
+            "expires_at":"2026-09-20T00:05:00.000Z"
+        }
+    })
+}
+
+#[test]
+fn managed_private_source_matches_closed_schema_and_rejects_extra_material() {
+    use arkret_models_collaboration::authority_commit::ForwardManagedActorProvenance;
+    let value = managed_forward_source_shape();
+    assert_schema_and_serde::<ForwardManagedActorProvenance>(
+        "authority-commit-operations.schema.json",
+        "#/$defs/forward_managed_actor_provenance",
+        value.clone(),
+    );
+    for pointer in [
+        "/creation/profile",
+        "/current/profile/result/selector/actor_profile_id",
+    ] {
+        let mut missing = value.clone();
+        let (parent, field) = pointer.rsplit_once('/').unwrap();
+        missing
+            .pointer_mut(parent)
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+        assert!(schema_rejects(
+            "authority-commit-operations.schema.json",
+            "#/$defs/forward_managed_actor_provenance",
+            &missing
+        ));
+        assert!(serde_json::from_value::<ForwardManagedActorProvenance>(missing).is_err());
+    }
+    for (pointer, extra) in [
+        ("", "actor_role"),
+        ("/creation", "unrelated_pcr_event"),
+        ("/current", "lifecycle_projection"),
+        ("/current/profile/result", "authority_token"),
+    ] {
+        let mut surplus = value.clone();
+        surplus
+            .pointer_mut(pointer)
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .insert(extra.into(), json!("forbidden"));
+        assert!(schema_rejects(
+            "authority-commit-operations.schema.json",
+            "#/$defs/forward_managed_actor_provenance",
+            &surplus
+        ));
+        assert!(serde_json::from_value::<ForwardManagedActorProvenance>(surplus).is_err());
+    }
+    let mut oversized = value;
+    oversized["current"]["profile"]["result"]["value"]["display_name"] =
+        json!("x".repeat(ForwardManagedActorProvenance::MAX_CANONICAL_BYTES));
+    let source: ForwardManagedActorProvenance = serde_json::from_value(oversized).unwrap();
+    assert!(matches!(
+        source.validate(),
+        Err(WireError::ProtocolCode {
+            code: ErrorCode::PayloadTooLarge,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn private_managed_source_cannot_leak_through_committed_replication() {
+    let legal = replication_request(1);
+    assert_schema_and_serde::<PeerAuthoritySubmitRequest>(
+        "authority-commit-operations.schema.json",
+        "#/$defs/peer_submit_request",
+        legal.clone(),
+    );
+    let mut forbidden = legal;
+    forbidden["producer_managed_provenance"] = managed_forward_source_shape();
+    assert!(schema_rejects(
+        "authority-commit-operations.schema.json",
+        "#/$defs/peer_submit_request",
+        &forbidden
+    ));
+    assert!(serde_json::from_value::<PeerAuthoritySubmitRequest>(forbidden).is_err());
+}

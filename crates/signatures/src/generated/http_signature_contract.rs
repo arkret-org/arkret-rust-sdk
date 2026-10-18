@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-18.1;
-//! sha256=129e32d99a2a0b0412f3719b173c9e1190034327ba659189520e726ee5d884ac
+//! Input: registry/contract-registry.json; version=2026-10-18.2;
+//! sha256=05c63c647d64a429e34f662bcc99038ef96463b814605f9d623ec6b95834d605
 //! Entries: http_signature_scenarios=8, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
