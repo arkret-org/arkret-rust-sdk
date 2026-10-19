@@ -329,7 +329,7 @@ pub fn product_policies_allow(
     policies.iter().all(|policy| {
         if !matches!(
             policy.policy_kind,
-            PolicyKind::Access | PolicyKind::Moderation
+            PolicyKind::Access | PolicyKind::Moderation | PolicyKind::Retention
         ) || policy.realm_id.as_ref() != operation.target.realm_id.as_ref()
             || policy.validate().is_err()
             || policy.created_at > operation.at
@@ -480,6 +480,42 @@ mod tests {
             "policy_kind":"access", "rules":rules, "default_effect":default,
             "created_by":actor("ak:did_core:web:station-a.example"), "created_at":"2026-10-01T00:00:00.000Z"
         })).unwrap()
+    }
+
+    #[test]
+    fn retention_policy_uses_exact_product_read_rules_and_its_own_validity_window() {
+        let actor = actor("ak:did_core:web:station-a.example");
+        let target = WireResourceSelector::strand(REALM.parse().unwrap(), STRAND.parse().unwrap());
+        let facts = OperationFacts::default();
+        let operation = AuthorizationOperation {
+            actor: &actor,
+            actions: &[CapabilityActionId::STRAND_READ],
+            target: &target,
+            at: at(),
+            facts: &facts,
+        };
+        let mut retention = policy(
+            serde_json::json!([{"rule_id":"read","kind":"action","effect":"allow","actions":[CapabilityActionId::STRAND_READ]}]),
+            "deny",
+        );
+        retention.policy_kind = arkret_wire::PolicyKind::Retention;
+        assert!(product_policies_allow(&[retention.clone()], &operation));
+        retention.rules[0].effect = arkret_wire::PolicyEffect::Deny;
+        retention.default_effect = arkret_wire::PolicyEffect::Allow;
+        assert!(!product_policies_allow(&[retention.clone()], &operation));
+        retention.not_before = Some(at() + chrono::Duration::seconds(1));
+        assert!(product_policies_allow(&[retention.clone()], &operation));
+        retention.not_before = None;
+        retention.expires_at = Some(at());
+        assert!(product_policies_allow(&[retention.clone()], &operation));
+        retention.expires_at = None;
+        retention.rules[0].actions = Some(vec![CapabilityActionId::MESSAGE_CREATE.into()]);
+        assert!(product_policies_allow(&[retention.clone()], &operation));
+        retention.rules[0].actions = Some(vec![CapabilityActionId::STRAND_READ.into()]);
+        retention.rules[0].conditions = Some(
+            serde_json::from_value(serde_json::json!({"unavailable_retention_fact":true})).unwrap(),
+        );
+        assert!(!product_policies_allow(&[retention], &operation));
     }
 
     #[test]
