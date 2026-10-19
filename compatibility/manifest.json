@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "747e7e59df1e1bbb43998a7a19e8a1d9038af17f",
+      "commit": "2a973819515e3da880dedbf25323f48d25eac83c",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
