@@ -861,29 +861,29 @@ fn temporal_matches(
         Some(GrantConstraintSubkind::EditWindow | GrantConstraintSubkind::RedactWindow)
     );
     if window_subkind && constraint.applies_to_actions.is_empty() {
-        return Tri::No;
+        return Tri::Unknown;
     }
+    let (Some(earliest), Some(latest)) =
+        (now.checked_sub_signed(skew), now.checked_add_signed(skew))
+    else {
+        return Tri::Unknown;
+    };
     // Session budgets need the presenting session, which no operation
     // carries; an approval-workflow expiry belongs to the claim family.
-    if constraint.max_duration.is_some()
+    let mut result = if constraint.max_duration.is_some()
         || constraint.max_session_duration.is_some()
         || constraint.inactivity_timeout.is_some()
         || constraint.expires_after.is_some()
     {
-        return Tri::Unknown;
+        Tri::Unknown
+    } else {
+        Tri::Yes
+    };
+    if let Some(not_before) = constraint.not_before {
+        result = result.and(Tri::from_bool(latest >= not_before));
     }
-    let mut result = Tri::Yes;
-    if constraint
-        .not_before
-        .is_some_and(|not_before| now + skew < not_before)
-    {
-        return Tri::No;
-    }
-    if constraint
-        .expires_at
-        .is_some_and(|expires_at| now - skew > expires_at)
-    {
-        return Tri::No;
+    if let Some(expires_at) = constraint.expires_at {
+        result = result.and(Tri::from_bool(earliest <= expires_at));
     }
     if let Some(recurrence) = constraint.recurrence.as_ref() {
         result = result.and(recurrence_matches(now, skew, recurrence));
@@ -903,9 +903,7 @@ fn temporal_matches(
     };
     if let Some(window) = window {
         let within = match operation.facts.target_created_at {
-            Some(created_at) => {
-                Tri::from_bool(object_window_contains(created_at, window, now, skew))
-            }
+            Some(created_at) => object_window_predicate(created_at, window, now, skew),
             None => Tri::Unknown,
         };
         result = result.and(within);
@@ -921,9 +919,22 @@ pub fn object_window_contains(
     now: DateTime<Utc>,
     skew: TimeDelta,
 ) -> bool {
-    fixed_duration(window)
+    object_window_predicate(created_at, window, now, skew) == Tri::Yes
+}
+
+fn object_window_predicate(
+    created_at: DateTime<Utc>,
+    window: &str,
+    now: DateTime<Utc>,
+    skew: TimeDelta,
+) -> Tri {
+    let deadline = fixed_duration(window)
         .and_then(|window| created_at.checked_add_signed(window))
-        .is_some_and(|deadline| now - skew <= deadline)
+        .zip(now.checked_sub_signed(skew));
+    match deadline {
+        Some((deadline, earliest)) => Tri::from_bool(earliest <= deadline),
+        None => Tri::Unknown,
+    }
 }
 
 /// A duration `P[nW][nD][T[nH][nM][nS]]` of fixed length. Year and month
@@ -994,7 +1005,7 @@ fn recurrence_matches(
     recurrence: &GrantConstraintRecurrence,
 ) -> Tri {
     if !recurrence.extra.is_empty() {
-        return Tri::No;
+        return Tri::Unknown;
     }
     let frequency = recurrence
         .frequency
@@ -1002,13 +1013,13 @@ fn recurrence_matches(
     match frequency {
         GrantConstraintRecurrenceFrequency::Daily => {}
         GrantConstraintRecurrenceFrequency::Weekly if !recurrence.days.is_empty() => {}
-        _ => return Tri::No,
+        _ => return Tri::Unknown,
     }
     let timezone: chrono_tz::Tz = match recurrence.timezone.as_deref() {
         None => chrono_tz::Tz::UTC,
         Some(name) => match name.parse() {
             Ok(timezone) => timezone,
-            Err(_) => return Tri::No,
+            Err(_) => return Tri::Unknown,
         },
     };
     // `None` is the whole local day.
@@ -1019,18 +1030,24 @@ fn recurrence_matches(
         (None, None) => None,
         (Some(start), Some(end)) => match (parse_local_time(start), parse_local_time(end)) {
             (Some(start), Some(end)) => Some((start, end)),
-            _ => return Tri::No,
+            _ => return Tri::Unknown,
         },
-        _ => return Tri::No,
+        _ => return Tri::Unknown,
     };
-    let earliest = now - skew;
-    let latest = now + skew;
-    let first_day = earliest.with_timezone(&timezone).date_naive() - TimeDelta::days(1);
+    let (Some(earliest), Some(latest)) =
+        (now.checked_sub_signed(skew), now.checked_add_signed(skew))
+    else {
+        return Tri::Unknown;
+    };
+    let Some(first_day) = earliest.with_timezone(&timezone).date_naive().pred_opt() else {
+        return Tri::Unknown;
+    };
     let last_day = latest.with_timezone(&timezone).date_naive();
     let mut day = first_day;
+    let mut result = Tri::No;
     while day <= last_day {
         let Some(next_day) = day.succ_opt() else {
-            return Tri::No;
+            return result.or(Tri::Unknown);
         };
         let listed =
             recurrence.days.is_empty() || recurrence.days.contains(&weekday_token(day.weekday()));
@@ -1040,19 +1057,25 @@ fn recurrence_matches(
                 Some((start, end)) if start <= end => (start, end, day),
                 Some((start, end)) => (start, end, next_day),
             };
-            let (Some(instance_start), Some(instance_end)) = (
+            let candidate = match (
                 local_instant(&timezone, day, start),
                 local_instant(&timezone, end_day, end),
-            ) else {
-                return Tri::No;
+            ) {
+                // A resolved boundary can exclude a window without guessing
+                // its missing or ambiguous other endpoint.
+                (Some(start), _) if start > latest => Tri::No,
+                (_, Some(end)) if earliest >= end => Tri::No,
+                (Some(_), Some(_)) => Tri::Yes,
+                _ => Tri::Unknown,
             };
-            if instance_start <= latest && earliest < instance_end {
+            result = result.or(candidate);
+            if result == Tri::Yes {
                 return Tri::Yes;
             }
         }
         day = next_day;
     }
-    Tri::No
+    result
 }
 
 fn local_instant(

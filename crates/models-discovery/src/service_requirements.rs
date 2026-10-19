@@ -248,7 +248,6 @@ mod tests {
             auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
-            privacy_derivation: None,
             receive_policy_constraints: None,
             verified_profiles: vec![],
             interop_surfaces: vec![],

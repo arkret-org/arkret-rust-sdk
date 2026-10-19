@@ -994,37 +994,44 @@ mod call_current_tests {
 
 include!("generated/call_contracts.rs");
 
-/// Validate immutable provenance before folding a complete Call assertion axis.
-fn validate_call_assertion_sources<'a>(
-    assertions: impl IntoIterator<Item = (&'a str, &'a RealmCommit)>,
+/// Validate exact effective-entry provenance against the axis last source.
+fn validate_call_sources<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a RealmCommit)>,
+    last: (&str, &RealmCommit),
     stream: &CommitStreamRef,
     revision: &CurrentRevision,
     write_index: usize,
 ) -> Result<()> {
-    let mut previous: Option<&str> = None;
-    let mut positions = std::collections::BTreeSet::new();
-    let mut latest = None;
-    for (tag, commit) in assertions {
+    let validate = |tag: &str, commit: &RealmCommit| -> Result<()> {
         commit.validate_shape()?;
         commit.validate_content_address()?;
         if commit.stream_ref != *stream
             || commit.realm_id != *stream.realm_id()
             || tag != format!("{}:{}", commit.event_ref, write_index)
-            || previous.is_some_and(|old| old >= tag)
-            || !positions.insert(commit.stream_position)
             || commit.stream_position > revision.stream_position
         {
-            return schema_violation("Call assertion provenance, order or source differs");
+            return schema_violation("Call source provenance differs from its exact axis");
+        }
+        Ok(())
+    };
+    validate(last.0, last.1)?;
+    if last.1.commit_id != revision.commit_id || last.1.stream_position != revision.stream_position
+    {
+        return schema_violation("Call axis revision must equal its last source Commit");
+    }
+    let mut previous: Option<&str> = None;
+    let mut positions = std::collections::BTreeSet::new();
+    for (tag, commit) in entries {
+        validate(tag, commit)?;
+        if previous.is_some_and(|old| old >= tag)
+            || !positions.insert(commit.stream_position)
+            || (commit.stream_position == revision.stream_position
+                && (tag != last.0
+                    || serde_json::to_value(commit)? != serde_json::to_value(last.1)?))
+        {
+            return schema_violation("Call effective entries have conflicting provenance or order");
         }
         previous = Some(tag);
-        if latest.is_none_or(|old: &RealmCommit| old.stream_position < commit.stream_position) {
-            latest = Some(commit);
-        }
-    }
-    if latest.is_none_or(|last| {
-        last.commit_id != revision.commit_id || last.stream_position != revision.stream_position
-    }) {
-        return schema_violation("Call axis revision must equal its latest assertion Commit");
     }
     Ok(())
 }
@@ -1035,14 +1042,16 @@ impl CallRosterCurrentValue {
         stream: &CommitStreamRef,
         revision: &CurrentRevision,
     ) -> Result<()> {
-        validate_call_assertion_sources(
-            self.assertions
+        validate_call_sources(
+            self.entries
                 .iter()
                 .map(|a| (a.tag_id.as_str(), &a.source_commit)),
+            (&self.last_source.tag_id, &self.last_source.source_commit),
             stream,
             revision,
-            7,
-        )
+            CALL_ROSTER_WRITE_INDEX,
+        )?;
+        self.validate_effective_entries()
     }
 }
 impl CallModerationCurrentValue {
@@ -1051,14 +1060,16 @@ impl CallModerationCurrentValue {
         stream: &CommitStreamRef,
         revision: &CurrentRevision,
     ) -> Result<()> {
-        validate_call_assertion_sources(
-            self.assertions
+        validate_call_sources(
+            self.entries
                 .iter()
                 .map(|a| (a.tag_id.as_str(), &a.source_commit)),
+            (&self.last_source.tag_id, &self.last_source.source_commit),
             stream,
             revision,
-            6,
-        )
+            CALL_MODERATION_WRITE_INDEX,
+        )?;
+        self.validate_effective_entries()
     }
 }
 
@@ -1078,4 +1089,50 @@ impl CallParticipant {
             _ => schema_violation("signed participant media requires all three non-null flags"),
         }
     }
+}
+
+/// Validate and collect the sparse original Commits of complete Call axes.
+/// They are signature inputs, never a contiguous replay window or a head.
+pub fn call_current_source_commits(rows: &[TypedCurrentRow]) -> Result<Vec<RealmCommit>> {
+    let mut commits = BTreeMap::new();
+    for row in rows {
+        let TypedCurrentRow::Value {
+            selector,
+            source_stream_ref,
+            revision,
+            value,
+        } = row;
+        let sources = match selector {
+            CurrentSelector::CallRoster { .. } => {
+                let roster: CallRosterCurrentValue = serde_json::from_value(value.clone())?;
+                roster.validate_for_axis(source_stream_ref, revision)?;
+                roster
+                    .entries
+                    .into_iter()
+                    .map(|entry| entry.source_commit)
+                    .chain(std::iter::once(roster.last_source.source_commit))
+                    .collect::<Vec<_>>()
+            }
+            CurrentSelector::CallModeration { .. } => {
+                let moderation: CallModerationCurrentValue = serde_json::from_value(value.clone())?;
+                moderation.validate_for_axis(source_stream_ref, revision)?;
+                moderation
+                    .entries
+                    .into_iter()
+                    .map(|entry| entry.source_commit)
+                    .chain(std::iter::once(moderation.last_source.source_commit))
+                    .collect::<Vec<_>>()
+            }
+            _ => continue,
+        };
+        for commit in sources {
+            let key = (commit.stream_ref.clone(), commit.stream_position);
+            if let Some(old) = commits.insert(key, commit.clone()) {
+                if old != commit {
+                    return schema_violation("Call axes disagree on one original Commit");
+                }
+            }
+        }
+    }
+    Ok(commits.into_values().collect())
 }

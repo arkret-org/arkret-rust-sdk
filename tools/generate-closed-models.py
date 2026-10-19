@@ -275,6 +275,20 @@ class Generator:
                     self.names[row["schema"]] = row["name"]
                     self.local_aliases[qualified] = row["name"]
             contents = "\n".join(self.declaration(row) for row in family["types"])
+            if family["output"].endswith("/call_contracts.rs"):
+                path = self.schemas.parent / "registry" / "contract-registry.json"
+                raw = path.read_bytes()
+                registry = json.loads(raw)
+                event = next(row for row in registry["event_kind_registry"]["event_kinds"]
+                             if row["event_kind"] == "ak.call.state")
+                for kind in ("call_roster", "call_moderation"):
+                    indices = [i for i, row in enumerate(event["result_writes"])
+                               if row["result_family"] == kind]
+                    if len(indices) != 1:
+                        raise ValueError(f"Call axis lacks one canonical write index: {kind}")
+                    contents += f"\npub const {kind.upper()}_WRITE_INDEX: usize = {indices[0]};\n"
+                self.inputs["../registry/contract-registry.json"] = raw
+
             header = ["//! @generated; do not edit by hand.", "//! Generator: tools/generate-closed-models.py"]
             for path, raw in self.inputs.items():
                 header.extend(["//!", f"//! Input: schemas/{path}", f"//! sha256={hashlib.sha256(raw).hexdigest()}"])

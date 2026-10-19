@@ -56,65 +56,6 @@ pub struct ServerLimits {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PushTargetDerivationProfile {
-    #[serde(rename = "ak.push_target_id.hmac_sha256.v1")]
-    HmacSha256V1,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushTargetSecretScope {
-    PerService,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushTargetInputBinding {
-    AccountId,
-    DeviceId,
-    PushRouteId,
-    SaltEpochId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PushTargetPrivacyDerivation {
-    pub derivation_profile: PushTargetDerivationProfile,
-    pub secret_scope: PushTargetSecretScope,
-    pub salt_epoch_id: String,
-    pub salt_rotation_seconds: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input_binding: Option<Vec<PushTargetInputBinding>>,
-}
-
-impl PushTargetPrivacyDerivation {
-    pub fn validate(&self) -> Result<()> {
-        if self.salt_epoch_id.is_empty()
-            || self.salt_epoch_id.chars().count() > 128
-            || !(3_600..=2_592_000).contains(&self.salt_rotation_seconds)
-        {
-            return Err(WireError::Protocol(format!(
-                "ServiceDescribe: invalid push_target privacy derivation ({})",
-                ErrorCode::SCHEMA_VIOLATION
-            )));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrivacyDerivation {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_target_id_derivation: Option<PushTargetPrivacyDerivation>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TusVersion {
     #[serde(rename = "1.0.0")]
     V1_0_0,
@@ -341,12 +282,6 @@ pub struct ServiceDescribe {
     /// mention-redirect / late-recovery paths). Wire shape per
     /// `service-describe.schema.json#plaintext_visibility`.
     pub plaintext_visibility: PlaintextVisibility,
-    /// Machine-readable privacy-preserving identifier derivation claims.
-    /// Secret material is never published here; producers expose only the
-    /// public derivation profile and epoch metadata needed by clients and
-    /// conformance tools.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub privacy_derivation: Option<PrivacyDerivation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
         feature = "openapi",
@@ -465,7 +400,6 @@ impl ServiceDescribe {
             auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
-            privacy_derivation: None,
             receive_policy_constraints: None,
             verified_profiles: Vec::new(),
             interop_surfaces: Vec::new(),
@@ -635,13 +569,6 @@ impl ServiceDescribe {
                 "ServiceDescribe: invite_addressing and ak.feature.invite_addressing.v1 must appear together ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
-        }
-        if let Some(push_target) = self
-            .privacy_derivation
-            .as_ref()
-            .and_then(|derivation| derivation.push_target_id_derivation.as_ref())
-        {
-            push_target.validate()?;
         }
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(WireError::Protocol(format!(
@@ -990,7 +917,6 @@ mod tests {
             auth_metadata: AuthMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
-            privacy_derivation: None,
             receive_policy_constraints: None,
             verified_profiles: vec![],
             interop_surfaces: vec![],

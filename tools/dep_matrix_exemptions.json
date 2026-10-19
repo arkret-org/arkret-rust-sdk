@@ -227,6 +227,21 @@
       "reason": "Five core repositories declare 0.4. 0.3 comes from dioxus-web 0.7.10, dioxus-sdk-time and backon.",
       "expires_when": "family dioxus-0.7.10-fullstack expires.",
       "review_after": "2026-12-01"
+    },
+    {
+      "crate": "salvo",
+      "majors": [
+        "0.89",
+        "0.96",
+        "1"
+      ],
+      "owner": "savfox",
+      "reason": "Every first-party Arkret workspace declares Salvo 1.0.1. Coland conformance-harness also resolves the external Savfox gateway on 0.96 and its third-party matrix-bot-sdk 0.2.4 on 0.89. These HTTP frameworks do not exchange Salvo request/response values with Arkret; protocol crossings use SDK DTOs and HTTP. This exception covers those resolved external trees, not a direct first-party version disagreement.",
+      "expires_when": "Savfox gateway and rmcp-client move to Salvo 1, and matrix-bot-sdk publishes or removes its Salvo 0.89 server dependency; then regenerate the Coland lock and remove this entry.",
+      "review_after": "2026-12-01",
+      "declared_majors": [
+        "1"
+      ]
     }
   ]
 }

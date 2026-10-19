@@ -13443,10 +13443,10 @@
           }
         },
         {
-          "name": "CallRosterAssertion",
-          "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion",
+          "name": "CallRosterSource",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_source",
           "rust": {
-            "signature": "pub struct CallRosterAssertion",
+            "signature": "pub struct CallRosterSource",
             "attributes": [
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -13474,6 +13474,64 @@
           }
         },
         {
+          "name": "CallParticipantSigningKey",
+          "schema": "typed-current-result.schema.json#/$defs/call_participant_signing_key",
+          "rust": {
+            "signature": "pub struct CallParticipantSigningKey",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "public_key_b64u": {
+                "name": "public_key_b64u",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallRosterEntry",
+          "schema": "typed-current-result.schema.json#/$defs/call_roster_entry",
+          "rust": {
+            "signature": "pub struct CallRosterEntry",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallRosterDelta",
+                "attributes": []
+              },
+              "participant_signing_key": {
+                "name": "participant_signing_key",
+                "visibility": "pub",
+                "type": "Option<CallParticipantSigningKey>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
           "name": "CallRosterCurrentValue",
           "schema": "typed-current-result.schema.json#/$defs/call_roster_value",
           "rust": {
@@ -13483,20 +13541,57 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "assertions": {
-                "name": "assertions",
+              "entries": {
+                "name": "entries",
                 "visibility": "pub",
-                "type": "Vec<CallRosterAssertion>",
+                "type": "Vec<CallRosterEntry>",
+                "attributes": []
+              },
+              "last_source": {
+                "name": "last_source",
+                "visibility": "pub",
+                "type": "CallRosterSource",
                 "attributes": []
               }
             }
           }
         },
         {
-          "name": "CallModerationAssertion",
-          "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion",
+          "name": "CallModerationSource",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_source",
           "rust": {
-            "signature": "pub struct CallModerationAssertion",
+            "signature": "pub struct CallModerationSource",
+            "attributes": [
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "tag_id": {
+                "name": "tag_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "source_commit": {
+                "name": "source_commit",
+                "visibility": "pub",
+                "type": "RealmCommit",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "CallModerationDelta",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallModerationEntry",
+          "schema": "typed-current-result.schema.json#/$defs/call_moderation_entry",
+          "rust": {
+            "signature": "pub struct CallModerationEntry",
             "attributes": [
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -13533,10 +13628,16 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "assertions": {
-                "name": "assertions",
+              "entries": {
+                "name": "entries",
                 "visibility": "pub",
-                "type": "Vec<CallModerationAssertion>",
+                "type": "Vec<CallModerationEntry>",
+                "attributes": []
+              },
+              "last_source": {
+                "name": "last_source",
+                "visibility": "pub",
+                "type": "CallModerationSource",
                 "attributes": []
               }
             }
@@ -16077,6 +16178,42 @@
       "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
       "category": "domain_semantics",
       "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationAcceptedEvent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_accepted_event",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationOriginals",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_originals",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedProfileCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_profile_current",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedAccountabilityCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_accountability_current",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedIdentityCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_identity_current",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ForwardManagedActorProvenance",
+      "schema": "authority-commit-operations.schema.json#/$defs/forward_managed_actor_provenance",
+      "category": "domain_semantics",
+      "reason": "Original managed provenance carriers retain typed cross-binding validation beside their full native historical authority verifier; their exact closed wire fields remain schema-gated."
     }
   ],
   "retained_exemptions": [

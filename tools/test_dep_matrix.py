@@ -205,6 +205,19 @@ def test_exemption_must_cover_every_observed_major() -> None:
     assert verdict["stale_exemptions"] == ["widget"]
 
 
+def test_transitive_exception_keeps_direct_framework_generation_fixed() -> None:
+    item = {"crate": "salvo", "core_majors": ["0.89", "0.96", "1"],
+            "core_split": True, "actionable": True, "declared_core_majors": ["1"]}
+    ledger = {"exemptions": [{"crate": "salvo", "majors": ["0.89", "0.96", "1"],
+                              "declared_majors": ["1"]}]}
+    assert evaluate_exemptions({"divergences": [item]}, ledger, "2026-10-19")["covered"] == ["salvo"]
+    # The same observed transitive versions cannot excuse a direct downgrade.
+    item["declared_core_majors"] = ["0.96", "1"]
+    verdict = evaluate_exemptions({"divergences": [item]}, ledger, "2026-10-19")
+    assert not verdict["covered"]
+    assert verdict["uncovered"][0]["unexpected_declared_majors"] == ["0.96"]
+
+
 def test_shipped_exemption_ledger_is_well_formed() -> None:
     ledger = load_exemptions(DEFAULT_EXEMPTIONS)
     assert ledger["exemptions"], "the ledger must not be empty while divergences exist"

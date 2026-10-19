@@ -40,8 +40,8 @@ fn participant_actor(station: &str) -> arkret_wire::ActorId {
     ))
 }
 
-fn join(commit: RealmCommit, device: &str) -> CallRosterAssertion {
-    CallRosterAssertion {
+fn join(commit: RealmCommit, device: &str) -> CallRosterSource {
+    CallRosterSource {
         tag_id: CanonicalEventDot::new(commit.event_ref.clone(), 7)
             .unwrap()
             .to_string(),
@@ -54,84 +54,98 @@ fn join(commit: RealmCommit, device: &str) -> CallRosterAssertion {
 }
 
 #[test]
-fn complete_roster_folds_by_commit_order_and_leave_guards_whole_axis() {
+fn complete_roster_replaces_join_and_retains_empty_last_source() {
     let first = commit(0x77, 3);
     let second = commit(0x11, 5);
-    let leave = commit(0x33, 8);
-    let roster = CallRosterCurrentValue { assertions: vec![] }
-        .with_assertion(join(first.clone(), "first"))
-        .unwrap()
-        .with_assertion(join(second.clone(), "second"))
-        .unwrap();
-    roster
-        .validate_for_axis(&first.stream_ref, &revision(&second))
-        .unwrap();
-    assert_eq!(roster.effective_participants().unwrap().len(), 2);
-    let delta = |expected| CallRosterAssertion {
-        tag_id: CanonicalEventDot::new(leave.event_ref.clone(), 7)
+    let left = commit(0x33, 8);
+    let roster = CallRosterCurrentValue::apply_delta(
+        None,
+        join(
+            first.clone(),
+            "ak:device:01964137-0000-7000-8000-000000000001",
+        ),
+        None,
+    )
+    .unwrap();
+    let roster = CallRosterCurrentValue::apply_delta(
+        Some(&roster),
+        join(
+            second.clone(),
+            "ak:device:01964137-0000-7000-8000-000000000001",
+        ),
+        None,
+    )
+    .unwrap();
+    assert_eq!(roster.entries.len(), 1);
+    assert_eq!(roster.entries[0].source_commit, second);
+    let leave = |expected| CallRosterSource {
+        tag_id: CanonicalEventDot::new(left.event_ref.clone(), 7)
             .unwrap()
             .to_string(),
-        source_commit: leave.clone(),
+        source_commit: left.clone(),
         value: CallRosterDelta::Leave {
             actor_id: participant_actor("ak:did_core:web:station.example"),
-            device_id: "first".into(),
+            device_id: "ak:device:01964137-0000-7000-8000-000000000001".into(),
             expected_revision: expected,
         },
     };
     assert!(
-        roster
-            .clone()
-            .with_assertion(delta(revision(&first)))
-            .unwrap()
-            .validate_for_axis(&first.stream_ref, &revision(&leave))
-            .is_err()
+        CallRosterCurrentValue::apply_delta(Some(&roster), leave(revision(&first)), None).is_err()
     );
-    let complete = roster.with_assertion(delta(revision(&second))).unwrap();
-    complete
-        .validate_for_axis(&first.stream_ref, &revision(&leave))
+    let roster =
+        CallRosterCurrentValue::apply_delta(Some(&roster), leave(revision(&second)), None).unwrap();
+    assert!(roster.entries.is_empty());
+    assert_eq!(roster.last_source.source_commit, left);
+    roster
+        .validate_for_axis(&left.stream_ref, &revision(&left))
         .unwrap();
-    assert_eq!(complete.assertions.len(), 3);
-    assert_eq!(
-        complete.effective_participants().unwrap()[0].device_id,
-        "second"
-    );
+    let wire = serde_json::to_value(&roster).unwrap();
+    assert_eq!(wire.as_object().unwrap().len(), 2);
+    assert!(serde_json::from_value::<CallRosterCurrentValue>(json!({"assertions":[]})).is_err());
+    assert!(serde_json::from_value::<CallRosterCurrentValue>(json!({"entries":[]})).is_err());
 }
 
 #[test]
-fn immutable_provenance_rejects_conflicting_dots_streams_and_duplicate_positions() {
+fn immutable_provenance_rejects_wrong_dots_duplicate_targets_and_forked_positions() {
     let first = commit(0x11, 3);
-    let entry = join(first.clone(), "first");
-    let roster = CallRosterCurrentValue { assertions: vec![] }
-        .with_assertion(entry.clone())
-        .unwrap();
-    assert_eq!(
-        roster
-            .clone()
-            .with_assertion(entry)
-            .unwrap()
-            .assertions
-            .len(),
-        1
-    );
+    let roster = CallRosterCurrentValue::apply_delta(
+        None,
+        join(
+            first.clone(),
+            "ak:device:01964137-0000-7000-8000-000000000001",
+        ),
+        None,
+    )
+    .unwrap();
     assert!(
-        roster
-            .clone()
-            .with_assertion(join(first.clone(), "substituted"))
+        CallRosterCurrentValue::apply_delta(
+            Some(&roster),
+            join(
+                commit(0x33, 3),
+                "ak:device:01964137-0000-7000-8000-000000000002"
+            ),
+            None
+        )
+        .is_err()
+    );
+    let mut wrong = roster.clone();
+    wrong.entries[0].tag_id = CanonicalEventDot::new(first.event_ref.clone(), 6)
+        .unwrap()
+        .to_string();
+    assert!(
+        wrong
+            .validate_for_axis(&first.stream_ref, &revision(&first))
             .is_err()
     );
-    let duplicate = roster
-        .clone()
-        .with_assertion(join(commit(0x33, 3), "second"))
-        .unwrap();
+    let mut duplicate = roster.clone();
+    duplicate.entries.push(duplicate.entries[0].clone());
     assert!(
         duplicate
             .validate_for_axis(&first.stream_ref, &revision(&first))
             .is_err()
     );
     let mut wrong = roster;
-    wrong.assertions[0].tag_id = CanonicalEventDot::new(first.event_ref.clone(), 6)
-        .unwrap()
-        .to_string();
+    wrong.last_source.source_commit = commit(0x44, 3);
     assert!(
         wrong
             .validate_for_axis(&first.stream_ref, &revision(&first))
@@ -143,106 +157,188 @@ fn immutable_provenance_rejects_conflicting_dots_streams_and_duplicate_positions
 fn roster_keeps_same_principal_at_different_stations_separate() {
     let first = commit(0x11, 3);
     let second = commit(0x22, 5);
-    let mut other_station = join(second.clone(), "same-device");
-    let CallRosterDelta::Join { participant } = &mut other_station.value else {
+    let roster = CallRosterCurrentValue::apply_delta(
+        None,
+        join(first, "ak:device:01964137-0000-7000-8000-000000000001"),
+        None,
+    )
+    .unwrap();
+    let mut other = join(
+        second.clone(),
+        "ak:device:01964137-0000-7000-8000-000000000001",
+    );
+    let CallRosterDelta::Join { participant } = &mut other.value else {
         unreachable!()
     };
     participant.actor_id = participant_actor("ak:did_core:web:other-station.example");
-    let roster = CallRosterCurrentValue { assertions: vec![] }
-        .with_assertion(join(first, "same-device"))
-        .unwrap()
-        .with_assertion(other_station)
-        .unwrap();
+    let roster = CallRosterCurrentValue::apply_delta(Some(&roster), other, None).unwrap();
     assert_eq!(roster.effective_participants().unwrap().len(), 2);
     let left = commit(0x33, 8);
-    let roster = roster
-        .with_assertion(CallRosterAssertion {
+    let roster = CallRosterCurrentValue::apply_delta(
+        Some(&roster),
+        CallRosterSource {
             tag_id: CanonicalEventDot::new(left.event_ref.clone(), 7)
                 .unwrap()
                 .to_string(),
             source_commit: left.clone(),
             value: CallRosterDelta::Leave {
                 actor_id: participant_actor("ak:did_core:web:station.example"),
-                device_id: "same-device".into(),
+                device_id: "ak:device:01964137-0000-7000-8000-000000000001".into(),
                 expected_revision: revision(&second),
             },
-        })
-        .unwrap();
-    roster
-        .validate_for_axis(&left.stream_ref, &revision(&left))
-        .unwrap();
-    let active = roster.effective_participants().unwrap();
-    assert_eq!(active.len(), 1);
+        },
+        None,
+    )
+    .unwrap();
     assert_eq!(
-        active[0].actor_id,
+        roster.effective_participants().unwrap()[0].actor_id,
         participant_actor("ak:did_core:web:other-station.example")
     );
-    assert!(serde_json::from_value::<CallRosterDelta>(json!({
-        "op":"join", "participant":{"actor_id":"ak:did_core:web:participant.example","device_id":"same-device"}
-    })).is_err());
 }
 
 #[test]
-fn moderation_restore_keeps_the_full_account_and_compares_the_axis_revision() {
+fn moderation_restore_removes_only_the_exact_full_actor_ban_and_keeps_kick() {
     let first = commit(0x77, 3);
     let second = commit(0x11, 5);
     let restored = commit(0x33, 8);
-    let actor = |station: &str| {
-        arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-            "ak:did_core:web:participant.example".parse().unwrap(),
-            station.parse().unwrap(),
-        ))
-    };
-    let assertion = |source: &RealmCommit, value| CallModerationAssertion {
-        tag_id: CanonicalEventDot::new(source.event_ref.clone(), 6)
+    let target = participant_actor("ak:did_core:web:station.example");
+    let source = |commit: &RealmCommit, value| CallModerationSource {
+        tag_id: CanonicalEventDot::new(commit.event_ref.clone(), 6)
             .unwrap()
             .to_string(),
-        source_commit: source.clone(),
+        source_commit: commit.clone(),
         value: serde_json::from_value(value).unwrap(),
     };
-    let ban = |target| {
-        json!({"op":"remove_participant","removal":{
-            "actor_id":target,"action":"ban","removed_by":"ak:did_core:web:moderator.example",
-            "removed_at":"2026-10-15T00:00:00.000Z"
-        }})
+    let removal = |action, device: Option<&str>| {
+        let mut value = json!({"op":"remove_participant","removal":{"actor_id":target,"action":action,"removed_by":"ak:did_core:web:moderator.example","removed_at":"2026-10-15T00:00:00.000Z"}});
+        if let Some(device) = device {
+            value["removal"]["device_id"] = json!(device)
+        };
+        value
     };
-    let current = CallModerationCurrentValue { assertions: vec![] }
-        .with_assertion(assertion(&first, ban(actor("ak:did_core:web:one.example"))))
-        .unwrap()
-        .with_assertion(assertion(
+    let current =
+        CallModerationCurrentValue::apply_delta(None, source(&first, removal("ban", None)))
+            .unwrap();
+    let current = CallModerationCurrentValue::apply_delta(
+        Some(&current),
+        source(
             &second,
-            ban(actor("ak:did_core:web:two.example")),
-        ))
-        .unwrap();
-    let restore = |revision| {
-        assertion(
+            removal(
+                "kick",
+                Some("ak:device:01964137-0000-7000-8000-000000000003"),
+            ),
+        ),
+    )
+    .unwrap();
+    let restore = |expected| {
+        source(
             &restored,
-            json!({
-                "op":"restore_participant","actor_id":actor("ak:did_core:web:one.example"),
-                "restored_by":"ak:did_core:web:moderator.example","restored_at":"2026-10-15T00:00:00.000Z",
-                "expected_revision":revision
-            }),
+            json!({"op":"restore_participant","actor_id":target,"restored_by":"ak:did_core:web:moderator.example","restored_at":"2026-10-15T00:00:00.000Z","expected_revision":expected}),
         )
     };
     assert!(
-        current
-            .clone()
-            .with_assertion(restore(revision(&first)))
-            .unwrap()
-            .validate_for_axis(&first.stream_ref, &revision(&restored))
+        CallModerationCurrentValue::apply_delta(Some(&current), restore(revision(&first))).is_err()
+    );
+    let current =
+        CallModerationCurrentValue::apply_delta(Some(&current), restore(revision(&second)))
+            .unwrap();
+    assert_eq!(current.entries.len(), 1);
+    assert_eq!(current.entries[0].source_commit, second);
+    assert_eq!(current.last_source.source_commit, restored);
+    assert_eq!(
+        current.effective_removals().unwrap()[0].action,
+        CallParticipantRemovalAction::Kick
+    );
+}
+
+#[test]
+fn normative_checkpoints_match_the_actual_incremental_projector() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/call-current-fixture.json")
+            .expect("pinned Call fixture must be available");
+    let rows = fixture["original_rows"].as_array().unwrap();
+    let checkpoints = fixture["checkpoints"].as_array().unwrap();
+    assert_eq!(rows.len(), 11);
+    assert_eq!(checkpoints.len(), 11);
+    let mut roster = None;
+    let mut moderation = None;
+    for (row, checkpoint) in rows.iter().zip(checkpoints) {
+        let commit: RealmCommit = serde_json::from_value(row["commit"].clone()).unwrap();
+        let payload = &row["event"]["payload"];
+        if let Some(delta) = payload.get("roster_delta") {
+            let value: CallRosterDelta = serde_json::from_value(delta.clone()).unwrap();
+            let key=matches!(&value,CallRosterDelta::Join {participant} if participant.participant_binding.is_some()).then(||CallParticipantSigningKey {public_key_b64u:fixture["test_keys"]["issuer_public_key_b64u"].as_str().unwrap().into()});
+            roster = Some(
+                CallRosterCurrentValue::apply_delta(
+                    roster.as_ref(),
+                    CallRosterSource {
+                        tag_id: format!("{}:{CALL_ROSTER_WRITE_INDEX}", commit.event_ref),
+                        source_commit: commit.clone(),
+                        value,
+                    },
+                    key,
+                )
+                .unwrap(),
+            );
+        }
+        if let Some(delta) = payload.get("moderation_delta") {
+            moderation = Some(
+                CallModerationCurrentValue::apply_delta(
+                    moderation.as_ref(),
+                    CallModerationSource {
+                        tag_id: format!("{}:{CALL_MODERATION_WRITE_INDEX}", commit.event_ref),
+                        source_commit: commit.clone(),
+                        value: serde_json::from_value(delta.clone()).unwrap(),
+                    },
+                )
+                .unwrap(),
+            );
+        }
+        for (axis, actual) in [
+            (
+                "call_roster",
+                roster.as_ref().map(|v| serde_json::to_value(v).unwrap()),
+            ),
+            (
+                "call_moderation",
+                moderation
+                    .as_ref()
+                    .map(|v| serde_json::to_value(v).unwrap()),
+            ),
+        ] {
+            let expected = checkpoint["current_state_entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["selector"]["kind"] == axis)
+                .map(|row| row["value"].clone());
+            assert_eq!(actual, expected, "{} at {}", axis, commit.stream_position);
+        }
+    }
+}
+
+#[test]
+fn a_binding_expired_at_its_accepting_commit_cannot_form_an_effective_entry() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/call-current-fixture.json")
+            .expect("the pinned Call fixture must be available");
+    let row = fixture["checkpoints"][10]["current_state_entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["selector"]["kind"] == "call_roster")
+        .unwrap();
+    let mut value = row["value"].clone();
+    value["entries"][0]["value"]["participant"]["participant_binding"]["expires_at"] =
+        value["entries"][0]["source_commit"]["committed_at"].clone();
+    value["last_source"]["value"] = value["entries"][0]["value"].clone();
+    let roster: CallRosterCurrentValue = serde_json::from_value(value).unwrap();
+    assert!(
+        roster
+            .validate_for_axis(
+                &serde_json::from_value(row["source_stream_ref"].clone()).unwrap(),
+                &serde_json::from_value(row["revision"].clone()).unwrap()
+            )
             .is_err()
     );
-    let current = current.with_assertion(restore(revision(&second))).unwrap();
-    current
-        .validate_for_axis(&first.stream_ref, &revision(&restored))
-        .unwrap();
-    assert_eq!(current.assertions.len(), 3);
-    let effective = current.effective_removals().unwrap();
-    assert_eq!(effective.len(), 1);
-    assert_eq!(effective[0].actor_id, actor("ak:did_core:web:two.example"));
-    assert!(serde_json::from_value::<CallModerationDelta>(json!({
-        "op":"restore_participant","actor_id":"ak:did_core:web:participant.example",
-        "restored_by":"ak:did_core:web:moderator.example","restored_at":"2026-10-15T00:00:00.000Z",
-        "expected_revision":revision(&second)
-    })).is_err());
 }

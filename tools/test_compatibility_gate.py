@@ -293,7 +293,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             "sdk.wire-values": ["python", "tools/wire_value_audit.py", "--check"],
             "sdk.deny-unknown-regression": ["python", "-m", "tools.test_deny_unknown_audit"],
             "sdk.deny-unknown": ["python", "tools/deny_unknown_audit.py", "--check"],
-            "sdk.generated-contracts-regression": ["python", "-m", "tools.test_schema_struct_gate"],
+            "sdk.generated-contracts-regression": ["python", "-m", "unittest", "tools.test_schema_struct_gate", "tools.test_generate_closed_models"],
             "sdk.utf8-byte-order": ["pwsh", "-NoProfile", "-File", "tools/test-utf8-byte-order.ps1"],
             "sdk.operation-coverage-regression": ["python", "-m", "unittest", "tools.tests.test_operation_coverage_matrix"],
             "sdk.operation-coverage": ["python", "tools/generate-operation-coverage-matrix.py", "--check",

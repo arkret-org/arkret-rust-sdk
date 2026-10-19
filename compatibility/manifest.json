@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "86dcfaae18c2a282b2ef7595fd54587dfd54fba7",
+      "commit": "232f965fac607c19fad4ee84e562b8257eb9e65d",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "2fe0c3b922b206598a14a45e54fad222d18087a3",
+      "commit": "0f4911f2edbe8c3a604a59cb584b44d382dfbc4d",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -67,7 +67,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "f9d9ea0ac9da4aaee78af11c08b76b115709f70f",
+      "commit": "a1eda04ba6b33af2f25bd9de1aec52bf639995a3",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "d53f461afc58396878a9c423cce4a2ad59b47281",
+      "commit": "53e6502b8225a8f97d3fc447bf485fc90b6af78c",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"

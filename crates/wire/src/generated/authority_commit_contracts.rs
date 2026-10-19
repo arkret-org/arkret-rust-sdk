@@ -5,7 +5,7 @@
 // sha256=5a3d386837724180dd7a845741ff3b9d0de57966d2f29177bcc21cebb17f5e7c
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=ec344de6d49aed996a07d6b0771d13d9fb7124a24ebf6e8afe5954da7ec581ab
+// sha256=263165a38c080d9c65f9dc48031cb6f47a0c373d1a9f24b8c11922067ad9cac0
 //
 // Input: schemas/authz-operations.schema.json
 // sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
@@ -14,10 +14,10 @@
 // sha256=32238f873daa77303a2e6cc8484e057a69a03e6735d7562183346041a6bfdcaf
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
+// sha256=575ea203cf43456045514ea1085603136877fe9313302291f7d573a1eb7055cc
 //
 // Input: schemas/realm-authority-handoff.schema.json
-// sha256=7a4750baf79fb6afdb9afb0fc303c6f9d9a328a6b586071b08b9b997262fad23
+// sha256=84eb5aec5cc1b15024410599c9134b57515f05a3026a637660ae619b6cd8d04b
 //
 // Input: schemas/account-operations.schema.json
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
@@ -26,7 +26,7 @@
 // sha256=8210f845973478d08b65e26163fea3a08729c0e4946ac2efcfabe1b5ff086f9a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
+// sha256=42637b7091c5d9a931ae042b62a3b4b684763d010e044485fc40891314c2f844
 
 /// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_row`.
 /// One established authority stream the caller may know exists
