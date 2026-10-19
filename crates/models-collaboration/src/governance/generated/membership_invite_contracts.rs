@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=575ea203cf43456045514ea1085603136877fe9313302291f7d573a1eb7055cc
+// sha256=ad33beeae92adb2bdf6ce5528d33435ba67cc5608647a5e0d5e8728902c543a7
 //
 // Input: schemas/event-payload.schema.json
-// sha256=cc3c0dfe191c29585876c1d6438a28787cf75076690f0ef1d7a999c470499b9a
+// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
 //
 // Input: schemas/account-operations.schema.json
 // sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
@@ -20,7 +20,7 @@
 // sha256=c0bb436f9758322f34eeafa870f05761aee9a4c5d7bf3f5783d81c12639d0b5c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=42637b7091c5d9a931ae042b62a3b4b684763d010e044485fc40891314c2f844
+// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` typed current result

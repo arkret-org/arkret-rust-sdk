@@ -14,7 +14,7 @@
 // sha256=388e2980872d205b1137e790d0ae9e89c27d887be3a14d54edca2bbb59498f5e
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=42637b7091c5d9a931ae042b62a3b4b684763d010e044485fc40891314c2f844
+// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `signal-presence.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`

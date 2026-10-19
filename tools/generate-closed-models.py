@@ -262,10 +262,12 @@ class Generator:
                 lines.append(f"    pub {field}: {rust_type},")
         return "\n".join(lines + ["}", ""])
 
-    def generate(self) -> dict[str, str]:
+    def generate(self, selected_outputs: set[str] | None = None) -> dict[str, str]:
         outputs = {}
         qualified_names = self.names.copy()
         for family in self.bindings["families"]:
+            if selected_outputs is not None and family["output"] not in selected_outputs:
+                continue
             self.inputs = {}
             self.names = qualified_names.copy()
             self.local_aliases = {}
@@ -305,6 +307,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts-dir", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
+    parser.add_argument("--output", action="append", default=[],
+                        help="Generate only this declared closed-model output; repeat as needed. Full sync remains the default.")
     args = parser.parse_args()
     bindings = json.loads((ROOT / "closed-model-bindings.json").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "spec-generation-manifest.json").read_text(encoding="utf-8"))
@@ -312,7 +316,10 @@ def main():
     selected = [family["output"] for family in bindings["families"]]
     if len(set(selected)) != len(selected) or sorted(selected) != sorted(declared):
         raise ValueError("closed model bindings and generation manifest output sets differ")
-    outputs = Generator(args.artifacts_dir / "schemas", bindings).generate()
+    selected_outputs = set(args.output) or None
+    if selected_outputs is not None and not selected_outputs.issubset(declared):
+        raise ValueError("selected output is not declared in the closed-model generation manifest")
+    outputs = Generator(args.artifacts_dir / "schemas", bindings).generate(selected_outputs)
     registry = json.loads((ROOT / "schema_struct_registry.json").read_text(encoding="utf-8"))
     generated = {family["output"] + "::" + row["name"]: row["schema"] for family in bindings["families"] for row in family["types"]}
     retained = {row["rust_type"]: row for row in bindings["retained_models"]}
@@ -351,6 +358,8 @@ def main():
         lines.append(f'    pub const {name}: &\'static str = {json.dumps(row["profile_id"])};')
     outputs[retired_path] = "\n".join(lines + ["}", ""])
     for relative, contents in outputs.items():
+        if selected_outputs is not None and relative not in selected_outputs:
+            continue
         output = args.output_root / relative
         if not output.resolve().is_relative_to(args.output_root.resolve()):
             raise ValueError(f"output escapes root: {relative}")

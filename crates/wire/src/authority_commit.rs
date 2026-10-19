@@ -1275,7 +1275,10 @@ pub enum CurrentSelector {
     RealmJoinRule,
     RealmHistoryAccess,
     RealmPreviewPolicy,
-    RealmReadReceiptPolicy,
+    ScopeReadReceiptPolicy {
+        #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
+        scope_ref: ScopeRef,
+    },
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -1489,7 +1492,10 @@ enum FlatCurrentSelector {
     RealmJoinRule,
     RealmHistoryAccess,
     RealmPreviewPolicy,
-    RealmReadReceiptPolicy,
+    ScopeReadReceiptPolicy {
+        #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
+        scope_ref: ScopeRef,
+    },
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -1742,7 +1748,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_join_rule"
                 | "realm_history_access"
                 | "realm_preview_policy"
-                | "realm_read_receipt_policy"
                 | "realm_tombstone"
                 | "realm_archive"
                 | "realm_freeze"
@@ -1764,7 +1769,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_join_rule" => Self::RealmJoinRule,
                     "realm_history_access" => Self::RealmHistoryAccess,
                     "realm_preview_policy" => Self::RealmPreviewPolicy,
-                    "realm_read_receipt_policy" => Self::RealmReadReceiptPolicy,
                     "realm_tombstone" => Self::RealmTombstone,
                     "realm_archive" => Self::RealmArchive,
                     "realm_freeze" => Self::RealmFreeze,
@@ -1811,7 +1815,9 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmJoinRule => Self::RealmJoinRule,
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmPreviewPolicy => Self::RealmPreviewPolicy,
-                    FlatCurrentSelector::RealmReadReceiptPolicy => Self::RealmReadReceiptPolicy,
+                    FlatCurrentSelector::ScopeReadReceiptPolicy { scope_ref } => {
+                        Self::ScopeReadReceiptPolicy { scope_ref }
+                    }
                     FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
                     FlatCurrentSelector::RealmArchive => Self::RealmArchive,
                     FlatCurrentSelector::RealmFreeze => Self::RealmFreeze,
@@ -1961,6 +1967,19 @@ impl<'de> Deserialize<'de> for CurrentSelector {
             }
         }
     }
+}
+
+/// Restrict receipt policy selectors to the two registered independent scopes.
+fn deserialize_read_receipt_policy_scope<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<ScopeRef, D::Error> {
+    let scope = ScopeRef::deserialize(deserializer)?;
+    if !matches!(scope, ScopeRef::Realm { .. } | ScopeRef::Circle { .. }) {
+        return Err(serde::de::Error::custom(
+            "read receipt policy requires a Realm or Circle scope",
+        ));
+    }
+    Ok(scope)
 }
 
 /// The two `policy_action` subject namespaces cannot share one optional-field

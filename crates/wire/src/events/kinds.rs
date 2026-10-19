@@ -172,7 +172,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::ProfileCreate | EventKind::ProfileRealmOverride | EventKind::ProfileUpdate => {
             EventProductClass::Profile
         }
-        EventKind::ReadCursorAdvance => EventProductClass::Read,
+        EventKind::ReadCursorAdvance | EventKind::ScopeReadReceiptPolicy => EventProductClass::Read,
         EventKind::RealmArchive
         | EventKind::RealmRestore
         | EventKind::RealmAssetPrivacyPolicy
@@ -192,7 +192,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmPlaintextVisibleServices
         | EventKind::RealmPolicyBundle
         | EventKind::RealmPreviewPolicy
-        | EventKind::RealmReadReceiptPolicy
         | EventKind::RealmSchema
         | EventKind::RealmSearchPolicy
         | EventKind::RealmTombstone

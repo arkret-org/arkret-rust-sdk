@@ -733,10 +733,12 @@
       "owner": "arkret-models-collaboration",
       "mode": "closed-schema-model",
       "artifacts": [
-        "schemas/event-payload.schema.json"
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json"
       ],
       "provides": [
-        "ReadReceiptPolicyPayload"
+        "ReadReceiptPolicyPayload",
+        "ScopeReadReceiptPolicyCurrent"
       ]
     },
     {

@@ -1599,6 +1599,10 @@
     {
       "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ForwardManagedActorProvenance",
       "schema": "authority-commit-operations.schema.json#/$defs/forward_managed_actor_provenance"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::ScopeReadReceiptPolicyCurrent",
+      "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result"
     }
   ],
   "exemptions": [

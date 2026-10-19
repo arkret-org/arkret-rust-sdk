@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-18.2;
-//! sha256=679cf43ffaf121b0fcf4e6467082c30d19319996cee1ec314e73bfe6e278e186
+//! Input: registry/contract-registry.json; version=2026-10-19.1;
+//! sha256=dddd366d2ef1fb8ecb54f2c035b3c074daaf5c18dd46c36bdfee7d0ea41a9b9e
 //! Entries: active_events=134
 
 use arkret_wire::event_kind_str;
@@ -505,11 +505,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::REALM_READ_RECEIPT_POLICY,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_RESTORE,
         id_source: None,
         derived_id_kinds: &[],
@@ -566,6 +561,11 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::SCHEMA_DEFINE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::SCOPE_READ_RECEIPT_POLICY,
         id_source: None,
         derived_id_kinds: &[],
     },

@@ -592,7 +592,7 @@ mod tests {
     fn strong_catalog_accepts_read_receipt_policy_payload() {
         let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         assert_eq!(
-            catalog.rules["ak.realm.read_receipt_policy"].payload_schema_id,
+            catalog.rules["ak.scope.read_receipt_policy"].payload_schema_id,
             format!(
                 "{schemaid_event_payload_v1}#/$defs/read_receipt_policy_payload",
                 schemaid_event_payload_v1 = SchemaId::EVENT_PAYLOAD_V1
@@ -600,7 +600,7 @@ mod tests {
         );
         catalog
             .validate_payload(
-                "ak.realm.read_receipt_policy",
+                "ak.scope.read_receipt_policy",
                 &json!({
                     "disclosure": "required"
                 }),

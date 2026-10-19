@@ -35,6 +35,22 @@ class ClosedModelsTests(unittest.TestCase):
         self.assertNotIn("= 20", output)
         self.assertIn("sha256=", output)
 
+    def test_selected_output_matches_full_generation_including_provenance(self):
+        full = self.generate()
+        selected = module.Generator(self.root, self.bindings).generate({"out.rs"})
+        self.assertEqual(selected, {"out.rs": full})
+
+    def test_selected_output_does_not_generate_an_unrelated_missing_schema(self):
+        self.generate()
+        self.bindings["families"].append({"output": "other.rs", "types": [
+            {"name": "Other", "schema": "unavailable.schema.json"}
+        ]})
+        selected = module.Generator(self.root, self.bindings).generate({"out.rs"})
+        self.assertEqual(set(selected), {"out.rs"})
+        self.assertIn("Bindings: tools/closed-model-bindings.json", selected["out.rs"])
+        with self.assertRaises(FileNotFoundError):
+            module.Generator(self.root, self.bindings).generate()
+
     def test_local_generated_references_do_not_keep_qualified_reexports(self):
         self.schema["properties"]["first"] = {"$ref": "#/$defs/child"}
         self.schema["$defs"] = {"child": {"const": "child"}}
