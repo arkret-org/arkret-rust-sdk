@@ -455,7 +455,10 @@ pub use arkret_wire::{
     WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
     is_query_auth_parameter,
 };
-pub use keypackage_claim_receipt::verify_peer_keypackage_claim_receipt_signature;
+pub use keypackage_claim_receipt::{
+    verify_peer_keypackage_claim_receipt_signature,
+    verify_peer_keypackage_consume_receipt_signature,
+};
 pub use managed_actor_authoring::{
     APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
     AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "total": 1488,
+    "total": 1489,
     "by_classification": {
       "A": 7,
-      "B": 875,
+      "B": 876,
       "needs_review": 606
     },
     "by_openness": {
-      "closed": 882,
+      "closed": 883,
       "unresolved": 606
     },
     "by_crate": {
@@ -15,7 +15,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 895,
+      "models-collaboration": 896,
       "models-crypto": 163,
       "models-discovery": 15,
       "models-identity": 151,
@@ -3936,6 +3936,19 @@
       "kind": "struct",
       "value_kind": "ReadReceiptPolicyPayload",
       "spec_pointer": "event-payload.schema.json#/$defs/read_receipt_policy_payload",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::ScopeReadReceiptPolicyCurrent",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs",
+      "line": 36,
+      "kind": "struct",
+      "value_kind": "ScopeReadReceiptPolicyCurrent",
+      "spec_pointer": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,
