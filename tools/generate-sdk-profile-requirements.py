@@ -189,6 +189,7 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
         "",
         "#[derive(Clone, Copy, Debug, PartialEq, Eq)]",
         "pub struct ProfileRequirements {",
+        "    pub pcr_governance_policy_json: Option<&'static str>,",
         "    pub profile_id: &'static str,",
         "    pub inherits: &'static [&'static str],",
         "    pub enforcement_phases: &'static [ProfileEnforcementPhase],",
@@ -237,6 +238,7 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
         lines.extend(
             [
                 f"        map.insert({rust_string(profile_id)}, ProfileRequirements {{",
+                f"            pcr_governance_policy_json: {'Some(' + rust_string(json.dumps(row['pcr_governance_policy'], separators=(',',':'))) + ')' if 'pcr_governance_policy' in row else 'None'},",
                 f"            profile_id: {rust_string(profile_id)},",
                 f"            inherits: {rust_slice(row.get('inherits', []))},",
                 f"            enforcement_phases: &[{phases}],",

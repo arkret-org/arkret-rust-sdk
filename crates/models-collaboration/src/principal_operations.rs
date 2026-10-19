@@ -45,6 +45,20 @@ impl PcrGenesisAdmissionInput {
         self.principal_registration_anchor.validate()?;
         self.registration_did_evidence.validate_shape()?;
         self.genesis_unit.validate_ordered_envelopes()?;
+        if self
+            .genesis_unit
+            .create()
+            .actor_id
+            .as_account_id()
+            .is_none_or(|account| {
+                account.station_id != self.account_authority_id
+                    || account.principal_id != self.principal_id
+            })
+        {
+            return Err(WireError::Protocol(
+                "Human genesis account differs from its owning Station".into(),
+            ));
+        }
 
         let proof = &self.identity_creation_control_proof;
         let create = self.genesis_unit.create();

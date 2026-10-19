@@ -4,7 +4,7 @@
 //! Input version: 2026-10-19.1;
 //! sha256=83bd7481a315ce8c2ee4cc3acf9d11ca47423239307bbe33b32d5b72fdda4d1c; requirements=78.
 //! Event kinds input version: 2026-10-19.1;
-//! sha256=dddd366d2ef1fb8ecb54f2c035b3c074daaf5c18dd46c36bdfee7d0ea41a9b9e; registered=134.
+//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f; registered=134.
 
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
@@ -51,6 +51,7 @@ pub struct NonEventGrantAuthorityRule {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProfileRequirements {
+    pub pcr_governance_policy_json: Option<&'static str>,
     pub profile_id: &'static str,
     pub inherits: &'static [&'static str],
     pub enforcement_phases: &'static [ProfileEnforcementPhase],
@@ -85,6 +86,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_auth.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_auth.v1",
                 inherits: &["ak.profile.agent_runtime.v1", "ak.profile.station.v1"],
                 enforcement_phases: &[
@@ -113,6 +115,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_delegation_policy.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_delegation_policy.v1",
                 inherits: &["ak.profile.agent_runtime.v1"],
                 enforcement_phases: &[
@@ -145,6 +148,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_participation_policy.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_participation_policy.v1",
                 inherits: &["ak.profile.agent_provisioning.v1"],
                 enforcement_phases: &[
@@ -177,6 +181,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_provisioning.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_provisioning.v1",
                 inherits: &["ak.profile.agent_runtime.v1"],
                 enforcement_phases: &[
@@ -264,6 +269,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_runtime.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_runtime.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -341,6 +347,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_sidecar.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_sidecar.v1",
                 inherits: &["ak.profile.agent_provisioning.v1"],
                 enforcement_phases: &[
@@ -403,6 +410,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.agent_signer_evidence.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.agent_signer_evidence.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -434,6 +442,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.applet_bridge.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.applet_bridge.v1",
                 inherits: &["ak.profile.applet_service.v1"],
                 enforcement_phases: &[
@@ -492,6 +501,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.applet_delegated.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.applet_delegated.v1",
                 inherits: &["ak.profile.applet_service.v1"],
                 enforcement_phases: &[
@@ -517,6 +527,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.applet_e2ee_join.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.applet_e2ee_join.v1",
                 inherits: &["ak.profile.applet_service.v1"],
                 enforcement_phases: &[
@@ -538,6 +549,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.applet_service.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.applet_service.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -592,6 +604,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.applet_widget.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.applet_widget.v1",
                 inherits: &["ak.profile.applet_service.v1"],
                 enforcement_phases: &[
@@ -613,6 +626,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.binding.websocket.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.binding.websocket.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -674,6 +688,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.blob_node.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.blob_node.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -714,6 +729,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.calendar_event.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.calendar_event.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -754,6 +770,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.calendar_notification_dispatch.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.calendar_notification_dispatch.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -790,6 +807,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.chat_mvp.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.chat_mvp.v1",
                 inherits: &["ak.profile.minimal_client.v1"],
                 enforcement_phases: &[
@@ -841,6 +859,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.circle_conformance.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.circle_conformance.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -891,6 +910,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.constraint.approval_workflow.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.constraint.approval_workflow.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -916,6 +936,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.constraint.claim_based.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.constraint.claim_based.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -937,6 +958,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.constraint.encryption_requirement.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.constraint.encryption_requirement.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -958,6 +980,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.constraint.resource_limit.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.constraint.resource_limit.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -979,6 +1002,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.constraint.visibility_control.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.constraint.visibility_control.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1000,6 +1024,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.core_event_store.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.core_event_store.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1062,6 +1087,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.direct_conversation_realm.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.direct_conversation_realm.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1191,6 +1217,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.direct_conversation_repair.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.direct_conversation_repair.v1",
                 inherits: &["ak.profile.direct_conversation_realm.v1"],
                 enforcement_phases: &[
@@ -1223,6 +1250,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.directory_service.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.directory_service.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1260,6 +1288,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.draft_sync.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.draft_sync.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1285,6 +1314,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.e2ee_client.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.e2ee_client.v1",
                 inherits: &["ak.profile.full_client.v1"],
                 enforcement_phases: &[
@@ -1386,6 +1416,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.encoding.cbor.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.encoding.cbor.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1407,6 +1438,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.enterprise_client.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.enterprise_client.v1",
                 inherits: &["ak.profile.full_client.v1"],
                 enforcement_phases: &[
@@ -1439,6 +1471,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.federation_minimal.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.federation_minimal.v1",
                 inherits: &["ak.profile.core_event_store.v1"],
                 enforcement_phases: &[
@@ -1494,6 +1527,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.file_transfer.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.file_transfer.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1560,6 +1594,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.franking.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.franking.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1599,6 +1634,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.full_client.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.full_client.v1",
                 inherits: &["ak.profile.chat_mvp.v1", "ak.profile.kanban_mvp.v1"],
                 enforcement_phases: &[
@@ -1685,6 +1721,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.hash.blake3.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.hash.blake3.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1706,6 +1743,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.high_security_organization.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.high_security_organization.v1",
                 inherits: &["ak.profile.e2ee_client.v1", "ak.profile.organization.v1"],
                 enforcement_phases: &[
@@ -1752,6 +1790,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.hpke.p256.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.hpke.p256.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1773,6 +1812,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.identity_registry.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.identity_registry.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1830,6 +1870,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.isolated_sovereign_network.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.isolated_sovereign_network.v1",
                 inherits: &[
                     "ak.profile.high_security_organization.v1",
@@ -1872,6 +1913,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.kanban_mvp.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.kanban_mvp.v1",
                 inherits: &["ak.profile.minimal_client.v1"],
                 enforcement_phases: &[
@@ -1910,6 +1952,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.kem.hybrid_xwing.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.kem.hybrid_xwing.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1931,6 +1974,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.key_backup.memory_hard.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.key_backup.memory_hard.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -1978,6 +2022,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.key_transparency.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.key_transparency.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2018,6 +2063,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.media_service_binding.arkret_native.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.media_service_binding.arkret_native.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2046,6 +2092,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.media_service_binding.livekit.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.media_service_binding.livekit.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2074,6 +2121,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.media_service_binding.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.media_service_binding.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2102,6 +2150,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.membership_join_compensation.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.membership_join_compensation.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2147,6 +2196,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.mimi_interop.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.mimi_interop.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2200,6 +2250,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.minimal_client.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.minimal_client.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2244,6 +2295,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.mls_ciphersuite.chacha20poly1305.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.mls_ciphersuite.chacha20poly1305.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2265,6 +2317,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.mls_ciphersuite.pq_auth.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.mls_ciphersuite.pq_auth.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2286,6 +2339,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.organization.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.organization.v1",
                 inherits: &["ak.profile.identity_registry.v1", "ak.profile.station.v1"],
                 enforcement_phases: &[
@@ -2318,6 +2372,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.organization_high_assurance_identity.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.organization_high_assurance_identity.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2359,6 +2414,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.personal_node.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.personal_node.v1",
                 inherits: &["ak.profile.station_events_api.v1"],
                 enforcement_phases: &[
@@ -2400,6 +2456,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.personal_productivity.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.personal_productivity.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2444,6 +2501,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.pinned_items.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.pinned_items.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2477,125 +2535,26 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 non_event_grant_authority_rules: &[],
             },
         );
-        map.insert(
-            "ak.profile.principal_control_realm.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.principal_control_realm.v1",
-                inherits: &[],
-                enforcement_phases: &[
-                    ProfileEnforcementPhase::Build,
-                    ProfileEnforcementPhase::Conformance,
-                ],
-                operation_requirements: &[
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfEventsCommandSubmitV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfCommittedEventReadScanV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfCommittedEventResourceGetV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfKeysKeypackagesUploadCreateV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfKeysKeypackagesCommandClaimV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfKeysKeypackagesCommandConsumeV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                    ProfileOperationRequirement {
-                        direction: ProfileOperationDirection::Provide,
-                        operation_id: ServiceOperationId::SelfKeysKeypackagesCommandRevokeV1,
-                        binding_kind: BindingKind::HttpJson,
-                    },
-                ],
-                required_event_kinds: &[
-                    event_kind_str::CONSENT_GRANT,
-                    event_kind_str::CONSENT_REVOKE,
-                    event_kind_str::DEVICE_AUTHORIZE,
-                    event_kind_str::DEVICE_REANCHOR,
-                    event_kind_str::DEVICE_REVOKE,
-                    event_kind_str::IDENTITY_RESOLUTION_UPDATE,
-                    event_kind_str::POLICY_SET,
-                    event_kind_str::REALM_CREATE,
-                ],
-                realm_event_kind_allowlist: Some(&[
-                    event_kind_str::AGENT_KEY_AUTHORIZE,
-                    event_kind_str::AGENT_KEY_REVOKE,
-                    event_kind_str::AGENT_PROVISION,
-                    event_kind_str::CONSENT_GRANT,
-                    event_kind_str::CONSENT_REVOKE,
-                    event_kind_str::CONTACT_ACCEPTED,
-                    event_kind_str::CONTACT_REJECTED,
-                    event_kind_str::CONTACT_REQUESTED,
-                    event_kind_str::CONTACT_SCOPE_UPDATE,
-                    event_kind_str::CONTACT_TOMBSTONE,
-                    event_kind_str::DEVICE_AUTHORIZE,
-                    event_kind_str::DEVICE_REANCHOR,
-                    event_kind_str::DEVICE_REVOKE,
-                    event_kind_str::DIRECT_CONVERSATION_BOUND,
-                    event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT,
-                    event_kind_str::IDENTITY_RESOLUTION_UPDATE,
-                    event_kind_str::KEY_BACKUP_ACTIVE_SERIES,
-                    event_kind_str::MLS_COMMIT,
-                    event_kind_str::MLS_GENESIS,
-                    event_kind_str::POLICY_SET,
-                    event_kind_str::PROFILE_CREATE,
-                    event_kind_str::PROFILE_UPDATE,
-                    event_kind_str::REALM_CREATE,
-                    event_kind_str::REALM_GOVERNANCE_STATION_CHANGE,
-                    event_kind_str::SELF_AGENT_DEACTIVATE,
-                    event_kind_str::SELF_AGENT_PAUSE,
-                    event_kind_str::SELF_AGENT_RESUME,
-                ]),
-                required_schemas: &[
-                    "ak.schema.capability.v1",
-                    "ak.schema.device_reanchor.v1",
-                    "ak.schema.event.v1",
-                    "ak.schema.event_payload.v1",
-                    "ak.schema.key_backup.v1",
-                    "ak.schema.realm.v1",
-                    "ak.schema.recovery_policy.v1",
-                ],
-                rejected_event_kinds: &[
-                    event_kind_str::CALL_STATE,
-                    event_kind_str::MESSAGE_CREATE,
-                    event_kind_str::MESSAGE_REVISE,
-                    event_kind_str::MORPH_CREATE,
-                    event_kind_str::REACTION_ADD,
-                    event_kind_str::REACTION_REMOVE,
-                    event_kind_str::RELATION_CREATE,
-                    event_kind_str::SPACE_CREATE,
-                    event_kind_str::STRAND_CREATE,
-                    event_kind_str::STRAND_MOVE,
-                    event_kind_str::STRAND_REORDER,
-                    event_kind_str::STRAND_UPDATE,
-                    event_kind_str::VIEW_CREATE,
-                ],
-                required_fixtures: &["pcr-genesis-fixture.json", "privacy-security-fixture.json"],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_constraint_kinds: &[],
-                non_event_grant_authority_rules: &[],
-            },
-        );
+        map.insert("ak.profile.principal_control_realm.v1", ProfileRequirements {
+            pcr_governance_policy_json: Some("{\"binding_source\":\"verified_accepted_genesis_provenance\",\"unknown_provenance\":\"reject_without_effects\",\"human\":{\"purpose\":\"principal_control\",\"genesis_admission\":\"registration_anchor\",\"required_evidence\":[\"registration_anchor\",\"complete_ordered_genesis_unit\",\"accepted_receipt\",\"full_account_binding\"],\"governor\":\"account_station\",\"provenance_mutable\":false,\"rejected_event_kinds\":[\"ak.realm.governance_station.change\"],\"rejected_stages\":[\"freeze\",\"handoff_export\",\"handoff_import\",\"acceptance\",\"activation\",\"remote_proxy\",\"remote_publication\",\"foreign_current_authority\",\"public_authority_bundle\"],\"same_station_endpoint_key_deployment_update\":\"preserve_governance_generation\",\"public_authority_bundle_error\":\"not_found\"},\"transferable_provenance\":[{\"purpose\":\"principal_control\",\"genesis_admission\":\"delegated_pcr_genesis\",\"authority_evidence\":\"accepted_organization_authority\"},{\"purpose\":\"agent_control\",\"genesis_admission\":\"delegated_pcr_genesis\",\"authority_evidence\":\"accepted_controller_provision\"},{\"purpose\":\"applet_managed_control\",\"genesis_admission\":\"applet_managed_pcr_genesis\",\"authority_evidence\":\"accepted_managed_provision\"}],\"transfer_preconditions\":[\"current_controller_authorization\",\"generation_and_head_cas\",\"old_authority_online\",\"complete_frozen_import\",\"both_service_signatures\"],\"required_event_kinds_for_transferable_provenance\":[\"ak.realm.governance_station.change\"]}"),
+            profile_id: "ak.profile.principal_control_realm.v1",
+            inherits: &[],
+            enforcement_phases: &[ProfileEnforcementPhase::Build, ProfileEnforcementPhase::Conformance],
+            operation_requirements: &[ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfEventsCommandSubmitV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfCommittedEventReadScanV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfCommittedEventResourceGetV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfKeysKeypackagesUploadCreateV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfKeysKeypackagesCommandClaimV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfKeysKeypackagesCommandConsumeV1, binding_kind: BindingKind::HttpJson }, ProfileOperationRequirement { direction: ProfileOperationDirection::Provide, operation_id: ServiceOperationId::SelfKeysKeypackagesCommandRevokeV1, binding_kind: BindingKind::HttpJson }],
+            required_event_kinds: &[event_kind_str::CONSENT_GRANT, event_kind_str::CONSENT_REVOKE, event_kind_str::DEVICE_AUTHORIZE, event_kind_str::DEVICE_REANCHOR, event_kind_str::DEVICE_REVOKE, event_kind_str::IDENTITY_RESOLUTION_UPDATE, event_kind_str::POLICY_SET, event_kind_str::REALM_CREATE],
+            realm_event_kind_allowlist: Some(&[event_kind_str::AGENT_KEY_AUTHORIZE, event_kind_str::AGENT_KEY_REVOKE, event_kind_str::AGENT_PROVISION, event_kind_str::CONSENT_GRANT, event_kind_str::CONSENT_REVOKE, event_kind_str::CONTACT_ACCEPTED, event_kind_str::CONTACT_REJECTED, event_kind_str::CONTACT_REQUESTED, event_kind_str::CONTACT_SCOPE_UPDATE, event_kind_str::CONTACT_TOMBSTONE, event_kind_str::DEVICE_AUTHORIZE, event_kind_str::DEVICE_REANCHOR, event_kind_str::DEVICE_REVOKE, event_kind_str::DIRECT_CONVERSATION_BOUND, event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT, event_kind_str::IDENTITY_RESOLUTION_UPDATE, event_kind_str::KEY_BACKUP_ACTIVE_SERIES, event_kind_str::MLS_COMMIT, event_kind_str::MLS_GENESIS, event_kind_str::POLICY_SET, event_kind_str::PROFILE_CREATE, event_kind_str::PROFILE_UPDATE, event_kind_str::REALM_CREATE, event_kind_str::REALM_GOVERNANCE_STATION_CHANGE, event_kind_str::SELF_AGENT_DEACTIVATE, event_kind_str::SELF_AGENT_PAUSE, event_kind_str::SELF_AGENT_RESUME]),
+            required_schemas: &["ak.schema.capability.v1", "ak.schema.device_reanchor.v1", "ak.schema.event.v1", "ak.schema.event_payload.v1", "ak.schema.key_backup.v1", "ak.schema.realm.v1", "ak.schema.recovery_policy.v1"],
+            rejected_event_kinds: &[event_kind_str::CALL_STATE, event_kind_str::MESSAGE_CREATE, event_kind_str::MESSAGE_REVISE, event_kind_str::MORPH_CREATE, event_kind_str::REACTION_ADD, event_kind_str::REACTION_REMOVE, event_kind_str::RELATION_CREATE, event_kind_str::SPACE_CREATE, event_kind_str::STRAND_CREATE, event_kind_str::STRAND_MOVE, event_kind_str::STRAND_REORDER, event_kind_str::STRAND_UPDATE, event_kind_str::VIEW_CREATE],
+            required_fixtures: &["pcr-genesis-fixture.json", "privacy-security-fixture.json"],
+            required_capability_actions: &[],
+            required_features: &[],
+            required_constraint_kinds: &[],
+            non_event_grant_authority_rules: &[],
+        });
         map.insert(
             "ak.profile.public_network_identity.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.public_network_identity.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2628,6 +2587,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.push_gateway.blind_wakeup.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.push_gateway.blind_wakeup.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2656,6 +2616,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.push_gateway.matrix_passthrough.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.push_gateway.matrix_passthrough.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2681,6 +2642,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.push_gateway.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.push_gateway.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2706,6 +2668,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.push_gateway.visible_notification.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.push_gateway.visible_notification.v1",
                 inherits: &["ak.profile.push_gateway.v1"],
                 enforcement_phases: &[
@@ -2731,6 +2694,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.search.blind_index.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.search.blind_index.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2763,6 +2727,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.search.client_index.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.search.client_index.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2800,6 +2765,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.search.forward_private.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.search.forward_private.v1",
                 inherits: &["ak.profile.search.blind_index.v1"],
                 enforcement_phases: &[
@@ -2832,6 +2798,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.signal_message_stream.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.signal_message_stream.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2874,6 +2841,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.signal_peer_relay.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.signal_peer_relay.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2916,6 +2884,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.signature.ecdsa_p256.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.signature.ecdsa_p256.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2937,6 +2906,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.signature.pqc.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.signature.pqc.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -2958,6 +2928,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.small_team.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.small_team.v1",
                 inherits: &[
                     "ak.profile.chat_mvp.v1",
@@ -3009,6 +2980,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.sovereign_client.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.sovereign_client.v1",
                 inherits: &["ak.profile.full_client.v1"],
                 enforcement_phases: &[
@@ -3041,6 +3013,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.sovereign_deployment.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.sovereign_deployment.v1",
                 inherits: &["ak.profile.identity_registry.v1", "ak.profile.station.v1"],
                 enforcement_phases: &[
@@ -3106,6 +3079,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.sovereign_enclave.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.sovereign_enclave.v1",
                 inherits: &["ak.profile.sovereign_deployment.v1"],
                 enforcement_phases: &[
@@ -3179,6 +3153,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.station.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.station.v1",
                 inherits: &[
                     "ak.profile.chat_mvp.v1",
@@ -3342,6 +3317,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.station_events_api.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.station_events_api.v1",
                 inherits: &["ak.profile.core_event_store.v1"],
                 enforcement_phases: &[
@@ -3367,6 +3343,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.traffic_metadata_hardened.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.traffic_metadata_hardened.v1",
                 inherits: &[],
                 enforcement_phases: &[
@@ -3408,6 +3385,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
         map.insert(
             "ak.profile.webrtc_media.v1",
             ProfileRequirements {
+                pcr_governance_policy_json: None,
                 profile_id: "ak.profile.webrtc_media.v1",
                 inherits: &[],
                 enforcement_phases: &[

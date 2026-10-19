@@ -542,11 +542,100 @@ pub struct RealmAuthorityBundle {
     pub current_assertion: RealmAuthorityCurrentAssertion,
 }
 
+/// A restriction derived from the immutable genesis original, not an authority
+/// grant. Callers must independently verify the native admission and its complete
+/// accepted closure before using a non-Human branch to permit an operation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenesisGovernance {
+    Human(AccountId),
+    Organization,
+    Agent,
+    AppletManaged,
+    Collaboration,
+}
+
+impl GenesisGovernance {
+    pub fn from_genesis(event: &Event) -> Result<Self> {
+        if event.kind != crate::EventKind::RealmCreate {
+            return Err(WireError::Protocol(
+                "governance requires the original Realm genesis".into(),
+            ));
+        }
+        let payload = serde_json::to_value(&event.payload)?;
+        let purpose = payload.pointer("/object/purpose").and_then(Value::as_str);
+        let executor_pair = (
+            event.executed_by.is_some(),
+            event.authorization_ref.is_some(),
+        );
+        match (purpose, executor_pair) {
+            (Some("principal_control"), (false, false)) => {
+                let account = event.actor_id.as_account_id().ok_or_else(|| {
+                    WireError::Protocol(
+                        "Human registration genesis requires a complete Account actor".into(),
+                    )
+                })?;
+                if payload
+                    .pointer("/object/governance_station_id")
+                    .and_then(Value::as_str)
+                    != Some(account.station_id.as_str())
+                {
+                    return Err(WireError::Protocol("failed_precondition: Human PCR genesis governor differs from its account Station".into()));
+                }
+                Ok(Self::Human(account.clone()))
+            }
+            (Some("principal_control"), (true, true)) => Ok(Self::Organization),
+            (Some("agent_control"), (true, true)) => Ok(Self::Agent),
+            (Some("applet_managed_control"), (true, true)) => Ok(Self::AppletManaged),
+            (Some("collaboration" | "direct_conversation"), _) => Ok(Self::Collaboration),
+            _ => Err(WireError::Protocol(
+                "failed_precondition: Realm genesis governance provenance is unresolved".into(),
+            )),
+        }
+    }
+
+    pub fn is_human(&self) -> bool {
+        matches!(self, Self::Human(_))
+    }
+
+    pub fn validate_current(&self, service: &DidCoreId, generation: u64) -> Result<()> {
+        if let Self::Human(account) = self
+            && (service != &account.station_id || generation != 0)
+        {
+            return Err(WireError::Protocol(
+                "failed_precondition: Human PCR remains at its account Station and initial tenure"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn require_transferable(&self) -> Result<()> {
+        if self.is_human() {
+            return Err(WireError::Protocol(
+                "failed_precondition: Human PCR cannot independently transfer governance".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl RealmAuthorityBundle {
     /// Validate the closed public handoff chain and the nonce-bound current
     /// assertion shape. Cryptographic verification and freshness are caller
     /// responsibilities and must fail closed.
     pub fn validate_shape(&self) -> Result<()> {
+        if self.genesis_event.scope_ref != ScopeRef::RealmGenesis
+            || RealmId::from_event_id(&self.genesis_event.event_id) != self.realm_id
+        {
+            return Err(WireError::Protocol(
+                "genesis original does not derive this Realm".into(),
+            ));
+        }
+        let governance = GenesisGovernance::from_genesis(&self.genesis_event)?;
+        governance.validate_current(&self.current_service_id, self.current_generation)?;
+        if !self.authority_transitions.is_empty() {
+            governance.require_transferable()?;
+        }
         self.genesis_commit.validate_shape()?;
         self.current_assertion.validate_shape()?;
         if self.genesis_event.realm_id != self.realm_id
@@ -1109,6 +1198,11 @@ impl PcrGenesisUnit {
     pub fn validate_ordered_envelopes(&self) -> Result<()> {
         let create = self.create();
         let authorize = self.founding_authorize();
+        if !GenesisGovernance::from_genesis(create)?.is_human() {
+            return Err(WireError::Protocol(
+                "registration-anchor unit is not a Human genesis".into(),
+            ));
+        }
         if create.kind != crate::EventKind::RealmCreate
             || authorize.kind != crate::EventKind::DeviceAuthorize
             || create.actor_id != authorize.actor_id

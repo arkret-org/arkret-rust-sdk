@@ -84,10 +84,7 @@ fn core_id(did: &str) -> DidCoreId {
 }
 
 fn realm_id() -> RealmId {
-    RealmId::from_event_id(&EventId::from_digest(
-        arkret_canonical::DigestSuite::Sha256,
-        [0x10; 32],
-    ))
+    event(EventKind::RealmCreate, 0).realm_id
 }
 
 fn realm_stream() -> CommitStreamRef {
@@ -114,12 +111,20 @@ fn placeholder_signature(context: DetachedSignatureContext) -> DetachedObjectSig
 fn event(kind: EventKind, seconds: i64) -> Event {
     arkret_wire::test_support::raw_event_at(
         kind.as_str(),
-        ScopeRef::Realm {
-            realm_id: realm_id(),
+        if kind == EventKind::RealmCreate {
+            ScopeRef::RealmGenesis
+        } else {
+            ScopeRef::Realm {
+                realm_id: realm_id(),
+            }
         },
         DidCoreId::new("ak:did_core:web:founder.example").unwrap(),
         core_id(STATION_A),
-        json!({}),
+        if kind == EventKind::RealmCreate {
+            json!({"object":{"purpose":"collaboration","governance_station_id":core_id(STATION_A)}})
+        } else {
+            json!({})
+        },
         Utc.timestamp_opt(1_800_000_000 + seconds, 0).unwrap(),
     )
     .unwrap()
@@ -160,11 +165,36 @@ fn commit(
     did: &str,
     key: &SigningKey,
 ) -> RealmCommit {
+    commit_for_realm(
+        &realm_id(),
+        seed,
+        stream_position,
+        previous,
+        event_ref,
+        generation,
+        authority_ref,
+        did,
+        key,
+    )
+}
+fn commit_for_realm(
+    realm: &RealmId,
+    seed: u8,
+    stream_position: u64,
+    previous: Option<RealmCommitId>,
+    event_ref: &EventId,
+    generation: u64,
+    authority_ref: RealmCommitAuthorityRef,
+    did: &str,
+    key: &SigningKey,
+) -> RealmCommit {
     seal_commit(
         RealmCommit {
             commit_id: RealmCommitId::from_digest([seed; 32]),
-            realm_id: realm_id(),
-            stream_ref: realm_stream(),
+            realm_id: realm.clone(),
+            stream_ref: CommitStreamRef::Realm {
+                realm_id: realm.clone(),
+            },
             stream_position,
             previous_commit_ref: previous,
             event_ref: event_ref.clone(),
@@ -260,11 +290,24 @@ struct Chain {
 /// assertion from Station B. Every signature is a real Ed25519 signature over
 /// the canonical unsigned body.
 fn chain() -> Chain {
+    chain_with_purpose("collaboration")
+}
+
+fn chain_with_purpose(purpose: &str) -> Chain {
     let key_a = signing_key(0xA1);
     let key_b = signing_key(0xB2);
 
-    let genesis_event = event(EventKind::RealmCreate, 0);
-    let genesis_commit = commit(
+    let mut genesis_event = event(EventKind::RealmCreate, 0);
+    genesis_event.payload = serde_json::from_value(json!({"object": {
+        "purpose": purpose, "governance_station_id": core_id(STATION_A)
+    }}))
+    .unwrap();
+    genesis_event
+        .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    let realm = genesis_event.realm_id.clone();
+    let genesis_commit = commit_for_realm(
+        &realm,
         0x01,
         0,
         None,
@@ -276,6 +319,10 @@ fn chain() -> Chain {
     );
 
     let mut change_event = event(EventKind::RealmGovernanceStationChange, 1);
+    change_event.realm_id = realm.clone();
+    change_event.scope_ref = ScopeRef::Realm {
+        realm_id: realm.clone(),
+    };
     change_event.payload = serde_json::from_value(json!({
         "expected_governance_generation": 0,
         "expected_realm_stream_commit_id": genesis_commit.commit_id,
@@ -285,7 +332,8 @@ fn chain() -> Chain {
     change_event
         .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
-    let change_commit = commit(
+    let change_commit = commit_for_realm(
+        &realm,
         0x02,
         1,
         Some(genesis_commit.commit_id.clone()),
@@ -298,14 +346,14 @@ fn chain() -> Chain {
     let handoff = seal_handoff(
         RealmAuthorityHandoff {
             handoff_id: RealmAuthorityHandoffId::from_digest([0x21; 32]),
-            realm_id: realm_id(),
+            realm_id: realm.clone(),
             from_generation: 0,
             to_generation: 1,
             from_service_id: core_id(STATION_A),
             to_service_id: core_id(STATION_B),
             final_stream_heads_digest: hash('a'),
             historical_signer_facts_digest: None,
-            pcr_private_state_digest: None,
+            pcr_private_state_digest: (purpose == "principal_control").then(|| hash('b')),
             snapshot_ref: RealmSnapshotId::from_digest([0x44; 32]),
             change_event_ref: change_event.event_id.clone(),
             change_commit_id: change_commit.commit_id.clone(),
@@ -323,8 +371,16 @@ fn chain() -> Chain {
     );
 
     // One ordinary Realm-stream commit made after the handoff, under Station B.
-    let item_event = event(EventKind::MessageCreate, 2);
-    let item_commit = commit(
+    let mut item_event = event(EventKind::MessageCreate, 2);
+    item_event.realm_id = realm.clone();
+    item_event.scope_ref = ScopeRef::Realm {
+        realm_id: realm.clone(),
+    };
+    item_event
+        .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    let item_commit = commit_for_realm(
+        &realm,
         0x03,
         2,
         Some(change_commit.commit_id.clone()),
@@ -336,12 +392,14 @@ fn chain() -> Chain {
     );
 
     let head = CommitStreamHead {
-        stream_ref: realm_stream(),
+        stream_ref: CommitStreamRef::Realm {
+            realm_id: realm.clone(),
+        },
         stream_position: 2,
         commit_id: item_commit.commit_id.clone(),
     };
     let mut assertion = RealmAuthorityCurrentAssertion {
-        realm_id: realm_id(),
+        realm_id: realm.clone(),
         current_generation: 1,
         current_service_id: core_id(STATION_B),
         last_handoff_ref: Some(handoff.handoff_id.clone()),
@@ -361,7 +419,7 @@ fn chain() -> Chain {
     .unwrap();
 
     let bundle = RealmAuthorityBundle {
-        realm_id: realm_id(),
+        realm_id: realm.clone(),
         genesis_event,
         genesis_commit,
         authority_transitions: vec![RealmAuthorityTransition {
@@ -1779,4 +1837,127 @@ fn service_original_fact_verifies_real_proof_and_rejects_replacement_installatio
         )
         .is_err()
     );
+}
+
+#[test]
+fn human_pcr_rejects_even_a_fully_service_signed_handoff_chain() {
+    let chain = chain_with_purpose("principal_control");
+    verify_history_signatures(
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &chain.bundle.authority_transitions,
+        &chain.keys,
+    )
+    .unwrap();
+    let error = verify_realm_authority_bundle(
+        &chain.bundle,
+        &RealmAuthorityFreshness::new(now(), Base64UrlString::new(NONCE).unwrap()),
+        &chain.keys,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("Human PCR"), "{error}");
+    assert!(chain.bundle.validate_shape().is_err());
+}
+
+#[test]
+fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
+    use arkret_wire::{ActorId, AuthorizationRef, GenesisGovernance};
+    let original = chain_with_purpose("principal_control").bundle.genesis_event;
+    let governance = GenesisGovernance::from_genesis(&original).unwrap();
+    assert!(governance.is_human());
+    governance.validate_current(&core_id(STATION_A), 0).unwrap();
+    assert!(governance.validate_current(&core_id(STATION_B), 0).is_err());
+    assert!(governance.validate_current(&core_id(STATION_A), 1).is_err());
+    assert!(governance.require_transferable().is_err());
+    let mut delegated = original.clone();
+    delegated.executed_by = Some(ActorId::service(core_id(STATION_A)));
+    assert!(GenesisGovernance::from_genesis(&delegated).is_err());
+    delegated.authorization_ref =
+        Some(AuthorizationRef::new(original.event_id.to_string()).unwrap());
+    for (purpose, expected) in [
+        ("principal_control", GenesisGovernance::Organization),
+        ("agent_control", GenesisGovernance::Agent),
+        ("applet_managed_control", GenesisGovernance::AppletManaged),
+    ] {
+        delegated.payload = serde_json::from_value(json!({"object":{"purpose": purpose}})).unwrap();
+        assert_eq!(
+            GenesisGovernance::from_genesis(&delegated).unwrap(),
+            expected
+        );
+        expected.require_transferable().unwrap();
+    }
+    delegated.payload = serde_json::from_value(json!({"object":{"purpose":"unknown"}})).unwrap();
+    assert!(GenesisGovernance::from_genesis(&delegated).is_err());
+}
+
+#[test]
+fn fixed_human_private_authority_accepts_same_station_endpoint_and_key_updates_without_a_tenure() {
+    let mut chain = chain_with_purpose("principal_control");
+    chain.bundle.authority_transitions.clear();
+    chain.bundle.current_service_id = core_id(STATION_A);
+    chain.bundle.current_generation = 0;
+    let head = CommitStreamHead {
+        stream_ref: CommitStreamRef::Realm {
+            realm_id: chain.bundle.realm_id.clone(),
+        },
+        stream_position: 0,
+        commit_id: chain.bundle.genesis_commit.commit_id.clone(),
+    };
+    chain.bundle.realm_stream_head = head.clone();
+    chain.bundle.current_assertion.current_service_id = core_id(STATION_A);
+    chain.bundle.current_assertion.current_generation = 0;
+    chain.bundle.current_assertion.last_handoff_ref = None;
+    chain.bundle.current_assertion.realm_stream_head = head;
+    for rotated in [false, true] {
+        let key = signing_key(if rotated { 0xC3 } else { 0xA1 });
+        let method = if rotated {
+            DidUrl::new(format!("{STATION_A}#rotated-authority")).unwrap()
+        } else {
+            method(STATION_A)
+        };
+        let mut doc = serde_json::to_value(route_document(STATION_A, &key)).unwrap();
+        doc["verificationMethod"][0]["id"] = json!(method);
+        doc["authentication"] = json!([method]);
+        doc["assertionMethod"] = json!([method]);
+        doc["service"][0]["serviceEndpoint"] = json!(if rotated {
+            "https://new-deployment.example/"
+        } else {
+            "https://old-deployment.example/"
+        });
+        let resolution = crate::build_authenticated_did_web_service_resolution(
+            core_id(STATION_A),
+            "station".into(),
+            serde_json::from_value(doc).unwrap(),
+            now(),
+        )
+        .unwrap();
+        chain.bundle.current_route_record = serde_json::to_value(resolution).unwrap();
+        chain.bundle.current_assertion.signature = sign_detached_object(
+            &canonical::unsigned_value(&chain.bundle.current_assertion, &["signature"]).unwrap(),
+            DetachedSignatureContext::RealmAuthorityCurrentAssertion,
+            method.clone(),
+            issued_at(),
+            &key,
+        )
+        .unwrap();
+        chain.keys = chain.keys.with_key(&method, public(&key));
+        let verified = verify(&chain).unwrap();
+        assert_eq!(verified.current_generation(), 0);
+        assert_eq!(verified.current_service_id(), &core_id(STATION_A));
+    }
+}
+
+#[test]
+fn a_different_delegated_genesis_cannot_reclassify_an_existing_human_realm() {
+    let mut chain = chain_with_purpose("principal_control");
+    let human_realm = chain.bundle.realm_id.clone();
+    let mut fake = chain.bundle.genesis_event.clone();
+    fake.executed_by = Some(arkret_wire::ActorId::service(core_id(STATION_A)));
+    fake.authorization_ref = Some(fake.event_id.clone().into());
+    fake.refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    assert_ne!(fake.realm_id, human_realm);
+    chain.bundle.genesis_event = fake;
+    assert!(chain.bundle.validate_shape().is_err());
+    assert!(verify(&chain).is_err());
 }

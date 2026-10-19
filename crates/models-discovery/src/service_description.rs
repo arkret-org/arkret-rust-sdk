@@ -932,9 +932,21 @@ mod tests {
 
     #[test]
     fn removed_describe_mirrors_are_not_extensions() {
-        for field in ["claimed_profiles", "ingest_modes"] {
+        for (field, value) in [
+            ("claimed_profiles", json!([])),
+            ("ingest_modes", json!([])),
+            (
+                "privacy_derivation",
+                json!({"push_target_id_derivation": {
+                    "derivation_profile": "ak.push_target_id.hmac_sha256.v1",
+                    "secret_scope": "per_service",
+                    "salt_epoch_id": "ak.push.salt_epoch.1",
+                    "salt_rotation_seconds": 3600
+                }}),
+            ),
+        ] {
             let mut wire = serde_json::to_value(station_description()).unwrap();
-            wire[field] = json!([]);
+            wire[field] = value;
             if let Ok(description) = serde_json::from_value::<ServiceDescribe>(wire) {
                 assert!(description.validate().is_err())
             }

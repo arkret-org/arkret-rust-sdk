@@ -680,6 +680,23 @@ fn walk_history_parts(
     genesis_commit: &RealmCommit,
     transitions: &[arkret_wire::RealmAuthorityTransition],
 ) -> ChainResult<BTreeMap<u64, GenerationAuthority>> {
+    if genesis_event.scope_ref != arkret_wire::ScopeRef::RealmGenesis
+        || RealmId::from_event_id(&genesis_event.event_id) != *realm_id
+    {
+        return Err(E::ChainBroken(
+            "genesis original does not derive this Realm".into(),
+        ));
+    }
+    let governance = arkret_wire::GenesisGovernance::from_genesis(genesis_event)
+        .map_err(|error| E::ChainBroken(error.to_string()))?;
+    if !transitions.is_empty() {
+        governance
+            .require_transferable()
+            .map_err(|error| E::ChainBroken(error.to_string()))?;
+    }
+    governance
+        .validate_current(&signature_service_id(&genesis_commit.signature)?, 0)
+        .map_err(|error| E::StationMismatch(error.to_string()))?;
     if genesis_commit.signature.context != DetachedSignatureContext::RealmCommit {
         return Err(E::SignatureInvalid(
             "genesis commit signature is not in the realm-commit domain".to_owned(),

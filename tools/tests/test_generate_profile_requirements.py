@@ -24,6 +24,15 @@ class ProfileRequirementGeneratorTests(unittest.TestCase):
         self.assertIn("realm_event_kind_allowlist: Some(&[", generated)
         self.assertIn("event_kind_str::REALM_GOVERNANCE_STATION_CHANGE", generated)
 
+    def test_pcr_governance_policy_is_not_lost_during_generation(self) -> None:
+        generated = GENERATOR.generate(
+            SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",
+            SPEC_ARTIFACTS / "registry" / "contract-registry.json",
+        )
+        self.assertIn("pub pcr_governance_policy_json: Option<&'static str>", generated)
+        for required in ("verified_accepted_genesis_provenance", "complete_ordered_genesis_unit", "accepted_receipt", "full_account_binding", "accepted_organization_authority", "accepted_controller_provision", "accepted_managed_provision", "public_authority_bundle", "not_found"):
+            self.assertIn(required, generated)
+
     def test_registered_event_kinds_reuse_generated_constants(self) -> None:
         generated = GENERATOR.generate(
             SPEC_ARTIFACTS / "profiles" / "conformance-profiles.json",

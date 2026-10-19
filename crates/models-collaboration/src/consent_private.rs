@@ -22,6 +22,56 @@ impl ConsentPrivateCommand {
         }
     }
 
+    /// Validate the authenticated local context without a transport envelope.
+    pub fn validate_context(
+        &self,
+        holder: &arkret_wire::AccountId,
+        context: &ConsentPrivateContext,
+        source: &DidCoreId,
+    ) -> Result<()> {
+        match (context, self) {
+            (ConsentPrivateContext::HolderSession(context), command)
+                if matches!(
+                    command,
+                    ConsentPrivateCommand::List(_)
+                        | ConsentPrivateCommand::Version(_)
+                        | ConsentPrivateCommand::Effects(_)
+                        | ConsentPrivateCommand::InvitePolicy(_)
+                ) && context.actor_id.as_account_id() == Some(holder) => {}
+            (ConsentPrivateContext::Station(context), command)
+                if matches!(
+                    command,
+                    ConsentPrivateCommand::InviteDelivery(_) | ConsentPrivateCommand::Request(_)
+                ) && context.actor_id == arkret_wire::ActorId::service(source.clone()) => {}
+            _ => {
+                return Err(invalid(
+                    "private proxy command and authenticated context mismatch",
+                ));
+            }
+        }
+        match self {
+            ConsentPrivateCommand::InvitePolicy(command) => {
+                if command.body.account_id != *holder {
+                    return Err(invalid("private receive policy belongs to another holder"));
+                }
+            }
+            ConsentPrivateCommand::Request(command) => {
+                if command
+                    .body
+                    .requester_actor_id
+                    .as_account_id()
+                    .is_none_or(|account| &account.station_id != source)
+                    || command.body.request.holder_account_id != *holder
+                {
+                    return Err(invalid("private Consent request source or holder mismatch"));
+                }
+                command.body.request.validate()?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
     pub fn writes_private_state(&self) -> bool {
         matches!(
             self,
@@ -61,47 +111,8 @@ impl ConsentPrivateProxyRequest {
                 "private proxy source, nonce or outstanding window mismatch",
             ));
         }
-        match (&self.context, &self.command) {
-            (ConsentPrivateContext::HolderSession(context), command)
-                if matches!(
-                    command,
-                    ConsentPrivateCommand::List(_)
-                        | ConsentPrivateCommand::Version(_)
-                        | ConsentPrivateCommand::Effects(_)
-                        | ConsentPrivateCommand::InvitePolicy(_)
-                ) && context.actor_id.as_account_id() == Some(&self.holder_account_id) => {}
-            (ConsentPrivateContext::Station(context), command)
-                if matches!(
-                    command,
-                    ConsentPrivateCommand::InviteDelivery(_) | ConsentPrivateCommand::Request(_)
-                ) && context.actor_id == arkret_wire::ActorId::service(source.clone()) => {}
-            _ => {
-                return Err(invalid(
-                    "private proxy command and authenticated context mismatch",
-                ));
-            }
-        }
-        match &self.command {
-            ConsentPrivateCommand::InvitePolicy(command) => {
-                if command.body.account_id != self.holder_account_id {
-                    return Err(invalid("private receive policy belongs to another holder"));
-                }
-            }
-            ConsentPrivateCommand::Request(command) => {
-                if command
-                    .body
-                    .requester_actor_id
-                    .as_account_id()
-                    .is_none_or(|account| &account.station_id != source)
-                    || command.body.request.holder_account_id != self.holder_account_id
-                {
-                    return Err(invalid("private Consent request source or holder mismatch"));
-                }
-                command.body.request.validate()?;
-            }
-            _ => {}
-        }
-        Ok(())
+        self.command
+            .validate_context(&self.holder_account_id, &self.context, source)
     }
 
     pub fn digest(&self) -> Result<String> {
