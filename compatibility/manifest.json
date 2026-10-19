@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "7885a9d42d86029b13f72126e23bc78e745868b5",
+      "commit": "bb3e2687c79102c790eb0b7c35a22db48b2eccb1",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -41,7 +41,7 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "7da796779f6d73b5a62a6a6892c5c7420abd77c0",
+      "commit": "8a5476bb503bcbd51405bddd69b130c02dbe6398",
       "checkout_path": "floria",
       "roles": [
         "coland-build-dependency"
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "dbc5c4a76ce7c324f61f833014e8360a39a90ecd",
+      "commit": "5f5d4e89e6984fbc9a5add6013183f1105ab91a1",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -58,7 +58,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "71b4fc8f69c82e63c1ac72aa2847668e39c64b91",
+      "commit": "2d3619993143756f5d779b5ee859e384060d2eca",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "afbe7ad38fd8807149a9e2425757f92888d6e412",
+      "commit": "b7eb5ca8d3f9b11c7e13a828e8791f2449581cfc",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -100,7 +100,7 @@
     },
     "bridges": {
       "repository": "arkret-org/bridges",
-      "commit": "8c940b5048a5e9f0560d3a124665f9b78aad7280",
+      "commit": "40be4f2d9fc6ef6e872cd967a3103b667beb733a",
       "checkout_path": "bridges",
       "roles": [
         "sdk-openapi-consumer"
@@ -108,7 +108,7 @@
     },
     "flagon": {
       "repository": "arkret-org/flagon",
-      "commit": "aba65a52c126136d56aa395558f0478263fdfa2e",
+      "commit": "e63656f5c6e23a9bfcb36a878d3b0c23a708434d",
       "checkout_path": "flagon",
       "roles": [
         "sdk-openapi-consumer"
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "9f4c059c437ad5cac34daa147b0d82e8b09c17d6",
+      "commit": "ca90d179178772906f174d743e265f2301fabf3b",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
