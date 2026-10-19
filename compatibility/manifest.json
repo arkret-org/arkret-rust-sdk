@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "bb3e2687c79102c790eb0b7c35a22db48b2eccb1",
+      "commit": "d501e61fbeead5aa0031537202dd5a0a650d5dce",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "5f5d4e89e6984fbc9a5add6013183f1105ab91a1",
+      "commit": "38406efcb12b8c34e5d53cfe83a5e603424efe6a",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -67,7 +67,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "523ec5d39ab756c6974defecdcbdb1306fad515b",
+      "commit": "d973db059c12a1bae10fa4597661331fc57cb2e3",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -100,7 +100,7 @@
     },
     "bridges": {
       "repository": "arkret-org/bridges",
-      "commit": "40be4f2d9fc6ef6e872cd967a3103b667beb733a",
+      "commit": "0168ae5e83062c6fa4b0234c2336f90a37eafa99",
       "checkout_path": "bridges",
       "roles": [
         "sdk-openapi-consumer"
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "ca90d179178772906f174d743e265f2301fabf3b",
+      "commit": "67e07733a1fb51fd2045972948b2a501aeb81529",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
