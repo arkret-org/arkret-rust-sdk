@@ -2,10 +2,10 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/consent-private-operations.schema.json
-//! sha256=f6daa1b04c930fa94f35073ef259484c65ec93aec729b3fb982b67649cbd06d7
+//! sha256=f10f99368de4d51a99389b7811016d1c5096025ba620030334e803d73173997d
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
+//! sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart:
 /// `consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind`.

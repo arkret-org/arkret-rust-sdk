@@ -4083,15 +4083,16 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:73a694ac5d4ca850",
+      "finding": "json_authoring:coland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:c8851fc306bcf713",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec protocol schema owning actor_id,call_id,device_id,realm_id",
+      "authority": "webrtc-signaling.md §4.2 issuer-private pseudonym derivation; not a wire payload",
       "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain this private canonical HMAC input with typed ActorId, issuer and fresh nonce; only the derived tag enters the SDK MediaIceConfigOutcome.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+      "reason": "Issuer-local derivation input, not an endpoint DTO. The exact tuple binds Realm, Call, full Actor/Station, Device, signed-time bucket and media service; a new random 256-bit nonce and 128-bit output replace deterministic bucket reuse. canonicalization errors fail closed.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:coland/crates/http/src/routing/system/describe.rs::auth_bridge_describe:76fc7e33e59cf721",
@@ -4973,17 +4974,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::deserialize:83b431fc4fc21a99",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning kind",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::canonical_id_bytes:fa751b582c4c97b1",
       "classification": "polymorphic_boundary",
       "adjudication": "manual",
@@ -4995,6 +4985,17 @@
       "action": "Retain only this typed canonical projection or validated temporary conversion; do not extend it to unvalidated protocol authoring.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact operation validates a typed RealmCommit, serializes it, and removes only commit_id and signature to rederive the original immutable content ID. Every other actual member remains committed; the hash must equal the typed commit_id. It does not change a durable Commit or establish signer authority. The content ID and signature projections are separately specified in zh/sync/authority-commit-log.md section 3 and the normative producer fact commitment section."
+    },
+    {
+      "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::deserialize:83b431fc4fc21a99",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec protocol schema owning kind",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
       "finding": "json_path_mutation:crates/wire/src/event_envelope.rs::event_digest_preimage:9ef3f7535d446e9e",

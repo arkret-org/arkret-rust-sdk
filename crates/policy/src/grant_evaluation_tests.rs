@@ -162,6 +162,151 @@ fn allowed(evaluation: &GrantEvaluation<'_>) -> bool {
     !evaluation.unreserved().is_empty()
 }
 
+fn verdict_name(evaluation: &GrantEvaluation<'_>) -> &'static str {
+    match evaluation {
+        GrantEvaluation::Allowed(_) => "Allowed",
+        GrantEvaluation::Denied => "Denied",
+        GrantEvaluation::Quarantined => "Quarantined",
+        GrantEvaluation::RequiresReview => "RequiresReview",
+        GrantEvaluation::Unsatisfied => "Unsatisfied",
+        GrantEvaluation::Unnamed => "Unnamed",
+    }
+}
+
+#[test]
+fn formal_constraint_matrix_preserves_unknown_refusals() {
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/constraint-evaluation-fixture.json",
+    )
+    .expect("the pinned normative constraint fixture must be available");
+    let cases = fixture["schema_validation_cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 48);
+    let target = realm();
+    for case in cases {
+        let name = case["name"].as_str().unwrap();
+        let action = case["action"].as_str().unwrap();
+        assert!(case["facts"].as_object().unwrap().is_empty(), "{name}");
+        let facts = OperationFacts::default();
+        let constraint = serde_json::from_value(case["instance"].clone()).unwrap();
+        let mut grants = vec![grant(91, &[action], realm_wide(), vec![constraint])];
+        for (expected_key, unrestricted) in [
+            ("expected_single_grant", false),
+            ("expected_with_unrestricted_grant", true),
+        ] {
+            if unrestricted {
+                grants.push(grant(92, &[action], realm_wide(), vec![]));
+            }
+            let result = evaluate(
+                &grants,
+                action,
+                &target,
+                &facts,
+                at(case["verification_time"].as_str().unwrap()),
+            );
+            assert_eq!(
+                verdict_name(&result),
+                case[expected_key].as_str().unwrap(),
+                "{name}: {expected_key}"
+            );
+        }
+    }
+}
+
+#[test]
+fn an_uninterpretable_object_window_is_unknown_for_every_effect() {
+    for effect in [
+        GrantConstraintEffect::Allow,
+        GrantConstraintEffect::Deny,
+        GrantConstraintEffect::Quarantine,
+        GrantConstraintEffect::RequireReview,
+    ] {
+        let mut constraint =
+            edit_window(&[CapabilityActionId::MESSAGE_REVISE_OWN], Some("P"), None);
+        constraint.effect = effect;
+        let grants = [grant(
+            93,
+            &[CapabilityActionId::MESSAGE_REVISE_OWN],
+            realm_wide(),
+            vec![constraint],
+        )];
+        let facts = OperationFacts {
+            target_created_at: Some(now()),
+            ..OperationFacts::default()
+        };
+        let result = evaluate(
+            &grants,
+            CapabilityActionId::MESSAGE_REVISE_OWN,
+            &realm(),
+            &facts,
+            now(),
+        );
+        let expected = match effect {
+            GrantConstraintEffect::Allow => "Unsatisfied",
+            GrantConstraintEffect::Deny => "Denied",
+            GrantConstraintEffect::Quarantine => "Quarantined",
+            GrantConstraintEffect::RequireReview => "RequiresReview",
+        };
+        assert_eq!(verdict_name(&result), expected);
+    }
+}
+
+#[test]
+fn an_unresolved_yesterday_does_not_hide_a_proven_window_today() {
+    for instant in ["2026-03-09T07:00:00Z", "2026-11-02T06:45:00Z"] {
+        let grants = recurring(GrantConstraintRecurrence {
+            window_start: Some(
+                if instant.contains("03-09") {
+                    "02:30"
+                } else {
+                    "01:30"
+                }
+                .into(),
+            ),
+            window_end: Some(
+                if instant.contains("03-09") {
+                    "03:30"
+                } else {
+                    "02:30"
+                }
+                .into(),
+            ),
+            timezone: Some("America/New_York".into()),
+            ..GrantConstraintRecurrence::default()
+        });
+        assert!(recurrence_allows(&grants, instant), "{instant}");
+    }
+}
+
+#[test]
+fn temporal_arithmetic_overflow_does_not_panic_or_drop_refusals() {
+    let mut constraint = window(None, None);
+    constraint.effect = GrantConstraintEffect::Deny;
+    let grants = [
+        grant(
+            94,
+            &[CapabilityActionId::MESSAGE_CREATE],
+            realm_wide(),
+            vec![constraint],
+        ),
+        grant(
+            95,
+            &[CapabilityActionId::MESSAGE_CREATE],
+            realm_wide(),
+            vec![],
+        ),
+    ];
+    assert!(matches!(
+        evaluate(
+            &grants,
+            CapabilityActionId::MESSAGE_CREATE,
+            &realm(),
+            &OperationFacts::default(),
+            DateTime::<Utc>::MAX_UTC,
+        ),
+        GrantEvaluation::Denied
+    ));
+}
+
 fn constraint(kind: GrantConstraintKind, effect: GrantConstraintEffect) -> GrantConstraint {
     GrantConstraint::new(kind, effect)
 }

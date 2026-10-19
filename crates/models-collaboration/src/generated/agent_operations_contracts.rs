@@ -8,7 +8,7 @@
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
 //
 // Input: schemas/common-ids.schema.json
-// sha256=993d518acb9207f123eeb5496c0e313320ad296ab0547c308fcf3fb3bf7faa2f
+// sha256=668d983321918e5b1522715d1f70774665adf7d4bfacf0e61df914f3404f6ccf
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
@@ -23,10 +23,10 @@
 // sha256=32238f873daa77303a2e6cc8484e057a69a03e6735d7562183346041a6bfdcaf
 //
 // Input: schemas/event-payload.schema.json
-// sha256=b42ab7eb500df851ff7e7c4ad9383751d8e8dd62ccae338246d81a59bf646259
+// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
+// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.

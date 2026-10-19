@@ -8,7 +8,7 @@
 // sha256=ad33beeae92adb2bdf6ce5528d33435ba67cc5608647a5e0d5e8728902c543a7
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=732705747345d917d3513f52645f7b15c40fea3cf0dcd0eba2a9055e6ae96ae7
+// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `event-payload.schema.json#/$defs/read_receipt_policy_payload`.
 /// Counterpart for

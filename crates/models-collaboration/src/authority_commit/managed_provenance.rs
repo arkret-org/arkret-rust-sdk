@@ -96,7 +96,7 @@ pub enum ManagedAccountabilitySelector {
 /// Registered typed-current shape, with a family-specific selector and value.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ManagedIdentityResult<S, V> {
+pub struct ManagedIdentityProjection<S, V> {
     pub selector: S,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -108,7 +108,7 @@ pub struct ManagedIdentityResult<S, V> {
 #[serde(deny_unknown_fields)]
 pub struct ManagedProfileCurrent {
     pub realm_id: RealmId,
-    pub result: ManagedIdentityResult<ManagedProfileSelector, ActorProfile>,
+    pub result: ManagedIdentityProjection<ManagedProfileSelector, ActorProfile>,
     pub commit: RealmCommit,
 }
 
@@ -117,7 +117,7 @@ pub struct ManagedProfileCurrent {
 #[serde(deny_unknown_fields)]
 pub struct ManagedAccountabilityCurrent {
     pub realm_id: RealmId,
-    pub result: ManagedIdentityResult<ManagedAccountabilitySelector, AccountabilityProjection>,
+    pub result: ManagedIdentityProjection<ManagedAccountabilitySelector, AccountabilityProjection>,
     pub commit: RealmCommit,
 }
 

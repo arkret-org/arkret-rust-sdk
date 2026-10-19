@@ -1829,12 +1829,21 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/call-recording-artifact.schema.json",
-        "schemas/event-payload.schema.json"
+        "schemas/event-payload.schema.json",
+        "schemas/typed-current-result.schema.json",
+        "registry/contract-registry.json"
       ],
       "provides": [
         "CallRecordingArtifact",
         "CallStatePayload",
-        "ParticipantBinding"
+        "ParticipantBinding",
+        "CallRosterSource",
+        "CallParticipantSigningKey",
+        "CallRosterEntry",
+        "CallRosterCurrentValue",
+        "CallModerationSource",
+        "CallModerationEntry",
+        "CallModerationCurrentValue"
       ]
     },
     {

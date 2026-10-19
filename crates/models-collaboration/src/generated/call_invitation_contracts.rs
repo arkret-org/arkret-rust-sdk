@@ -2,16 +2,16 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/call-invitation-operations.schema.json
-//! sha256=9a61991cfa249e3408148adab0261a5005337c5591ea4bd6eda2fad6653186be
+//! sha256=a7a5319c9fe02763036f0b3edbf20b6f6e7d7066ec53be2ed913ccb5f71ba06f
 //!
 //! Input: schemas/typed-current-result.schema.json
-//! sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
+//! sha256=ad33beeae92adb2bdf6ce5528d33435ba67cc5608647a5e0d5e8728902c543a7
 //!
 //! Input: schemas/consent-operations.schema.json
 //! sha256=90c045bc2fadaa4481370039731723349f25656f7d89c24668082fe0a0a5fd48
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
+//! sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -16,7 +16,7 @@ use arkret_models_collaboration::mls_roster_authority::{
     MlsMemberRosterAuthorityReadRequestBody, MlsSelfRosterAuthorityReadOutcome,
 };
 use arkret_models_crypto::{KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody};
-use arkret_models_discovery::StationConnectionBinding;
+use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::signer_key_operations::{
     SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
 };
@@ -28,6 +28,59 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 
 use crate::{Client, Error, Result};
+
+/// Local Station identity for an already accepted Device. Login and Gate
+/// enrollment metadata are outside this native transport capability.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OwnStationDeviceBinding {
+    service_id: arkret_wire::DidCoreId,
+    base_url: String,
+    trust_domain: arkret_wire::TrustDomainId,
+}
+
+impl OwnStationDeviceBinding {
+    pub fn from_description(
+        selected_base: &url::Url,
+        description: &ServiceDescribe,
+    ) -> Result<Self> {
+        arkret_models_discovery::validate_connection_url(selected_base, false)?;
+        description.validate()?;
+        if description.service_kind != arkret_wire::ServiceKind::Station
+            || !selected_base.as_str().ends_with('/')
+        {
+            return Err(protocol(
+                "native connection requires the exact Station base",
+            ));
+        }
+        let bases = description
+            .transport_bindings
+            .iter()
+            .filter_map(|binding| match binding {
+                TransportBinding::HttpJson { base_url, .. } => Some(base_url.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if bases != [selected_base.as_str()] {
+            return Err(protocol(
+                "Station describe does not confirm the selected native base",
+            ));
+        }
+        Ok(Self {
+            service_id: description.service_id.clone(),
+            base_url: selected_base.as_str().to_owned(),
+            trust_domain: description.trust_domain.clone(),
+        })
+    }
+    pub fn service_id(&self) -> &arkret_wire::DidCoreId {
+        &self.service_id
+    }
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+    pub fn trust_domain(&self) -> &arkret_wire::TrustDomainId {
+        &self.trust_domain
+    }
+}
 
 /// Host incarnation, retained across clones but never recreated by replaying
 /// serialized metadata. A replacement provider must use a new identity.
@@ -51,7 +104,7 @@ impl Eq for OwnStationDeviceInstance {}
 /// coordinates from its durable authorization, never from an inbound row.
 #[derive(Clone, PartialEq, Eq)]
 pub struct OwnStationDeviceSnapshot {
-    binding: StationConnectionBinding,
+    binding: OwnStationDeviceBinding,
     account_id: AccountId,
     device_id: DeviceId,
     authorization_event_id: EventId,
@@ -75,7 +128,7 @@ impl std::fmt::Debug for OwnStationDeviceSnapshot {
 impl OwnStationDeviceSnapshot {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        binding: StationConnectionBinding,
+        binding: OwnStationDeviceBinding,
         metadata: &AppletManagedDeviceMetadata,
         public_key: [u8; 32],
         not_before: DateTime<Utc>,
@@ -116,7 +169,7 @@ impl OwnStationDeviceSnapshot {
     pub fn effective_scope(&self) -> &ScopeRef {
         &self.effective_scope
     }
-    pub fn binding(&self) -> &StationConnectionBinding {
+    pub fn binding(&self) -> &OwnStationDeviceBinding {
         &self.binding
     }
     fn check_window(&self) -> Result<()> {
@@ -434,12 +487,11 @@ mod tests {
             },
             nonce: arkret_canonical::base64url_encode([125; 16]),
         };
-        let binding = StationConnectionBinding {
+        let binding = OwnStationDeviceBinding {
             service_id: station.clone(),
             base_url: base.into(),
             trust_domain: arkret_wire::TrustDomainId::new("ak:trust_domain:station.example")
                 .unwrap(),
-            auth_metadata: arkret_models_discovery::AuthMetadata::minimal(),
         };
         let now = Utc::now();
         let snapshot = OwnStationDeviceSnapshot::new(

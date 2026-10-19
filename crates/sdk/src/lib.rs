@@ -135,8 +135,8 @@ pub use arkret_models_collaboration::authority_commit::{
     AccountDeviceHistoricalSignerFact, ForwardManagedActorProvenance,
     HistoricalProducerSignerFactEntry, ManagedAccountabilityCurrent, ManagedAccountabilitySelector,
     ManagedCreationAcceptedEvent, ManagedCreationOriginals, ManagedIdentityCurrent,
-    ManagedIdentityResult, ManagedProfileCurrent, ManagedProfileSelector, PeerStreamScanOutcome,
-    authority_forward_body_digest, historical_signer_facts_digest,
+    ManagedIdentityProjection, ManagedProfileCurrent, ManagedProfileSelector,
+    PeerStreamScanOutcome, authority_forward_body_digest, historical_signer_facts_digest,
     validate_historical_signer_fact_inventory, validate_new_account_device_admission_fact,
     validate_new_account_device_admission_fact_for_purpose,
 };
@@ -548,7 +548,8 @@ pub use arkret_server::{
 pub use arkret_signatures::media::{
     CallMediaTokenVerification, IceConfig, MediaBackendKind, MediaServiceAnchors,
     ParticipantBindingContext, call_media_token_exchange, participant_binding_signing_input,
-    validate_token_ttl, verify_call_media_token_outcome, verify_ice_config_outcome,
+    validate_token_ttl, verify_call_media_token_outcome, verify_call_roster_bindings,
+    verify_ice_config_outcome,
 };
 #[cfg(feature = "client")]
 pub use http_client::{

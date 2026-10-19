@@ -5,13 +5,16 @@
 // sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
 //
 // Input: schemas/event-payload.schema.json
-// sha256=b42ab7eb500df851ff7e7c4ad9383751d8e8dd62ccae338246d81a59bf646259
+// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=fe2f5aa29f51e9d6243e74433c0ee027e4d15f04b8e01c3354a423f069b285a5
+// sha256=ad33beeae92adb2bdf6ce5528d33435ba67cc5608647a5e0d5e8728902c543a7
+//
+// Input: schemas/../registry/contract-registry.json
+// sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=4262c38f5c99fc4a61ddb6e91e7b7f08062a8a80502ab2cc5dca79d57658ca4b
+// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
@@ -87,26 +90,55 @@ pub struct ParticipantBinding {
     pub sig: String,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_assertion`.
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_source`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CallRosterAssertion {
+pub struct CallRosterSource {
     pub tag_id: String,
     pub source_commit: RealmCommit,
     pub value: CallRosterDelta,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_participant_signing_key`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallParticipantSigningKey {
+    pub public_key_b64u: String,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_entry`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallRosterEntry {
+    pub tag_id: String,
+    pub source_commit: RealmCommit,
+    pub value: CallRosterDelta,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub participant_signing_key: Option<CallParticipantSigningKey>,
 }
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_value`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRosterCurrentValue {
-    pub assertions: Vec<CallRosterAssertion>,
+    pub entries: Vec<CallRosterEntry>,
+    pub last_source: CallRosterSource,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_assertion`.
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_source`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CallModerationAssertion {
+pub struct CallModerationSource {
+    pub tag_id: String,
+    pub source_commit: RealmCommit,
+    pub value: CallModerationDelta,
+}
+
+/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_entry`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallModerationEntry {
     pub tag_id: String,
     pub source_commit: RealmCommit,
     pub value: CallModerationDelta,
@@ -116,5 +148,10 @@ pub struct CallModerationAssertion {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallModerationCurrentValue {
-    pub assertions: Vec<CallModerationAssertion>,
+    pub entries: Vec<CallModerationEntry>,
+    pub last_source: CallModerationSource,
 }
+
+pub const CALL_ROSTER_WRITE_INDEX: usize = 7;
+
+pub const CALL_MODERATION_WRITE_INDEX: usize = 6;

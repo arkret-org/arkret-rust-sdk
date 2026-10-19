@@ -10,12 +10,13 @@ use ed25519_dalek::Signer as _;
 
 use crate::service_identity::ServiceIdentityFixture;
 
+/// Structural signing material only: the fixed public TURN tag and placeholder
+/// credential provide no privacy, live issuance, allocation or admission evidence.
 pub fn signed_config(
     request: &MediaIceConfigRequestBody,
     authority: &ServiceIdentityFixture,
     issued_at: DateTime<Utc>,
 ) -> Result<MediaIceConfigOutcome> {
-    let pseudonym = arkret_canonical::sha256_hex(request.call_id.as_bytes());
     let mut outcome = MediaIceConfigOutcome {
         realm_id: request.realm_id.clone(),
         call_id: request.call_id.clone(),
@@ -33,7 +34,7 @@ pub fn signed_config(
                 username: Some(format!(
                     "{}:{}",
                     issued_at.timestamp() + 600,
-                    &pseudonym[..24]
+                    "fixture_only_not_private"
                 )),
                 credential: Some("fixture-turn-credential".into()),
                 credential_type: None,

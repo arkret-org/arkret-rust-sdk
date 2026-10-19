@@ -1545,16 +1545,8 @@
       "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterAssertion",
-      "schema": "typed-current-result.schema.json#/$defs/call_roster_assertion"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterCurrentValue",
       "schema": "typed-current-result.schema.json#/$defs/call_roster_value"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationAssertion",
-      "schema": "typed-current-result.schema.json#/$defs/call_moderation_assertion"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationCurrentValue",
@@ -1563,6 +1555,50 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/device_identity_contracts.rs::AppletManagedDeviceScope",
       "schema": "event-payload.schema.json#/$defs/applet_managed_device_scope"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterSource",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_source"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallParticipantSigningKey",
+      "schema": "typed-current-result.schema.json#/$defs/call_participant_signing_key"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterEntry",
+      "schema": "typed-current-result.schema.json#/$defs/call_roster_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationSource",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_source"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationEntry",
+      "schema": "typed-current-result.schema.json#/$defs/call_moderation_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationAcceptedEvent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_accepted_event"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationOriginals",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_originals"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedProfileCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_profile_current"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedAccountabilityCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_accountability_current"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedIdentityCurrent",
+      "schema": "authority-commit-operations.schema.json#/$defs/managed_identity_current"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ForwardManagedActorProvenance",
+      "schema": "authority-commit-operations.schema.json#/$defs/forward_managed_actor_provenance"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::ScopeReadReceiptPolicyCurrent",

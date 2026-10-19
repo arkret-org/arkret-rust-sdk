@@ -633,6 +633,14 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
                 dict(item, unexpected_majors=sorted(observed - allowed, key=major_sort_key))
             )
             continue
+        # A transitive framework exception must not permit first-party
+        # declarations to adopt one of the tolerated external generations.
+        declared_allowed = entry.get("declared_majors")
+        declared = set(item.get("declared_core_majors", []))
+        if declared_allowed is not None and not declared <= set(declared_allowed):
+            uncovered.append(dict(item, unexpected_declared_majors=sorted(
+                declared - set(declared_allowed), key=major_sort_key)))
+            continue
         covered.append(item)
         review_after = entry.get("review_after")
         if review_after and review_after < today:

@@ -9087,7 +9087,7 @@
       "evidence": "json!({\"kind\": \"realm\", \"realm_id\": realm_id})"
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:73a694ac5d4ca850",
+      "finding": "json_authoring:coland/crates/http/src/routing/interop/webrtc.rs::pairwise_turn_username:c8851fc306bcf713",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
@@ -9105,11 +9105,11 @@
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec protocol schema owning actor_id,call_id,device_id,realm_id",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "authority": "webrtc-signaling.md §4.2 issuer-private pseudonym derivation; not a wire payload",
+      "action": "Retain this private canonical HMAC input with typed ActorId, issuer and fresh nonce; only the derived tag enters the SDK MediaIceConfigOutcome.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "json!({ \"realm_id\": realm_id, \"call_id\": call_id, \"actor_id\": actor_id, \"device_id\": device_id, \"ice_bucket\": bucket, \"nonce\": URL_SAFE_NO_PAD.encode(nonce), })"
+      "reason": "Issuer-local derivation input, not an endpoint DTO. The exact tuple binds Realm, Call, full Actor/Station, Device, signed-time bucket and media service; a new random 256-bit nonce and 128-bit output replace deterministic bucket reuse. canonicalization errors fail closed.",
+      "evidence": "json!({ \"realm_id\": realm_id, \"call_id\": call_id, \"actor_id\": actor_id, \"device_id\": device_id, \"ice_bucket\": ice_bucket, \"media_service_id\": state.service_id(), \"nonce\": URL_SAFE_NO_PAD.encode(nonce), })"
     },
     {
       "finding": "json_authoring:coland/crates/http/src/routing/system/describe.rs::auth_bridge_describe:76fc7e33e59cf721",
