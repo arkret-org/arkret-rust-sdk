@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-18.1;
-//! sha256=c3b37878d6d3a976917f20b5a1c1168fa279402fd9b794cc05a3dfc4790b15f3 Input: registry/
-//! contract-registry.json; version=2026-10-18.2;
-//! sha256=05c63c647d64a429e34f662bcc99038ef96463b814605f9d623ec6b95834d605 Input: registry/
-//! error-code-registry.json; version=2026-10-16.1;
-//! sha256=d23b95ce5465ffead6ad25942afe4bfe287884480c6e3889423a7c394690249d Entries: operations=225
+//! Input: registry/operations-error-mapping.json; version=2026-10-19.3;
+//! sha256=7267fd0b3f8e654a82398ca44799bdafd777684b30701aa60c23715d67bab81a Input: registry/
+//! contract-registry.json; version=2026-10-19.2;
+//! sha256=dddd366d2ef1fb8ecb54f2c035b3c074daaf5c18dd46c36bdfee7d0ea41a9b9e Input: registry/
+//! error-code-registry.json; version=2026-10-19.1;
+//! sha256=8eb0778cfc4a4e1a0c3874f655341d2cef68740f819741740c8a594a44d07097 Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -251,7 +251,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::SignatureWindowInvalid),
     ],
     &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[OperationSpecificError::Reason(ReasonCode::ServiceRouteFork)],
     &[
         OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteAcceptanceMissing),

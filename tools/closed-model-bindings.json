@@ -2969,14 +2969,44 @@
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"deserialize_non_null_optional\"\n    )]"
                 ]
-              },
-              "scope_overrides_allowed": {
-                "name": "scope_overrides_allowed",
+              }
+            }
+          }
+        },
+        {
+          "name": "ScopeReadReceiptPolicyCurrent",
+          "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result",
+          "rust": {
+            "signature": "pub struct ScopeReadReceiptPolicyCurrent",
+            "attributes": [
+              "/// Verified current value of exactly one Realm/Circle scope. Call validate before consumption.",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "selector": {
+                "name": "selector",
                 "visibility": "pub",
-                "type": "Option<bool>",
-                "attributes": [
-                  "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"deserialize_non_null_optional\"\n    )]"
-                ]
+                "type": "CurrentSelector",
+                "attributes": []
+              },
+              "source_stream_ref": {
+                "name": "source_stream_ref",
+                "visibility": "pub",
+                "type": "CommitStreamRef",
+                "attributes": []
+              },
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "CurrentRevision",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "ReadReceiptPolicyPayload",
+                "attributes": []
               }
             }
           }

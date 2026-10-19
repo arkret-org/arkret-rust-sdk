@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-18.2;
-//! sha256=05c63c647d64a429e34f662bcc99038ef96463b814605f9d623ec6b95834d605 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-19.2;
+//! sha256=dddd366d2ef1fb8ecb54f2c035b3c074daaf5c18dd46c36bdfee7d0ea41a9b9e Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
 //! special_forms=15, actions=150, approval_carriers=3, schemas=230, account_data_patterns=24
@@ -1803,7 +1803,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::POLICY_ACTION,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
-            event_kind_str::REALM_READ_RECEIPT_POLICY,
+            event_kind_str::SCOPE_READ_RECEIPT_POLICY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::ORGANIZATION_MODERATION_POLICY,
@@ -1915,7 +1915,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
-            event_kind_str::REALM_READ_RECEIPT_POLICY,
+            event_kind_str::SCOPE_READ_RECEIPT_POLICY,
             event_kind_str::REALM_MEDIA_SERVICE,
             event_kind_str::REALM_SCHEMA,
             event_kind_str::REALM_SEARCH_POLICY,
@@ -2175,7 +2175,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_PROFILE,
-            event_kind_str::REALM_READ_RECEIPT_POLICY,
             event_kind_str::REALM_RESTORE,
             event_kind_str::REALM_SCHEMA,
             event_kind_str::REALM_SEARCH_POLICY,
@@ -2186,6 +2185,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::RELATION_TOMBSTONE,
             event_kind_str::RELATION_UPDATE,
             event_kind_str::SCHEMA_DEFINE,
+            event_kind_str::SCOPE_READ_RECEIPT_POLICY,
             event_kind_str::SPACE_ARCHIVE,
             event_kind_str::SPACE_CREATE,
             event_kind_str::SPACE_PARENT,

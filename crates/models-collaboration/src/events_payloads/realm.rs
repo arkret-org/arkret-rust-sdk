@@ -95,7 +95,7 @@ pub struct RealmPreauthPolicy {
 /// The closed property set is exactly the Realm policy components that have
 /// **no** independent facet Event kind. Components that own their own kind and
 /// cell (`ak.realm.join_rule`, `ak.realm.history_access`,
-/// `ak.realm.read_receipt_policy`, `ak.realm.media_service`, …) are written by
+/// `ak.scope.read_receipt_policy`, `ak.realm.media_service`, …) are written by
 /// those events and reach the accepted policy projection through their own
 /// typed current result; echoing them here would create a second, drifting
 /// truth.

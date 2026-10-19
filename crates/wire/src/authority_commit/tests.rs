@@ -258,10 +258,6 @@ fn ordinary_realm_bootstrap_current_selectors_match_closed_result_shapes() {
         (CurrentSelector::RealmJoinRule, "realm_join_rule"),
         (CurrentSelector::RealmHistoryAccess, "realm_history_access"),
         (CurrentSelector::RealmPreviewPolicy, "realm_preview_policy"),
-        (
-            CurrentSelector::RealmReadReceiptPolicy,
-            "realm_read_receipt_policy",
-        ),
         (CurrentSelector::RealmTombstone, "realm_tombstone"),
         (CurrentSelector::RealmArchive, "realm_archive"),
         (CurrentSelector::RealmFreeze, "realm_freeze"),
@@ -1728,4 +1724,27 @@ fn list_wip_approval_context_is_closed_and_revision_bound() {
             )
             .is_err()
     );
+}
+
+#[test]
+fn read_receipt_policy_selector_requires_an_exact_realm_or_circle_scope() {
+    let realm = "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5";
+    let circle = "ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI";
+    for scope in [
+        json!({"kind":"realm","realm_id":realm}),
+        json!({"kind":"circle","realm_id":realm,"circle_id":circle}),
+    ] {
+        let wire = json!({"kind":"scope_read_receipt_policy","scope_ref":scope});
+        let selector: CurrentSelector = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(serde_json::to_value(selector).unwrap(), wire);
+    }
+    for wire in [
+        json!({"kind":"realm_read_receipt_policy"}),
+        json!({"kind":"scope_read_receipt_policy"}),
+        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"realm_genesis"}}),
+        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"circle","realm_id":realm}}),
+        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"realm","realm_id":realm,"circle_id":circle}}),
+    ] {
+        assert!(serde_json::from_value::<CurrentSelector>(wire).is_err());
+    }
 }

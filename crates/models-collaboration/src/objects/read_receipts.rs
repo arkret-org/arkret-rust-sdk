@@ -466,16 +466,6 @@ pub enum ReadReceiptVisibility {
     Private,
 }
 
-impl ReadReceiptVisibility {
-    fn privacy_rank(self) -> u8 {
-        match self {
-            Self::Public => 0,
-            Self::Members => 1,
-            Self::Private => 2,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadReceiptPolicy {
@@ -483,8 +473,6 @@ pub struct ReadReceiptPolicy {
     pub disclosure: ReadReceiptDisclosure,
     #[serde(default)]
     pub visibility: ReadReceiptVisibility,
-    #[serde(default = "default_read_receipt_scope_overrides_allowed")]
-    pub scope_overrides_allowed: bool,
 }
 
 impl Default for ReadReceiptPolicy {
@@ -492,77 +480,6 @@ impl Default for ReadReceiptPolicy {
         Self {
             disclosure: ReadReceiptDisclosure::Optional,
             visibility: ReadReceiptVisibility::Members,
-            scope_overrides_allowed: true,
-        }
-    }
-}
-
-fn default_read_receipt_scope_overrides_allowed() -> bool {
-    true
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReadReceiptPolicyChildViolation {
-    ScopeOverridesDisabled,
-    DisclosurePrivacyLoosened,
-    VisibilityLoosened,
-}
-
-impl fmt::Display for ReadReceiptPolicyChildViolation {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ScopeOverridesDisabled => {
-                formatter.write_str("child read-receipt policy must inherit parent exactly")
-            }
-            Self::DisclosurePrivacyLoosened => {
-                formatter.write_str("child read-receipt disclosure loosens parent privacy")
-            }
-            Self::VisibilityLoosened => {
-                formatter.write_str("child read-receipt visibility loosens parent visibility")
-            }
-        }
-    }
-}
-
-impl std::error::Error for ReadReceiptPolicyChildViolation {}
-
-impl ReadReceiptPolicy {
-    pub fn validate_child_policy(
-        &self,
-        child: &ReadReceiptPolicy,
-    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
-        if !self.scope_overrides_allowed && child != self {
-            return Err(ReadReceiptPolicyChildViolation::ScopeOverridesDisabled);
-        }
-        self.validate_child_disclosure(child.disclosure)?;
-        self.validate_child_visibility(child.visibility)
-    }
-
-    fn validate_child_disclosure(
-        &self,
-        child: ReadReceiptDisclosure,
-    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
-        match (self.disclosure, child) {
-            (ReadReceiptDisclosure::Required, ReadReceiptDisclosure::Required)
-            | (
-                ReadReceiptDisclosure::Required,
-                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
-            )
-            | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Optional)
-            | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Disabled)
-            | (ReadReceiptDisclosure::Disabled, ReadReceiptDisclosure::Disabled) => Ok(()),
-            _ => Err(ReadReceiptPolicyChildViolation::DisclosurePrivacyLoosened),
-        }
-    }
-
-    fn validate_child_visibility(
-        &self,
-        child: ReadReceiptVisibility,
-    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
-        if child.privacy_rank() >= self.visibility.privacy_rank() {
-            Ok(())
-        } else {
-            Err(ReadReceiptPolicyChildViolation::VisibilityLoosened)
         }
     }
 }
