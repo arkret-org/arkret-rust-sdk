@@ -4,6 +4,7 @@ use arkret_wire::*;
 
 pub mod agent_content_ceiling;
 pub mod agent_management;
+pub mod agent_policy_support;
 pub mod applet_admission;
 pub mod applet_management;
 pub mod authz;
