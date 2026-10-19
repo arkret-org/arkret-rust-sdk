@@ -36,7 +36,11 @@
         "test_*.rs"
       ],
       "inline_cfg_test": "excluded",
-      "rfc7807_rfc9457_problem_details": "excluded"
+      "rfc7807_rfc9457_problem_details": "excluded",
+      "excluded_repository_relative_generated_directories": [
+        "artifacts",
+        "tools/spec-struct-proto/out"
+      ]
     },
     "by_crate": {
       "account-types": 4,

@@ -91,6 +91,36 @@ class WireValueAuditTests(unittest.TestCase):
             }
         self.assertEqual(found, {"tools/spec-struct-proto/src/tracked.rs"})
 
+    def test_root_artifacts_are_excluded_but_production_artifact_modules_are_checked(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relative, name in [
+                ("artifacts/checkpoint/before/crates/wire/src/lib.rs", "FrozenBackup"),
+                ("crates/wire/src/artifacts/live.rs", "LiveArtifact"),
+                ("crates/wire/src/lib.rs", "NewWire"),
+            ]:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    f"pub struct {name} {{ pub payload: serde_json::Value }}\n"
+                    f"pub fn make_{name}(kind: &str, payload: &serde_json::Value) {{ "
+                    'let value = serde_json::json!({"kind":kind,"payload":payload}); }\n',
+                    encoding="utf-8",
+                )
+            fields = AUDIT.scan_fields(root)
+            dynamic = AUDIT.scan_dynamic_findings(root)
+            self.assertEqual(
+                {field.struct_name for field in fields}, {"LiveArtifact", "NewWire"}
+            )
+            self.assertTrue(dynamic)
+            self.assertFalse(any("FrozenBackup" in finding.symbol for finding in dynamic))
+            resolver = AUDIT.SchemaResolver(root / "schemas")
+            report = AUDIT.report(fields, dynamic, resolver, {}, [root.name])
+            errors = AUDIT.validate(report, {}, resolver)
+            self.assertTrue(any("NewWire.payload" in error for error in errors))
+            self.assertTrue(any("LiveArtifact.payload" in error for error in errors))
+            self.assertFalse(any("FrozenBackup" in error for error in errors))
+
     def test_cfg_test_module_declarations_are_not_production_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

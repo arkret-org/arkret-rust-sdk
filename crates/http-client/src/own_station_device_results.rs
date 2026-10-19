@@ -22,12 +22,48 @@ use arkret_models_identity::signer_key_operations::{
 };
 use arkret_models_integration::AppletManagedDeviceMetadata;
 use arkret_wire::{
-    AccountId, AppletId, CommitStreamRef, CommittedEventView, DeviceId, EventId, ScopeRef,
-    StreamScanOutcome, StreamScanRequest,
+    AccountId, AppletId, CommitStreamRef, CommittedEventView, DeviceId, EventId, RealmId,
+    RealmSnapshotId, RealmStateSnapshot, ScopeRef, StreamScanOutcome, StreamScanRequest,
+    TypedCurrentRow,
 };
 use chrono::{DateTime, Utc};
 
 use crate::{Client, Error, Result};
+
+/// Shape/data-scope check only. Authorization still comes from the bound
+/// native response and the accepted Station's current delivery barriers.
+pub fn validate_device_snapshot_scope(
+    snapshot: &RealmStateSnapshot,
+    scope: &ScopeRef,
+) -> Result<()> {
+    if !matches!(scope, ScopeRef::Realm { .. } | ScopeRef::Circle { .. }) {
+        return Err(protocol("native snapshot requires a Realm or Circle"));
+    }
+    let expected = CommitStreamRef::from_scope(scope, None)?;
+    if &snapshot.realm_id != expected.realm_id()
+        || snapshot.visible_stream_heads.len() != 1
+        || snapshot.visible_stream_heads[0].stream_ref != expected
+        || snapshot.retention_and_history_floor.stream_floors.len() != 1
+        || snapshot.retention_and_history_floor.stream_floors[0].stream_ref != expected
+        || snapshot.current_state_entries.iter().any(|row| match row {
+            // Circle object data cannot piggyback on its Realm authorization
+            // stream; that Realm source is outside a Circle-only cut as well.
+            TypedCurrentRow::Value {
+                source_stream_ref,
+                selector,
+                ..
+            } => {
+                source_stream_ref != &expected
+                    || matches!(selector, arkret_wire::CurrentSelector::Circle { .. })
+            }
+        })
+    {
+        return Err(protocol(
+            "native snapshot differs from its exact authorized scope",
+        ));
+    }
+    Ok(())
+}
 
 /// Local Station identity for an already accepted Device. Login and Gate
 /// enrollment metadata are outside this native transport capability.
@@ -345,6 +381,50 @@ impl OwnStationDeviceClient {
             ));
         }
         self.bind((request.clone(), generation), value)
+    }
+
+    fn check_snapshot_scope(&self, realm: &RealmId, snapshot: &RealmStateSnapshot) -> Result<()> {
+        if &snapshot.realm_id != realm {
+            return Err(protocol("native snapshot request differs from its Realm"));
+        }
+        validate_device_snapshot_scope(snapshot, &self.context.effective_scope)
+    }
+
+    pub async fn snapshot_head(
+        &self,
+        realm: &RealmId,
+    ) -> Result<BoundOwnStationDeviceResponse<RealmId, RealmStateSnapshot>> {
+        self.check_context()?;
+        if self.context.effective_scope.realm_id() != realm {
+            return Err(protocol("native snapshot request belongs to another Realm"));
+        }
+        let value = self.client.realm_state_snapshot_head(realm).await?;
+        self.check_snapshot_scope(realm, &value)?;
+        self.bind(realm.clone(), value)
+    }
+
+    pub async fn snapshot_by_ref(
+        &self,
+        realm: &RealmId,
+        reference: &RealmSnapshotId,
+    ) -> Result<BoundOwnStationDeviceResponse<(RealmId, RealmSnapshotId), RealmStateSnapshot>> {
+        self.check_context()?;
+        if self.context.effective_scope.realm_id() != realm {
+            return Err(protocol(
+                "native snapshot reference belongs to another Realm",
+            ));
+        }
+        let value = self
+            .client
+            .realm_state_snapshot_by_ref(realm, reference)
+            .await?;
+        self.check_snapshot_scope(realm, &value)?;
+        if &value.snapshot_id != reference {
+            return Err(protocol(
+                "native snapshot response differs from its exact reference",
+            ));
+        }
+        self.bind((realm.clone(), reference.clone()), value)
     }
 
     pub async fn committed_event_get(

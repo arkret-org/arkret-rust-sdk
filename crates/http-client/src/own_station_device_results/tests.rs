@@ -143,3 +143,85 @@ fn native_bound_results_expire_without_a_new_network_request() {
     assert!(response.value().is_err());
     assert!(own.check_context().is_err());
 }
+
+#[test]
+fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
+    let (raw, source) = native("http://localhost:1234/");
+    let own = OwnStationDeviceClient::new(raw, source).unwrap();
+    let realm = own.context.effective_scope.realm_id().clone();
+    let stream = CommitStreamRef::from_scope(&own.context.effective_scope, None).unwrap();
+    let sibling = CommitStreamRef::from_scope(
+        &ScopeRef::Circle {
+            realm_id: realm.clone(),
+            circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [128; 32],
+            )),
+        },
+        None,
+    )
+    .unwrap();
+    // Only the local scope checker is under test; this shape fixture is
+    // not an accepted signature, source, current cut or historical proof.
+    let mut snapshot = RealmStateSnapshot {
+        snapshot_id: RealmSnapshotId::from_digest([129; 32]),
+        realm_id: realm.clone(),
+        governance_generation: 0,
+        visible_stream_heads: vec![arkret_wire::CommitStreamHead {
+            stream_ref: stream.clone(),
+            stream_position: 0,
+            commit_id: arkret_wire::RealmCommitId::from_digest([130; 32]),
+        }],
+        current_state_entries: vec![],
+        retention_and_history_floor: arkret_wire::RetentionAndHistoryFloor {
+            history_access: arkret_wire::HistoryAccess::SinceJoin,
+            stream_floors: vec![arkret_wire::StreamHistoryFloor {
+                stream_ref: stream.clone(),
+                oldest_position: 0,
+            }],
+        },
+        created_at: Utc::now(),
+        signature: arkret_wire::DetachedObjectSignature {
+            context: arkret_wire::DetachedSignatureContext::RealmSnapshot,
+            signature_algorithm: arkret_wire::DetachedSignatureAlgorithm::Ed25519,
+            verification_method: arkret_wire::DidUrl::new("did:web:station.example#key").unwrap(),
+            signed_digest: arkret_wire::Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            created_at: Utc::now(),
+            sig: arkret_wire::Base64UrlString::new("AA").unwrap(),
+        },
+    };
+    own.check_snapshot_scope(&realm, &snapshot).unwrap();
+    snapshot.visible_stream_heads[0].stream_ref = sibling.clone();
+    assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
+    snapshot.visible_stream_heads[0].stream_ref = stream;
+    snapshot.retention_and_history_floor.stream_floors[0].stream_ref = sibling.clone();
+    assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
+    snapshot.retention_and_history_floor.stream_floors[0].stream_ref =
+        snapshot.visible_stream_heads[0].stream_ref.clone();
+    snapshot.current_state_entries.push(TypedCurrentRow::Value {
+        selector: arkret_wire::CurrentSelector::RealmProfile,
+        source_stream_ref: sibling,
+        revision: arkret_wire::CurrentRevision {
+            stream_position: 0,
+            commit_id: snapshot.visible_stream_heads[0].commit_id.clone(),
+        },
+        value: serde_json::json!({}),
+    });
+    assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
+    snapshot.current_state_entries.clear();
+    snapshot.current_state_entries.push(TypedCurrentRow::Value {
+        selector: arkret_wire::CurrentSelector::Circle {
+            circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [131; 32],
+            )),
+        },
+        source_stream_ref: snapshot.visible_stream_heads[0].stream_ref.clone(),
+        revision: arkret_wire::CurrentRevision {
+            stream_position: 0,
+            commit_id: snapshot.visible_stream_heads[0].commit_id.clone(),
+        },
+        value: serde_json::json!({}),
+    });
+    assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
+}

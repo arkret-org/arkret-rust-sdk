@@ -114,7 +114,7 @@ SKIP_PATH_PARTS = {
 # Repository-relative directories holding gitignored, locally generated
 # output. They are not tracked production source, so scanning them would make
 # the inventory depend on whichever developer tools last ran in the checkout.
-GITIGNORED_GENERATED_DIRECTORIES = {"tools/spec-struct-proto/out"}
+GITIGNORED_GENERATED_DIRECTORIES = {"artifacts", "tools/spec-struct-proto/out"}
 NON_PRODUCTION_REPOSITORIES = {"arkret-spec", "arkret-work", "cotest"}
 VALID_CLASSIFICATIONS = {
     "closed_discriminated",
@@ -1182,6 +1182,9 @@ def report(
             "scope": {
                 "repositories": sorted(repositories),
                 "excluded_path_components": sorted(SKIP_PATH_PARTS),
+                "excluded_repository_relative_generated_directories": sorted(
+                    GITIGNORED_GENERATED_DIRECTORIES
+                ),
                 "excluded_repositories": sorted(NON_PRODUCTION_REPOSITORIES),
                 "excluded_test_source_names": [
                     "tests.rs",
