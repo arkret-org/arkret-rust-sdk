@@ -268,6 +268,48 @@ impl ArkretMlsIdentity {
         self.key_package_record_inner()
     }
 
+    /// Generate a real reusable KeyPackage for live lifecycle conformance.
+    /// The MLS last_resort extension is signed into the package itself.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn last_resort_key_package_record(&self) -> Result<MlsKeyPackageRecord> {
+        let mut extensions = arkret_openmls_capabilities().extensions().to_vec();
+        extensions.push(openmls::prelude::ExtensionType::LastResort);
+        let capabilities = openmls::prelude::Capabilities::builder()
+            .extensions(extensions)
+            .build();
+        let bundle = KeyPackage::builder()
+            .mark_as_last_resort()
+            .leaf_node_capabilities(capabilities)
+            .leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
+            .build(
+                ARKRET_MLS_CIPHERSUITE,
+                &self.provider,
+                &self.signer,
+                self.credential.clone(),
+            )
+            .map_err(mls_error)?;
+        let package = bundle.key_package();
+        let bytes = package.tls_serialize_detached().map_err(mls_error)?;
+        let created_at = Utc::now();
+        Ok(MlsKeyPackageRecord {
+            keypackage_id: format!("ak:mls:kp:{}", uuid::Uuid::now_v7()),
+            actor_id: self.actor_id.clone(),
+            endpoint: self.endpoint_identity(),
+            keypackage: encode(&bytes),
+            keypackage_ref: Hash::new(canonical::sha256_digest(&bytes))?,
+            cipher_suites: vec![ARKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
+            capabilities: ARKRET_MLS_KEY_PACKAGE_CAPABILITIES
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect(),
+            state: arkret_models_crypto::MlsKeyPackageState::Published,
+            claim_id: None,
+            created_at,
+            expires_at: Some(created_at + Duration::days(7)),
+            last_resort: package.last_resort(),
+        })
+    }
+
     /// Convert a locally generated MLS record into the canonical typed upload
     /// entry shared by ordinary clients and Agent runtimes.
     pub fn key_package_upload_entry(
