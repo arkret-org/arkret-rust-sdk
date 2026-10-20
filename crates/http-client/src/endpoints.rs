@@ -20,6 +20,7 @@ mod moderation;
 mod peer;
 mod push;
 mod realm_join;
+mod realm_read;
 mod security;
 mod signal;
 

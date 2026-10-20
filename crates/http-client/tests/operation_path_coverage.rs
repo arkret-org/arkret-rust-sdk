@@ -48,6 +48,10 @@ const SOURCES: &[(&str, &str)] = &[
     ),
     ("endpoints.rs", include_str!("../src/endpoints.rs")),
     (
+        "endpoints/realm_read.rs",
+        include_str!("../src/endpoints/realm_read.rs"),
+    ),
+    (
         "endpoints/account.rs",
         include_str!("../src/endpoints/account.rs"),
     ),
