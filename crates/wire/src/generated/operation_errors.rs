@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-19.3;
-//! sha256=7267fd0b3f8e654a82398ca44799bdafd777684b30701aa60c23715d67bab81a Input: registry/
-//! contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Input: registry/
-//! error-code-registry.json; version=2026-10-19.1;
-//! sha256=8eb0778cfc4a4e1a0c3874f655341d2cef68740f819741740c8a594a44d07097 Entries: operations=225
+//! Input: registry/operations-error-mapping.json; version=2026-10-20.2;
+//! sha256=52043fccbfbedf87a076819590e2c764f2a9091d9cd697f01c80430d6201b509 Input: registry/
+//! contract-registry.json; version=2026-10-20.4;
+//! sha256=c424b416225d5bcd23ce404ce2f03dbbd838f1e02bf984f5457978b710e28f4c Input: registry/
+//! error-code-registry.json; version=2026-10-19.2;
+//! sha256=90abeda5c0d407ae9f4d42160f4279d27f7a99e46b17ff1ebaa6a56c71ae44cd Entries: operations=227
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -33,6 +33,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::QueueFull),
         OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
         OperationSpecificError::Code(ErrorCode::AppletRevoked),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::AppletRevoked),
+        OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
@@ -351,6 +357,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),
     ],
+    &[
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+        OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
+        OperationSpecificError::Code(ErrorCode::DependencyMissing),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
     &[OperationSpecificError::Code(ErrorCode::FailedPrecondition)],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
@@ -536,7 +548,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[],
-    &[],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
@@ -555,13 +566,14 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[
-        OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::AppletRevoked),
         OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
     ],
     &[
-        OperationSpecificError::Reason(ReasonCode::AppletNamespaceMismatch),
+        OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
         OperationSpecificError::Code(ErrorCode::AppletRegistrationUnauthorized),
-        OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::AppletRegistrationEpochEvidenceDeactivated),
@@ -741,6 +753,8 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
         OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
         OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
+        OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
+        OperationSpecificError::Code(ErrorCode::DependencyMissing),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[OperationSpecificError::Code(ErrorCode::ParamInvalid)],
@@ -856,6 +870,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
     ],
     &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+        OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
+        OperationSpecificError::Code(ErrorCode::DependencyMissing),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::UnsupportedFeature),

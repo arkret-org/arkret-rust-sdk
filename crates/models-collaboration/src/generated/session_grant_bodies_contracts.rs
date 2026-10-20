@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=32238f873daa77303a2e6cc8484e057a69a03e6735d7562183346041a6bfdcaf
+// sha256=dc06d475919592009707cb8160d713167ecfcd3509f465b34846dbd03576dbc3
 //
 // Input: schemas/common-ids.schema.json
-// sha256=668d983321918e5b1522715d1f70774665adf7d4bfacf0e61df914f3404f6ccf
+// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest`.
 /// Fresh-device existing-principal recovery issuance.

@@ -1,9 +1,7 @@
-use arkret_wire::{
-    ActorId, AppletId, AuthorizationRef, DidCoreId, EventId, RealmId, Result, ScopeRef,
-};
+use arkret_wire::{ActorId, AppletId, AuthorizationRef, DidCoreId, Result, ScopeRef};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest};
+use crate::AppletManagedActorAuthoringRequest;
 
 /// Immutable external identity tuple for one Applet-managed Ghost.
 ///
@@ -38,82 +36,12 @@ pub struct GhostPreviewOutcome {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GhostActorProvisionRequestBody {
-    pub authoring_request: AppletManagedActorAuthoringRequest,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub managed_actor_bundle: Option<AppletManagedActorAuthoringBundle>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub existing_managed_actor: Option<ExistingManagedActor>,
-}
-
-impl GhostActorProvisionRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.managed_actor_bundle.is_some() == self.existing_managed_actor.is_some()
-            || self.authoring_request.purpose != crate::AppletManagedActorPurpose::ProvisionGhost
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "Ghost provision needs exactly one creation or reuse branch".into(),
-            ));
-        }
-        Ok(())
-    }
-    pub fn authoring_basis(&self) -> Option<&crate::AppletGhostAuthoringRequestBasis> {
-        self.authoring_request.basis.ghost()
-    }
-
-    pub fn managed_actor_provision_payload(
-        &self,
-    ) -> Result<crate::AppletManagedActorProvisionPayload> {
-        serde_json::from_value(serde_json::to_value(
-            &self
-                .managed_actor_bundle
-                .as_ref()
-                .ok_or_else(|| {
-                    arkret_wire::WireError::Protocol(
-                        "Ghost reuse has no new provision Event".into(),
-                    )
-                })?
-                .managed_actor_provision_event
-                .payload,
-        )?)
-        .map_err(Into::into)
-    }
-}
-
-/// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` response.
-///
-/// Carries the durable refs the Station atomically accepted. The
-/// `authorization_ref` is the active Applet capability grant used by the
-/// provisioning unit; an accountability grant records responsibility and is
-/// never itself treated as authorization for later Ghost Actor actions.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GhostActorProvisionOutcome {
-    pub ghost_actor_id: ActorId,
-    pub managed_actor_provision_ref: EventId,
-    pub principal_control_realm_id: RealmId,
-    pub profile_event_ref: EventId,
-    pub accountability_grant_ref: EventId,
-    pub authorization_ref: arkret_wire::GrantId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExistingManagedActor {
     pub ghost_actor_id: ActorId,
-    pub managed_actor_provision_ref: EventId,
-    pub principal_control_realm_id: RealmId,
-    pub profile_event_ref: EventId,
-    pub accountability_grant_ref: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub creation_ref: arkret_wire::CommittedEventRef,
 }
 
 /// Applet delegation fields required when an applet or delegated agent signs

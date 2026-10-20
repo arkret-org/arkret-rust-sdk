@@ -134,7 +134,6 @@ fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
         producer_device_evidence: None,
-        producer_managed_provenance: None,
         producer_agent_evidence: None,
     })
     .unwrap()
@@ -196,90 +195,6 @@ fn evidence_with(
         device_projection_attestation: sign_raw(core, &station.method, &station.signing_key),
         service_resolution: station.service_resolution.clone(),
     }
-}
-
-// Shared only by SDK facade regressions; this is not a production constructor.
-#[allow(dead_code)]
-pub(crate) fn verified_forward_fixture(
-    provenance: Option<
-        arkret_models_collaboration::authority_commit::ForwardManagedActorProvenance,
-    >,
-) -> (
-    arkret_models_collaboration::authority_commit::PeerAuthoritySubmitRequest,
-    arkret_identity::VerifiedProducerEvent,
-    arkret_models_identity::AuthenticatedServiceResolution,
-) {
-    use arkret_models_collaboration::authority_commit::{
-        PeerAuthorityForwardEventRequest, PeerAuthoritySubmitRequest, authority_forward_body_digest,
-    };
-    let origin = station(74, "station.example");
-    static PRIVATE_KEY: std::sync::OnceLock<[u8; 32]> = std::sync::OnceLock::new();
-    let seed = *PRIVATE_KEY.get_or_init(|| {
-        let mut seed = [0_u8; 32];
-        getrandom::fill(&mut seed).expect("OS entropy for private SDK regression custody");
-        seed
-    });
-    let key = SigningKey::from_bytes(&seed);
-    let principal = station(75, "account.example");
-    let principal_did = &principal.service_resolution.normalized_did_document.id;
-    let actor = ActorId::account(AccountId::new(
-        principal.service_id.clone(),
-        origin.service_id.clone(),
-    ));
-    let method = DidUrl::new(format!("{principal_did}#{DEVICE}")).unwrap();
-    let event = device_event_with_method(
-        actor.clone(),
-        method.as_str(),
-        origin.registered_at + Duration::seconds(30),
-        seed,
-    );
-    let context = arkret_identity::ProducerVerificationContext {
-        actor: actor.clone(),
-        verification_method: method.clone(),
-        public_key: arkret_signatures::PublicKeyMaterial::Ed25519Raw {
-            bytes: key.verifying_key().to_bytes().to_vec(),
-        },
-        digest_suite: DigestSuite::Sha256,
-    };
-    let token = arkret_identity::VerifiedProducerEvent::verify(event.clone(), &context).unwrap();
-    let mut request = PeerAuthorityForwardEventRequest::new(
-        arkret_wire::EventAdmissionSubmission::new(event),
-        None,
-        Some(evidence_with(&origin, |core| {
-            core.account_id = actor.as_account_id().unwrap().clone();
-            core.event_authorization.event_id = token.event().event_id.clone();
-            core.event_authorization.verification_method = method.clone();
-            core.device_signing_key_did = DidKey::new(format!(
-                "did:key:{}",
-                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
-                    &key.verifying_key().to_bytes()
-                )
-            ))
-            .unwrap();
-        })),
-    )
-    .unwrap();
-    request.producer_managed_provenance = provenance;
-    let digest = authority_forward_body_digest(&request).unwrap();
-    let mut attestation = request
-        .producer_device_evidence
-        .as_ref()
-        .unwrap()
-        .device_projection_attestation
-        .attestation
-        .clone();
-    attestation.event_authorization.forward_body_digest = digest;
-    request
-        .producer_device_evidence
-        .as_mut()
-        .unwrap()
-        .device_projection_attestation = sign_raw(attestation, &origin.method, &origin.signing_key);
-    request.validate().unwrap();
-    (
-        PeerAuthoritySubmitRequest::AuthorityForwardEvent(request),
-        token,
-        origin.service_resolution,
-    )
 }
 
 fn signed_root() -> AccountDeviceSignerEvidence {
@@ -795,7 +710,6 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
         producer_device_evidence: Some(evidence),
-        producer_managed_provenance: None,
         producer_agent_evidence: None,
     };
     let actual_body_digest = authority_forward_body_digest(&body).unwrap();

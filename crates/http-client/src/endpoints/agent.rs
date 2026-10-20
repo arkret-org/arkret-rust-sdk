@@ -379,6 +379,7 @@ mod tests {
             request_id: outcome.request_id.clone(),
             realm_id: outcome.realm_id.clone(),
             recipient_account_id: outcome.recipient_account_id.clone(),
+            recipient_actor_id: outcome.recipient_actor_id.clone(),
             queries: vec![outcome.results[0].selector().clone()],
         };
         outcome

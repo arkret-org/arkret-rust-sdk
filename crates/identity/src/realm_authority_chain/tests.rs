@@ -345,6 +345,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     );
     let handoff = seal_handoff(
         RealmAuthorityHandoff {
+            management_private_state_digest: None,
             handoff_id: RealmAuthorityHandoffId::from_digest([0x21; 32]),
             realm_id: realm.clone(),
             from_generation: 0,
@@ -1164,11 +1165,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     );
     use arkret_models_collaboration::authority_commit::validate_new_account_device_admission_fact_for_purpose;
     use arkret_models_collaboration::events_payloads::RealmPurpose;
-    for purpose in [
-        RealmPurpose::PrincipalControl,
-        RealmPurpose::AgentControl,
-        RealmPurpose::AppletManagedControl,
-    ] {
+    for purpose in [RealmPurpose::PrincipalControl, RealmPurpose::AgentControl] {
         validate_new_account_device_admission_fact_for_purpose(
             &event,
             purpose,
@@ -1672,6 +1669,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     .unwrap();
     verify(&chain).unwrap();
     let request = AuthorityHandoffRequest {
+        management_private_state: None,
         pcr_private_state: None,
         handoff,
         final_stream_heads: heads,

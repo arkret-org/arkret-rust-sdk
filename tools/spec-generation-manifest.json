@@ -1749,7 +1749,15 @@
         "HistoricalProducerSignerFactEntry",
         "PeerStreamScanOutcome",
         "AuthorityHandoffRequest",
-        "CommittedEventSubmission"
+        "CommittedEventSubmission",
+        "PcrPrivateHandoffManifest",
+        "ManagementPrivateHandoffManifest",
+        "RealmDeviceHistoricalSignerFactKind",
+        "RealmDeviceHistoricalSignerFact",
+        "RealmControlHistoricalSignerFactKind",
+        "RealmControlHistoricalSignerFact",
+        "RealmRecoveryServiceHistoricalSignerFactKind",
+        "RealmRecoveryServiceHistoricalSignerFact"
       ]
     },
     {
@@ -2091,6 +2099,54 @@
       "artifacts": [
         "registry/applet-managed-authority-registry.json",
         "registry/contract-registry.json"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/applet/generated/realm_actor_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/realm-actor.schema.json",
+        "schemas/typed-current-result.schema.json"
+      ],
+      "provides": [
+        "RealmActorGhostExternalTuple",
+        "RealmActorControlScopeKind",
+        "RealmActorControlScope",
+        "RealmActorCreatePayloadActorRole",
+        "RealmActorCreatePayloadRecoveryKind",
+        "RealmActorCreatePayloadRecovery",
+        "RealmActorCreatePayload",
+        "RealmActorCreationTranscriptActorRole",
+        "RealmActorCreationTranscriptRecoveryKind",
+        "RealmActorCreationTranscriptRecovery",
+        "RealmActorCreationTranscript",
+        "RealmActorControlUpdatePayload",
+        "RealmActorControlAcceptanceTranscript",
+        "RealmActorStatusSetPayloadGate",
+        "RealmActorStatusSetPayloadState",
+        "RealmActorStatusSetPayload",
+        "RealmActorDevicesResetPayload",
+        "RealmActorManagerChangePayload",
+        "RealmActorManagerAcceptanceTranscript",
+        "RealmActorControlHttpMetadata",
+        "RealmActorResourceKind",
+        "RealmActorResource",
+        "RealmActorRecoveryBeginPayload",
+        "RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature",
+        "RealmActorRecoveryAcceptanceTranscript",
+        "RealmActorControlResetPayload",
+        "RealmActorRecoverySetPayload",
+        "RealmActorRecoveryIntent",
+        "RealmActorWebvhRecoveryPlan",
+        "RealmActorControlValue",
+        "RealmActorManagerValue",
+        "RealmActorRecoveryValue",
+        "RealmActorDeviceGenerationValue",
+        "RealmActorDeviceAuthorizationValue"
       ]
     }
   ]

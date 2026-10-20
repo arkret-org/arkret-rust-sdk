@@ -12,15 +12,14 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
     AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef,
-    CurrentRevision, Did, DidCoreId, DidUrl, Event, EventAdmissionSubmission, EventId, GrantId,
-    Hash, PayloadSigner, ProtocolOperationId, RealmCommit, RealmId, ReasonCode, Result, ScopeRef,
-    SignalEnvelope, SignerEvidenceRef, WireError, canonical,
+    ActorId, AppletId, AppletRevokeMode, BlobRef, CommittedEventRef, CurrentRevision, Did,
+    DidCoreId, DidUrl, Event, EventAdmissionSubmission, EventId, GrantId, Hash, PayloadSigner,
+    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, SignerEvidenceRef,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::GhostActorProvisionRequestBody;
 use crate::applet::{AppletPackage, AppletRegistrationEpochEvidence, GhostExternalTuple};
 use crate::artifacts_applet::{
     AppletEventRejection, E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance,
@@ -281,135 +280,17 @@ fn validate_signer_root(
     Ok(())
 }
 
-/// Current authority context for an Applet-managed Actor.
-///
-/// The original request, independent portal head, accepted PCR Commit and
-/// signer roots are required: an accepted authoring result is conditional
-/// on both signer roots having been verified and frozen inside the one
-/// recoverable atomic commit, so a context without them could never have been
-/// accepted in the first place. Authorization is checked again when the
-/// governance Station commits the authored Event.
-// Field declaration order is byte-for-byte the `properties` order of
-// `applet-edge-operations.schema.json#/$defs/applet_managed_actor_authoring_context`.
+/// Exact private Realm actor material from its current governor.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletManagedActorAuthoringContext {
-    pub committed_request: AppletManagedActorCommittedRequest,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub realm_stream_head: CommitStreamHead,
-    pub principal_control_commit: RealmCommit,
-    pub applet_service_signer_evidence: AppletServiceSignerEvidence,
-    pub managed_actor_signer_evidence: ManagedActorPrincipalSignerEvidence,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resolution_update: Option<crate::ManagedActorResolutionUpdateEvidence>,
+    pub material: crate::RealmActorMaterialOutcome,
 }
-
 impl AppletManagedActorAuthoringContext {
     pub fn validate(&self) -> Result<()> {
-        self.applet_service_signer_evidence.validate()?;
-        self.managed_actor_signer_evidence.validate()?;
-        self.principal_control_commit.validate_content_address()?;
-        if self
-            .principal_control_commit
-            .producer_signer_fact_digest
-            .is_some()
-        {
-            return Err(WireError::Protocol(
-                "managed PCR Commit must not carry an ordinary producer signer fact".into(),
-            ));
-        }
-        let principal = &self
-            .managed_actor_signer_evidence
-            .authenticated_signer_evidence;
-        let attester = &self.managed_actor_signer_evidence.attester_signer_evidence;
-        if principal.authority_commit_id != self.principal_control_commit.commit_id
-            || principal.resolved_at != self.principal_control_commit.committed_at
-            || attester.authority_commit_id != self.principal_control_commit.commit_id
-            || attester.resolved_at != self.principal_control_commit.committed_at
-        {
-            return Err(WireError::Protocol(
-                "managed signer leaves must bind the actual PCR Commit id and time".into(),
-            ));
-        }
-        if let Some(update) = &self.resolution_update {
-            update.validate_shape()?;
-            if update.commits.last() != Some(&self.principal_control_commit) {
-                return Err(WireError::Protocol(
-                    "resolution update must end at the reported PCR Commit".into(),
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize)]
-#[serde(untagged)]
-pub enum AppletManagedActorCommittedRequest {
-    Bot(Box<AppletBotProvisionRequestBody>),
-    Ghost(Box<GhostActorProvisionRequestBody>),
-}
-
-impl<'de> Deserialize<'de> for AppletManagedActorCommittedRequest {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
-        // Both creation branches have identical outer fields. Deserialize the
-        // closed typed carrier once, then use its signed purpose to select the
-        // branch; untagged trial order would silently turn a fresh Ghost into Bot.
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Carrier {
-            authoring_request: AppletManagedActorAuthoringRequest,
-            #[serde(default)]
-            managed_actor_bundle: Option<AppletManagedActorAuthoringBundle>,
-            #[serde(default)]
-            approval_signatures: Vec<arkret_wire::ApprovalSignature>,
-            #[serde(default)]
-            existing_managed_actor: Option<crate::ExistingManagedActor>,
-        }
-        let carrier = Carrier::deserialize(deserializer)?;
-        carrier
-            .authoring_request
-            .basis
-            .validate()
-            .map_err(serde::de::Error::custom)?;
-        if carrier.authoring_request.purpose != carrier.authoring_request.basis.purpose() {
-            return Err(serde::de::Error::custom(
-                "managed request purpose differs from its signed basis",
-            ));
-        }
-        match carrier.authoring_request.purpose {
-            AppletManagedActorPurpose::ProvisionBot => {
-                if carrier.existing_managed_actor.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "Bot creation cannot carry Ghost reuse",
-                    ));
-                }
-                Ok(Self::Bot(Box::new(AppletBotProvisionRequestBody {
-                    authoring_request: carrier.authoring_request,
-                    managed_actor_bundle: carrier.managed_actor_bundle.ok_or_else(|| {
-                        serde::de::Error::custom("Bot creation requires its managed Actor bundle")
-                    })?,
-                    approval_signatures: carrier.approval_signatures,
-                })))
-            }
-            AppletManagedActorPurpose::ProvisionGhost => {
-                let body = GhostActorProvisionRequestBody {
-                    authoring_request: carrier.authoring_request,
-                    managed_actor_bundle: carrier.managed_actor_bundle,
-                    approval_signatures: carrier.approval_signatures,
-                    existing_managed_actor: carrier.existing_managed_actor,
-                };
-                body.validate().map_err(serde::de::Error::custom)?;
-                Ok(Self::Ghost(Box::new(body)))
-            }
-            AppletManagedActorPurpose::InstallService => Err(serde::de::Error::custom(
-                "Service installation has no managed completion request",
-            )),
-        }
+        self.material.validate()
     }
 }
 
@@ -1282,85 +1163,9 @@ pub struct AppletManagedActorAuthorRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletManagedActorAuthoringBundle {
-    pub schema: String,
-    pub authoring_request_digest: Hash,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub managed_actor_provision_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub pcr_genesis_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub accountability_grant_event: Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub profile_event: Event,
-    pub proof: AppletManagedActorProof,
-}
-
-impl AppletManagedActorAuthoringBundle {
-    pub const SCHEMA: &'static str =
-        arkret_wire::SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1;
-    pub const PROOF_CONTEXT: &'static str =
-        arkret_wire::DomainSeparationId::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1;
-
-    pub fn unsigned_payload_value(&self) -> serde_json::Value {
-        serde_json::json!({
-            "schema": self.schema,
-            "authoring_request_digest": self.authoring_request_digest,
-            "managed_actor_provision_event": self.managed_actor_provision_event,
-            "pcr_genesis_event": self.pcr_genesis_event,
-            "accountability_grant_event": self.accountability_grant_event,
-            "profile_event": self.profile_event,
-        })
-    }
-
-    pub fn payload_digest(&self) -> Result<Hash> {
-        Hash::new(canonical::canonical_sha256(&self.unsigned_payload_value())?).map_err(Into::into)
-    }
-
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": Self::PROOF_CONTEXT,
-            "payload_digest": self.proof.payload_digest,
-            "verification_method": self.proof.verification_method,
-            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-            "audience_id": self.proof.audience_id,
-        }))
-        .map_err(Into::into)
-    }
-
-    pub fn validate_bindings(
-        &self,
-        authoring_request: &AppletManagedActorAuthoringRequest,
-    ) -> Result<()> {
-        if self.schema != Self::SCHEMA
-            || self.authoring_request_digest != authoring_request.canonical_digest()?
-            || self.proof.payload_digest != self.payload_digest()?
-            || &self.proof.audience_id != authoring_request.basis.target_station_id()
-            || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
-            || self.proof.created_at != authoring_request.issued_at
-            || self.proof.created_at > authoring_request.expires_at
-            || [
-                &self.managed_actor_provision_event,
-                &self.pcr_genesis_event,
-                &self.accountability_grant_event,
-                &self.profile_event,
-            ]
-            .into_iter()
-            .any(|event| event.created_at != authoring_request.issued_at)
-        {
-            return Err(WireError::Protocol(
-                "applet managed actor authoring bundle binding mismatch".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct AppletManagedActorAuthorOutcome {
-    pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub create_event: Event,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1462,36 +1267,12 @@ pub struct AppletBotPreviewRequestBody {
 pub struct AppletBotPreviewOutcome {
     pub authoring_request: AppletManagedActorAuthoringRequest,
 }
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletBotProvisionRequestBody {
-    pub authoring_request: AppletManagedActorAuthoringRequest,
-    pub managed_actor_bundle: AppletManagedActorAuthoringBundle,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub approval_signatures: Vec<arkret_wire::ApprovalSignature>,
-}
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletBotProvisionOutcome {
-    pub managed_actor_provision_ref: EventId,
-    pub principal_control_realm_id: RealmId,
-    pub profile_event_ref: EventId,
-    pub accountability_grant_ref: EventId,
-    pub authorization_ref: GrantId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    pub bot_actor_id: ActorId,
-}
-
-/// Covered RFC9421 metadata for one accepted managed Account Device.
+/// Covered RFC9421 metadata for one accepted Realm actor Device.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletManagedDeviceMetadata {
-    pub account_id: arkret_wire::AccountId,
+    pub actor_id: ActorId,
     pub device_id: arkret_wire::DeviceId,
     pub authorization_event_id: EventId,
     pub applet_id: AppletId,
@@ -1501,6 +1282,17 @@ pub struct AppletManagedDeviceMetadata {
 impl AppletManagedDeviceMetadata {
     pub const HEADER: &'static str = "Arkret-Managed-Device";
     pub fn validate(&self) -> Result<()> {
+        self.actor_id.validate()?;
+        if self
+            .actor_id
+            .as_realm_actor_id()
+            .is_none_or(|actor| self.effective_scope.realm_id_opt() != Some(&actor.realm_id))
+        {
+            return Err(WireError::Protocol(
+                "managed Device metadata requires an exact Realm actor and scope".into(),
+            ));
+        }
+
         if !(22..=128).contains(&self.nonce.len())
             || !self
                 .nonce

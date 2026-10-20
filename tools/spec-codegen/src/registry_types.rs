@@ -3087,7 +3087,7 @@ fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<Generate
         &[&artifact.source, &contracts.source],
         &format!("managed_device_operations={}", rules.len()),
     );
-    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
+    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n    OwnExactDeviceAuthorizationMaterialRead,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
     for rule in rules {
         if !registered_operations.contains(rule.operation_id.as_str())
             || rule
@@ -3120,6 +3120,7 @@ fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<Generate
                         | "own_exact_keypackage_revoke"
                         | "own_scope_bound_keypackage_upload"
                         | "own_exact_durable_welcome_receipt_consume"
+                        | "own_exact_device_authorization_material_read"
                 ) {
                     bail!("unknown managed Device control exception");
                 }

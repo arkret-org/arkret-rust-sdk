@@ -15,6 +15,27 @@ use crate::agent_signer_state::{
     StationSigningKey, self_signer_error, validate_ed25519_public_key, validate_self_signer_bytes,
 };
 
+fn validate_query_recipient(
+    account: Option<&AccountId>,
+    actor: Option<&ActorId>,
+    realm: &RealmId,
+) -> Result<()> {
+    match (account, actor) {
+        (Some(account), None) => account.validate(),
+        (None, Some(actor))
+            if actor
+                .as_realm_actor_id()
+                .is_some_and(|id| &id.realm_id == realm) =>
+        {
+            actor.validate()
+        }
+        _ => Err(self_signer_error(
+            ErrorCode::SchemaViolation,
+            "signer recipient must select exactly one Account or same-Realm actor",
+        )),
+    }
+}
+
 pub const MAX_SIGNER_KEY_QUERIES: usize = 64;
 
 /// One exact signer a query names.
@@ -32,6 +53,21 @@ pub const MAX_SIGNER_KEY_QUERIES: usize = 64;
 #[serde(tag = "verification_mode", rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SignerKeyQuerySelector {
+    #[serde(rename = "current")]
+    CurrentRealmDevice {
+        sender_kind: RealmDeviceSignerKind,
+        actor_id: ActorId,
+        device_id: DeviceId,
+        verification_method: DidUrl,
+    },
+    #[serde(rename = "historical")]
+    HistoricalRealmDevice {
+        sender_kind: RealmDeviceSignerKind,
+        actor_id: ActorId,
+        device_id: DeviceId,
+        verification_method: DidUrl,
+        committed_event_ref: CommittedEventRef,
+    },
     CurrentAdmission {
         #[serde(flatten)]
         sender: CurrentSignerKeyQuerySender,
@@ -40,6 +76,13 @@ pub enum SignerKeyQuerySelector {
         #[serde(flatten)]
         sender: HistoricalSignerKeyQuerySender,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum RealmDeviceSignerKind {
+    #[serde(rename = "realm_device")]
+    RealmDevice,
 }
 
 /// Sender-specific fields for a current-admission query.
@@ -84,6 +127,8 @@ pub enum HistoricalSignerKeyQuerySender {
 impl SignerKeyQuerySelector {
     pub fn actor(&self) -> &ActorId {
         match self {
+            Self::CurrentRealmDevice { actor_id, .. }
+            | Self::HistoricalRealmDevice { actor_id, .. } => actor_id,
             Self::CurrentAdmission { sender } => sender.actor(),
             Self::HistoricalEvent { sender } => sender.actor(),
         }
@@ -91,6 +136,14 @@ impl SignerKeyQuerySelector {
 
     pub fn verification_method(&self) -> &DidUrl {
         match self {
+            Self::CurrentRealmDevice {
+                verification_method,
+                ..
+            }
+            | Self::HistoricalRealmDevice {
+                verification_method,
+                ..
+            } => verification_method,
             Self::CurrentAdmission { sender } => sender.verification_method(),
             Self::HistoricalEvent { sender } => sender.verification_method(),
         }
@@ -99,6 +152,8 @@ impl SignerKeyQuerySelector {
     /// The device this selector is bound to, or `None` for an Agent selector.
     pub fn device_id(&self) -> Option<&DeviceId> {
         match self {
+            Self::CurrentRealmDevice { device_id, .. }
+            | Self::HistoricalRealmDevice { device_id, .. } => Some(device_id),
             Self::CurrentAdmission { sender } => sender.device_id(),
             Self::HistoricalEvent { sender } => sender.device_id(),
         }
@@ -107,13 +162,21 @@ impl SignerKeyQuerySelector {
     /// The exact accepted Event a historical selector names.
     pub fn committed_event_ref(&self) -> Option<&CommittedEventRef> {
         match self {
+            Self::CurrentRealmDevice { .. } => None,
+            Self::HistoricalRealmDevice {
+                committed_event_ref,
+                ..
+            } => Some(committed_event_ref),
             Self::CurrentAdmission { .. } => None,
             Self::HistoricalEvent { sender } => Some(sender.committed_event_ref()),
         }
     }
 
     pub const fn is_historical(&self) -> bool {
-        matches!(self, Self::HistoricalEvent { .. })
+        matches!(
+            self,
+            Self::HistoricalEvent { .. } | Self::HistoricalRealmDevice { .. }
+        )
     }
 
     pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
@@ -123,8 +186,18 @@ impl SignerKeyQuerySelector {
                 sender: HistoricalSignerKeyQuerySender::Service { .. }
             }
         );
+        let realm = matches!(
+            self,
+            Self::CurrentRealmDevice { .. } | Self::HistoricalRealmDevice { .. }
+        );
         if service != matches!(self.actor(), ActorId::Service { .. })
-            || (!service && self.actor().as_account_id().is_none())
+            || realm != self.actor().as_realm_actor_id().is_some()
+            || realm
+                && self
+                    .actor()
+                    .as_realm_actor_id()
+                    .is_none_or(|actor| &actor.realm_id != realm_id)
+            || (!service && !realm && self.actor().as_account_id().is_none())
         {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
@@ -230,14 +303,29 @@ impl HistoricalSignerKeyQuerySender {
 pub struct SignerKeysQueryRequestBody {
     pub request_id: RequestId,
     pub realm_id: RealmId,
-    pub recipient_account_id: AccountId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recipient_account_id: Option<AccountId>,
     pub queries: Vec<SignerKeyQuerySelector>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recipient_actor_id: Option<ActorId>,
 }
 
 impl SignerKeysQueryRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_self_signer_bytes(self, SELF_SIGNER_REQUEST_MAX_BYTES, true)?;
-        self.recipient_account_id.validate()?;
+        validate_query_recipient(
+            self.recipient_account_id.as_ref(),
+            self.recipient_actor_id.as_ref(),
+            &self.realm_id,
+        )?;
         if self.queries.is_empty() || self.queries.len() > MAX_SIGNER_KEY_QUERIES {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
@@ -460,6 +548,11 @@ enum QueryKeyWireRef<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SignerKeyQueryOutcome {
+    HistoricalRealmDeviceResolved {
+        selector: SignerKeyQuerySelector,
+        key: CurrentDeviceSigningKey,
+        accepted_at: DateTime<Utc>,
+    },
     CurrentDeviceResolved {
         selector: SignerKeyQuerySelector,
         key: CurrentDeviceSigningKey,
@@ -489,7 +582,8 @@ pub enum SignerKeyQueryOutcome {
 impl SignerKeyQueryOutcome {
     pub fn selector(&self) -> &SignerKeyQuerySelector {
         match self {
-            Self::CurrentDeviceResolved { selector, .. }
+            Self::HistoricalRealmDeviceResolved { selector, .. }
+            | Self::CurrentDeviceResolved { selector, .. }
             | Self::CurrentResolved { selector, .. }
             | Self::HistoricalResolved { selector, .. }
             | Self::HistoricalServiceResolved { selector, .. }
@@ -500,7 +594,8 @@ impl SignerKeyQueryOutcome {
     pub fn key(&self) -> Option<&ResolvedSignerKey> {
         match self {
             Self::CurrentResolved { key, .. } | Self::HistoricalResolved { key, .. } => Some(key),
-            Self::CurrentDeviceResolved { .. }
+            Self::HistoricalRealmDeviceResolved { .. }
+            | Self::CurrentDeviceResolved { .. }
             | Self::HistoricalServiceResolved { .. }
             | Self::Unavailable { .. } => None,
         }
@@ -519,7 +614,8 @@ impl SignerKeyQueryOutcome {
         match self {
             Self::HistoricalResolved { accepted_at, .. }
             | Self::HistoricalServiceResolved { accepted_at, .. } => Some(*accepted_at),
-            Self::CurrentDeviceResolved { .. }
+            Self::HistoricalRealmDeviceResolved { .. }
+            | Self::CurrentDeviceResolved { .. }
             | Self::CurrentResolved { .. }
             | Self::Unavailable { .. } => None,
         }
@@ -529,12 +625,25 @@ impl SignerKeyQueryOutcome {
         validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
         self.selector().validate(realm_id)?;
         match self {
+            Self::HistoricalRealmDeviceResolved { selector, key, .. } => {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+                ) {
+                    return Err(self_signer_error(
+                        ErrorCode::SchemaViolation,
+                        "Realm historical key requires a Realm historical selector",
+                    ));
+                }
+                key.validate()
+            }
+
             Self::CurrentDeviceResolved { selector, key } => {
                 if !matches!(
                     selector,
                     SignerKeyQuerySelector::CurrentAdmission {
                         sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
-                    }
+                    } | SignerKeyQuerySelector::CurrentRealmDevice { .. }
                 ) {
                     return Err(self_signer_error(
                         ErrorCode::SchemaViolation,
@@ -559,6 +668,10 @@ impl SignerKeyQueryOutcome {
             }
             Self::HistoricalResolved { selector, key, .. } => {
                 if !selector.is_historical()
+                    || matches!(
+                        selector,
+                        SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+                    )
                     || matches!(
                         selector,
                         SignerKeyQuerySelector::HistoricalEvent {
@@ -645,12 +758,33 @@ impl Serialize for SignerKeyQueryOutcome {
         S: serde::Serializer,
     {
         let wire = match self {
+            Self::HistoricalRealmDeviceResolved {
+                selector,
+                key,
+                accepted_at,
+            } => {
+                if !matches!(
+                    selector,
+                    SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+                ) {
+                    return Err(serde::ser::Error::custom(
+                        "Realm historical key has another selector",
+                    ));
+                }
+                SignerKeyQueryResultWireRef {
+                    selector,
+                    status: SignerKeyQueryStatus::Resolved,
+                    key: Some(QueryKeyWireRef::Device(key)),
+                    accepted_at: Some(*accepted_at),
+                }
+            }
+
             Self::CurrentDeviceResolved { selector, key } => {
                 if !matches!(
                     selector,
                     SignerKeyQuerySelector::CurrentAdmission {
                         sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
-                    }
+                    } | SignerKeyQuerySelector::CurrentRealmDevice { .. }
                 ) {
                     return Err(serde::ser::Error::custom(
                         "human current key requires a current account_device selector",
@@ -687,6 +821,10 @@ impl Serialize for SignerKeyQueryOutcome {
                 accepted_at,
             } => {
                 if !selector.is_historical()
+                    || matches!(
+                        selector,
+                        SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+                    )
                     || matches!(
                         selector,
                         SignerKeyQuerySelector::HistoricalEvent {
@@ -748,12 +886,28 @@ impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
             (
                 SignerKeyQueryStatus::Resolved,
                 WireField::Present(QueryKeyWire::Device(key)),
+                WireField::Present(CanonicalAcceptedAt(accepted_at)),
+            ) if matches!(
+                wire.selector,
+                SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+            ) =>
+            {
+                Ok(Self::HistoricalRealmDeviceResolved {
+                    selector: wire.selector,
+                    key,
+                    accepted_at,
+                })
+            }
+
+            (
+                SignerKeyQueryStatus::Resolved,
+                WireField::Present(QueryKeyWire::Device(key)),
                 WireField::Missing,
             ) if matches!(
                 wire.selector,
                 SignerKeyQuerySelector::CurrentAdmission {
                     sender: CurrentSignerKeyQuerySender::AccountDevice { .. }
-                }
+                } | SignerKeyQuerySelector::CurrentRealmDevice { .. }
             ) =>
             {
                 Ok(Self::CurrentDeviceResolved {
@@ -782,6 +936,10 @@ impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
                 WireField::Present(QueryKeyWire::Committed(key)),
                 WireField::Present(CanonicalAcceptedAt(accepted_at)),
             ) if wire.selector.is_historical()
+                && !matches!(
+                    wire.selector,
+                    SignerKeyQuerySelector::HistoricalRealmDevice { .. }
+                )
                 && !matches!(
                     wire.selector,
                     SignerKeyQuerySelector::HistoricalEvent {
@@ -833,13 +991,29 @@ impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
 pub struct SignerKeysQueryOutcome {
     pub request_id: RequestId,
     pub realm_id: RealmId,
-    pub recipient_account_id: AccountId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recipient_account_id: Option<AccountId>,
     pub results: Vec<SignerKeyQueryOutcome>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recipient_actor_id: Option<ActorId>,
 }
 
 impl SignerKeysQueryOutcome {
     pub fn validate(&self) -> Result<()> {
         validate_self_signer_bytes(self, SELF_SIGNER_OUTCOME_MAX_BYTES, false)?;
+        validate_query_recipient(
+            self.recipient_account_id.as_ref(),
+            self.recipient_actor_id.as_ref(),
+            &self.realm_id,
+        )?;
         if self.results.is_empty() || self.results.len() > MAX_SIGNER_KEY_QUERIES {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
@@ -865,6 +1039,7 @@ impl SignerKeysQueryOutcome {
         if self.request_id != request.request_id
             || self.realm_id != request.realm_id
             || self.recipient_account_id != request.recipient_account_id
+            || self.recipient_actor_id != request.recipient_actor_id
         {
             return Err(self_signer_error(
                 ErrorCode::StateMismatch,
@@ -1241,7 +1416,8 @@ mod tests {
         let request = SignerKeysQueryRequestBody {
             request_id: RequestId::new("ak:request:01904100-0000-7000-8000-000000000001").unwrap(),
             realm_id: realm_id(),
-            recipient_account_id: account_id(),
+            recipient_account_id: Some(account_id()),
+            recipient_actor_id: None,
             queries: vec![device_selector()],
         };
         request.validate().unwrap();
@@ -1249,7 +1425,8 @@ mod tests {
         let outcome = SignerKeysQueryOutcome {
             request_id: request.request_id.clone(),
             realm_id: realm_id(),
-            recipient_account_id: account_id(),
+            recipient_account_id: Some(account_id()),
+            recipient_actor_id: None,
             results: vec![SignerKeyQueryOutcome::Unavailable {
                 selector: device_selector(),
             }],

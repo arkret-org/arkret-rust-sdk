@@ -97,7 +97,7 @@ pub fn validate_agent_contact_identity_at(
     .map_err(invalid)?;
     if project_did_to_core_id(&head_did).map_err(invalid)?
         != project_did_to_core_id(did).map_err(invalid)?
-        || actor.route_service_id() != &controller.station_id
+        || actor.fixed_route_service_id() != Some(&controller.station_id)
     {
         return Err(invalid("native head or controller Station differs"));
     }

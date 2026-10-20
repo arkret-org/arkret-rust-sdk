@@ -30,6 +30,29 @@ pub fn verify_device_authorize_possession(
     Ok(())
 }
 
+/// Verify the Realm Device proof against the full Realm identity and exact CAS transcript.
+pub fn verify_realm_device_authorize_possession(
+    payload: &DeviceAuthorizePayload,
+    actor_id: &arkret_wire::ActorId,
+) -> Result<()> {
+    let transcript = payload.realm_device_possession_signature_input(actor_id)?;
+    let signature = device_authorize_signature_value(&payload.device_signature)?;
+    let key = PublicKeyMaterial::Ed25519Multibase {
+        value: payload
+            .device_public_key_did
+            .as_str()
+            .strip_prefix("did:key:")
+            .ok_or_else(|| Error::Protocol("invalid Realm Device public key".into()))?
+            .to_owned(),
+    };
+    if !verify_detached_ed25519_signature(&key, &transcript, signature) {
+        return Err(Error::Protocol(
+            "Realm Device possession signature is invalid".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn device_authorize_signature_value(
     value: &arkret_models_collaboration::events_payloads::SignatureMaterial,
 ) -> Result<&str> {

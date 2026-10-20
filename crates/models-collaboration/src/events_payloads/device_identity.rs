@@ -208,7 +208,7 @@ pub enum DeviceAuthorizationBindingKind {
     RegistrationAnchor,
     PcrRecovery,
     AcceptedDevice,
-    AppletManagedDelegation,
+    RealmManagedDelegation,
 }
 
 impl DeviceAuthorizationBindingKind {
@@ -219,8 +219,8 @@ impl DeviceAuthorizationBindingKind {
             Self::AcceptedDevice => {
                 DomainSeparationId::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
-            Self::AppletManagedDelegation => {
-                DomainSeparationId::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1
+            Self::RealmManagedDelegation => {
+                DomainSeparationId::DEVICE_AUTHORIZE_REALM_ACTOR_POSSESSION_PROOF_V1
             }
         }
     }
@@ -333,6 +333,10 @@ pub struct DeviceAuthorizePayload {
     pub pairing_challenge_transcript_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_control_revision: Option<arkret_wire::CurrentRevision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_device_revision: Option<Option<arkret_wire::CurrentRevision>>,
 }
 
 #[derive(Deserialize)]
@@ -362,6 +366,16 @@ struct DeviceAuthorizePayloadWire {
     pairing_challenge_transcript_digest: Option<Hash>,
     #[serde(default)]
     applet_id: Option<AppletId>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    expected_control_revision: Option<arkret_wire::CurrentRevision>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_present_nullable"
+    )]
+    expected_device_revision: Option<Option<arkret_wire::CurrentRevision>>,
 }
 
 impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
@@ -386,6 +400,8 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             recovery_session_id: wire.recovery_session_id,
             pairing_challenge_transcript_digest: wire.pairing_challenge_transcript_digest,
             applet_id: wire.applet_id,
+            expected_control_revision: wire.expected_control_revision,
+            expected_device_revision: wire.expected_device_revision,
         };
         payload
             .validate_wire_constraints()
@@ -430,14 +446,17 @@ impl DeviceAuthorizePayload {
             (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_))
                 if self.recovery_session_id.is_none() => {}
             (
-                DeviceAuthorizationBindingKind::AppletManagedDelegation,
+                DeviceAuthorizationBindingKind::RealmManagedDelegation,
                 DeviceOrPrincipalRef::Principal(_),
             ) if self.recovery_session_id.is_none() => {}
             _ => return Err("device_authorize_authorization_binding_mismatch"),
         }
         let applet_branch = self.authorization_binding_kind
-            == DeviceAuthorizationBindingKind::AppletManagedDelegation;
-        if applet_branch != self.applet_id.is_some() {
+            == DeviceAuthorizationBindingKind::RealmManagedDelegation;
+        if applet_branch != self.applet_id.is_some()
+            || applet_branch != self.expected_control_revision.is_some()
+            || applet_branch != self.expected_device_revision.is_some()
+        {
             return Err("device_authorize_applet_binding_mismatch");
         }
         if applet_branch && (!matches!(self.expires_at, Some(Some(_))) || self.scopes.is_none()) {
@@ -461,6 +480,56 @@ impl DeviceAuthorizePayload {
         Ok(())
     }
 
+    pub fn realm_device_possession_signature_input(
+        &self,
+        actor_id: &arkret_wire::ActorId,
+    ) -> Result<Vec<u8>> {
+        self.validate_wire_constraints()
+            .map_err(|reason| WireError::Protocol(reason.into()))?;
+        actor_id.validate()?;
+        let actor = actor_id
+            .as_realm_actor_id()
+            .ok_or_else(|| WireError::Protocol("Realm Device requires a Realm ActorId".into()))?;
+        let Some(DeviceAuthorizationScopes::AppletManaged(scopes)) = &self.scopes else {
+            return Err(WireError::Protocol(
+                "Realm Device requires bounded scope/action pairs".into(),
+            ));
+        };
+        if self.authorization_binding_kind != DeviceAuthorizationBindingKind::RealmManagedDelegation
+            || !matches!(&self.authorized_by, DeviceOrPrincipalRef::Principal(id) if id == &actor.principal_id)
+            || scopes
+                .entries()
+                .iter()
+                .any(|entry| entry.effective_scope.realm_id_opt() != Some(&actor.realm_id))
+            || self
+                .expires_at
+                .flatten()
+                .is_none_or(|expires| expires <= self.not_before)
+        {
+            return Err(WireError::Protocol(
+                "Realm Device authority, expiry or scope does not match its owner".into(),
+            ));
+        }
+        let body = serde_json::json!({
+            "actor_id": actor_id, "device_id": self.device_id,
+            "device_public_key_did": self.device_public_key_did, "hpke_key": self.hpke_key,
+            "algorithms": self.algorithms, "device_key_algorithm": self.device_key_algorithm,
+            "authorized_by": self.authorized_by, "authorization_binding_kind": self.authorization_binding_kind,
+            "authorized_generation_ref": self.authorized_generation_ref, "not_before": self.not_before,
+            "expires_at": self.expires_at.flatten(), "scopes": self.scopes, "applet_id": self.applet_id,
+            "expected_control_revision": self.expected_control_revision,
+            "expected_device_revision": self.expected_device_revision,
+        });
+        let mut bytes = self
+            .authorization_binding_kind
+            .possession_proof_context()
+            .as_bytes()
+            .to_vec();
+        bytes.push(b'\n');
+        bytes.extend(canonical::canonical_json_bytes(&body)?);
+        Ok(bytes)
+    }
+
     pub fn device_possession_signature_input(
         &self,
         subject_account_id: &AccountId,
@@ -471,12 +540,10 @@ impl DeviceAuthorizePayload {
             DeviceOrPrincipalRef::DeviceId(id) => id.as_str(),
             DeviceOrPrincipalRef::Principal(id) => id.as_str(),
         };
-        if self.authorization_binding_kind
-            == DeviceAuthorizationBindingKind::AppletManagedDelegation
-            && authorized_by != subject_account_id.principal_id.as_str()
+        if self.authorization_binding_kind == DeviceAuthorizationBindingKind::RealmManagedDelegation
         {
             return Err(WireError::Protocol(
-                "device_authorize_applet_managed_delegation_requires_self_anchor".into(),
+                "Realm Device proof requires its full Realm ActorId, not an AccountId".into(),
             ));
         }
         if self.authorization_binding_kind == DeviceAuthorizationBindingKind::AcceptedDevice {
@@ -1002,14 +1069,15 @@ mod managed_scope_tests {
     #[test]
     fn operation_descriptors_consume_every_formal_rule_and_reject_other_operations() {
         use arkret_wire::{
-            ManagedDeviceScopeRule, ServiceOperationId, applet_managed_device_scope_rule,
+            ManagedDeviceControl, ManagedDeviceScopeRule, ServiceOperationId,
+            applet_managed_device_scope_rule,
         };
         let registry: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
             "/../../../arkret-spec/spec/v1/artifacts/registry/applet-managed-authority-registry.json"))).unwrap();
         let rules = registry["device_authentication"]["operation_scope_rules"]
             .as_array()
             .unwrap();
-        assert_eq!(rules.len(), 21);
+        assert_eq!(rules.len(), 22);
         for rule in rules {
             let operation =
                 ServiceOperationId::from_wire(rule["operation_id"].as_str().unwrap()).unwrap();
@@ -1021,8 +1089,26 @@ mod managed_scope_tests {
                 ManagedDeviceScopeRule::SubmittedBusinessActions => {
                     assert_eq!(rule["mode"], "submitted_business_actions")
                 }
-                ManagedDeviceScopeRule::DeviceControl(_) => {
-                    assert_eq!(rule["mode"], "device_control")
+                ManagedDeviceScopeRule::DeviceControl(control) => {
+                    assert_eq!(rule["mode"], "device_control");
+                    let expected = match control {
+                        ManagedDeviceControl::OwnExactPreviouslyDeliveredItemsAck => {
+                            "own_exact_previously_delivered_items_ack"
+                        }
+                        ManagedDeviceControl::OwnExactKeypackageRevoke => {
+                            "own_exact_keypackage_revoke"
+                        }
+                        ManagedDeviceControl::OwnScopeBoundKeypackageUpload => {
+                            "own_scope_bound_keypackage_upload"
+                        }
+                        ManagedDeviceControl::OwnExactDurableWelcomeReceiptConsume => {
+                            "own_exact_durable_welcome_receipt_consume"
+                        }
+                        ManagedDeviceControl::OwnExactDeviceAuthorizationMaterialRead => {
+                            "own_exact_device_authorization_material_read"
+                        }
+                    };
+                    assert_eq!(rule["control_rule"], expected);
                 }
             }
         }

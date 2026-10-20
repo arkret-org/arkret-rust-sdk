@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/reducer-managed-path-registry.json; version=2026-09-30.2;
-//! sha256=d521093d4ebfe36edec746fb322ca00702a2731df5920cf61bb77effecf1721d Entries: objects=7,
-//! effective_paths=76, universal_paths=9
+//! Input: registry/reducer-managed-path-registry.json; version=2026-10-19.1;
+//! sha256=ad9156a13fa9b93243cbe7ef35aa3bb2d35e61797dd6608edf8c816d367acdb0 Entries: objects=7,
+//! effective_paths=77, universal_paths=9
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReducerManagedPatchPath {
@@ -29,6 +29,13 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
     ReducerManagedPatchObject {
         object_kind: "actor_profile",
         forbidden_paths: &[
+            ReducerManagedPatchPath {
+                path: "actor_id",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                owner_kind: "event_kind",
+                schema_enforced: Some(true),
+            },
             ReducerManagedPatchPath {
                 path: "actor_kind",
                 basis: "create_locked",

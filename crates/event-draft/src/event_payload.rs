@@ -41,7 +41,9 @@ use arkret_models_identity::device_push_route::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
 use arkret_models_integration::applet::{
-    AppletManagedActorProvisionPayload, AppletRegistrationPayload,
+    AppletRegistrationPayload, RealmActorControlResetPayload, RealmActorControlUpdatePayload,
+    RealmActorCreatePayload, RealmActorDevicesResetPayload, RealmActorManagerChangePayload,
+    RealmActorRecoveryBeginPayload, RealmActorRecoverySetPayload, RealmActorStatusSetPayload,
 };
 use arkret_models_integration::applet_audit_payload::AppletBridgeErrorPayload;
 use arkret_wire::{Event, Result, WireError, event_spec};
@@ -315,7 +317,14 @@ event_payload_accessors! {
     event_spec::InviteRevoke => (as_invite_revoke, InviteRevokePayload, InviteRevokePayload::validate),
     event_spec::AppletBridgeError => (as_applet_bridge_error, AppletBridgeErrorPayload),
     event_spec::AppletRegistration => (as_applet_registration, AppletRegistrationPayload),
-    event_spec::AppletManagedActorProvision => (as_applet_managed_actor_provision, AppletManagedActorProvisionPayload, AppletManagedActorProvisionPayload::validate),
+    event_spec::RealmActorCreate => (as_realm_actor_create, RealmActorCreatePayload, RealmActorCreatePayload::validate),
+    event_spec::RealmActorControlUpdate => (as_realm_actor_control_update, RealmActorControlUpdatePayload),
+    event_spec::RealmActorStatusSet => (as_realm_actor_status_set, RealmActorStatusSetPayload),
+    event_spec::RealmActorDevicesReset => (as_realm_actor_devices_reset, RealmActorDevicesResetPayload),
+    event_spec::RealmActorManagerChange => (as_realm_actor_manager_change, RealmActorManagerChangePayload),
+    event_spec::RealmActorRecoveryBegin => (as_realm_actor_recovery_begin, RealmActorRecoveryBeginPayload),
+    event_spec::RealmActorControlReset => (as_realm_actor_control_reset, RealmActorControlResetPayload),
+    event_spec::RealmActorRecoverySet => (as_realm_actor_recovery_set, RealmActorRecoverySetPayload),
     event_spec::MimiRoomBinding => (as_mimi_room_binding, MimiRoomBindingPayload),
     event_spec::CallCreate => (as_call_create, CallCreatePayload),
     event_spec::CallState => (as_call_state, CallStatePayload),

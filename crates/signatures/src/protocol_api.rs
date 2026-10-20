@@ -106,7 +106,9 @@ pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "collaboration")]
-pub use crate::device_authorization::verify_device_authorize_possession;
+pub use crate::device_authorization::{
+    verify_device_authorize_possession, verify_realm_device_authorize_possession,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationMethodDocument {

@@ -6,7 +6,6 @@
 //! branches without inventing a generic federation envelope.
 
 mod audit_atomic;
-mod managed_provenance;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -22,7 +21,6 @@ use arkret_wire::{
 };
 pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
-pub use managed_provenance::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -173,7 +171,17 @@ impl ServiceHistoricalSignerFact {
                     arkret_wire::GrantId::from_event_id(&self.key.authorization_ref.event_id)
                         .as_str(),
                 )
-            || event.scope_ref != self.key.effective_scope
+            || if event.kind == EventKind::RealmActorCreate {
+                event.scope_ref
+                    != (arkret_wire::ScopeRef::RealmControl {
+                        realm_id: event.realm_id.clone(),
+                    })
+                    || event.payload.get("creation_scope")
+                        != Some(&serde_json::to_value(&self.key.effective_scope)?)
+                    || self.key.effective_scope.realm_id_opt() != Some(&event.realm_id)
+            } else {
+                event.scope_ref != self.key.effective_scope
+            }
             || event
                 .producer_proof
                 .as_ref()
@@ -224,6 +232,9 @@ impl ServiceHistoricalSignerFact {
 pub enum HistoricalProducerSignerFact {
     AccountDevice(AccountDeviceHistoricalSignerFact),
     Service(ServiceHistoricalSignerFact),
+    RealmDevice(RealmDeviceHistoricalSignerFact),
+    RealmControl(RealmControlHistoricalSignerFact),
+    RealmRecoveryService(RealmRecoveryServiceHistoricalSignerFact),
 }
 impl From<AccountDeviceHistoricalSignerFact> for HistoricalProducerSignerFact {
     fn from(fact: AccountDeviceHistoricalSignerFact) -> Self {
@@ -240,6 +251,9 @@ impl HistoricalProducerSignerFact {
         match self {
             Self::AccountDevice(f) => &f.event_id,
             Self::Service(f) => &f.event_id,
+            Self::RealmDevice(f) => &f.event_id,
+            Self::RealmControl(f) => &f.event_id,
+            Self::RealmRecoveryService(f) => &f.event_id,
         }
     }
     pub fn as_account_device(&self) -> Option<&AccountDeviceHistoricalSignerFact> {
@@ -252,13 +266,19 @@ impl HistoricalProducerSignerFact {
     pub fn as_account_device_mut(&mut self) -> Option<&mut AccountDeviceHistoricalSignerFact> {
         match self {
             Self::AccountDevice(fact) => Some(fact),
-            Self::Service(_) => None,
+            Self::Service(_)
+            | Self::RealmDevice(_)
+            | Self::RealmControl(_)
+            | Self::RealmRecoveryService(_) => None,
         }
     }
     pub fn digest(&self) -> Result<Hash> {
         match self {
             Self::AccountDevice(f) => f.digest(),
             Self::Service(f) => f.digest(),
+            Self::RealmDevice(f) => f.digest(),
+            Self::RealmControl(f) => f.digest(),
+            Self::RealmRecoveryService(f) => f.digest(),
         }
     }
     pub fn validate_event_binding(
@@ -269,6 +289,9 @@ impl HistoricalProducerSignerFact {
         match self {
             Self::AccountDevice(f) => f.validate_event_binding(event, suite),
             Self::Service(f) => f.validate_event_binding(event, suite),
+            Self::RealmDevice(f) => f.validate_event_binding(event, suite),
+            Self::RealmControl(f) => f.validate_event_binding(event, suite),
+            Self::RealmRecoveryService(f) => f.validate_event_binding(event, suite),
         }
     }
     pub fn validate_commit_binding(
@@ -279,6 +302,9 @@ impl HistoricalProducerSignerFact {
         match self {
             Self::AccountDevice(f) => f.validate_commit_binding(full, suite),
             Self::Service(f) => f.validate_commit_binding(full, suite),
+            Self::RealmDevice(f) => f.validate_commit_binding(full, suite),
+            Self::RealmControl(f) => f.validate_commit_binding(full, suite),
+            Self::RealmRecoveryService(f) => f.validate_commit_binding(full, suite),
         }
     }
 }
@@ -870,35 +896,14 @@ pub struct PeerAuthorityForwardEventRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_managed_provenance: Option<ForwardManagedActorProvenance>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardEventRequest {
-    pub fn new_managed(
-        event_submission: EventAdmissionSubmission,
-        mls_genesis_material: Option<MlsGenesisMaterial>,
-        producer_device_evidence: ForwardAccountDeviceSignerEvidence,
-        producer_managed_provenance: ForwardManagedActorProvenance,
-    ) -> Result<Self> {
-        let request = Self {
-            branch: AuthorityForwardBranch::AuthorityForward,
-            event_submission,
-            mls_genesis_material,
-            producer_device_evidence: Some(producer_device_evidence),
-            producer_managed_provenance: Some(producer_managed_provenance),
-            producer_agent_evidence: None,
-        };
-        request.validate()?;
-        Ok(request)
-    }
-
     /// Structural candidate only. Admission must independently establish the
     /// actual accepted inception/purpose and execute the registered native unit.
     pub fn is_native_pcr_candidate(&self) -> bool {
         self.producer_device_evidence.is_none()
-            && self.producer_managed_provenance.is_none()
             && self.producer_agent_evidence.is_none()
             && self.event_submission.event.kind != EventKind::RealmCreate
             && arkret_wire::requirements_for(arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1)
@@ -915,7 +920,6 @@ impl PeerAuthorityForwardEventRequest {
             event_submission,
             mls_genesis_material,
             producer_device_evidence: None,
-            producer_managed_provenance: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
         request.validate()?;
@@ -935,7 +939,6 @@ impl PeerAuthorityForwardEventRequest {
             event_submission,
             mls_genesis_material,
             producer_device_evidence,
-            producer_managed_provenance: None,
             producer_agent_evidence: None,
         };
         request.validate()?;
@@ -970,14 +973,6 @@ impl PeerAuthorityForwardEventRequest {
             &self.event_submission.event,
             self.producer_agent_evidence.as_ref(),
         )?;
-        if let Some(source) = &self.producer_managed_provenance {
-            if self.producer_device_evidence.is_none() || self.producer_agent_evidence.is_some() {
-                return Err(WireError::Protocol(
-                    "managed provenance requires a real Account Device source".into(),
-                ));
-            }
-            source.validate()?;
-        }
         self.account_device_producer().map(drop)
     }
 
@@ -1001,28 +996,10 @@ pub struct PeerAuthorityForwardMlsRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_managed_provenance: Option<ForwardManagedActorProvenance>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
 impl PeerAuthorityForwardMlsRequest {
-    pub fn new_managed(
-        mls_submission: MlsCommitSubmission,
-        producer_device_evidence: ForwardAccountDeviceSignerEvidence,
-        producer_managed_provenance: ForwardManagedActorProvenance,
-    ) -> Result<Self> {
-        let request = Self {
-            branch: AuthorityForwardBranch::AuthorityForward,
-            mls_submission,
-            producer_device_evidence: Some(producer_device_evidence),
-            producer_managed_provenance: Some(producer_managed_provenance),
-            producer_agent_evidence: None,
-        };
-        request.validate()?;
-        Ok(request)
-    }
-
     pub fn new_agent(
         mls_submission: MlsCommitSubmission,
         producer_agent_evidence: AgentProducerEvidence,
@@ -1031,7 +1008,6 @@ impl PeerAuthorityForwardMlsRequest {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             producer_device_evidence: None,
-            producer_managed_provenance: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
         request.validate()?;
@@ -1047,7 +1023,6 @@ impl PeerAuthorityForwardMlsRequest {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             producer_device_evidence,
-            producer_managed_provenance: None,
             producer_agent_evidence: None,
         };
         request.validate()?;
@@ -1060,14 +1035,6 @@ impl PeerAuthorityForwardMlsRequest {
             &self.mls_submission.commit_event,
             self.producer_agent_evidence.as_ref(),
         )?;
-        if let Some(source) = &self.producer_managed_provenance {
-            if self.producer_device_evidence.is_none() || self.producer_agent_evidence.is_some() {
-                return Err(WireError::Protocol(
-                    "managed provenance requires a real Account Device source".into(),
-                ));
-            }
-            source.validate()?;
-        }
         self.account_device_producer().map(drop)
     }
 
@@ -1730,7 +1697,6 @@ impl AuthorityHandoffRequest {
             genesis.object.purpose,
             crate::events_payloads::RealmPurpose::PrincipalControl
                 | crate::events_payloads::RealmPurpose::AgentControl
-                | crate::events_payloads::RealmPurpose::AppletManagedControl
         );
         match (
             &self.pcr_private_state,
@@ -1946,6 +1912,30 @@ pub fn validate_new_producer_admission_fact(
     fact: Option<&HistoricalProducerSignerFact>,
     suite: arkret_canonical::DigestSuite,
 ) -> Result<()> {
+    if event.actor_id.as_realm_actor_id().is_some() {
+        return match fact {
+            Some(
+                fact @ (HistoricalProducerSignerFact::RealmDevice(_)
+                | HistoricalProducerSignerFact::RealmControl(_)),
+            ) => fact.validate_event_binding(event, suite),
+            _ => Err(WireError::Protocol(
+                "Realm actor requires its original Realm producer signer fact".into(),
+            )),
+        };
+    }
+    if matches!(
+        event.kind,
+        EventKind::RealmActorRecoveryBegin | EventKind::RealmActorControlReset
+    ) {
+        return match fact {
+            Some(HistoricalProducerSignerFact::RealmRecoveryService(f)) => {
+                f.validate_event_binding(event, suite)
+            }
+            _ => Err(WireError::Protocol(
+                "recovery Service requires its private original signer fact".into(),
+            )),
+        };
+    }
     match (event.account_device_producer()?, fact) {
         (Some(_), Some(HistoricalProducerSignerFact::AccountDevice(fact))) => {
             fact.validate_event_binding(event, suite)
@@ -2023,8 +2013,7 @@ pub fn validate_new_account_device_admission_fact_for_purpose(
             validate_new_producer_admission_fact(event, fact, suite)
         }
         crate::events_payloads::RealmPurpose::PrincipalControl
-        | crate::events_payloads::RealmPurpose::AgentControl
-        | crate::events_payloads::RealmPurpose::AppletManagedControl => {
+        | crate::events_payloads::RealmPurpose::AgentControl => {
             if fact.is_some() {
                 return Err(WireError::Protocol(
                     "native control Realm admission must not use ordinary Account Device signer facts"
@@ -2037,3 +2026,224 @@ pub fn validate_new_account_device_admission_fact_for_purpose(
 }
 
 include!("generated/authority_commit_contracts.rs");
+
+impl RealmRecoveryServiceHistoricalSignerFact {
+    pub fn digest(&self) -> Result<Hash> {
+        self.actor_id.validate()?;
+        validate_realm_signer_fact_key(&self.target_actor_id, &self.public_key_b64u)?;
+        if !matches!(self.actor_id, ActorId::Service { .. }) {
+            return Err(WireError::Protocol(
+                "recovery signer must be a Service".into(),
+            ));
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
+
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.digest()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        let control_stream = CommitStreamRef::RealmControl {
+            realm_id: event.realm_id.clone(),
+        };
+        let invalid = || {
+            WireError::Protocol(
+                "recovery Service fact differs from its original Event or authority sources".into(),
+            )
+        };
+        if self.event_id != event.event_id
+            || self.actor_id != event.actor_id
+            || event.executed_by.is_some()
+            || event.authorization_ref.is_some()
+            || event.applet_id.as_ref() != Some(&self.applet_id)
+            || self
+                .target_actor_id
+                .as_realm_actor_id()
+                .is_none_or(|a| a.realm_id != event.realm_id)
+            || event.scope_ref
+                != (arkret_wire::ScopeRef::RealmControl {
+                    realm_id: event.realm_id.clone(),
+                })
+            || event
+                .producer_proof
+                .as_ref()
+                .map(|p| &p.verification_method)
+                != Some(&self.verification_method)
+            || self.manager_ref.stream_ref != control_stream
+            || self.recovery_ref.stream_ref != control_stream
+            || event.payload.get("target_actor_id")
+                != Some(&serde_json::to_value(&self.target_actor_id)?)
+        {
+            return Err(invalid());
+        }
+        match event.kind {
+            EventKind::RealmActorRecoveryBegin => {
+                if event.payload.get("manager_ref")
+                    != Some(&serde_json::to_value(&self.manager_ref)?)
+                    || event.payload.get("recovery_ref")
+                        != Some(&serde_json::to_value(&self.recovery_ref)?)
+                {
+                    return Err(invalid());
+                }
+            }
+            EventKind::RealmActorControlReset => {
+                let revision = |r: &arkret_wire::CommittedEventRef| arkret_wire::CurrentRevision {
+                    commit_id: r.commit_id.clone(),
+                    stream_position: r.stream_position,
+                };
+                if event.payload.get("recovery_begin_ref")
+                    != Some(&serde_json::to_value(&self.recovery_ref)?)
+                    || event.payload.get("expected_recovery_revision")
+                        != Some(&serde_json::to_value(revision(&self.recovery_ref))?)
+                    || event.payload.get("expected_manager_revision")
+                        != Some(&serde_json::to_value(revision(&self.manager_ref))?)
+                {
+                    return Err(invalid());
+                }
+            }
+            _ => return Err(invalid()),
+        }
+        Ok(())
+    }
+
+    pub fn validate_commit_binding(
+        &self,
+        full: &arkret_wire::CommittedEventFullView,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        full.validate_shape()?;
+        self.validate_event_binding(&full.event, suite)?;
+        if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?)
+            || full.commit.committed_at != self.accepted_at
+            || self.manager_ref.stream_position >= full.commit.stream_position
+            || self.recovery_ref.stream_position >= full.commit.stream_position
+        {
+            return Err(WireError::Protocol(
+                "recovery Service fact is not bound to an original later Commit".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_realm_signer_fact_key(
+    actor: &ActorId,
+    public_key: &arkret_wire::Base64UrlString,
+) -> Result<()> {
+    actor.validate()?;
+    if actor.as_realm_actor_id().is_none()
+        || arkret_canonical::base64url_decode(public_key.as_str())?.len() != 32
+    {
+        return Err(WireError::Protocol(
+            "Realm signer fact requires a full Realm actor and Ed25519 key".into(),
+        ));
+    }
+    Ok(())
+}
+macro_rules! realm_fact_binding {
+    ($ty:ty) => {
+        impl $ty {
+            pub fn digest(&self) -> Result<Hash> {
+                validate_realm_signer_fact_key(&self.actor_id, &self.public_key_b64u)?;
+                Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+            }
+            pub fn validate_commit_binding(
+                &self,
+                full: &arkret_wire::CommittedEventFullView,
+                suite: arkret_canonical::DigestSuite,
+            ) -> Result<()> {
+                full.validate_shape()?;
+                self.validate_event_binding(&full.event, suite)?;
+                if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?)
+                    || full.commit.committed_at != self.accepted_at
+                {
+                    return Err(WireError::Protocol(
+                        "Realm producer fact is not bound by the original Commit".into(),
+                    ));
+                }
+                Ok(())
+            }
+        }
+    };
+}
+realm_fact_binding!(RealmDeviceHistoricalSignerFact);
+realm_fact_binding!(RealmControlHistoricalSignerFact);
+impl RealmDeviceHistoricalSignerFact {
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.digest()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        if self.event_id != event.event_id
+            || self.actor_id != event.actor_id
+            || event.executed_by.is_some()
+            || event
+                .actor_id
+                .as_realm_actor_id()
+                .is_none_or(|actor| actor.realm_id != event.realm_id)
+            || self.authorized_generation_ref == 0
+            || self
+                .verification_method
+                .as_str()
+                .rsplit_once('#')
+                .map(|(_, fragment)| fragment)
+                != Some(self.device_id.as_str())
+            || event
+                .producer_proof
+                .as_ref()
+                .map(|proof| &proof.verification_method)
+                != Some(&self.verification_method)
+            || !matches!(
+                event.scope_ref,
+                arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            )
+        {
+            return Err(WireError::Protocol(
+                "Realm Device historical fact differs from the exact Event".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+impl RealmControlHistoricalSignerFact {
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.digest()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        if self.event_id != event.event_id
+            || self.actor_id != event.actor_id
+            || event.executed_by.is_some()
+            || event.authorization_ref.is_some()
+            || event
+                .actor_id
+                .as_realm_actor_id()
+                .is_none_or(|actor| actor.realm_id != event.realm_id)
+            || event
+                .producer_proof
+                .as_ref()
+                .map(|proof| &proof.verification_method)
+                != Some(&self.verification_method)
+            || event.scope_ref
+                != (arkret_wire::ScopeRef::RealmControl {
+                    realm_id: event.realm_id.clone(),
+                })
+            || self.control_event_ref.stream_ref
+                != (CommitStreamRef::RealmControl {
+                    realm_id: event.realm_id.clone(),
+                })
+        {
+            return Err(WireError::Protocol(
+                "Realm control historical fact differs from the exact Event".into(),
+            ));
+        }
+        Ok(())
+    }
+}

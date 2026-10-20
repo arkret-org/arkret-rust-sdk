@@ -1,12 +1,9 @@
 //! Private durable management review carriers. Pending review grants no authority.
 use arkret_wire::{
-    ActorId, AppletId, ApprovalSignature, Event, Hash, ManagementOperation, ScopeRef,
-    event_kind_str,
+    ActorId, ApprovalSignature, Event, Hash, ManagementOperation, ScopeRef, event_kind_str,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::{AppletBotProvisionRequestBody, GhostActorProvisionRequestBody};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -15,14 +12,6 @@ pub enum ManagementReviewTarget {
     Event {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         event: Box<Event>,
-    },
-    BotCreation {
-        applet_id: AppletId,
-        request_body: Box<AppletBotProvisionRequestBody>,
-    },
-    GhostCreation {
-        applet_id: AppletId,
-        request_body: Box<GhostActorProvisionRequestBody>,
     },
 }
 
@@ -33,12 +22,6 @@ impl ManagementReviewTarget {
     pub fn canonical_target_digest(&self) -> arkret_wire::Result<Hash> {
         match self {
             Self::Event { event } => Ok(Hash::new(arkret_canonical::canonical_sha256(event)?)?),
-            Self::BotCreation { request_body, .. } => {
-                arkret_wire::management_creation_request_digest(request_body)
-            }
-            Self::GhostCreation { request_body, .. } => {
-                arkret_wire::management_creation_request_digest(request_body)
-            }
         }
     }
 }
@@ -68,51 +51,28 @@ impl ManagementReviewRequestBody {
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let valid = match (&self.management_operation, &self.target) {
-            (
-                ManagementOperation::CreateBot,
-                ManagementReviewTarget::BotCreation {
-                    applet_id,
-                    request_body,
-                },
-            ) => {
-                request_body.authoring_request.purpose
-                    == crate::AppletManagedActorPurpose::ProvisionBot
-                    && request_body
-                        .authoring_request
-                        .basis
-                        .bot()
-                        .is_some_and(|basis| {
-                            &basis.applet_id == applet_id
-                                && basis.effective_scope == self.effective_scope
-                                && self.requester_actor_id
-                                    == ActorId::service(basis.service_id.clone())
-                        })
-            }
-            (
-                ManagementOperation::MapGhost,
-                ManagementReviewTarget::GhostCreation {
-                    applet_id,
-                    request_body,
-                },
-            ) => {
-                request_body.validate().is_ok()
-                    && request_body
-                        .authoring_request
-                        .basis
-                        .ghost()
-                        .is_some_and(|basis| {
-                            &basis.applet_id == applet_id
-                                && basis.effective_scope == self.effective_scope
-                                && self.requester_actor_id
-                                    == ActorId::service(basis.service_id.clone())
-                        })
+            (ManagementOperation::CreateBot | ManagementOperation::MapGhost, ManagementReviewTarget::Event { event }) => {
+                serde_json::from_value::<crate::RealmActorCreatePayload>(serde_json::json!(&event.payload))
+                    .is_ok_and(|candidate| candidate.validate().is_ok()
+                        && event.kind == arkret_wire::EventKind::RealmActorCreate
+                        && event.actor_id == ActorId::service(candidate.service_id.clone())
+                        && event.realm_id == candidate.actor_id.as_realm_actor_id().unwrap().realm_id
+                        && event.scope_ref == (ScopeRef::RealmControl { realm_id: event.realm_id.clone() })
+                        && event.executed_by.is_none()
+                        && event.applet_id.as_ref() == Some(&candidate.applet_id)
+                        && event.authorization_ref.as_deref() == Some(candidate.creation_authorization_ref.as_str())
+                        && self.requester_actor_id == event.actor_id
+                        && candidate.creation_scope == self.effective_scope
+                        && matches!((&self.management_operation, candidate.actor_role),
+                            (ManagementOperation::CreateBot, crate::RealmActorCreatePayloadActorRole::Bot)
+                            | (ManagementOperation::MapGhost, crate::RealmActorCreatePayloadActorRole::Ghost)))
             }
             (ManagementOperation::Join, ManagementReviewTarget::Event { event }) => {
                 event.kind.as_str() == event_kind_str::MEMBER_STATE
                     || (event.kind.as_str() == event_kind_str::CIRCLE_MEMBER_STATE
                         && event.applet_id.is_some()
                         && event.executed_by.is_none()
-                        && matches!(event.actor_id, ActorId::Account { .. })
+                        && matches!(event.actor_id, ActorId::Realm { .. })
                         && serde_json::from_value::<arkret_models_collaboration::events_payloads::circle::CircleMemberStatePayload>(serde_json::json!(&event.payload))
                             .is_ok_and(|payload| payload.member_id == event.actor_id
                                 && payload.membership == arkret_models_collaboration::governance::circle::CircleMembership::Join
@@ -125,11 +85,31 @@ impl ManagementReviewRequestBody {
                     | event_kind_str::PROFILE_CREATE
                     | event_kind_str::PROFILE_UPDATE
             ),
-            _ => false,
         };
         let event_binding = match &self.target {
-            ManagementReviewTarget::Event { event } => event.scope_ref == self.effective_scope,
-            _ => true,
+            ManagementReviewTarget::Event { event } => {
+                event.kind == arkret_wire::EventKind::RealmActorCreate
+                    || (self.management_operation == ManagementOperation::Publish
+                        && matches!(
+                            event.kind,
+                            arkret_wire::EventKind::ProfileCreate
+                                | arkret_wire::EventKind::ProfileUpdate
+                        )
+                        && event
+                            .actor_id
+                            .as_realm_actor_id()
+                            .is_some_and(|actor| actor.realm_id == event.realm_id)
+                        && event.scope_ref
+                            == (ScopeRef::RealmControl {
+                                realm_id: event.realm_id.clone(),
+                            })
+                        && event.realm_id == *self.effective_scope.realm_id()
+                        && event.applet_id.is_some()
+                        && event.executed_by.is_none()
+                        && event.authorization_ref.is_none()
+                        && matches!(self.requester_actor_id, ActorId::Service { .. }))
+                    || event.scope_ref == self.effective_scope
+            }
         };
         if self.request_id.is_empty()
             || !valid

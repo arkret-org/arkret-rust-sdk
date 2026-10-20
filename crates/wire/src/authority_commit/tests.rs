@@ -114,12 +114,12 @@ fn approval_operation_shape_accepts_creation_carriers_without_opening_other_oper
 
     for (operation, management_operation, action) in [
         (
-            crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
+            crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1,
             ManagementOperation::CreateBot,
             CapabilityActionId::AppletBotProvision,
         ),
         (
-            crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
+            crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1,
             ManagementOperation::MapGhost,
             CapabilityActionId::AppletGhostProvision,
         ),

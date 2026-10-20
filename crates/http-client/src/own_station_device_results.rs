@@ -22,7 +22,7 @@ use arkret_models_identity::signer_key_operations::{
 };
 use arkret_models_integration::AppletManagedDeviceMetadata;
 use arkret_wire::{
-    AccountId, AppletId, CommitStreamRef, CommittedEventView, DeviceId, EventId, RealmId,
+    ActorId, AppletId, CommitStreamRef, CommittedEventView, DeviceId, EventId, RealmId,
     RealmSnapshotId, RealmStateSnapshot, ScopeRef, StreamScanOutcome, StreamScanRequest,
     TypedCurrentRow,
 };
@@ -141,7 +141,8 @@ impl Eq for OwnStationDeviceInstance {}
 #[derive(Clone, PartialEq, Eq)]
 pub struct OwnStationDeviceSnapshot {
     binding: OwnStationDeviceBinding,
-    account_id: AccountId,
+    actor_id: ActorId,
+    governance_generation: u64,
     device_id: DeviceId,
     authorization_event_id: EventId,
     applet_id: AppletId,
@@ -165,6 +166,7 @@ impl OwnStationDeviceSnapshot {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         binding: OwnStationDeviceBinding,
+        governance: &arkret_identity::VerifiedRealmAuthority,
         metadata: &AppletManagedDeviceMetadata,
         public_key: [u8; 32],
         not_before: DateTime<Utc>,
@@ -173,12 +175,19 @@ impl OwnStationDeviceSnapshot {
         instance: OwnStationDeviceInstance,
     ) -> Result<Self> {
         metadata.validate()?;
-        if binding.service_id != metadata.account_id.station_id || expires_at <= not_before {
+        if &binding.service_id != governance.current_service_id()
+            || metadata
+                .actor_id
+                .as_realm_actor_id()
+                .is_none_or(|actor| &actor.realm_id != governance.realm_id())
+            || expires_at <= not_before
+        {
             return Err(protocol("own Station Device binding or window is invalid"));
         }
         let snapshot = Self {
             binding,
-            account_id: metadata.account_id.clone(),
+            actor_id: metadata.actor_id.clone(),
+            governance_generation: governance.current_generation(),
             device_id: metadata.device_id.clone(),
             authorization_event_id: metadata.authorization_event_id.clone(),
             applet_id: metadata.applet_id.clone(),
@@ -193,8 +202,8 @@ impl OwnStationDeviceSnapshot {
         Ok(snapshot)
     }
 
-    pub fn account_id(&self) -> &AccountId {
-        &self.account_id
+    pub fn actor_id(&self) -> &ActorId {
+        &self.actor_id
     }
     pub fn device_id(&self) -> &DeviceId {
         &self.device_id
@@ -218,7 +227,7 @@ impl OwnStationDeviceSnapshot {
         Ok(())
     }
     fn matches_metadata(&self, metadata: &AppletManagedDeviceMetadata) -> bool {
-        self.account_id == metadata.account_id
+        self.actor_id == metadata.actor_id
             && self.device_id == metadata.device_id
             && self.authorization_event_id == metadata.authorization_event_id
             && self.applet_id == metadata.applet_id
@@ -292,7 +301,7 @@ impl OwnStationDeviceClient {
             || client.own_station_context.is_some()
             || client.service_signature_identity.is_some()
             || client.base_url.as_str() != context.binding.base_url
-            || destination != &context.account_id.station_id
+            || destination != &context.binding.service_id
             || !context.matches_metadata(metadata)
             || signer.key_id() != expected_key_id
             || signer.signing_key().verifying_key().to_bytes() != context.public_key
@@ -442,7 +451,9 @@ impl OwnStationDeviceClient {
     ) -> Result<BoundOwnStationDeviceResponse<SignerKeysQueryRequestBody, SignerKeysQueryOutcome>>
     {
         self.check_context()?;
-        if request.recipient_account_id != self.context.account_id {
+        if request.recipient_actor_id.as_ref() != Some(&self.context.actor_id)
+            || request.recipient_account_id.is_some()
+        {
             return Err(protocol(
                 "historical signer request belongs to another Account",
             ));
@@ -483,8 +494,7 @@ impl OwnStationDeviceClient {
         self.check_context()?;
         request.validate()?;
         if request.effective_scope != self.context.effective_scope
-            || request.caller_actor_id
-                != arkret_wire::ActorId::account(self.context.account_id.clone())
+            || request.caller_actor_id != self.context.actor_id
         {
             return Err(protocol(
                 "MLS material request differs from its native reader",
@@ -506,8 +516,7 @@ impl OwnStationDeviceClient {
         self.check_context()?;
         request.validate()?;
         if request.effective_scope != self.context.effective_scope
-            || request.caller_actor_id
-                != arkret_wire::ActorId::account(self.context.account_id.clone())
+            || request.caller_actor_id != self.context.actor_id
         {
             return Err(protocol(
                 "MLS roster request differs from its native reader",

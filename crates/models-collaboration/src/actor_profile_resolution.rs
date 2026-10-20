@@ -52,7 +52,10 @@ pub fn validate_resolved_actor_profile(row: &ResolvedActorProfile) -> Result<Act
             "resolved profile projection carries a foreign schema".to_owned(),
         ));
     }
-    if row.actor_profile.principal_id != *row.actor_id.signing_principal_id() {
+    if row.actor_profile.principal_id.as_ref() != Some(row.actor_id.signing_principal_id())
+        || row.actor_profile.actor_id.is_some()
+        || row.actor_id.as_realm_actor_id().is_some()
+    {
         return Err(WireError::Protocol(
             "resolved profile projection belongs to another principal".to_owned(),
         ));

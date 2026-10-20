@@ -363,7 +363,9 @@ impl OwnStationResultClient {
         request: &SignerKeysQueryRequestBody,
     ) -> Result<BoundOwnStationResponse<SignerKeysQueryRequestBody, SignerKeysQueryOutcome>> {
         self.check_session()?;
-        if &request.recipient_account_id != self.session.account_id() {
+        if request.recipient_account_id.as_ref() != Some(self.session.account_id())
+            || request.recipient_actor_id.is_some()
+        {
             return Err(protocol(
                 "historical signer request uses another full Account",
             ));

@@ -131,7 +131,7 @@ pub fn validate_self_principal_pcr_create(
                 .is_ok_and(|principal_id| principal_id == *event.actor_id.signing_principal_id())
         });
     if payload.object.purpose != RealmPurpose::PrincipalControl
-        || payload.object.governance_station_id != *event.actor_id.route_service_id()
+        || Some(&payload.object.governance_station_id) != event.actor_id.fixed_route_service_id()
         || !resolution_matches
     {
         return Err(WireError::Protocol(

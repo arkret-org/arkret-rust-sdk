@@ -671,6 +671,8 @@ pub enum ScopeRef {
     RealmGenesis,
     /// Realm-default security scope.
     Realm { realm_id: RealmId },
+    /// Private Applet actor control stream, never an MLS or business scope.
+    RealmControl { realm_id: RealmId },
     /// The named Circle's security scope inside `realm_id`.
     Circle {
         realm_id: RealmId,
@@ -705,8 +707,9 @@ impl ScopeRef {
     /// a `group_id`-only change — it silently re-keys every exported secret.
     pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
         match self {
-            Self::RealmGenesis => Err(WireError::Protocol(
-                "RealmGenesis has no executable MLS security scope".to_owned(),
+            Self::RealmGenesis | Self::RealmControl { .. } => Err(WireError::Protocol(
+                "genesis and Realm control streams have no executable MLS security scope"
+                    .to_owned(),
             )),
             Self::Realm { realm_id } => Ok(realm_id.as_str().as_bytes().to_vec()),
             Self::Circle { circle_id, .. } => Ok(circle_id.as_str().as_bytes().to_vec()),
@@ -770,8 +773,9 @@ impl ScopeRef {
     /// The hashed group id carries no scope or policy information.
     pub fn requires_public_mls_handshake(&self) -> Result<bool> {
         match self {
-            Self::RealmGenesis => Err(WireError::Protocol(
-                "RealmGenesis has no executable MLS security scope".to_owned(),
+            Self::RealmGenesis | Self::RealmControl { .. } => Err(WireError::Protocol(
+                "genesis and Realm control streams have no executable MLS security scope"
+                    .to_owned(),
             )),
             Self::Realm { .. } | Self::Circle { .. } | Self::Sidecar { .. } => Ok(true),
         }
@@ -785,6 +789,7 @@ impl ScopeRef {
         match self {
             Self::RealmGenesis => None,
             Self::Realm { realm_id }
+            | Self::RealmControl { realm_id }
             | Self::Circle { realm_id, .. }
             | Self::Sidecar { realm_id, .. } => Some(realm_id),
         }
@@ -803,7 +808,10 @@ impl ScopeRef {
     /// The Circle id when this scope is a Circle, otherwise `None`.
     pub fn circle_id(&self) -> Option<&CircleId> {
         match self {
-            Self::RealmGenesis | Self::Realm { .. } | Self::Sidecar { .. } => None,
+            Self::RealmGenesis
+            | Self::Realm { .. }
+            | Self::RealmControl { .. }
+            | Self::Sidecar { .. } => None,
             Self::Circle { circle_id, .. } => Some(circle_id),
         }
     }
@@ -812,7 +820,10 @@ impl ScopeRef {
     pub fn sidecar_id(&self) -> Option<&SidecarId> {
         match self {
             Self::Sidecar { sidecar_id, .. } => Some(sidecar_id),
-            Self::RealmGenesis | Self::Realm { .. } | Self::Circle { .. } => None,
+            Self::RealmGenesis
+            | Self::Realm { .. }
+            | Self::RealmControl { .. }
+            | Self::Circle { .. } => None,
         }
     }
 }
@@ -820,6 +831,34 @@ impl ScopeRef {
 #[cfg(test)]
 mod scope_mls_group_id_tests {
     use super::*;
+
+    #[test]
+    fn realm_control_is_a_separate_commit_stream_without_mls_scope() {
+        let (realm, ..) = kat_scopes();
+        let realm_id = realm.realm_id().clone();
+        let private = ScopeRef::RealmControl {
+            realm_id: realm_id.clone(),
+        };
+        let stream = crate::CommitStreamRef::from_scope(&private, None).unwrap();
+        assert_eq!(
+            stream,
+            crate::CommitStreamRef::RealmControl {
+                realm_id: realm_id.clone()
+            }
+        );
+        assert_eq!(stream.scope_ref(), private);
+        assert_eq!(stream.realm_id(), &realm_id);
+        assert_ne!(
+            stream,
+            crate::CommitStreamRef::from_scope(&realm, None).unwrap()
+        );
+        assert!(private.canonical_effective_scope_key_bytes().is_err());
+        assert!(private.canonical_mls_group_id().is_err());
+        assert!(private.requires_public_mls_handshake().is_err());
+        let value = serde_json::json!({"kind":"realm_control", "realm_id":realm_id});
+        assert_eq!(serde_json::to_value(&private).unwrap(), value);
+        assert_eq!(serde_json::from_value::<ScopeRef>(value).unwrap(), private);
+    }
 
     /// The three scopes of `fixtures/mls-group-id-derivation-fixture.json`.
     ///
@@ -1311,17 +1350,37 @@ impl Event {
     }
 
     /// Enforce the signed-Applet-provenance invariants from
-    /// `event-envelope.schema.json` (`allOf` §262): `external_ref` is only
-    /// meaningful when bound to a signed `applet_id`, and any Applet-originated
-    /// write (`applet_id` present) MUST cite the accepted authorization grant
-    /// via `authorization_ref`.
+    /// `event-envelope.schema.json`: Applet business writes cite their grant;
+    /// the closed Realm control and recovery branches use independent authority.
     fn validate_applet_provenance_invariants(&self) -> std::result::Result<(), String> {
         if self.external_ref.is_some() && self.applet_id.is_none() {
             return Err(
                 "event external_ref requires a signed applet_id (event-envelope allOf)".to_owned(),
             );
         }
-        if self.applet_id.is_some() && self.authorization_ref.is_none() {
+        let private_control = matches!(self.scope_ref, ScopeRef::RealmControl { .. })
+            && ((self.actor_id.as_realm_actor_id().is_some()
+                && matches!(
+                    self.kind,
+                    EventKind::RealmActorControlUpdate
+                        | EventKind::RealmActorStatusSet
+                        | EventKind::RealmActorDevicesReset
+                        | EventKind::RealmActorManagerChange
+                        | EventKind::DeviceAuthorize
+                        | EventKind::DeviceRevoke
+                        | EventKind::ProfileCreate
+                        | EventKind::ProfileUpdate
+                ))
+                || (matches!(self.actor_id, ActorId::Service { .. })
+                    && matches!(
+                        self.kind,
+                        EventKind::RealmActorRecoveryBegin | EventKind::RealmActorControlReset
+                    )));
+        if self.applet_id.is_some() && private_control {
+            if self.authorization_ref.is_some() || self.executed_by.is_some() {
+                return Err("Realm control and recovery Events forbid business authorization_ref and executed_by".into());
+            }
+        } else if self.applet_id.is_some() && self.authorization_ref.is_none() {
             return Err(
                 "event applet_id requires authorization_ref (event-envelope allOf)".to_owned(),
             );
@@ -1765,6 +1824,62 @@ mod event_wire_surface_tests {
         assert!(event.validate_for_submit_structural().is_err());
         event.producer_proof = Some(producer_proof());
         event.validate_for_submit_structural().unwrap();
+    }
+
+    #[test]
+    fn realm_control_authority_does_not_become_a_business_grant_bypass() {
+        let mut event = base_event();
+        event.applet_id =
+            Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
+        event.actor_id = ActorId::realm(crate::RealmActorId {
+            realm_id: event.realm_id.clone(),
+            principal_id: event.actor_id.signing_principal_id().clone(),
+        });
+        event.scope_ref = ScopeRef::RealmControl {
+            realm_id: event.realm_id.clone(),
+        };
+        for kind in [
+            EventKind::DeviceAuthorize,
+            EventKind::DeviceRevoke,
+            EventKind::ProfileCreate,
+            EventKind::ProfileUpdate,
+            EventKind::RealmActorControlUpdate,
+            EventKind::RealmActorStatusSet,
+            EventKind::RealmActorDevicesReset,
+            EventKind::RealmActorManagerChange,
+        ] {
+            event.kind = kind;
+            serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).unwrap();
+        }
+        let control = event.clone();
+        event.kind = EventKind::MessageCreate;
+        assert!(serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).is_err());
+        event = control.clone();
+        event.scope_ref = ScopeRef::Realm {
+            realm_id: event.realm_id.clone(),
+        };
+        assert!(serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).is_err());
+        event = control.clone();
+        event.actor_id = base_event().actor_id;
+        assert!(serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).is_err());
+        event = control;
+        event.actor_id = ActorId::service(event.actor_id.signing_principal_id().clone());
+        for kind in [
+            EventKind::RealmActorRecoveryBegin,
+            EventKind::RealmActorControlReset,
+        ] {
+            event.kind = kind;
+            serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).unwrap();
+        }
+        let mut delegated = event.clone();
+        delegated.executed_by = Some(event.actor_id.clone());
+        assert!(
+            serde_json::from_value::<Event>(serde_json::to_value(&delegated).unwrap()).is_err()
+        );
+        event.authorization_ref = Some(
+            AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM").unwrap(),
+        );
+        assert!(serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).is_err());
     }
 
     #[test]

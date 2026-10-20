@@ -126,6 +126,7 @@ fn account_actor_principal(actor_id: &ActorId) -> Result<DidCoreId> {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArkretMlsIdentityProfile {
     HumanDevice,
+    RealmDevice,
     Agent {
         verification_method: DidUrl,
         agent_key_authorize_event_id: arkret_wire::EventId,
@@ -134,7 +135,42 @@ pub enum ArkretMlsIdentityProfile {
 
 impl ArkretMlsIdentityProfile {
     pub(super) fn credential_bytes(&self, actor_id: &ActorId) -> Result<Vec<u8>> {
+        let valid = match self {
+            Self::RealmDevice => actor_id.as_realm_actor_id().is_some(),
+            Self::HumanDevice | Self::Agent { .. } => actor_id.as_account_id().is_some(),
+        };
+        if !valid {
+            return Err(Error::Protocol(
+                "MLS profile does not match its complete ActorId".into(),
+            ));
+        }
         mls_basic_credential_identity(actor_id).map_err(Into::into)
+    }
+
+    fn validate_endpoint(&self, endpoint: &MlsEndpointIdentity) -> Result<()> {
+        let valid = match (self, endpoint) {
+            (Self::HumanDevice | Self::RealmDevice, MlsEndpointIdentity::HumanDevice { .. }) => {
+                true
+            }
+            (
+                Self::Agent {
+                    verification_method,
+                    agent_key_authorize_event_id,
+                },
+                MlsEndpointIdentity::AgentRuntime {
+                    verification_method: method,
+                    agent_key_authorize_event_id: authorization,
+                    ..
+                },
+            ) => method == verification_method && authorization == agent_key_authorize_event_id,
+            _ => false,
+        };
+        if !valid {
+            return Err(Error::Protocol(
+                "MLS profile differs from its endpoint authorization".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -203,6 +239,25 @@ impl ArkretMlsIdentity {
         )
     }
 
+    /// Build a Device MLS endpoint whose complete identity belongs to a Realm.
+    pub fn new_realm_device(
+        actor_id: ActorId,
+        device_id: DeviceId,
+        signer: ArkretMlsSigner,
+    ) -> Result<Self> {
+        let principal = actor_id
+            .as_realm_actor_id()
+            .ok_or_else(|| Error::Protocol("Realm Device requires a Realm ActorId".into()))?
+            .principal_id
+            .clone();
+        Self::new_with_signer(
+            actor_id,
+            MlsEndpointIdentity::human_device(principal, device_id),
+            ArkretMlsIdentityProfile::RealmDevice,
+            signer.0,
+        )
+    }
+
     pub fn new_agent(
         actor_id: ActorId,
         verification_method: DidUrl,
@@ -233,6 +288,7 @@ impl ArkretMlsIdentity {
         signer: SignatureKeyPair,
     ) -> Result<Self> {
         actor_id.validate()?;
+        profile.validate_endpoint(&endpoint)?;
         if endpoint.principal_id() != actor_id.signing_principal_id() {
             return Err(Error::Protocol(
                 "MLS endpoint selector differs from complete ActorId".to_owned(),
@@ -364,7 +420,7 @@ impl ArkretMlsIdentity {
         let (principal_id, device_id, agent_verification_method, agent_key_authorize_event_id) =
             match (&self.profile, &self.endpoint) {
                 (
-                    ArkretMlsIdentityProfile::HumanDevice,
+                    ArkretMlsIdentityProfile::HumanDevice | ArkretMlsIdentityProfile::RealmDevice,
                     MlsEndpointIdentity::HumanDevice {
                         principal_id,
                         device_id,
@@ -425,6 +481,23 @@ impl ArkretMlsIdentity {
                     principal_id,
                     device_id,
                 },
+                RecipientMlsDurableSigner::RealmDevice {
+                    recipient_actor_id,
+                    recipient_device_id,
+                    device_verification_method,
+                },
+            ) if &self.actor_id == recipient_actor_id
+                && recipient_actor_id.as_realm_actor_id().is_some()
+                && recipient_actor_id.signing_principal_id() == principal_id
+                && recipient_device_id == device_id =>
+            {
+                device_verification_method
+            }
+            (
+                MlsEndpointIdentity::HumanDevice {
+                    principal_id,
+                    device_id,
+                },
                 RecipientMlsDurableSigner::Device {
                     recipient_account_id,
                     recipient_device_id,
@@ -478,6 +551,15 @@ impl ArkretMlsIdentity {
         claim_id: KeypackageClaimId,
         recipient_durable_receipt: RecipientMlsDurableReceipt,
     ) -> Result<KeyPackagesConsumeRequestBody> {
+        let verified =
+            self.sign_recipient_mls_durable_receipt(recipient_durable_receipt.clone())?;
+        if canonical::canonical_json_bytes(&verified)?
+            != canonical::canonical_json_bytes(&recipient_durable_receipt)?
+        {
+            return Err(Error::Protocol(
+                "consume requires this endpoint's original signed durable receipt".into(),
+            ));
+        }
         let unsigned = KeyPackagesConsumeUnsignedRequest {
             claim_id,
             recipient_durable_receipt,
@@ -487,6 +569,10 @@ impl ArkretMlsIdentity {
             .map_err(|error| Error::Protocol(error.to_owned()))?;
         let method = match &unsigned.recipient_durable_receipt.recipient {
             RecipientMlsDurableSigner::Device {
+                device_verification_method,
+                ..
+            }
+            | RecipientMlsDurableSigner::RealmDevice {
                 device_verification_method,
                 ..
             } => device_verification_method,
@@ -596,6 +682,8 @@ impl ArkretMlsIdentity {
                 "unsupported OpenMLS identity state snapshot".to_owned(),
             ));
         }
+        snapshot.actor_id.validate()?;
+        snapshot.profile.validate_endpoint(&snapshot.endpoint)?;
         if snapshot.actor_id != expected_actor_id || snapshot.endpoint != expected_endpoint {
             return Err(Error::Protocol(
                 "OpenMLS identity state snapshot metadata mismatch".to_owned(),

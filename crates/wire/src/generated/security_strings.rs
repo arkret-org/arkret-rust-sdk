@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-17.1;
-//! sha256=1bcd75844906d912d2f5c0fcc86a8e81a32e9c12dceeee4ebee4a0829cf8ff1b Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-20.1;
+//! sha256=d59abfd9168e40d0bcdda1bc55a942f2bcf4fc4a1eefb0b405fbd0b2016a2193 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=40, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=46, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -322,8 +322,9 @@ impl ProofContextId {
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
+    AppletConfigurationCommandV1,
+    AppletConfigurationOutcomeV1,
     AppletManagedActorAuthoringRequestProofV1,
-    AppletManagedActorBundleProofV1,
     ApprovalSignatureV1,
     CallInvitationAdmissionV1,
     CallInvitationV1,
@@ -335,8 +336,8 @@ pub enum DomainSeparationId {
     ContactRequestSourceCheckpointV1,
     ControllerAccountGateV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
-    DeviceAuthorizeAppletManagedPossessionProofV1,
     DeviceAuthorizePossessionProofV1,
+    DeviceAuthorizeRealmActorPossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
@@ -354,6 +355,11 @@ pub enum DomainSeparationId {
     PeerContactControlReceiptV1,
     PeerContactMirrorReceiptV1,
     RealmOrganizationStatementV1,
+    RealmActorControlAcceptanceSignatureV1,
+    RealmActorCreationSignatureV1,
+    RealmActorManagerAcceptanceSignatureV1,
+    RealmActorMaterialSignatureV1,
+    RealmActorRecoveryAcceptanceSignatureV1,
     RealmAuthorityCurrentAssertionSignatureV1,
     RealmAuthorityHandoffNewAcceptanceSignatureV1,
     RealmAuthorityHandoffOldSignatureV1,
@@ -366,8 +372,9 @@ impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
+        Self::AppletConfigurationCommandV1,
+        Self::AppletConfigurationOutcomeV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
-        Self::AppletManagedActorBundleProofV1,
         Self::ApprovalSignatureV1,
         Self::CallInvitationAdmissionV1,
         Self::CallInvitationV1,
@@ -379,8 +386,8 @@ impl DomainSeparationId {
         Self::ContactRequestSourceCheckpointV1,
         Self::ControllerAccountGateV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
-        Self::DeviceAuthorizeAppletManagedPossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
+        Self::DeviceAuthorizeRealmActorPossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
@@ -398,6 +405,11 @@ impl DomainSeparationId {
         Self::PeerContactControlReceiptV1,
         Self::PeerContactMirrorReceiptV1,
         Self::RealmOrganizationStatementV1,
+        Self::RealmActorControlAcceptanceSignatureV1,
+        Self::RealmActorCreationSignatureV1,
+        Self::RealmActorManagerAcceptanceSignatureV1,
+        Self::RealmActorMaterialSignatureV1,
+        Self::RealmActorRecoveryAcceptanceSignatureV1,
         Self::RealmAuthorityCurrentAssertionSignatureV1,
         Self::RealmAuthorityHandoffNewAcceptanceSignatureV1,
         Self::RealmAuthorityHandoffOldSignatureV1,
@@ -409,10 +421,10 @@ impl DomainSeparationId {
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.agent_authority_state_evidence.v1";
+    pub const APPLET_CONFIGURATION_COMMAND_V1: &'static str = "ak.applet.configuration_command.v1";
+    pub const APPLET_CONFIGURATION_OUTCOME_V1: &'static str = "ak.applet.configuration_outcome.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
         "ak.applet_managed_actor_authoring_request_proof.v1";
-    pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
-        "ak.applet_managed_actor_bundle_proof.v1";
     pub const APPROVAL_SIGNATURE_V1: &'static str = "ak.approval.signature.v1";
     pub const CALL_INVITATION_ADMISSION_V1: &'static str = "ak.call.invitation.admission.v1";
     pub const CALL_INVITATION_V1: &'static str = "ak.call.invitation.v1";
@@ -428,10 +440,10 @@ impl DomainSeparationId {
     pub const CONTROLLER_ACCOUNT_GATE_V1: &'static str = "ak.controller_account_gate.v1";
     pub const DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_accepted_device_possession_proof.v1";
-    pub const DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1: &'static str =
-        "ak.device_authorize_applet_managed_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_possession_proof.v1";
+    pub const DEVICE_AUTHORIZE_REALM_ACTOR_POSSESSION_PROOF_V1: &'static str =
+        "ak.device_authorize_realm_actor_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_recovery_possession_proof.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
@@ -458,6 +470,16 @@ impl DomainSeparationId {
     pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer_contact.control_receipt.v1";
     pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer_contact.mirror_receipt.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
+    pub const REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_control_acceptance_signature.v1";
+    pub const REALM_ACTOR_CREATION_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_creation_signature.v1";
+    pub const REALM_ACTOR_MANAGER_ACCEPTANCE_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_manager_acceptance_signature.v1";
+    pub const REALM_ACTOR_MATERIAL_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_material_signature.v1";
+    pub const REALM_ACTOR_RECOVERY_ACCEPTANCE_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_recovery_acceptance_signature.v1";
     pub const REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1: &'static str =
         "ak.realm_authority_current_assertion_signature.v1";
     pub const REALM_AUTHORITY_HANDOFF_NEW_ACCEPTANCE_SIGNATURE_V1: &'static str =
@@ -472,10 +494,11 @@ impl DomainSeparationId {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
+            Self::AppletConfigurationCommandV1 => Self::APPLET_CONFIGURATION_COMMAND_V1,
+            Self::AppletConfigurationOutcomeV1 => Self::APPLET_CONFIGURATION_OUTCOME_V1,
             Self::AppletManagedActorAuthoringRequestProofV1 => {
                 Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
             }
-            Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
             Self::ApprovalSignatureV1 => Self::APPROVAL_SIGNATURE_V1,
             Self::CallInvitationAdmissionV1 => Self::CALL_INVITATION_ADMISSION_V1,
             Self::CallInvitationV1 => Self::CALL_INVITATION_V1,
@@ -489,10 +512,10 @@ impl DomainSeparationId {
             Self::DeviceAuthorizeAcceptedDevicePossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
-            Self::DeviceAuthorizeAppletManagedPossessionProofV1 => {
-                Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1
-            }
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
+            Self::DeviceAuthorizeRealmActorPossessionProofV1 => {
+                Self::DEVICE_AUTHORIZE_REALM_ACTOR_POSSESSION_PROOF_V1
+            }
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
             }
@@ -516,6 +539,17 @@ impl DomainSeparationId {
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
             Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
+            Self::RealmActorControlAcceptanceSignatureV1 => {
+                Self::REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmActorCreationSignatureV1 => Self::REALM_ACTOR_CREATION_SIGNATURE_V1,
+            Self::RealmActorManagerAcceptanceSignatureV1 => {
+                Self::REALM_ACTOR_MANAGER_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmActorMaterialSignatureV1 => Self::REALM_ACTOR_MATERIAL_SIGNATURE_V1,
+            Self::RealmActorRecoveryAcceptanceSignatureV1 => {
+                Self::REALM_ACTOR_RECOVERY_ACCEPTANCE_SIGNATURE_V1
+            }
             Self::RealmAuthorityCurrentAssertionSignatureV1 => {
                 Self::REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1
             }
@@ -535,11 +569,10 @@ impl DomainSeparationId {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
+            Self::APPLET_CONFIGURATION_COMMAND_V1 => Some(Self::AppletConfigurationCommandV1),
+            Self::APPLET_CONFIGURATION_OUTCOME_V1 => Some(Self::AppletConfigurationOutcomeV1),
             Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
                 Some(Self::AppletManagedActorAuthoringRequestProofV1)
-            }
-            Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
-                Some(Self::AppletManagedActorBundleProofV1)
             }
             Self::APPROVAL_SIGNATURE_V1 => Some(Self::ApprovalSignatureV1),
             Self::CALL_INVITATION_ADMISSION_V1 => Some(Self::CallInvitationAdmissionV1),
@@ -556,11 +589,11 @@ impl DomainSeparationId {
             Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeAcceptedDevicePossessionProofV1)
             }
-            Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1 => {
-                Some(Self::DeviceAuthorizeAppletManagedPossessionProofV1)
-            }
             Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizePossessionProofV1)
+            }
+            Self::DEVICE_AUTHORIZE_REALM_ACTOR_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizeRealmActorPossessionProofV1)
             }
             Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
@@ -589,6 +622,17 @@ impl DomainSeparationId {
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
             Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
+            Self::REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1 => {
+                Some(Self::RealmActorControlAcceptanceSignatureV1)
+            }
+            Self::REALM_ACTOR_CREATION_SIGNATURE_V1 => Some(Self::RealmActorCreationSignatureV1),
+            Self::REALM_ACTOR_MANAGER_ACCEPTANCE_SIGNATURE_V1 => {
+                Some(Self::RealmActorManagerAcceptanceSignatureV1)
+            }
+            Self::REALM_ACTOR_MATERIAL_SIGNATURE_V1 => Some(Self::RealmActorMaterialSignatureV1),
+            Self::REALM_ACTOR_RECOVERY_ACCEPTANCE_SIGNATURE_V1 => {
+                Some(Self::RealmActorRecoveryAcceptanceSignatureV1)
+            }
             Self::REALM_AUTHORITY_CURRENT_ASSERTION_SIGNATURE_V1 => {
                 Some(Self::RealmAuthorityCurrentAssertionSignatureV1)
             }

@@ -507,12 +507,10 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         .collect::<BTreeSet<_>>();
     let mut overridden_actions = BTreeSet::new();
     for row in &approval.action_overrides {
-        let expected_approver_action = match row.action.as_str() {
-            "ak.applet.bot.provision" | "ak.applet.ghost.provision" => Some("ak.realm.admin"),
-            _ => None,
-        };
-        if row.approver_capability_action.as_deref() != expected_approver_action {
-            bail!("incorrect approver capability action for {}", row.action);
+        if let Some(approver_action) = row.approver_capability_action.as_deref()
+            && !actions.contains(approver_action)
+        {
+            bail!("unknown approver capability action for {}", row.action);
         }
         if !overridden_actions.insert(row.action.as_str()) {
             bail!("duplicate approval eligibility override for {}", row.action);
@@ -1462,6 +1460,26 @@ mod tests {
 
     fn spec_artifacts() -> PathBuf {
         crate::spec_artifacts()
+    }
+
+    #[test]
+    fn approval_actions_follow_registered_contract_and_reject_unknown_references() {
+        let mut inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+        validate(&inputs).expect("current formal approval actions");
+        let row = inputs
+            .capability_actions
+            .approval_requirement_eligibility
+            .action_overrides
+            .iter_mut()
+            .find(|row| row.approver_capability_action.is_some())
+            .expect("registered approver action");
+        row.approver_capability_action = Some("ak.unknown.approval".to_owned());
+        assert!(
+            validate(&inputs)
+                .unwrap_err()
+                .to_string()
+                .contains("unknown approver capability action")
+        );
     }
 
     #[test]

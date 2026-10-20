@@ -391,6 +391,19 @@ impl VerifiedRealmAuthority {
             .map(|authority| &authority.service_id)
     }
 
+    /// Match an exact current authority reference without accepting an unverified route hint.
+    pub fn binds_current_authority(
+        &self,
+        generation: u64,
+        reference: &RealmCommitAuthorityRef,
+    ) -> bool {
+        generation == self.current_generation
+            && self
+                .generations
+                .get(&generation)
+                .is_some_and(|authority| authority.admits(reference))
+    }
+
     /// Verify one `RealmCommit` against the generation that actually held
     /// authority when it was made.
     ///

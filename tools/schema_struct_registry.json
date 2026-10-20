@@ -1577,32 +1577,52 @@
       "schema": "typed-current-result.schema.json#/$defs/call_moderation_entry"
     },
     {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationAcceptedEvent",
-      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_accepted_event"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedCreationOriginals",
-      "schema": "authority-commit-operations.schema.json#/$defs/managed_creation_originals"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedProfileCurrent",
-      "schema": "authority-commit-operations.schema.json#/$defs/managed_profile_current"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedAccountabilityCurrent",
-      "schema": "authority-commit-operations.schema.json#/$defs/managed_accountability_current"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ManagedIdentityCurrent",
-      "schema": "authority-commit-operations.schema.json#/$defs/managed_identity_current"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/authority_commit/managed_provenance.rs::ForwardManagedActorProvenance",
-      "schema": "authority-commit-operations.schema.json#/$defs/forward_managed_actor_provenance"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::ScopeReadReceiptPolicyCurrent",
       "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmDeviceHistoricalSignerFactKind",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact/properties/kind"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmDeviceHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmControlHistoricalSignerFactKind",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact/properties/kind"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmControlHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmRecoveryServiceHistoricalSignerFactKind",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_recovery_service_historical_signer_fact/properties/kind"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmRecoveryServiceHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_recovery_service_historical_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_actor_control_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorManagerValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_actor_manager_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_actor_recovery_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDeviceGenerationValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_generation_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDeviceAuthorizationValue",
+      "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value"
     }
   ],
   "exemptions": [

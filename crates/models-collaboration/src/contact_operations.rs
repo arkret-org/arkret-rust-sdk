@@ -183,7 +183,7 @@ impl ContactProducerSigner {
             controller_account_id,
             ..
         } = holder
-            && (event.actor_id.route_service_id() != &controller_account_id.station_id
+            && (event.actor_id.fixed_route_service_id() != Some(&controller_account_id.station_id)
                 || event.executed_by.as_ref().is_some_and(|executor| {
                     executor != &ActorId::account(controller_account_id.clone())
                 }))

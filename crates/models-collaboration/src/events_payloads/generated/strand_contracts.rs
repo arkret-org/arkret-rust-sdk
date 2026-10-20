@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
+// sha256=140d80954da7fc35c298320ecd75b1ee6c9fc268ffbbfccbab10a19f879f3468
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `event-payload.schema.json#/$defs/strand_create_payload`.
 /// Counterpart for
@@ -34,7 +34,7 @@ pub struct StrandStageSetPayload {
 /// (`event-payload.schema.json#/$defs/strand_move_payload`).
 ///
 /// Moves a Strand between List Spaces. The destination is single-sourced by
-/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the
+/// `target_space_id` â€” writers MUST NOT put `list_space_id` directly on the
 /// payload (`additionalProperties:false` enforces this; the reducer compiles
 /// `target_space_id` into the position cell). `from_space_id` is an optional
 /// hint the reducer can infer. Required: `board_space_id`, `strand_id`,

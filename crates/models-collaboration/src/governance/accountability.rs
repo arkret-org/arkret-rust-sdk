@@ -237,7 +237,7 @@ impl AccountabilityGrantPayload {
 
     pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {
         self.validate_lifecycle_at(now)?;
-        if self.subject_id != profile.principal_id {
+        if Some(&self.subject_id) != profile.principal_id.as_ref() || profile.actor_id.is_some() {
             return Err(WireError::Protocol(
                 "accountability_grant subject_id does not match actor profile principal_id"
                     .to_owned(),
@@ -246,6 +246,7 @@ impl AccountabilityGrantPayload {
         if !profile
             .accountable_principal_ids
             .iter()
+            .flatten()
             .any(|principal_id| principal_id.as_core_id() == self.issuer_id.as_core_id())
         {
             return Err(WireError::Protocol(

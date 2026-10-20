@@ -81,14 +81,15 @@ pub fn verify_mls_add_authority_attestation_signature(
 /// governance retains the signed minimal attestation.
 pub fn verify_mls_attest_add_request(
     request: &MlsAttestAddRequestBody,
-    resolution: &AuthenticatedServiceResolution,
+    claim_issuer_resolution: &AuthenticatedServiceResolution,
+    attestor_resolution: &AuthenticatedServiceResolution,
 ) -> Result<(), WireError> {
     request.validate_claim_binding()?;
     verify_peer_keypackage_claim_receipt_signature(
         &request.claim_outcome.claim_receipt,
-        resolution,
+        claim_issuer_resolution,
     )?;
-    verify_mls_add_authority_attestation_signature(&request.attestation, resolution)
+    verify_mls_add_authority_attestation_signature(&request.attestation, attestor_resolution)
 }
 
 /// Verify the governance Station's signature and exact selector binding for
@@ -141,17 +142,20 @@ pub fn verify_mls_roster_authority_pages(
     verify_roster_page_set(pages, |record| {
         if let MlsRosterRecord::Add {
             attestation,
+            claim_issuer_resolution,
             attestor_resolution,
             ..
         } = record
         {
             verify_station_signature(
-                &attestation.attestor_station_id,
+                &attestation.claim_receipt.destination_id,
                 attestation.claim_receipt.claimed_at,
                 &attestation.claim_receipt.signature,
                 &peer_keypackage_claim_receipt_signing_bytes(&attestation.claim_receipt)
                     .map_err(|error| WireError::Protocol(error.to_string()))?,
-                attestor_resolution,
+                claim_issuer_resolution
+                    .as_ref()
+                    .unwrap_or(attestor_resolution),
             )?;
             verify_mls_add_authority_attestation_signature(attestation, attestor_resolution)?;
         }
@@ -247,11 +251,6 @@ fn verify_roster_page_set(
                         "MLS roster Add chronology conflicts with signed order".to_owned(),
                     ));
                 }
-                if attestation.claim_receipt.destination_id != attestation.attestor_station_id {
-                    return Err(WireError::Protocol(
-                        "MLS roster Add claim receipt names another Station".to_owned(),
-                    ));
-                }
                 verify_add(record)?;
                 previous_add = Some((
                     attestation.commit_stream_position,
@@ -334,26 +333,26 @@ pub fn project_mls_self_roster_authority_page(
         record.validate_shape()?;
         if let MlsRosterRecord::Add {
             attestation,
+            claim_issuer_resolution,
             attestor_resolution,
             ..
         } = record
         {
             let station = &attestation.attestor_station_id;
             let receipt = &attestation.claim_receipt;
-            if receipt.destination_id != *station {
-                return Err(roster_error("MLS claim belongs to another Station"));
-            }
             add_signing_keys.push(MlsRosterAddSigningKeys {
                 record_digest: arkret_wire::Hash::new(
                     arkret_canonical::canonical_sha256(record).map_err(roster_error)?,
                 )
                 .map_err(roster_error)?,
                 claim_receipt_signing_key: station_signing_key(
-                    station,
+                    &receipt.destination_id,
                     receipt.claimed_at,
                     &receipt.signature,
                     &peer_keypackage_claim_receipt_signing_bytes(receipt).map_err(roster_error)?,
-                    attestor_resolution,
+                    claim_issuer_resolution
+                        .as_ref()
+                        .unwrap_or(attestor_resolution),
                 )?,
                 attestation_signing_key: station_signing_key(
                     station,
@@ -493,7 +492,7 @@ pub fn verify_mls_self_roster_authority_pages(
                 }
                 let receipt = &attestation.claim_receipt;
                 verify_self_station_signature(
-                    &attestation.attestor_station_id,
+                    &receipt.destination_id,
                     &receipt.signature,
                     &peer_keypackage_claim_receipt_signing_bytes(receipt).map_err(roster_error)?,
                     &key.claim_receipt_signing_key,

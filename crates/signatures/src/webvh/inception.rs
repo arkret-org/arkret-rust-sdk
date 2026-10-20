@@ -785,7 +785,7 @@ pub struct AgentInceptionInput<'a> {
 }
 
 /// Independent Applet-managed Principal history and operational controller key.
-pub struct AppletManagedInceptionInput<'a> {
+pub struct RealmActorInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
     pub version_time: DateTime<Utc>,
@@ -874,8 +874,8 @@ pub fn prepare_agent_inception(
 /// Prepare an Applet-managed Principal with its own operational controller
 /// method. The method key is separate from both native history update keys;
 /// neither an Agent delegation nor a Device is created by this inception.
-pub fn prepare_applet_managed_inception(
-    input: &AppletManagedInceptionInput<'_>,
+pub fn prepare_realm_actor_inception(
+    input: &RealmActorInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     let controller_key = encode_ed25519_pubkey_multibase(input.controller_public_key);
     prepare_identity_inception(
@@ -888,7 +888,7 @@ pub fn prepare_applet_managed_inception(
         input.next_root_public_key_multibase,
         None,
         false,
-        |did, endpoint| {
+        |did, _endpoint| {
             let method = format!("{did}#managed-controller");
             Ok(json!({
                 "@context": ["https://www.w3.org/ns/did/v1"],
@@ -898,7 +898,6 @@ pub fn prepare_applet_managed_inception(
                 "authentication": [method],
                 "assertionMethod": [method],
                 "alsoKnownAs": [],
-                "service": [station_document_service(did, endpoint)?],
             }))
         },
         |did, document, roots| {

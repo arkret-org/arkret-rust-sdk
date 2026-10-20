@@ -8,7 +8,7 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `moderation-queue-item.schema.json`.
 /// One report item of the moderation queue View
@@ -16,7 +16,7 @@
 ///
 /// The item is a read-side View over the accepted `moderation_report` typed
 /// current result and the `moderation_state` records that point at it, not a
-/// second stored state (content-moderation.md §3.3): `id` is the report Event
+/// second stored state (content-moderation.md Â§3.3): `id` is the report Event
 /// id retyped to `moderation_queue_item`, `report` is the complete accepted
 /// report payload and `created_at` the accepting Commit time.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -5,7 +5,7 @@ use super::*;
 use crate::{DidCoreId, ProofContextId};
 
 /// Complete protocol identity for one principal at one Station, including
-/// human accounts, Agents and integration actors. This identity does
+/// human accounts and personal Agents. This identity does
 /// not select a credential class, provisioning workflow or authorization.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -46,6 +46,66 @@ impl fmt::Display for AccountId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let canonical = self.canonical_key().map_err(|_| fmt::Error)?;
         formatter.write_str(&canonical)
+    }
+}
+
+/// Permanent identity of an Applet Bot or Ghost inside one Realm.
+/// Governance changes never change either component of this identity.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct RealmActorId {
+    pub realm_id: RealmId,
+    #[serde(deserialize_with = "deserialize_realm_actor_principal")]
+    pub principal_id: DidCoreId,
+}
+
+fn deserialize_realm_actor_principal<'de, D>(
+    deserializer: D,
+) -> std::result::Result<DidCoreId, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let principal = DidCoreId::deserialize(deserializer)?;
+    if !principal.as_str().starts_with("ak:did_core:webvh:") {
+        return Err(serde::de::Error::custom(
+            "Realm actors require a did:webvh core identity",
+        ));
+    }
+    Ok(principal)
+}
+
+impl RealmActorId {
+    pub fn new(realm_id: RealmId, principal_id: DidCoreId) -> Self {
+        Self {
+            realm_id,
+            principal_id,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.principal_id.as_str().starts_with("ak:did_core:webvh:") {
+            return Err(WireError::Protocol(
+                "Realm actors require an independent did:webvh identity".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        Ok(arkret_canonical::canonical::canonical_json_bytes(self)?)
+    }
+
+    pub fn canonical_key(&self) -> Result<String> {
+        String::from_utf8(self.canonical_bytes()?).map_err(|error| {
+            WireError::Protocol(format!("Realm actor id canonical UTF-8: {error}"))
+        })
+    }
+}
+
+impl fmt::Display for RealmActorId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.canonical_key().map_err(|_| fmt::Error)?)
     }
 }
 
@@ -114,6 +174,7 @@ impl CanonicalIdentityEntry for ActorId {
 pub enum ActorId {
     Account { account_id: AccountId },
     Service { service_id: DidCoreId },
+    Realm { realm_actor_id: RealmActorId },
 }
 
 impl ActorId {
@@ -125,30 +186,46 @@ impl ActorId {
         Self::Service { service_id }
     }
 
+    pub fn realm(realm_actor_id: RealmActorId) -> Self {
+        Self::Realm { realm_actor_id }
+    }
+
     pub fn signing_principal_id(&self) -> &DidCoreId {
         match self {
             Self::Account { account_id } => &account_id.principal_id,
             Self::Service { service_id } => service_id,
+            Self::Realm { realm_actor_id } => &realm_actor_id.principal_id,
         }
     }
 
-    pub fn route_service_id(&self) -> &DidCoreId {
+    /// A fixed identity route, if the identity carries one. Realm actors must
+    /// resolve their Realm's authenticated current governance separately.
+    pub fn fixed_route_service_id(&self) -> Option<&DidCoreId> {
         match self {
-            Self::Account { account_id } => &account_id.station_id,
-            Self::Service { service_id } => service_id,
+            Self::Account { account_id } => Some(&account_id.station_id),
+            Self::Service { service_id } => Some(service_id),
+            Self::Realm { .. } => None,
         }
     }
 
     pub fn as_account_id(&self) -> Option<&AccountId> {
         match self {
             Self::Account { account_id } => Some(account_id),
-            Self::Service { .. } => None,
+            Self::Service { .. } | Self::Realm { .. } => None,
+        }
+    }
+
+    pub fn as_realm_actor_id(&self) -> Option<&RealmActorId> {
+        match self {
+            Self::Realm { realm_actor_id } => Some(realm_actor_id),
+            Self::Account { .. } | Self::Service { .. } => None,
         }
     }
 
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Account { account_id } => account_id.validate(),
+            Self::Realm { realm_actor_id } => realm_actor_id.validate(),
             Self::Service { service_id } if service_id.as_str().is_empty() => Err(
                 WireError::Protocol("service actor id must be non-empty".to_owned()),
             ),
@@ -1741,6 +1818,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn realm_actor_is_bound_to_realm_and_has_no_fixed_station_route() {
+        let input = serde_json::json!({
+            "kind": "realm",
+            "realm_actor_id": {
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+                "principal_id": "ak:did_core:webvh:zRealmActorFixture"
+            }
+        });
+        let actor: ActorId = serde_json::from_value(input.clone()).unwrap();
+        actor.validate().unwrap();
+        assert_eq!(serde_json::to_value(&actor).unwrap(), input);
+        assert!(actor.fixed_route_service_id().is_none());
+        assert!(actor.as_account_id().is_none());
+        assert_eq!(
+            actor.signing_principal_id(),
+            &actor.as_realm_actor_id().unwrap().principal_id
+        );
+        let mut other = actor.as_realm_actor_id().unwrap().clone();
+        other.realm_id =
+            RealmId::new("ak:realm:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
+        assert_ne!(
+            actor.canonical_bytes().unwrap(),
+            ActorId::realm(other).canonical_bytes().unwrap()
+        );
+        for field in ["station_id", "account_id"] {
+            let mut bad = input.clone();
+            bad["realm_actor_id"][field] = serde_json::json!("ak:did_core:web:station.example");
+            assert!(serde_json::from_value::<ActorId>(bad).is_err());
+        }
+        let mut bad = input;
+        bad["realm_actor_id"]["principal_id"] =
+            serde_json::json!("ak:did_core:web:station.example");
+        assert!(serde_json::from_value::<ActorId>(bad).is_err());
+    }
+
+    #[test]
     fn station_actor_identity_is_independent_of_principal_classification() {
         let principal = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
         let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
@@ -1751,7 +1864,7 @@ mod tests {
         assert_eq!(serde_json::from_value::<ActorId>(value).unwrap(), actor);
         assert_eq!(actor.as_account_id(), Some(&account));
         assert_eq!(actor.signing_principal_id(), &principal);
-        assert_eq!(actor.route_service_id(), &station);
+        assert_eq!(actor.fixed_route_service_id(), Some(&station));
         assert_ne!(actor, ActorId::service(principal.clone()));
         assert_ne!(
             actor,

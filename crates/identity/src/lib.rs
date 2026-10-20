@@ -7,8 +7,10 @@
 //! umbrella `arkret` crate re-exports this surface under `arkret::identity::*`.
 
 pub mod account_device_signer_evidence;
-pub mod managed_actor_provenance;
-pub use managed_actor_provenance::*;
+pub mod realm_actor_control;
+pub mod realm_actor_material;
+pub use realm_actor_control::*;
+pub use realm_actor_material::*;
 pub mod agent_authority_evidence;
 pub mod authority_history;
 pub mod contact_producer_identity;
@@ -106,3 +108,6 @@ pub use verifier::{
     verify_event_proof_with_binding, verify_jws_with_binding, verify_jws_with_document,
     verify_jws_with_document_relationship,
 };
+
+pub mod realm_actor_recovery;
+pub use realm_actor_recovery::*;

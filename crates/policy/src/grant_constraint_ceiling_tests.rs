@@ -288,3 +288,22 @@ fn agent_event_projection_ceiling_uses_exact_accepted_collection_facts() {
         require_key_scope_content_ceiling(&circle_scope, &read(&actor, &event, &facts)).is_err()
     );
 }
+
+#[test]
+fn realm_actor_resource_does_not_widen_to_shared_principal_or_realm() {
+    let realm: arkret_wire::RealmId = REALM.parse().unwrap();
+    let actor = |r| {
+        ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: r,
+            principal_id: "ak:did_core:webvh:z6mkghost:ghost.example".parse().unwrap(),
+        })
+    };
+    let exact = WireResourceSelector::realm_actor(actor(realm.clone())).unwrap();
+    let other = WireResourceSelector::realm_actor(actor(OTHER_REALM.parse().unwrap())).unwrap();
+    assert!(resource_selector_covers(&exact, &exact));
+    assert!(!resource_selector_covers(&exact, &other));
+    assert!(!resource_selector_covers(
+        &WireResourceSelector::realm(realm),
+        &exact
+    ));
+}

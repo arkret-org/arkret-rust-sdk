@@ -128,6 +128,7 @@ pub fn concrete_content_target(target: &arkret_wire::WireResourceSelector) -> bo
         Kind::View => target.view_id.is_some(),
         Kind::Event => target.event_id.is_some(),
         Kind::Actor => target.actor_id.is_some(),
+        Kind::RealmActor => false,
         Kind::Schema => target
             .schema_ref
             .as_ref()

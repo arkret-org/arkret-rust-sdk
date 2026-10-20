@@ -270,6 +270,7 @@ fn signed_two_page_roster() -> (
         sig: Base64UrlString::new("AQ").unwrap(),
     };
     let mut receipt = PeerKeyPackageClaimReceipt {
+        claim_authority_ref: None,
         claim_request_id: claim_request.claim_request_id.clone(),
         request_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
         claims_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
@@ -287,6 +288,7 @@ fn signed_two_page_roster() -> (
     )
     .unwrap();
     let mut attestation = MlsAddAuthorityAttestation {
+        claim_authority_ref: None,
         attestor_station_id: station,
         realm_id: request.realm_id.clone(),
         effective_scope: request.effective_scope.clone(),
@@ -346,6 +348,7 @@ fn signed_two_page_roster() -> (
             sender_actor_id: actor,
             proposal_wire_b64u: Base64UrlString::new("AQ").unwrap(),
             attestation,
+            claim_issuer_resolution: None,
             attestor_resolution: resolution.clone(),
         },
     ];

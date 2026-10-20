@@ -660,6 +660,38 @@ fn recurrence_allows(grants: &[CapabilityGrant], instant: &str) -> bool {
 }
 
 #[test]
+fn signed_audit_horizon_stops_at_recurring_and_physical_boundaries() {
+    let mut grants = recurring(GrantConstraintRecurrence {
+        frequency: Some(GrantConstraintRecurrenceFrequency::Weekly),
+        days: vec![GrantConstraintRecurrenceDay::Mon],
+        window_start: Some("09:00:00".into()),
+        window_end: Some("17:00:30".into()),
+        timezone: Some("Asia/Shanghai".into()),
+        ..Default::default()
+    });
+    let now = at("2026-09-21T09:00:00Z");
+    assert_eq!(
+        capability_grant_temporal_horizon(&grants[0], now, now + TimeDelta::seconds(60)),
+        at("2026-09-21T09:00:30Z")
+    );
+    grants[0].constraints[0].expires_at = Some(at("2026-09-21T09:00:12.123Z"));
+    assert_eq!(
+        capability_grant_temporal_horizon(&grants[0], now, now + TimeDelta::seconds(60)),
+        at("2026-09-21T09:00:12.123Z")
+    );
+    let tolerated = at("2026-09-21T09:05:00Z");
+    grants[0].constraints[0].expires_at = None;
+    assert_eq!(
+        capability_grant_temporal_horizon(
+            &grants[0],
+            tolerated,
+            tolerated + TimeDelta::seconds(60)
+        ),
+        at("2026-09-21T09:05:30Z")
+    );
+}
+
+#[test]
 fn weekly_windows_match_local_days_hours_and_midnight_crossings() {
     // 2026-09-21 is a Monday.
     let office = recurring(GrantConstraintRecurrence {

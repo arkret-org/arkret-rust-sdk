@@ -25,6 +25,7 @@ pub enum ResourceSelectorKind {
     View,
     Event,
     Actor,
+    RealmActor,
     Schema,
     Policy,
     Invite,
@@ -43,6 +44,21 @@ pub enum ResourceMatchScope {
     Subtree,
     Children,
     RealmWide,
+}
+
+/// Actor resources retain their principal scalar; Realm resources bind the full actor.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ResourceActorId {
+    Principal(DidCoreId),
+    Realm(crate::ActorId),
+}
+impl std::str::FromStr for ResourceActorId {
+    type Err = WireError;
+    fn from_str(value: &str) -> Result<Self> {
+        Ok(Self::Principal(DidCoreId::new(value)?))
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -76,7 +92,7 @@ pub struct WireResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<DidCoreId>,
+    pub actor_id: Option<ResourceActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,6 +133,24 @@ impl WireResourceSelector {
 
     pub fn realm(realm_id: RealmId) -> Self {
         Self::for_kind(ResourceSelectorKind::Realm, Some(realm_id))
+    }
+
+    pub fn realm_actor(actor: crate::ActorId) -> Result<Self> {
+        let mut selector = Self::for_kind(ResourceSelectorKind::RealmActor, None);
+        selector.actor_id = Some(ResourceActorId::Realm(actor));
+        selector.validate()?;
+        Ok(selector)
+    }
+
+    pub fn realm_actor_id(&self) -> Option<&crate::ActorId> {
+        match (&self.kind, &self.actor_id) {
+            (ResourceSelectorKind::RealmActor, Some(ResourceActorId::Realm(actor)))
+                if actor.as_realm_actor_id().is_some() =>
+            {
+                Some(actor)
+            }
+            _ => None,
+        }
     }
 
     pub fn space(realm_id: RealmId, space_id: SpaceId) -> Self {
@@ -179,9 +213,23 @@ impl WireResourceSelector {
                 "realm-scoped resource selector requires realm_id".to_owned(),
             ));
         }
-        if self.kind == ResourceSelectorKind::Actor && self.actor_id.is_none() {
+        if self.kind == ResourceSelectorKind::RealmActor {
+            let actor = self.realm_actor_id().ok_or_else(|| {
+                WireError::Protocol("realm_actor resource requires a complete Realm actor".into())
+            })?;
+            actor.validate()?;
+            let mut exact = Self::for_kind(ResourceSelectorKind::RealmActor, None);
+            exact.actor_id = Some(ResourceActorId::Realm(actor.clone()));
+            if self != &exact {
+                return Err(WireError::Protocol(
+                    "realm_actor resource permits only kind and actor_id".into(),
+                ));
+            }
+        } else if matches!(self.actor_id, Some(ResourceActorId::Realm(_)))
+            || (self.kind == ResourceSelectorKind::Actor && self.actor_id.is_none())
+        {
             return Err(WireError::Protocol(
-                "actor resource selector requires actor_id".to_owned(),
+                "ordinary actor resource requires a principal scalar".into(),
             ));
         }
         Ok(())
@@ -219,7 +267,7 @@ struct ResourceSelectorWire {
     #[serde(default)]
     event_id: Option<EventId>,
     #[serde(default)]
-    actor_id: Option<DidCoreId>,
+    actor_id: Option<ResourceActorId>,
     #[serde(default)]
     schema_ref: Option<String>,
     #[serde(default)]
@@ -268,6 +316,41 @@ impl<'de> Deserialize<'de> for WireResourceSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn realm_actor_resource_is_closed_and_binds_the_complete_subject() {
+        let realm = RealmId::from_event_id(&EventId::from_digest(
+            crate::canonical::DigestSuite::Sha256,
+            [201; 32],
+        ));
+        let actor = crate::ActorId::realm(crate::RealmActorId {
+            realm_id: realm.clone(),
+            principal_id: "ak:did_core:webvh:z6mkghost:ghost.example".parse().unwrap(),
+        });
+        let selector = WireResourceSelector::realm_actor(actor.clone()).unwrap();
+        let value = serde_json::json!({"kind":"realm_actor","actor_id":actor});
+        assert_eq!(serde_json::to_value(&selector).unwrap(), value);
+        assert_eq!(
+            serde_json::from_value::<WireResourceSelector>(value.clone()).unwrap(),
+            selector
+        );
+        for (key, field) in [
+            ("realm_id", serde_json::json!(realm)),
+            ("match_scope", serde_json::json!("realm_wide")),
+        ] {
+            let mut widened = value.clone();
+            widened[key] = field;
+            assert!(serde_json::from_value::<WireResourceSelector>(widened).is_err());
+        }
+        assert!(
+            serde_json::from_value::<WireResourceSelector>(
+                serde_json::json!({"kind":"realm_actor","actor_id":"ak:did_core:web:ghost.example"})
+            )
+            .is_err()
+        );
+        let service = crate::ActorId::service("ak:did_core:web:ghost.example".parse().unwrap());
+        assert!(WireResourceSelector::realm_actor(service).is_err());
+    }
 
     #[test]
     fn exact_scope_preserves_default_exact_and_refuses_wide_or_other_identifiers() {

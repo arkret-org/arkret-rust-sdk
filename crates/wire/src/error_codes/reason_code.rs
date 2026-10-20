@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-19.1;
-//! sha256=8eb0778cfc4a4e1a0c3874f655341d2cef68740f819741740c8a594a44d07097
-//! Entries: reason_codes=309, reserved_not_emitted=67
+//! Input: registry/error-code-registry.json; version=2026-10-19.2;
+//! sha256=90abeda5c0d407ae9f4d42160f4279d27f7a99e46b17ff1ebaa6a56c71ae44cd
+//! Entries: reason_codes=306, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -31,9 +31,6 @@ pub enum ReasonCode {
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
     AgentSessionScopeRefreshRequired,
-    AppletManagedActorProvisionInvalid,
-    AppletManagedPcrGenesisInvalid,
-    AppletManagedPcrGenesisRequiresClosedAggregate,
     AppletNamespaceMismatch,
     ApprovalAlreadyConsumed,
     ApprovalCarrierUnregistered,
@@ -361,12 +358,6 @@ impl ReasonCode {
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
     pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
         "agent_session_scope_refresh_required";
-    pub const APPLET_MANAGED_ACTOR_PROVISION_INVALID: &'static str =
-        "applet_managed_actor_provision_invalid";
-    pub const APPLET_MANAGED_PCR_GENESIS_INVALID: &'static str =
-        "applet_managed_pcr_genesis_invalid";
-    pub const APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE: &'static str =
-        "applet_managed_pcr_genesis_requires_closed_aggregate";
     pub const APPLET_NAMESPACE_MISMATCH: &'static str = "applet_namespace_mismatch";
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
     pub const APPROVAL_CARRIER_UNREGISTERED: &'static str = "approval_carrier_unregistered";
@@ -733,13 +724,6 @@ impl ReasonCode {
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
-            Self::AppletManagedActorProvisionInvalid => {
-                Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID
-            }
-            Self::AppletManagedPcrGenesisInvalid => Self::APPLET_MANAGED_PCR_GENESIS_INVALID,
-            Self::AppletManagedPcrGenesisRequiresClosedAggregate => {
-                Self::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE
-            }
             Self::AppletNamespaceMismatch => Self::APPLET_NAMESPACE_MISMATCH,
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
             Self::ApprovalCarrierUnregistered => Self::APPROVAL_CARRIER_UNREGISTERED,
@@ -1110,13 +1094,6 @@ impl ReasonCode {
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
-            Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID => {
-                Self::AppletManagedActorProvisionInvalid
-            }
-            Self::APPLET_MANAGED_PCR_GENESIS_INVALID => Self::AppletManagedPcrGenesisInvalid,
-            Self::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE => {
-                Self::AppletManagedPcrGenesisRequiresClosedAggregate
-            }
             Self::APPLET_NAMESPACE_MISMATCH => Self::AppletNamespaceMismatch,
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
             Self::APPROVAL_CARRIER_UNREGISTERED => Self::ApprovalCarrierUnregistered,
@@ -1633,21 +1610,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPLET_MANAGED_ACTOR_PROVISION_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An ak.applet.managed_actor.provision Event in the closed Applet managed-actor creation aggregate does not satisfy its binding rules: actor_id.account_id.station_id is not the receiving Station, the actor collides with the service or controller principal, or the provisioned independent Bot/Ghost does not match the signed authoring request, accepted Applet registration, role and effective scope. See zh/extensions/applet-integration.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPLET_MANAGED_PCR_GENESIS_INVALID,
-        applies_to: &["pcr_genesis", "event_envelope"],
-        description: "The purpose=applet_managed_control PCR genesis Event in the Applet managed-actor creation aggregate does not cross-bind its provision Event, initial_resolution, Applet, grant and service verbatim. See zh/extensions/applet-integration.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE,
-        applies_to: &["pcr_genesis", "federation_transaction"],
-        description: "A purpose=applet_managed_control PCR genesis arrived outside the closed Applet install / Ghost provisioning aggregate - an ordinary submit, a Realm bootstrap batch, or ak.peer.events.command.submit.v1. Transport and proof validity do not make it an AppletFormal admission. See zh/extensions/applet-integration.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_NAMESPACE_MISMATCH,

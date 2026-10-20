@@ -132,11 +132,8 @@ pub use arkret_models_collaboration::agent_scope::{
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
 pub use arkret_models_collaboration::authority_commit::{
-    AccountDeviceHistoricalSignerFact, ForwardManagedActorProvenance,
-    HistoricalProducerSignerFactEntry, ManagedAccountabilityCurrent, ManagedAccountabilitySelector,
-    ManagedCreationAcceptedEvent, ManagedCreationOriginals, ManagedIdentityCurrent,
-    ManagedIdentityProjection, ManagedProfileCurrent, ManagedProfileSelector,
-    PeerStreamScanOutcome, authority_forward_body_digest, historical_signer_facts_digest,
+    AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry, PeerStreamScanOutcome,
+    authority_forward_body_digest, historical_signer_facts_digest,
     validate_historical_signer_fact_inventory, validate_new_account_device_admission_fact,
     validate_new_account_device_admission_fact_for_purpose,
 };
@@ -459,11 +456,7 @@ pub use keypackage_claim_receipt::{
     verify_peer_keypackage_claim_receipt_signature,
     verify_peer_keypackage_consume_receipt_signature,
 };
-pub use managed_actor_authoring::{
-    APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
-    AppletManagedActorBundleAuthoringInput, applet_managed_actor_unit_event_kinds,
-    applet_managed_actor_unit_submissions, author_applet_managed_actor_bundle,
-};
+pub use managed_actor_authoring::author_realm_actor_create;
 #[cfg(feature = "mls")]
 pub use mls_roster_authority::{
     install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,

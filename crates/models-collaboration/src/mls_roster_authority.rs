@@ -60,6 +60,12 @@ pub struct MlsAddAuthorityAttestation {
     pub leaf_signature_key_b64u: Base64UrlString,
     pub claim_record_digest: Hash,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub claim_authority_ref: Option<arkret_wire::RealmCommitAuthorityRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -74,11 +80,42 @@ impl MlsAddAuthorityAttestation {
             )
             || self.commit_stream_position == 0
             || self.epoch == 0
-            || self.actor_id.route_service_id() != &self.attestor_station_id
             || !self.claim_record_digest.as_str().starts_with("sha256:")
         {
             return Err(WireError::Protocol(
                 "MLS Add authority attestation selectors are inconsistent".to_owned(),
+            ));
+        }
+        self.actor_id.validate()?;
+        self.claim_receipt
+            .request
+            .validate_shape()
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        if let Some(actor) = self.actor_id.as_realm_actor_id() {
+            if actor.realm_id != self.realm_id
+                || !matches!(
+                    &self.effective_scope,
+                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                )
+                || !matches!(&self.endpoint, MlsWelcomeRecipientEndpoint::Device { .. })
+                || self.claim_authority_ref.is_none()
+                || self.claim_authority_ref != self.claim_receipt.claim_authority_ref
+                || self.claim_receipt.request.target_actor_id.as_ref() != Some(&self.actor_id)
+                || self.claim_receipt.request.intended_realm_id != self.realm_id
+                || self.claim_receipt.request.mls_group_id != self.mls_group_id
+            {
+                return Err(WireError::Protocol(
+                    "Realm Add authority is not bound to the original Realm claim".into(),
+                ));
+            }
+        } else if self.actor_id.fixed_route_service_id() != Some(&self.attestor_station_id)
+            || self.claim_receipt.destination_id != self.attestor_station_id
+            || self.claim_authority_ref.is_some()
+            || self.claim_receipt.claim_authority_ref.is_some()
+            || self.claim_receipt.request.target_actor_id.is_some()
+        {
+            return Err(WireError::Protocol(
+                "Account/Agent Add authority must retain its fixed Station".into(),
             ));
         }
         validate_leaf_key(&self.leaf_signature_key_b64u)
@@ -105,8 +142,6 @@ impl MlsAttestAddRequestBody {
                 .map_err(|error| WireError::Protocol(error.to_string()))?
             || self.claim_outcome.claim_request_id
                 != self.claim_outcome.claim_receipt.claim_request_id
-            || self.claim_outcome.claim_receipt.destination_id
-                != self.attestation.attestor_station_id
         {
             return Err(WireError::Protocol(
                 "MLS Add authority claim receipt does not match outcome".to_owned(),
@@ -295,6 +330,12 @@ pub enum MlsRosterRecord {
         sender_actor_id: ActorId,
         proposal_wire_b64u: Base64UrlString,
         attestation: MlsAddAuthorityAttestation,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+        )]
+        claim_issuer_resolution: Option<AuthenticatedServiceResolution>,
         attestor_resolution: AuthenticatedServiceResolution,
     },
 }
@@ -304,10 +345,24 @@ impl MlsRosterRecord {
         if let Self::Add {
             proposal_wire_b64u,
             attestation,
+            claim_issuer_resolution,
             attestor_resolution,
             ..
         } = self
         {
+            match (
+                attestation.actor_id.as_realm_actor_id(),
+                claim_issuer_resolution,
+            ) {
+                (Some(_), Some(resolution))
+                    if resolution.service_id == attestation.claim_receipt.destination_id
+                        && resolution.service_kind == "station" => {}
+                (None, None) => {}
+                _ => return Err(WireError::Protocol(
+                    "MLS claim issuer closure is missing, extraneous or belongs to another Station"
+                        .into(),
+                )),
+            }
             if attestor_resolution.service_id != attestation.attestor_station_id
                 || attestor_resolution.service_kind != "station"
             {

@@ -130,7 +130,7 @@ pub use recovery_authority::{
 };
 pub use request_digest::{framed_request_digest, management_creation_request_digest};
 pub use resource_selector::{
-    ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
+    ObjectRef, ResourceActorId, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use self_contact_paths::*;
 pub use service_kind::{EvaluationClass, ServiceKind};

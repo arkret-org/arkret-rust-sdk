@@ -139,7 +139,9 @@ impl AppletInstallationAuthority {
             || grant.executed_by.is_some()
             || registration.scope_ref != grant.scope_ref
             || registration.realm_id != grant.realm_id
-            || registration.actor_id.route_service_id() != grant.actor_id.route_service_id()
+            || registration.actor_id.fixed_route_service_id().is_none()
+            || registration.actor_id.fixed_route_service_id()
+                != grant.actor_id.fixed_route_service_id()
         {
             return Err(WireError::Protocol(
                 "Applet installation authority coordinates mismatch".to_owned(),

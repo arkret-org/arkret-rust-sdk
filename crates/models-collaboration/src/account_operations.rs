@@ -147,14 +147,19 @@ impl AccountUpdateProfileRequestBody {
                 object.validate()?;
                 if object.handle.is_some()
                     || object.agent_slug.is_some()
-                    || !object.accountable_principal_ids.is_empty()
+                    || object
+                        .accountable_principal_ids
+                        .as_ref()
+                        .is_some_and(|ids| !ids.is_empty())
                 {
                     return Err(WireError::Protocol(
                         "account profile create carries a member outside the self-service surface"
                             .into(),
                     ));
                 }
-                if object.principal_id != account.principal_id {
+                if object.principal_id.as_ref() != Some(&account.principal_id)
+                    || object.actor_id.is_some()
+                {
                     return Err(WireError::Protocol(
                         "account profile create principal_id must equal the Event actor".into(),
                     ));

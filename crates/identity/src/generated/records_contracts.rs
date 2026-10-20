@@ -5,12 +5,12 @@
 // sha256=3a9c3ba080d5b7d12158330e325fc7a5e9048312f012bae545d24976f018a15c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `identity-receipt.schema.json`.
 /// Signed identity receipt from a DID registry
 /// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).
-/// The registry / witness endorsement of a key-log head travels here —
+/// The registry / witness endorsement of a key-log head travels here â€”
 /// never inside the key-log entry's `proofs[]`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

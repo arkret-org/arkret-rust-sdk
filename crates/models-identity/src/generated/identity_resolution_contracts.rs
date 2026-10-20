@@ -2,17 +2,17 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/identity-resolution.schema.json
-// sha256=d99216a89ca584c5acf0195efdf8b28cb89967250d34fbdea351bc7397fbcf2b
+// sha256=97bff5e2c0e9cda280f174908b98859bdc453567424af845919ea0e70755fb14
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `identity-resolution.schema.json#/$defs/service_route_projection`.
 /// Derived route projection of one verified service DID state.
 ///
 /// This is the single Rust expression of
 /// `identity-resolution.schema.json#/$defs/service_route_projection`
-/// (`sync/service-surface.md` §2.6). It is produced either locally by
+/// (`sync/service-surface.md` Â§2.6). It is produced either locally by
 /// [`AuthenticatedServiceResolution::projection`] after method-native
 /// verification, or handed over already verified inside an own-Station result
 /// such as the media service binding. There is deliberately only one type: a

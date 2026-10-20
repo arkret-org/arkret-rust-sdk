@@ -391,7 +391,8 @@ fn validate_cascade<'a>(
             || agent.realm_id != controller.realm_id
             || agent.actor_id == controller.actor_id
             || agent.executed_by.as_ref() != Some(initiator)
-            || agent.actor_id.route_service_id() != controller.actor_id.route_service_id()
+            || agent.actor_id.fixed_route_service_id()
+                != controller.actor_id.fixed_route_service_id()
         {
             return Err(WireError::Protocol(
                 "agent membership cascade Event authority or Realm binding mismatch".to_owned(),

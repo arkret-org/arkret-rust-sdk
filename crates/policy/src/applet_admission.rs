@@ -45,7 +45,12 @@ pub fn validate_applet_installation_coordinates(
     let grant = payload.grant;
     let service = ActorId::service(registration.service_id.clone());
     let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
-    let target = registration_event.actor_id.route_service_id();
+    let target = registration_event
+        .actor_id
+        .fixed_route_service_id()
+        .ok_or_else(|| {
+            WireError::Protocol("Applet registration requires a fixed Service route".into())
+        })?;
     let fail = || WireError::Protocol("Applet installation authority binding mismatch".to_owned());
     let bindings = grant
         .constraints
@@ -81,9 +86,9 @@ pub fn validate_applet_installation_coordinates(
         || grant_executor != producer
         || (producer != &service
             && (!matches!(producer, ActorId::Account { .. })
-                || producer.route_service_id() != target))
+                || producer.fixed_route_service_id() != Some(target)))
         || (matches!(&event.actor_id, ActorId::Account { .. })
-            && event.actor_id.route_service_id() != target)
+            && event.actor_id.fixed_route_service_id() != Some(target))
     {
         return Err(fail());
     }

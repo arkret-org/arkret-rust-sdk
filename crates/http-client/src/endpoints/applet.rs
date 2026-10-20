@@ -8,8 +8,7 @@ use arkret_models_integration::{
     AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
     AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
     AppletRevokePreviewRequestBody, AppletRevokeRequestBody, AppletTransactionOutcome,
-    AppletTransactionRequestBody, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
-    GhostPreviewOutcome, GhostPreviewRequestBody,
+    AppletTransactionRequestBody, GhostPreviewOutcome, GhostPreviewRequestBody,
 };
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::DidCoreId;
@@ -21,6 +20,29 @@ use crate::client_internals::validate_base_url;
 use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
 
 impl Client {
+    pub async fn realm_actor_material(
+        &self,
+        request: &arkret_models_integration::RealmActorMaterialRequest,
+        requester: &arkret_wire::ActorId,
+        authority: &arkret_identity::VerifiedRealmAuthority,
+        resolution: &arkret_models_identity::AuthenticatedServiceResolution,
+        keys: &dyn arkret_identity::RealmAuthorityKeyDirectory,
+    ) -> Result<arkret_identity::VerifiedRealmActorMaterial> {
+        request.validate()?;
+        let outcome: arkret_models_integration::RealmActorMaterialOutcome = self
+            .post("/_arkret/self/realm-actors/material", request)
+            .await?;
+        arkret_identity::verify_realm_actor_material(
+            outcome,
+            request,
+            requester,
+            authority,
+            resolution,
+            keys,
+            chrono::Utc::now(),
+        )
+        .map_err(|error| crate::Error::Protocol(error.to_string()))
+    }
     pub async fn applet_authority_material(
         &self,
         applet_id: &str,
@@ -72,20 +94,6 @@ impl Client {
         self.post(
             &format!("/_arkret/self/applets/{applet_id}/bots/provision/preview"),
             request,
-        )
-        .await
-    }
-    pub async fn applet_bot_provision(
-        &self,
-        applet_id: &str,
-        idempotency_key: &str,
-        request: &VerifiedSubmission<arkret_models_integration::AppletBotProvisionRequestBody>,
-    ) -> Result<arkret_models_integration::AppletBotProvisionOutcome> {
-        reject_path_segment(applet_id)?;
-        self.post_with_options(
-            &format!("/_arkret/self/applets/{applet_id}/bots/provision"),
-            request,
-            &ClientRequestOptions::new().idempotency_key(idempotency_key),
         )
         .await
     }
@@ -185,20 +193,6 @@ impl Client {
         self.post_with_options(&path, request, &options).await
     }
 
-    /// Provision an Applet-managed Ghost actor through the canonical self
-    /// operation `ak.self.applet.ghost.command.provision.v1`.
-    pub async fn ghost_actor_provision(
-        &self,
-        applet_id: &str,
-        idempotency_key: &str,
-        request: &VerifiedSubmission<GhostActorProvisionRequestBody>,
-    ) -> Result<GhostActorProvisionOutcome> {
-        request.validate()?;
-        let path = ghost_actor_provision_path(applet_id)?;
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options(&path, request, &options).await
-    }
-
     pub async fn ghost_actor_preview(
         &self,
         applet_id: &str,
@@ -271,13 +265,6 @@ impl Client {
     }
 }
 
-fn ghost_actor_provision_path(applet_id: &str) -> Result<String> {
-    reject_path_segment(applet_id)?;
-    Ok(format!(
-        "/_arkret/self/applets/{applet_id}/ghosts/provision"
-    ))
-}
-
 fn applet_managed_actor_author_url(base_url: &Url) -> Result<Url> {
     base_url
         .join("/_arkret/edge/applet/managed-actors/author")
@@ -286,7 +273,7 @@ fn applet_managed_actor_author_url(base_url: &Url) -> Result<Url> {
 
 #[cfg(test)]
 mod tests {
-    use super::{applet_managed_actor_author_url, ghost_actor_provision_path};
+    use super::applet_managed_actor_author_url;
 
     #[test]
     fn author_endpoint_is_origin_absolute_even_when_base_url_has_a_path() {
@@ -295,16 +282,6 @@ mod tests {
             applet_managed_actor_author_url(&base).unwrap().as_str(),
             "https://applet.example/_arkret/edge/applet/managed-actors/author"
         );
-    }
-
-    #[test]
-    fn ghost_applet_id_is_one_safe_path_segment() {
-        assert_eq!(
-            ghost_actor_provision_path("ak:applet:01904100-0000-7000-8000-000000000001").unwrap(),
-            "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision"
-        );
-        assert!(ghost_actor_provision_path("../other/ghosts").is_err());
-        assert!(ghost_actor_provision_path("applet%2Fescape").is_err());
     }
 }
 
@@ -398,7 +375,10 @@ mod native_retry_tests {
             let applet_id =
                 AppletId::new("ak:applet:01964137-0000-7000-8000-000000000081").unwrap();
             let metadata = AppletManagedDeviceMetadata {
-                account_id: account.clone(),
+                actor_id: ActorId::realm(arkret_wire::RealmActorId {
+                    realm_id: scope.realm_id().clone(),
+                    principal_id: account.principal_id.clone(),
+                }),
                 device_id: DeviceId::new("ak:device:01964137-0000-7000-8000-000000000081").unwrap(),
                 authorization_event_id: EventId::from_digest(
                     arkret_canonical::DigestSuite::Sha256,
@@ -413,7 +393,7 @@ mod native_retry_tests {
                 kind: EventKind::MessageCreate,
                 realm_id: realm,
                 scope_ref: scope,
-                actor_id: ActorId::account(account),
+                actor_id: metadata.actor_id.clone(),
                 created_at: "2026-10-17T00:00:00.000Z".parse().unwrap(),
                 semantic_refs: Vec::new(),
                 payload: serde_json::from_value(json!({
@@ -515,9 +495,16 @@ mod native_retry_tests {
                     assert!(signatures.insert(header(&headers, "signature").to_owned()));
                     let received: EventAdmissionSubmission = serde_json::from_slice(&body).unwrap();
                     let event = &received.event;
-                    let producer = event.account_device_producer().unwrap().unwrap();
-                    assert_eq!(producer.account_id, expected_metadata.account_id);
-                    assert_eq!(producer.device_id, expected_metadata.device_id);
+                    assert_eq!(event.actor_id, expected_metadata.actor_id);
+                    assert!(
+                        event
+                            .producer_proof
+                            .as_ref()
+                            .unwrap()
+                            .verification_method
+                            .as_str()
+                            .ends_with(expected_metadata.device_id.as_str())
+                    );
                     verify_ed25519_detached_jws_proof_with_digest_suite(
                         event.producer_proof.as_ref().unwrap(),
                         &EventProofBuilder::new().envelope_bytes(event).unwrap(),
@@ -628,7 +615,10 @@ mod native_retry_tests {
             )),
         };
         let metadata = AppletManagedDeviceMetadata {
-            account_id: account.clone(),
+            actor_id: ActorId::realm(arkret_wire::RealmActorId {
+                realm_id: scope.realm_id().clone(),
+                principal_id: account.principal_id.clone(),
+            }),
             device_id: device.clone(),
             authorization_event_id: authorization.clone(),
             applet_id: AppletId::new("ak:applet:01964137-0000-7000-8000-000000000092").unwrap(),
@@ -641,9 +631,9 @@ mod native_retry_tests {
         getrandom::fill(&mut entropy).unwrap();
         let id = arkret_canonical::base64url_encode(entropy);
         let mut body:KeyPackagesClaimRequestBody=serde_json::from_value(json!({
-            "claim_request_id":id,"target_account_id":account,"requester_account_id":account,"intended_realm_id":scope.realm_id(),"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
+            "claim_request_id":id,"target_actor_id":metadata.actor_id,"requester_actor_id":metadata.actor_id,"intended_realm_id":scope.realm_id(),"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
             "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(1)),"target_device_ids":[device],"service_binding":{"source_id":station,"destination_id":station},
-            "requester_authorization":{"kind":"device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","sig":"AA"}}
+            "requester_authorization":{"kind":"realm_device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","sig":"AA"}}
         })).unwrap();
         let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
             &body.unsigned_request(),
@@ -651,7 +641,7 @@ mod native_retry_tests {
             &body.requester_authorization,
         )
         .unwrap();
-        let PeerKeyPackageRequesterAuthorization::Device { signature, .. } =
+        let PeerKeyPackageRequesterAuthorization::RealmDevice { signature, .. } =
             &mut body.requester_authorization
         else {
             unreachable!()

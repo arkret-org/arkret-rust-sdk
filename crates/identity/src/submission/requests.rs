@@ -9,8 +9,7 @@ use arkret_models_collaboration::agent_operations::{
 };
 use arkret_models_collaboration::agent_scope::AgentKeyPairRequestBody;
 use arkret_models_collaboration::authority_commit::{
-    ForwardManagedActorProvenance, PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit,
-    SelfAuthoritySubmitRequest,
+    PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit, SelfAuthoritySubmitRequest,
 };
 use arkret_models_collaboration::consent_operations::{
     ConsentGrantRequestBody, ConsentRevokeRequestBody,
@@ -35,8 +34,7 @@ use arkret_models_identity::account::{
     AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
 };
 use arkret_models_integration::{
-    AppletBotProvisionRequestBody, AppletInstallRequestBody, AppletRevokeRequestBody,
-    AppletTransactionRequestBody, GhostActorProvisionRequestBody,
+    AppletInstallRequestBody, AppletRevokeRequestBody, AppletTransactionRequestBody,
 };
 use arkret_wire::{
     ActorPrivateEventSubmitRequestBody, AuthoritySubmitRequest, Event, EventAdmissionSubmission,
@@ -301,30 +299,11 @@ request!(
     self.validate()
 );
 
-fn managed_originals(
-    bundle: &arkret_models_integration::AppletManagedActorAuthoringBundle,
-) -> Vec<&Event> {
-    vec![
-        &bundle.managed_actor_provision_event,
-        &bundle.pcr_genesis_event,
-        &bundle.accountability_grant_event,
-        &bundle.profile_event,
-    ]
-}
 request!(
-    AppletBotProvisionRequestBody,
+    arkret_models_integration::AppletManagedActorAuthorOutcome,
     self,
-    managed_originals(&self.managed_actor_bundle),
+    vec![&self.create_event],
     canonical_shape(self)
-);
-request!(
-    GhostActorProvisionRequestBody,
-    self,
-    self.managed_actor_bundle
-        .as_ref()
-        .map(managed_originals)
-        .unwrap_or_default(),
-    self.validate()
 );
 request!(
     AppletInstallRequestBody,
@@ -390,48 +369,11 @@ request!(
 
 impl sealed::Sealed for PeerAuthoritySubmitRequest {}
 
-fn managed_forward_events<'a>(
-    event: &'a Event,
-    source: Option<&'a ForwardManagedActorProvenance>,
-) -> Vec<&'a Event> {
-    std::iter::once(event)
-        .chain(source.into_iter().flat_map(|source| {
-            source
-                .creation
-                .entries()
-                .into_iter()
-                .map(|entry| &entry.event)
-        }))
-        .collect()
-}
-
-fn managed_forward_commits(source: Option<&ForwardManagedActorProvenance>) -> Vec<&RealmCommit> {
-    let Some(source) = source else {
-        return Vec::new();
-    };
-    source
-        .creation
-        .entries()
-        .into_iter()
-        .map(|entry| &entry.commit)
-        .chain([
-            &source.current.profile.commit,
-            &source.current.accountability.commit,
-        ])
-        .collect()
-}
-
 impl PublicationRequest for PeerAuthoritySubmitRequest {
     fn producer_events(&self) -> Vec<&Event> {
         match self {
-            Self::AuthorityForwardEvent(value) => managed_forward_events(
-                &value.event_submission.event,
-                value.producer_managed_provenance.as_ref(),
-            ),
-            Self::AuthorityForwardMls(value) => managed_forward_events(
-                &value.mls_submission.commit_event,
-                value.producer_managed_provenance.as_ref(),
-            ),
+            Self::AuthorityForwardEvent(value) => vec![&value.event_submission.event],
+            Self::AuthorityForwardMls(value) => vec![&value.mls_submission.commit_event],
             Self::AuthorityForwardAtomic(value) => value
                 .atomic_submission
                 .events
@@ -463,12 +405,8 @@ impl PublicationRequest for PeerAuthoritySubmitRequest {
 
     fn realm_commits(&self) -> Vec<&RealmCommit> {
         match self {
-            Self::AuthorityForwardEvent(value) => {
-                managed_forward_commits(value.producer_managed_provenance.as_ref())
-            }
-            Self::AuthorityForwardMls(value) => {
-                managed_forward_commits(value.producer_managed_provenance.as_ref())
-            }
+            Self::AuthorityForwardEvent(_) => Vec::new(),
+            Self::AuthorityForwardMls(_) => Vec::new(),
             Self::AuthorityForwardAtomic(_) => Vec::new(),
             Self::CommittedReplication(value) => value
                 .replications

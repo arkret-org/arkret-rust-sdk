@@ -25,7 +25,12 @@ pub struct ActorProfile {
     pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub principal_id: DidCoreId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub principal_id: Option<DidCoreId>,
     pub actor_kind: ActorKind,
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,8 +39,12 @@ pub struct ActorProfile {
     pub agent_slug: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_principal_ids: Vec<DidCoreId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub accountable_principal_ids: Option<Vec<DidCoreId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolution: Option<crate::PrincipalResolutionProjection>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -48,6 +57,12 @@ pub struct ActorProfile {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub actor_id: Option<ActorId>,
 }
 
 impl ActorProfile {
@@ -65,6 +80,16 @@ impl ActorProfile {
         created_at: DateTime<Utc>,
     ) -> arkret_wire::Result<Self> {
         definition.validate()?;
+        if definition
+            .actor_id
+            .as_ref()
+            .and_then(ActorId::as_realm_actor_id)
+            .is_some_and(|actor| actor.realm_id != realm_id)
+        {
+            return Err(WireError::Protocol(
+                "Realm Profile owner belongs to another Realm".into(),
+            ));
+        }
         Ok(Self {
             id: Some(id),
             schema: Self::SCHEMA.to_owned(),
@@ -81,12 +106,22 @@ impl ActorProfile {
             created_at,
             updated_by: None,
             updated_at: None,
+            actor_id: definition.actor_id,
         })
     }
 
     /// Validate the display members every materialized value must satisfy
     /// (`actor-profile.schema.json`).
     pub fn validate_display_members(&self) -> arkret_wire::Result<()> {
+        validate_profile_owner(
+            self.principal_id.as_ref(),
+            self.actor_id.as_ref(),
+            self.actor_kind,
+            self.handle.as_deref(),
+            self.agent_slug.as_deref(),
+            self.accountable_principal_ids.is_some(),
+            self.realm_id.as_ref(),
+        )?;
         if self.schema != Self::SCHEMA {
             return Err(WireError::Protocol(
                 "actor profile schema must be ak.schema.actor_profile.v1".to_owned(),
@@ -104,6 +139,15 @@ impl ActorProfile {
 
 impl ActorProfileDefinition {
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_profile_owner(
+            self.principal_id.as_ref(),
+            self.actor_id.as_ref(),
+            self.actor_kind,
+            self.handle.as_deref(),
+            self.agent_slug.as_deref(),
+            self.accountable_principal_ids.is_some(),
+            None,
+        )?;
         validate_display_members(
             self.actor_kind,
             &self.display_name,
@@ -111,6 +155,32 @@ impl ActorProfileDefinition {
             self.agent_slug.as_deref(),
             &self.profile_fields,
         )
+    }
+}
+
+fn validate_profile_owner(
+    principal: Option<&DidCoreId>,
+    actor: Option<&ActorId>,
+    kind: ActorKind,
+    handle: Option<&str>,
+    agent_slug: Option<&str>,
+    has_accountability: bool,
+    realm: Option<&RealmId>,
+) -> arkret_wire::Result<()> {
+    match (principal, actor) {
+        (Some(_), None) => Ok(()),
+        (None, Some(ActorId::Realm { realm_actor_id }))
+            if matches!(kind, ActorKind::Bot | ActorKind::Integration)
+                && handle.is_none()
+                && agent_slug.is_none()
+                && !has_accountability
+                && realm.is_none_or(|realm| realm == &realm_actor_id.realm_id) =>
+        {
+            realm_actor_id.validate()
+        }
+        _ => Err(WireError::Protocol(
+            "Profile requires exactly one valid ordinary principal or Realm actor owner".into(),
+        )),
     }
 }
 
@@ -175,7 +245,12 @@ pub struct AccountMaterializedProfile(ActorProfile);
 
 impl AccountMaterializedProfile {
     pub fn new(profile: ActorProfile) -> arkret_wire::Result<Self> {
-        if profile.id.is_none() || profile.realm_id.is_none() {
+        profile.validate_display_members()?;
+        if profile.id.is_none()
+            || profile.realm_id.is_none()
+            || profile.principal_id.is_none()
+            || profile.actor_id.is_some()
+        {
             return Err(WireError::Protocol(
                 "materialized account profile requires id and realm_id".to_owned(),
             ));

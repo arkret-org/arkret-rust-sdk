@@ -17,10 +17,10 @@ fn native(base: &str) -> (Client, Arc<Source>) {
     let station = arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap();
     let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [124; 32]);
     let metadata = AppletManagedDeviceMetadata {
-        account_id: AccountId::new(
-            arkret_wire::DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
-            station.clone(),
-        ),
+        actor_id: ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: arkret_wire::RealmId::from_event_id(&event),
+            principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+        }),
         device_id: DeviceId::new_v7_at(Utc::now().timestamp_millis().try_into().unwrap()),
         authorization_event_id: event.clone(),
         applet_id: AppletId::new("ak:applet:01964137-0000-7000-8000-000000000123").unwrap(),
@@ -35,16 +35,22 @@ fn native(base: &str) -> (Client, Arc<Source>) {
         trust_domain: arkret_wire::TrustDomainId::new("ak:trust_domain:station.example").unwrap(),
     };
     let now = Utc::now();
-    let snapshot = OwnStationDeviceSnapshot::new(
+    // This private fixture isolates transport lifetime checks; production
+    // construction separately requires a cryptographically verified governance chain.
+    let snapshot = OwnStationDeviceSnapshot {
         binding,
-        &metadata,
-        key.verifying_key().to_bytes(),
-        now - chrono::TimeDelta::minutes(1),
-        now + chrono::TimeDelta::minutes(1),
-        0,
-        Default::default(),
-    )
-    .unwrap();
+        actor_id: metadata.actor_id.clone(),
+        governance_generation: 0,
+        device_id: metadata.device_id.clone(),
+        authorization_event_id: metadata.authorization_event_id.clone(),
+        applet_id: metadata.applet_id.clone(),
+        effective_scope: metadata.effective_scope.clone(),
+        public_key: key.verifying_key().to_bytes(),
+        not_before: now - chrono::TimeDelta::minutes(1),
+        expires_at: now + chrono::TimeDelta::minutes(1),
+        epoch: 0,
+        instance: Default::default(),
+    };
     let fingerprint =
         arkret_canonical::ed25519_pubkey_to_did_key_multibase(key.verifying_key().as_bytes());
     let client = crate::ClientBuilder::new(url::Url::parse(base).unwrap())

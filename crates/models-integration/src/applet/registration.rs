@@ -2,19 +2,19 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_models_identity::{
-    ResolutionCommitment, ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
+    ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
     ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
-    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    AppletId, Did, DidCoreId, DidUrl, EventKind, Hash, PayloadSigner, ProfileId, Result, SchemaId,
+    WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use super::namespace_match::namespace_patterns_overlap;
-use crate::{AppletPackageE2eePolicy, DelegationPolicy, DetachedProof, GhostExternalTuple, Widget};
+use crate::{AppletPackageE2eePolicy, DelegationPolicy, DetachedProof, Widget};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -76,45 +76,6 @@ impl<'de> Deserialize<'de> for AppletManagedActorMethodHistoryEvidence {
         ResolutionMethodHistoryEvidence::deserialize(deserializer)?
             .try_into()
             .map_err(serde::de::Error::custom)
-    }
-}
-
-/// Immutable payload of `ak.applet.managed_actor.provision`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletManagedActorProvisionPayload {
-    pub schema: String,
-    pub applet_id: AppletId,
-    pub service_id: DidCoreId,
-    pub actor_id: ActorId,
-    pub actor_role: AppletManagedActorRole,
-    pub initial_resolution: ResolutionCommitment,
-    pub method_history_evidence: AppletManagedActorMethodHistoryEvidence,
-    pub registration_ref: EventId,
-    pub applet_authority_ref: GrantId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<GhostExternalTuple>,
-}
-
-impl AppletManagedActorProvisionPayload {
-    pub const SCHEMA: &'static str = SchemaId::APPLET_MANAGED_ACTOR_PROVISION_V1;
-
-    pub fn validate(&self) -> Result<()> {
-        self.method_history_evidence.validate_shape()?;
-        let boundary = self.method_history_evidence.boundary();
-        if self.schema != Self::SCHEMA
-            || self.actor_id.signing_principal_id() == &self.service_id
-            || matches!(self.actor_role, AppletManagedActorRole::Bot) != self.external_ref.is_none()
-            || arkret_wire::project_did_to_core_id(&self.initial_resolution.did)?
-                != *self.actor_id.signing_principal_id()
-            || boundary.to_method_history_head != self.initial_resolution.method_history_head
-            || boundary.to_version_id != self.initial_resolution.version_id
-        {
-            return Err(WireError::Protocol(
-                "schema_violation: invalid Applet-managed actor provision".to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 

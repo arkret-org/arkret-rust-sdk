@@ -14,7 +14,7 @@
 // sha256=388e2980872d205b1137e790d0ae9e89c27d887be3a14d54edca2bbb59498f5e
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `signal-presence.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`
@@ -41,7 +41,7 @@ pub struct PresencePlaintext {
 ///
 /// The profile is fixed to the discussion track family and the plaintext
 /// therefore carries no `track_name` at all
-/// (`zh/discovery/profiles-presence.md` §3.5).
+/// (`zh/discovery/profiles-presence.md` Â§3.5).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TypingPlaintext {
@@ -62,7 +62,7 @@ pub struct TypingPlaintext {
 /// Event history, so it carries no `id`, no `schema`, no `created_at` and no
 /// `realm_id`. Realm scope is already bound into the ciphertext by the Signal
 /// AAD, the sending device and send time are on the signed envelope, and the
-/// payload kind is the `kind` const. One type both seals and opens — the
+/// payload kind is the `kind` const. One type both seals and opens â€” the
 /// closed schema and this struct describe the same five fields, so a sender's
 /// own bytes deserialize back.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

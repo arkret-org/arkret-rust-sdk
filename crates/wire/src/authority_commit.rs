@@ -38,6 +38,9 @@ pub enum CommitStreamRef {
     Realm {
         realm_id: RealmId,
     },
+    RealmControl {
+        realm_id: RealmId,
+    },
     Circle {
         realm_id: RealmId,
         circle_id: CircleId,
@@ -52,6 +55,7 @@ impl CommitStreamRef {
     pub fn realm_id(&self) -> &RealmId {
         match self {
             Self::Realm { realm_id }
+            | Self::RealmControl { realm_id }
             | Self::Circle { realm_id, .. }
             | Self::Sidecar { realm_id, .. } => realm_id,
         }
@@ -62,6 +66,9 @@ impl CommitStreamRef {
     pub fn scope_ref(&self) -> ScopeRef {
         match self {
             Self::Realm { realm_id } => ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            Self::RealmControl { realm_id } => ScopeRef::RealmControl {
                 realm_id: realm_id.clone(),
             },
             Self::Circle {
@@ -91,6 +98,9 @@ impl CommitStreamRef {
                     )
                 }),
             ScopeRef::Realm { realm_id } => Ok(Self::Realm {
+                realm_id: realm_id.clone(),
+            }),
+            ScopeRef::RealmControl { realm_id } => Ok(Self::RealmControl {
                 realm_id: realm_id.clone(),
             }),
             ScopeRef::Circle {
@@ -126,6 +136,16 @@ pub enum DetachedSignatureContext {
     RealmSnapshot,
     #[serde(rename = "ak.mls_welcome_delivery_signature.v1")]
     MlsWelcomeDelivery,
+    #[serde(rename = "ak.realm_actor_creation_signature.v1")]
+    RealmActorCreation,
+    #[serde(rename = "ak.realm_actor_control_acceptance_signature.v1")]
+    RealmActorControlAcceptance,
+    #[serde(rename = "ak.realm_actor_manager_acceptance_signature.v1")]
+    RealmActorManagerAcceptance,
+    #[serde(rename = "ak.realm_actor_recovery_acceptance_signature.v1")]
+    RealmActorRecoveryAcceptance,
+    #[serde(rename = "ak.realm_actor_material_signature.v1")]
+    RealmActorMaterial,
 }
 
 impl DetachedSignatureContext {
@@ -134,6 +154,21 @@ impl DetachedSignatureContext {
     /// one context can never verify under another.
     pub fn as_wire_str(self) -> &'static str {
         match self {
+            Self::RealmActorCreation => {
+                crate::DomainSeparationId::REALM_ACTOR_CREATION_SIGNATURE_V1
+            }
+            Self::RealmActorControlAcceptance => {
+                crate::DomainSeparationId::REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmActorManagerAcceptance => {
+                crate::DomainSeparationId::REALM_ACTOR_MANAGER_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmActorRecoveryAcceptance => {
+                crate::DomainSeparationId::REALM_ACTOR_RECOVERY_ACCEPTANCE_SIGNATURE_V1
+            }
+            Self::RealmActorMaterial => {
+                crate::DomainSeparationId::REALM_ACTOR_MATERIAL_SIGNATURE_V1
+            }
             Self::RealmCommit => crate::DomainSeparationId::REALM_COMMIT_SIGNATURE_V1,
             Self::RealmAuthorityHandoffOld => {
                 crate::DomainSeparationId::REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1
@@ -152,13 +187,18 @@ impl DetachedSignatureContext {
     }
 
     /// Every context the closed enum admits, in declaration order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 11] = [
         Self::RealmCommit,
         Self::RealmAuthorityHandoffOld,
         Self::RealmAuthorityHandoffNewAcceptance,
         Self::RealmAuthorityCurrentAssertion,
         Self::RealmSnapshot,
         Self::MlsWelcomeDelivery,
+        Self::RealmActorCreation,
+        Self::RealmActorControlAcceptance,
+        Self::RealmActorManagerAcceptance,
+        Self::RealmActorRecoveryAcceptance,
+        Self::RealmActorMaterial,
     ];
 }
 
@@ -1138,8 +1178,7 @@ impl ApprovalSignature {
             && !matches!(
                 self.input.operation.as_str(),
                 crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1
-                    | crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1
-                    | crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1
+                    | crate::ServiceOperationId::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1
             )
         {
             return Err(WireError::Protocol(
@@ -1341,9 +1380,69 @@ pub enum SidecarContextRef {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmActorStatusGate {
+    Owner,
+    Governance,
+}
+
+fn deserialize_realm_actor_selector<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<ActorId, D::Error> {
+    let actor = ActorId::deserialize(deserializer)?;
+    if actor.as_realm_actor_id().is_none() {
+        return Err(serde::de::Error::custom(
+            "Realm actor selector requires a Realm ActorId",
+        ));
+    }
+    actor.validate().map_err(serde::de::Error::custom)?;
+    Ok(actor)
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
+    RealmActorIdentity {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorControl {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorManager {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorStatus {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        gate: RealmActorStatusGate,
+    },
+    RealmActorDeviceGeneration {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorDeviceAuthorization {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        device_id: DeviceId,
+    },
+    RealmActorDeviceRevocationProposals {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        device_id: DeviceId,
+    },
+    RealmActorProfile {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorRecovery {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
     Sidecar {
         sidecar_id: SidecarId,
     },
@@ -1561,6 +1660,45 @@ pub enum CurrentSelector {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum FlatCurrentSelector {
+    RealmActorIdentity {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorControl {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorManager {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorStatus {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        gate: RealmActorStatusGate,
+    },
+    RealmActorDeviceGeneration {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorDeviceAuthorization {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        device_id: DeviceId,
+    },
+    RealmActorDeviceRevocationProposals {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        device_id: DeviceId,
+    },
+    RealmActorProfile {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
+    RealmActorRecovery {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+    },
     Sidecar {
         sidecar_id: SidecarId,
     },
@@ -1877,6 +2015,41 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 let flat = serde_json::from_value::<FlatCurrentSelector>(Value::Object(wire))
                     .map_err(serde::de::Error::custom)?;
                 Ok(match flat {
+                    FlatCurrentSelector::RealmActorIdentity { actor_id } => {
+                        Self::RealmActorIdentity { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorControl { actor_id } => {
+                        Self::RealmActorControl { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorManager { actor_id } => {
+                        Self::RealmActorManager { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorStatus { actor_id, gate } => {
+                        Self::RealmActorStatus { actor_id, gate }
+                    }
+                    FlatCurrentSelector::RealmActorDeviceGeneration { actor_id } => {
+                        Self::RealmActorDeviceGeneration { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorDeviceAuthorization {
+                        actor_id,
+                        device_id,
+                    } => Self::RealmActorDeviceAuthorization {
+                        actor_id,
+                        device_id,
+                    },
+                    FlatCurrentSelector::RealmActorDeviceRevocationProposals {
+                        actor_id,
+                        device_id,
+                    } => Self::RealmActorDeviceRevocationProposals {
+                        actor_id,
+                        device_id,
+                    },
+                    FlatCurrentSelector::RealmActorProfile { actor_id } => {
+                        Self::RealmActorProfile { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorRecovery { actor_id } => {
+                        Self::RealmActorRecovery { actor_id }
+                    }
                     FlatCurrentSelector::Sidecar { sidecar_id } => Self::Sidecar { sidecar_id },
                     FlatCurrentSelector::SidecarContext {
                         sidecar_id,

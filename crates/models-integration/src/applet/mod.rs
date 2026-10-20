@@ -16,3 +16,9 @@ pub use delivery_authentication::*;
 pub use ghost::*;
 pub use namespace_match::*;
 pub use registration::*;
+
+mod realm_actor;
+pub use realm_actor::*;
+
+mod realm_actor_material;
+pub use realm_actor_material::*;

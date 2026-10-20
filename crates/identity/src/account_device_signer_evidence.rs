@@ -474,6 +474,30 @@ pub fn verify_historical_producer_event_signature(
         F::AccountDevice(fact) => {
             verify_historical_account_device_event_signature(event, fact, suite)
         }
+        F::RealmDevice(_) | F::RealmControl(_) | F::RealmRecoveryService(_) => {
+            fact.validate_event_binding(event, suite)?;
+            let (method, key) = match fact {
+                F::RealmDevice(f) => (&f.verification_method, &f.public_key_b64u),
+                F::RealmControl(f) => (&f.verification_method, &f.public_key_b64u),
+                F::RealmRecoveryService(f) => (&f.verification_method, &f.public_key_b64u),
+                _ => unreachable!(),
+            };
+            let raw = arkret_canonical::base64url_decode(key.as_str())
+                .map_err(|e| signature_invalid(e.to_string()))?;
+            arkret_signatures::verify_ed25519_detached_jws_proof_with_digest_suite(
+                event
+                    .producer_proof
+                    .as_ref()
+                    .ok_or_else(|| signature_invalid("Realm proof absent"))?,
+                &EventProofBuilder::new()
+                    .envelope_bytes(event)
+                    .map_err(|e| signature_invalid(e.to_string()))?,
+                &event.actor_id,
+                &PublicKeyMaterial::Ed25519Raw { bytes: raw },
+                suite,
+            )
+            .map_err(|e| signature_invalid(format!("Realm proof {method}: {e}")))
+        }
         F::Service(fact) => {
             fact.validate_event_binding(event, suite)?;
             let raw = arkret_canonical::base64url_decode(fact.key.public_key_b64u.as_str())

@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=263165a38c080d9c65f9dc48031cb6f47a0c373d1a9f24b8c11922067ad9cac0
+// sha256=30d10629424e52184e90aecba7e28ab49041b2908dd678b9d522f37448386633
 //
 // Input: schemas/common-ids.schema.json
-// sha256=668d983321918e5b1522715d1f70774665adf7d4bfacf0e61df914f3404f6ccf
+// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
@@ -78,6 +78,12 @@ pub struct AuthorityHandoffRequest {
     )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pcr_private_state: Option<PcrPrivateHandoffManifest>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub management_private_state: Option<ManagementPrivateHandoffManifest>,
 }
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/committed_event_submission`.
@@ -110,4 +116,95 @@ pub struct PcrPrivateHandoffManifest {
     pub effective_stream_head: CommitStreamHead,
     pub nonce: String,
     pub state_digest: Hash,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManagementPrivateHandoffManifest {
+    pub realm_id: RealmId,
+    pub governance_generation: u64,
+    pub final_stream_heads_digest: Hash,
+    pub nonce: String,
+    pub state_digest: Hash,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact/properties/
+/// kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RealmDeviceHistoricalSignerFactKind {
+    #[serde(rename = "realm_device")]
+    RealmDevice,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmDeviceHistoricalSignerFact {
+    pub kind: RealmDeviceHistoricalSignerFactKind,
+    pub event_id: EventId,
+    pub actor_id: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub device_id: arkret_wire::DeviceId,
+    pub authorization_event_id: EventId,
+    pub authorized_generation_ref: u64,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact/properties/
+/// kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RealmControlHistoricalSignerFactKind {
+    #[serde(rename = "realm_control")]
+    RealmControl,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmControlHistoricalSignerFact {
+    pub kind: RealmControlHistoricalSignerFactKind,
+    pub event_id: EventId,
+    pub actor_id: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub control_event_ref: arkret_wire::CommittedEventRef,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_recovery_service_historical_signer_fact/
+/// properties/kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RealmRecoveryServiceHistoricalSignerFactKind {
+    #[serde(rename = "realm_recovery_service")]
+    RealmRecoveryService,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_recovery_service_historical_signer_fact`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmRecoveryServiceHistoricalSignerFact {
+    pub kind: RealmRecoveryServiceHistoricalSignerFactKind,
+    pub event_id: EventId,
+    pub actor_id: ActorId,
+    pub target_actor_id: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub applet_id: arkret_wire::AppletId,
+    pub registration_epoch: Hash,
+    pub registration_ref: arkret_wire::CommittedEventRef,
+    pub manager_ref: arkret_wire::CommittedEventRef,
+    pub recovery_ref: arkret_wire::CommittedEventRef,
 }

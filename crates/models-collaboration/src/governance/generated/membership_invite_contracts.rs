@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=ad33beeae92adb2bdf6ce5528d33435ba67cc5608647a5e0d5e8728902c543a7
+// sha256=9794e5f6afb46725da6449147dea930e65a3b535ffefdf5c0f3541306be35c63
 //
 // Input: schemas/event-payload.schema.json
-// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
+// sha256=140d80954da7fc35c298320ecd75b1ee6c9fc268ffbbfccbab10a19f879f3468
 //
 // Input: schemas/account-operations.schema.json
-// sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
+// sha256=b4be514e16b4a5154a4cb3bd56cf062f9ffb2cfc29ef25a26777a29f1e3d7644
 //
 // Input: schemas/common-ids.schema.json
-// sha256=668d983321918e5b1522715d1f70774665adf7d4bfacf0e61df914f3404f6ccf
+// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Input: schemas/agent-operations.schema.json
 // sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
@@ -20,7 +20,7 @@
 // sha256=c0bb436f9758322f34eeafa870f05761aee9a4c5d7bf3f5783d81c12639d0b5c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` typed current result
@@ -54,7 +54,7 @@ pub struct InviteLiveTargetOccupant {
 /// Closed applicant proof for one automatic join gate
 /// (`event-payload.schema.json#/$defs/join_gate_proof`).
 ///
-/// The binding tuple — gate, Realm, applicant, policy revision, creation time —
+/// The binding tuple â€” gate, Realm, applicant, policy revision, creation time â€”
 /// rides as wire members and is covered by `proofs`, so a proof replayed across
 /// Realms, applicants or policy revisions fails by field comparison before any
 /// signature is checked. Freshness is judged against the enclosing Event's
@@ -89,7 +89,7 @@ pub struct JoinGateProof {
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
 /// `additionalProperties:false`: the removed `handle` / `from` keys that older
-/// inkson call sites tried to emit are intentionally NOT representable here —
+/// inkson call sites tried to emit are intentionally NOT representable here â€”
 /// `handle` has no spec-legal home in this payload (the member identity is
 /// carried by `member_id`; handle evidence lives in signed `HandleClaim`
 /// objects on the roster, not the durable membership event), and the FSM

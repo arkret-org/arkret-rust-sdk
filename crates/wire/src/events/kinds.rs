@@ -100,7 +100,14 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
-        | EventKind::AppletManagedActorProvision
+        | EventKind::RealmActorCreate
+        | EventKind::RealmActorControlUpdate
+        | EventKind::RealmActorControlReset
+        | EventKind::RealmActorDevicesReset
+        | EventKind::RealmActorManagerChange
+        | EventKind::RealmActorRecoveryBegin
+        | EventKind::RealmActorRecoverySet
+        | EventKind::RealmActorStatusSet
         | EventKind::AppletRegistration => EventProductClass::Applet,
         EventKind::AuditAccessed | EventKind::AuditErasureReceipt => EventProductClass::Audit,
         EventKind::CapabilityGrant

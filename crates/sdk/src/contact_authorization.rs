@@ -261,7 +261,7 @@ fn verify_agent_holder_binding(
     };
     if actor.as_account_id().is_none()
         || actor != &event.actor_id
-        || actor.route_service_id() != &controller.station_id
+        || actor.fixed_route_service_id() != Some(&controller.station_id)
         || event
             .executed_by
             .as_ref()

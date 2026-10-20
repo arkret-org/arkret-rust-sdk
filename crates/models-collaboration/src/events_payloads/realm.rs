@@ -244,7 +244,6 @@ pub enum RealmPurpose {
     DirectConversation,
     PrincipalControl,
     AgentControl,
-    AppletManagedControl,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -377,9 +376,7 @@ impl RealmGenesis {
     pub fn validate(&self) -> Result<()> {
         let identity_control = matches!(
             self.purpose,
-            RealmPurpose::PrincipalControl
-                | RealmPurpose::AgentControl
-                | RealmPurpose::AppletManagedControl
+            RealmPurpose::PrincipalControl | RealmPurpose::AgentControl
         );
         if self.schema != SchemaId::REALM_GENESIS_V1
             || identity_control != self.initial_resolution.is_some()

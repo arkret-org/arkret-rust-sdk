@@ -1628,6 +1628,95 @@ pub fn capability_grant_expires_at(grant: &CapabilityGrant) -> Option<DateTime<U
         .min()
 }
 
+/// Bound a short signed authorization observation before any temporal boundary.
+/// Include both physical boundaries and the evaluator's tolerance boundaries;
+/// a receipt must never turn a recurring permission into a longer lease.
+pub fn capability_grant_temporal_horizon(
+    grant: &CapabilityGrant,
+    at: DateTime<Utc>,
+    horizon: DateTime<Utc>,
+) -> DateTime<Utc> {
+    let mut limit = horizon;
+    let skew = temporal_skew();
+    let mut include = |boundary: DateTime<Utc>| {
+        for candidate in [
+            Some(boundary),
+            boundary.checked_sub_signed(skew),
+            boundary.checked_add_signed(skew),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if candidate > at && candidate < limit {
+                limit = candidate;
+            }
+        }
+    };
+    for constraint in &grant.constraints {
+        if constraint.constraint_kind != GrantConstraintKind::Temporal {
+            continue;
+        }
+        for boundary in [constraint.not_before, constraint.expires_at]
+            .into_iter()
+            .flatten()
+        {
+            include(boundary);
+        }
+        let Some(recurrence) = &constraint.recurrence else {
+            continue;
+        };
+        let timezone: chrono_tz::Tz = match recurrence.timezone.as_deref().unwrap_or("UTC").parse()
+        {
+            Ok(value) => value,
+            Err(_) => return at,
+        };
+        let window = match (
+            recurrence.window_start.as_deref(),
+            recurrence.window_end.as_deref(),
+        ) {
+            (None, None) => None,
+            (Some(start), Some(end)) => match (parse_local_time(start), parse_local_time(end)) {
+                (Some(start), Some(end)) => Some((start, end)),
+                _ => return at,
+            },
+            _ => return at,
+        };
+        let (Some(earliest), Some(latest)) = (
+            at.checked_sub_signed(skew),
+            horizon.checked_add_signed(skew),
+        ) else {
+            return at;
+        };
+        let Some(mut day) = earliest.with_timezone(&timezone).date_naive().pred_opt() else {
+            return at;
+        };
+        let last = latest.with_timezone(&timezone).date_naive();
+        while day <= last {
+            let Some(next) = day.succ_opt() else {
+                return at;
+            };
+            if recurrence.days.is_empty() || recurrence.days.contains(&weekday_token(day.weekday()))
+            {
+                let (start, end, end_day) = match window {
+                    None => (NaiveTime::MIN, NaiveTime::MIN, next),
+                    Some((start, end)) => (start, end, if start <= end { day } else { next }),
+                };
+                for boundary in [
+                    local_instant(&timezone, day, start),
+                    local_instant(&timezone, end_day, end),
+                ] {
+                    let Some(boundary) = boundary else {
+                        return at;
+                    };
+                    include(boundary);
+                }
+            }
+            day = next;
+        }
+    }
+    limit
+}
+
 /// Whether resource selector `parent` covers `child`: the same kind with every
 /// identifying member of `parent` equal in `child`, or a Realm selector over a
 /// Realm-contained resource of the same Realm. The `*` selector covers nothing.
@@ -1636,6 +1725,11 @@ pub fn resource_selector_covers(
     child: &WireResourceSelector,
 ) -> bool {
     use arkret_wire::ResourceSelectorKind;
+    if parent.kind == ResourceSelectorKind::RealmActor
+        || child.kind == ResourceSelectorKind::RealmActor
+    {
+        return parent.validate().is_ok() && child.validate().is_ok() && parent == child;
+    }
     if parent.kind == ResourceSelectorKind::All {
         return false;
     }
