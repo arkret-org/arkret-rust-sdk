@@ -95,7 +95,7 @@ pub fn validate_managed_service_sources(
     let Some(identity) = subject.as_realm_actor_id() else {
         return Err(AuthorityError::Coverage);
     };
-    if child.realm_id.as_ref() != Some(&identity.realm_id) {
+    if subject.validate().is_err() || child.realm_id.as_ref() != Some(&identity.realm_id) {
         return Err(AuthorityError::Coverage);
     }
     if !matches!(child.issuer_id, ActorId::Service { .. })

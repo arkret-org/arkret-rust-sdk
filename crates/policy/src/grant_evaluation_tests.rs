@@ -1578,7 +1578,7 @@ fn typed_managed_child(
     };
     let subject = ActorId::realm(arkret_wire::RealmActorId {
         realm_id: parents[0].realm_id.clone().unwrap(),
-        principal_id: "ak:did_core:web:ghost.example".parse().unwrap(),
+        principal_id: "ak:did_core:webvh:zRealmGhostFixture".parse().unwrap(),
     });
     let mut constraints = parents[0].constraints.clone();
     for c in &mut constraints {
@@ -1632,7 +1632,7 @@ fn managed_source_contributions_cover_actions_resources_and_full_identity() {
             .replacen("ak:circle:", "ak:realm:", 1)
             .parse()
             .unwrap(),
-        principal_id: "ak:did_core:web:ghost.example".parse().unwrap(),
+        principal_id: "ak:did_core:webvh:zRealmGhostFixture".parse().unwrap(),
     }));
     assert_eq!(
         validate(&c, &[&a, &b], ManagedActorRole::Ghost),

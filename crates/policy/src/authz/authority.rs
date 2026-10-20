@@ -971,6 +971,7 @@ pub fn validate_managed_service_child(
         .collect();
     matches!(parent.subject_id, ActorId::Service { .. })
         && child.issuer_id == parent.subject_id
+        && child.subject_id.validate().is_ok()
         && child
             .subject_id
             .as_realm_actor_id()
@@ -1111,7 +1112,7 @@ mod managed_service_child_tests {
         child.grant_id = "child".into();
         child.subject_id = ActorId::realm(arkret_wire::RealmActorId {
             realm_id: parent.realm_id.parse().unwrap(),
-            principal_id: DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+            principal_id: DidCoreId::new("ak:did_core:webvh:zRealmBotFixture").unwrap(),
         });
         child.resource = "space".into();
         child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
@@ -1280,14 +1281,14 @@ mod managed_service_child_tests {
         }
         for subject in [
             ActorId::account(AccountId::new(
-                DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:zRealmBotFixture").unwrap(),
                 DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             )),
             ActorId::realm(arkret_wire::RealmActorId {
                 realm_id: "ak:realm:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62"
                     .parse()
                     .unwrap(),
-                principal_id: DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+                principal_id: DidCoreId::new("ak:did_core:webvh:zRealmBotFixture").unwrap(),
             }),
         ] {
             let mut changed = child.clone();

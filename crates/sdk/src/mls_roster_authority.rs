@@ -685,6 +685,7 @@ mod roster_bindings {
             return Err("signed MLS Genesis leaf differs from RFC public tree".to_owned());
         }
         let mut authorities = vec![authority_from_record(
+            &request.realm_id,
             actor_id,
             leaf_signature_key_b64u,
             endpoint,
@@ -709,6 +710,7 @@ mod roster_bindings {
                 return Err("signed MLS Add differs from its RFC KeyPackage leaf".to_owned());
             }
             authorities.push(authority_from_record(
+                &request.realm_id,
                 &attestation.actor_id,
                 &attestation.leaf_signature_key_b64u,
                 &attestation.endpoint,
@@ -741,6 +743,7 @@ mod roster_bindings {
     }
 
     fn authority_from_record(
+        realm_id: &arkret_wire::RealmId,
         actor_id: &ActorId,
         signature_key: &crate::Base64UrlString,
         endpoint: &MlsWelcomeRecipientEndpoint,
@@ -769,10 +772,12 @@ mod roster_bindings {
         actor_id
             .validate()
             .map_err(|error| format!("verify MLS roster ActorId: {error}"))?;
-        if matches!(&endpoint, MlsEndpointIdentity::HumanDevice { .. })
-            && !matches!(actor_id, ActorId::Account { .. })
-        {
-            return Err("MLS roster device endpoint is not an account Actor".to_owned());
+        match (&endpoint, actor_id) {
+            (MlsEndpointIdentity::HumanDevice { .. }, ActorId::Account { .. })
+            | (MlsEndpointIdentity::AgentRuntime { .. }, ActorId::Account { .. }) => {}
+            (MlsEndpointIdentity::HumanDevice { .. }, ActorId::Realm { realm_actor_id })
+                if &realm_actor_id.realm_id == realm_id => {}
+            _ => return Err("MLS roster endpoint differs from the Actor kind or Realm".to_owned()),
         }
         Ok(MlsVerifiedLeafBinding {
             leaf_index: 0, // Replaced solely by the verified occupied RFC tree.
@@ -816,6 +821,42 @@ mod roster_bindings {
     #[cfg(test)]
     mod roster_binding_tests {
         use super::*;
+
+        #[test]
+        fn realm_device_roster_requires_full_identity_and_own_realm() {
+            let realm: arkret_wire::RealmId =
+                "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru"
+                    .parse()
+                    .unwrap();
+            let principal: DidCoreId = "ak:did_core:webvh:zRealmBotFixture".parse().unwrap();
+            let actor = ActorId::realm(arkret_wire::RealmActorId {
+                realm_id: realm.clone(),
+                principal_id: principal.clone(),
+            });
+            let device = MlsWelcomeRecipientEndpoint::Device {
+                device_id: "ak:device:0196419b-0000-7000-8000-000000000001"
+                    .parse()
+                    .unwrap(),
+            };
+            let key = crate::Base64UrlString::new("AQ".to_owned()).unwrap();
+            let event =
+                EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap();
+            let binding = authority_from_record(&realm, &actor, &key, &device, &event).unwrap();
+            assert_eq!(binding.actor_id, actor);
+            assert_eq!(binding.device_authorize_event_id, Some(event.clone()));
+            let other = "ak:realm:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62"
+                .parse()
+                .unwrap();
+            assert!(authority_from_record(&other, &actor, &key, &device, &event).is_err());
+            assert!(
+                authority_from_record(&realm, &ActorId::service(principal), &key, &device, &event)
+                    .is_err()
+            );
+            let agent = MlsWelcomeRecipientEndpoint::AgentRuntime {
+                verification_method: DidUrl::new("did:web:bot.example#agent").unwrap(),
+            };
+            assert!(authority_from_record(&realm, &actor, &key, &agent, &event).is_err());
+        }
 
         fn actor() -> ActorId {
             ActorId::account(crate::AccountId::new(
