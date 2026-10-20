@@ -900,14 +900,14 @@ mod tests {
     }
 }
 
-/// A Service may issue only terminal children to verified managed Account subjects.
+/// A Service may issue only terminal children to verified managed Realm subjects.
 /// Parent quota accounting, current-cut installation verification and resource
 /// hierarchy resolution remain caller-owned. `resource_is_narrower` must use the
 /// same selector coverage verifier as ordinary capability issuance.
-/// The caller must authenticate the accepted full Account provision and its
-/// Applet/Service/hosting-Station/role provenance; a supplied role is not proof.
+/// The caller must authenticate the accepted full Realm actor creation and its
+/// current Applet/Service/Realm/role provenance; a supplied role is not proof.
 /// Only the exact Applet executor binding changes from the Service parent to
-/// the Account child. All other retained runtime constraints remain at least
+/// the Realm child. All other retained runtime constraints remain at least
 /// as strict; canonical constraint fields omitted by this runtime projection
 /// must additionally be checked at the typed Event boundary.
 pub fn validate_managed_service_child(
@@ -971,7 +971,10 @@ pub fn validate_managed_service_child(
         .collect();
     matches!(parent.subject_id, ActorId::Service { .. })
         && child.issuer_id == parent.subject_id
-        && matches!(child.subject_id, ActorId::Account { .. })
+        && child
+            .subject_id
+            .as_realm_actor_id()
+            .is_some_and(|identity| identity.realm_id.as_str() == child.realm_id)
         && child
             .issuer_authority_refs
             .iter()
@@ -1089,7 +1092,7 @@ mod managed_service_child_tests {
         let service = ActorId::service(DidCoreId::new("ak:did_core:web:service.example").unwrap());
         let parent = Grant {
             grant_id: "parent".into(),
-            realm_id: "realm".into(),
+            realm_id: "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru".into(),
             issuer_id: service.clone(),
             subject_id: service.clone(),
             resource: "realm".into(),
@@ -1106,10 +1109,10 @@ mod managed_service_child_tests {
         };
         let mut child = parent.clone();
         child.grant_id = "child".into();
-        child.subject_id = ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-        ));
+        child.subject_id = ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: parent.realm_id.parse().unwrap(),
+            principal_id: DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+        });
         child.resource = "space".into();
         child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
             grant_id: "parent".into(),
@@ -1258,7 +1261,7 @@ mod managed_service_child_tests {
         rejects(&changed, &child);
     }
     #[test]
-    fn rebinding_cannot_escape_terminal_account_or_drop_other_constraints() {
+    fn rebinding_cannot_escape_terminal_realm_actor_or_drop_other_constraints() {
         let (parent, child) = pair();
         for mutation in 0..4 {
             let mut changed = child.clone();
@@ -1268,6 +1271,28 @@ mod managed_service_child_tests {
                 2 => changed.constraints.push(control(false, 1, &[])),
                 _ => changed.issuer_authority_refs.clear(),
             }
+            assert!(!validate_managed_service_child(
+                &parent,
+                &changed,
+                ManagedActorRole::Bot,
+                covers
+            ));
+        }
+        for subject in [
+            ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )),
+            ActorId::realm(arkret_wire::RealmActorId {
+                realm_id: "ak:realm:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62"
+                    .parse()
+                    .unwrap(),
+                principal_id: DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+            }),
+        ] {
+            let mut changed = child.clone();
+            changed.subject_id = subject;
+            changed.constraints = vec![control(false, 0, &[]), binding(&changed.subject_id)];
             assert!(!validate_managed_service_child(
                 &parent,
                 &changed,

@@ -1576,10 +1576,14 @@ fn typed_managed_child(
     let CapabilitySubject::Actor(service) = &parents[0].subject else {
         panic!("Service source")
     };
+    let subject = ActorId::realm(arkret_wire::RealmActorId {
+        realm_id: parents[0].realm_id.clone().unwrap(),
+        principal_id: "ak:did_core:web:ghost.example".parse().unwrap(),
+    });
     let mut constraints = parents[0].constraints.clone();
     for c in &mut constraints {
         if c.constraint_subkind == Some(GrantConstraintSubkind::AppletAuthority) {
-            c.executed_by = Some(actor());
+            c.executed_by = Some(subject.clone());
         } else if c.constraint_kind == GrantConstraintKind::AuthorityControl {
             c.allowed_managed_actor_roles.clear();
             c.authority_regrant_allowed = Some(false);
@@ -1590,7 +1594,7 @@ fn typed_managed_child(
         schema: parents[0].schema.clone(),
         realm_id: parents[0].realm_id.clone(),
         issuer_id: service.clone(),
-        subject: CapabilitySubject::Actor(actor()),
+        subject: CapabilitySubject::Actor(subject),
         actions: parents
             .iter()
             .flat_map(|p| p.actions.iter().cloned())
@@ -1617,6 +1621,24 @@ fn managed_source_contributions_cover_actions_resources_and_full_identity() {
     let b = typed_managed_parent(202, &["ak.event.read"]);
     let mut c = typed_managed_child(&[&a, &b]);
     assert!(validate(&c, &[&a, &b], ManagedActorRole::Ghost).is_ok());
+    let original_subject = c.subject.clone();
+    c.subject = CapabilitySubject::Actor(actor());
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Coverage)
+    );
+    c.subject = CapabilitySubject::Actor(ActorId::realm(arkret_wire::RealmActorId {
+        realm_id: CIRCLE_B
+            .replacen("ak:circle:", "ak:realm:", 1)
+            .parse()
+            .unwrap(),
+        principal_id: "ak:did_core:web:ghost.example".parse().unwrap(),
+    }));
+    assert_eq!(
+        validate(&c, &[&a, &b], ManagedActorRole::Ghost),
+        Err(AuthorityError::Coverage)
+    );
+    c.subject = original_subject;
     c.actions.push("ak.strand.create".into());
     assert_eq!(
         validate(&c, &[&a, &b], ManagedActorRole::Ghost),

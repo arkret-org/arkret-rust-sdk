@@ -89,9 +89,15 @@ pub fn validate_managed_service_sources(
     parents: &[&CapabilityGrant],
     role: ManagedActorRole,
 ) -> Result<(), AuthorityError> {
-    let CapabilitySubject::Actor(account @ ActorId::Account { .. }) = &child.subject else {
+    let CapabilitySubject::Actor(subject) = &child.subject else {
         return Err(AuthorityError::Coverage);
     };
+    let Some(identity) = subject.as_realm_actor_id() else {
+        return Err(AuthorityError::Coverage);
+    };
+    if child.realm_id.as_ref() != Some(&identity.realm_id) {
+        return Err(AuthorityError::Coverage);
+    }
     if !matches!(child.issuer_id, ActorId::Service { .. })
         || parents.is_empty()
         || parents.len() != child.issuer_authority_refs.len()
@@ -120,7 +126,7 @@ pub fn validate_managed_service_sources(
         if expected.executed_by.as_ref() != Some(&child.issuer_id) {
             return Err(AuthorityError::Constraints);
         }
-        expected.executed_by = Some(account.clone());
+        expected.executed_by = Some(subject.clone());
         if &expected != child_binding {
             return Err(AuthorityError::Constraints);
         }
@@ -160,7 +166,7 @@ pub fn validate_managed_service_sources(
             if !child
                 .constraints
                 .iter()
-                .any(|candidate| retained(constraint, candidate, account))
+                .any(|candidate| retained(constraint, candidate, subject))
             {
                 return Err(AuthorityError::Constraints);
             }
@@ -208,11 +214,11 @@ fn binding(constraints: &[GrantConstraint]) -> Option<&GrantConstraint> {
         && binding.registration_epoch.is_some())
     .then_some(binding)
 }
-fn retained(parent: &GrantConstraint, child: &GrantConstraint, account: &ActorId) -> bool {
+fn retained(parent: &GrantConstraint, child: &GrantConstraint, subject: &ActorId) -> bool {
     let mut expected = parent.clone();
     match (parent.constraint_kind, parent.constraint_subkind) {
         (GrantConstraintKind::AuthorityControl, Some(GrantConstraintSubkind::AppletAuthority)) => {
-            expected.executed_by = Some(account.clone())
+            expected.executed_by = Some(subject.clone())
         }
         (GrantConstraintKind::AuthorityControl, None) => {
             if !child
