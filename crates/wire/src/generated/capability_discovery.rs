@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-20.5;
-//! sha256=46e7a1996b8c9ad977faaa12e7b0208a4577883b0b6e9f5fa1035d74269ebbd3
-//! Entries: operation_bundles=42 features=12
+//! Input: registry/contract-registry.json; version=2026-10-21.2;
+//! sha256=2cb0a69345267671ea5af9ce800cdceffa4fab649815891404afd306b5ac0a20
+//! Entries: operation_bundles=43 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -54,6 +54,52 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.applet_service.applet.v1",
+        service_kind: ServiceKind::AppletService,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletActorReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletCommandTransactionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletConfigurationCommandExecuteV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadDescribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadPingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadProtocolMetadataV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletRealmReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletThirdPartyLocationsReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.applet_service.describe.v1",
@@ -431,14 +477,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::EdgeAppletCommandTransactionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletConfigurationCommandExecuteV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1480,6 +1518,8 @@ impl FeatureDescriptor {
 impl OperationBundleDescriptor {
     pub const AGENT_RUNTIME_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.agent_runtime.describe.v1";
+    pub const APPLET_SERVICE_APPLET_V1: &'static str =
+        "ak.operation_bundle.applet_service.applet.v1";
     pub const APPLET_SERVICE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.applet_service.describe.v1";
     pub const ARCHIVE_NODE_DESCRIBE_V1: &'static str =

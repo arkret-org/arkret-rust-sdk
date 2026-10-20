@@ -782,6 +782,51 @@ mod tests {
     }
 
     #[test]
+    fn independent_applet_execution_is_discovered_without_station_role() {
+        let mut applet = ServiceDescribe::development(
+            Did::new("did:webvh:z6mkfixture:applet.example").unwrap(),
+            TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+            ServiceKind::AppletService,
+            vec![
+                "ak.operation_bundle.applet_service.applet.v1".to_owned(),
+                "ak.operation_bundle.applet_service.describe.v1".to_owned(),
+            ],
+            vec![TransportBinding::HttpJson {
+                base_url: "https://applet.example".to_owned(),
+                extension_profile_required: (),
+            }],
+        );
+        applet.validate().unwrap();
+        let mut station = station_description();
+        station
+            .supported_operation_bundles
+            .push("ak.operation_bundle.station.applet.v1".to_owned());
+        station.supported_operation_bundles.sort();
+        station.validate().unwrap();
+        for operation in [
+            ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
+            ServiceOperationId::EdgeAppletConfigurationCommandExecuteV1,
+        ] {
+            assert!(
+                applet
+                    .select_transport_binding(operation, &[BindingKind::HttpJson])
+                    .is_some()
+            );
+            assert!(!station.supports_operation(operation));
+        }
+        assert!(station.supports_operation(ServiceOperationId::EdgeAppletCommandTransactionV1));
+        applet
+            .supported_operation_bundles
+            .push("ak.operation_bundle.station.applet.v1".to_owned());
+        assert!(applet.validate().is_err());
+        station
+            .supported_operation_bundles
+            .push("ak.operation_bundle.applet_service.applet.v1".to_owned());
+        station.supported_operation_bundles.sort();
+        assert!(station.validate().is_err());
+    }
+
+    #[test]
     fn station_http_core_bundle_expands_service_resolution_capability() {
         let description = station_account_authority_description();
 
