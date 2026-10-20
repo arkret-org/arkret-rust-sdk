@@ -8,9 +8,10 @@
 //! crosses one of these responses.
 
 use arkret_models_collaboration::governance::invite_addressing::{
-    INVITE_LOCATOR_ISSUE_PATH, INVITE_LOCATOR_RESOLVE_PATH, INVITE_LOCATOR_ROTATE_PATH,
-    InviteDeliveryOutcome, InviteLocatorIssueOutcome, InviteLocatorIssueRequestBody,
-    InviteLocatorResolveRequestBody, InviteLocatorRotateRequestBody, PrincipalLocator,
+    INVITE_LOCATOR_ISSUE_PATH, INVITE_LOCATOR_RESOLVE_PATH, INVITE_LOCATOR_REVOKE_PATH,
+    INVITE_LOCATOR_ROTATE_PATH, InviteDeliveryOutcome, InviteLocatorIssueOutcome,
+    InviteLocatorIssueRequestBody, InviteLocatorResolveRequestBody, InviteLocatorRevokeOutcome,
+    InviteLocatorRevokeRequestBody, InviteLocatorRotateRequestBody, PrincipalLocator,
     SelfInviteDispatchRequestBody,
 };
 use arkret_models_collaboration::governance::third_party_invite::{
@@ -52,6 +53,22 @@ impl Client {
     ) -> Result<InviteLocatorIssueOutcome> {
         request.validate_minimal()?;
         self.post(INVITE_LOCATOR_ROTATE_PATH, request).await
+    }
+
+    /// Revoke one owned locator; retries retain the first revocation timestamp.
+    pub async fn revoke_invite_locator(
+        &self,
+        request: &InviteLocatorRevokeRequestBody,
+    ) -> Result<InviteLocatorRevokeOutcome> {
+        request.validate_minimal()?;
+        let outcome: InviteLocatorRevokeOutcome =
+            self.post(INVITE_LOCATOR_REVOKE_PATH, request).await?;
+        if outcome.locator_id != request.locator_id {
+            return Err(crate::Error::Protocol(
+                "revocation answers another invite locator".to_owned(),
+            ));
+        }
+        Ok(outcome)
     }
 
     /// Dispatch an already accepted Event by its immutable identifier.
