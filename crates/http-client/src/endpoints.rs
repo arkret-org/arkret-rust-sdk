@@ -23,6 +23,7 @@ mod push;
 mod realm_join;
 mod realm_read;
 mod security;
+mod session_revoke;
 mod signal;
 
 pub use account::AccountSubscribeFrameStream;
@@ -34,4 +35,5 @@ pub use events::{
     COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
     CommittedEventSubscribeOptions, STREAM_SCAN_MAX_LIMIT,
 };
+pub use session_revoke::SessionGrantRevokeAttempt;
 pub use signal::{SignalSendTransportObservation, SignalSubscribeFrameStream};
