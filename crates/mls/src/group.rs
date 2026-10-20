@@ -1800,6 +1800,16 @@ impl ArkretMlsGroup {
                     .to_owned(),
             ));
         }
+        let credential = processed.credential();
+        if credential.credential_type() != openmls::prelude::CredentialType::Basic
+            || credential.serialized_content()
+                != payload.pre_encryption_header.sender_domain.as_bytes()
+        {
+            return Err(Error::Protocol(
+                "standard MLS sender credential does not match the reconstructed sender domain"
+                    .to_owned(),
+            ));
+        }
 
         match processed.into_content() {
             ProcessedMessageContent::ApplicationMessage(message) => Ok(message.into_bytes()),

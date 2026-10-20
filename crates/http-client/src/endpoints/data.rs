@@ -19,8 +19,8 @@ use arkret_models_crypto::{
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
-    AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
-    AccountDataRow,
+    AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataList,
+    AccountDataReplaceRequestBody, AccountDataRow,
 };
 use arkret_wire::BlobRef;
 use reqwest::Method;
@@ -534,6 +534,15 @@ impl Client {
     ) -> Result<KeyPackagesClaimOutcome> {
         self.post("/_arkret/self/keys/keypackages/claims/query", request)
             .await
+    }
+
+    /// Read the holder's live registers, including Station-CAS-only entries.
+    /// This diagnostic snapshot never advances a subscription cursor or grants
+    /// write authority over a service-owned register (account-data section 5.5).
+    pub async fn account_data_list(&self) -> Result<AccountDataList> {
+        let list: AccountDataList = self.get("/_arkret/self/account_data").await?;
+        list.validate()?;
+        Ok(list)
     }
 
     /// Read one account-data entry.

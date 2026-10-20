@@ -70,6 +70,27 @@ type BoxAccountSubscribeFrameStream =
     std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>>>>;
 
 impl Client {
+    /// Issue or resume the holder's fixed bilateral continuity checkpoint request.
+    pub async fn contacts_checkpoint(
+        &self,
+        holder: &arkret_wire::AccountId,
+        request: &arkret_models_collaboration::contact_operations::ContactContinuityCheckpointRequestBody,
+    ) -> Result<arkret_models_collaboration::contact_operations::ContactContinuityCheckpointOutcome>
+    {
+        let outcome: arkret_models_collaboration::contact_operations::ContactContinuityCheckpointOutcome =
+            self.post("/_arkret/self/contacts/continuity-checkpoint", request).await?;
+        outcome.validate_for_request(holder, request)?;
+        Ok(outcome)
+    }
+
+    /// Explicitly export committed portable Contact continuity material.
+    pub async fn contacts_list_with_continuity(&self) -> Result<ContactList> {
+        let request = self
+            .request(Method::GET, PATH_SELF_CONTACTS)?
+            .query(&[("include_continuity", true)]);
+        self.send_json(request).await
+    }
+
     pub async fn contacts_reject(
         &self,
         request: &VerifiedSubmission<ContactRejectRequestBody>,

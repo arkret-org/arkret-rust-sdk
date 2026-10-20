@@ -1087,8 +1087,63 @@ pub enum ContactContinuityCheckpointStatus {
 pub struct ContactContinuityCheckpointOutcome {
     pub status: ContactContinuityCheckpointStatus,
     pub checkpoint_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_checkpoint_evidence"
+    )]
     pub continuity_evidence: Option<ContactContinuityEvidence>,
+}
+
+fn deserialize_checkpoint_evidence<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<ContactContinuityEvidence>, D::Error> {
+    ContactContinuityEvidence::deserialize(deserializer).map(Some)
+}
+
+impl ContactContinuityCheckpointOutcome {
+    /// Consume an own-Station result for this exact holder/peer pair. Portable
+    /// signature verification remains the importing Station's responsibility.
+    pub fn validate_for_request(
+        &self,
+        holder: &AccountId,
+        request: &ContactContinuityCheckpointRequestBody,
+    ) -> arkret_wire::Result<()> {
+        let peer = request.peer.contact_actor_id();
+        let peer = peer.as_account_id().ok_or_else(|| {
+            arkret_wire::WireError::Protocol(
+                "checkpoint peer must be an Account participant".into(),
+            )
+        })?;
+        if peer == holder {
+            return Err(arkret_wire::WireError::Protocol(
+                "checkpoint peer equals holder".into(),
+            ));
+        }
+        match (self.status, &self.continuity_evidence) {
+            (ContactContinuityCheckpointStatus::Pending, None) => Ok(()),
+            (ContactContinuityCheckpointStatus::Committed, Some(evidence)) => {
+                let mut pair = [holder.clone(), peer.clone()];
+                pair.sort();
+                let tail = &evidence.uncompressed_tail_entries;
+                if evidence.checkpoint.checkpoint_digest != self.checkpoint_digest
+                    || evidence.checkpoint.core.participants != pair
+                    || tail.is_empty()
+                    || tail.len() > 64
+                    || tail[0].continuity_checkpoint.as_ref() != Some(&evidence.checkpoint)
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "checkpoint result changed its digest, participants or bounded tail".into(),
+                    ));
+                }
+                evidence.checkpoint.validate_contact_shape()?;
+                validate_recontact_continuity(&tail[0], &tail[1..])
+            }
+            _ => Err(arkret_wire::WireError::Protocol(
+                "checkpoint status and evidence disagree".into(),
+            )),
+        }
+    }
 }
 
 impl BilateralContinuityCheckpoint {

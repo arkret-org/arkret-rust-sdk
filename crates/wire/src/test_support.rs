@@ -10,6 +10,90 @@ use serde_json::Value;
 
 use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hash, Result, ScopeRef};
 
+/// A deterministic encrypted Signal shape, not a cryptographic proof fixture.
+/// Callers own the scope, sender, authority cut and complete time interval;
+/// deliberately invalid variants should mutate the returned value explicitly.
+#[allow(clippy::too_many_arguments)]
+pub fn structural_signal_envelope_at(
+    scope_ref: ScopeRef,
+    sender_actor_id: ActorId,
+    sender_device_id: crate::DeviceId,
+    verification_method: crate::DidUrl,
+    authority_commit_id: crate::RealmCommitId,
+    signal_class: crate::SignalClass,
+    sent_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+) -> crate::SignalEnvelope {
+    let mut envelope = crate::SignalEnvelope {
+        realm_id: scope_ref.realm_id().clone(),
+        scope_ref,
+        sender_actor_id,
+        sender_device_id: Some(sender_device_id),
+        authority_commit_id,
+        parent_realm_authority_commit_id: None,
+        signal_class,
+        sent_at,
+        expires_at,
+        encrypted_payload: crate::SignalEncryptedPayload {
+            scheme: crate::SIGNAL_AEAD_SCHEME.to_owned(),
+            key_ref: crate::SignalKeyRef {
+                group_state_ref: "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM".to_owned(),
+            },
+            purpose: crate::SIGNAL_AEAD_PURPOSE.to_owned(),
+            aead_profile: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned(),
+            epoch: 7,
+            nonce: "AAAAAAAAAAAAAAAA".to_owned(),
+            ciphertext: "Q2lwaGVydGV4dFBsYWNlaG9sZGVy".to_owned(),
+        },
+        proof: crate::SignalProof {
+            kind: crate::primitives::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method,
+            envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            domain: None,
+            audience: None,
+            jws: "a..b".to_owned(),
+        },
+    };
+    envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
+    envelope
+}
+
+/// Structural storage-test Commit. Its artificial ID/digest/signature must
+/// never be used to demonstrate accepted-chain or cryptographic validity.
+pub fn structural_realm_commit_at(
+    event: &Event,
+    realm_id: crate::RealmId,
+    position: u64,
+    verification_method: crate::DidUrl,
+    committed_at: DateTime<Utc>,
+) -> crate::RealmCommit {
+    crate::RealmCommit {
+        producer_signer_fact_digest: None,
+        commit_id: crate::RealmCommitId::from_digest([position as u8; 32]),
+        stream_ref: crate::CommitStreamRef::Realm {
+            realm_id: realm_id.clone(),
+        },
+        realm_id,
+        stream_position: position,
+        previous_commit_ref: Some(crate::RealmCommitId::from_digest([0x09; 32])),
+        event_ref: event.event_id.clone(),
+        governance_generation: 0,
+        authority_ref: crate::RealmCommitAuthorityRef::GenesisOrChangeEvent(EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [0x61; 32],
+        )),
+        committed_at,
+        signature: crate::DetachedObjectSignature {
+            context: crate::DetachedSignatureContext::RealmCommit,
+            signature_algorithm: crate::DetachedSignatureAlgorithm::Ed25519,
+            verification_method,
+            signed_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+            created_at: committed_at,
+            sig: crate::Base64UrlString::new("c2lnbmF0dXJl".to_owned()).unwrap(),
+        },
+    }
+}
+
 /// The detached compact JWS a fixture carries when its case is the envelope
 /// shape and not that anything verified.
 ///

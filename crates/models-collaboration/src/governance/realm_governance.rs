@@ -308,9 +308,11 @@ pub struct RealmLinkEntry {
     pub target_realm_id: RealmId,
     pub link_kind: RealmLinkKind,
     pub status: RealmLinkStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub commitment: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -324,7 +326,6 @@ pub struct RealmLinkEntry {
 pub struct RealmLifecycleView {
     pub realm_id: RealmId,
     pub owner_id: DidCoreId,
-    #[serde(default)]
     pub member_ids: Vec<ActorId>,
     pub deleted: bool,
     #[serde(default)]
@@ -332,8 +333,10 @@ pub struct RealmLifecycleView {
     #[serde(default)]
     pub frozen: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub terminal_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub successor_realm_id: Option<RealmId>,
 }
 
@@ -355,6 +358,81 @@ pub struct RealmExport {
 pub enum RealmExportSchema {
     #[serde(rename = "ak.export.realm.v1")]
     V1,
+}
+
+impl RealmLifecycleView {
+    pub fn validate_for_realm(&self, realm: &RealmId) -> Result<()> {
+        if &self.realm_id != realm
+            || self
+                .member_ids
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != self.member_ids.len()
+            || self
+                .terminal_state
+                .as_deref()
+                .is_some_and(|state| !matches!(state, "tombstoned" | "destroyed"))
+        {
+            return Err(WireError::Protocol(
+                "Realm lifecycle response binding differs".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RealmExport {
+    pub fn validate_for_realm(&self, realm: &RealmId) -> Result<()> {
+        if &self.realm_id != realm {
+            return Err(WireError::Protocol(
+                "Realm export response binding differs".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RealmLinkList {
+    pub fn validate_for_request(
+        &self,
+        realm: &RealmId,
+        direction: RealmLinkDirection,
+        allow: Option<&[RealmLinkKind]>,
+    ) -> Result<()> {
+        if self.realm_id != *realm || self.direction != direction {
+            return Err(WireError::Protocol(
+                "Realm link response binding differs".into(),
+            ));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for link in &self.links {
+            if let Some(label) = &link.label {
+                arkret_wire::validate_single_line_display_text(label, 256)?;
+            }
+            let related = match direction {
+                RealmLinkDirection::Outbound => &link.realm_id == realm,
+                RealmLinkDirection::Inbound => &link.target_realm_id == realm,
+                RealmLinkDirection::Both => {
+                    &link.realm_id == realm || &link.target_realm_id == realm
+                }
+            };
+            if !related
+                || link.realm_id == link.target_realm_id
+                || allow.is_some_and(|allow| !allow.contains(&link.link_kind))
+                || !seen.insert((
+                    link.realm_id.clone(),
+                    link.target_realm_id.clone(),
+                    link.link_kind,
+                ))
+            {
+                return Err(WireError::Protocol(
+                    "Realm link response edge differs".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl RealmAliasTombstonePayload {

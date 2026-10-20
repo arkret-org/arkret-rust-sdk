@@ -1338,3 +1338,134 @@ fn outbound_commit_stays_pending_until_authority_acceptance() {
     assert_eq!(group.epoch(), base_epoch);
     assert_eq!(commit.epoch, base_epoch + 1);
 }
+
+fn application_message_pair() -> (ArkretMlsGroup, ArkretMlsGroup) {
+    let scope = realm_scope();
+    let member = second_identity();
+    let mut creator = identity()
+        .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+        .unwrap();
+    let endpoints = vec![creator.identity.endpoint.clone(), member.endpoint.clone()];
+    let binding = transition_binding(&scope, event(1), 1);
+    let added = creator
+        .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
+        .unwrap();
+    let bytes = decode(added.welcome.ciphertext_b64.as_str()).unwrap();
+    let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).unwrap();
+    let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
+        panic!("expected actual RFC Welcome");
+    };
+    let staged = StagedWelcome::new_from_welcome(
+        &member.provider,
+        &MlsGroupJoinConfig::default(),
+        welcome,
+        None,
+    )
+    .unwrap();
+    let authenticated = decode_group_context_governance_binding(staged.group_context()).unwrap();
+    let verified = crate::verify_historical_governance_binding(&authenticated, &binding).unwrap();
+    let mut joined = ArkretMlsGroup::join_staged_welcome(member, &scope, staged, verified).unwrap();
+    creator
+        .merge_accepted_commit_envelope(
+            &added.commit,
+            &MlsGovernanceBindingPublicState::new(scope, Some(event(1)), 0, 1),
+            &binding,
+        )
+        .unwrap();
+    creator
+        .install_test_leaf_bindings(endpoints.clone())
+        .unwrap();
+    joined.install_test_leaf_bindings(endpoints).unwrap();
+    (creator, joined)
+}
+
+fn application_header(
+    group: &ArkretMlsGroup,
+    sender_domain: String,
+) -> EventContentPreEncryptionHeader {
+    use arkret_models_collaboration::events_payloads::message::ContentBlock;
+    use arkret_models_crypto::{EventContentRoutingContext, MlsPayloadType};
+    EventContentPreEncryptionHeader::reconstruct(
+        "1.0",
+        ContentBlock::MLS_CONTENT_TYPE,
+        EncryptedPayloadScheme::MlsRfc9420,
+        group.scope().clone(),
+        EventKind::MessageCreate.as_str(),
+        group.epoch(),
+        event(2),
+        sender_domain,
+        EventContentRoutingContext::None,
+    )
+    .unwrap()
+}
+
+fn application_with_claimed_sender(
+    sender: &mut ArkretMlsGroup,
+    claimed_sender: &ActorId,
+) -> EncryptedPayload {
+    let declared = String::from_utf8(
+        arkret_models_crypto::mls_basic_credential_identity(claimed_sender).unwrap(),
+    )
+    .unwrap();
+    let header = application_header(sender, declared);
+    // Produce a valid MLS signature with a dishonest application AAD. The
+    // receiver cannot rely on the sender having used the safe SDK encryptor.
+    sender.group.set_aad(header.canonical_bytes().unwrap());
+    let message = sender
+        .group
+        .create_message(
+            &sender.identity.provider,
+            &sender.identity.signer,
+            br#"{"body":"claimed sender","format":"plain","kind":"ak.content.text"}"#,
+        )
+        .unwrap();
+    let ciphertext = encode(&message.tls_serialize_detached().unwrap());
+    let payload_digest =
+        EncryptedPayload::payload_digest_for_header(&header, ciphertext.clone()).unwrap();
+    EncryptedPayload {
+        scheme: EncryptedPayloadScheme::MlsRfc9420,
+        group_id: sender.group_id(),
+        epoch: sender.epoch(),
+        content_type: header.content_type.clone(),
+        ciphertext,
+        pre_encryption_header: header,
+        payload_digest,
+    }
+}
+
+#[test]
+fn application_sender_binding_survives_private_restart() {
+    let (receiver, mut sender) = application_message_pair();
+    let header = application_header(&sender, sender.local_content_sender_domain().unwrap());
+    let plaintext = br#"{"body":"actual sender","format":"plain","kind":"ak.content.text"}"#;
+    let payload = sender.encrypt_payload(header, plaintext).unwrap();
+    let private = receiver.export_state_record().unwrap();
+    let mut restored = ArkretMlsGroup::restore_from_state_record(&private).unwrap();
+    assert_eq!(restored.decrypt_payload(&payload).unwrap(), plaintext);
+}
+
+#[test]
+fn application_sender_rejects_another_member_in_authenticated_aad() {
+    let (mut receiver, mut sender) = application_message_pair();
+    let claimed = receiver.identity.actor_id.clone();
+    let payload = application_with_claimed_sender(&mut sender, &claimed);
+    assert!(
+        receiver.decrypt_payload(&payload).is_err(),
+        "valid MLS ciphertext must not declare another authenticated sender"
+    );
+}
+
+#[test]
+fn application_sender_rejects_same_principal_at_another_station() {
+    let (mut receiver, mut sender) = application_message_pair();
+    let actual = sender.identity.actor_id.as_account_id().unwrap();
+    let claimed = ActorId::account(arkret_wire::AccountId::new(
+        actual.principal_id.clone(),
+        DidCoreId::new("ak:did_core:web:another-mls-station.example").unwrap(),
+    ));
+    let payload = application_with_claimed_sender(&mut sender, &claimed);
+    assert!(
+        receiver.decrypt_payload(&payload).is_err(),
+        "a principal-only comparison must not collapse distinct full actors"
+    );
+}

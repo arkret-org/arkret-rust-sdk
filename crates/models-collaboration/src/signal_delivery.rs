@@ -326,7 +326,6 @@ fn validate_signal_stream_reason(reason: Option<&str>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::primitives::proof_kind;
     use chrono::{DateTime, Duration, TimeZone, Utc};
 
     use super::*;
@@ -354,39 +353,16 @@ mod tests {
     }
 
     fn envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelope {
-        let mut envelope = SignalEnvelope {
-            realm_id: realm(),
-            scope_ref: ScopeRef::Realm { realm_id: realm() },
-            sender_actor_id: actor(),
-            sender_device_id: Some(device()),
-            authority_commit_id: RealmCommitId::from_digest([0xaa; 32]),
-            parent_realm_authority_commit_id: None,
+        test_support::structural_signal_envelope_at(
+            ScopeRef::Realm { realm_id: realm() },
+            actor(),
+            device(),
+            DidUrl::new(format!("{}#{}", actor_did(), device())).unwrap(),
+            RealmCommitId::from_digest([0xaa; 32]),
             signal_class,
-            sent_at: sent_at(),
-            expires_at: sent_at() + Duration::seconds(ttl_seconds),
-            encrypted_payload: SignalEncryptedPayload {
-                scheme: SIGNAL_AEAD_SCHEME.to_owned(),
-                key_ref: SignalKeyRef {
-                    group_state_ref: "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
-                        .to_owned(),
-                },
-                purpose: SIGNAL_AEAD_PURPOSE.to_owned(),
-                aead_profile: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned(),
-                epoch: 7,
-                nonce: "AAAAAAAAAAAAAAAA".to_owned(),
-                ciphertext: "Q2lwaGVydGV4dFBsYWNlaG9sZGVy".to_owned(),
-            },
-            proof: SignalProof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(format!("{}#{}", actor_did(), device())).unwrap(),
-                envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                domain: None,
-                audience: None,
-                jws: "a..b".to_owned(),
-            },
-        };
-        envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
-        envelope
+            sent_at(),
+            sent_at() + Duration::seconds(ttl_seconds),
+        )
     }
 
     #[test]
