@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/applet-managed-authority-registry.json; version=2026-10-21.1;
-//! sha256=89ee2549118db8f19c14745073e12e94fef8340ed4a7a5946bd8f6fc5bee3eca Input: registry/
+//! Input: registry/applet-managed-authority-registry.json; version=2026-10-21.2;
+//! sha256=849df68ebec3ea17f04c6a38a743902fefd69b57f6d3e9525bf929995c744173 Input: registry/
 //! contract-registry.json; version=2026-10-20.5;
 //! sha256=46e7a1996b8c9ad977faaa12e7b0208a4577883b0b6e9f5fa1035d74269ebbd3
 //! Entries: managed_device_operations=22
