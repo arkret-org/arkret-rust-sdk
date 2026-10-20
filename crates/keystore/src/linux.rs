@@ -1,6 +1,6 @@
 //! Linux Secret Service (`org.freedesktop.secrets`) backend for [`KeyStore`].
 //!
-//! Uses the `secret-service` crate's blocking API to talk to the running
+//! Drives the `secret-service` async API through zbus's synchronous driver for the running
 //! D-Bus Secret Service implementation (GNOME Keyring / KWallet /
 //! `keepassxc-secret-service`). Items live in the user's default
 //! collection (`/org/freedesktop/secrets/aliases/default`) and are tagged
@@ -16,12 +16,11 @@
 //! This serializes cooperating SDK processes even with different filesystem
 //! homes. Direct external writers must not mutate this namespace concurrently.
 
-use secret_service::EncryptionType;
-use secret_service::blocking::SecretService;
+use futures_util::StreamExt;
+use secret_service::{EncryptionType, SecretService};
 use sha2::{Digest, Sha256};
-use zbus::blocking::Connection;
-use zbus::blocking::fdo::DBusProxy;
-use zbus::fdo::RequestNameReply;
+use zbus::Connection;
+use zbus::fdo::{DBusProxy, RequestNameReply};
 
 use crate::contract::{KeyBytes, Result, service_name, validate_id};
 use crate::{KeyStore, KeyStoreError};
@@ -49,8 +48,11 @@ impl LinuxSecretServiceKeyStore {
     }
 
     fn connect() -> std::result::Result<SecretService<'static>, KeyStoreError> {
-        SecretService::connect(EncryptionType::Dh)
-            .map_err(|err| KeyStoreError::backend(format!("secret-service: {err}")))
+        zbus::block_on(async {
+            SecretService::connect(EncryptionType::Dh)
+                .await
+                .map_err(|err| KeyStoreError::backend(format!("secret-service: {err}")))
+        })
     }
 
     fn attrs<'a>(&'a self, id: &'a str) -> std::collections::HashMap<&'a str, &'a str> {
@@ -67,86 +69,102 @@ struct MutationLease(Connection);
 impl Drop for MutationLease {
     fn drop(&mut self) {
         // Close even if Secret Service or proxy clones remain after a failure.
-        let _ = self.0.clone().close();
+        let _ = zbus::block_on(self.0.clone().close());
     }
 }
 
 impl LinuxSecretServiceKeyStore {
     fn mutation_session(&self) -> Result<(MutationLease, SecretService<'static>)> {
-        let connection = Connection::session().map_err(bus_error)?;
+        let connection = zbus::block_on(Connection::session()).map_err(bus_error)?;
         let lease = MutationLease(connection);
-        let digest = Sha256::digest(self.service.as_bytes());
-        let suffix: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
-        let name = format!("org.arkret.KeyStore.n{suffix}");
-        {
-            let proxy = DBusProxy::new(&lease.0).map_err(bus_error)?;
-            // Subscribe before queueing so rapid acquisition cannot be lost.
-            let mut acquired = proxy.receive_name_acquired().map_err(bus_error)?;
-            // RequestName flags = 0: queue; neither replace nor allow replacement.
-            let reply: RequestNameReply = proxy
-                .inner()
-                .call("RequestName", &(name.as_str(), 0u32))
-                .map_err(bus_error)?;
-            match reply {
-                RequestNameReply::PrimaryOwner => {}
-                RequestNameReply::InQueue => loop {
-                    let signal = acquired.next().ok_or_else(|| {
-                        KeyStoreError::backend("key-store bus lease connection closed")
-                    })?;
-                    if signal.args().map_err(bus_error)?.name.as_str() == name {
-                        break;
+        let session = zbus::block_on(async {
+            let digest = Sha256::digest(self.service.as_bytes());
+            let suffix: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+            let name = format!("org.arkret.KeyStore.n{suffix}");
+            {
+                let proxy = DBusProxy::new(&lease.0).await.map_err(bus_error)?;
+                // Subscribe before queueing so rapid acquisition cannot be lost.
+                let mut acquired = proxy.receive_name_acquired().await.map_err(bus_error)?;
+                // RequestName flags = 0: queue; neither replace nor allow replacement.
+                let reply: RequestNameReply = proxy
+                    .inner()
+                    .call("RequestName", &(name.as_str(), 0u32))
+                    .await
+                    .map_err(bus_error)?;
+                match reply {
+                    RequestNameReply::PrimaryOwner => {}
+                    RequestNameReply::InQueue => loop {
+                        let signal = acquired.next().await.ok_or_else(|| {
+                            KeyStoreError::backend("key-store bus lease connection closed")
+                        })?;
+                        if signal.args().map_err(bus_error)?.name.as_str() == name {
+                            break;
+                        }
+                    },
+                    _ => {
+                        return Err(KeyStoreError::backend(
+                            "key-store bus lease was not acquired",
+                        ));
                     }
-                },
-                _ => {
-                    return Err(KeyStoreError::backend(
-                        "key-store bus lease was not acquired",
-                    ));
                 }
             }
-        }
-        let session = SecretService::connect_with_existing(EncryptionType::Dh, lease.0.clone())
-            .map_err(|error| KeyStoreError::backend(format!("secret-service: {error}")))?;
+            let session = SecretService::connect_with_existing(EncryptionType::Dh, lease.0.clone())
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("secret-service: {error}")))?;
+            Ok(session)
+        })?;
         Ok((lease, session))
     }
 
     fn load_from(&self, ss: &SecretService<'_>, id: &str) -> Result<KeyBytes> {
-        let items = ss
-            .search_items(self.attrs(id))
-            .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
-        let mut items = items.unlocked.into_iter().chain(items.locked);
-        let item = items.next().ok_or_else(|| KeyStoreError::not_found(id))?;
-        if items.next().is_some() {
-            return Err(KeyStoreError::backend("ambiguous Secret Service key id"));
-        }
-        if item
-            .is_locked()
-            .map_err(|error| KeyStoreError::backend(format!("item lock: {error}")))?
-        {
-            item.unlock()
-                .map_err(|error| KeyStoreError::backend(format!("unlock item: {error}")))?;
-        }
-        item.get_secret()
-            .map(KeyBytes::new)
-            .map_err(|error| KeyStoreError::backend(format!("get secret: {error}")))
+        zbus::block_on(async {
+            let items = ss
+                .search_items(self.attrs(id))
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
+            let mut items = items.unlocked.into_iter().chain(items.locked);
+            let item = items.next().ok_or_else(|| KeyStoreError::not_found(id))?;
+            if items.next().is_some() {
+                return Err(KeyStoreError::backend("ambiguous Secret Service key id"));
+            }
+            if item
+                .is_locked()
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("item lock: {error}")))?
+            {
+                item.unlock()
+                    .await
+                    .map_err(|error| KeyStoreError::backend(format!("unlock item: {error}")))?;
+            }
+            item.get_secret()
+                .await
+                .map(KeyBytes::new)
+                .map_err(|error| KeyStoreError::backend(format!("get secret: {error}")))
+        })
     }
 
     fn write_to(&self, ss: &SecretService<'_>, id: &str, key: &[u8], replace: bool) -> Result<()> {
-        let collection = ss
-            .get_collection_by_alias("default")
-            .map_err(|error| KeyStoreError::backend(format!("get collection: {error}")))?;
-        if collection
-            .is_locked()
-            .map_err(|error| KeyStoreError::backend(format!("collection lock: {error}")))?
-        {
+        zbus::block_on(async {
+            let collection = ss
+                .get_collection_by_alias("default")
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("get collection: {error}")))?;
+            if collection
+                .is_locked()
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("collection lock: {error}")))?
+            {
+                collection.unlock().await.map_err(|error| {
+                    KeyStoreError::backend(format!("unlock collection: {error}"))
+                })?;
+            }
+            let label = format!("{}/{}", self.service, id);
             collection
-                .unlock()
-                .map_err(|error| KeyStoreError::backend(format!("unlock collection: {error}")))?;
-        }
-        let label = format!("{}/{}", self.service, id);
-        collection
-            .create_item(&label, self.attrs(id), key, replace, "text/plain")
-            .map_err(|error| KeyStoreError::backend(format!("create item: {error}")))?;
-        Ok(())
+                .create_item(&label, self.attrs(id), key, replace, "text/plain")
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("create item: {error}")))?;
+            Ok(())
+        })
     }
 }
 
@@ -181,35 +199,42 @@ impl KeyStore for LinuxSecretServiceKeyStore {
 
     fn list(&self) -> Result<Vec<String>> {
         let ss = Self::connect()?;
-        let mut attrs = std::collections::HashMap::new();
-        attrs.insert("service", self.service.as_str());
-        let items = ss
-            .search_items(attrs)
-            .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
-        let mut ids = Vec::new();
-        for item in items.unlocked.iter().chain(items.locked.iter()) {
-            if let Ok(item_attrs) = item.get_attributes()
-                && let Some(id) = item_attrs.get("account")
-            {
-                ids.push(id.clone());
+        zbus::block_on(async {
+            let mut attrs = std::collections::HashMap::new();
+            attrs.insert("service", self.service.as_str());
+            let items = ss
+                .search_items(attrs)
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
+            let mut ids = Vec::new();
+            for item in items.unlocked.iter().chain(items.locked.iter()) {
+                if let Ok(item_attrs) = item.get_attributes().await
+                    && let Some(id) = item_attrs.get("account")
+                {
+                    ids.push(id.clone());
+                }
             }
-        }
-        ids.sort();
-        ids.dedup();
-        Ok(ids)
+            ids.sort();
+            ids.dedup();
+            Ok(ids)
+        })
     }
 
     fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
         let (_lease, ss) = self.mutation_session()?;
-        let items = ss
-            .search_items(self.attrs(id))
-            .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
-        for item in items.unlocked.into_iter().chain(items.locked) {
-            item.delete()
-                .map_err(|error| KeyStoreError::backend(format!("delete item: {error}")))?;
-        }
-        Ok(())
+        zbus::block_on(async {
+            let items = ss
+                .search_items(self.attrs(id))
+                .await
+                .map_err(|error| KeyStoreError::backend(format!("search items: {error}")))?;
+            for item in items.unlocked.into_iter().chain(items.locked) {
+                item.delete()
+                    .await
+                    .map_err(|error| KeyStoreError::backend(format!("delete item: {error}")))?;
+            }
+            Ok(())
+        })
     }
 }
 
@@ -252,12 +277,12 @@ mod tests {
                 .contains("ambiguous")
         );
         assert!(store.create_if_absent("duplicate", b"replacement").is_err());
-        let items = ss.search_items(store.attrs("duplicate")).unwrap();
+        let items = zbus::block_on(ss.search_items(store.attrs("duplicate"))).unwrap();
         let mut secrets = items
             .unlocked
             .iter()
             .chain(items.locked.iter())
-            .map(|item| item.get_secret().unwrap())
+            .map(|item| zbus::block_on(item.get_secret()).unwrap())
             .collect::<Vec<_>>();
         secrets.sort();
         assert_eq!(secrets, [b"first".to_vec(), b"second".to_vec()]);
@@ -275,10 +300,13 @@ mod tests {
         drop(lease);
         // Even retained library references cannot keep the lease alive.
         assert!(
-            DBusProxy::new(&retained_connection)
-                .unwrap()
-                .list_names()
-                .is_err()
+            zbus::block_on(async {
+                DBusProxy::new(&retained_connection)
+                    .await?
+                    .list_names()
+                    .await
+            })
+            .is_err()
         );
         drop(ss);
         let (_next_lease, _next_ss) = store.mutation_session().unwrap();
