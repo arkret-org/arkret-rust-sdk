@@ -245,10 +245,10 @@ impl KeyPackageClaimRecord {
         self.actor_id
             .validate()
             .map_err(|_| "KeyPackage claim actor_id is invalid")?;
-        let Some(account_id) = self.actor_id.as_account_id() else {
-            return Err("KeyPackage claim actor_id must be an account ActorId");
-        };
-        if account_id.principal_id != self.principal_id {
+        if matches!(self.actor_id, ActorId::Service { .. }) {
+            return Err("KeyPackage claim actor_id must be an Account or Realm ActorId");
+        }
+        if self.actor_id.signing_principal_id() != &self.principal_id {
             return Err("KeyPackage claim actor_id principal differs from principal_id");
         }
         let capabilities = self.capabilities.iter().collect::<BTreeSet<_>>();
@@ -275,7 +275,8 @@ impl KeyPackageClaimRecord {
         ) {
             (Some(_), Some(_), None, None, None) => Ok(()),
             (None, None, Some(agent), Some(_), Some(_))
-                if agent.as_core_id() == self.principal_id.as_core_id() =>
+                if self.actor_id.as_account_id().is_some()
+                    && agent.as_core_id() == self.principal_id.as_core_id() =>
             {
                 Ok(())
             }
@@ -447,4 +448,56 @@ impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceSelector {
 
 fn protocol<T>(message: &str) -> Result<T> {
     Err(WireError::Protocol(message.to_owned()))
+}
+
+#[cfg(test)]
+mod realm_claim_record_tests {
+    use super::*;
+    #[test]
+    fn realm_claim_records_round_trip_and_reject_other_identity_or_endpoint_kinds() {
+        let actor = ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [81; 32],
+            )),
+            principal_id: DidCoreId::new("ak:did_core:webvh:zRealmClaimRecipient").unwrap(),
+        });
+        let record = KeyPackageClaimRecord {
+            claim_id: "ak:keypackage_claim:0196419b-0000-7000-8000-000000000050".into(),
+            keypackage_ref: "sha256:claimed-package".into(),
+            actor_id: actor.clone(),
+            principal_id: actor.signing_principal_id().clone(),
+            device_id: Some(
+                DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
+            ),
+            agent_id: None,
+            agent_verification_method: None,
+            keypackage: "AQID".into(),
+            capabilities: vec!["ak.content.v1".into()],
+            device_authorize_event_id: Some(EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [82; 32],
+            )),
+            agent_key_authorize_event_id: None,
+            expires_at: "2026-10-20T00:00:00Z".parse().unwrap(),
+            revocation_status: None,
+            last_resort: None,
+        };
+        let value = serde_json::to_value(&record).unwrap();
+        let decoded: KeyPackageClaimRecord = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+        let mut invalid = record.clone();
+        invalid.actor_id = ActorId::service(record.principal_id.clone());
+        assert!(invalid.validate_shape().is_err());
+        invalid = record.clone();
+        invalid.principal_id = DidCoreId::new("ak:did_core:webvh:zOther").unwrap();
+        assert!(invalid.validate_shape().is_err());
+        invalid = record;
+        invalid.agent_id = Some(invalid.principal_id.clone());
+        invalid.agent_verification_method =
+            Some(DidUrl::new("did:webvh:zRealmClaimRecipient:host.example#agent").unwrap());
+        invalid.agent_key_authorize_event_id = invalid.device_authorize_event_id.take();
+        invalid.device_id = None;
+        assert!(invalid.validate_shape().is_err());
+    }
 }
