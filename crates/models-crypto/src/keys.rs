@@ -541,7 +541,18 @@ pub enum PeerKeysRelationshipBasis {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeysQueryRequestBody {
     pub request_id: arkret_wire::RequestId,
-    pub requester_account_id: AccountId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub requester_account_id: Option<AccountId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub requester_actor_id: Option<arkret_wire::ActorId>,
     pub purpose: PeerKeysQueryPurpose,
     pub relationship_basis: PeerKeysRelationshipBasis,
     #[serde(
@@ -553,12 +564,26 @@ pub struct PeerKeysQueryRequestBody {
 
 impl PeerKeysQueryRequestBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        self.requester_account_id.validate()?;
+        let requester = self.requester()?;
+        if let Some(actor) = requester.as_realm_actor_id() {
+            if self.purpose != PeerKeysQueryPurpose::MlsGroupAdmission
+                || !matches!(&self.relationship_basis,
+                    PeerKeysRelationshipBasis::RealmMembership { realm_id } if realm_id == &actor.realm_id)
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Realm device lookup requires MLS admission in the requester's Realm".into(),
+                ));
+            }
+        }
         validate_device_key_selectors(&self.device_keys)?;
         for selector in &self.device_keys {
             selector.account_id.validate()?;
         }
         validate_keys_query_bytes(self, true)
+    }
+
+    pub fn requester(&self) -> arkret_wire::Result<arkret_wire::ActorId> {
+        peer_keys_requester(&self.requester_account_id, &self.requester_actor_id)
     }
 
     /// Every selected target belongs to one destination Station, which the
@@ -596,7 +621,18 @@ impl PeerKeysQueryRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerKeysQueryOutcome {
     pub request_id: arkret_wire::RequestId,
-    pub requester_account_id: AccountId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub requester_account_id: Option<AccountId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub requester_actor_id: Option<arkret_wire::ActorId>,
     #[serde(
         deserialize_with = "arkret_wire::deserialize_identity_entries",
         serialize_with = "arkret_wire::serialize_identity_entries"
@@ -615,6 +651,7 @@ pub struct PeerKeysQueryOutcome {
 
 impl PeerKeysQueryOutcome {
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        peer_keys_requester(&self.requester_account_id, &self.requester_actor_id)?;
         validate_query_failures(&self.failures)?;
         validate_keys_query_bytes(self, false)
     }
@@ -629,6 +666,7 @@ impl PeerKeysQueryOutcome {
         self.validate()?;
         if self.request_id != request.request_id
             || self.requester_account_id != request.requester_account_id
+            || self.requester_actor_id != request.requester_actor_id
         {
             return Err(arkret_wire::WireError::ProtocolCode {
                 code: arkret_wire::ErrorCode::StateMismatch,
@@ -656,6 +694,25 @@ impl PeerKeysQueryOutcome {
             });
         }
         Ok(())
+    }
+}
+
+fn peer_keys_requester(
+    account: &Option<AccountId>,
+    actor: &Option<arkret_wire::ActorId>,
+) -> arkret_wire::Result<arkret_wire::ActorId> {
+    match (account, actor) {
+        (Some(account), None) => {
+            account.validate()?;
+            Ok(arkret_wire::ActorId::account(account.clone()))
+        }
+        (None, Some(actor)) if actor.as_realm_actor_id().is_some() => {
+            actor.validate()?;
+            Ok(actor.clone())
+        }
+        _ => Err(arkret_wire::WireError::Protocol(
+            "peer device lookup requires exactly one Account or Realm requester".into(),
+        )),
     }
 }
 
@@ -1049,10 +1106,11 @@ mod peer_keys_query_tests {
     fn request() -> PeerKeysQueryRequestBody {
         PeerKeysQueryRequestBody {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000061").unwrap(),
-            requester_account_id: account(
+            requester_account_id: Some(account(
                 "ak:did_core:web:alice.example",
                 "ak:did_core:web:home.example",
-            ),
+            )),
+            requester_actor_id: None,
             purpose: PeerKeysQueryPurpose::E2eeMessageEncryption,
             relationship_basis: PeerKeysRelationshipBasis::Contact {},
             device_keys: vec![selector(
@@ -1086,6 +1144,76 @@ mod peer_keys_query_tests {
             arkret_canonical::canonical_json_bytes(&entry.account_id).unwrap()
         });
         assert!(split.destination_station_id().is_err());
+    }
+
+    #[test]
+    fn realm_peer_request_is_closed_and_only_for_same_realm_mls() {
+        let mut request = request();
+        let realm =
+            arkret_wire::RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
+                .unwrap();
+        request.requester_actor_id = Some(arkret_wire::ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: realm.clone(),
+            principal_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:zRealmRequesterFixture")
+                .unwrap(),
+        }));
+        request.requester_account_id = None;
+        request.purpose = PeerKeysQueryPurpose::MlsGroupAdmission;
+        request.relationship_basis = PeerKeysRelationshipBasis::RealmMembership { realm_id: realm };
+        request.validate().unwrap();
+        let value = serde_json::to_value(&request).unwrap();
+        assert!(value.get("requester_account_id").is_none());
+        for field in ["requester_account_id", "requester_actor_id"] {
+            let mut bad = value.clone();
+            bad[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<PeerKeysQueryRequestBody>(bad).is_err());
+        }
+        let mut wrong = request.clone();
+        wrong.purpose = PeerKeysQueryPurpose::CallMedia;
+        assert!(wrong.validate().is_err());
+        wrong = request.clone();
+        wrong.relationship_basis = PeerKeysRelationshipBasis::Contact {};
+        assert!(wrong.validate().is_err());
+        wrong = request.clone();
+        if let PeerKeysRelationshipBasis::RealmMembership { realm_id } =
+            &mut wrong.relationship_basis
+        {
+            *realm_id =
+                arkret_wire::RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj6")
+                    .unwrap();
+        }
+        assert!(wrong.validate().is_err());
+        wrong = request.clone();
+        wrong.requester_account_id = Some(account(
+            "ak:did_core:web:alice.example",
+            "ak:did_core:web:home.example",
+        ));
+        assert!(wrong.validate().is_err());
+        wrong = request.clone();
+        wrong.requester_actor_id = None;
+        assert!(wrong.validate().is_err());
+        wrong = request.clone();
+        wrong.requester_actor_id = Some(arkret_wire::ActorId::account(account(
+            "ak:did_core:web:alice.example",
+            "ak:did_core:web:home.example",
+        )));
+        assert!(wrong.validate().is_err());
+        let mut outcome = PeerKeysQueryOutcome {
+            request_id: request.request_id.clone(),
+            requester_account_id: None,
+            requester_actor_id: request.requester_actor_id.clone(),
+            device_keys: vec![],
+            device_generations: vec![],
+            failures: vec![],
+        };
+        outcome.validate_for_request(&request).unwrap();
+        outcome.requester_actor_id = None;
+        assert!(outcome.validate().is_err());
+        outcome.requester_account_id = Some(account(
+            "ak:did_core:web:alice.example",
+            "ak:did_core:web:home.example",
+        ));
+        assert!(outcome.validate_for_request(&request).is_err());
     }
 
     #[test]
@@ -1200,6 +1328,7 @@ mod peer_keys_query_tests {
         let outcome = PeerKeysQueryOutcome {
             request_id: request.request_id.clone(),
             requester_account_id: request.requester_account_id.clone(),
+            requester_actor_id: request.requester_actor_id.clone(),
             device_keys: Vec::new(),
             device_generations: Vec::new(),
             failures: vec![QueryFailure {
@@ -1217,10 +1346,10 @@ mod peer_keys_query_tests {
         assert!(other_request.validate_for_request(&request).is_err());
 
         let mut other_requester = outcome;
-        other_requester.requester_account_id = account(
+        other_requester.requester_account_id = Some(account(
             "ak:did_core:web:mallory.example",
             "ak:did_core:web:home.example",
-        );
+        ));
         assert!(other_requester.validate_for_request(&request).is_err());
     }
 
@@ -1230,6 +1359,7 @@ mod peer_keys_query_tests {
         let outcome = PeerKeysQueryOutcome {
             request_id: request.request_id.clone(),
             requester_account_id: request.requester_account_id.clone(),
+            requester_actor_id: request.requester_actor_id.clone(),
             device_keys: Vec::new(),
             device_generations: vec![AccountDeviceGenerationEntry {
                 account_id: account(
