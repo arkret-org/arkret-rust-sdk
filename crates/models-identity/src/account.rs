@@ -226,8 +226,30 @@ pub struct AccountDataCasConflict {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataList {
-    #[serde(default)]
     pub account_data_entries: Vec<AccountDataRow>,
+}
+
+impl AccountDataList {
+    /// Reject ambiguous register identities before exposing a recovery snapshot.
+    /// Content stays opaque here; each registered key has its own consumer.
+    pub fn validate(&self) -> Result<()> {
+        let mut keys = std::collections::BTreeSet::new();
+        for row in &self.account_data_entries {
+            let key = &row.account_data_key;
+            if key.is_empty()
+                || key.chars().count() > 256
+                || key
+                    .chars()
+                    .any(|c| c.is_control() || c.is_whitespace() || "/\\?#".contains(c))
+                || !keys.insert(key)
+            {
+                return Err(WireError::Protocol(
+                    "account-data list has an invalid or duplicate key".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
