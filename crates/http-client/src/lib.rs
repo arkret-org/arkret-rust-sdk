@@ -396,6 +396,8 @@ pub struct Client {
     pub(crate) own_station_context: Option<Arc<own_station_results::OwnStationContext>>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
     pub(crate) service_signature_identity: Option<(arkret_wire::DidCoreId, arkret_wire::DidCoreId)>,
+    pub(crate) mimi_provider_identity:
+        Option<(arkret_wire::MimiUri, Option<arkret_wire::MimiRoomUri>)>,
     pub(crate) managed_device_signature_identity: Option<(
         arkret_models_integration::AppletManagedDeviceMetadata,
         arkret_wire::DidCoreId,

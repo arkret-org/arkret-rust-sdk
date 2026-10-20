@@ -43,6 +43,7 @@ impl Client {
         signer: crate::HttpMessageSigner,
     ) -> Self {
         self.auth = None;
+        self.mimi_provider_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = Some((source, destination));
         self.managed_device_signature_identity = None;
@@ -58,6 +59,7 @@ impl Client {
     ) -> Result<Self> {
         metadata.validate()?;
         self.auth = None;
+        self.mimi_provider_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = None;
         self.managed_device_signature_identity = Some((metadata, destination));
