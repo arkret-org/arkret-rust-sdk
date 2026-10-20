@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.2;
-//! sha256=2cb0a69345267671ea5af9ce800cdceffa4fab649815891404afd306b5ac0a20 Entries: registered=227
+//! Input: registry/contract-registry.json; version=2026-10-21.3;
+//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f Entries: registered=228
 
 use serde::{Deserialize, Serialize};
 
@@ -67,6 +67,7 @@ pub enum ServiceOperationId {
     OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
+    PeerAppletConfigurationCommandSubmitV1,
     PeerCallInvitationCommandRelayV1,
     PeerCallInvitationReadAdmissionV1,
     PeerCommittedEventReadScanV1,
@@ -297,6 +298,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+    ServiceOperationId::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
     ServiceOperationId::PEER_CALL_INVITATION_READ_ADMISSION_V1,
     ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
@@ -569,6 +571,7 @@ impl ServiceOperationId {
         Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
+        Self::PeerAppletConfigurationCommandSubmitV1,
         Self::PeerCallInvitationCommandRelayV1,
         Self::PeerCallInvitationReadAdmissionV1,
         Self::PeerCommittedEventReadScanV1,
@@ -848,6 +851,8 @@ impl ServiceOperationId {
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
         "ak.peer.account_status.read.resolve.v1";
+    pub const PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1: &'static str =
+        "ak.peer.applet.configuration.command.submit.v1";
     pub const PEER_CALL_INVITATION_COMMAND_RELAY_V1: &'static str =
         "ak.peer.call.invitation.command.relay.v1";
     pub const PEER_CALL_INVITATION_READ_ADMISSION_V1: &'static str =
@@ -1230,6 +1235,9 @@ impl ServiceOperationId {
             }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+            Self::PeerAppletConfigurationCommandSubmitV1 => {
+                Self::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1
+            }
             Self::PeerCallInvitationCommandRelayV1 => Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
             Self::PeerCallInvitationReadAdmissionV1 => Self::PEER_CALL_INVITATION_READ_ADMISSION_V1,
             Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
@@ -1608,6 +1616,9 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
             Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1 => Some(Self::PeerAccountStatusReadResolveV1),
+            Self::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1 => {
+                Some(Self::PeerAppletConfigurationCommandSubmitV1)
+            }
             Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1 => {
                 Some(Self::PeerCallInvitationCommandRelayV1)
             }
@@ -3386,6 +3397,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAppletConfigurationCommandSubmitV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/applets/{applet_id}/configuration",
+        grpc: Some("PeerManagement/AppletConfigurationSubmit"),
+        mq: Some("peer.applet.configuration.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(262144),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/peer_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private bounded configuration intent, result and delivery state only; no Event, account, membership or business grant is implicitly accepted.",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerCallInvitationCommandRelayV1,

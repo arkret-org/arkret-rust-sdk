@@ -48,6 +48,100 @@ impl arkret_identity::RealmAuthorityKeyDirectory for MaterialCommitKeys<'_> {
 }
 
 impl Client {
+    /// Forward an authenticated local Account's exact configuration request.
+    /// This client must use the Account Station's Service HTTP signer.
+    pub async fn peer_applet_configuration_submit(
+        &self,
+        destination: &DidCoreId,
+        applet_id: &arkret_wire::AppletId,
+        request: &arkret_models_integration::AppletConfigurationPeerRequest,
+    ) -> Result<arkret_models_integration::AppletConfigurationOutcome> {
+        request.validate()?;
+        reject_path_segment(applet_id.as_str())?;
+        let path = format!("/_arkret/peer/applets/{applet_id}/configuration");
+        let builder = self
+            .service_request(Method::POST, &path)?
+            .header(
+                crate::HEADER_SOURCE_SERVICE_ID,
+                request.requester_account_id.station_id.as_str(),
+            )
+            .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str())
+            .header(CONTENT_TYPE, "application/json")
+            .body(arkret_canonical::canonical_json_bytes(request)?);
+        let outcome: arkret_models_integration::AppletConfigurationOutcome = self
+            .send_json_protocol_replay_safe_for_scenario(
+                builder,
+                HttpSignatureScenario::ServiceToServiceV1,
+            )
+            .await?;
+        if outcome.request_id != request.request.intent.request_id
+            || outcome.source_outcome.as_ref().is_some_and(|source| {
+                source.request_id != outcome.request_id
+                    || source.intent_digest != outcome.intent_digest
+            })
+        {
+            return Err(crate::Error::Protocol(
+                "peer configuration response differs from its request".into(),
+            ));
+        }
+        Ok(outcome)
+    }
+    pub async fn applet_configuration_submit(
+        &self,
+        applet_id: &arkret_wire::AppletId,
+        request: &arkret_models_integration::AppletConfigurationRequest,
+    ) -> Result<arkret_models_integration::AppletConfigurationOutcome> {
+        request.validate()?;
+        reject_path_segment(applet_id.as_str())?;
+        let path = format!("/_arkret/self/applets/{applet_id}/configuration");
+        let outcome: arkret_models_integration::AppletConfigurationOutcome =
+            self.post(&path, request).await?;
+        if outcome.request_id != request.intent.request_id
+            || outcome.source_outcome.as_ref().is_some_and(|source| {
+                source.request_id != outcome.request_id
+                    || source.intent_digest != outcome.intent_digest
+            })
+        {
+            return Err(crate::Error::Protocol(
+                "Applet configuration response differs from its request".into(),
+            ));
+        }
+        Ok(outcome)
+    }
+
+    /// This client targets the independently resolved Applet Service origin.
+    /// The returned source proof still requires verification against its
+    /// authenticated Service identity before any candidate is submitted.
+    pub async fn applet_configuration_execute(
+        &self,
+        idempotency_key: &str,
+        request: &arkret_models_integration::AppletConfigurationExecutionRequest,
+    ) -> Result<arkret_models_integration::AppletConfigurationExecutionOutcome> {
+        request.validate_at(chrono::Utc::now())?;
+        let body = arkret_canonical::canonical_json_bytes(request)?;
+        let builder = self
+            .service_request(Method::POST, "/_arkret/edge/applet/configuration")?
+            .header(
+                crate::HEADER_SOURCE_SERVICE_ID,
+                request.governance_station_id.as_str(),
+            )
+            .header(
+                crate::HEADER_DESTINATION_SERVICE_ID,
+                request.intent.service_id.as_str(),
+            )
+            .header(crate::HEADER_IDEMPOTENCY_KEY, idempotency_key)
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
+        let outcome: arkret_models_integration::AppletConfigurationExecutionOutcome = self
+            .send_json_protocol_replay_safe_for_scenario(
+                builder,
+                HttpSignatureScenario::ServiceToServiceV1,
+            )
+            .await?;
+        outcome.validate_for(&request.intent)?;
+        Ok(outcome)
+    }
+
     /// Read this authenticated subject's effective grants at the governing Station.
     /// The response is a selection aid; Event admission revalidates all authority.
     pub async fn effective_grants(

@@ -7,11 +7,13 @@
 //! `arkret-event-draft`; this crate owns only the wire contracts and their
 //! type-local invariants.
 
+mod configuration;
 mod delivery_authentication;
 mod ghost;
 mod namespace_match;
 mod registration;
 
+pub use configuration::*;
 pub use delivery_authentication::*;
 pub use ghost::*;
 pub use namespace_match::*;

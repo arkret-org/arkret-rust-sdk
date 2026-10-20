@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.2;
-//! sha256=2cb0a69345267671ea5af9ce800cdceffa4fab649815891404afd306b5ac0a20
+//! Input: registry/contract-registry.json; version=2026-10-21.4;
+//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f
 //! Entries: operation_bundles=43 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -523,6 +523,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         operation_bundle_id: "ak.operation_bundle.station.applet_install.v1",
         service_kind: ServiceKind::Station,
         members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerAppletConfigurationCommandSubmitV1,
+                binding_kind: BindingKind::HttpJson,
+            },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerRealmActorReadMaterialV1,
                 binding_kind: BindingKind::HttpJson,

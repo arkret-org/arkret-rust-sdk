@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.2;
-//! sha256=2cb0a69345267671ea5af9ce800cdceffa4fab649815891404afd306b5ac0a20
+//! Input: registry/contract-registry.json; version=2026-10-21.4;
+//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f
 //! Entries: http_signature_scenarios=9, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -155,6 +155,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.edge.applet.configuration.command.execute.v1",
             "ak.self.realm_actor.read.material.v1",
             "ak.peer.realm_actor.read.material.v1",
+            "ak.peer.applet.configuration.command.submit.v1",
         ],
     },
     HttpSignatureScenarioDescriptor {

@@ -968,7 +968,7 @@ pub struct AppletManagedActorProof {
 /// only thing tying the proof to that Station on the wire is the controller of
 /// the verification method. A consumer recomputes it here rather than trusting
 /// a second copy of the identity travelling beside it.
-fn verification_method_controller(method: &DidUrl) -> Result<DidCoreId> {
+pub(crate) fn verification_method_controller(method: &DidUrl) -> Result<DidCoreId> {
     let controller = method
         .as_str()
         .split_once('#')
