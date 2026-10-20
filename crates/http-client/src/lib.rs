@@ -400,6 +400,10 @@ pub struct Client {
         arkret_models_integration::AppletManagedDeviceMetadata,
         arkret_wire::DidCoreId,
     )>,
+    pub(crate) realm_actor_control_signature_identity: Option<(
+        arkret_models_integration::RealmActorControlHttpMetadata,
+        arkret_wire::DidCoreId,
+    )>,
     pub(crate) allow_insecure_localhost: bool,
     pub(crate) loopback_method_scope: Option<service_method_resolution::LoopbackMethodScope>,
     pub(crate) retry: RetryConfig,

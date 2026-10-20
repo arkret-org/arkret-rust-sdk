@@ -199,6 +199,23 @@ impl Client {
                     )
                     .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
             }
+            if let Some((metadata, destination)) = &self.realm_actor_control_signature_identity {
+                let scenario =
+                    arkret_signatures::http_signature::http_signature_scenario_descriptor(
+                        HttpSignatureScenario::RealmActorControlV1,
+                    );
+                if !scenario.operations.contains(&operation.as_str()) {
+                    return Err(Error::Protocol(
+                        "operation is not eligible for Realm control authentication".into(),
+                    ));
+                }
+                return Ok(builder
+                    .header(
+                        arkret_models_integration::RealmActorControlHttpMetadata::HEADER,
+                        metadata.to_header_value()?,
+                    )
+                    .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str()));
+            }
             self.apply_auth(builder, &method_for_auth, &url_for_auth)
         } else {
             Ok(builder)
@@ -607,8 +624,29 @@ impl Client {
                     .map_err(|error| Error::Protocol(format!("Device metadata: {error}")))?,
             );
         }
+        let control_header = arkret_models_integration::RealmActorControlHttpMetadata::HEADER;
+        if self.realm_actor_control_signature_identity.is_some()
+            && let Some(value) = request.headers().get(control_header)
+        {
+            let mut metadata =
+                arkret_models_integration::RealmActorControlHttpMetadata::from_header_value(
+                    value.to_str().map_err(|e| Error::Protocol(e.to_string()))?,
+                )?;
+            let mut nonce = [0u8; 32];
+            getrandom::fill(&mut nonce).map_err(|e| Error::Protocol(e.to_string()))?;
+            metadata.nonce = arkret_canonical::base64url_encode(nonce);
+            request.headers_mut().insert(
+                control_header,
+                HeaderValue::from_str(&metadata.to_header_value()?)
+                    .map_err(|e| Error::Protocol(e.to_string()))?,
+            );
+        }
         let signature_scenario = signature_scenario.or_else(|| {
-            if request
+            if self.realm_actor_control_signature_identity.is_some()
+                && request.headers().contains_key(control_header)
+            {
+                Some(HttpSignatureScenario::RealmActorControlV1)
+            } else if request
                 .headers()
                 .contains_key(arkret_models_integration::AppletManagedDeviceMetadata::HEADER)
                 && self.managed_device_signature_identity.is_some()

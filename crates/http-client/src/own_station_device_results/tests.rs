@@ -18,14 +18,14 @@ fn native(base: &str) -> (Client, Arc<Source>) {
     let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [124; 32]);
     let metadata = AppletManagedDeviceMetadata {
         actor_id: ActorId::realm(arkret_wire::RealmActorId {
-            realm_id: arkret_wire::RealmId::from_event_id(&event),
-            principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:bot.example").unwrap(),
+            realm_id: RealmId::from_event_id(&event),
+            principal_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:zbot").unwrap(),
         }),
         device_id: DeviceId::new_v7_at(Utc::now().timestamp_millis().try_into().unwrap()),
         authorization_event_id: event.clone(),
         applet_id: AppletId::new("ak:applet:01964137-0000-7000-8000-000000000123").unwrap(),
         effective_scope: ScopeRef::Realm {
-            realm_id: arkret_wire::RealmId::from_event_id(&event),
+            realm_id: RealmId::from_event_id(&event),
         },
         nonce: arkret_canonical::base64url_encode([125; 16]),
     };

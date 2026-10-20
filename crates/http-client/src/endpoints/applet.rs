@@ -19,6 +19,34 @@ use url::Url;
 use crate::client_internals::validate_base_url;
 use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
 
+struct MaterialCommitKeys<'a> {
+    base: &'a (dyn arkret_identity::RealmAuthorityKeyDirectory + Sync),
+    commit_key: Option<(
+        arkret_wire::DidUrl,
+        chrono::DateTime<chrono::Utc>,
+        arkret_signatures::PublicKeyMaterial,
+    )>,
+}
+impl arkret_identity::RealmAuthorityKeyDirectory for MaterialCommitKeys<'_> {
+    fn public_key(
+        &self,
+        method: &arkret_wire::DidUrl,
+    ) -> Option<arkret_signatures::PublicKeyMaterial> {
+        self.base.public_key(method)
+    }
+    fn public_key_at(
+        &self,
+        method: &arkret_wire::DidUrl,
+        at: chrono::DateTime<chrono::Utc>,
+    ) -> Option<arkret_signatures::PublicKeyMaterial> {
+        self.commit_key
+            .as_ref()
+            .filter(|(kid, time, _)| kid == method && *time == at)
+            .map(|(_, _, key)| key.clone())
+            .or_else(|| self.base.public_key_at(method, at))
+    }
+}
+
 impl Client {
     pub async fn realm_actor_material(
         &self,
@@ -26,19 +54,64 @@ impl Client {
         requester: &arkret_wire::ActorId,
         authority: &arkret_identity::VerifiedRealmAuthority,
         resolution: &arkret_models_identity::AuthenticatedServiceResolution,
-        keys: &dyn arkret_identity::RealmAuthorityKeyDirectory,
+        keys: &(dyn arkret_identity::RealmAuthorityKeyDirectory + Sync),
     ) -> Result<arkret_identity::VerifiedRealmActorMaterial> {
         request.validate()?;
         let outcome: arkret_models_integration::RealmActorMaterialOutcome = self
             .post("/_arkret/self/realm-actors/material", request)
             .await?;
+        outcome.validate_for_request(request, requester, chrono::Utc::now())?;
+        let mut material_keys = MaterialCommitKeys {
+            base: keys,
+            commit_key: None,
+        };
+        if let arkret_models_integration::RealmActorMaterialResult::Event { commit, .. } =
+            &outcome.result
+        {
+            let method = &commit.signature.verification_method;
+            let did = arkret_identity::verification_method_did(method.as_str())
+                .map_err(|e| crate::Error::Protocol(e.to_string()))?;
+            let station = arkret_wire::project_did_to_core_id(&did)?;
+            if !authority.authorizes_issuer_at(
+                &station,
+                Some(&commit.authority_ref),
+                commit.committed_at,
+            ) || authority.authority_service_at(commit.governance_generation) != Some(&station)
+            {
+                return Err(crate::Error::Protocol(
+                    "private Event Commit has no verified issuing tenure".into(),
+                ));
+            }
+            let history = if &station == authority.current_service_id() {
+                resolution.clone()
+            } else {
+                self.resolve_service_from_did(&did, arkret_wire::ServiceKind::Station)
+                    .await?
+            };
+            let document = arkret_identity::authenticated_service_document_at(
+                &history,
+                &station,
+                commit.committed_at,
+            )
+            .map_err(|e| crate::Error::Protocol(e.to_string()))?;
+            arkret_identity::validate_verification_method_relationship(
+                &document,
+                method,
+                &document.id,
+                arkret_identity::DidVerificationRelationship::AssertionMethod,
+            )
+            .map_err(|e| crate::Error::Protocol(e.to_string()))?;
+            let key = arkret_identity::public_key_material_from_document(&document, method)
+                .map_err(|e| crate::Error::Protocol(e.to_string()))?;
+            material_keys.commit_key = Some((method.clone(), commit.signature.created_at, key));
+        }
         arkret_identity::verify_realm_actor_material(
             outcome,
             request,
             requester,
             authority,
             resolution,
-            keys,
+            &material_keys,
             chrono::Utc::now(),
         )
         .map_err(|error| crate::Error::Protocol(error.to_string()))
@@ -65,6 +138,8 @@ impl Client {
         signer: crate::HttpMessageSigner,
     ) -> Self {
         self.auth = None;
+        self.own_station_context = None;
+        self.realm_actor_control_signature_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = Some((source, destination));
         self.managed_device_signature_identity = None;
@@ -80,11 +155,31 @@ impl Client {
     ) -> Result<Self> {
         metadata.validate()?;
         self.auth = None;
+        self.own_station_context = None;
+        self.realm_actor_control_signature_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = None;
         self.managed_device_signature_identity = Some((metadata, destination));
         Ok(self)
     }
+    /// Configure only the registered Realm control HTTP scenario. This key
+    /// cannot authenticate business content, Device inventory or login.
+    pub fn with_realm_actor_control_http_signer(
+        mut self,
+        metadata: arkret_models_integration::RealmActorControlHttpMetadata,
+        destination: DidCoreId,
+        signer: crate::HttpMessageSigner,
+    ) -> Result<Self> {
+        metadata.validate()?;
+        self.auth = None;
+        self.own_station_context = None;
+        self.http_message_signer = Some(signer);
+        self.service_signature_identity = None;
+        self.managed_device_signature_identity = None;
+        self.realm_actor_control_signature_identity = Some((metadata, destination));
+        Ok(self)
+    }
+
     pub async fn applet_bot_preview(
         &self,
         applet_id: &str,
@@ -352,6 +447,162 @@ mod native_retry_tests {
     }
 
     #[tokio::test]
+    async fn realm_control_retry_refreshes_only_transport_nonce_and_rejects_business_operations() {
+        use arkret_models_integration::{RealmActorControlHttpMetadata, RealmActorMaterialRequest};
+        use arkret_wire::{
+            CommitStreamRef, CommittedEventRef, CurrentSelector, RealmActorId, RealmCommitId,
+            RealmId,
+        };
+        let key = SigningKey::from_bytes(&[91; 32]);
+        let method = "did:webvh:zcontrol:applet.example#managed-controller";
+        let public = key.verifying_key();
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [92; 32]);
+        let realm = RealmId::from_event_id(&event);
+        let actor = ActorId::realm(RealmActorId {
+            realm_id: realm.clone(),
+            principal_id: DidCoreId::new("ak:did_core:webvh:zcontrol").unwrap(),
+        });
+        let station = DidCoreId::new("ak:did_core:webvh:zgovernor").unwrap();
+        let metadata = RealmActorControlHttpMetadata {
+            actor_id: actor.clone(),
+            control_ref: CommittedEventRef {
+                event_id: event,
+                commit_id: RealmCommitId::from_digest([93; 32]),
+                stream_ref: CommitStreamRef::RealmControl { realm_id: realm },
+                stream_position: 7,
+            },
+            nonce: arkret_canonical::base64url_encode([94; 32]),
+        };
+        let body = RealmActorMaterialRequest::Current {
+            actor_id: actor.clone(),
+            request_nonce: arkret_canonical::base64url_encode([95; 32]),
+            selectors: vec![CurrentSelector::RealmActorControl { actor_id: actor }],
+        };
+        let expected_body = arkret_canonical::canonical_json_bytes(&body).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let expected = metadata.clone();
+        let receiver = tokio::spawn(async move {
+            let path = "/_arkret/self/realm-actors/material";
+            let target = format!("http://{address}{path}");
+            let policy = SignatureVerificationPolicy::for_scenario(
+                HttpSignatureScenario::RealmActorControlV1,
+                &["content-digest", "idempotency-key"],
+            )
+            .unwrap();
+            let mut nonces = BTreeSet::new();
+            for attempt in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let (line, headers, body) = read_request(&mut socket).await;
+                assert_eq!(line, format!("POST {path} HTTP/1.1"));
+                assert_eq!(body, expected_body);
+                assert_eq!(header(&headers, "idempotency-key"), "exact-control-query");
+                assert!(!headers.iter().any(|(name, _)| matches!(
+                    name.as_str(),
+                    "authorization" | "dpop" | "source-service-id" | "arkret-managed-device"
+                )));
+                let verified = verify_signed_canonical_json_message(
+                    "POST",
+                    &target,
+                    &address.to_string(),
+                    path,
+                    headers.iter().map(|(name, value)| (name, value)),
+                    false,
+                    &body,
+                    &public,
+                    &policy,
+                    chrono::Utc::now().timestamp(),
+                )
+                .unwrap();
+                assert_eq!(verified.signature_input.key_id, method);
+                let presented = RealmActorControlHttpMetadata::from_header_value(header(
+                    &headers,
+                    RealmActorControlHttpMetadata::HEADER,
+                ))
+                .unwrap();
+                assert_eq!(presented.actor_id, expected.actor_id);
+                assert_eq!(presented.control_ref, expected.control_ref);
+                assert_ne!(presented.nonce, expected.nonce);
+                assert!(nonces.insert(presented.nonce));
+                let mut changed = headers.clone();
+                changed
+                    .iter_mut()
+                    .find(|(name, _)| name == "destination-service-id")
+                    .unwrap()
+                    .1 = "ak:did_core:webvh:zanother".into();
+                assert!(
+                    verify_signed_canonical_json_message(
+                        "POST",
+                        &target,
+                        &address.to_string(),
+                        path,
+                        changed.iter().map(|(name, value)| (name, value)),
+                        false,
+                        &body,
+                        &public,
+                        &policy,
+                        chrono::Utc::now().timestamp()
+                    )
+                    .is_err()
+                );
+                let status = if attempt == 0 {
+                    "503 Service Unavailable"
+                } else {
+                    "200 OK"
+                };
+                socket.write_all(format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: 4\r\nConnection: close\r\n\r\nnull").as_bytes()).await.unwrap();
+            }
+        });
+        let client = Client::builder(format!("http://{address}").parse().unwrap())
+            .allow_insecure_localhost()
+            .timeout(Duration::from_secs(5))
+            .retry(
+                RetryConfig {
+                    base_delay: Duration::from_millis(1),
+                    ..RetryConfig::standard(1)
+                }
+                .with_jitter(false),
+            )
+            .build()
+            .unwrap()
+            .with_realm_actor_control_http_signer(
+                metadata,
+                station,
+                HttpMessageSigner::new(method, key),
+            )
+            .unwrap();
+        for (method, path) in [
+            (
+                reqwest::Method::POST,
+                "/_arkret/self/keys/keypackages/claim",
+            ),
+            (
+                reqwest::Method::POST,
+                "/_arkret/self/keys/keypackages/upload",
+            ),
+            (reqwest::Method::GET, "/_arkret/self/device_messages"),
+        ] {
+            assert!(
+                arkret_wire::ServiceOperationId::from_http_request(method.as_str(), path).is_some()
+            );
+            assert!(
+                client.request(method, path).is_err(),
+                "control key must not authenticate {path}"
+            );
+        }
+        let result: Value = client
+            .post_with_options(
+                "/_arkret/self/realm-actors/material",
+                &body,
+                &ClientRequestOptions::new().idempotency_key("exact-control-query"),
+            )
+            .await
+            .unwrap();
+        assert!(result.is_null());
+        receiver.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn managed_device_attempts_refresh_nonce_without_changing_original_event_or_idempotency()
     {
         for retries in [0, 1] {
@@ -362,7 +613,7 @@ mod native_retry_tests {
             let method = format!("did:key:{fingerprint}#{fingerprint}");
             let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
             let account = AccountId::new(
-                DidCoreId::new("ak:did_core:web:managed.example").unwrap(),
+                DidCoreId::new("ak:did_core:webvh:zmanaged").unwrap(),
                 station.clone(),
             );
             let realm = arkret_wire::RealmId::from_event_id(&EventId::from_digest(
@@ -416,7 +667,7 @@ mod native_retry_tests {
                 &mut authored,
                 &Ed25519DetachedJwsSigner::new(
                     device_key.clone(),
-                    format!("did:web:managed.example#{}", metadata.device_id),
+                    format!("did:webvh:zmanaged:managed.example#{}", metadata.device_id),
                 ),
                 SignEventOptions::new()
                     .with_created_at("2026-10-17T00:00:00.000Z".parse().unwrap()),
@@ -603,7 +854,7 @@ mod native_retry_tests {
         let transport_method = format!("did:key:{fingerprint}#{fingerprint}");
         let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
         let account = AccountId::new(
-            DidCoreId::new("ak:did_core:web:managed.example").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:zmanaged").unwrap(),
             station.clone(),
         );
         let device = DeviceId::new("ak:device:01964137-0000-7000-8000-000000000092").unwrap();
@@ -625,7 +876,7 @@ mod native_retry_tests {
             effective_scope: scope.clone(),
             nonce: arkret_canonical::base64url_encode([95; 16]),
         };
-        let method = format!("did:web:managed.example#{device}");
+        let method = format!("did:webvh:zmanaged:managed.example#{device}");
         let at = arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now());
         let mut entropy = [0u8; 32];
         getrandom::fill(&mut entropy).unwrap();
@@ -699,7 +950,7 @@ mod native_retry_tests {
                     &received.requester_authorization,
                 )
                 .unwrap();
-                let PeerKeyPackageRequesterAuthorization::Device {
+                let PeerKeyPackageRequesterAuthorization::RealmDevice {
                     verification_method,
                     signature,
                     ..
