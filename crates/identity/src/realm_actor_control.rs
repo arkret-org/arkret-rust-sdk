@@ -281,3 +281,151 @@ pub fn verify_realm_actor_control_successor(
     .map_err(|error| invalid(&error.to_string()))?;
     Ok(document)
 }
+
+/// Verify the native-key handover and the receiving Service's acceptance.
+/// Locked manager/control revisions, registration and governance permission
+/// remain obligations of the accepting Realm transaction.
+pub fn verify_realm_actor_manager_successor(
+    actor: &arkret_wire::ActorId,
+    applet: &arkret_wire::AppletId,
+    binding_control: &arkret_models_integration::RealmActorControlValue,
+    current_control: &arkret_models_integration::RealmActorControlValue,
+    previous_control_method: &arkret_wire::DidUrl,
+    payload: &arkret_models_integration::RealmActorManagerChangePayload,
+    service_document: &crate::DidDocument,
+    accepted_at: DateTime<Utc>,
+) -> Result<crate::DidDocument> {
+    let invalid = |message: &str| rejected(ErrorCode::SignatureInvalid, message);
+    payload.method_history_evidence.validate_shape()?;
+    let (receipt, entries, witnesses) = payload.method_history_evidence.webvh_material();
+    let current = &current_control.resolution;
+    let document = crate::verify_realm_actor_native_history(
+        actor,
+        &payload.next_resolution,
+        entries,
+        &current_control.control_method_kid,
+        accepted_at,
+    )?;
+    let anchor_index = entries
+        .iter()
+        .position(|entry| entry["versionId"].as_str() == Some(current.version_id.as_str()))
+        .ok_or_else(|| invalid("manager handover omits the accepted control anchor"))?;
+    let anchor = &entries[anchor_index];
+    let binding_anchor = entries
+        .iter()
+        .take(anchor_index)
+        .find(|entry| {
+            entry["versionId"].as_str() == Some(binding_control.resolution.version_id.as_str())
+        })
+        .ok_or_else(|| invalid("new control must follow the previous manager binding"))?;
+    let boundary = payload.method_history_evidence.boundary();
+    if current.did != payload.next_resolution.did
+        || current.did != binding_control.resolution.did
+        || arkret_canonical::canonical_sha256(anchor)? != current.method_history_head
+        || arkret_canonical::canonical_sha256(binding_anchor)?
+            != binding_control.resolution.method_history_head
+        || entries.len() < anchor_index + 3
+        || payload.expected_generation == 0
+        || payload.expected_generation.checked_add(1) != Some(payload.new_generation)
+        || payload.new_service_signature.created_at > accepted_at
+        || arkret_wire::project_did_to_core_id(&service_document.id)? != payload.new_service_id
+        || &payload.new_service_id == actor.signing_principal_id()
+    {
+        return Err(invalid(
+            "manager handover anchor, generations or Service differ",
+        ));
+    }
+    let binding_document: crate::DidDocument =
+        serde_json::from_value(binding_anchor["state"].clone())?;
+    let current_document: crate::DidDocument = serde_json::from_value(anchor["state"].clone())?;
+    let key_bytes = |doc: &crate::DidDocument, method: &arkret_wire::DidUrl| {
+        crate::public_key_material_from_document(doc, method)
+            .map_err(|error| invalid(&error.to_string()))
+            .and_then(|key| key.ed25519_bytes().map_err(crate::IdentityError::from))
+    };
+    let former_key = key_bytes(&binding_document, &binding_control.control_method_kid)?;
+    let current_key = key_bytes(&current_document, &current_control.control_method_kid)?;
+    let previous_key = key_bytes(&current_document, previous_control_method)?;
+    if former_key == current_key
+        || previous_key == current_key
+        || key_bytes(&document, &current_control.control_method_kid)? != current_key
+    {
+        return Err(invalid(
+            "manager handover must retain the independently accepted new control key",
+        ));
+    }
+    for method in document.verification_methods.keys() {
+        let method = arkret_wire::DidUrl::new(method.clone()).map_err(invalid)?;
+        if key_bytes(&document, &method).is_ok_and(|key| key == former_key || key == previous_key) {
+            return Err(invalid("manager handover retains a former control key"));
+        }
+    }
+    // The prefix commitment is consumed by a transition signed with the old
+    // holder's precommitted key; a subsequent transition consumes the receiving
+    // holder's newly committed key. Merely changing the document is insufficient.
+    let log = crate::verify_did_webvh_v1_chain(&payload.next_resolution.did, entries)?;
+    let mut active = Vec::<String>::new();
+    let mut next = Vec::<String>::new();
+    let mut prefix_keys = std::collections::BTreeSet::new();
+    let mut prefix_commitments = std::collections::BTreeSet::new();
+    let mut rotations = 0;
+    for (index, entry) in log.entries.iter().enumerate() {
+        let previous = active.clone();
+        if let Some(value) = entry.parameters.get("updateKeys") {
+            active = serde_json::from_value(value.clone())?;
+        }
+        if let Some(value) = entry.parameters.get("nextKeyHashes") {
+            next = serde_json::from_value(value.clone())?;
+        }
+        if index <= anchor_index {
+            prefix_keys.extend(active.iter().cloned());
+            prefix_commitments.extend(next.iter().cloned());
+        } else if active != previous {
+            rotations += 1;
+        }
+    }
+    if rotations < 2
+        || active.iter().any(|key| {
+            prefix_keys.contains(key)
+                || prefix_commitments
+                    .contains(&arkret_signatures::webvh::webvh_next_key_hash_value(key))
+        })
+        || next
+            .iter()
+            .any(|commitment| prefix_commitments.contains(commitment))
+    {
+        return Err(invalid(
+            "manager handover has not transferred active and next native update authority",
+        ));
+    }
+    crate::service_resolution_evidence::verify_webvh_history(
+        &payload.next_resolution.did,
+        &document,
+        boundary,
+        receipt,
+        entries,
+        witnesses,
+        &payload.next_resolution.method_history_head,
+        &payload.next_resolution.version_id,
+    )?;
+    crate::validate_verification_method_relationship(
+        service_document,
+        &payload.new_service_signature.verification_method,
+        &service_document.id,
+        DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|error| invalid(&error.to_string()))?;
+    let key = crate::public_key_material_from_document(
+        service_document,
+        &payload.new_service_signature.verification_method,
+    )
+    .map_err(|error| invalid(&error.to_string()))?;
+    arkret_signatures::detached_object::verify_detached_object_signature(
+        &payload.new_service_signature,
+        &payload.acceptance_transcript(actor.clone(), applet.clone()),
+        DetachedSignatureContext::RealmActorManagerAcceptance,
+        &key,
+    )
+    .map_err(|error| invalid(&error.to_string()))?;
+    Ok(document)
+}

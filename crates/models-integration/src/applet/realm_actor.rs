@@ -6,6 +6,29 @@ use arkret_wire::{DetachedSignatureContext, Result, ScopeRef, WireError};
 mod contracts;
 pub use contracts::*;
 
+impl RealmActorManagerChangePayload {
+    pub fn acceptance_transcript(
+        &self,
+        actor_id: arkret_wire::ActorId,
+        applet_id: arkret_wire::AppletId,
+    ) -> RealmActorManagerAcceptanceTranscript {
+        RealmActorManagerAcceptanceTranscript {
+            actor_id,
+            applet_id,
+            expected_manager_revision: self.expected_manager_revision.clone(),
+            expected_control_revision: self.expected_control_revision.clone(),
+            expected_device_generation_revision: self.expected_device_generation_revision.clone(),
+            expected_generation: self.expected_generation,
+            new_generation: self.new_generation,
+            new_service_id: self.new_service_id.clone(),
+            new_registration_ref: self.new_registration_ref.clone(),
+            management_authorization_ref: self.management_authorization_ref.clone(),
+            next_resolution: self.next_resolution.clone(),
+            method_history_evidence: self.method_history_evidence.clone(),
+        }
+    }
+}
+
 impl RealmActorControlHttpMetadata {
     pub const HEADER: &'static str = "Arkret-Realm-Actor-Control";
 

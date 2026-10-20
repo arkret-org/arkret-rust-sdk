@@ -140,6 +140,185 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
 }
 
 #[test]
+fn manager_handover_requires_two_native_rotations_new_control_and_service_acceptance() {
+    let (creation, _) = candidate();
+    let start = creation.control_signature.created_at;
+    let did = creation.initial_resolution.did.clone();
+    let method = DidUrl::new(format!("{did}#receiving-controller")).unwrap();
+    let multibase = |seed: u8| {
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            SigningKey::from_bytes(&[seed; 32])
+                .verifying_key()
+                .as_bytes(),
+        )
+    };
+    let mut entries = creation.method_history_evidence.webvh_material().1.to_vec();
+    let mut state = entries[0]["state"].clone();
+    let next_method = json!({"id":method,"type":"Multikey","controller":did,
+        "publicKeyMultibase":multibase(55)});
+    state["verificationMethod"]
+        .as_array_mut()
+        .unwrap()
+        .push(next_method.clone());
+    state["assertionMethod"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!(method));
+    state["authentication"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!(method));
+    let append = |entries: &mut Vec<serde_json::Value>,
+                  state: &serde_json::Value,
+                  seed: u8,
+                  next: u8,
+                  seconds: i64| {
+        let update = arkret_signatures::webvh::prepare_service_rotation(
+            &arkret_signatures::webvh::ServiceRotationInput {
+                did: did.as_str(),
+                previous_entries: entries,
+                state,
+                current_update_seed: &[seed; 32],
+                next_update_public_key_multibase: &multibase(next),
+                version_time: start + chrono::Duration::seconds(seconds),
+            },
+        )
+        .unwrap();
+        entries.push(update.log_entry);
+    };
+    append(&mut entries, &state, 32, 46, 1);
+    let control = |entry: &serde_json::Value, method: DidUrl| RealmActorControlValue {
+        resolution: PrincipalResolutionProjection {
+            did: did.clone(),
+            method_history_head: canonical_sha256(entry).unwrap(),
+            version_id: entry["versionId"].as_str().unwrap().into(),
+            resolution_event_ref: EventId::from_digest(DigestSuite::Sha256, [93; 32]).to_string(),
+            updated_at: start,
+        },
+        control_method_kid: method,
+    };
+    let binding = control(&entries[0], creation.control_method_kid.clone());
+    let current = control(entries.last().unwrap(), method.clone());
+    append(&mut entries, &state, 46, 47, 2);
+    let transition = entries.clone();
+    state["verificationMethod"] = json!([next_method]);
+    state["assertionMethod"] = json!([method]);
+    state["authentication"] = json!([method]);
+    append(&mut entries, &state, 47, 48, 3);
+    let service_did = Did::new("did:web:receiving.example").unwrap();
+    let service_method = DidUrl::new(format!("{service_did}#service")).unwrap();
+    let service: DidDocument = serde_json::from_value(json!({
+        "id":service_did,"verificationMethod":[{"id":service_method,"type":"Multikey",
+        "controller":service_did,"publicKeyMultibase":multibase(56)}],
+        "assertionMethod":[service_method],
+    }))
+    .unwrap();
+    let payload_for = |entries: &[serde_json::Value]| {
+        let terminal = entries.last().unwrap();
+        let document: DidDocument = serde_json::from_value(terminal["state"].clone()).unwrap();
+        let head = canonical_sha256(terminal).unwrap();
+        let evidence = ResolutionMethodHistoryEvidence::WebvhLog {
+            boundary: ResolutionMethodEvidenceBoundary {
+                from_method_history_head: creation.initial_resolution.method_history_head.clone(),
+                from_version_id: creation.initial_resolution.version_id.clone(),
+                to_method_history_head: head.clone(),
+                to_version_id: terminal["versionId"].as_str().unwrap().into(),
+            },
+            evidence: ResolutionDidBindingEvidenceReceipt {
+                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                method: "webvh".into(),
+                document_digest: normalized_did_document_digest(&document).unwrap(),
+                method_proofs: vec![ResolutionDidBindingMethodProof {
+                    kind: ResolutionDidBindingMethodProofKind::WebvhLog,
+                    history_head: head.clone(),
+                    witnesses: vec![],
+                    witness_proofs_digest: Hash::new(
+                        canonical_sha256(&Vec::<serde_json::Value>::new()).unwrap(),
+                    )
+                    .unwrap(),
+                }],
+            },
+            log_entries: entries.to_vec(),
+            witness_records: vec![],
+        };
+        let rev = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([94; 32]),
+            stream_position: 4,
+        };
+        let unsigned = json!({
+            "expected_manager_revision":rev,"expected_control_revision":rev,
+            "expected_device_generation_revision":rev,"expected_generation":1,"new_generation":2,
+            "new_service_id":project_did_to_core_id(&service_did).unwrap(),
+            "new_registration_ref":creation.registration_ref,
+            "management_authorization_ref":creation.creation_authorization_ref,
+            "next_resolution":{"did":did,"version_id":terminal["versionId"],"method_history_head":head},
+            "method_history_evidence":evidence,
+        });
+        let mut transcript = unsigned.clone();
+        transcript["actor_id"] = json!(creation.actor_id);
+        transcript["applet_id"] = json!(creation.applet_id);
+        let transcript: RealmActorManagerAcceptanceTranscript =
+            serde_json::from_value(transcript).unwrap();
+        let mut signed = unsigned;
+        signed["new_service_signature"] = json!(
+            sign_detached_object(
+                &transcript,
+                DetachedSignatureContext::RealmActorManagerAcceptance,
+                service_method.clone(),
+                start + chrono::Duration::seconds(4),
+                &SigningKey::from_bytes(&[56; 32]),
+            )
+            .unwrap()
+        );
+        serde_json::from_value::<RealmActorManagerChangePayload>(signed).unwrap()
+    };
+    let payload = payload_for(&entries);
+    let verify = |payload: &RealmActorManagerChangePayload| {
+        arkret_identity::verify_realm_actor_manager_successor(
+            &creation.actor_id,
+            &creation.applet_id,
+            &binding,
+            &current,
+            &creation.control_method_kid,
+            payload,
+            &service,
+            start + chrono::Duration::seconds(5),
+        )
+    };
+    verify(&payload).unwrap();
+    assert!(
+        verify(&payload_for(&transition)).is_err(),
+        "old holder transition alone is insufficient"
+    );
+    let mut bad = payload.clone();
+    bad.management_authorization_ref =
+        GrantId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [95; 32]));
+    assert!(
+        verify(&bad).is_err(),
+        "Service acceptance binds the exact governance permission"
+    );
+    bad = payload.clone();
+    bad.new_generation = 3;
+    assert!(verify(&bad).is_err());
+    bad = payload.clone();
+    bad.new_service_id = creation.service_id.clone();
+    assert!(verify(&bad).is_err());
+    let mut old_retained = state;
+    old_retained["verificationMethod"]
+        .as_array_mut()
+        .unwrap()
+        .push(
+            json!({"id":format!("{did}#old-key-alias"),"type":"Multikey","controller":did,
+            "publicKeyMultibase":multibase(33)}),
+        );
+    append(&mut entries, &old_retained, 48, 49, 4);
+    assert!(
+        verify(&payload_for(&entries)).is_err(),
+        "old key aliases must also be removed"
+    );
+}
+
+#[test]
 fn creation_uses_real_independent_webvh_history_and_control_proof() {
     let (candidate, signer) = candidate();
     let at = candidate.control_signature.created_at;
