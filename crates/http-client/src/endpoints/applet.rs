@@ -48,6 +48,24 @@ impl arkret_identity::RealmAuthorityKeyDirectory for MaterialCommitKeys<'_> {
 }
 
 impl Client {
+    /// Read this authenticated subject's effective grants at the governing Station.
+    /// The response is a selection aid; Event admission revalidates all authority.
+    pub async fn effective_grants(
+        &self,
+        realm: &arkret_wire::RealmId,
+        subject: &arkret_wire::ActorId,
+    ) -> Result<arkret_models_collaboration::governance::authorization::GrantList> {
+        let actor = String::from_utf8(arkret_canonical::canonical_json_bytes(subject)?)
+            .map_err(|error| crate::Error::Protocol(error.to_string()))?;
+        let request = self
+            .request(Method::GET, "/_arkret/self/authz/effective-grants")?
+            .query(&[
+                ("realm_id", realm.as_str()),
+                ("subject_actor_id", actor.as_str()),
+            ]);
+        self.send_json(request).await
+    }
+
     pub async fn realm_actor_material(
         &self,
         request: &arkret_models_integration::RealmActorMaterialRequest,
