@@ -171,10 +171,6 @@ const NON_OPERATION_LITERALS: &[(&str, &str)] = &[
         "/_arkret/root/",
         "client_internals.rs authentication-scope prefix test, not a request target",
     ),
-    (
-        "/_arkret/self/applets/ak:applet:01904100-0000-7000-8000-000000000001/ghosts/provision",
-        "endpoints/applet.rs in-file unit test expectation with a substituted sample applet id",
-    ),
 ];
 
 /// Collapse a concrete or templated path to its registry-comparable shape:

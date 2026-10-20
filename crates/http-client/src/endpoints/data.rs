@@ -168,8 +168,67 @@ impl Client {
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
     ) -> Result<BlobUploadOutcome> {
-        self.blob_upload_part(metadata, reqwest::multipart::Part::bytes(bytes))
-            .await
+        // RFC 9421 signs the exact multipart bytes, including its boundary.
+        // Reqwest's streaming Form body cannot expose those bytes to the signer.
+        if metadata.size_bytes != bytes.len() as u64 {
+            return Err(Error::Protocol(
+                "Blob size differs from its exact bytes".into(),
+            ));
+        }
+        let media_type = metadata
+            .media_type
+            .as_deref()
+            .unwrap_or("application/octet-stream");
+        validate_header_value("Content-Type", media_type)?;
+        if metadata.encryption.is_some() && media_type != "application/octet-stream" {
+            return Err(Error::Protocol(
+                "ciphertext blob media_type must be application/octet-stream".into(),
+            ));
+        }
+        let mut fields = vec![
+            ("encryption", serde_json::to_string(&metadata.encryption)?),
+            ("size_bytes", metadata.size_bytes.to_string()),
+            ("media_type", media_type.to_owned()),
+        ];
+        if let Some(realm) = &metadata.realm_id {
+            fields.push(("realm_id", realm.to_string()));
+        }
+        if let Some(digest) = &metadata.content_digest {
+            fields.push(("content_digest", digest.to_string()));
+        }
+        if let Some(filename) = &metadata.filename {
+            fields.push(("filename", filename.clone()));
+        }
+        let hash = arkret_canonical::canonical_sha256(metadata)?;
+        // Multipart boundaries are limited to 70 bytes (RFC 2046).
+        let boundary_digest = &hash.trim_start_matches("sha256:")[..48];
+        let boundary = (0..16)
+            .map(|index| format!("arkret-{boundary_digest}-{index}"))
+            .find(|boundary| {
+                !bytes
+                    .windows(boundary.len())
+                    .any(|part| part == boundary.as_bytes())
+                    && fields
+                        .iter()
+                        .all(|(_, value)| !value.contains(boundary.as_str()))
+            })
+            .ok_or_else(|| Error::Protocol("Blob multipart boundary collision".into()))?;
+        let mut body = Vec::new();
+        body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"content\"\r\nContent-Type: {media_type}\r\n\r\n").as_bytes());
+        body.extend_from_slice(&bytes);
+        body.extend_from_slice(b"\r\n");
+        for (name, value) in fields {
+            body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes());
+        }
+        body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+        let builder = self
+            .request(Method::POST, "/_arkret/self/blob/upload")?
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body);
+        self.send_json(builder).await
     }
 
     /// Canonical multipart with a bounded native body source.

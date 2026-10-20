@@ -23,6 +23,7 @@ tls-rustls = ["client", "arkret-http-client/tls-rustls"]
 signer = ["arkret-signatures/signer"]
 server = ["dep:arkret-server"]
 mls = ["dep:arkret-mls"]
+blob-aead = ["arkret-crypto/blob-aead"]
 mls-test-utils = ["mls", "arkret-mls/test-utils"]
 # Expose the platform KeyStore feature gates so apps embedding the umbrella
 # `arkret` crate can opt into OS-native key storage without a direct

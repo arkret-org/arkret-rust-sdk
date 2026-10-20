@@ -72,7 +72,16 @@ fn stricter(left: PolicyEffect, right: PolicyEffect) -> PolicyEffect {
 fn content_action(action: &str) -> bool {
     arkret_schema::capability_action(action).is_some_and(|descriptor| {
         descriptor.event_mapping_kind != "aggregate_admin"
-            && ServiceOperationId::from_wire(action).is_none()
+            && ServiceOperationId::from_wire(action).is_none_or(|operation| {
+                // Only service actions explicitly paired with themselves by
+                // the native Device contract enter this management gate.
+                // Transport operations mapped to EventRead are not new actions.
+                matches!(
+                    arkret_wire::applet_managed_device_scope_rule(operation),
+                    Some(arkret_wire::ManagedDeviceScopeRule::AllActions(actions))
+                        if actions.iter().any(|required| required.as_str() == action)
+                )
+            })
     })
 }
 
@@ -518,6 +527,25 @@ mod tests {
         );
         context.content_action = None;
         context.operation = AppletPolicyOperation::Read;
+        assert_eq!(
+            evaluate_applet_management(Some(&[]), &context),
+            Err(AppletManagementError::InvalidOperationContext)
+        );
+        context.device_control = None;
+        for operation in [
+            ServiceOperationId::SelfBlobUploadCreateV1,
+            ServiceOperationId::SelfBlobResourceGetV1,
+            ServiceOperationId::SelfBlobResourceHeadV1,
+            ServiceOperationId::SelfBlobCommandPresignV1,
+        ] {
+            context.content_action = CapabilityActionId::from_wire(operation.as_str());
+            assert_eq!(
+                evaluate_applet_management(Some(&[]), &context),
+                Ok(PolicyEffect::Allow)
+            );
+        }
+        context.content_action =
+            CapabilityActionId::from_wire(ServiceOperationId::SelfEventsCommandSubmitV1.as_str());
         assert_eq!(
             evaluate_applet_management(Some(&[]), &context),
             Err(AppletManagementError::InvalidOperationContext)
