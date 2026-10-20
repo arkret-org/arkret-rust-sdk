@@ -276,6 +276,8 @@ impl RealmAuthorityFreshness {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct GenerationAuthority {
     service_id: DidCoreId,
+    effective_from: DateTime<Utc>,
+    frozen_at: Option<DateTime<Utc>>,
     /// Generation 0: the genesis Event. Generation `k > 0`: either the handoff
     /// record or the governance-station change Event it carries — the closed
     /// union `RealmCommitAuthorityRef` admits exactly these two spellings.
@@ -389,6 +391,23 @@ impl VerifiedRealmAuthority {
         self.generations
             .get(&generation)
             .map(|authority| &authority.service_id)
+    }
+
+    /// Bind an original private artifact to its actual issuing tenure.
+    /// The reference, when carried by the artifact, must name that tenure.
+    /// This does not verify the artifact signature or grant current access.
+    pub fn authorizes_issuer_at(
+        &self,
+        issuer: &DidCoreId,
+        reference: Option<&RealmCommitAuthorityRef>,
+        issued_at: DateTime<Utc>,
+    ) -> bool {
+        self.generations.values().any(|authority| {
+            &authority.service_id == issuer
+                && reference.is_none_or(|reference| authority.admits(reference))
+                && issued_at >= authority.effective_from
+                && authority.frozen_at.is_none_or(|end| issued_at <= end)
+        })
     }
 
     /// Match an exact current authority reference without accepting an unverified route hint.
@@ -744,6 +763,8 @@ fn walk_history_parts(
         0,
         GenerationAuthority {
             service_id: genesis_service.clone(),
+            effective_from: genesis_commit.committed_at,
+            frozen_at: None,
             installing_event: genesis_event.event_id.clone(),
             installing_handoff: None,
             final_realm_head: None,
@@ -863,10 +884,19 @@ fn walk_history_parts(
                 handoff.to_generation
             )));
         }
-        generations
+        let outgoing = generations
             .get_mut(&handoff.from_generation)
-            .expect("the outgoing generation was validated")
-            .final_realm_head = Some(arkret_wire::CommitStreamHead {
+            .expect("the outgoing generation was validated");
+        if transition.change_commit.committed_at < outgoing.effective_from
+            || handoff.new_authority_acceptance_signature.created_at
+                < transition.change_commit.committed_at
+        {
+            return Err(E::ChainBroken(
+                "governance tenure timestamps run backwards".into(),
+            ));
+        }
+        outgoing.frozen_at = Some(transition.change_commit.committed_at);
+        outgoing.final_realm_head = Some(arkret_wire::CommitStreamHead {
             stream_ref: transition.change_commit.stream_ref.clone(),
             stream_position: transition.change_commit.stream_position,
             commit_id: transition.change_commit.commit_id.clone(),
@@ -875,6 +905,8 @@ fn walk_history_parts(
             handoff.to_generation,
             GenerationAuthority {
                 service_id: handoff.to_service_id.clone(),
+                effective_from: handoff.new_authority_acceptance_signature.created_at,
+                frozen_at: None,
                 installing_event: transition.change_event.event_id.clone(),
                 installing_handoff: Some(handoff.handoff_id.clone()),
                 final_realm_head: None,

@@ -497,6 +497,37 @@ fn old_station_cannot_sign_new_realm_positions_after_its_handoff() {
 }
 
 #[test]
+fn private_artifact_issuer_must_match_its_original_tenure_and_reference() {
+    let fixture = chain();
+    let verified = verify(&fixture).unwrap();
+    let transition = &fixture.bundle.authority_transitions[0];
+    let old = &transition.handoff.from_service_id;
+    let new = &transition.handoff.to_service_id;
+    let freeze = transition.change_commit.committed_at;
+    let accepted = transition
+        .handoff
+        .new_authority_acceptance_signature
+        .created_at;
+    let original = &fixture.bundle.genesis_commit.authority_ref;
+    let successor = RealmCommitAuthorityRef::Handoff(transition.handoff.handoff_id.clone());
+    assert!(verified.authorizes_issuer_at(old, Some(original), freeze));
+    assert!(!verified.authorizes_issuer_at(old, Some(&successor), freeze));
+    assert!(!verified.authorizes_issuer_at(
+        old,
+        Some(original),
+        freeze + Duration::milliseconds(1)
+    ));
+    assert!(verified.authorizes_issuer_at(new, Some(&successor), accepted));
+    assert!(!verified.authorizes_issuer_at(new, None, accepted - Duration::milliseconds(1)));
+    assert!(!verified.authorizes_issuer_at(
+        old,
+        None,
+        fixture.bundle.genesis_commit.committed_at - Duration::milliseconds(1)
+    ));
+    assert!(!verified.authorizes_issuer_at(&core_id("did:web:outsider.example"), None, accepted));
+}
+
+#[test]
 fn handoff_requires_a_governance_change_with_the_exact_payload_cas() {
     let original = chain();
     for case in 0..5 {
@@ -635,7 +666,7 @@ fn a_structurally_perfect_commit_signed_by_the_wrong_station_is_refused() {
 fn one_changed_byte_in_a_signed_commit_fails_closed() {
     let mut chain = chain();
     chain.bundle.genesis_commit.stream_position = 0;
-    chain.bundle.genesis_commit.committed_at = issued_at() + Duration::seconds(1);
+    chain.bundle.genesis_commit.committed_at -= Duration::milliseconds(1);
     chain.bundle.genesis_commit.commit_id =
         RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
             canonical::canonical_json_bytes(
@@ -1649,6 +1680,16 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     handoff.final_stream_heads_digest =
         Hash::new(arkret_canonical::canonical_sha256(&heads).unwrap()).unwrap();
     handoff.historical_signer_facts_digest = Some(historical_signer_facts_digest(&[]).unwrap());
+    let management_private_state =
+        arkret_models_collaboration::authority_commit::ManagementPrivateHandoffManifest {
+            realm_id: handoff.realm_id.clone(),
+            governance_generation: handoff.from_generation,
+            final_stream_heads_digest: handoff.final_stream_heads_digest.clone(),
+            nonce: NONCE.to_owned(),
+            state_digest: Hash::new(arkret_canonical::canonical_sha256(&json!({})).unwrap())
+                .unwrap(),
+        };
+    handoff.management_private_state_digest = Some(management_private_state.digest().unwrap());
     handoff = seal_handoff(
         handoff,
         DetachedSignatureContext::RealmAuthorityHandoffOld,
@@ -1669,7 +1710,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     .unwrap();
     verify(&chain).unwrap();
     let request = AuthorityHandoffRequest {
-        management_private_state: None,
+        management_private_state: Some(management_private_state),
         pcr_private_state: None,
         handoff,
         final_stream_heads: heads,
