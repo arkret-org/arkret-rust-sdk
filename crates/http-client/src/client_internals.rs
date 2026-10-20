@@ -351,6 +351,17 @@ impl Client {
             .map(|(body, _headers)| body)
     }
 
+    /// A signed operation whose uncertain outcome must not be automatically replayed.
+    pub(crate) async fn send_json_for_scenario<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+        scenario: HttpSignatureScenario,
+    ) -> Result<T> {
+        self.send_json_with_headers_replay_policy_and_scenario(builder, false, Some(scenario))
+            .await
+            .map(|(body, _headers)| body)
+    }
+
     async fn send_json_with_headers_and_replay_policy<T: DeserializeOwned>(
         &self,
         builder: RequestBuilder,
@@ -530,11 +541,16 @@ impl Client {
             );
         }
         let mut applicable_conditionals = Vec::new();
-        if body_digest.is_some() {
+        if body_digest.is_some() && scenario != HttpSignatureScenario::MimiProviderV1 {
             applicable_conditionals.push("content-digest");
         }
         if request.headers().contains_key(HEADER_IDEMPOTENCY_KEY) {
             applicable_conditionals.push("idempotency-key");
+        }
+        if scenario == HttpSignatureScenario::MimiProviderV1
+            && request.headers().contains_key("mimi-room-uri")
+        {
+            applicable_conditionals.push("mimi-room-uri");
         }
         let url = request.url();
         let parts = SignedRequestParts {

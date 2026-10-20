@@ -158,6 +158,7 @@ impl Client {
         self.auth = None;
         self.own_station_context = None;
         self.realm_actor_control_signature_identity = None;
+        self.mimi_provider_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = Some((source, destination));
         self.managed_device_signature_identity = None;
@@ -175,6 +176,7 @@ impl Client {
         self.auth = None;
         self.own_station_context = None;
         self.realm_actor_control_signature_identity = None;
+        self.mimi_provider_identity = None;
         self.http_message_signer = Some(signer);
         self.service_signature_identity = None;
         self.managed_device_signature_identity = Some((metadata, destination));
@@ -194,6 +196,7 @@ impl Client {
         self.http_message_signer = Some(signer);
         self.service_signature_identity = None;
         self.managed_device_signature_identity = None;
+        self.mimi_provider_identity = None;
         self.realm_actor_control_signature_identity = Some((metadata, destination));
         Ok(self)
     }

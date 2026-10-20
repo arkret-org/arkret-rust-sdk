@@ -66,8 +66,8 @@ pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
     COMMITTED_EVENT_SUBSCRIBE_MAX_SELECTOR_ITEMS, CommittedEventSubscribeFrameStream,
     CommittedEventSubscribeOptions, RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES,
-    STREAM_SCAN_MAX_LIMIT, SignalSendTransportObservation, SignalSubscribeFrameStream,
-    blob_resumable_upload_base_url,
+    STREAM_SCAN_MAX_LIMIT, SessionGrantRevokeAttempt, SignalSendTransportObservation,
+    SignalSubscribeFrameStream, blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
 pub use key_backup_client::KeyBackupClient;
@@ -396,6 +396,8 @@ pub struct Client {
     pub(crate) own_station_context: Option<Arc<own_station_results::OwnStationContext>>,
     pub(crate) http_message_signer: Option<HttpMessageSigner>,
     pub(crate) service_signature_identity: Option<(arkret_wire::DidCoreId, arkret_wire::DidCoreId)>,
+    pub(crate) mimi_provider_identity:
+        Option<(arkret_wire::MimiUri, Option<arkret_wire::MimiRoomUri>)>,
     pub(crate) managed_device_signature_identity: Option<(
         arkret_models_integration::AppletManagedDeviceMetadata,
         arkret_wire::DidCoreId,
