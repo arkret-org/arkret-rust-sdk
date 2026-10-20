@@ -878,23 +878,52 @@ where
     N: AsRef<str>,
     V: AsRef<str>,
 {
+    verify_signed_http_message_inner(
+        method,
+        target_uri,
+        authority,
+        path,
+        headers,
+        body,
+        public_key,
+        policy,
+        now_unix_seconds,
+        false,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn verify_signed_http_message_inner<I, N, V>(
+    method: &str,
+    target_uri: &str,
+    authority: &str,
+    path: &str,
+    headers: I,
+    body: &[u8],
+    public_key: &VerifyingKey,
+    policy: &SignatureVerificationPolicy,
+    now_unix_seconds: i64,
+    canonical_json: bool,
+    content_encoding_present: bool,
+) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError>
+where
+    I: IntoIterator<Item = (N, V)>,
+    N: AsRef<str>,
+    V: AsRef<str>,
+{
     let mut request = SignedRequestParts {
         method: method.to_owned(),
         target_uri: target_uri.to_owned(),
         authority: authority.to_owned(),
         path: path.to_owned(),
-        headers: headers
-            .into_iter()
-            .map(|(name, value)| {
-                (
-                    name.as_ref().to_ascii_lowercase(),
-                    value.as_ref().trim().to_owned(),
-                )
-            })
-            .collect(),
+        headers: normalized_http_headers(headers),
         body_digest: None,
     };
 
+    if canonical_json && content_encoding_present {
+        return Err(HttpMessageVerificationError::ContentEncodingNotAllowed);
+    }
     let signature_input_header =
         request
             .header("signature-input")
@@ -905,20 +934,22 @@ where
         .header("signature")
         .ok_or(HttpMessageVerificationError::MissingHeader("Signature"))?;
 
+    let content_digest = verified_content_digest(
+        &request.headers,
+        body,
+        policy.require_content_digest || (canonical_json && !body.is_empty()),
+    )?;
+    request.body_digest = content_digest
+        .as_ref()
+        .map(|digest| digest.wire_value.clone());
+    if canonical_json {
+        validate_signed_canonical_json_body(false, body)?;
+    }
+
     let signature_input = parse_signature_input(&signature_input_header)?;
     if signature_input.algorithm != "ed25519" {
         return Err(SignatureError::UnsupportedAlgorithm(signature_input.algorithm).into());
     }
-
-    let content_digest = match request.header("content-digest") {
-        Some(value) => {
-            let parsed = ContentDigest::parse(&value)?;
-            verify_content_digest(&parsed, body)?;
-            request.body_digest = Some(parsed.wire_value.clone());
-            Some(parsed)
-        }
-        None => None,
-    };
 
     policy.validate(
         &signature_input,
@@ -950,9 +981,8 @@ where
 /// Verify an Arkret signed canonical-JSON HTTP request.
 ///
 /// This is the complete receiver-side preflight required by
-/// `service-http-binding.md` §2.5.1: content codings are rejected, the exact
-/// body bytes must already be canonical JSON, and the RFC 9421 signature and
-/// RFC 9530 content digest are then verified over those same bytes.
+/// `service-http-binding.md` §8.2: reject content codings, verify the digest
+/// over exact bytes, require canonical JSON, then verify the signature transcript.
 ///
 /// Framework adapters should pass `true` for
 /// `content_encoding_present` whenever the request contains a
@@ -975,8 +1005,7 @@ where
     N: AsRef<str>,
     V: AsRef<str>,
 {
-    validate_signed_canonical_json_body(content_encoding_present, body)?;
-    verify_signed_http_message(
+    verify_signed_http_message_inner(
         method,
         target_uri,
         authority,
@@ -986,7 +1015,65 @@ where
         public_key,
         policy,
         now_unix_seconds,
+        true,
+        content_encoding_present,
     )
+}
+
+fn normalized_http_headers<I, N, V>(headers: I) -> Vec<(String, String)>
+where
+    I: IntoIterator<Item = (N, V)>,
+    N: AsRef<str>,
+    V: AsRef<str>,
+{
+    headers
+        .into_iter()
+        .map(|(name, value)| {
+            (
+                name.as_ref().to_ascii_lowercase(),
+                value.as_ref().trim().to_owned(),
+            )
+        })
+        .collect()
+}
+
+fn verified_content_digest(
+    headers: &[(String, String)],
+    body: &[u8],
+    required: bool,
+) -> Result<Option<ContentDigest>, HttpMessageVerificationError> {
+    let mut values = headers.iter().filter(|(name, _)| name == "content-digest");
+    let value = values.next();
+    if values.next().is_some() {
+        return Err(SignatureError::MalformedContentDigest.into());
+    }
+    let Some((_, value)) = value else {
+        return if required {
+            Err(HttpMessageVerificationError::MissingHeader(
+                "Content-Digest",
+            ))
+        } else {
+            Ok(None)
+        };
+    };
+    let parsed = ContentDigest::parse(value)?;
+    verify_content_digest(&parsed, body)?;
+    Ok(Some(parsed))
+}
+
+/// Verify RFC 9530 against exact HTTP content before any JSON parsing.
+/// This proves content integrity only, never signature or source authority.
+pub fn verify_http_content_digest<I, N, V>(
+    headers: I,
+    body: &[u8],
+    required: bool,
+) -> Result<Option<ContentDigest>, HttpMessageVerificationError>
+where
+    I: IntoIterator<Item = (N, V)>,
+    N: AsRef<str>,
+    V: AsRef<str>,
+{
+    verified_content_digest(&normalized_http_headers(headers), body, required)
 }
 
 /// Validate the representation requirements shared by every signed JSON
@@ -1747,5 +1834,140 @@ mod tests {
             let error = ContentDigest::parse(unsupported).unwrap_err();
             assert_eq!(error, SignatureError::MalformedContentDigest);
         }
+    }
+}
+
+#[cfg(test)]
+mod canonical_ingress_order_tests {
+    use super::*;
+    fn verify(
+        headers: Vec<(&str, String)>,
+        body: &[u8],
+        encoded: bool,
+    ) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError> {
+        verify_signed_canonical_json_message(
+            "POST",
+            "https://provider.example/notify",
+            "provider.example",
+            "/notify",
+            headers,
+            encoded,
+            body,
+            &SigningKey::from_bytes(&[22; 32]).verifying_key(),
+            &SignatureVerificationPolicy::for_scenario(HttpSignatureScenario::MimiProviderV1, &[])
+                .unwrap(),
+            1_800_000_000,
+        )
+    }
+    #[test]
+    fn digest_then_canonical_then_signature_input_are_distinct_boundaries() {
+        let noncanonical = b"{ \"ok\": true }";
+        let mut headers = vec![
+            ("signature-input", "invalid".to_owned()),
+            ("signature", "invalid".to_owned()),
+            (
+                "content-digest",
+                ContentDigest::compute(b"{}", ContentDigestAlgorithm::Sha256).wire_value,
+            ),
+        ];
+        assert_eq!(
+            verify(headers.clone(), noncanonical, false).unwrap_err(),
+            HttpMessageVerificationError::Signature(SignatureError::ContentDigestMismatch)
+        );
+        headers[2].1 =
+            ContentDigest::compute(noncanonical, ContentDigestAlgorithm::Sha256).wire_value;
+        assert!(matches!(
+            verify(headers, noncanonical, false),
+            Err(HttpMessageVerificationError::NonCanonicalJson(_))
+        ));
+        let headers = vec![
+            ("signature-input", "invalid".to_owned()),
+            ("signature", "invalid".to_owned()),
+            (
+                "content-digest",
+                ContentDigest::compute(b"{}", ContentDigestAlgorithm::Sha256).wire_value,
+            ),
+        ];
+        assert_eq!(
+            verify(headers, b"{}", false).unwrap_err(),
+            HttpMessageVerificationError::Signature(SignatureError::MalformedSignatureInput)
+        );
+    }
+    #[test]
+    fn digest_repetition_members_algorithms_and_missing_are_refused_before_parse() {
+        let digest = ContentDigest::compute(b"{}", ContentDigestAlgorithm::Sha256).wire_value;
+        for values in [
+            vec![digest.clone(), digest.clone()],
+            vec![format!("{digest}, {digest}")],
+            vec![digest.replace("sha-256", "sha-512")],
+        ] {
+            let headers = values.iter().map(|v| ("Content-Digest", v));
+            assert_eq!(
+                verify_http_content_digest(headers, b"{}", true).unwrap_err(),
+                HttpMessageVerificationError::Signature(SignatureError::MalformedContentDigest)
+            );
+        }
+        assert_eq!(
+            verify_http_content_digest(Vec::<(&str, &str)>::new(), b"{}", true).unwrap_err(),
+            HttpMessageVerificationError::MissingHeader("Content-Digest")
+        );
+        assert!(
+            verify_http_content_digest(Vec::<(&str, &str)>::new(), b"", false)
+                .unwrap()
+                .is_none()
+        );
+    }
+    #[test]
+    fn canonical_message_signature_still_uses_original_bytes_and_encoding_is_first() {
+        let body = b"{\"ok\":true}";
+        let key = SigningKey::from_bytes(&[22; 32]);
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256).wire_value;
+        let mut headers = vec![
+            (
+                "arkret-operation",
+                "ak.open.mimi.command.notify.v1".to_owned(),
+            ),
+            ("content-digest", digest.clone()),
+            (
+                "source-service-id",
+                "ak:did_core:web:provider.example".to_owned(),
+            ),
+            (
+                "destination-service-id",
+                "ak:did_core:web:receiver.example".to_owned(),
+            ),
+            ("provider-id", "mimi://provider.example".to_owned()),
+        ];
+        let signed = sign_http_message_for_scenario(
+            &SignedRequestParts {
+                method: "POST".into(),
+                target_uri: "https://provider.example/notify".into(),
+                authority: "provider.example".into(),
+                path: "/notify".into(),
+                headers: headers
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.clone()))
+                    .collect(),
+                body_digest: Some(digest),
+            },
+            HttpSignatureScenario::MimiProviderV1,
+            &[],
+            "sig1",
+            "did:web:provider.example#key",
+            1_800_000_000,
+            &key,
+        )
+        .unwrap();
+        headers.push(("signature-input", signed.signature_input_header));
+        headers.push(("signature", signed.signature_header));
+        verify(headers.clone(), body, false).unwrap();
+        assert_eq!(
+            verify(headers.clone(), b" {\"ok\":true}", false).unwrap_err(),
+            HttpMessageVerificationError::Signature(SignatureError::ContentDigestMismatch)
+        );
+        assert_eq!(
+            verify(headers, b"not json", true).unwrap_err(),
+            HttpMessageVerificationError::ContentEncodingNotAllowed
+        );
     }
 }
