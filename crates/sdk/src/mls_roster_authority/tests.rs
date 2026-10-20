@@ -16,6 +16,79 @@ use arkret_wire::{
 use super::*;
 
 #[test]
+fn terminal_claim_signature_binds_original_result_and_actual_station_history() {
+    use arkret_models_crypto::{KeyPackageClaimTerminalReceipt, KeyPackageClaimTerminalState};
+    let (_, pages, resolution) = signed_two_page_roster();
+    let MlsRosterRecord::Add { attestation, .. } = &pages[1].records[0] else {
+        panic!("Add fixture")
+    };
+    let mut receipt = KeyPackageClaimTerminalReceipt {
+        domain: NonEmptyString::new(
+            arkret_wire::DomainSeparationId::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
+        )
+        .unwrap(),
+        claim_request_id: attestation.claim_receipt.claim_request_id.clone(),
+        request_digest: attestation.claim_receipt.request_digest.clone(),
+        terminal_state: KeyPackageClaimTerminalState::NeverClaimed,
+        key_package_refs: None,
+        source_id: attestation.claim_receipt.source_id.clone(),
+        destination_id: resolution.service_id.clone(),
+        terminal_at: attestation.attested_at,
+        signature: attestation.signature.clone(),
+    };
+    receipt.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+        &[41; 32],
+        attestation.signature.kid.as_str(),
+        &receipt.canonical_signing_bytes().unwrap(),
+    )
+    .unwrap();
+    crate::verify_peer_keypackage_terminal_receipt_signature(
+        &receipt,
+        &resolution.service_id,
+        &resolution,
+    )
+    .unwrap();
+    let mut changed = receipt.clone();
+    changed.source_id = DidCoreId::new("ak:did_core:web:changed.example").unwrap();
+    assert!(
+        crate::verify_peer_keypackage_terminal_receipt_signature(
+            &changed,
+            &resolution.service_id,
+            &resolution
+        )
+        .is_err()
+    );
+    let other = DidCoreId::new("ak:did_core:web:other.example").unwrap();
+    assert!(
+        crate::verify_peer_keypackage_terminal_receipt_signature(&receipt, &other, &resolution)
+            .is_err()
+    );
+    let mut untrusted = resolution.clone();
+    untrusted.service_kind = "applet".into();
+    assert!(
+        crate::verify_peer_keypackage_terminal_receipt_signature(
+            &receipt,
+            &resolution.service_id,
+            &untrusted
+        )
+        .is_err()
+    );
+    untrusted = resolution.clone();
+    untrusted
+        .normalized_did_document
+        .raw_properties
+        .insert("assertionMethod".into(), serde_json::json!([]));
+    assert!(
+        crate::verify_peer_keypackage_terminal_receipt_signature(
+            &receipt,
+            &resolution.service_id,
+            &untrusted
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn realm_consume_uses_accepting_governor_without_rewriting_original_claim_issuer() {
     use arkret_models_crypto::{
         KeyPackageConsumeReceipt, RecipientMlsDurableReceipt, RecipientMlsDurableSigner,

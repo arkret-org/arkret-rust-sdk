@@ -455,6 +455,7 @@ pub use arkret_wire::{
 pub use keypackage_claim_receipt::{
     verify_peer_keypackage_claim_receipt_signature,
     verify_peer_keypackage_consume_receipt_signature,
+    verify_peer_keypackage_terminal_receipt_signature,
 };
 pub use managed_actor_authoring::author_realm_actor_create;
 #[cfg(feature = "mls")]

@@ -1,9 +1,54 @@
 use arkret_models_crypto::{
-    KeyPackageConsumeReceipt, PeerKeyPackageClaimReceipt,
+    KeyPackageClaimTerminalReceipt, KeyPackageConsumeReceipt, PeerKeyPackageClaimReceipt,
     peer_keypackage_claim_receipt_signing_bytes,
 };
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::WireError;
+
+/// Verify a terminal claim result at its actual issuance coordinate. The
+/// caller establishes the expected issuer from the fixed Account Station or
+/// verified Realm governance tenure; signed original service bindings remain
+/// unchanged through a handoff.
+pub fn verify_peer_keypackage_terminal_receipt_signature(
+    receipt: &KeyPackageClaimTerminalReceipt,
+    expected_issuer: &arkret_wire::DidCoreId,
+    resolution: &AuthenticatedServiceResolution,
+) -> Result<(), WireError> {
+    receipt
+        .validate_shape()
+        .map_err(|e| WireError::Protocol(e.to_string()))?;
+    if resolution.service_kind != "station" {
+        return Err(WireError::Protocol(
+            "terminal receipt signer is not a Station".into(),
+        ));
+    }
+    let document = arkret_identity::authenticated_service_document_at(
+        resolution,
+        expected_issuer,
+        receipt.terminal_at,
+    )
+    .map_err(|e| WireError::Protocol(e.to_string()))?;
+    let method = arkret_wire::DidUrl::new(receipt.signature.kid.as_str())
+        .map_err(|e| WireError::Protocol(e.into()))?;
+    arkret_identity::validate_verification_method_relationship(
+        &document,
+        &method,
+        &document.id,
+        arkret_identity::DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|e| WireError::Protocol(e.to_string()))?;
+    let key = arkret_identity::public_key_material_from_document(&document, &method)
+        .map_err(|e| WireError::Protocol(e.to_string()))?
+        .ed25519_bytes()
+        .map_err(|e| WireError::Protocol(e.to_string()))?;
+    arkret_signatures::keypackages::verify_keypackage_signing_input(
+        &key,
+        method.as_str(),
+        &receipt.canonical_signing_bytes()?,
+        &receipt.signature,
+    )
+    .map_err(|e| WireError::Protocol(e.to_string()))
+}
 
 /// Verify a destination Station's KeyPackage claim receipt against
 /// the exact service key that was effective when the receipt was issued.
