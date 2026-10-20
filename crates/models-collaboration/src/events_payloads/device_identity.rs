@@ -1128,26 +1128,39 @@ mod managed_scope_tests {
             "device_public_key_did":"did:key:z6Mkdevice",
             "hpke_key":"z6LShpke", "algorithms":["Ed25519"], "device_key_algorithm":"Ed25519",
             "authorized_by":"ak:did_core:webvh:z6mkcontroller",
-            "authorization_binding_kind":"applet_managed_delegation", "authorized_generation_ref":1,
+            "authorization_binding_kind":"realm_managed_delegation", "authorized_generation_ref":1,
+            "expected_control_revision":{
+                "commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),
+                "stream_position":0
+            },
+            "expected_device_revision":null,
             "scopes":[{"effective_scope":scope,"actions":["ak.event.read"]}],
             "not_before":"2026-10-16T00:00:00.000Z", "expires_at":"2026-10-17T00:00:00.000Z",
             "device_signature":"AA", "applet_id":"ak:applet:01964137-0000-7000-8000-000000000002"
         });
         let payload: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
-        let account = AccountId::new(
+        let actor = arkret_wire::ActorId::realm(arkret_wire::RealmActorId::new(
+            arkret_wire::RealmId::new(scope["realm_id"].as_str().unwrap()).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
-            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-        );
-        let input = payload.device_possession_signature_input(&account).unwrap();
+        ));
+        let input = payload
+            .realm_device_possession_signature_input(&actor)
+            .unwrap();
         let body: Value =
             serde_json::from_slice(input.splitn(2, |b| *b == b'\n').nth(1).unwrap()).unwrap();
         assert_eq!(body["scopes"], value["scopes"]);
+        assert_eq!(body["actor_id"], json!(actor));
+        assert_eq!(
+            body["expected_control_revision"],
+            value["expected_control_revision"]
+        );
+        assert!(body.get("account_id").is_none());
         value["scopes"][0]["actions"] = json!(["ak.event.read", "ak.message.create"]);
         let extended: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
         assert_ne!(
             input,
             extended
-                .device_possession_signature_input(&account)
+                .realm_device_possession_signature_input(&actor)
                 .unwrap()
         );
         value["scopes"] = json!(["ak.event.read"]);

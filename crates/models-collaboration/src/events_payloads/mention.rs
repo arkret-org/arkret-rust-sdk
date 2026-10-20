@@ -1,5 +1,5 @@
 use arkret_models_identity::handle::Handle;
-use arkret_wire::AccountId;
+use arkret_wire::{AccountId, ActorId, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -82,6 +82,72 @@ pub struct Mention {
     pub resolved_at: Option<DateTime<Utc>>,
 }
 
+/// A Realm-local Bot/Ghost mention. Global handles and Agent selector
+/// metadata have no meaning for this identity branch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmMention {
+    pub kind: MentionKind,
+    #[serde(deserialize_with = "deserialize_realm_subject")]
+    pub subject_actor_id: ActorId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub display_name_at_time: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub mention_text_original: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_mention_timestamp",
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
+    )]
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+fn deserialize_realm_subject<'de, D>(deserializer: D) -> Result<ActorId, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let actor = ActorId::deserialize(deserializer)?;
+    let subject = actor
+        .as_realm_actor_id()
+        .ok_or_else(|| serde::de::Error::custom("mention subject must be a Realm actor"))?;
+    subject.validate().map_err(serde::de::Error::custom)?;
+    Ok(actor)
+}
+
+fn deserialize_mention_timestamp<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    arkret_canonical::serde_helpers::canonical_timestamp::deserialize(deserializer).map(Some)
+}
+
+impl RealmMention {
+    pub fn new(subject_actor_id: ActorId) -> ContentBlockValidationResult<Self> {
+        let subject = subject_actor_id.as_realm_actor_id().ok_or_else(|| {
+            ContentBlockValidationError::new("mention subject must be a Realm actor")
+        })?;
+        subject.validate().map_err(|_| {
+            ContentBlockValidationError::new("mention subject must be a valid Realm actor")
+        })?;
+        Ok(Self {
+            kind: MentionKind::Mention,
+            subject_actor_id,
+            display_name_at_time: None,
+            mention_text_original: None,
+            resolved_at: None,
+        })
+    }
+}
+
 /// Canonical audience variants for an `audience_mention` AST node.
 ///
 /// `StrandEngaged` is the v1 mapping for common UI token `@here`; it means
@@ -158,19 +224,21 @@ pub struct AudienceMention {
 #[allow(clippy::large_enum_variant)]
 pub enum MentionNode {
     Mention(Mention),
+    RealmMention(RealmMention),
     AudienceMention(AudienceMention),
 }
 
 /// Typed addressing target of one mention AST node.
 ///
-/// A direct mention addresses one account and carries its complete
-/// `AccountId`; a broadcast mention addresses a closed audience. The two are
+/// A direct mention carries a complete AccountId or Realm ActorId;
+/// a broadcast mention addresses a closed audience. These are
 /// never interchangeable and neither collapses to a string, so callers cannot
 /// accidentally compare a mention subject at principal granularity or use it
 /// as an opaque key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MentionTarget<'a> {
     Subject(&'a AccountId),
+    RealmSubject(&'a ActorId),
     Audience(AudienceMentionAudience),
 }
 
@@ -232,11 +300,16 @@ impl AudienceMention {
 /// Parse one canonical mention AST node.
 ///
 /// Only the current wire shapes are admitted: `{"kind":"mention",...}` with a
-/// complete `AccountId` `subject_account_id`, and
+/// complete `AccountId` `subject_account_id` or Realm `subject_actor_id`, and
 /// `{"kind":"audience_mention",...}` with a closed `audience`. Both node types
 /// are `deny_unknown_fields`.
 pub fn parse_mention_node(value: &Value) -> ContentBlockValidationResult<MentionNode> {
     match value.get("kind").and_then(Value::as_str) {
+        Some(MENTION_NODE_KIND) if value.get("subject_actor_id").is_some() => {
+            serde_json::from_value::<RealmMention>(value.clone())
+                .map(MentionNode::RealmMention)
+                .map_err(|_| ContentBlockValidationError::new("mention node is invalid"))
+        }
         Some(MENTION_NODE_KIND) => serde_json::from_value::<Mention>(value.clone())
             .map(MentionNode::Mention)
             .map_err(|_| ContentBlockValidationError::new("mention node is invalid")),
@@ -266,8 +339,7 @@ pub fn collect_mention_nodes(content: &Value) -> ContentBlockValidationResult<Ve
 }
 
 /// Collect the complete `AccountId` of every direct mention node in a Content
-/// Block tree, in wire order. Broadcast nodes are dropped; they address an
-/// audience, not a subject.
+/// Block tree, in wire order. Realm subjects and broadcast nodes are omitted.
 ///
 /// Callers MUST compare the returned ids as whole accounts: a bare
 /// `principal_id` comparison would match the same principal hosted by another
@@ -279,9 +351,46 @@ pub fn collect_mention_subject_account_ids(
         .into_iter()
         .filter_map(|node| match node {
             MentionNode::Mention(mention) => Some(mention.subject_account_id),
+            MentionNode::RealmMention(_) | MentionNode::AudienceMention(_) => None,
+        })
+        .collect())
+}
+
+/// Collect complete direct identities without converting a Realm subject into
+/// an Account or comparing only its principal component.
+pub fn collect_mention_subject_actor_ids(
+    content: &Value,
+) -> ContentBlockValidationResult<Vec<ActorId>> {
+    Ok(collect_mention_nodes(content)?
+        .into_iter()
+        .filter_map(|node| match node {
+            MentionNode::Mention(mention) => Some(ActorId::account(mention.subject_account_id)),
+            MentionNode::RealmMention(mention) => Some(mention.subject_actor_id),
             MentionNode::AudienceMention(_) => None,
         })
         .collect())
+}
+
+/// Apply the message context after decryption or before plaintext admission.
+/// A mention is a reference and never confers membership or notification rights.
+pub fn validate_mentions_in_realm(
+    content: &Value,
+    realm_id: &RealmId,
+) -> ContentBlockValidationResult<()> {
+    for node in collect_mention_nodes(content)? {
+        if let MentionNode::RealmMention(mention) = node
+            && mention
+                .subject_actor_id
+                .as_realm_actor_id()
+                .map(|id| &id.realm_id)
+                != Some(realm_id)
+        {
+            return Err(ContentBlockValidationError::new(
+                "mention subject belongs to another Realm",
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Collect only the broadcast mention nodes of a Content Block tree.
@@ -292,7 +401,7 @@ pub fn collect_audience_mention_nodes(
         .into_iter()
         .filter_map(|node| match node {
             MentionNode::AudienceMention(node) => Some(node),
-            MentionNode::Mention(_) => None,
+            MentionNode::Mention(_) | MentionNode::RealmMention(_) => None,
         })
         .collect())
 }
@@ -415,28 +524,36 @@ impl MentionNode {
         Self::AudienceMention(audience_mention)
     }
 
+    pub fn as_realm_mention(&self) -> Option<&RealmMention> {
+        match self {
+            Self::RealmMention(mention) => Some(mention),
+            _ => None,
+        }
+    }
+
     pub fn as_mention(&self) -> Option<&Mention> {
         match self {
             Self::Mention(mention) => Some(mention),
-            Self::AudienceMention(_) => None,
+            Self::RealmMention(_) | Self::AudienceMention(_) => None,
         }
     }
 
     pub fn as_audience_mention(&self) -> Option<&AudienceMention> {
         match self {
-            Self::Mention(_) => None,
+            Self::Mention(_) | Self::RealmMention(_) => None,
             Self::AudienceMention(mention) => Some(mention),
         }
     }
 
     /// Typed addressing target of this node.
     ///
-    /// Direct mentions expose the complete `AccountId`; there is deliberately
+    /// Direct mentions expose the complete account or Realm identity; there is deliberately
     /// no string form, so ordering, de-duplication and equality all run over
     /// both account components.
     pub fn target(&self) -> MentionTarget<'_> {
         match self {
             Self::Mention(mention) => MentionTarget::Subject(&mention.subject_account_id),
+            Self::RealmMention(mention) => MentionTarget::RealmSubject(&mention.subject_actor_id),
             Self::AudienceMention(mention) => MentionTarget::Audience(mention.audience),
         }
     }
@@ -444,6 +561,7 @@ impl MentionNode {
     pub fn mention_text_original(&self) -> Option<&str> {
         match self {
             Self::Mention(mention) => mention.mention_text_original.as_deref(),
+            Self::RealmMention(mention) => mention.mention_text_original.as_deref(),
             Self::AudienceMention(mention) => mention.mention_text_original.as_deref(),
         }
     }

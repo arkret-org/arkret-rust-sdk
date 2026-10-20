@@ -10,7 +10,7 @@ use arkret_wire::{DidCoreId, EventId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::events_payloads::mention::{AudienceMention, Mention};
+use crate::events_payloads::mention::{AudienceMention, Mention, MentionNode};
 use crate::events_payloads::poll::{PollBlock, PollResponseBlock};
 use crate::internal_prelude::*;
 use crate::objects::strand::MessageMetadata;
@@ -295,6 +295,26 @@ impl ContentBlock {
     pub fn with_mentions(mut self, mentions: Vec<Mention>) -> Result<Self> {
         let value = serde_json::to_value(mentions)
             .map_err(|err| WireError::Protocol(format!("content mentions serialize: {err}")))?;
+        self.extra.insert("mentions".to_owned(), value);
+        Ok(self)
+    }
+
+    /// Direct Account and Realm mentions share the canonical `mentions` carrier.
+    pub fn with_direct_mention_nodes(mut self, mentions: Vec<MentionNode>) -> Result<Self> {
+        if mentions
+            .iter()
+            .any(|node| matches!(node, MentionNode::AudienceMention(_)))
+        {
+            return Err(WireError::Protocol(
+                "broadcast nodes belong in audience_mentions".into(),
+            ));
+        }
+        let value = serde_json::to_value(mentions)
+            .map_err(|err| WireError::Protocol(format!("content mentions serialize: {err}")))?;
+        for node in value.as_array().expect("serialized mention list") {
+            crate::events_payloads::mention::parse_mention_node(node)
+                .map_err(|err| WireError::Protocol(err.to_string()))?;
+        }
         self.extra.insert("mentions".to_owned(), value);
         Ok(self)
     }
