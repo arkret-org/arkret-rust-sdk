@@ -16,6 +16,117 @@ use arkret_wire::{
 use super::*;
 
 #[test]
+fn realm_consume_uses_accepting_governor_without_rewriting_original_claim_issuer() {
+    use arkret_models_crypto::{
+        KeyPackageConsumeReceipt, RecipientMlsDurableReceipt, RecipientMlsDurableSigner,
+    };
+    use arkret_wire::{DeviceId, DidUrl, DomainSeparationId, RealmActorId};
+    let (_, pages, resolution) = signed_two_page_roster();
+    let MlsRosterRecord::Add { attestation, .. } = &pages[1].records[0] else {
+        panic!("Add fixture")
+    };
+    let old = DidCoreId::new("ak:did_core:web:original-claim.example").unwrap();
+    let device_key = ed25519_dalek::SigningKey::from_bytes(&[43; 32]);
+    let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+        device_key.verifying_key().as_bytes(),
+    );
+    let device_did = Did::new(format!("did:key:{multibase}")).unwrap();
+    let method = DidUrl::new(format!("{device_did}#{multibase}")).unwrap();
+    let actor = ActorId::realm(RealmActorId {
+        realm_id: attestation.realm_id.clone(),
+        principal_id: DidCoreId::new("ak:did_core:webvh:zRealmActorFixture").unwrap(),
+    });
+    let signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+        &[43; 32],
+        method.as_str(),
+        b"placeholder",
+    )
+    .unwrap();
+    let mut durable = RecipientMlsDurableReceipt {
+        domain: NonEmptyString::new(DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1).unwrap(),
+        claim_request_id: attestation.claim_receipt.claim_request_id.clone(),
+        key_package_ref: NonEmptyString::new(arkret_canonical::sha256_digest(b"package")).unwrap(),
+        recipient: RecipientMlsDurableSigner::RealmDevice {
+            recipient_actor_id: actor.clone(),
+            recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
+                .unwrap(),
+            device_verification_method: method.clone(),
+        },
+        recipient_id: old.clone(),
+        realm_id: attestation.realm_id.clone(),
+        mls_group_id: attestation.mls_group_id.clone(),
+        mls_epoch: attestation.epoch,
+        welcome_ref: attestation.welcome_id.clone(),
+        welcome_digest: Hash::new(arkret_canonical::sha256_digest(b"welcome")).unwrap(),
+        durable_at: attestation.attested_at,
+        signature,
+    };
+    durable.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+        &[43; 32],
+        method.as_str(),
+        &durable.canonical_signing_bytes().unwrap(),
+    )
+    .unwrap();
+    let mut receipt = KeyPackageConsumeReceipt {
+        domain: NonEmptyString::new(DomainSeparationId::KEYPACKAGE_CONSUME_RECEIPT_V1).unwrap(),
+        request_digest: Hash::new(arkret_canonical::canonical_sha256(&durable).unwrap()).unwrap(),
+        claim_id: attestation.claim_id.clone(),
+        recipient_durable_receipt: durable,
+        consumed_at: attestation.attested_at,
+        signature: attestation.signature.clone(),
+    };
+    receipt.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+        &[41; 32],
+        attestation.signature.kid.as_str(),
+        &receipt.canonical_signing_bytes().unwrap(),
+    )
+    .unwrap();
+    crate::verify_peer_keypackage_consume_receipt_signature(
+        &receipt,
+        &resolution.service_id,
+        &resolution,
+    )
+    .unwrap();
+    assert!(
+        crate::verify_peer_keypackage_consume_receipt_signature(&receipt, &old, &resolution)
+            .is_err()
+    );
+    let mut changed = receipt.clone();
+    changed.recipient_durable_receipt.recipient_id = resolution.service_id.clone();
+    assert!(
+        crate::verify_peer_keypackage_consume_receipt_signature(
+            &changed,
+            &resolution.service_id,
+            &resolution
+        )
+        .is_err()
+    );
+    receipt.recipient_durable_receipt.recipient = RecipientMlsDurableSigner::Device {
+        recipient_account_id: arkret_wire::AccountId::new(
+            actor.signing_principal_id().clone(),
+            old,
+        ),
+        recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
+            .unwrap(),
+        device_verification_method: method,
+    };
+    receipt.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+        &[41; 32],
+        attestation.signature.kid.as_str(),
+        &receipt.canonical_signing_bytes().unwrap(),
+    )
+    .unwrap();
+    assert!(
+        crate::verify_peer_keypackage_consume_receipt_signature(
+            &receipt,
+            &resolution.service_id,
+            &resolution
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn roster_station_signatures_require_historical_assertion_method() {
     let seed = [41_u8; 32];
     let signer = ed25519_dalek::SigningKey::from_bytes(&seed);
@@ -252,14 +363,20 @@ fn signed_two_page_roster() -> (
     manifest.total_records = 2;
     manifest.page_count = 2;
     let at = manifest.issued_at;
-    let actor = ActorId::service(station.clone());
+    let actor = ActorId::account(arkret_wire::AccountId::new(
+        station.clone(),
+        station.clone(),
+    ));
     let claim_request: PeerKeyPackagesClaimUnsignedRequest = serde_json::from_value(
         serde_json::json!({
-            "claim_request_id": "AQ",
+            "claim_request_id": "0123456789012345678901",
+            "target_agent_id": station,
+            "target_agent_verification_method": method,
+            "target_agent_key_authorize_event_id": EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[14;32]),
             "intended_realm_id": request.realm_id,
             "mls_group_id": request.mls_group_id,
             "claim_purpose": "realm_membership",
-            "required_capabilities": ["mls"],
+            "required_capabilities": [arkret_models_crypto::ARKRET_CONTENT_V1],
             "expires_at": arkret_canonical::format_timestamp_canonical(at + chrono::TimeDelta::hours(1)),
         }),
     )

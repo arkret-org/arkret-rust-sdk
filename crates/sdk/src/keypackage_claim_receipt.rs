@@ -48,8 +48,12 @@ pub fn verify_peer_keypackage_claim_receipt_signature(
 /// Verify the exact terminal receipt under the Station key effective at its
 /// original consumption coordinate. Callers additionally bind the request
 /// digest and the complete nested durable receipt to their frozen command.
+/// For a Realm recipient, `expected_issuer` comes from the verified accepting
+/// governance tenure. The nested recipient_id remains the original claim
+/// issuer and is not the consume signer after a governance handoff.
 pub fn verify_peer_keypackage_consume_receipt_signature(
     receipt: &KeyPackageConsumeReceipt,
+    expected_issuer: &arkret_wire::DidCoreId,
     authenticated_resolution: &AuthenticatedServiceResolution,
 ) -> Result<(), WireError> {
     if authenticated_resolution.service_kind != "station" {
@@ -60,9 +64,18 @@ pub fn verify_peer_keypackage_consume_receipt_signature(
     receipt
         .validate_shape()
         .map_err(|error| WireError::Protocol(error.into()))?;
+    if !matches!(
+        &receipt.recipient_durable_receipt.recipient,
+        arkret_models_crypto::RecipientMlsDurableSigner::RealmDevice { .. }
+    ) && expected_issuer != &receipt.recipient_durable_receipt.recipient_id
+    {
+        return Err(WireError::Protocol(
+            "ordinary recipient consume signer differs from its fixed Station".into(),
+        ));
+    }
     let document = arkret_identity::authenticated_service_document_at(
         authenticated_resolution,
-        &receipt.recipient_durable_receipt.recipient_id,
+        expected_issuer,
         receipt.consumed_at,
     )
     .map_err(|error| WireError::Protocol(error.to_string()))?;

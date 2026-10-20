@@ -1689,6 +1689,19 @@ impl AuthorityHandoffRequest {
                 "handoff signer inventory belongs to another Realm".into(),
             ));
         }
+        match (
+            &self.management_private_state,
+            &self.handoff.management_private_state_digest,
+        ) {
+            (Some(manifest), Some(_)) => manifest.validate_handoff(&self.handoff)?,
+            (None, None) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "management private handoff manifest and signed digest must occur together"
+                        .into(),
+                ));
+            }
+        }
         self.authority_bundle.validate_shape()?;
         let genesis: crate::events_payloads::realm::RealmCreatePayload = serde_json::from_value(
             serde_json::to_value(&self.authority_bundle.genesis_event.payload)?,
@@ -1780,6 +1793,46 @@ impl AuthorityHandoffRequest {
             return Err(WireError::Protocol(
                 "authority handoff manifest, snapshot, and current bundle binding mismatch"
                     .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl ManagementPrivateHandoffManifest {
+    pub fn validate(&self) -> Result<()> {
+        if !(22..=64).contains(&self.nonce.len())
+            || !self
+                .nonce
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+            || !self.state_digest.as_str().starts_with("sha256:")
+            || !self
+                .final_stream_heads_digest
+                .as_str()
+                .starts_with("sha256:")
+        {
+            return Err(WireError::Protocol(
+                "management private handoff nonce or digest is invalid".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn digest(&self) -> Result<Hash> {
+        self.validate()?;
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
+
+    pub fn validate_handoff(&self, handoff: &RealmAuthorityHandoff) -> Result<()> {
+        self.validate()?;
+        if self.realm_id != handoff.realm_id
+            || self.governance_generation != handoff.from_generation
+            || self.final_stream_heads_digest != handoff.final_stream_heads_digest
+            || handoff.management_private_state_digest.as_ref() != Some(&self.digest()?)
+        {
+            return Err(WireError::Protocol(
+                "management private handoff manifest differs from the signed frozen cut".into(),
             ));
         }
         Ok(())
@@ -1958,6 +2011,11 @@ impl AuthorityHandoffRequest {
         {
             return Err(WireError::Protocol("new authority handoff requires the complete signer inventory, including an empty inventory".into()));
         }
+        self.management_private_state.as_ref().ok_or_else(|| {
+            WireError::Protocol(
+                "new authority handoff requires the management private manifest even for empty state".into(),
+            )
+        })?.validate_handoff(&self.handoff)?;
         self.validate_shape()
     }
 }
