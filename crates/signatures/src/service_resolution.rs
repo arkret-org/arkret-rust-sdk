@@ -84,6 +84,39 @@ pub fn verify_full_to_core_binding(
     Ok(())
 }
 
+/// Verify an object-family payload binding using an already accepted CURRENT
+/// service DID document. This does not resolve or establish that document's trust.
+pub fn verify_service_payload_proof(
+    expected_service_id: &DidCoreId,
+    document: &DidDocument,
+    proof: &arkret_wire::PayloadProof,
+    binding_bytes: &[u8],
+) -> arkret_wire::Result<VerifyingKey> {
+    verify_full_to_core_binding(&document.id, expected_service_id)?;
+    proof.validate_production()?;
+    let prefix = format!("{}#", document.id);
+    if !proof
+        .verification_method
+        .as_str()
+        .strip_prefix(&prefix)
+        .is_some_and(|fragment| !fragment.is_empty() && !fragment.contains(['/', '?', '#']))
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "payload proof controller differs from current service DID".into(),
+        ));
+    }
+    verify_document_signature(
+        document,
+        &ProtocolSignature {
+            verification_method: proof.verification_method.clone(),
+            created_at: proof.created_at,
+            jws: proof.jws.clone(),
+        },
+        binding_bytes,
+        "invalid service payload proof",
+    )
+}
+
 fn placeholder_proof(
     verification_method: DidUrl,
     created_at: DateTime<Utc>,
@@ -173,6 +206,7 @@ fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_w
         .filter_map(|item| {
             item.as_str().or_else(|| {
                 item.get("verification_method")
+                    .or_else(|| item.get("id"))
                     .and_then(serde_json::Value::as_str)
             })
         })

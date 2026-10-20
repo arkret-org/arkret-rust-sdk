@@ -86,6 +86,151 @@ impl ProviderDirectory {
     pub fn unsigned_projection_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         arkret_canonical::canonical_json_bytes(&self.unsigned_projection())
     }
+
+    pub fn payload_digest(&self) -> arkret_wire::Result<Hash> {
+        Ok(Hash::new(arkret_canonical::sha256_digest(
+            &self.unsigned_projection_bytes()?,
+        ))?)
+    }
+
+    /// The registry binding signs the projection digest AND proof metadata.
+    /// Signing only the projection would leave freshness unauthenticated.
+    pub fn proof_binding_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        if self.proof.0.payload_digest != self.payload_digest()? {
+            return Err(arkret_wire::WireError::Protocol(
+                "MIMI directory projection digest mismatch".into(),
+            ));
+        }
+        let mut binding = self.unsigned_projection();
+        let object = binding.as_object_mut().expect("typed projection object");
+        object.insert(
+            "payload_digest".into(),
+            serde_json::to_value(&self.proof.0.payload_digest)?,
+        );
+        object.insert(
+            "verification_method".into(),
+            serde_json::to_value(&self.proof.0.verification_method)?,
+        );
+        object.insert(
+            "created_at".into(),
+            Value::String(arkret_canonical::format_timestamp_canonical(
+                self.proof.0.created_at,
+            )),
+        );
+        Ok(arkret_canonical::canonical_json_bytes(&binding)?)
+    }
+
+    /// Validate the closed v1 capability declaration without normalizing it.
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        fn invalid(message: &str) -> arkret_wire::WireError {
+            arkret_wire::WireError::Protocol(message.into())
+        }
+        fn sorted(values: &[String]) -> bool {
+            !values.is_empty()
+                && values.iter().all(|v| !v.trim().is_empty())
+                && values.windows(2).all(|v| v[0].as_bytes() < v[1].as_bytes())
+        }
+        if self.schema != arkret_wire::SchemaId::MIMI_INTEROP_V1
+            || self.service_kind != "mimi_provider_facade"
+            || !sorted(&self.supported_profiles)
+            || !self
+                .supported_profiles
+                .iter()
+                .any(|v| v == arkret_wire::ProfileId::MIMI_INTEROP_V1)
+            || self.mimi.protocol_draft != "draft-ietf-mimi-protocol-06"
+            || self.mimi.content_draft != "draft-ietf-mimi-content-08"
+            || self.mimi.room_policy_draft != "draft-ietf-mimi-room-policy-03"
+            || self.mimi.identifier_draft != "draft-kohbrok-mimi-identifiers-01"
+        {
+            return Err(invalid("MIMI directory profile or draft mismatch"));
+        }
+        const FEATURES: &[&str] = &[
+            "consent",
+            "identifier_query",
+            "key_material",
+            "notify",
+            "proxy_download",
+            "report_abuse",
+            "room_update",
+            "submit_message",
+        ];
+        const CONTENT: &[&str] = &[
+            "application/mimi-content",
+            "application/vnd.arkret.content+json",
+            "text/markdown;variant=GFM-MIMI",
+            "text/plain;charset=utf-8",
+        ];
+        if !sorted(&self.mimi.features)
+            || self
+                .mimi
+                .features
+                .iter()
+                .any(|v| !FEATURES.contains(&v.as_str()))
+            || !sorted(&self.mimi.mls_cipher_suites)
+            || self
+                .mimi
+                .mls_cipher_suites
+                .iter()
+                .any(|v| v != "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519")
+            || !sorted(&self.mimi.content_profiles)
+            || self
+                .mimi
+                .content_profiles
+                .iter()
+                .any(|v| !CONTENT.contains(&v.as_str()))
+            || !sorted(&self.mimi.room_policy_components)
+            || self.mimi.endpoints.is_empty()
+            || !self
+                .mimi
+                .endpoints
+                .windows(2)
+                .all(|v| v[0].endpoint_id.as_bytes() < v[1].endpoint_id.as_bytes())
+            || self.mimi.endpoints.iter().any(|v| {
+                !FEATURES.contains(&v.endpoint_id.as_str())
+                    || !valid_directory_path(&v.relative_path)
+            })
+        {
+            return Err(invalid(
+                "MIMI directory capabilities or endpoint rows are invalid",
+            ));
+        }
+        self.proof.0.validate_production()?;
+        Ok(())
+    }
+}
+
+fn valid_directory_path(path: &str) -> bool {
+    if !path.starts_with('/')
+        || path.starts_with("//")
+        || path
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || matches!(c, '\\' | '?' | '#'))
+    {
+        return false;
+    }
+    let mut decoded = Vec::with_capacity(path.len());
+    let mut bytes = path.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let hex = |v: u8| (v as char).to_digit(16).map(|v| v as u8);
+            let Some(high) = bytes.next().and_then(hex) else {
+                return false;
+            };
+            let Some(low) = bytes.next().and_then(hex) else {
+                return false;
+            };
+            let byte = high * 16 + low;
+            if matches!(byte, b'/' | b'\\') {
+                return false;
+            }
+            decoded.push(byte);
+        } else {
+            decoded.push(byte);
+        }
+    }
+    !decoded
+        .split(|v| *v == b'/')
+        .any(|s| s == b"." || s == b"..")
 }
 
 /// Counterpart for

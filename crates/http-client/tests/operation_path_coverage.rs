@@ -150,6 +150,10 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/http_did_resolver.rs"),
     ),
     ("lib.rs", include_str!("../src/lib.rs")),
+    (
+        "mimi_directory.rs",
+        include_str!("../src/mimi_directory.rs"),
+    ),
     ("request.rs", include_str!("../src/request.rs")),
     (
         "service_method_resolution.rs",
