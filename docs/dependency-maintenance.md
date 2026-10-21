@@ -14,11 +14,12 @@ introduced to replace stable dependencies.
   with getrandom 0.4 would leave those actual 0.2 consumers unconfigured.
 - `voprf` stays at 0.6.0-pre.1, the newest published pre-release already in use.
   The latest stable 0.5.0 would be a downgrade and uses an older crypto stack.
-- `zbus` stays on the latest 5.x release, 5.19.0. The latest stable
-  [`secret-service` 5.2.0](https://crates.io/crates/secret-service/5.2.0)
-  requires zbus 5 and accepts its `Connection` in `connect_with_existing`.
-  The keystore's mutation lease and Secret Service session share that connection;
-  independently upgrading the direct zbus dependency to 6 would break the API.
+- `zbus` and `secret-service` migrate together to zbus 6. The Secret Service
+  dependency uses the `arkret/zbus-6` branch of
+  https://github.com/arkret-org/secret-service-rs, pinned by complete revision.
+  Its upstream 5.2.0 package identity and licenses are retained. No third-party
+  source is copied into the SDK. The mutation lease and Secret Service session
+  still share one connection; the public KeyStore API stays synchronous.
 
 ## Advisory handling
 
@@ -28,11 +29,11 @@ RUSTSEC-2026-0349, and replaces yanked chacha20 0.10.1 with 0.10.2.
 RUSTSEC-2026-0370, RUSTSEC-2026-0371 and RUSTSEC-2026-0372 are upstream
 maintenance notices: zvariant, zbus_names and zvariant_derive have been
 [merged into zbus 6](https://github.com/z-galaxy/zbus/issues/2043).
-They do not describe vulnerabilities. The exact notices are recorded in
-`.deny.toml` because the latest Secret Service release still requires them.
-Remove these three entries and migrate the whole connection/Secret Service
-graph when that upstream library supports zbus 6. Vulnerability checks remain
-enabled; no vulnerability advisory is ignored by this update.
+The complete Secret Service/lease graph now uses zbus 6, so the three
+maintenance-notice exemptions are removed from `.deny.toml`. The fork is an
+explicit allowed Git source; unknown Git sources remain denied. Actual Linux
+Secret Service contracts and process competition must pass when updating the
+revision. See [KeyStore maintenance](../crates/keystore/README.md).
 
 The spec-codegen and fuzz packages declare the repository's Apache-2.0 license.
 Auditing the separate fuzz workspace also registers the existing libfuzzer-sys

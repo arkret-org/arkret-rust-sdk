@@ -25,6 +25,20 @@ HKDF-SHA256, and XChaCha20-Poly1305. Keep the master key outside the ciphertext
 file's backup and access-control boundary. A stable sidecar lock and atomic
 same-directory replacement make whole-map updates safe across processes.
 
+## Linux dependency maintenance
+
+The Secret Service transport comes from the `arkret/zbus-6` branch of
+https://github.com/arkret-org/secret-service-rs, pinned to a complete Git revision
+in the workspace manifest. The SDK keeps no third-party source copy. The fork
+moves to zbus 6 and its integrated wire types; upstream package version and
+license terms are unchanged. The public KeyStore API remains synchronous, with
+zbus driving the internal async calls. Mutation leases still share the actual
+Secret Service connection and close it explicitly on drop.
+
+Use `tools/with-test-secret-service.sh` for the real Linux backend contracts and
+explicit cross-process `secret_service_processes_converge_on_one_first_key`
+test. Constructor-only or off-target tests do not validate Secret Service.
+
 ## Persistence and concurrency semantics
 
 The backends are not semantically identical:

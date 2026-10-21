@@ -247,13 +247,45 @@ impl Client {
     /// Public discovery must not forward account, Device or provider credentials.
     pub async fn mimi_provider_directory(
         &self,
-        provider_id: Option<&str>,
+        authority: &crate::mimi_directory::MimiDirectoryAuthority,
+        provider_id: Option<&MimiUri>,
+        features: &[String],
+    ) -> Result<crate::mimi_directory::VerifiedProviderDirectory> {
+        authority.check_request_origin(self.base_url())?;
+        let directory = self.read_mimi_directory_wire(provider_id, features).await?;
+        authority.verify(directory, provider_id, features, chrono::Utc::now())
+    }
+
+    /// Consume a public result from the host's already accepted own Station.
+    /// No DID resolution/history is fetched and this is not an independent
+    /// provider proof. Current account/session UI guards remain the host's duty.
+    pub async fn mimi_provider_directory_from_own_station(
+        &self,
+        binding: &arkret_models_discovery::StationConnectionBinding,
+        provider_id: Option<&MimiUri>,
+        features: &[String],
+        max_age: chrono::Duration,
+        egress: arkret_egress_policy::OutboundPolicy,
+    ) -> Result<crate::mimi_directory::OwnStationProviderDirectory> {
+        let context = crate::mimi_directory::OwnStationDirectoryRead::new(
+            binding,
+            self.base_url(),
+            max_age,
+            egress,
+        )?;
+        let directory = self.read_mimi_directory_wire(provider_id, features).await?;
+        context.accept(directory, provider_id, features, chrono::Utc::now())
+    }
+
+    async fn read_mimi_directory_wire(
+        &self,
+        provider_id: Option<&MimiUri>,
         features: &[String],
     ) -> Result<ProviderDirectory> {
         let mut builder =
             self.public_request(Method::GET, "/_arkret/open/mimi/provider-directory")?;
         if let Some(provider_id) = provider_id {
-            builder = builder.query(&[("provider_id", provider_id)]);
+            builder = builder.query(&[("provider_id", provider_id.as_str())]);
         }
         for feature in features {
             builder = builder.query(&[("features", feature)]);
@@ -268,5 +300,101 @@ impl Client {
         request.validate()?;
         self.mimi_post("/_arkret/open/mimi/report-abuse", request, false, true)
             .await
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod directory_transport_tests {
+    use std::io::{Read, Write};
+
+    use super::*;
+    use crate::{Auth, DpopAuth};
+
+    #[tokio::test]
+    async fn shared_directory_get_never_forwards_account_or_provider_credentials() {
+        for account in ["bearer", "dpop", "provider"] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let base = format!("http://{}/", listener.local_addr().unwrap());
+            let captured = std::thread::spawn(move || {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(stream) => break stream,
+                        Err(error)
+                            if error.kind() == std::io::ErrorKind::WouldBlock
+                                && std::time::Instant::now() < deadline =>
+                        {
+                            std::thread::sleep(std::time::Duration::from_millis(2))
+                        }
+                        Err(error) => panic!("directory request did not arrive: {error}"),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let mut chunk = [0; 4096];
+                while !bytes.windows(4).any(|v| v == b"\r\n\r\n") {
+                    let n = stream.read(&mut chunk).unwrap();
+                    assert!(n > 0);
+                    bytes.extend_from_slice(&chunk[..n]);
+                }
+                stream.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}").unwrap();
+                String::from_utf8(bytes).unwrap().to_ascii_lowercase()
+            });
+            let auth = if account == "dpop" {
+                Auth::Dpop(DpopAuth::with_dpop_token("account-secret", |_| {
+                    panic!("public directory must not request DPoP")
+                }))
+            } else {
+                Auth::Bearer("account-secret".into())
+            };
+            let client = Client::builder(base.parse().unwrap())
+                .allow_insecure_localhost()
+                .auth(auth)
+                .http_message_signer(HttpMessageSigner::new(
+                    "did:web:source.example#key",
+                    ed25519_dalek::SigningKey::from_bytes(&[9; 32]),
+                ))
+                .build()
+                .unwrap();
+            let client = if account == "provider" {
+                client
+                    .with_mimi_provider_http_signer(
+                        DidCoreId::new("ak:did_core:web:source.example").unwrap(),
+                        DidCoreId::new("ak:did_core:web:destination.example").unwrap(),
+                        MimiUri::new("mimi://source.example").unwrap(),
+                        HttpMessageSigner::new(
+                            "did:web:source.example#key",
+                            ed25519_dalek::SigningKey::from_bytes(&[9; 32]),
+                        ),
+                    )
+                    .unwrap()
+            } else {
+                client
+            };
+            // Only the shared wire adapter is exercised over loopback HTTP;
+            // both public directory APIs enforce HTTPS before calling it.
+            assert!(client.read_mimi_directory_wire(None, &[]).await.is_err());
+            let head = captured.join().unwrap();
+            assert!(head.starts_with("get /_arkret/open/mimi/provider-directory "));
+            for name in [
+                "authorization",
+                "dpop",
+                "signature",
+                "signature-input",
+                "provider-id",
+                "source-service-id",
+                "destination-service-id",
+            ] {
+                assert!(
+                    !head
+                        .lines()
+                        .any(|line| line.starts_with(&format!("{name}:"))),
+                    "{name}"
+                );
+            }
+        }
     }
 }

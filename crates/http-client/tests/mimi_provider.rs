@@ -364,7 +364,7 @@ async fn invalid_provider_context_fails_before_connecting() {
     ));
 }
 #[tokio::test]
-async fn public_directory_does_not_forward_any_authentication() {
+async fn own_station_directory_requires_https_before_any_authentication() {
     for account_context in [false, true] {
         let (provider_client, handle) = server(vec![(400, json!({}))]);
         let client = if account_context {
@@ -383,19 +383,26 @@ async fn public_directory_does_not_forward_any_authentication() {
         } else {
             provider_client
         };
-        let _ = client.mimi_provider_directory(None, &[]).await;
-        let request = handle.join().unwrap().remove(0);
-        for name in [
-            "authorization",
-            "dpop",
-            "signature",
-            "signature-input",
-            "provider-id",
-            "source-service-id",
-            "destination-service-id",
-        ] {
-            assert!(request.header(name).is_none(), "{name}");
-        }
+        let binding = arkret_models_discovery::StationConnectionBinding {
+            service_id: core("destination"),
+            base_url: client.base_url().to_string(),
+            trust_domain: arkret_wire::TrustDomainId::new("ak:trust_domain:destination.example")
+                .unwrap(),
+            auth_metadata: arkret_models_discovery::AuthMetadata::minimal(),
+        };
+        let result = client
+            .mimi_provider_directory_from_own_station(
+                &binding,
+                None,
+                &[],
+                chrono::Duration::minutes(5),
+                arkret_egress_policy::OutboundPolicy::local_development(),
+            )
+            .await;
+        assert!(
+            matches!(result, Err(arkret_http_client::Error::Protocol(message)) if message.contains("HTTPS"))
+        );
+        assert!(handle.join().unwrap().is_empty());
     }
 }
 
