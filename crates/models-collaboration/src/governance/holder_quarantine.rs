@@ -347,6 +347,8 @@ impl HolderQuarantine {
         }
         for entry in &self.quarantine_entries {
             if &entry.account_id != account_id
+                || entry.source_peer_actor_id.signing_principal_id()
+                    != &entry.source_peer_principal_id
                 || entry.received_at >= entry.expires_at
                 || entry.received_at > self.updated_at
                 || entry.expires_at <= self.updated_at

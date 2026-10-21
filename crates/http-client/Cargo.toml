@@ -36,7 +36,7 @@ arkret-models-discovery = { workspace = true }
 arkret-models-identity = { workspace = true }
 arkret-models-integration = { workspace = true }
 arkret-schema = { workspace = true }
-arkret-signatures.workspace = true
+arkret-signatures = { workspace = true, features = ["collaboration"] }
 arkret-state = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
@@ -59,6 +59,8 @@ getrandom = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "net"] }
 
 [dev-dependencies]
+arkret-test-kit = { workspace = true }
+arkret-signatures = { workspace = true, features = ["signer"] }
 arkret-wire = { workspace = true, features = ["test-support"] }
 rand_chacha.workspace = true
 rand_core.workspace = true

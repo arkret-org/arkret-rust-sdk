@@ -236,11 +236,34 @@ impl Client {
         arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome,
     > {
         reject_path_segment(applet_id)?;
-        self.post(
+        let applet = arkret_wire::AppletId::new(applet_id.to_owned())?;
+        request.validate()?;
+        let material: arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome = self.post(
             &format!("/_arkret/self/applets/{applet_id}/authority/material"),
             request,
-        )
-        .await
+        ).await?;
+        material.validate_for_request(&applet, request)?;
+        let registration: arkret_models_integration::AppletRegistrationPayload =
+            serde_json::from_value(serde_json::to_value(&material.registration.event.payload)?)?;
+        if registration.applet_id != applet {
+            return Err(crate::Error::Protocol(
+                "Applet material registration belongs to another Applet".into(),
+            ));
+        }
+        let service = arkret_wire::ActorId::service(registration.service_id.clone());
+        for original in &material.grant_events {
+            let payload: arkret_models_collaboration::events_payloads::capability::CapabilityGrantPayload =
+                serde_json::from_value(serde_json::to_value(&original.event.payload)?)?;
+            if !matches!(&payload.grant.subject, arkret_models_collaboration::governance::grant_constraint::CapabilitySubject::Actor(subject) if subject == &service)
+                || payload.grant.constraints.iter().filter(|constraint| {
+                    constraint.constraint_kind == arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind::AuthorityControl
+                        && constraint.constraint_subkind == Some(arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind::AppletAuthority)
+                }).any(|binding| binding.registration_epoch.as_ref() != Some(&registration.registration_epoch))
+            {
+                return Err(crate::Error::Protocol("Applet material historical grants differ from their original registration Service or epoch".into()));
+            }
+        }
+        Ok(material)
     }
     /// Configure a Service transport carrier; native Event proofs remain independent.
     pub fn with_service_http_signer(
@@ -494,6 +517,9 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod authority_material_tests;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod native_retry_tests {

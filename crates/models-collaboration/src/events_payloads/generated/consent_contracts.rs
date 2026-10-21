@@ -8,12 +8,12 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=8f43ab7f7fe4be59fd38447b7690378c53af63212ce0eb1df8f8d25fa2a14315
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `event-payload.schema.json#/$defs/consent_permission`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentPermission {
     pub consent_scope: ConsentScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -39,23 +39,10 @@ pub struct ConsentPermission {
     pub reason: Option<String>,
 }
 
-/// Counterpart: `event-payload.schema.json#/$defs/consent_expected_current`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "state", deny_unknown_fields)]
-pub enum ConsentExpectedCurrent {
-    #[serde(rename = "never_written")]
-    NeverWritten {},
-    #[serde(rename = "present")]
-    Present {
-        revision: arkret_wire::CurrentRevision,
-    },
-}
-
 /// Counterpart: `event-payload.schema.json#/$defs/consent_replace_payload`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentReplacePayload {
     pub peer: ConsentPeer,
     pub expected_current: ConsentExpectedCurrent,

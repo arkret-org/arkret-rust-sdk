@@ -11,92 +11,70 @@ pub enum ConsentPeer {
     Actor { actor_id: ActorId },
 }
 
+impl ConsentPeer {
+    /// Preserve the complete peer identity, including its Account Station or Realm.
+    pub fn actor_id(&self) -> &ActorId {
+        match self {
+            Self::Actor { actor_id } => actor_id,
+        }
+    }
+}
+
+/// Exact compare-and-swap precondition signed by the holder.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ConsentExpectedCurrent {
+    NeverWritten,
+    Present { revision: CurrentRevision },
+}
+
+impl<'de> Deserialize<'de> for ConsentExpectedCurrent {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            state: String,
+            #[serde(
+                default,
+                deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+            )]
+            revision: Option<CurrentRevision>,
+        }
+        let wire = Wire::deserialize(deserializer)?;
+        match (wire.state.as_str(), wire.revision) {
+            ("never_written", None) => Ok(Self::NeverWritten),
+            ("present", Some(revision)) => Ok(Self::Present { revision }),
+            _ => Err(serde::de::Error::custom(
+                "Consent expected_current requires an exact closed state branch",
+            )),
+        }
+    }
+}
+
 include!("generated/consent_contracts.rs");
 
-impl ConsentPeer {
-    pub fn actor_id(&self) -> &ActorId {
-        let Self::Actor { actor_id } = self;
-        actor_id
-    }
-}
-pub fn validate_scope_order(scopes: impl IntoIterator<Item = ConsentScope>) -> Result<()> {
-    let mut previous = None;
-    for scope in scopes {
-        if previous.is_some_and(|prior| prior >= scope) {
-            return Err(WireError::Protocol(
-                "consent permissions require unique scopes in canonical order".into(),
-            ));
-        }
-        previous = Some(scope);
-    }
-    Ok(())
-}
 pub fn validate_permissions(permissions: &[ConsentPermission]) -> Result<()> {
-    if permissions.len() > 4 {
+    if permissions.len() > 4
+        || permissions
+            .windows(2)
+            .any(|pair| pair[0].consent_scope >= pair[1].consent_scope)
+    {
         return Err(WireError::Protocol(
-            "consent permits at most four concrete scopes".into(),
+            "Consent permissions require unique scopes in canonical order".into(),
         ));
     }
-    validate_scope_order(
-        permissions
-            .iter()
-            .map(|permission| permission.consent_scope),
-    )?;
-    for permission in permissions {
-        if let (Some(start), Some(end)) = (permission.not_before, permission.expires_at) {
-            if start >= end {
-                return Err(WireError::Protocol(
-                    "consent permission window is empty".into(),
-                ));
-            }
-        }
-    }
     Ok(())
-}
-impl ConsentReplacePayload {
-    pub fn validate(&self) -> Result<()> {
-        validate_permissions(&self.permissions)
-    }
-}
-impl ConsentPermission {
-    pub fn permits(&self, now: DateTime<Utc>) -> bool {
-        self.not_before.is_none_or(|start| start <= now)
-            && self.expires_at.is_none_or(|end| now < end)
-            && self.constraints.as_ref().is_none_or(Vec::is_empty)
-    }
 }
 
 impl ConsentReplacePayload {
-    /// Compare one facade decision against the exact signed previous value.
-    pub fn validate_scope_diff(
-        &self,
-        previous: &[ConsentPermission],
-        scope: ConsentScope,
-        retain_scope: bool,
-    ) -> Result<()> {
-        self.validate()?;
-        validate_permissions(previous)?;
-        let before = previous.iter().find(|p| p.consent_scope == scope);
-        let after = self.permissions.iter().find(|p| p.consent_scope == scope);
-        if after.is_some() != retain_scope || (!retain_scope && before.is_none()) {
-            return Err(WireError::Protocol(
-                "Consent facade decision differs from its correlated scope".into(),
-            ));
-        }
-        let others = |permissions: &[ConsentPermission]| {
-            permissions
-                .iter()
-                .filter(|p| p.consent_scope != scope)
-                .cloned()
-                .collect::<Vec<_>>()
-        };
-        if arkret_canonical::canonical_json_bytes(&others(previous))?
-            != arkret_canonical::canonical_json_bytes(&others(&self.permissions))?
-        {
-            return Err(WireError::Protocol(
-                "Consent facade replacement changes another scope".into(),
-            ));
-        }
-        Ok(())
+    pub fn validate(&self) -> Result<()> {
+        self.validate_minimal()
+    }
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        validate_permissions(&self.permissions)
     }
 }

@@ -5,7 +5,7 @@
 // sha256=db43f4934d4601ea90be4c1dd25628271e264c7fd7058283c6b765e30217463c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=8f43ab7f7fe4be59fd38447b7690378c53af63212ce0eb1df8f8d25fa2a14315
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart:
 /// `event-payload.schema.json#/$defs/mimi_room_binding_payload/properties/binding_scope`.

@@ -4,10 +4,10 @@
 > Coverage is credited only from explicit evidence in `tools/operation-coverage-evidence.json`.
 
 - Claimable profiles: 59 (implementation + deployment + hardening profiles)
-- Effective profile/operation requirements: 502
+- Effective profile/operation requirements: 501
 - Complete rows: 5
 - Partial rows: 13
-- Gap rows: 484
+- Gap rows: 483
 
 `gap` is an explicit non-claim: registry recognition or a generated constant is not SDK implementation evidence. Inherited requirements are expanded into every claiming child profile.
 
@@ -119,7 +119,7 @@
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.read.protocol_metadata.v1` | `GET /_arkret/edge/applet/protocols/{protocol}` | `crates/server/src/applet.rs::AppletHandler::resolve_protocol` | — | — | partial |
 | `ak.profile.applet_bridge.v1` | `server` | `ak.edge.applet.realm.read.resolve.v1` | `GET /_arkret/edge/applet/realms/{realm_id_or_alias}` | `crates/server/src/applet.rs::AppletHandler::resolve_realm` | — | — | partial |
-| `ak.profile.applet_bridge.v1` | `server` | `ak.self.applet.ghost.command.provision.v1` | `POST /_arkret/self/applets/{applet_id}/ghosts/provision` | — | — | — | gap |
+| `ak.profile.applet_bridge.v1` | `server` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.command.transaction.v1` | `POST /_arkret/edge/applet/transactions` | `crates/server/src/applet.rs::AppletHandler::handle_transaction` | `crates/server/src/idempotency.rs::IdempotencyIdentity::applet_transaction` | `crates/server/src/idempotency.rs::completed_claim_replays_outcome_to_exact_duplicates`<br>`crates/server/src/idempotency.rs::mismatched_body_digest_or_anchor_is_duplicate_conflict` | complete |
 | `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.read.describe.v1` | `GET /_arkret/edge/applet/describe` | `crates/server/src/applet.rs::AppletHandler::describe` | — | — | partial |
 | `ak.profile.applet_delegated.v1` | `server` | `ak.edge.applet.read.ping.v1` | `GET /_arkret/edge/applet/ping` | `crates/server/src/applet.rs::AppletHandler::ping` | — | — | partial |
@@ -154,7 +154,6 @@
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.events.command.submit.v1` | `POST /_arkret/peer/events` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.keys.keypackages.command.claim.v1` | `POST /_arkret/peer/keys/keypackages/claim` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.peer.keys.keypackages.read.claim.v1` | `POST /_arkret/peer/keys/keypackages/claims/query` | — | — | — | gap |
-| `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.checkpoint.v1` | `POST /_arkret/self/contacts/continuity-checkpoint` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.reject.v1` | `POST /_arkret/self/contacts/reject` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.request.v1` | `POST /_arkret/self/contacts/request` | — | — | — | gap |
 | `ak.profile.direct_conversation_repair.v1` | `server` | `ak.self.contact.command.respond.v1` | `POST /_arkret/self/contacts/respond` | — | — | — | gap |

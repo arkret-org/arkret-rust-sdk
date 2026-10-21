@@ -873,7 +873,7 @@
     },
     {
       "file": "crates/models-collaboration/src/mimi_operations.rs",
-      "line": 494,
+      "line": 493,
       "struct_name": "MimiUpdateConsentRequestBody",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",

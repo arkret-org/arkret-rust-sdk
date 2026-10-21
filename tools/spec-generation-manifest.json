@@ -450,7 +450,6 @@
         "PresencePreference",
         "PresenceVisibility",
         "PresenceVisibilityPreference",
-        "ConsentCurrentReadState",
         "CallInvitationMedia",
         "CallInvitationProof",
         "CallInvitationAdmissionProof",
@@ -665,9 +664,8 @@
         "schemas/time.schema.json"
       ],
       "provides": [
-        "ConsentPermission",
-        "ConsentExpectedCurrent",
-        "ConsentReplacePayload"
+        "ConsentReplacePayload",
+        "ConsentPermission"
       ]
     },
     {
@@ -1468,7 +1466,9 @@
       "provides": [
         "ContactList",
         "ContactAgentProjection",
-        "DirectConversationSummary"
+        "DirectConversationSummary",
+        "ContactScopeUpdatePayload",
+        "RequestAcceptanceReceiptCore"
       ]
     },
     {
@@ -1500,8 +1500,7 @@
         "schemas/event-payload.schema.json"
       ],
       "provides": [
-        "DeviceRevokePayload",
-        "AppletManagedDeviceScope"
+        "DeviceRevokePayload"
       ]
     },
     {
@@ -2164,6 +2163,24 @@
         "RealmActorRecoveryValue",
         "RealmActorDeviceGenerationValue",
         "RealmActorDeviceAuthorizationValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/applet-authority-material.schema.json",
+        "schemas/applet-edge-operations.schema.json",
+        "schemas/applet-install-plan.schema.json",
+        "schemas/exact-current-results-read.schema.json"
+      ],
+      "provides": [
+        "AppletAuthorityMaterialRequestBody",
+        "AppletAuthorityMaterialOutcome"
       ]
     }
   ]

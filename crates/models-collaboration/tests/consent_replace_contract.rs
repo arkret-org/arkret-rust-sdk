@@ -1,4 +1,7 @@
 //! Exact-peer replacement preserves the complete permission set.
+use arkret_models_collaboration::call_invitation::{
+    ConsentCurrentReadOutcome, ConsentCurrentReadRequestBody,
+};
 use arkret_models_collaboration::consent_operations::ConsentValue;
 use arkret_models_collaboration::events_payloads::consent::{
     ConsentExpectedCurrent, ConsentReplacePayload,
@@ -39,8 +42,10 @@ fn permissions_preserve_optional_presence_and_refuse_sorting_or_widening() {
     typed.validate().unwrap();
     assert_eq!(serde_json::to_value(&typed).unwrap(), value);
     let now = "2026-10-21T00:00:00Z".parse().unwrap();
-    assert!(typed.permits(ConsentScope::Invite, now));
-    assert!(!typed.permits(ConsentScope::VoiceCall, now));
+    let (request, current) = permission_read(&typed, now);
+    current.validate_for_request(&request, 0, now).unwrap();
+    assert!(current.permits(&request, ConsentScope::Invite, now));
+    assert!(!current.permits(&request, ConsentScope::VoiceCall, now));
     let mut reversed = typed.clone();
     reversed.permissions.reverse();
     assert!(reversed.validate().is_err());
@@ -69,33 +74,85 @@ fn native_event_requires_peer_precondition_and_full_set() {
     }
 }
 
+// This fixture exercises the public local permission-set evaluator. It is
+// deliberately not a signed/accepted authority witness; live trust is covered
+// by http-client own_station_results::consent_current's real-JWS tests.
+fn permission_read(
+    value: &ConsentValue,
+    now: chrono::DateTime<chrono::Utc>,
+) -> (ConsentCurrentReadRequestBody, ConsentCurrentReadOutcome) {
+    let request: ConsentCurrentReadRequestBody = serde_json::from_value(json!({
+        "holder_account_id":{"principal_id":"ak:did_core:web:holder.example","station_id":"ak:did_core:web:station.example"},
+        "peer":{"kind":"actor","actor_id":{"kind":"service","service_id":"ak:did_core:web:peer.example"}},
+        "audience_actor_id":{"kind":"service","service_id":"ak:did_core:web:station.example"},
+        "nonce":arkret_canonical::base64url_encode([27;24])
+    })).unwrap();
+    let realm = "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI";
+    let commit = arkret_wire::RealmCommitId::from_digest([28; 32]);
+    let arkret_models_collaboration::events_payloads::consent::ConsentPeer::Actor { actor_id } =
+        &request.peer;
+    let outcome=serde_json::from_value(json!({
+        "request_digest":request.digest().unwrap(),"realm_id":realm,"governance_generation":0,
+        "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":realm},"stream_position":7,"commit_id":commit},
+        "current":{"state":"present","result":{"selector":{"kind":"consent","peer_id":actor_id},
+            "source_stream_ref":{"kind":"realm","realm_id":realm},"revision":{"commit_id":commit,"stream_position":7},"value":value}},
+        "evaluated_at":now.to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
+        "expires_at":(now+chrono::Duration::seconds(30)).to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
+        "proof":{"verification_method":"did:web:station.example#authority","jws":"local-evaluator-fixture-unverified"}
+    })).unwrap();
+    (request, outcome)
+}
+
 #[test]
-fn facade_scope_diff_preserves_every_other_scope_and_optional_member() {
-    let previous:ConsentValue=serde_json::from_value(json!({"permissions":[{"consent_scope":"invite","constraints":[],"reason":""},{"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z","constraints":[{"unknown_rule":true}]}]})).unwrap();
-    let mut target:ConsentReplacePayload=serde_json::from_value(json!({"peer":{"kind":"actor","actor_id":{"kind":"service","service_id":"ak:did_core:web:peer.example"}},"expected_current":{"state":"never_written"},"permissions":previous.permissions})).unwrap();
-    target
-        .permissions
-        .push(serde_json::from_value(json!({"consent_scope":"presence"})).unwrap());
-    target
-        .validate_scope_diff(&previous.permissions, ConsentScope::Presence, true)
-        .unwrap();
-    let mut lost_presence = target.clone();
-    lost_presence.permissions[0].reason = None;
-    assert!(
-        lost_presence
-            .validate_scope_diff(&previous.permissions, ConsentScope::Presence, true)
-            .is_err()
+fn full_native_replacement_roundtrips_unrelated_expired_permissions_and_optional_members() {
+    let previous:ConsentValue=serde_json::from_value(json!({"permissions":[
+        {"consent_scope":"invite","constraints":[],"reason":""},
+        {"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z","constraints":[{"unknown_rule":true}]}
+    ]})).unwrap();
+    let value = json!({"peer":{"kind":"actor","actor_id":{"kind":"service","service_id":"ak:did_core:web:peer.example"}},
+        "expected_current":{"state":"present","revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([29;32]),"stream_position":6}},
+        "permissions":[previous.permissions[0],previous.permissions[1],{"consent_scope":"presence"}]});
+    let target: ConsentReplacePayload = serde_json::from_value(value.clone()).unwrap();
+    target.validate().unwrap();
+    assert_eq!(serde_json::to_value(&target).unwrap(), value);
+    assert_eq!(target.permissions[..2], previous.permissions);
+    // Native replacement may change the full set. Correlation-purpose limits
+    // belong to the real MIMI admission helper, whose PG/HTTP tests reject a
+    // voice revoke that also changes presence. DTO shape cannot enforce them.
+    let mut native_edit = target.clone();
+    native_edit.permissions[0].reason = None;
+    native_edit.permissions.remove(1);
+    native_edit.validate().unwrap();
+    let encoded = serde_json::to_value(&native_edit).unwrap();
+    assert_eq!(
+        serde_json::from_value::<ConsentReplacePayload>(encoded.clone()).unwrap(),
+        native_edit
     );
-    let mut lost_expired = target.clone();
-    lost_expired.permissions.remove(1);
-    assert!(
-        lost_expired
-            .validate_scope_diff(&previous.permissions, ConsentScope::Presence, true)
-            .is_err()
-    );
-    assert!(
-        target
-            .validate_scope_diff(&previous.permissions, ConsentScope::VideoCall, false)
-            .is_err()
-    );
+    assert!(encoded["permissions"][0].get("reason").is_none());
+    assert_eq!(encoded["permissions"][0]["constraints"], json!([]));
+}
+
+#[test]
+fn future_expired_empty_and_reversed_windows_are_preserved_and_never_authorize() {
+    let now = "2026-10-21T00:00:00Z".parse().unwrap();
+    for (start, end) in [
+        ("2026-10-22T00:00:00.000Z", "2026-10-23T00:00:00.000Z"),
+        ("2026-10-01T00:00:00.000Z", "2026-10-20T00:00:00.000Z"),
+        ("2026-10-21T00:00:00.000Z", "2026-10-21T00:00:00.000Z"),
+        ("2026-10-22T00:00:00.000Z", "2026-10-20T00:00:00.000Z"),
+    ] {
+        let wire = json!({"permissions":[{"consent_scope":"voice_call","not_before":start,"expires_at":end}]});
+        let value: ConsentValue = serde_json::from_value(wire.clone()).unwrap();
+        value.validate().unwrap();
+        assert_eq!(serde_json::to_value(&value).unwrap(), wire);
+        let (request, current) = permission_read(&value, now);
+        current.validate_for_request(&request, 0, now).unwrap();
+        assert!(!current.permits(&request, ConsentScope::VoiceCall, now));
+    }
+    let wire = json!({"permissions":[{"consent_scope":"voice_call","constraints":[{"future_rule":{"limit":1}}]}]});
+    let value: ConsentValue = serde_json::from_value(wire.clone()).unwrap();
+    value.validate().unwrap();
+    assert_eq!(serde_json::to_value(&value).unwrap(), wire);
+    let (request, current) = permission_read(&value, now);
+    assert!(!current.permits(&request, ConsentScope::VoiceCall, now));
 }

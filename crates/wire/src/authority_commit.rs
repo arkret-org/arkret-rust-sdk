@@ -592,6 +592,7 @@ pub enum GenesisGovernance {
     Agent,
     AppletManaged,
     Collaboration,
+    DirectConversation(DidCoreId),
 }
 
 impl GenesisGovernance {
@@ -626,7 +627,18 @@ impl GenesisGovernance {
             (Some("principal_control"), (true, true)) => Ok(Self::Organization),
             (Some("agent_control"), (true, true)) => Ok(Self::Agent),
             (Some("applet_managed_control"), (true, true)) => Ok(Self::AppletManaged),
-            (Some("collaboration" | "direct_conversation"), _) => Ok(Self::Collaboration),
+            (Some("collaboration"), _) => Ok(Self::Collaboration),
+            (Some("direct_conversation"), _) => {
+                let station = payload
+                    .pointer("/object/governance_station_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "failed_precondition: Direct genesis has no governing Station".into(),
+                        )
+                    })?;
+                Ok(Self::DirectConversation(DidCoreId::new(station)?))
+            }
             _ => Err(WireError::Protocol(
                 "failed_precondition: Realm genesis governance provenance is unresolved".into(),
             )),
@@ -635,6 +647,13 @@ impl GenesisGovernance {
 
     pub fn is_human(&self) -> bool {
         matches!(self, Self::Human(_))
+    }
+
+    pub fn is_principal_control(&self) -> bool {
+        matches!(
+            self,
+            Self::Human(_) | Self::Organization | Self::Agent | Self::AppletManaged
+        )
     }
 
     pub fn validate_current(&self, service: &DidCoreId, generation: u64) -> Result<()> {
@@ -646,6 +665,13 @@ impl GenesisGovernance {
                     .into(),
             ));
         }
+        if let Self::DirectConversation(station) = self
+            && (service != station || generation != 0)
+        {
+            return Err(WireError::Protocol(
+                "failed_precondition: Direct Conversation remains at its genesis Station and initial tenure".into(),
+            ));
+        }
         Ok(())
     }
 
@@ -653,6 +679,11 @@ impl GenesisGovernance {
         if self.is_human() {
             return Err(WireError::Protocol(
                 "failed_precondition: Human PCR cannot independently transfer governance".into(),
+            ));
+        }
+        if matches!(self, Self::DirectConversation(_)) {
+            return Err(WireError::Protocol(
+                "failed_precondition: Direct Conversation governance cannot transfer".into(),
             ));
         }
         Ok(())

@@ -1,4 +1,4 @@
-//! The immutable first accepted Direct Conversation binding.
+//! Original participant confirmation of an accepted Direct Conversation founding unit.
 
 use std::collections::BTreeSet;
 
@@ -27,8 +27,15 @@ impl DirectConversationBoundPayload {
 }
 
 impl DirectConversationBindingCurrentValue {
+    pub fn validate(&self) -> Result<()> {
+        self.validate_shape()
+    }
     pub fn validate_shape(&self) -> Result<()> {
         self.binding.validate_shape()
+    }
+
+    pub fn references(&self, event_id: &EventId) -> bool {
+        &self.binding_event_ref == event_id
     }
 }
 

@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Ordinary messages use local canonical authoring and unchanged signed Event
+  submission. Retired the optional message prepare operation and its dedicated DTOs.
+- Direct Conversation binding is one immutable original confirmation and reference;
+  retired endorsement collections and the semantic binding digest.
+- Consent uses exact-peer full-set replacement with signed never-written/present
+  CAS, concrete scopes, complete current reads and scope-limited MIMI decisions.
+  Removed native consent IDs, any, grant/revoke Events and operations.
+
 - Adopted the formal Applet managed governance contract: installation accepts
   a Service only, independent Bot/Ghost provision uses signed four-Event units,
   and package/registration/epoch carriers contain no default Bot identity.

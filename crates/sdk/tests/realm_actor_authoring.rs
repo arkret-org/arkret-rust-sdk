@@ -756,3 +756,42 @@ fn private_current_writer_rejects_another_subject_selector_and_gate() {
     update.payload.insert("state".into(), json!("retired"));
     validate_realm_actor_current_writer(&selector, &update).unwrap();
 }
+
+#[test]
+fn private_current_material_requires_exact_original_source_coordinates() {
+    let fixture: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../arkret-spec/spec/v1/artifacts/fixtures/realm-actor-signature-kat-fixture.json")
+    ).unwrap()).unwrap();
+    let case = &fixture["cases"][3];
+    let mut value = case["unsigned_projection"].clone();
+    value["signature"] = case["signature"].clone();
+    let material: RealmActorMaterialOutcome = serde_json::from_value(value.clone()).unwrap();
+    material.validate().unwrap();
+    let mut missing = value.clone();
+    missing["result"]["entries"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("source_ref");
+    assert!(serde_json::from_value::<RealmActorMaterialOutcome>(missing).is_err());
+    for field in ["commit_id", "stream_position", "stream_ref"] {
+        let mut wrong = value.clone();
+        let source = &mut wrong["result"]["entries"][0]["source_ref"];
+        match field {
+            "commit_id" => {
+                source[field] = json!(format!(
+                    "ak:realm_commit:A{}",
+                    arkret_canonical::base64url_encode([91u8; 32])
+                ))
+            }
+            "stream_position" => source[field] = json!(99),
+            _ => {
+                source[field]["realm_id"] = json!(format!(
+                    "ak:realm:A{}",
+                    arkret_canonical::base64url_encode([91u8; 32])
+                ))
+            }
+        }
+        let wrong: RealmActorMaterialOutcome = serde_json::from_value(wrong).unwrap();
+        assert!(wrong.validate().is_err(), "{field}");
+    }
+}

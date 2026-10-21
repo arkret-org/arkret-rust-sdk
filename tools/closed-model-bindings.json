@@ -109,7 +109,7 @@
     "event-payload.schema.json#/$defs/consent_permission": "crate::events_payloads::consent::ConsentPermission",
     "event-payload.schema.json#/$defs/consent_expected_current": "crate::events_payloads::consent::ConsentExpectedCurrent",
     "event-payload.schema.json#/$defs/consent_replace_payload": "crate::events_payloads::consent::ConsentReplacePayload",
-    "consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/current": "crate::call_invitation::ConsentCurrentReadState",
+    "consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/current": "crate::call_invitation::ConsentCurrentState",
     "typed-current-result.schema.json#/$defs/revision": "arkret_wire::CurrentRevision"
   },
   "families": [
@@ -2236,9 +2236,9 @@
           "rust": {
             "signature": "pub struct ConsentPermission",
             "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
+              "#[serde(deny_unknown_fields)]"
             ],
             "members": {
               "consent_scope": {
@@ -2293,36 +2293,32 @@
           }
         },
         {
-          "name": "ConsentExpectedCurrent",
-          "schema": "event-payload.schema.json#/$defs/consent_expected_current"
-        },
-        {
           "name": "ConsentReplacePayload",
           "schema": "event-payload.schema.json#/$defs/consent_replace_payload",
           "rust": {
             "signature": "pub struct ConsentReplacePayload",
             "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
+              "#[serde(deny_unknown_fields)]"
             ],
             "members": {
               "peer": {
                 "name": "peer",
-                "type": "ConsentPeer",
                 "visibility": "pub",
+                "type": "ConsentPeer",
                 "attributes": []
               },
               "expected_current": {
                 "name": "expected_current",
-                "type": "ConsentExpectedCurrent",
                 "visibility": "pub",
+                "type": "ConsentExpectedCurrent",
                 "attributes": []
               },
               "permissions": {
                 "name": "permissions",
-                "type": "Vec<ConsentPermission>",
                 "visibility": "pub",
+                "type": "Vec<ConsentPermission>",
                 "attributes": []
               }
             }
@@ -11000,21 +10996,20 @@
           "rust": {
             "signature": "pub struct DirectConversationBindingCurrentValue",
             "attributes": [
-              "/// The immutable first accepted binding Event and its original payload.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
               "binding_event_ref": {
                 "name": "binding_event_ref",
-                "type": "EventId",
                 "visibility": "pub",
+                "type": "EventId",
                 "attributes": []
               },
               "binding": {
                 "name": "binding",
-                "type": "DirectConversationBoundPayload",
                 "visibility": "pub",
+                "type": "DirectConversationBoundPayload",
                 "attributes": []
               }
             }
@@ -11040,8 +11035,8 @@
             "members": {
               "permissions": {
                 "name": "permissions",
-                "type": "Vec<crate::events_payloads::consent::ConsentPermission>",
                 "visibility": "pub",
+                "type": "Vec<crate::events_payloads::consent::ConsentPermission>",
                 "attributes": []
               }
             }
@@ -14721,11 +14716,6 @@
       "output": "crates/models-collaboration/src/generated/call_invitation_contracts.rs",
       "types": [
         {
-          "name": "ConsentCurrentReadState",
-          "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/current",
-          "eq": false
-        },
-        {
           "name": "CallInvitationMedia",
           "schema": "call-invitation-operations.schema.json#/$defs/media"
         },
@@ -15163,8 +15153,8 @@
               },
               "peer_id": {
                 "name": "peer_id",
-                "type": "arkret_wire::ActorId",
                 "visibility": "pub",
+                "type": "arkret_wire::ActorId",
                 "attributes": []
               }
             }
@@ -15309,8 +15299,8 @@
               },
               "current": {
                 "name": "current",
-                "type": "ConsentCurrentReadState",
                 "visibility": "pub",
+                "type": "crate::call_invitation::ConsentCurrentState",
                 "attributes": []
               }
             }
@@ -15454,16 +15444,16 @@
                 "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "peer": {
-                "name": "peer",
-                "type": "crate::events_payloads::consent::ConsentPeer",
-                "visibility": "pub",
-                "attributes": []
-              },
               "event_id": {
                 "name": "event_id",
-                "type": "arkret_wire::EventId",
                 "visibility": "pub",
+                "type": "arkret_wire::EventId",
+                "attributes": []
+              },
+              "peer": {
+                "name": "peer",
+                "visibility": "pub",
+                "type": "crate::events_payloads::consent::ConsentPeer",
                 "attributes": []
               }
             }
@@ -17547,6 +17537,95 @@
                 "name": "device_authorize_event_id",
                 "visibility": "pub",
                 "type": "arkret_wire::EventId",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "AppletAuthorityMaterialRequestBody",
+          "schema": "applet-authority-material.schema.json#/$defs/request",
+          "rust": {
+            "signature": "pub struct AppletAuthorityMaterialRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "grant_ids": {
+                "name": "grant_ids",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::GrantId>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "AppletAuthorityMaterialOutcome",
+          "schema": "applet-authority-material.schema.json#/$defs/outcome",
+          "rust": {
+            "signature": "pub struct AppletAuthorityMaterialOutcome",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "applet_id": {
+                "name": "applet_id",
+                "visibility": "pub",
+                "type": "arkret_wire::AppletId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "registration": {
+                "name": "registration",
+                "visibility": "pub",
+                "type": "AppletCommittedEvent",
+                "attributes": [
+                  "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = serde_json::Value)))]"
+                ]
+              },
+              "grant_events": {
+                "name": "grant_events",
+                "visibility": "pub",
+                "type": "Vec<AppletCommittedEvent>",
+                "attributes": [
+                  "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = Vec<serde_json::Value>)))]"
+                ]
+              },
+              "current_results": {
+                "name": "current_results",
+                "visibility": "pub",
+                "type": "Vec<ExactCurrentResultsReadOutcome>",
+                "attributes": [
+                  "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = Vec<serde_json::Value>)))]",
+                  "#[serde(deserialize_with = \"deserialize_present_current_results\", serialize_with = \"serialize_present_current_results\")]"
+                ]
+              },
+              "current_binding": {
+                "name": "current_binding",
+                "visibility": "pub",
+                "type": "AppletInstallationCurrentBinding",
                 "attributes": []
               }
             }

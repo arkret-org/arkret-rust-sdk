@@ -459,7 +459,6 @@ pub enum MimiConsentDecision {
 }
 
 impl MimiConsentDecision {
-    /// Every decision carries the holder's exact full-set replacement Event.
     #[must_use]
     pub const fn required_consent_event_kind(self) -> EventKind {
         EventKind::ConsentReplace
@@ -505,9 +504,69 @@ impl MimiUpdateConsentRequestBody {
                 "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
             ));
         }
+        self.consent_event.validate()?;
         let payload: crate::events_payloads::consent::ConsentReplacePayload =
             serde_json::from_value(serde_json::to_value(&event.payload)?)?;
         payload.validate()?;
+        Ok(())
+    }
+
+    /// Check the signed replacement against the authenticated exact pre-state.
+    /// The authority must repeat the same expected-current CAS in its acceptance transaction.
+    pub fn validate_replacement_for(
+        &self,
+        peer: &ActorId,
+        scope: arkret_wire::ConsentScope,
+        current: Option<&crate::call_invitation::ConsentCurrentRow>,
+    ) -> Result<()> {
+        use crate::events_payloads::consent::{
+            ConsentExpectedCurrent, ConsentPeer, ConsentReplacePayload,
+        };
+        self.validate_consent_event()?;
+        let payload: ConsentReplacePayload =
+            serde_json::from_value(serde_json::to_value(&self.consent_event.event.payload)?)?;
+        let ConsentPeer::Actor { actor_id } = &payload.peer;
+        if actor_id != peer || current.is_some_and(|row| &row.selector.peer_id != peer) {
+            return Err(WireError::Protocol(
+                "MIMI replacement names a different exact peer".into(),
+            ));
+        }
+        let expected = current.map_or(ConsentExpectedCurrent::NeverWritten, |row| {
+            ConsentExpectedCurrent::Present {
+                revision: row.revision.clone(),
+            }
+        });
+        if payload.expected_current != expected {
+            return Err(WireError::Protocol(
+                "MIMI replacement does not sign the exact current revision".into(),
+            ));
+        }
+        if let Some(row) = current {
+            row.value.validate()?;
+        }
+        let previous = current.map_or(&[][..], |row| row.value.permissions.as_slice());
+        let previous_others: Vec<_> = previous
+            .iter()
+            .filter(|p| p.consent_scope != scope)
+            .collect();
+        let next_others: Vec<_> = payload
+            .permissions
+            .iter()
+            .filter(|p| p.consent_scope != scope)
+            .collect();
+        let target = payload
+            .permissions
+            .iter()
+            .find(|p| p.consent_scope == scope);
+        let valid_target = match self.decision {
+            MimiConsentDecision::Accept => target.is_some(),
+            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => target.is_none(),
+        };
+        if previous_others != next_others || !valid_target {
+            return Err(WireError::Protocol(
+                "MIMI replacement changes permissions outside its correlated scope".into(),
+            ));
+        }
         Ok(())
     }
 
@@ -643,16 +702,33 @@ mod tests {
             arkret_canonical::DigestSuite::Sha256,
             [0x21; 32],
         ));
-        EventAdmissionSubmission::new(
-            test_support::raw_event_for_actor_at(
-                kind.as_str(),
-                ScopeRef::Realm { realm_id },
-                holder_actor_id(),
-                payload,
-                Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
-            )
-            .unwrap(),
+        let at = Utc.timestamp_opt(1_800_000_000, 0).unwrap();
+        let event = test_support::raw_event_for_actor_at(
+            kind.as_str(),
+            ScopeRef::Realm { realm_id },
+            holder_actor_id(),
+            payload,
+            at,
         )
+        .unwrap();
+        let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+            event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        let did = arkret_wire::Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+        let signer = arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(
+            [37; 32],
+            did.clone(),
+            DidUrl::new(format!("{did}#device-1")).unwrap(),
+        );
+        arkret_signatures::sign_event(
+            &mut authored,
+            &signer,
+            arkret_signatures::SignEventOptions::new().with_created_at(at),
+        )
+        .unwrap();
+        EventAdmissionSubmission::new(authored.into_event())
     }
 
     fn request_consent_value() -> Value {
@@ -679,7 +755,7 @@ mod tests {
             "consent_id": consent_id(),
             "decision": decision,
             "actor_id": holder_actor_id(),
-            "consent_event": consent_event(kind, json!({"peer":{"kind":"actor","actor_id":ActorId::account(AccountId::new(alice(), station()))},"expected_current":{"state":"never_written"},"permissions":[]})),
+            "consent_event": consent_event(kind, json!({"peer":{"kind":"actor","actor_id":holder_actor_id()},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]})),
             "signature": fixture_proof()
         })
     }
@@ -762,7 +838,7 @@ mod tests {
             serde_json::from_value(value.clone()).expect("closed request body");
         parsed
             .validate_consent_event()
-            .expect("a grant Event matches decision=accept");
+            .expect("the original signed replacement matches decision=accept");
         assert_eq!(parsed.decision, MimiConsentDecision::Accept);
         assert!(parsed.reason.is_none());
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
@@ -791,25 +867,80 @@ mod tests {
     }
 
     #[test]
-    fn update_consent_rejects_an_event_that_contradicts_the_decision() {
-        assert_eq!(
-            MimiConsentDecision::Deny.required_consent_event_kind(),
-            EventKind::ConsentReplace
-        );
-        assert_eq!(
-            MimiConsentDecision::Revoke.required_consent_event_kind(),
-            EventKind::ConsentReplace
-        );
+    fn all_decisions_carry_a_complete_replacement_without_native_correlation() {
+        for decision in ["accept", "deny", "revoke"] {
+            let mut body: MimiUpdateConsentRequestBody =
+                serde_json::from_value(update_consent_value(decision, EventKind::ConsentReplace))
+                    .unwrap();
+            body.validate_consent_event().unwrap();
+            body.consent_id =
+                ConsentId::new("ak:consent:0198ff00-0000-7000-8000-000000000002").unwrap();
+            body.validate_consent_event().unwrap();
+            body.consent_event.event.kind = EventKind::MessageCreate;
+            assert!(body.validate_consent_event().is_err());
+        }
+    }
 
-        let wrong_kind: MimiUpdateConsentRequestBody =
-            serde_json::from_value(update_consent_value("deny", EventKind::MessageCreate)).unwrap();
-        assert!(wrong_kind.validate_consent_event().is_err());
+    #[test]
+    fn mimi_replacement_binds_exact_current_and_preserves_unrelated_optional_members() {
+        use arkret_wire::{CommitStreamRef, ConsentScope, CurrentRevision, RealmCommitId};
 
-        let mut wrong_actor: MimiUpdateConsentRequestBody =
-            serde_json::from_value(update_consent_value("revoke", EventKind::ConsentReplace))
+        use crate::call_invitation::{
+            ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
+        };
+        use crate::consent_operations::ConsentValue;
+        let mut request: MimiUpdateConsentRequestBody =
+            serde_json::from_value(update_consent_value("accept", EventKind::ConsentReplace))
                 .unwrap();
-        wrong_actor.actor_id = ActorId::account(AccountId::new(alice(), station()));
-        assert!(wrong_actor.validate_consent_event().is_err());
+        let peer = holder_actor_id();
+        let revision = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([17; 32]),
+            stream_position: 7,
+        };
+        let current=ConsentCurrentRow{selector:ConsentCurrentSelector{kind:ConsentCurrentSelectorKind::Consent,peer_id:peer.clone()},source_stream_ref:CommitStreamRef::Realm{realm_id:request.consent_event.event.realm_id.clone()},revision:revision.clone(),value:ConsentValue{permissions:serde_json::from_value(json!([{"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z"},{"consent_scope":"presence","constraints":[],"reason":""}])).unwrap()}};
+        let replacement = |permissions: Value| json!({"peer":{"kind":"actor","actor_id":peer},"expected_current":{"state":"present","revision":revision},"permissions":permissions});
+        request.consent_event = consent_event(
+            EventKind::ConsentReplace,
+            replacement(
+                json!([{"consent_scope":"voice_call"},{"consent_scope":"presence","constraints":[],"reason":""}]),
+            ),
+        );
+        request
+            .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
+            .unwrap();
+        request.decision = MimiConsentDecision::Revoke;
+        request.consent_event = consent_event(
+            EventKind::ConsentReplace,
+            replacement(json!([{"consent_scope":"presence","constraints":[],"reason":""}])),
+        );
+        request
+            .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
+            .unwrap();
+        request.consent_event = consent_event(
+            EventKind::ConsentReplace,
+            replacement(json!([{"consent_scope":"presence","reason":""}])),
+        );
+        assert!(
+            request
+                .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
+                .is_err()
+        );
+        request.consent_event = consent_event(
+            EventKind::ConsentReplace,
+            replacement(json!([{"consent_scope":"presence","constraints":[],"reason":""}])),
+        );
+        let mut stale = current.clone();
+        stale.revision.stream_position += 1;
+        assert!(
+            request
+                .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&stale))
+                .is_err()
+        );
+        assert!(
+            request
+                .validate_replacement_for(&peer, ConsentScope::VoiceCall, None)
+                .is_err()
+        );
     }
 
     #[test]

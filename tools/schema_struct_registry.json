@@ -1601,16 +1601,12 @@
       "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentPermission",
-      "schema": "event-payload.schema.json#/$defs/consent_permission"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentReplacePayload",
       "schema": "event-payload.schema.json#/$defs/consent_replace_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::ManagementPrivateHandoffManifest",
-      "schema": "authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest"
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentPermission",
+      "schema": "event-payload.schema.json#/$defs/consent_permission"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorGhostExternalTuple",
@@ -1673,10 +1669,6 @@
       "schema": "realm-actor.schema.json#/$defs/recovery_begin_payload"
     },
     {
-      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature",
-      "schema": "realm-actor.schema.json#/$defs/recovery_acceptance_transcript/properties/payload_without_control_signature"
-    },
-    {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryAcceptanceTranscript",
       "schema": "realm-actor.schema.json#/$defs/recovery_acceptance_transcript"
     },
@@ -1695,6 +1687,22 @@
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorWebvhRecoveryPlan",
       "schema": "realm-actor.schema.json#/$defs/webvh_recovery_plan"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::ManagementPrivateHandoffManifest",
+      "schema": "authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature",
+      "schema": "realm-actor.schema.json#/$defs/recovery_acceptance_transcript/properties/payload_without_control_signature"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialRequestBody",
+      "schema": "applet-authority-material.schema.json#/$defs/request"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialOutcome",
+      "schema": "applet-authority-material.schema.json#/$defs/outcome"
     }
   ],
   "exemptions": [

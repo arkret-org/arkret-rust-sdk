@@ -175,6 +175,27 @@ impl CallInvitationDeliveryView {
 }
 
 impl ConsentCurrentReadOutcome {
+    pub fn current_permissions(
+        &self,
+    ) -> Option<&[crate::events_payloads::consent::ConsentPermission]> {
+        match &self.current {
+            ConsentCurrentState::Present { result } => Some(&result.value.permissions),
+            ConsentCurrentState::NeverWritten => None,
+        }
+    }
+    pub fn expected_current(&self) -> crate::events_payloads::consent::ConsentExpectedCurrent {
+        match &self.current {
+            ConsentCurrentState::Present { result } => {
+                crate::events_payloads::consent::ConsentExpectedCurrent::Present {
+                    revision: result.revision.clone(),
+                }
+            }
+            ConsentCurrentState::NeverWritten => {
+                crate::events_payloads::consent::ConsentExpectedCurrent::NeverWritten
+            }
+        }
+    }
+
     pub fn signature_input(&self) -> arkret_wire::Result<Vec<u8>> {
         domain_signing_input("ak.consent.current_read.v1", self, "proof")
     }
@@ -185,6 +206,7 @@ impl ConsentCurrentReadOutcome {
         generation: u64,
         now: chrono::DateTime<chrono::Utc>,
     ) -> arkret_wire::Result<()> {
+        request.validate()?;
         if !valid_nonce(&request.nonce)
             || self.request_digest != canonical_request_digest(request)?
             || self.governance_generation != generation
@@ -200,15 +222,14 @@ impl ConsentCurrentReadOutcome {
                 "Consent current read is stale or bound to a different request",
             ));
         }
-        request.validate()?;
-        if let ConsentCurrentReadState::Present { result } = &self.current {
-            if &result.selector.peer_id != request.peer.actor_id()
+        if let ConsentCurrentState::Present { result } = &self.current {
+            let crate::events_payloads::consent::ConsentPeer::Actor { actor_id } = &request.peer;
+            if &result.selector.peer_id != actor_id
                 || result.source_stream_ref != self.effective_stream_head.stream_ref
                 || result.revision.stream_position > self.effective_stream_head.stream_position
-                || result.revision.stream_position == 0
             {
                 return Err(invalid(
-                    "Consent read contains an unrelated or incomplete current row",
+                    "Consent read contains an unrelated current subject or revision",
                 ));
             }
             result.value.validate()?;
@@ -224,8 +245,50 @@ impl ConsentCurrentReadOutcome {
     ) -> bool {
         self.validate_for_request(request, self.governance_generation, now)
             .is_ok()
-            && matches!(&self.current, ConsentCurrentReadState::Present { result } if result.value.permits(scope, now))
+            && matches!(&self.current, ConsentCurrentState::Present { result } if result.value.permissions.iter().any(|p| permission_permits(p, scope, now)))
     }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ConsentCurrentState {
+    Present { result: ConsentCurrentRow },
+    NeverWritten,
+}
+
+impl<'de> serde::Deserialize<'de> for ConsentCurrentState {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            state: String,
+            #[serde(
+                default,
+                deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+            )]
+            result: Option<ConsentCurrentRow>,
+        }
+        let wire = <Wire as serde::Deserialize>::deserialize(deserializer)?;
+        match (wire.state.as_str(), wire.result) {
+            ("never_written", None) => Ok(Self::NeverWritten),
+            ("present", Some(result)) => Ok(Self::Present { result }),
+            _ => Err(serde::de::Error::custom(
+                "Consent current requires an exact closed state branch",
+            )),
+        }
+    }
+}
+
+fn permission_permits(
+    permission: &crate::events_payloads::consent::ConsentPermission,
+    scope: arkret_wire::ConsentScope,
+    now: chrono::DateTime<chrono::Utc>,
+) -> bool {
+    permission.consent_scope == scope
+        && permission.not_before.is_none_or(|start| start <= now)
+        && permission.expires_at.is_none_or(|end| now < end)
+        && permission.constraints.as_ref().is_none_or(Vec::is_empty)
 }
 
 impl CallInvitationMedia {
@@ -269,9 +332,14 @@ pub fn consent_value_permits_call(
     media: &CallInvitationMedia,
     now: chrono::DateTime<chrono::Utc>,
 ) -> bool {
-    media.is_nonempty()
-        && &row.selector.peer_id == inviter
-        && row.value.permits(media.consent_scope(), now)
+    &row.selector.peer_id == inviter
+        && row.value.validate().is_ok()
+        && media.is_nonempty()
+        && row
+            .value
+            .permissions
+            .iter()
+            .any(|permission| permission_permits(permission, media.consent_scope(), now))
 }
 
 impl ConsentCurrentReadRequestBody {

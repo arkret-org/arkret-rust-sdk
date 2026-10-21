@@ -1,4 +1,10 @@
-//! Holder-private exact-peer consent replacement and summary carriers.
+//! Holder-private consent self-management request/outcome DTOs.
+//!
+//! The consent state itself is a typed current result serialized by the current
+//! governance Station. Replacement carries one caller-signed Event through
+//! the single Event submission DTO; the Station submits those exact bytes and
+//! never co-signs, rebuilds or synthesizes the Event.
+
 use arkret_wire::{
     AccountId, ConsentRequestScope, ConsentScope, CurrentRevision, EventAdmissionSubmission,
     EventKind, Result, WireError,
@@ -8,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::consent::ConsentPeer;
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentView {
@@ -19,11 +26,21 @@ pub struct ConsentView {
 }
 impl ConsentView {
     pub fn validate(&self) -> Result<()> {
-        crate::events_payloads::consent::validate_scope_order(
-            self.permission_scopes.iter().copied(),
-        )
+        if self.permission_scopes.len() > 4
+            || self
+                .permission_scopes
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(WireError::Protocol(
+                "Consent summary scopes require canonical unique order".into(),
+            ));
+        }
+        Ok(())
     }
 }
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentList {
@@ -31,33 +48,44 @@ pub struct ConsentList {
 }
 impl ConsentList {
     pub fn validate(&self) -> Result<()> {
+        let mut peers = std::collections::BTreeSet::new();
         for consent in &self.consents {
             consent.validate()?;
+            let ConsentPeer::Actor { actor_id } = &consent.peer;
+            if !peers.insert(actor_id) {
+                return Err(WireError::Protocol(
+                    "Consent list repeats an exact peer".into(),
+                ));
+            }
         }
         Ok(())
     }
 }
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentReplaceRequestBody {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub consent_event: EventAdmissionSubmission,
 }
 impl ConsentReplaceRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.consent_event.event.validate_for_submit_structural()?;
+        self.consent_event.validate()?;
         if self.consent_event.event.kind != EventKind::ConsentReplace {
             return Err(WireError::Protocol(
-                "consent replacement requires ak.consent.replace".into(),
+                "Consent replacement requires ak.consent.replace".into(),
             ));
         }
         let payload: crate::events_payloads::consent::ConsentReplacePayload =
             serde_json::from_value(serde_json::to_value(&self.consent_event.event.payload)?)?;
-        payload.validate()
+        payload.validate_minimal()
     }
 }
 
 // Field declaration order is byte-for-byte the properties order of
 // consent-operations.schema.json#/$defs/consent_request_request_body.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentRequestRequestBody {
@@ -101,19 +129,14 @@ impl ConsentRequestOutcome {
 }
 
 include!("generated/consent_operations_contracts.rs");
+
+pub use crate::call_invitation::{
+    ConsentCurrentReadOutcome, ConsentCurrentReadProof, ConsentCurrentReadRequestBody,
+    ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind, ConsentCurrentState,
+};
+
 impl ConsentValue {
     pub fn validate(&self) -> Result<()> {
         crate::events_payloads::consent::validate_permissions(&self.permissions)
     }
-    pub fn permits(&self, scope: ConsentScope, now: DateTime<Utc>) -> bool {
-        self.validate().is_ok()
-            && self
-                .permissions
-                .iter()
-                .any(|permission| permission.consent_scope == scope && permission.permits(now))
-    }
 }
-pub use crate::call_invitation::{
-    ConsentCurrentReadOutcome, ConsentCurrentReadProof, ConsentCurrentReadRequestBody,
-    ConsentCurrentReadState, ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
-};

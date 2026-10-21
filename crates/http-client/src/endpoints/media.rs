@@ -18,6 +18,9 @@ impl Client {
         self.post("/_arkret/self/rtc/invitation", request).await
     }
 
+    /// Structural transport only. Before editing, installation or permission
+    /// decisions use `OwnStationResultClient::consent_current`, which binds an
+    /// independent registered PCR and authority before verifying the JWS.
     pub async fn consent_current_read(
         &self,
         request: &arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,

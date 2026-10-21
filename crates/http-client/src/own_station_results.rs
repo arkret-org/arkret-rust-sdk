@@ -30,6 +30,9 @@ use arkret_wire::{
 
 use crate::{Auth, Client, ClientRequestOptions, Error, Result};
 
+mod consent_current;
+pub use consent_current::ConsentCurrentReadAuthority;
+
 /// A host session provider implements this using its live, atomically captured
 /// session state. The epoch changes on every replacement, including ABA login.
 #[cfg(not(target_arch = "wasm32"))]
@@ -132,6 +135,7 @@ pub struct BoundOwnStationResponse<Q, T> {
     value: T,
     session: OwnStationSessionSnapshot,
     source: Arc<dyn OwnStationSessionSource>,
+    valid_until: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl<Q: std::fmt::Debug, T: std::fmt::Debug> std::fmt::Debug for BoundOwnStationResponse<Q, T> {
@@ -151,6 +155,12 @@ impl<Q, T> BoundOwnStationResponse<Q, T> {
             return Err(protocol(
                 "late own Station response belongs to an inactive session",
             ));
+        }
+        if self
+            .valid_until
+            .is_some_and(|deadline| deadline <= chrono::Utc::now())
+        {
+            return Err(protocol("own Station result authority lease expired"));
         }
         Ok(&self.value)
     }
@@ -266,6 +276,7 @@ impl OwnStationResultClient {
         Ok(BoundOwnStationResponse {
             request,
             value,
+            valid_until: None,
             session: self.session.clone(),
             source: self.source.clone(),
         })
@@ -326,25 +337,6 @@ impl OwnStationResultClient {
             .media_service_binding(request, accepted_service_id)
             .await?;
         self.bind((request.clone(), accepted_service_id.clone()), value)
-    }
-    pub async fn consent_current(
-        &self,
-        request: &arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,
-    ) -> Result<
-        BoundOwnStationResponse<
-            arkret_models_collaboration::call_invitation::ConsentCurrentReadRequestBody,
-            arkret_models_collaboration::call_invitation::ConsentCurrentReadOutcome,
-        >,
-    > {
-        self.check_session()?;
-        request.validate()?;
-        if &request.holder_account_id != self.session.account_id() {
-            return Err(protocol(
-                "Consent current belongs only to the exact authenticated holder",
-            ));
-        }
-        let value = self.client.consent_current_read(request).await?;
-        self.bind(request.clone(), value)
     }
     pub async fn snapshot_by_ref(
         &self,

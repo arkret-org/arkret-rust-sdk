@@ -48,7 +48,7 @@ fn request_consent() -> MimiRequestConsentRequestBody {
     v
 }
 fn update_consent() -> MimiUpdateConsentRequestBody {
-    // A structural transport fixture, not proof of Event admission.
+    // A real producer signature supplies the transport fixture; authority admission is independent.
     let event = arkret_wire::test_support::raw_event(
         EventKind::ConsentReplace.as_str(),
         scope(),
@@ -57,6 +57,24 @@ fn update_consent() -> MimiUpdateConsentRequestBody {
         json!({"peer":{"kind":"actor","actor_id":actor()},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]}),
     )
     .unwrap();
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        event,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    let signer = arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(
+        [4; 32],
+        "did:web:alice.example".parse().unwrap(),
+        arkret_wire::DidUrl::new("did:web:alice.example#device-1").unwrap(),
+    );
+    let event_at = authored.created_at;
+    arkret_signatures::sign_event(
+        &mut authored,
+        &signer,
+        arkret_signatures::SignEventOptions::new().with_created_at(event_at),
+    )
+    .unwrap();
+    let event = authored.into_event();
     let mut v = MimiUpdateConsentRequestBody {
         consent_id: CONSENT.parse().unwrap(),
         decision: MimiConsentDecision::Accept,

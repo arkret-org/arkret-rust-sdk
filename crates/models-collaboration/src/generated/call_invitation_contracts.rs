@@ -1,29 +1,17 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/generate-closed-models.py
 //!
-//! Input: schemas/consent-operations.schema.json
-//! sha256=d9b6404831907708fc525f6187e7b133b9f8b63eaf6587ccc9d18966c611ee6b
-//!
 //! Input: schemas/call-invitation-operations.schema.json
 //! sha256=a7a5319c9fe02763036f0b3edbf20b6f6e7d7066ec53be2ed913ccb5f71ba06f
 //!
 //! Input: schemas/typed-current-result.schema.json
 //! sha256=bfee8c04c7b3d9e76727652feaa2e49488bb443f0bb99670a13dd07f2be02fe3
 //!
+//! Input: schemas/consent-operations.schema.json
+//! sha256=d9b6404831907708fc525f6187e7b133b9f8b63eaf6587ccc9d18966c611ee6b
+//!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=8f43ab7f7fe4be59fd38447b7690378c53af63212ce0eb1df8f8d25fa2a14315
-
-/// Counterpart:
-/// `consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/current`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "state", deny_unknown_fields)]
-pub enum ConsentCurrentReadState {
-    #[serde(rename = "present")]
-    Present { result: ConsentCurrentRow },
-    #[serde(rename = "never_written")]
-    NeverWritten {},
-}
+//! sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -292,7 +280,7 @@ pub struct ConsentCurrentReadOutcome {
     pub realm_id: arkret_wire::RealmId,
     pub governance_generation: u64,
     pub effective_stream_head: arkret_wire::CommitStreamHead,
-    pub current: ConsentCurrentReadState,
+    pub current: crate::call_invitation::ConsentCurrentState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
