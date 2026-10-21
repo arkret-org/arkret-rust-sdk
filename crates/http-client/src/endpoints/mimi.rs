@@ -330,6 +330,8 @@ mod directory_transport_tests {
                         Err(error) => panic!("directory request did not arrive: {error}"),
                     }
                 };
+                // Accepted sockets can inherit nonblocking mode on macOS.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                     .unwrap();
