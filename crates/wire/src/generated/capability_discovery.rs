@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.6;
-//! sha256=31924c037f6fded65a37312b2576987f706a019184e8423e85bfb28f48143a5c
+//! Input: registry/contract-registry.json; version=2026-10-21.10;
+//! sha256=af5994373a00c39c70e0d98ea3970ffbda6cc66400683dbf944b2eb6121883b9
 //! Entries: operation_bundles=44 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -842,15 +842,11 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfConsentCommandGrantV1,
+                operation_id: ServiceOperationId::SelfConsentCommandReplaceV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfConsentCommandRequestV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfConsentCommandRevokeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1003,10 +999,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfMediaServiceBindingReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfMessagesCommandPrepareV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

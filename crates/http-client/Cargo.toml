@@ -59,6 +59,8 @@ getrandom = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "net"] }
 
 [dev-dependencies]
+arkret-test-kit = { workspace = true }
+arkret-signatures = { workspace = true, features = ["signer"] }
 arkret-wire = { workspace = true, features = ["test-support"] }
 rand_chacha.workspace = true
 rand_core.workspace = true

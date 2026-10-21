@@ -125,7 +125,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CircleTombstone
         | EventKind::CircleHistoryAccess
         | EventKind::CircleMemberState => EventProductClass::Circle,
-        EventKind::ConsentGrant | EventKind::ConsentRevoke => EventProductClass::Consent,
+        EventKind::ConsentReplace => EventProductClass::Consent,
         EventKind::ContactRequested
         | EventKind::ContactAccepted
         | EventKind::ContactRejected

@@ -113,7 +113,6 @@ pub enum MimiConsentPurpose {
     VoiceCall,
     VideoCall,
     Presence,
-    Any,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

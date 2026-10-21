@@ -316,6 +316,8 @@ pub struct VerifiedRealmAuthority {
     /// same-id handoff equivocation or a same-generation different cut
     /// visible to convergence instead of collapsing both to coordinates.
     chain_and_cut_identity: Vec<u8>,
+    current_assertion_expires_at: Option<DateTime<Utc>>,
+    current_realm_stream_head: Option<arkret_wire::CommitStreamHead>,
 }
 
 /// An exact historical Commit verified against a complete current chain.
@@ -382,6 +384,17 @@ impl VerifiedRealmAuthority {
     #[must_use]
     pub fn current_service_id(&self) -> &DidCoreId {
         &self.current_service_id
+    }
+
+    /// Deadline of the independently verified online assertion. Accepted
+    /// historical authority material has no current-tenure lease.
+    pub fn current_assertion_expires_at(&self) -> Option<DateTime<Utc>> {
+        self.current_assertion_expires_at
+    }
+
+    /// Independent lower bound authenticated by the online current assertion.
+    pub fn current_realm_stream_head(&self) -> Option<&arkret_wire::CommitStreamHead> {
+        self.current_realm_stream_head.as_ref()
     }
 
     /// The governance Station that held authority at `generation`, or `None`
@@ -558,6 +571,8 @@ pub fn verify_accepted_agent_authority_bundle(
         current_service_id: last.service_id.clone(),
         generations,
         chain_and_cut_identity: Vec::new(),
+        current_assertion_expires_at: None,
+        current_realm_stream_head: None,
     };
     Ok(VerifiedAcceptedRealmAuthority(verified))
 }
@@ -632,6 +647,8 @@ pub fn verify_realm_authority_bundle(
         current_service_id: bundle.current_service_id.clone(),
         generations,
         chain_and_cut_identity,
+        current_assertion_expires_at: Some(bundle.current_assertion.expires_at),
+        current_realm_stream_head: Some(bundle.realm_stream_head.clone()),
     })
 }
 

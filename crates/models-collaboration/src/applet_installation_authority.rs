@@ -157,12 +157,64 @@ impl AppletInstallationAuthority {
     }
 }
 
+include!("generated/applet_installation_authority_contracts.rs");
+
+/// Same-cut business installation state, separate from accepted historical
+/// creation evidence and its original registration epoch.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletAuthorityMaterialRequestBody {
-    pub effective_scope: arkret_wire::ScopeRef,
-    pub grant_ids: Vec<arkret_wire::GrantId>,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AppletInstallationCurrentBinding {
+    Active {
+        registration_ref: arkret_wire::CommittedEventRef,
+        registration_epoch: Hash,
+        service_id: arkret_wire::DidCoreId,
+    },
+    Inactive,
+}
+
+impl<'de> Deserialize<'de> for AppletInstallationCurrentBinding {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            status: String,
+            #[serde(
+                default,
+                deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+            )]
+            registration_ref: Option<arkret_wire::CommittedEventRef>,
+            #[serde(
+                default,
+                deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+            )]
+            registration_epoch: Option<Hash>,
+            #[serde(
+                default,
+                deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+            )]
+            service_id: Option<arkret_wire::DidCoreId>,
+        }
+        let wire = Wire::deserialize(deserializer)?;
+        match (
+            wire.status.as_str(),
+            wire.registration_ref,
+            wire.registration_epoch,
+            wire.service_id,
+        ) {
+            ("active", Some(registration_ref), Some(registration_epoch), Some(service_id)) => {
+                Ok(Self::Active {
+                    registration_ref,
+                    registration_epoch,
+                    service_id,
+                })
+            }
+            ("inactive", None, None, None) => Ok(Self::Inactive),
+            _ => Err(serde::de::Error::custom(
+                "Applet current binding requires an exact closed status branch",
+            )),
+        }
+    }
 }
 
 impl AppletAuthorityMaterialRequestBody {
@@ -184,34 +236,162 @@ impl AppletAuthorityMaterialRequestBody {
         Ok(())
     }
 }
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletAuthorityMaterialOutcome {
-    pub applet_id: arkret_wire::AppletId,
-    pub effective_scope: arkret_wire::ScopeRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub registration: AppletCommittedEvent,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub grant_events: Vec<AppletCommittedEvent>,
-    /// Present same-cut responses retain Realm, generation and covering head.
-    /// The authority-material schema forbids absence and empty result arrays.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    #[serde(
-        deserialize_with = "deserialize_present_current_results",
-        serialize_with = "serialize_present_current_results"
-    )]
-    pub current_results: Vec<ExactCurrentResultsReadOutcome>,
-}
 
 impl AppletAuthorityMaterialOutcome {
+    /// Bind a historical material read to its exact Applet, scope and requested
+    /// grants. An inactive current installation remains valid audit material;
+    /// this check does not authorize a new business action.
+    pub fn validate_for_request(
+        &self,
+        applet: &arkret_wire::AppletId,
+        request: &AppletAuthorityMaterialRequestBody,
+    ) -> Result<()> {
+        use crate::events_payloads::capability::{
+            CapabilityGrantCreateBody, CapabilityGrantPayload,
+        };
+        use crate::exact_current_results::ExactCurrentResultEntry;
+        use crate::governance::grant_constraint::{
+            CapabilitySubject, GrantConstraintKind, GrantConstraintSubkind,
+        };
+
+        request.validate()?;
+        self.validate_structural()?;
+        if &self.applet_id != applet
+            || self.effective_scope != request.effective_scope
+            || self.registration.event.kind != EventKind::AppletRegistration
+            || self.registration.event.scope_ref != request.effective_scope
+            || self.grant_events.len() != request.grant_ids.len()
+            || self.current_results.len() != request.grant_ids.len()
+        {
+            return Err(WireError::Protocol(
+                "Applet material differs from its exact read request".into(),
+            ));
+        }
+        let stream = arkret_wire::CommitStreamRef::from_scope(&request.effective_scope, None)?;
+        let mut originals = std::collections::BTreeMap::new();
+        for original in &self.grant_events {
+            let id = arkret_wire::GrantId::from_event_id(&original.event.event_id);
+            if original.event.kind != EventKind::CapabilityGrant
+                || original.event.scope_ref != request.effective_scope
+                || !request.grant_ids.contains(&id)
+                || originals.insert(id, original).is_some()
+            {
+                return Err(WireError::Protocol(
+                    "Applet material grant originals differ from the requested set".into(),
+                ));
+            }
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        let mut service = None;
+        for result in &self.current_results {
+            let ExactCurrentResultsReadOutcome::Present {
+                entry: ExactCurrentResultEntry::CapabilityGrant(row),
+                effective_stream_head,
+                ..
+            } = result
+            else {
+                return Err(WireError::Protocol(
+                    "Applet material requires exact requested grant current rows".into(),
+                ));
+            };
+            let original = originals.get(&row.selector.grant_id).ok_or_else(|| {
+                WireError::Protocol("Applet material returned an unrequested current grant".into())
+            })?;
+            if !seen.insert(row.selector.grant_id.clone()) {
+                return Err(WireError::Protocol(
+                    "Applet material repeated a current grant".into(),
+                ));
+            }
+            let mut payload: CapabilityGrantPayload =
+                serde_json::from_value(serde_json::to_value(&original.event.payload)?)?;
+            if payload.grant.realm_id.is_none() {
+                payload.grant.realm_id = request.effective_scope.realm_id_opt().cloned();
+            }
+            let current_original = CapabilityGrantCreateBody {
+                schema: row.value.schema.clone(),
+                realm_id: row.value.realm_id.clone(),
+                issuer_id: row.value.issuer_id.clone(),
+                subject: row.value.subject.clone(),
+                actions: row.value.actions.clone(),
+                resources: row.value.resources.clone(),
+                constraints: row.value.constraints.clone(),
+                issued_at: row.value.issued_at,
+                issuer_authority_refs: row.value.issuer_authority_refs.clone(),
+            };
+            if canonical::canonical_json_bytes(&payload.grant)?
+                != canonical::canonical_json_bytes(&current_original)?
+                || row.revision.stream_position < original.commit.stream_position
+                || (row.revision.stream_position == original.commit.stream_position
+                    && row.revision.commit_id != original.commit.commit_id)
+            {
+                return Err(WireError::Protocol(
+                    "Applet current grant changes its accepted original or revision".into(),
+                ));
+            }
+            let CapabilitySubject::Actor(arkret_wire::ActorId::Service { service_id }) =
+                &row.value.subject
+            else {
+                return Err(WireError::Protocol(
+                    "Applet material grant subject must be its exact Service".into(),
+                ));
+            };
+            if service
+                .as_ref()
+                .is_some_and(|expected| expected != service_id)
+            {
+                return Err(WireError::Protocol(
+                    "Applet material mixes different Service subjects".into(),
+                ));
+            }
+            service = Some(service_id.clone());
+            let bindings = row
+                .value
+                .constraints
+                .iter()
+                .filter(|constraint| {
+                    constraint.constraint_kind == GrantConstraintKind::AuthorityControl
+                        && constraint.constraint_subkind
+                            == Some(GrantConstraintSubkind::AppletAuthority)
+                })
+                .collect::<Vec<_>>();
+            if bindings.len() != 1
+                || bindings[0].applet_id.as_ref() != Some(applet)
+                || bindings[0].executed_by.as_ref()
+                    != Some(&arkret_wire::ActorId::service(service_id.clone()))
+                || bindings[0].registration_epoch.is_none()
+            {
+                return Err(WireError::Protocol(
+                    "Applet material grant lacks its exact accepted installation binding".into(),
+                ));
+            }
+            if let AppletInstallationCurrentBinding::Active {
+                registration_ref,
+                registration_epoch,
+                service_id: current_service,
+            } = &self.current_binding
+            {
+                if current_service != service_id
+                    || registration_ref.stream_ref != stream
+                    || !registration_epoch.as_str().starts_with("sha256:")
+                    || registration_ref.stream_position > effective_stream_head.stream_position
+                    || (registration_ref.stream_position == effective_stream_head.stream_position
+                        && registration_ref.commit_id != effective_stream_head.commit_id)
+                {
+                    return Err(WireError::Protocol("Applet active binding differs from its Service, exact scope or current cut".into()));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Schema shape only: accepted Event proofs and current cut authority must
     /// still be authenticated by the consumer before using these materials.
     pub fn validate_structural(&self) -> Result<()> {
         if !matches!(
             self.effective_scope,
             arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
-        ) || self.grant_events.is_empty()
+        ) || !(1..=64).contains(&self.grant_events.len())
+            || self.current_results.len() > 256
         {
             return Err(WireError::Protocol(
                 "Applet authority material requires a Realm/Circle scope and grant Events".into(),
@@ -318,6 +498,51 @@ mod authority_material_current_tests {
     use serde_json::{Value, json};
 
     use super::*;
+
+    #[test]
+    fn current_business_binding_has_exact_closed_active_and_inactive_branches() {
+        let event_id =
+            arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [13; 32]);
+        let active = json!({
+            "status":"active",
+            "registration_ref":{
+                "event_id":event_id,
+                "commit_id":arkret_wire::RealmCommitId::from_digest([17;32]),
+                "stream_ref":{"kind":"realm","realm_id":arkret_wire::RealmId::from_event_id(&event_id)},
+                "stream_position":3,
+            },
+            "registration_epoch":format!("sha256:{}","0".repeat(64)),
+            "service_id":"ak:did_core:web:applet.example",
+        });
+        let binding: AppletInstallationCurrentBinding =
+            serde_json::from_value(active.clone()).unwrap();
+        assert_eq!(serde_json::to_value(binding).unwrap(), active);
+        assert_eq!(
+            serde_json::from_value::<AppletInstallationCurrentBinding>(
+                json!({"status":"inactive"})
+            )
+            .unwrap(),
+            AppletInstallationCurrentBinding::Inactive,
+        );
+        for field in ["registration_ref", "registration_epoch", "service_id"] {
+            let mut missing = active.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<AppletInstallationCurrentBinding>(missing).is_err());
+            let mut null = active.clone();
+            null[field] = Value::Null;
+            assert!(serde_json::from_value::<AppletInstallationCurrentBinding>(null).is_err());
+            let mut inactive = json!({"status":"inactive"});
+            inactive[field] = active[field].clone();
+            assert!(serde_json::from_value::<AppletInstallationCurrentBinding>(inactive).is_err());
+        }
+        for invalid in [
+            json!({"status":"inactive","extra":true}),
+            json!({"status":"inactive","registration_ref":null}),
+            json!({"status":"unknown"}),
+        ] {
+            assert!(serde_json::from_value::<AppletInstallationCurrentBinding>(invalid).is_err());
+        }
+    }
 
     fn formal_outcome(status: &str) -> Value {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();

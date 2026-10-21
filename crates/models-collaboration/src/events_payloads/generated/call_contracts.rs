@@ -5,16 +5,16 @@
 // sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
 //
 // Input: schemas/event-payload.schema.json
-// sha256=a4c646467cc0e400d6cb24a119fe6791612dcf3a3a8d77fd355f9429600679bc
+// sha256=db43f4934d4601ea90be4c1dd25628271e264c7fd7058283c6b765e30217463c
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=9794e5f6afb46725da6449147dea930e65a3b535ffefdf5c0f3541306be35c63
+// sha256=bfee8c04c7b3d9e76727652feaa2e49488bb443f0bb99670a13dd07f2be02fe3
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
+// sha256=af5994373a00c39c70e0d98ea3970ffbda6cc66400683dbf944b2eb6121883b9
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
+// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.

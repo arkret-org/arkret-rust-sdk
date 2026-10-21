@@ -13,7 +13,8 @@
 //! the array.
 
 use arkret_wire::{
-    AccountId, ConsentRequestScope, ConsentScope, DidCoreId, EventId, Hash, Result, WireError,
+    AccountId, ActorId, ConsentRequestScope, ConsentScope, DidCoreId, EventId, Hash, Result,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -65,7 +66,6 @@ pub enum InviteTrustTier {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum HolderQuarantineInvalidationScope {
     Invite,
-    Any,
 }
 
 /// Closed tagged union over the two admission surfaces.
@@ -136,6 +136,7 @@ pub struct HolderQuarantineEntry {
     pub entry_digest: Hash,
     pub account_id: AccountId,
     pub source_peer_principal_id: DidCoreId,
+    pub source_peer_actor_id: ActorId,
     pub source_id: DidCoreId,
     #[serde(flatten)]
     pub surface: HolderQuarantineSurface,
@@ -160,15 +161,11 @@ impl HolderQuarantineEntry {
     /// live entries sharing it are the same pending request, not a replay to
     /// record twice.
     #[must_use]
-    pub fn consent_request_live_key(
-        &self,
-    ) -> Option<(&AccountId, &DidCoreId, ConsentRequestScope)> {
+    pub fn consent_request_live_key(&self) -> Option<(&AccountId, &ActorId, ConsentRequestScope)> {
         match &self.surface {
-            HolderQuarantineSurface::ConsentRequest { consent_scope } => Some((
-                &self.account_id,
-                &self.source_peer_principal_id,
-                *consent_scope,
-            )),
+            HolderQuarantineSurface::ConsentRequest { consent_scope } => {
+                Some((&self.account_id, &self.source_peer_actor_id, *consent_scope))
+            }
             HolderQuarantineSurface::InviteDelivery { .. } => None,
         }
     }
@@ -180,6 +177,7 @@ struct HolderQuarantineEntryWire {
     entry_digest: Hash,
     account_id: AccountId,
     source_peer_principal_id: DidCoreId,
+    source_peer_actor_id: ActorId,
     source_id: DidCoreId,
     surface_kind: HolderQuarantineSurfaceKind,
     consent_scope: ConsentScope,
@@ -259,6 +257,7 @@ impl<'de> Deserialize<'de> for HolderQuarantineEntry {
             entry_digest: wire.entry_digest,
             account_id: wire.account_id,
             source_peer_principal_id: wire.source_peer_principal_id,
+            source_peer_actor_id: wire.source_peer_actor_id,
             source_id: wire.source_id,
             surface,
             received_at: wire.received_at,
@@ -272,7 +271,7 @@ impl<'de> Deserialize<'de> for HolderQuarantineEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct HolderQuarantineInvalidation {
     pub reason: HolderQuarantineInvalidationReason,
-    pub peer_principal_id: DidCoreId,
+    pub peer_actor_id: ActorId,
     pub consent_scope: HolderQuarantineInvalidationScope,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
@@ -318,7 +317,7 @@ impl HolderQuarantine {
     /// repeat request is a no-op that MUST NOT bill the new-source quota.
     pub fn live_consent_request(
         &self,
-        source_peer_principal_id: &DidCoreId,
+        source_peer_actor_id: &ActorId,
         consent_scope: ConsentRequestScope,
     ) -> Option<&HolderQuarantineEntry> {
         self.quarantine_entries.iter().find(|entry| {
@@ -326,7 +325,7 @@ impl HolderQuarantine {
                 &entry.surface,
                 HolderQuarantineSurface::ConsentRequest { consent_scope: scope }
                     if *scope == consent_scope
-            ) && &entry.source_peer_principal_id == source_peer_principal_id
+            ) && &entry.source_peer_actor_id == source_peer_actor_id
         })
     }
 
@@ -348,6 +347,8 @@ impl HolderQuarantine {
         }
         for entry in &self.quarantine_entries {
             if &entry.account_id != account_id
+                || entry.source_peer_actor_id.signing_principal_id()
+                    != &entry.source_peer_principal_id
                 || entry.received_at >= entry.expires_at
                 || entry.received_at > self.updated_at
                 || entry.expires_at <= self.updated_at

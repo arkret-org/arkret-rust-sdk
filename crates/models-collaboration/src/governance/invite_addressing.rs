@@ -370,8 +370,6 @@ pub enum IntroductionEvidence {
     },
     ConsentGrant {
         consent_grant_ref: EventId,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        consent_id: Option<String>,
     },
     SharedRealm {
         realm_id: RealmId,

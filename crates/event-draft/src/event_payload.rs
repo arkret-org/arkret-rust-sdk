@@ -28,7 +28,6 @@ use arkret_models_collaboration::governance::realm_lifecycle::{
     RealmAssetPrivacyPolicyPayload, RealmDestroyPayload, RealmDiscoveryPayload,
     RealmJoinRulePayload, RealmSchemaPayload, RealmTombstonePayload,
 };
-use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::object_lifecycle::{
     SpaceObjectTombstonePayload, SpaceStateTransitionPayload,
 };
@@ -284,8 +283,7 @@ event_payload_accessors! {
     event_spec::AgentActionReject => (as_agent_action_reject, AgentActionRejectPayload),
     event_spec::CapabilityGrant => (as_capability_grant, CapabilityGrantPayload),
     event_spec::CapabilityRevoke => (as_capability_revoke, CapabilityRevokePayload),
-    event_spec::ConsentGrant => (as_consent_grant, ConsentGrantPayload),
-    event_spec::ConsentRevoke => (as_consent_revoke, ConsentRevokePayload),
+    event_spec::ConsentReplace => (as_consent_replace, ConsentReplacePayload, ConsentReplacePayload::validate),
     event_spec::ContactRequested => (as_contact_requested, ContactRequestedPayload),
     event_spec::ContactAccepted => (as_contact_accepted, ContactAcceptedPayload),
     event_spec::ContactRejected => (as_contact_rejected, ContactRejectedPayload),

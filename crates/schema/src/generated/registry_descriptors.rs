@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.5;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-21.10;
+//! sha256=af5994373a00c39c70e0d98ea3970ffbda6cc66400683dbf944b2eb6121883b9 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=154, approval_carriers=2, schemas=231, account_data_patterns=24
+//! special_forms=15, actions=153, approval_carriers=2, schemas=229, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1051,28 +1051,12 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approver_capability_action: None,
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::ConsentGrant,
+        action: CapabilityActionId::ConsentReplace,
         category: "personal",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONSENT_GRANT],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.principal_control_realm.v1"),
-        root_control_only: true,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
-        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
-        approver_capability_action: None,
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ConsentRevoke,
-        category: "personal",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONSENT_REVOKE],
+        target_event_kinds: &[event_kind_str::CONSENT_REPLACE],
         grant_authority_actions: &[],
         profile: Some("ak.profile.principal_control_realm.v1"),
         root_control_only: true,
@@ -3766,14 +3750,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::MESSAGE_ENCRYPTION_CONTEXT_V1,
-        file: "schemas/message-authoring.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MESSAGE_PREPARE_OUTCOME_V1,
-        file: "schemas/message-authoring.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MESSAGE_PREPARE_REQUEST_V1,
         file: "schemas/message-authoring.schema.json",
     },
     SchemaDescriptor {

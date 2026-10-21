@@ -135,9 +135,8 @@ pub fn verify_call_invitation_admission(
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::call_invitation::*;
-    use arkret_models_collaboration::consent_operations::{ConsentState, ConsentValue};
-    use arkret_models_collaboration::events_payloads::consent::ConsentPeer;
-    use arkret_wire::{AccountId, ActorId, ConsentScope};
+    use arkret_models_collaboration::consent_operations::ConsentCurrentRow;
+    use arkret_wire::{AccountId, ActorId};
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -279,49 +278,42 @@ mod tests {
     }
 
     #[test]
-    fn call_consent_full_values_do_not_merge_peers_windows_or_independent_grants() {
+    fn call_consent_full_values_bind_the_exact_peer_and_one_scope() {
         let peer = ActorId::account(account("alice"));
         let media = CallInvitationMedia {
             audio: true,
             video: false,
             screen: false,
         };
-        let grant:ConsentValue=serde_json::from_value(json!({"consent_id":"ak:consent:01904100-0000-7000-8000-000000000001","peer":ConsentPeer::Actor{actor_id:peer.clone()},"consent_scope":"voice_call","status":"active"})).unwrap();
-        assert!(consent_value_permits_call(&grant, &peer, &media, now()));
-        let mut future = grant.clone();
-        future.not_before = Some(now() + chrono::Duration::seconds(1));
-        let mut expired = grant.clone();
-        expired.expires_at = Some(now());
-        let mut constrained = grant.clone();
-        constrained.constraints = Some(vec![[("unknown".into(), json!(true))].into()]);
-        let mut revoked = grant.clone();
-        revoked.status = ConsentState::Revoked;
-        for value in [&future, &expired, &constrained, &revoked] {
+        let row: ConsentCurrentRow = serde_json::from_value(json!({
+            "selector":{"kind":"consent","peer_id":peer},
+            "source_stream_ref":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
+            "revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([3;32]),"stream_position":1},
+            "value":{"permissions":[{"consent_scope":"voice_call"}]}
+        })).unwrap();
+        assert!(consent_value_permits_call(&row, &peer, &media, now()));
+        let mut future = row.clone();
+        future.value.permissions[0].not_before = Some(now() + chrono::Duration::seconds(1));
+        let mut expired = row.clone();
+        expired.value.permissions[0].expires_at = Some(now());
+        let mut constrained = row.clone();
+        constrained.value.permissions[0].constraints =
+            Some(vec![[("unknown".into(), json!(true))].into()]);
+        let mut closed = row.clone();
+        closed.value.permissions.clear();
+        for value in [&future, &expired, &constrained, &closed] {
             assert!(!consent_value_permits_call(value, &peer, &media, now()));
         }
         let mut other_station = account("alice");
         other_station.station_id = "ak:did_core:web:other.example".parse().unwrap();
         assert!(!consent_value_permits_call(
-            &grant,
+            &row,
             &ActorId::account(other_station),
             &media,
             now()
         ));
-        let mut any = grant.clone();
-        any.consent_scope = ConsentScope::Any;
-        assert!(
-            [&revoked, &any]
-                .into_iter()
-                .any(|v| consent_value_permits_call(v, &peer, &media, now()))
-        );
-        any.status = ConsentState::Revoked;
-        assert!(
-            [&any, &grant]
-                .into_iter()
-                .any(|v| consent_value_permits_call(v, &peer, &media, now()))
-        );
         assert!(!consent_value_permits_call(
-            &grant,
+            &row,
             &peer,
             &CallInvitationMedia {
                 audio: true,

@@ -639,7 +639,8 @@
         "schemas/time.schema.json"
       ],
       "provides": [
-        "ConsentGrantPayload"
+        "ConsentReplacePayload",
+        "ConsentPermission"
       ]
     },
     {
@@ -1440,7 +1441,9 @@
       "provides": [
         "ContactList",
         "ContactAgentProjection",
-        "DirectConversationSummary"
+        "DirectConversationSummary",
+        "ContactScopeUpdatePayload",
+        "RequestAcceptanceReceiptCore"
       ]
     },
     {
@@ -1473,20 +1476,6 @@
       ],
       "provides": [
         "DeviceRevokePayload"
-      ]
-    },
-    {
-      "generator": "closed-models",
-      "outputs": [
-        "crates/models-collaboration/src/generated/message_authoring_contracts.rs"
-      ],
-      "owner": "arkret-models-collaboration",
-      "mode": "closed-schema-model",
-      "artifacts": [
-        "schemas/message-authoring.schema.json"
-      ],
-      "provides": [
-        "MessagePrepareOutcome"
       ]
     },
     {
@@ -1530,7 +1519,6 @@
       ],
       "provides": [
         "DirectConversationBoundPayload",
-        "DirectConversationBindingEndorsementEntry",
         "DirectConversationBindingCurrentValue"
       ]
     },
@@ -2147,6 +2135,24 @@
         "RealmActorRecoveryValue",
         "RealmActorDeviceGenerationValue",
         "RealmActorDeviceAuthorizationValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/applet-authority-material.schema.json",
+        "schemas/applet-edge-operations.schema.json",
+        "schemas/applet-install-plan.schema.json",
+        "schemas/exact-current-results-read.schema.json"
+      ],
+      "provides": [
+        "AppletAuthorityMaterialRequestBody",
+        "AppletAuthorityMaterialOutcome"
       ]
     }
   ]

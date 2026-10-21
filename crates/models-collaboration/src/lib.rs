@@ -32,7 +32,6 @@ pub mod event_sync;
 pub mod events_payloads;
 pub mod exact_current_results;
 pub mod governance;
-pub mod governance_payloads;
 mod internal_prelude;
 pub mod mention_composer;
 pub mod message_authoring;

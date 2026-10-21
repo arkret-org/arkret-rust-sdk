@@ -43,7 +43,11 @@ if ($LASTEXITCODE -ne 0) {
 # exactly like a deliberate partial commit and has to be unpicked by hand.
 # Nothing reaches the tracked tree until every generator, rustfmt and the
 # manifest completeness check have all succeeded.
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+$temporaryParent = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+)
+$temporaryRoot = Join-Path $temporaryParent (
     'arkret-sdk-generated-' + [System.Guid]::NewGuid().ToString('N')
 )
 New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
@@ -172,6 +176,16 @@ try {
 }
 finally {
     if ($null -ne $temporaryRoot -and (Test-Path -LiteralPath $temporaryRoot)) {
-        Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
+        $resolvedTemporaryRoot = (Resolve-Path -LiteralPath $temporaryRoot).Path
+        $resolvedTemporaryParent = Split-Path -Parent $resolvedTemporaryRoot
+        $temporaryLeaf = Split-Path -Leaf $resolvedTemporaryRoot
+        if (![string]::Equals($resolvedTemporaryParent, $temporaryParent,
+                [System.StringComparison]::OrdinalIgnoreCase) -or
+            $temporaryLeaf -notmatch '^arkret-sdk-generated-[0-9a-f]{32}$' -or
+            ((Get-Item -LiteralPath $resolvedTemporaryRoot).Attributes -band
+                [System.IO.FileAttributes]::ReparsePoint)) {
+            throw "Refusing cleanup outside the generated scratch directory: $resolvedTemporaryRoot"
+        }
+        Remove-Item -LiteralPath $resolvedTemporaryRoot -Recurse -Force
     }
 }

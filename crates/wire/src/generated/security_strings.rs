@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-21.1;
-//! sha256=2370fcf92212a43f6db610a08f747293dd79cff0e48b81a2c698f833b2714d95 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-21.2;
+//! sha256=67fe1e85c5595c6f6018626d1effa6b4d9245cc5ae1d7b82264c3f6c90b5671f Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;

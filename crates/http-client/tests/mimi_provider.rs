@@ -37,7 +37,7 @@ fn proof() -> PayloadProof {
     serde_json::from_value(json!({"kind":"detached_jws","verification_method":"did:web:alice.example#device-1", "payload_digest":format!("sha256:{}","0".repeat(64)),"created_at":arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),"domain":"ak:trust_domain:station.example","audience":"ak:did_core:web:station.example","jws":"pending"})).unwrap()
 }
 fn request_consent() -> MimiRequestConsentRequestBody {
-    let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"any","proofs":[proof()]})).unwrap();
+    let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"voice_call","proofs":[proof()]})).unwrap();
     v.proofs[0].payload_digest = v.payload_digest().unwrap();
     v.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
         &v.unsigned_proof_binding_bytes(&v.proofs[0].unsigned())
@@ -48,15 +48,33 @@ fn request_consent() -> MimiRequestConsentRequestBody {
     v
 }
 fn update_consent() -> MimiUpdateConsentRequestBody {
-    // A structural transport fixture, not proof of Event admission.
+    // A real producer signature supplies the transport fixture; authority admission is independent.
     let event = arkret_wire::test_support::raw_event(
-        EventKind::ConsentGrant.as_str(),
+        EventKind::ConsentReplace.as_str(),
         scope(),
         core("alice"),
         core("station"),
-        json!({"consent_id":CONSENT}),
+        json!({"peer":{"kind":"actor","actor_id":actor()},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]}),
     )
     .unwrap();
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        event,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    let signer = arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(
+        [4; 32],
+        "did:web:alice.example".parse().unwrap(),
+        arkret_wire::DidUrl::new("did:web:alice.example#device-1").unwrap(),
+    );
+    let event_at = authored.created_at;
+    arkret_signatures::sign_event(
+        &mut authored,
+        &signer,
+        arkret_signatures::SignEventOptions::new().with_created_at(event_at),
+    )
+    .unwrap();
+    let event = authored.into_event();
     let mut v = MimiUpdateConsentRequestBody {
         consent_id: CONSENT.parse().unwrap(),
         decision: MimiConsentDecision::Accept,

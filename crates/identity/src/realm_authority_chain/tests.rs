@@ -1931,7 +1931,16 @@ fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
 
 #[test]
 fn fixed_human_private_authority_accepts_same_station_endpoint_and_key_updates_without_a_tenure() {
-    let mut chain = chain_with_purpose("principal_control");
+    assert_fixed_station_endpoint_and_key_updates("principal_control");
+}
+
+#[test]
+fn direct_governance_accepts_original_station_reads_and_same_identity_updates() {
+    assert_fixed_station_endpoint_and_key_updates("direct_conversation");
+}
+
+fn assert_fixed_station_endpoint_and_key_updates(purpose: &str) {
+    let mut chain = chain_with_purpose(purpose);
     chain.bundle.authority_transitions.clear();
     chain.bundle.current_service_id = core_id(STATION_A);
     chain.bundle.current_generation = 0;
@@ -1999,4 +2008,45 @@ fn a_different_delegated_genesis_cannot_reclassify_an_existing_human_realm() {
     chain.bundle.genesis_event = fake;
     assert!(chain.bundle.validate_shape().is_err());
     assert!(verify(&chain).is_err());
+}
+
+#[test]
+fn direct_governance_rejects_a_fully_signed_handoff_and_foreign_current() {
+    let chain = chain_with_purpose("direct_conversation");
+    verify_history_signatures(
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &chain.bundle.authority_transitions,
+        &chain.keys,
+    )
+    .unwrap();
+    let restriction =
+        arkret_wire::GenesisGovernance::from_genesis(&chain.bundle.genesis_event).unwrap();
+    assert!(!restriction.is_principal_control());
+    assert!(!restriction.is_human());
+    restriction
+        .validate_current(&core_id(STATION_A), 0)
+        .unwrap();
+    assert!(
+        restriction
+            .validate_current(&core_id(STATION_B), 0)
+            .is_err()
+    );
+    assert!(
+        restriction
+            .validate_current(&core_id(STATION_A), 1)
+            .is_err()
+    );
+    assert!(restriction.require_transferable().is_err());
+    assert!(chain.bundle.validate_shape().is_err());
+    let error = verify(&chain).unwrap_err();
+    assert!(error.to_string().contains("Direct Conversation"), "{error}");
+    let error = walk_history_parts(
+        &chain.bundle.realm_id,
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &chain.bundle.authority_transitions,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("Direct Conversation"), "{error}");
 }

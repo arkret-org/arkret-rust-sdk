@@ -27,7 +27,7 @@ pub enum PinScope {
 
 use crate::{
     AccountId, AccountabilityScopeSet, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId,
-    ConsentId, DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
+    DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -592,6 +592,7 @@ pub enum GenesisGovernance {
     Agent,
     AppletManaged,
     Collaboration,
+    DirectConversation(DidCoreId),
 }
 
 impl GenesisGovernance {
@@ -626,7 +627,18 @@ impl GenesisGovernance {
             (Some("principal_control"), (true, true)) => Ok(Self::Organization),
             (Some("agent_control"), (true, true)) => Ok(Self::Agent),
             (Some("applet_managed_control"), (true, true)) => Ok(Self::AppletManaged),
-            (Some("collaboration" | "direct_conversation"), _) => Ok(Self::Collaboration),
+            (Some("collaboration"), _) => Ok(Self::Collaboration),
+            (Some("direct_conversation"), _) => {
+                let station = payload
+                    .pointer("/object/governance_station_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "failed_precondition: Direct genesis has no governing Station".into(),
+                        )
+                    })?;
+                Ok(Self::DirectConversation(DidCoreId::new(station)?))
+            }
             _ => Err(WireError::Protocol(
                 "failed_precondition: Realm genesis governance provenance is unresolved".into(),
             )),
@@ -635,6 +647,13 @@ impl GenesisGovernance {
 
     pub fn is_human(&self) -> bool {
         matches!(self, Self::Human(_))
+    }
+
+    pub fn is_principal_control(&self) -> bool {
+        matches!(
+            self,
+            Self::Human(_) | Self::Organization | Self::Agent | Self::AppletManaged
+        )
     }
 
     pub fn validate_current(&self, service: &DidCoreId, generation: u64) -> Result<()> {
@@ -646,6 +665,13 @@ impl GenesisGovernance {
                     .into(),
             ));
         }
+        if let Self::DirectConversation(station) = self
+            && (service != station || generation != 0)
+        {
+            return Err(WireError::Protocol(
+                "failed_precondition: Direct Conversation remains at its genesis Station and initial tenure".into(),
+            ));
+        }
         Ok(())
     }
 
@@ -653,6 +679,11 @@ impl GenesisGovernance {
         if self.is_human() {
             return Err(WireError::Protocol(
                 "failed_precondition: Human PCR cannot independently transfer governance".into(),
+            ));
+        }
+        if matches!(self, Self::DirectConversation(_)) {
+            return Err(WireError::Protocol(
+                "failed_precondition: Direct Conversation governance cannot transfer".into(),
             ));
         }
         Ok(())
@@ -1584,7 +1615,7 @@ pub enum CurrentSelector {
         call_id: CallId,
     },
     Consent {
-        consent_id: ConsentId,
+        peer_id: ActorId,
     },
     CallFocus {
         call_id: CallId,
@@ -1815,7 +1846,7 @@ enum FlatCurrentSelector {
         call_id: CallId,
     },
     Consent {
-        consent_id: ConsentId,
+        peer_id: ActorId,
     },
     CallFocus {
         call_id: CallId,
@@ -2186,7 +2217,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         primary_conflict_domain,
                     },
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
-                    FlatCurrentSelector::Consent { consent_id } => Self::Consent { consent_id },
+                    FlatCurrentSelector::Consent { peer_id } => Self::Consent { peer_id },
                     FlatCurrentSelector::CallFocus { call_id } => Self::CallFocus { call_id },
                     FlatCurrentSelector::CallRoster { call_id } => Self::CallRoster { call_id },
                     FlatCurrentSelector::CallModeration { call_id } => {

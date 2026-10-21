@@ -134,10 +134,6 @@
       "schema": "event-payload.schema.json#/$defs/circle_patch_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentGrantPayload",
-      "schema": "event-payload.schema.json#/$defs/consent_grant_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/contact_contracts.rs::ContactAcceptedPayload",
       "schema": "event-payload.schema.json#/$defs/contact_accepted_payload"
     },
@@ -982,10 +978,6 @@
       "schema": "event-payload.schema.json#/$defs/policy_set_state_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/message_authoring_contracts.rs::MessagePrepareOutcome",
-      "schema": "message-authoring.schema.json#/$defs/message_prepare_outcome"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiSubmitMessageRequestBody",
       "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_request_body"
     },
@@ -1028,10 +1020,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs::DirectConversationBoundPayload",
       "schema": "event-payload.schema.json#/$defs/direct_conversation_bound_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs::DirectConversationBindingEndorsementEntry",
-      "schema": "typed-current-result.schema.json#/$defs/direct_conversation_binding_endorsement_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs::DirectConversationBindingCurrentValue",
@@ -1581,24 +1569,12 @@
       "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmDeviceHistoricalSignerFactKind",
-      "schema": "authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact/properties/kind"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmDeviceHistoricalSignerFact",
       "schema": "authority-commit-operations.schema.json#/$defs/realm_device_historical_signer_fact"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmControlHistoricalSignerFactKind",
-      "schema": "authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact/properties/kind"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmControlHistoricalSignerFact",
       "schema": "authority-commit-operations.schema.json#/$defs/realm_control_historical_signer_fact"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmRecoveryServiceHistoricalSignerFactKind",
-      "schema": "authority-commit-operations.schema.json#/$defs/realm_recovery_service_historical_signer_fact/properties/kind"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmRecoveryServiceHistoricalSignerFact",
@@ -1623,6 +1599,110 @@
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDeviceAuthorizationValue",
       "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentReplacePayload",
+      "schema": "event-payload.schema.json#/$defs/consent_replace_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentPermission",
+      "schema": "event-payload.schema.json#/$defs/consent_permission"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorGhostExternalTuple",
+      "schema": "realm-actor.schema.json#/$defs/ghost_external_tuple"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlScope",
+      "schema": "realm-actor.schema.json#/$defs/control_scope"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorCreatePayloadRecovery",
+      "schema": "realm-actor.schema.json#/$defs/create_payload/properties/recovery"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorCreatePayload",
+      "schema": "realm-actor.schema.json#/$defs/create_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorCreationTranscriptRecovery",
+      "schema": "realm-actor.schema.json#/$defs/creation_transcript/properties/recovery"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorCreationTranscript",
+      "schema": "realm-actor.schema.json#/$defs/creation_transcript"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlUpdatePayload",
+      "schema": "realm-actor.schema.json#/$defs/control_update_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlAcceptanceTranscript",
+      "schema": "realm-actor.schema.json#/$defs/control_acceptance_transcript"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorStatusSetPayload",
+      "schema": "realm-actor.schema.json#/$defs/status_set_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDevicesResetPayload",
+      "schema": "realm-actor.schema.json#/$defs/devices_reset_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorManagerChangePayload",
+      "schema": "realm-actor.schema.json#/$defs/manager_change_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorManagerAcceptanceTranscript",
+      "schema": "realm-actor.schema.json#/$defs/manager_acceptance_transcript"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlHttpMetadata",
+      "schema": "realm-actor.schema.json#/$defs/control_http_metadata"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorResource",
+      "schema": "realm-actor.schema.json#/$defs/resource"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryBeginPayload",
+      "schema": "realm-actor.schema.json#/$defs/recovery_begin_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryAcceptanceTranscript",
+      "schema": "realm-actor.schema.json#/$defs/recovery_acceptance_transcript"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlResetPayload",
+      "schema": "realm-actor.schema.json#/$defs/control_reset_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoverySetPayload",
+      "schema": "realm-actor.schema.json#/$defs/recovery_set_payload"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryIntent",
+      "schema": "realm-actor.schema.json#/$defs/recovery_intent"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorWebvhRecoveryPlan",
+      "schema": "realm-actor.schema.json#/$defs/webvh_recovery_plan"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::ManagementPrivateHandoffManifest",
+      "schema": "authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature",
+      "schema": "realm-actor.schema.json#/$defs/recovery_acceptance_transcript/properties/payload_without_control_signature"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialRequestBody",
+      "schema": "applet-authority-material.schema.json#/$defs/request"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialOutcome",
+      "schema": "applet-authority-material.schema.json#/$defs/outcome"
     }
   ],
   "exemptions": [

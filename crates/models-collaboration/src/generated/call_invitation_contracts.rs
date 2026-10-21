@@ -5,13 +5,13 @@
 //! sha256=a7a5319c9fe02763036f0b3edbf20b6f6e7d7066ec53be2ed913ccb5f71ba06f
 //!
 //! Input: schemas/typed-current-result.schema.json
-//! sha256=9794e5f6afb46725da6449147dea930e65a3b535ffefdf5c0f3541306be35c63
+//! sha256=bfee8c04c7b3d9e76727652feaa2e49488bb443f0bb99670a13dd07f2be02fe3
 //!
 //! Input: schemas/consent-operations.schema.json
-//! sha256=90c045bc2fadaa4481370039731723349f25656f7d89c24668082fe0a0a5fd48
+//! sha256=d9b6404831907708fc525f6187e7b133b9f8b63eaf6587ccc9d18966c611ee6b
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
+//! sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -237,7 +237,7 @@ pub enum ConsentCurrentSelectorKind {
 #[serde(deny_unknown_fields)]
 pub struct ConsentCurrentSelector {
     pub kind: ConsentCurrentSelectorKind,
-    pub consent_id: arkret_wire::ConsentId,
+    pub peer_id: arkret_wire::ActorId,
 }
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/consent_result`.
@@ -267,7 +267,6 @@ pub struct ConsentCurrentReadProof {
 pub struct ConsentCurrentReadRequestBody {
     pub holder_account_id: arkret_wire::AccountId,
     pub peer: crate::events_payloads::consent::ConsentPeer,
-    pub consent_scope: arkret_wire::ConsentScope,
     pub audience_actor_id: arkret_wire::ActorId,
     pub nonce: String,
 }
@@ -281,7 +280,7 @@ pub struct ConsentCurrentReadOutcome {
     pub realm_id: arkret_wire::RealmId,
     pub governance_generation: u64,
     pub effective_stream_head: arkret_wire::CommitStreamHead,
-    pub consents: Vec<ConsentCurrentRow>,
+    pub current: crate::call_invitation::ConsentCurrentState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

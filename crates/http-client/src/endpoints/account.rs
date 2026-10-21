@@ -7,8 +7,7 @@ use arkret_models_collaboration::account_operations::{
     AccountView,
 };
 use arkret_models_collaboration::consent_operations::{
-    ConsentGrantRequestBody, ConsentRequestOutcome, ConsentRequestRequestBody,
-    ConsentRevokeRequestBody, ConsentView,
+    ConsentReplaceRequestBody, ConsentRequestOutcome, ConsentRequestRequestBody, ConsentView,
 };
 use arkret_models_collaboration::contact_operations::{
     ContactAcceptRequestBody, ContactCommitRequestBody, ContactList, ContactOperationOutcome,
@@ -109,23 +108,12 @@ impl Client {
             .await
     }
 
-    pub async fn consent_grant(
+    pub async fn consent_replace(
         &self,
-        request: &VerifiedSubmission<ConsentGrantRequestBody>,
+        request: &VerifiedSubmission<ConsentReplaceRequestBody>,
     ) -> Result<ConsentView> {
         let outcome: ConsentView = self
-            .post(arkret_wire::PATH_SELF_CONSENT_RESULTS_GRANT, request)
-            .await?;
-        outcome.validate()?;
-        Ok(outcome)
-    }
-
-    pub async fn consent_revoke(
-        &self,
-        request: &VerifiedSubmission<ConsentRevokeRequestBody>,
-    ) -> Result<ConsentView> {
-        let outcome: ConsentView = self
-            .post(arkret_wire::PATH_SELF_CONSENT_RESULTS_REVOKE, request)
+            .post("/_arkret/self/consent/results/replace", request)
             .await?;
         outcome.validate()?;
         Ok(outcome)

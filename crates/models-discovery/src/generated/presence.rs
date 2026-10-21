@@ -8,10 +8,10 @@
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Input: schemas/presence-visibility.schema.json
-//! sha256=192566c5b63dfce24f74ea1360a0f763b64c07c5b0a0676667023479a60bde74
+//! sha256=01daf23476bbffa47f63a64a10042aa38acc62639544549dd825fe29c176bdfc
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
+//! sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
 
 /// Counterpart: `presence-preference.schema.json#/properties/manual_state`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
