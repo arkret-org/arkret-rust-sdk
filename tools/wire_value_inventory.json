@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 526,
+    "total": 525,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -74,31 +74,28 @@
       "wire": 12
     },
     "by_category": {
-      "closed_dispatch": 2,
+      "closed_dispatch": 1,
       "json_authoring": 113,
       "json_path_mutation": 67,
       "paired_api": 13,
       "public_value_field": 331
     },
     "by_classification": {
-      "closed_discriminated": 1,
       "independent": 13,
       "internal_or_fixture": 14,
       "open_json": 76,
       "polymorphic_boundary": 422
     },
     "by_lifecycle": {
-      "pending_migration": 1,
       "retained_boundary": 525
     },
     "by_decision": {
-      "closed": 1,
       "independent": 13,
       "open": 76,
       "raw": 436
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 185,
+      "arkret-rust-sdk": 184,
       "bridges": 5,
       "chime": 3,
       "coauth": 44,
@@ -114,7 +111,7 @@
       "open_json": 2,
       "open_json_container": 19,
       "open_map": 52,
-      "unknown": 445
+      "unknown": 444
     }
   },
   "entries": [
@@ -317,31 +314,6 @@
       "test": "cargo test -p arkret-event-draft --locked --lib metadata_send_gate::tests",
       "reason": "The static create(&[\"metadata\"], ...) key-name slice is not payload indexing. Raw object.contains_key is necessary to preserve original wire key presence, while the returned envelope list is strongly typed and bound to the full Event or EventIntent. Consumers reject mixed plaintext/ciphertext and retain their current epoch checks.",
       "evidence": "match source.kind() { EventKind::SpaceCreate => { let payload = source.typed_payload::<event_spec::SpaceCreate>()?; create( &[\"title\", \"summary\", \"labels\", \"avatar_blob_ref\"], payload.object.encrypted_metadata, )? } EventKind::StrandCreate => { let payload = source.typed_paylo..."
-    },
-    {
-      "finding": "closed_dispatch:crates/models-integration/src/applet/realm_actor_material.rs::validate_for_request:3873e537edf980e0",
-      "category": "closed_dispatch",
-      "rust_field": null,
-      "crate": null,
-      "file": "crates/models-integration/src/applet/realm_actor_material.rs",
-      "path": "crates/models-integration/src/applet/realm_actor_material.rs",
-      "owner": "validate_for_request",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "validate_for_request",
-      "field": "actor_id",
-      "discriminator": "event.kind",
-      "data_field": "actor_id",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by event.kind",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
-      "evidence": "match event.kind { arkret_wire::EventKind::RealmActorCreate => event.payload.get(\"actor_id\"), arkret_wire::EventKind::RealmActorStatusSet | arkret_wire::EventKind::RealmActorRecoverySet | arkret_wire::EventKind::RealmActorRecoveryBegin | arkret_wire::EventKind::RealmActorContr..."
     },
     {
       "finding": "coauth/crates/account-types/src/passkey.rs::PasskeyAuthFinishRequestBody.assertion",

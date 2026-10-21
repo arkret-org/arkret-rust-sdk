@@ -516,20 +516,39 @@ impl RealmActorMaterialOutcome {
                     return Err(invalid());
                 }
                 let subject = match event.kind {
-                    arkret_wire::EventKind::RealmActorCreate => event.payload.get("actor_id"),
-                    arkret_wire::EventKind::RealmActorStatusSet
-                    | arkret_wire::EventKind::RealmActorRecoverySet
-                    | arkret_wire::EventKind::RealmActorRecoveryBegin
-                    | arkret_wire::EventKind::RealmActorControlReset => {
-                        event.payload.get("target_actor_id")
-                    }
+                    arkret_wire::EventKind::RealmActorCreate => Some(
+                        serde_json::from_value::<super::RealmActorCreatePayload>(
+                            serde_json::to_value(&event.payload)?,
+                        )?
+                        .actor_id,
+                    ),
+                    arkret_wire::EventKind::RealmActorStatusSet => Some(
+                        serde_json::from_value::<super::RealmActorStatusSetPayload>(
+                            serde_json::to_value(&event.payload)?,
+                        )?
+                        .target_actor_id,
+                    ),
+                    arkret_wire::EventKind::RealmActorRecoverySet => Some(
+                        serde_json::from_value::<super::RealmActorRecoverySetPayload>(
+                            serde_json::to_value(&event.payload)?,
+                        )?
+                        .target_actor_id,
+                    ),
+                    arkret_wire::EventKind::RealmActorRecoveryBegin => Some(
+                        serde_json::from_value::<super::RealmActorRecoveryBeginPayload>(
+                            serde_json::to_value(&event.payload)?,
+                        )?
+                        .target_actor_id,
+                    ),
+                    arkret_wire::EventKind::RealmActorControlReset => Some(
+                        serde_json::from_value::<super::RealmActorControlResetPayload>(
+                            serde_json::to_value(&event.payload)?,
+                        )?
+                        .target_actor_id,
+                    ),
                     _ => None,
                 };
-                if let Some(subject) = subject {
-                    if subject != &serde_json::to_value(&self.actor_id)? {
-                        return Err(invalid());
-                    }
-                } else if event.actor_id != self.actor_id {
+                if subject.as_ref().unwrap_or(&event.actor_id) != &self.actor_id {
                     return Err(invalid());
                 }
             }

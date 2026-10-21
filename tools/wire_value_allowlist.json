@@ -90,17 +90,6 @@
       "adjudication": "manual"
     },
     {
-      "finding": "closed_dispatch:crates/models-integration/src/applet/realm_actor_material.rs::validate_for_request:3873e537edf980e0",
-      "classification": "closed_discriminated",
-      "lifecycle": "pending_migration",
-      "decision": "closed",
-      "authority": "arkret-spec closed union selected by event.kind",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
-    },
-    {
       "finding": "closed_dispatch:starid/crates/server/src/handlers/resolve.rs::resolve_managed_did:2a86a573fb8f09c9",
       "classification": "independent",
       "lifecycle": "retained_boundary",

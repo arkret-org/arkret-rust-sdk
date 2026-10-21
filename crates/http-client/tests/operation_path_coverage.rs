@@ -34,6 +34,18 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/own_station_device_results/tests.rs"),
     ),
     (
+        "endpoints/applet/authority_material_tests.rs",
+        include_str!("../src/endpoints/applet/authority_material_tests.rs"),
+    ),
+    (
+        "own_station_results/consent_current.rs",
+        include_str!("../src/own_station_results/consent_current.rs"),
+    ),
+    (
+        "own_station_results/consent_current/tests.rs",
+        include_str!("../src/own_station_results/consent_current/tests.rs"),
+    ),
+    (
         "own_station_results.rs",
         include_str!("../src/own_station_results.rs"),
     ),

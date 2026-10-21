@@ -11,6 +11,15 @@ pub enum ConsentPeer {
     Actor { actor_id: ActorId },
 }
 
+impl ConsentPeer {
+    /// Preserve the complete peer identity, including its Account Station or Realm.
+    pub fn actor_id(&self) -> &ActorId {
+        match self {
+            Self::Actor { actor_id } => actor_id,
+        }
+    }
+}
+
 /// Exact compare-and-swap precondition signed by the holder.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
