@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.4;
-//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f
-//! Entries: operation_bundles=43 features=12
+//! Input: registry/contract-registry.json; version=2026-10-21.6;
+//! sha256=31924c037f6fded65a37312b2576987f706a019184e8423e85bfb28f48143a5c
+//! Entries: operation_bundles=44 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -106,6 +106,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::AppletService,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.applet_service.service_resolution.v1",
+        service_kind: ServiceKind::AppletService,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::OpenServiceReadResolutionV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },
@@ -858,10 +866,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfContactCommandCheckpointV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfContactCommandRejectV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1526,6 +1530,8 @@ impl OperationBundleDescriptor {
         "ak.operation_bundle.applet_service.applet.v1";
     pub const APPLET_SERVICE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.applet_service.describe.v1";
+    pub const APPLET_SERVICE_SERVICE_RESOLUTION_V1: &'static str =
+        "ak.operation_bundle.applet_service.service_resolution.v1";
     pub const ARCHIVE_NODE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.archive_node.describe.v1";
     pub const BLOB_NODE_DESCRIBE_V1: &'static str = "ak.operation_bundle.blob_node.describe.v1";
