@@ -1294,10 +1294,9 @@ fn add_proposal_parser_distinguishes_simultaneous_devices_of_one_actor() {
     .unwrap();
     let binding = transition_binding(&scope, event(9), 1);
     let committed = group
-        .add_members_with_optional_governance_binding(
+        .add_members_with_governance_binding(
             &[claimed_keypackage(&first), claimed_keypackage(&second)],
-            Some(&binding),
-            &[],
+            &binding,
         )
         .unwrap();
     let transition = tracker

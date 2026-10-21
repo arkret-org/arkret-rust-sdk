@@ -529,11 +529,20 @@ pub fn verify_accepted_agent_authority_bundle(
     bundle: &arkret_models_identity::AgentAcceptedAuthorityBundle,
     keys: &dyn RealmAuthorityKeyDirectory,
 ) -> ChainResult<VerifiedAcceptedRealmAuthority> {
+    if !matches!(
+        arkret_wire::GenesisGovernance::from_genesis(&bundle.genesis_event)
+            .map_err(|error| E::ChainBroken(error.to_string()))?,
+        arkret_wire::GenesisGovernance::Agent(_)
+    ) {
+        return Err(E::ChainBroken(
+            "accepted Agent authority requires its original agent_control genesis".into(),
+        ));
+    }
     let generations = walk_history_parts(
         &bundle.realm_id,
         &bundle.genesis_event,
         &bundle.genesis_commit,
-        &bundle.authority_transitions,
+        &[],
     )?;
     bundle
         .genesis_commit
@@ -546,22 +555,7 @@ pub fn verify_accepted_agent_authority_bundle(
             "accepted genesis is not position zero".into(),
         ));
     }
-    for transition in &bundle.authority_transitions {
-        transition
-            .handoff
-            .validate_shape()
-            .map_err(|e| E::ChainBroken(e.to_string()))?;
-        transition
-            .change_commit
-            .validate_content_address()
-            .map_err(|e| E::ChainBroken(e.to_string()))?;
-    }
-    verify_history_signatures(
-        &bundle.genesis_event,
-        &bundle.genesis_commit,
-        &bundle.authority_transitions,
-        keys,
-    )?;
+    verify_history_signatures(&bundle.genesis_event, &bundle.genesis_commit, &[], keys)?;
     let (generation, last) = generations
         .last_key_value()
         .ok_or_else(|| E::ChainBroken("empty authority history".into()))?;

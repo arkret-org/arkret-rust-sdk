@@ -1602,19 +1602,9 @@ pub fn validate_reason_code(value: &str) -> Result<()> {
 impl AuthorityHandoffRequest {
     pub fn validate_shape(&self) -> Result<()> {
         self.handoff.validate_shape()?;
-        let private_purpose = self
-            .authority_bundle
-            .genesis_event
-            .payload
-            .get("object")
-            .and_then(|object| object.get("purpose"))
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|purpose| {
-                matches!(
-                    purpose,
-                    "principal_control" | "agent_control" | "applet_managed_control"
-                )
-            });
+        let private_purpose =
+            arkret_wire::GenesisGovernance::from_genesis(&self.authority_bundle.genesis_event)?
+                .is_principal_control();
         match (
             &self.pcr_private_state,
             &self.handoff.pcr_private_state_digest,

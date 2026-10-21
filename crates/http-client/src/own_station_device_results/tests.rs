@@ -170,6 +170,8 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     // Only the local scope checker is under test; this shape fixture is
     // not an accepted signature, source, current cut or historical proof.
     let mut snapshot = RealmStateSnapshot {
+        purpose: arkret_wire::RealmSnapshotPurpose::FullRecovery,
+        history_basis: None,
         snapshot_id: RealmSnapshotId::from_digest([129; 32]),
         realm_id: realm.clone(),
         governance_generation: 0,

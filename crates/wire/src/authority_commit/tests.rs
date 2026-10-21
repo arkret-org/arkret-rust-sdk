@@ -1748,3 +1748,68 @@ fn read_receipt_policy_selector_requires_an_exact_realm_or_circle_scope() {
         assert!(serde_json::from_value::<CurrentSelector>(wire).is_err());
     }
 }
+
+#[test]
+fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
+    let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [91; 32]);
+    let realm_id = RealmId::from_event_id(&event);
+    let stream_ref = CommitStreamRef::Realm {
+        realm_id: realm_id.clone(),
+    };
+    let commit_id = RealmCommitId::from_digest([92; 32]);
+    let account = crate::AccountId::new(
+        DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    );
+    let mut snapshot = RealmStateSnapshot {
+        snapshot_id: RealmSnapshotId::from_digest([93; 32]),
+        realm_id: realm_id.clone(),
+        governance_generation: 0,
+        purpose: RealmSnapshotPurpose::StreamHistory,
+        history_basis: Some(RealmSnapshotHistoryBasis {
+            account_id: account,
+            stream_ref: stream_ref.clone(),
+            anchor_position: 5,
+            anchor_commit_ref: commit_id.clone(),
+            accepted_dependency_refs: vec![],
+        }),
+        visible_stream_heads: vec![CommitStreamHead {
+            stream_ref: stream_ref.clone(),
+            stream_position: 5,
+            commit_id,
+        }],
+        current_state_entries: vec![],
+        retention_and_history_floor: RetentionAndHistoryFloor {
+            history_access: crate::HistoryAccess::SinceJoin,
+            stream_floors: vec![StreamHistoryFloor {
+                stream_ref,
+                oldest_position: 1,
+            }],
+        },
+        created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
+        signature: signature(DetachedSignatureContext::RealmSnapshot),
+    };
+    snapshot.validate_purpose().unwrap();
+    assert!(snapshot.require_full_recovery().is_err());
+    let original = snapshot.clone();
+    snapshot.history_basis.as_mut().unwrap().anchor_position += 1;
+    assert!(snapshot.validate_purpose().is_err());
+    snapshot = original.clone();
+    snapshot.purpose = RealmSnapshotPurpose::FullRecovery;
+    assert!(snapshot.validate_purpose().is_err());
+    snapshot.history_basis = None;
+    snapshot.require_full_recovery().unwrap();
+    let mut null_basis = serde_json::to_value(snapshot).unwrap();
+    null_basis["history_basis"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<RealmStateSnapshot>(null_basis).is_err());
+    snapshot = original;
+    snapshot.visible_stream_heads.push(CommitStreamHead {
+        stream_ref: CommitStreamRef::Circle {
+            realm_id,
+            circle_id: crate::CircleId::from_event_id(&event),
+        },
+        stream_position: 0,
+        commit_id: RealmCommitId::from_digest([94; 32]),
+    });
+    assert!(snapshot.validate_purpose().is_err());
+}

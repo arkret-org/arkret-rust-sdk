@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-21.5;
-//! sha256=72b8775e60237ed01c8e1379a57a172d9975e80622aee3fcf3f5c2193a352a8f Input: registry/
-//! contract-registry.json; version=2026-10-21.13;
-//! sha256=89c34f903dc86dcf0019a0c8f488812a02b5f53134e38fd2773aaca10dec62f7 Input: registry/
-//! error-code-registry.json; version=2026-10-21.1;
-//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf Entries: operations=225
+//! Input: registry/operations-error-mapping.json; version=2026-10-22.1;
+//! sha256=357a69e0ecba0e50850012b146b6eb23198739d456e5c22aee492f478211ab8e Input: registry/
+//! contract-registry.json; version=2026-10-22.2;
+//! sha256=103ae952f29a7a0e999af294c5fd3c81a7c64e07fc5a466aefc81ddaee81311e Input: registry/
+//! error-code-registry.json; version=2026-10-22.1;
+//! sha256=3df9ae1408db73220dbe82128661688a63187c8af70581f8a32558ec0aee1032 Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -807,6 +807,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
     &[
+        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
         OperationSpecificError::Code(ErrorCode::KeypackageAlreadyConsumed),
         OperationSpecificError::Code(ErrorCode::KeypackageUnknown),
     ],

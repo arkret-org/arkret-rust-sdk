@@ -397,6 +397,9 @@ impl Client {
             .request(Method::GET, "/_arkret/self/realm-state-snapshot/head")?
             .query(&[("realm_id", realm_id.as_str())]);
         let snapshot: RealmStateSnapshot = self.send_json(builder).await?;
+        snapshot
+            .require_full_recovery()
+            .map_err(|e| Error::Protocol(e.to_string()))?;
         if &snapshot.realm_id != realm_id {
             return Err(Error::Protocol(
                 "realm state snapshot head answered for a different Realm".to_owned(),
@@ -418,7 +421,7 @@ impl Client {
         Ok(snapshot)
     }
 
-    /// Read the original complete signed Snapshot named by an Account
+    /// Read the original signed Snapshot with its declared purpose named by an Account
     /// window's exact `snapshot_ref`. This read does not authenticate the
     /// signature or install current rows; callers verify it against a fresh
     /// genesis-to-current authority chain before projection.
@@ -430,6 +433,9 @@ impl Client {
         let snapshot: RealmStateSnapshot = self
             .send_json(self.realm_state_snapshot_by_ref_request(realm_id, snapshot_id)?)
             .await?;
+        snapshot
+            .validate_purpose()
+            .map_err(|e| Error::Protocol(e.to_string()))?;
         if &snapshot.realm_id != realm_id || &snapshot.snapshot_id != snapshot_id {
             return Err(Error::Protocol(
                 "exact realm snapshot answered for another Realm or reference".to_owned(),

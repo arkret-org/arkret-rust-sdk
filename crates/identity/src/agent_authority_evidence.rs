@@ -175,21 +175,11 @@ fn verify_closure(
 
     let mut keys = RealmAuthorityKeyMap::new();
     let mut used_histories = BTreeSet::new();
-    let mut signatures = state
+    let signatures = state
         .commits
         .iter()
         .map(|c| &c.signature)
         .collect::<Vec<_>>();
-    for transition in &state.authority_bundle.authority_transitions {
-        signatures.push(&transition.handoff.old_authority_signature);
-        signatures.push(&transition.handoff.new_authority_acceptance_signature);
-        if !state.commits.iter().any(|c| c == &transition.change_commit) {
-            return Err(rejected(
-                ErrorCode::SignatureInvalid,
-                "authority transition is beyond or outside the accepted cut",
-            ));
-        }
-    }
     for signed in signatures {
         let station = method_subject(&signed.verification_method)?;
         let (index, resolution) = state
@@ -250,13 +240,6 @@ fn verify_closure(
         &state.agent_lifecycle_witness.accepted_status_event,
     ]
     .into_iter()
-    .chain(
-        state
-            .authority_bundle
-            .authority_transitions
-            .iter()
-            .map(|t| &t.change_event),
-    )
     .collect::<Vec<_>>();
     for binding in &state.producer_bindings {
         let event = events

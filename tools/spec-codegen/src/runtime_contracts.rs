@@ -544,17 +544,66 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             .iter()
             .find(|carrier| carrier.carrier_id == row.carrier_id)
             .expect("override carrier existence checked above");
-        let event_carrier = action.event_mapping_kind != "non_event_surface"
-            && row.eligibility_kind == "event_submission_carrier"
-            && carrier.carrier_class == "event_submission";
-        let operation_carrier = action.event_mapping_kind == "non_event_surface"
+        let aggregate_carrier = action.event_mapping_kind == "operation_verb"
+            && !action.target_event_kinds.is_empty()
+            && inputs
+                .operations
+                .operations
+                .iter()
+                .find(|operation| operation.operation_id == carrier.operation_id)
+                .and_then(|operation| operation.durable_effect.as_ref())
+                .is_some_and(|effect| {
+                    effect.kind == "event_log"
+                        && action
+                            .target_event_kinds
+                            .iter()
+                            .all(|kind| effect.event_kinds.contains(kind))
+                });
+        if matches!(
+            row.action.as_str(),
+            "ak.applet.bot.provision" | "ak.applet.ghost.provision"
+        ) {
+            if row.eligibility_kind != "event_submission_carrier"
+                || row.carrier_id != "event_admission_submission.approval_signatures"
+                || carrier.carrier_class != "event_submission"
+                || action.target_event_kinds != ["ak.realm.actor.create"]
+                || row.approver_capability_action.as_deref() != Some("ak.realm.admin")
+            {
+                bail!(
+                    "approval eligibility override for {} requires its exact Realm actor creation approval carrier and Realm administrator",
+                    row.action
+                );
+            }
+        }
+        let event_carrier = row.eligibility_kind == "event_submission_carrier"
+            && carrier.carrier_class == "event_submission"
+            && !action.target_event_kinds.is_empty()
+            && approval
+                .event_mapping_defaults
+                .get(&action.event_mapping_kind)
+                .is_some_and(|kind| kind == "event_submission_carrier")
+            && approval
+                .default_carrier_by_eligibility_kind
+                .get(&row.eligibility_kind)
+                == Some(&row.carrier_id);
+        let operation_carrier = (action.event_mapping_kind == "non_event_surface"
+            || aggregate_carrier)
             && row.eligibility_kind == "registered_operation_carrier"
             && carrier.carrier_class == "non_event_operation";
-        if !event_carrier && !operation_carrier {
+        if !(event_carrier || operation_carrier) {
             bail!(
-                "approval eligibility override for {} does not match its registered carrier class",
+                "approval eligibility override for {} does not select its registered carrier class",
                 row.action
             );
+        }
+    }
+    for required in [
+        "ak.applet.bot.provision",
+        "ak.applet.ghost.provision",
+        "ak.applet.configure",
+    ] {
+        if !overridden_actions.contains(required) {
+            bail!("required approval qualification override missing for {required}");
         }
     }
     for action in &inputs.capability_actions.actions {
@@ -1468,6 +1517,119 @@ mod tests {
                 .to_string()
                 .contains("unknown approver capability action")
         );
+    }
+
+    #[test]
+    fn event_approval_overrides_preserve_the_durable_carrier_and_admin_qualification() {
+        for action_id in ["ak.applet.bot.provision", "ak.applet.ghost.provision"] {
+            let inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+            validate(&inputs).expect("formal event override");
+            let action = inputs
+                .capability_actions
+                .actions
+                .iter()
+                .find(|action| action.action == action_id)
+                .unwrap();
+            assert_eq!(
+                approval_resolution(&inputs, action),
+                (
+                    "event_submission_carrier",
+                    Some("event_admission_submission.approval_signatures"),
+                )
+            );
+            let descriptor = generate_registry_descriptors(&inputs);
+            let line = descriptor
+                .lines()
+                .find(|line| {
+                    line.contains(&format!(
+                        "action: CapabilityActionId::{},",
+                        variant(action_id, &["ak."])
+                    ))
+                })
+                .unwrap();
+            assert!(
+                line.contains("approver_capability_action: Some(CapabilityActionId::RealmAdmin)")
+            );
+            for mutation in ["class", "targets"] {
+                let mut invalid = SpecInputs::load(&spec_artifacts()).unwrap();
+                if mutation == "class" {
+                    invalid
+                        .capability_actions
+                        .approval_requirement_eligibility
+                        .action_overrides
+                        .iter_mut()
+                        .find(|row| row.action == action_id)
+                        .unwrap()
+                        .eligibility_kind = "registered_operation_carrier".to_owned();
+                } else {
+                    invalid
+                        .capability_actions
+                        .actions
+                        .iter_mut()
+                        .find(|row| row.action == action_id)
+                        .unwrap()
+                        .target_event_kinds
+                        .clear();
+                }
+                assert!(validate(&invalid).is_err(), "{action_id}: {mutation}");
+            }
+        }
+    }
+
+    #[test]
+    fn realm_actor_creation_approval_overrides_reject_wrong_carriers_targets_and_approvers() {
+        for action in ["ak.applet.bot.provision", "ak.applet.ghost.provision"] {
+            for mutation in 0..4 {
+                let mut inputs =
+                    SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+                let row = inputs
+                    .capability_actions
+                    .approval_requirement_eligibility
+                    .action_overrides
+                    .iter_mut()
+                    .find(|row| row.action == action)
+                    .expect("creation override");
+                match mutation {
+                    0 => row.carrier_id = "applet_configuration.approval_signatures".into(),
+                    1 => row.eligibility_kind = "registered_operation_carrier".into(),
+                    2 => row.approver_capability_action = Some("ak.realm.owner".into()),
+                    3 => {
+                        inputs
+                            .capability_actions
+                            .actions
+                            .iter_mut()
+                            .find(|row| row.action == action)
+                            .unwrap()
+                            .target_event_kinds = vec!["ak.message.create".into()]
+                    }
+                    _ => unreachable!(),
+                }
+                assert!(validate(&inputs).unwrap_err().to_string()
+                    .contains("requires its exact Realm actor creation approval carrier and Realm administrator"));
+            }
+        }
+    }
+
+    #[test]
+    fn required_creation_approval_qualification_cannot_be_omitted() {
+        for action in [
+            "ak.applet.bot.provision",
+            "ak.applet.ghost.provision",
+            "ak.applet.configure",
+        ] {
+            let mut inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+            inputs
+                .capability_actions
+                .approval_requirement_eligibility
+                .action_overrides
+                .retain(|row| row.action != action);
+            assert!(
+                validate(&inputs)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("required approval qualification override missing")
+            );
+        }
     }
 
     #[test]

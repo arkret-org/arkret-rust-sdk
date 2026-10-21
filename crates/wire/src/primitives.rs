@@ -646,10 +646,6 @@ pub enum InviteState {
     Revoked,
     Expired,
     Claimed,
-    SendFailed,
-    RevokedByCapabilityLoss,
-    RevokedByInviterLeft,
-    InvalidatedByRateLimit,
 }
 
 impl InviteState {
@@ -662,10 +658,6 @@ impl InviteState {
             Self::Revoked => "revoked",
             Self::Expired => "expired",
             Self::Claimed => "claimed",
-            Self::SendFailed => "send_failed",
-            Self::RevokedByCapabilityLoss => "revoked_by_capability_loss",
-            Self::RevokedByInviterLeft => "revoked_by_inviter_left",
-            Self::InvalidatedByRateLimit => "invalidated_by_rate_limit",
         }
     }
 
@@ -678,20 +670,16 @@ impl InviteState {
             "revoked" => Self::Revoked,
             "expired" => Self::Expired,
             "claimed" => Self::Claimed,
-            "send_failed" => Self::SendFailed,
-            "revoked_by_capability_loss" => Self::RevokedByCapabilityLoss,
-            "revoked_by_inviter_left" => Self::RevokedByInviterLeft,
-            "invalidated_by_rate_limit" => Self::InvalidatedByRateLimit,
             _ => return None,
         })
     }
 
-    /// Whether this state is one of the seven
+    /// Whether this state is one of the four
     /// `event_kind_registry.transition_contracts.invite_lifecycle.terminal_states`.
     /// Every later state-changing Event on a terminal Invite is refused with
     /// `invite_already_terminal` (`zh/models/governance-objects.md` section 5.3).
     pub const fn is_terminal(self) -> bool {
-        !matches!(self, Self::Pending | Self::Claimed | Self::SendFailed)
+        !matches!(self, Self::Pending | Self::Claimed)
     }
 }
 

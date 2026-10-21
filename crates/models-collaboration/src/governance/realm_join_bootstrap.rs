@@ -69,6 +69,7 @@ impl RealmJoinBootstrapAssembly {
     /// advertised for the same stream — an authority that answered that way has
     /// handed the joiner a target it has already passed.
     pub fn new(outcome: PeerRealmJoinBootstrapOutcome) -> Result<Self> {
+        outcome.snapshot.require_full_recovery()?;
         if outcome.visible_stream_heads.is_empty() {
             return Err(invalid("realm join bootstrap advertises no visible stream"));
         }
@@ -371,6 +372,8 @@ mod tests {
 
     fn snapshot(realm: &RealmId, floors: Vec<CommitStreamHead>) -> RealmStateSnapshot {
         RealmStateSnapshot {
+            purpose: arkret_wire::RealmSnapshotPurpose::FullRecovery,
+            history_basis: None,
             snapshot_id: RealmSnapshotId::from_digest([0x44; 32]),
             realm_id: realm.clone(),
             governance_generation: 0,

@@ -14,7 +14,7 @@ use arkret_signatures::{
 };
 use arkret_wire::{
     AccountId, ActorId, AuthoredEvent, DeviceId, Did, DidCoreId, DidKey, DidUrl, ErrorCode, Event,
-    EventId, NonEmptyString, ProtocolSignature, RealmId, ScopeRef, ServiceKind,
+    EventId, NonEmptyString, ProtocolSignature, ScopeRef, ServiceKind,
 };
 use chrono::{DateTime, Duration, TimeZone as _, Utc};
 use ed25519_dalek::SigningKey;
@@ -211,21 +211,34 @@ fn commit(
 fn fixture() -> (Station, Event, AgentProducerEvidence) {
     let station = station(74, "station.example");
     let controller = account(&station);
+    let at = station.registered_at + Duration::seconds(20);
+    let next = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+        SigningKey::from_bytes(&[90; 32]).verifying_key().as_bytes(),
+    );
+    let inception = arkret_signatures::webvh::prepare_agent_inception(
+        &arkret_signatures::webvh::AgentInceptionInput {
+            principal_endpoint: &"https://agent.example/".parse().unwrap(),
+            local_id: "portable-agent",
+            controller_principal_id: &controller.principal_id,
+            version_time: at,
+            root_seed: &[89; 32],
+            next_root_public_key_multibase: &next,
+        },
+    )
+    .unwrap();
+    let agent_did = Did::new(inception.did.clone()).unwrap();
     let agent = AccountId::new(
-        arkret_wire::project_did_to_core_id(
-            &Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
-        )
-        .unwrap(),
+        arkret_wire::project_did_to_core_id(&agent_did).unwrap(),
         station.service_id.clone(),
     );
-    let at = station.registered_at + Duration::seconds(20);
+    assert_ne!(agent.principal_id, controller.principal_id);
     let mut genesis = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.realm.create",
         ScopeRef::RealmGenesis,
         ActorId::account(agent.clone()),
         json!({"object": {
           "schema":"ak.schema.realm_genesis.v1","purpose":"agent_control","genesis_salt":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-          "initial_resolution":{"did":"did:webvh:z6mkfixture:agent.example","method_history_head":format!("sha256:{}","1".repeat(64)),"version_id":"1-fixture"},
+          "initial_resolution":{"did":agent_did,"method_history_head":arkret_canonical::canonical_sha256(&inception.log_entry).unwrap(),"version_id":inception.version_id},
           "trust_domain":"ak:trust_domain:station.example","security_class":"high_assurance","governance_station_id":station.service_id,
           "initial_join_rule":"closed","initial_history_access":"since_join","initial_discoverability":"secret"
         }}),
@@ -234,7 +247,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     .unwrap();
     genesis.executed_by = Some(ActorId::account(controller.clone()));
     genesis.authorization_ref = Some(
-        DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller")
+        DidUrl::new(format!("{agent_did}#managed-controller"))
             .unwrap()
             .into(),
     );
@@ -242,7 +255,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     let genesis = sign(genesis, &method, DEVICE_SEED);
     let raw = SigningKey::from_bytes(&[88; 32]).verifying_key().to_bytes();
     let encoded = arkret_canonical::base64url_encode(raw);
-    let runtime = "did:webvh:z6mkfixture:agent.example#runtime-key";
+    let runtime = format!("{agent_did}#runtime-key");
     let issued = at + Duration::seconds(10);
     let mut key = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.agent.key.authorize",
@@ -262,7 +275,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     .unwrap();
     key.executed_by = Some(ActorId::account(controller.clone()));
     key.authorization_ref = Some(
-        DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller")
+        DidUrl::new(format!("{agent_did}#managed-controller"))
             .unwrap()
             .into(),
     );
@@ -274,7 +287,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     let binding = AgentKeyAuthorization {
         agent_id: agent.principal_id.clone(),
         agent_key_id: NonEmptyString::new("runtime-key").unwrap(),
-        verification_method: DidUrl::new(runtime).unwrap(),
+        verification_method: DidUrl::new(&runtime).unwrap(),
         public_key: serde_json::from_value(key.payload["public_key"].clone()).unwrap(),
         public_key_digest: arkret_wire::Hash::new(arkret_canonical::canonical::sha256_digest(raw))
             .unwrap(),
@@ -357,7 +370,6 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
             realm_id: genesis.realm_id.clone(),
             genesis_event: genesis.clone(),
             genesis_commit: first,
-            authority_transitions: vec![],
             signer_histories: vec![station.service_resolution.clone()],
         },
         signer_dependencies: vec![AgentSignerDependency::AccountDevice {
@@ -396,7 +408,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         authenticated_signer_evidence: AuthenticatedSignerResolutionEvidence {
             signer_kind: AuthenticatedSignerKind::Agent,
             subject_id: agent.principal_id.clone(),
-            verification_method: DidUrl::new(runtime).unwrap(),
+            verification_method: DidUrl::new(&runtime).unwrap(),
             public_key_jwk: serde_json::from_value(
                 json!({"kty":"OKP","crv":"Ed25519","x":encoded}),
             )
@@ -424,7 +436,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         at,
     )
     .unwrap();
-    (station, sign(event, runtime, [88; 32]), leaf)
+    (station, sign(event, &runtime, [88; 32]), leaf)
 }
 
 #[test]
@@ -474,4 +486,19 @@ fn cold_full_agent_proof_and_exact_compact_cache() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn fixed_agent_authority_carrier_has_no_legacy_handoff_slot() {
+    let (_, _, evidence) = fixture();
+    let bundle = &evidence
+        .agent_authority_state_evidence
+        .state
+        .as_ref()
+        .unwrap()
+        .authority_bundle;
+    let mut legacy = serde_json::to_value(bundle).unwrap();
+    assert!(legacy.get("authority_transitions").is_none());
+    legacy["authority_transitions"] = json!([]);
+    assert!(serde_json::from_value::<AgentAcceptedAuthorityBundle>(legacy).is_err());
 }

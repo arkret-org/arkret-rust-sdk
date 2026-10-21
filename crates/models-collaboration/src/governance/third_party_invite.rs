@@ -102,10 +102,10 @@ pub struct ThirdPartyInvite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lookup_table_ref: Option<String>,
     /// `lookup` mode — opaque pepper id; rotate after 3 verification
-    /// failures (`invalidated_by_rate_limit` terminal state).
+    /// failures (private diagnostic; shared invalidation is a confirmed revoke).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pepper_id: Option<String>,
-    /// Maximum claim attempts before terminal `invalidated_by_rate_limit`.
+    /// Maximum successful token claims; v1 fixes this at one.
     #[serde(default = "single_claim")]
     pub max_claims: u32,
     /// Core identity of the verifier expected to verify the OOB code.
@@ -284,8 +284,8 @@ pub enum ThirdPartyInviteProvisioningState {
 /// Out-of-band delivery progress of an activated provisioning record.
 ///
 /// `failed` reports only that the service exhausted its retry budget; the
-/// Realm-visible transition still requires an authorized writer to submit
-/// `ak.invite.revoke` with `target_state = send_failed`.
+/// shared authorization remains unchanged. Policy invalidation requires a
+/// separate authorized `ak.invite.revoke` with `target_state = revoked`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

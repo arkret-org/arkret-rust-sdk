@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-21.1;
-//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf
+//! Input: registry/error-code-registry.json; version=2026-10-22.1;
+//! sha256=3df9ae1408db73220dbe82128661688a63187c8af70581f8a32558ec0aee1032
 //! Entries: reason_codes=306, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2103,7 +2103,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_ALREADY_TERMINAL,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An Invite state transition is rejected because the target Invite is already in a terminal flow state (`accepted` / `rejected` / `revoked` / `revoked_by_capability_loss` / `revoked_by_inviter_left` / `expired` / `invalidated_by_rate_limit`). Note the Invite `state` is the invite flow axis (not the generic object lifecycle axis); see zh/models/governance-objects.md §5.3.",
+        description: "An Invite state transition is rejected because the target Invite is already in a terminal flow state (`accepted` / `rejected` / `revoked` / `expired`). Note the Invite `state` is the invite flow axis (not the generic object lifecycle axis); see zh/models/governance-objects.md §5.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_DIRECTED_INVITEE_MISMATCH,
