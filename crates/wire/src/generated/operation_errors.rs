@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-21.5;
-//! sha256=72b8775e60237ed01c8e1379a57a172d9975e80622aee3fcf3f5c2193a352a8f Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-22.1;
+//! sha256=357a69e0ecba0e50850012b146b6eb23198739d456e5c22aee492f478211ab8e Input: registry/
 //! contract-registry.json; version=2026-10-22.2;
 //! sha256=103ae952f29a7a0e999af294c5fd3c81a7c64e07fc5a466aefc81ddaee81311e Input: registry/
 //! error-code-registry.json; version=2026-10-22.1;
@@ -807,6 +807,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
     &[
+        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
         OperationSpecificError::Code(ErrorCode::KeypackageAlreadyConsumed),
         OperationSpecificError::Code(ErrorCode::KeypackageUnknown),
     ],
