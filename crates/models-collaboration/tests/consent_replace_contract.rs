@@ -96,7 +96,8 @@ fn permission_read(
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":realm},"stream_position":7,"commit_id":commit},
         "current":{"state":"present","result":{"selector":{"kind":"consent","peer_id":actor_id},
             "source_stream_ref":{"kind":"realm","realm_id":realm},"revision":{"commit_id":commit,"stream_position":7},"value":value}},
-        "evaluated_at":now,"expires_at":now+chrono::Duration::seconds(30),
+        "evaluated_at":now.to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
+        "expires_at":(now+chrono::Duration::seconds(30)).to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
         "proof":{"verification_method":"did:web:station.example#authority","jws":"local-evaluator-fixture-unverified"}
     })).unwrap();
     (request, outcome)
