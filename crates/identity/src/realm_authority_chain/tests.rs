@@ -302,6 +302,17 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         "purpose": purpose, "governance_station_id": core_id(STATION_A)
     }}))
     .unwrap();
+    if purpose == "applet_managed_control" {
+        // Reconstruct the retired delegated origin as a negative fixture,
+        // including both formerly required executor coordinates.
+        genesis_event.executed_by = Some(arkret_wire::ActorId::service(core_id(STATION_A)));
+        genesis_event.authorization_ref = Some(
+            arkret_wire::AuthorizationRef::new(
+                EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x77; 32]).to_string(),
+            )
+            .unwrap(),
+        );
+    }
     genesis_event
         .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
@@ -354,7 +365,11 @@ fn chain_with_purpose(purpose: &str) -> Chain {
             to_service_id: core_id(STATION_B),
             final_stream_heads_digest: hash('a'),
             historical_signer_facts_digest: None,
-            pcr_private_state_digest: (purpose == "principal_control").then(|| hash('b')),
+            pcr_private_state_digest: matches!(
+                purpose,
+                "principal_control" | "applet_managed_control"
+            )
+            .then(|| hash('b')),
             snapshot_ref: RealmSnapshotId::from_digest([0x44; 32]),
             change_event_ref: change_event.event_id.clone(),
             change_commit_id: change_commit.commit_id.clone(),
@@ -1916,7 +1931,6 @@ fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
     for (purpose, expected) in [
         ("principal_control", GenesisGovernance::Organization),
         ("agent_control", GenesisGovernance::Agent),
-        ("applet_managed_control", GenesisGovernance::AppletManaged),
     ] {
         delegated.payload = serde_json::from_value(json!({"object":{"purpose": purpose}})).unwrap();
         assert_eq!(
@@ -1925,8 +1939,44 @@ fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
         );
         expected.require_transferable().unwrap();
     }
-    delegated.payload = serde_json::from_value(json!({"object":{"purpose":"unknown"}})).unwrap();
-    assert!(GenesisGovernance::from_genesis(&delegated).is_err());
+    for unsupported in ["applet_managed_control", "unknown"] {
+        delegated.payload =
+            serde_json::from_value(json!({"object":{"purpose":unsupported}})).unwrap();
+        assert!(GenesisGovernance::from_genesis(&delegated).is_err());
+    }
+}
+
+#[test]
+fn retired_applet_pcr_cannot_establish_signed_current_or_handoff_authority() {
+    let chain = chain_with_purpose("applet_managed_control");
+    verify_history_signatures(
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &chain.bundle.authority_transitions,
+        &chain.keys,
+    )
+    .unwrap();
+    let error = verify(&chain).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("governance provenance is unresolved"),
+        "{error}"
+    );
+    assert!(chain.bundle.validate_shape().is_err());
+    let error = walk_history_parts(
+        &chain.bundle.realm_id,
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &[],
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("governance provenance is unresolved"),
+        "{error}"
+    );
 }
 
 #[test]

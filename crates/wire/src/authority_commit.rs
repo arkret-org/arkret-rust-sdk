@@ -590,7 +590,6 @@ pub enum GenesisGovernance {
     Human(AccountId),
     Organization,
     Agent,
-    AppletManaged,
     Collaboration,
     DirectConversation(DidCoreId),
 }
@@ -626,7 +625,6 @@ impl GenesisGovernance {
             }
             (Some("principal_control"), (true, true)) => Ok(Self::Organization),
             (Some("agent_control"), (true, true)) => Ok(Self::Agent),
-            (Some("applet_managed_control"), (true, true)) => Ok(Self::AppletManaged),
             (Some("collaboration"), _) => Ok(Self::Collaboration),
             (Some("direct_conversation"), _) => {
                 let station = payload
@@ -650,10 +648,7 @@ impl GenesisGovernance {
     }
 
     pub fn is_principal_control(&self) -> bool {
-        matches!(
-            self,
-            Self::Human(_) | Self::Organization | Self::Agent | Self::AppletManaged
-        )
+        matches!(self, Self::Human(_) | Self::Organization | Self::Agent)
     }
 
     pub fn validate_current(&self, service: &DidCoreId, generation: u64) -> Result<()> {
@@ -742,13 +737,7 @@ impl RealmAuthorityBundle {
             &self.genesis_commit.signature,
         )?);
         let mut last_handoff = None;
-        let genesis_payload = serde_json::to_value(&self.genesis_event.payload)?;
-        let private_control = matches!(
-            genesis_payload
-                .pointer("/object/purpose")
-                .and_then(Value::as_str),
-            Some("principal_control" | "agent_control" | "applet_managed_control")
-        );
+        let private_control = governance.is_principal_control();
         for transition in &self.authority_transitions {
             transition.validate_shape()?;
             if transition.handoff.pcr_private_state_digest.is_some() != private_control {
