@@ -544,27 +544,15 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
             .iter()
             .find(|carrier| carrier.carrier_id == row.carrier_id)
             .expect("override carrier existence checked above");
-        let aggregate_carrier = action.event_mapping_kind == "operation_verb"
-            && !action.target_event_kinds.is_empty()
-            && inputs
-                .operations
-                .operations
-                .iter()
-                .find(|operation| operation.operation_id == carrier.operation_id)
-                .and_then(|operation| operation.durable_effect.as_ref())
-                .is_some_and(|effect| {
-                    effect.kind == "event_log"
-                        && action
-                            .target_event_kinds
-                            .iter()
-                            .all(|kind| effect.event_kinds.contains(kind))
-                });
-        if !(action.event_mapping_kind == "non_event_surface" || aggregate_carrier)
-            || row.eligibility_kind != "registered_operation_carrier"
-            || carrier.carrier_class != "non_event_operation"
-        {
+        let event_carrier = action.event_mapping_kind != "non_event_surface"
+            && row.eligibility_kind == "event_submission_carrier"
+            && carrier.carrier_class == "event_submission";
+        let operation_carrier = action.event_mapping_kind == "non_event_surface"
+            && row.eligibility_kind == "registered_operation_carrier"
+            && carrier.carrier_class == "non_event_operation";
+        if !event_carrier && !operation_carrier {
             bail!(
-                "approval eligibility override for {} does not select a non-event operation carrier",
+                "approval eligibility override for {} does not match its registered carrier class",
                 row.action
             );
         }
