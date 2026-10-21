@@ -258,6 +258,45 @@ pub struct DeviceMessagesGetOutcome {
     pub lost: Option<bool>,
 }
 
+impl DeviceMessagesGetOutcome {
+    /// Realm-managed Devices use this queue for Welcome only. This validates
+    /// the closed recipient binding, not Welcome cryptography or current access.
+    pub fn validate_realm_device_recipient(
+        &self,
+        actor: &arkret_wire::ActorId,
+        device: &DeviceId,
+        scope: &arkret_wire::ScopeRef,
+    ) -> arkret_wire::Result<()> {
+        let invalid = || {
+            arkret_wire::WireError::Protocol(
+                "Realm Device queue requires only exact-scope recipient Welcome deliveries".into(),
+            )
+        };
+        let realm_actor = actor.as_realm_actor_id().ok_or_else(invalid)?;
+        if !matches!(
+            scope,
+            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+        ) || scope.realm_id_opt() != Some(&realm_actor.realm_id)
+        {
+            return Err(invalid());
+        }
+        for delivery in &self.deliveries {
+            let RecipientDelivery::MlsWelcome { mls_welcome } = delivery else {
+                return Err(invalid());
+            };
+            mls_welcome.validate_shape()?;
+            if &mls_welcome.recipient_actor_id != actor
+                || &mls_welcome.effective_scope != scope
+                || !matches!(&mls_welcome.recipient_endpoint,
+                    arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } if device_id == device)
+            {
+                return Err(invalid());
+            }
+        }
+        Ok(())
+    }
+}
+
 /// One item from the recipient-private queue shared by device messages and
 /// producer-signed MLS Welcome deliveries. The original payload is preserved
 /// byte-for-byte at the object boundary; it is never rewrapped as the other
@@ -290,6 +329,48 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn realm_device_queue_rejects_device_messages_and_account_substitution() {
+        let event =
+            arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
+        let realm = arkret_wire::RealmId::from_event_id(&event);
+        let actor = arkret_wire::ActorId::realm(arkret_wire::RealmActorId {
+            realm_id: realm.clone(),
+            principal_id: "ak:did_core:webvh:zBot".parse().unwrap(),
+        });
+        let device = "ak:device:01964137-0000-7000-8000-000000000003"
+            .parse()
+            .unwrap();
+        let scope = arkret_wire::ScopeRef::Realm { realm_id: realm };
+        let mut outcome = DeviceMessagesGetOutcome {
+            deliveries: Vec::new(),
+            ack_token: None,
+            next_cursor: None,
+            has_more: false,
+            limited: None,
+            lost: None,
+        };
+        outcome
+            .validate_realm_device_recipient(&actor, &device, &scope)
+            .unwrap();
+        outcome.deliveries.push(RecipientDelivery::DeviceMessage {
+            device_message: serde_json::from_value(device_message()).unwrap(),
+        });
+        assert!(
+            outcome
+                .validate_realm_device_recipient(&actor, &device, &scope)
+                .is_err()
+        );
+        let mut wire = device_message();
+        wire.as_object_mut().unwrap().remove("recipient_account_id");
+        wire["recipient_actor_id"] = json!(actor);
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(wire).is_err());
+        let mut wire = device_message();
+        wire.as_object_mut().unwrap().remove("sender_account_id");
+        wire["sender_actor_id"] = json!(actor);
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(wire).is_err());
+    }
 
     fn device_message() -> Value {
         json!({
