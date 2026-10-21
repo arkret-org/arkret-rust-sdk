@@ -714,3 +714,45 @@ fn recovery_verifies_native_successor_without_old_control_signature_and_finishes
         .is_err()
     );
 }
+
+#[test]
+fn private_current_writer_rejects_another_subject_selector_and_gate() {
+    let (candidate, signer) = candidate();
+    let at = "2026-10-20T00:00:00.000Z".parse().unwrap();
+    let event =
+        arkret::author_realm_actor_create(candidate.clone(), DigestSuite::Sha256, at, &signer)
+            .unwrap();
+    let selector = CurrentSelector::RealmActorRecovery {
+        actor_id: candidate.actor_id.clone(),
+    };
+    validate_realm_actor_current_writer(&selector, &event).unwrap();
+    let mut wrong = event.clone();
+    wrong.kind = EventKind::ProfileCreate;
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong = event.clone();
+    wrong.payload.insert(
+        "actor_id".into(),
+        json!(ActorId::service(candidate.service_id.clone())),
+    );
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut update = event;
+    update.kind = EventKind::RealmActorStatusSet;
+    update.payload = serde_json::from_value(json!({
+        "target_actor_id": candidate.actor_id, "gate":"governance", "state":"paused",
+        "expected_revision":{"commit_id":RealmCommitId::from_digest([61;32]),"stream_position":1}
+    }))
+    .unwrap();
+    let governance = CurrentSelector::RealmActorStatus {
+        actor_id: candidate.actor_id.clone(),
+        gate: RealmActorStatusGate::Governance,
+    };
+    let owner = CurrentSelector::RealmActorStatus {
+        actor_id: candidate.actor_id,
+        gate: RealmActorStatusGate::Owner,
+    };
+    validate_realm_actor_current_writer(&governance, &update).unwrap();
+    assert!(validate_realm_actor_current_writer(&owner, &update).is_err());
+    assert!(validate_realm_actor_current_writer(&selector, &update).is_err());
+    update.payload.insert("state".into(), json!("retired"));
+    validate_realm_actor_current_writer(&selector, &update).unwrap();
+}

@@ -59,8 +59,13 @@ pub enum RealmActorMaterialPurpose {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RealmActorMaterialCurrentEntry {
-    Present { row: TypedCurrentRow },
-    NeverWritten { selector: CurrentSelector },
+    Present {
+        row: TypedCurrentRow,
+        source_ref: CommittedEventRef,
+    },
+    NeverWritten {
+        selector: CurrentSelector,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -325,8 +330,12 @@ impl RealmActorMaterialOutcome {
                                     revision,
                                     ..
                                 },
+                            source_ref,
                         } => {
-                            if source_stream_ref != &stream
+                            if source_ref.stream_ref != *source_stream_ref
+                                || source_ref.commit_id != revision.commit_id
+                                || source_ref.stream_position != revision.stream_position
+                                || source_stream_ref != &stream
                                 || self.control_stream_head.as_ref().is_none_or(|head| {
                                     revision.stream_position > head.stream_position
                                         || (revision.stream_position == head.stream_position
@@ -495,6 +504,7 @@ impl RealmActorMaterialOutcome {
                         let actual = match returned {
                             RealmActorMaterialCurrentEntry::Present {
                                 row: TypedCurrentRow::Value { selector, .. },
+                                ..
                             }
                             | RealmActorMaterialCurrentEntry::NeverWritten { selector } => selector,
                         };
@@ -547,4 +557,95 @@ impl RealmActorMaterialOutcome {
         }
         Ok(())
     }
+}
+
+/// Check that a private selector's retained writer can actually produce that
+/// selector. Cryptographic acceptance and the exact coordinate are verified
+/// separately; another valid Event must never repair a missing current source.
+pub fn validate_realm_actor_current_writer(
+    selector: &CurrentSelector,
+    event: &Event,
+) -> Result<()> {
+    use arkret_wire::{EventKind as K, RealmActorStatusGate, ScopeRef};
+    let actor = realm_actor_selector_subject(selector).ok_or_else(invalid)?;
+    let subject = actor.as_realm_actor_id().ok_or_else(invalid)?;
+    let target = if event.kind == K::RealmActorCreate {
+        event.payload.get("actor_id")
+    } else {
+        event.payload.get("target_actor_id")
+    };
+    if event.realm_id != subject.realm_id
+        || event.scope_ref
+            != (ScopeRef::RealmControl {
+                realm_id: subject.realm_id.clone(),
+            })
+        || target.map_or(event.actor_id != *actor, |value| {
+            value != &serde_json::json!(actor)
+        })
+    {
+        return Err(invalid());
+    }
+    let creates = event.kind == K::RealmActorCreate;
+    let writes = match selector {
+        CurrentSelector::RealmActorIdentity { .. } => creates,
+        CurrentSelector::RealmActorControl { .. } => {
+            creates
+                || matches!(
+                    event.kind,
+                    K::RealmActorControlUpdate
+                        | K::RealmActorManagerChange
+                        | K::RealmActorControlReset
+                )
+        }
+        CurrentSelector::RealmActorManager { .. } => {
+            creates || event.kind == K::RealmActorManagerChange
+        }
+        CurrentSelector::RealmActorStatus { gate, .. } => {
+            creates
+                || (event.kind == K::RealmActorRecoveryBegin
+                    && *gate == RealmActorStatusGate::Owner)
+                || (event.kind == K::RealmActorStatusSet
+                    && event.payload.get("gate") == Some(&serde_json::json!(gate)))
+        }
+        CurrentSelector::RealmActorDeviceGeneration { .. } => {
+            creates
+                || matches!(
+                    event.kind,
+                    K::RealmActorRecoveryBegin
+                        | K::RealmActorDevicesReset
+                        | K::RealmActorManagerChange
+                )
+        }
+        CurrentSelector::RealmActorRecovery { .. } => {
+            creates
+                || matches!(
+                    event.kind,
+                    K::RealmActorRecoverySet
+                        | K::RealmActorRecoveryBegin
+                        | K::RealmActorControlReset
+                )
+                || (event.kind == K::RealmActorStatusSet
+                    && event
+                        .payload
+                        .get("state")
+                        .and_then(serde_json::Value::as_str)
+                        == Some("retired"))
+        }
+        CurrentSelector::RealmActorDeviceAuthorization { device_id, .. } => {
+            event.kind == K::DeviceAuthorize
+                && event.payload.get("device_id") == Some(&serde_json::json!(device_id))
+        }
+        CurrentSelector::RealmActorDeviceRevocationProposals { device_id, .. } => {
+            event.kind == K::DeviceRevoke
+                && event.payload.get("device_id") == Some(&serde_json::json!(device_id))
+        }
+        CurrentSelector::RealmActorProfile { .. } => {
+            matches!(event.kind, K::ProfileCreate | K::ProfileUpdate)
+        }
+        _ => false,
+    };
+    if !writes {
+        return Err(invalid());
+    }
+    Ok(())
 }
