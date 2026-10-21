@@ -59,8 +59,13 @@ pub enum RealmActorMaterialPurpose {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RealmActorMaterialCurrentEntry {
-    Present { row: TypedCurrentRow },
-    NeverWritten { selector: CurrentSelector },
+    Present {
+        row: TypedCurrentRow,
+        source_ref: CommittedEventRef,
+    },
+    NeverWritten {
+        selector: CurrentSelector,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -325,8 +330,12 @@ impl RealmActorMaterialOutcome {
                                     revision,
                                     ..
                                 },
+                            source_ref,
                         } => {
-                            if source_stream_ref != &stream
+                            if source_ref.stream_ref != *source_stream_ref
+                                || source_ref.commit_id != revision.commit_id
+                                || source_ref.stream_position != revision.stream_position
+                                || source_stream_ref != &stream
                                 || self.control_stream_head.as_ref().is_none_or(|head| {
                                     revision.stream_position > head.stream_position
                                         || (revision.stream_position == head.stream_position
@@ -495,6 +504,7 @@ impl RealmActorMaterialOutcome {
                         let actual = match returned {
                             RealmActorMaterialCurrentEntry::Present {
                                 row: TypedCurrentRow::Value { selector, .. },
+                                ..
                             }
                             | RealmActorMaterialCurrentEntry::NeverWritten { selector } => selector,
                         };
