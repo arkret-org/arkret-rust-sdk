@@ -336,12 +336,6 @@ pub enum DirectConversationFoundingAuthorityEvidence {
         /// verifier re-derives the founder from the root Contact round, never
         /// from the current one.
         contact_round_evidence: ContactRoundEvidenceBundle,
-        /// Ordered tombstone/recontact predecessors from the current Contact
-        /// round back to the pair's unique root round, each linked by
-        /// `previous_terminal_contact_round_id`. Empty means the current round
-        /// is itself the root. A break, a cycle, multiple roots, or two
-        /// directional proofs yielding different roots reject the unit.
-        contact_round_continuity_chains: Vec<ContactRoundEvidenceBundle>,
     },
     ControllerAgent {
         /// Complete identity of the accepted Agent provision Event. Its digest
@@ -351,9 +345,6 @@ pub enum DirectConversationFoundingAuthorityEvidence {
         controller_binding_digest: Hash,
     },
 }
-
-/// Largest recontact continuity chain a founding unit may carry.
-pub const DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX: usize = 64;
 
 impl DirectConversationFoundingAuthorityEvidence {
     /// The single accepted Event reference this branch is founded on.
@@ -407,19 +398,7 @@ impl DirectConversationFoundingAuthorityEvidence {
             Self::ControllerAgent { .. } => Ok(()),
             Self::Human {
                 contact_round_evidence,
-                contact_round_continuity_chains,
-            } => {
-                if contact_round_continuity_chains.len() > DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX
-                {
-                    return Err(WireError::Protocol(format!(
-                        "direct conversation continuity chain exceeds {DIRECT_CONVERSATION_CONTINUITY_CHAIN_MAX} entries"
-                    )));
-                }
-                crate::contact_operations::validate_recontact_continuity(
-                    contact_round_evidence,
-                    contact_round_continuity_chains,
-                )
-            }
+            } => contact_round_evidence.validate_shape(),
         }
     }
 
@@ -432,7 +411,6 @@ impl DirectConversationFoundingAuthorityEvidence {
     pub fn participants_and_founder(&self) -> Result<([ActorId; 2], ActorId)> {
         let Self::Human {
             contact_round_evidence,
-            contact_round_continuity_chains,
         } = self
         else {
             return Err(WireError::Protocol(
@@ -441,16 +419,7 @@ impl DirectConversationFoundingAuthorityEvidence {
             ));
         };
         self.validate()?;
-        let checkpoint_root = contact_round_evidence
-            .continuity_checkpoint
-            .as_ref()
-            .map(|checkpoint| checkpoint.validate_contact_shape())
-            .transpose()?;
-        let root = checkpoint_root.as_ref().unwrap_or_else(|| {
-            contact_round_continuity_chains
-                .last()
-                .unwrap_or(contact_round_evidence)
-        });
+        let root = &contact_round_evidence.initial_identity.round;
         let (participants, request_ref) = match &root.contact_round {
             ContactRound::Normal {
                 sorted_pair_member_ids,

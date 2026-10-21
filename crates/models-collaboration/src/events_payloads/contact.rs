@@ -3,49 +3,24 @@
 use crate::contact_operations::{ContactPeer, ContactScope};
 use crate::internal_prelude::*;
 
-fn serialize_initial_version<S: serde::Serializer>(
+fn serialize_contact_version<S: serde::Serializer>(
     version: &u64,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error> {
-    if *version != 1 {
+    if *version == 0 || *version > 9_007_199_254_740_991 {
         return Err(serde::ser::Error::custom(
-            "contact accepted version must be exactly 1",
+            "Contact version is outside the positive safe integer range",
         ));
     }
     serializer.serialize_u64(*version)
 }
-
-fn deserialize_initial_version<'de, D: serde::Deserializer<'de>>(
+fn deserialize_contact_version<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<u64, D::Error> {
     let version = u64::deserialize(deserializer)?;
-    if version != 1 {
+    if version == 0 || version > 9_007_199_254_740_991 {
         return Err(serde::de::Error::custom(
-            "contact accepted version must be exactly 1",
-        ));
-    }
-    Ok(version)
-}
-
-fn serialize_successor_version<S: serde::Serializer>(
-    version: &u64,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error> {
-    if *version < 2 {
-        return Err(serde::ser::Error::custom(
-            "contact tombstone version must be at least 2",
-        ));
-    }
-    serializer.serialize_u64(*version)
-}
-
-fn deserialize_successor_version<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<u64, D::Error> {
-    let version = u64::deserialize(deserializer)?;
-    if version < 2 {
-        return Err(serde::de::Error::custom(
-            "contact tombstone version must be at least 2",
+            "Contact version is outside the positive safe integer range",
         ));
     }
     Ok(version)
