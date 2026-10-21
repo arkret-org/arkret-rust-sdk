@@ -1191,6 +1191,19 @@ impl ArkretMlsGroup {
         self.add_members_with_optional_governance_binding(member_key_packages, None, &[])
     }
 
+    /// Add a batch under the same verified governance binding and Commit.
+    pub fn add_members_with_governance_binding(
+        &mut self,
+        member_key_packages: &[MlsKeyPackageRecord],
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsAddMembersResult> {
+        self.add_members_with_optional_governance_binding(
+            member_key_packages,
+            Some(governance_binding),
+            &[],
+        )
+    }
+
     /// Locate an accepted endpoint incarnation of the exact member. Human
     /// devices are distinct endpoints; an Agent's current runtime replaces
     /// that same Agent's previous runtime authorization.
