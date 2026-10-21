@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-20.1;
-//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f Input: reachable event
+//! Input: registry/contract-registry.json; version=2026-10-21.1;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=42b032d1d6be764a2a7764bccfa909541993b6fd064b5c6c8aedef098d6fd86d
-//! Entries: preimage_commitments=40
+//! sha256=8b3c68d281832a207375f4ba844879cab6c547d4c57b962a1d29376a20a47903
+//! Entries: preimage_commitments=43
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -136,12 +136,27 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_accepted_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/contact_accepted_payload/properties/request_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_rejected_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/contact_rejected_payload/properties/request_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_requested_payload/properties/predecessor_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

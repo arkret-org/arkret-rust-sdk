@@ -115,13 +115,17 @@ mod tests {
         let (receipt, _) = material();
         let signature_metadata = receipt.signature.clone();
         let current = ContactCurrentProof::sign_with(
-            receipt.core.source_checkpoint.clone(),
-            receipt.core.issuer_id.clone(),
+            receipt.core.trust_domain_id.clone(),
+            receipt.core.holder.clone(),
             receipt.core.peer.clone(),
-            false,
+            receipt.core.initial_contact_round_id.clone(),
+            None,
+            receipt.core.issuer_id.clone(),
             receipt.core.request_event_ref.clone(),
-            vec![receipt.core.request_event_ref.clone()],
-            1,
+            receipt.core.version,
+            vec![],
+            None,
+            receipt.core.accepted_at,
             receipt.core.accepted_at + chrono::Duration::minutes(1),
             |bytes| {
                 let mut signature = signature_metadata;
@@ -142,7 +146,7 @@ mod tests {
             )
             .unwrap();
         let mut changed = current;
-        changed.complete_through += 1;
+        changed.version += 1;
         assert!(
             Ed25519DetachedJwsVerifier::new()
                 .verify_detached_jws(

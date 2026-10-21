@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/contact-operations.schema.json
-// sha256=4ff735d490eb47144c12bb1ed07462eb1f899150006106615e2377626a3540f1
+// sha256=575f4385baf1becfed7377f507ce0c37639524b801e5001de2e13b430e244094
 //
 // Input: schemas/authz-operations.schema.json
 // sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
@@ -17,7 +17,7 @@
 // sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=af95236e8ff82e50c34d7765747d25e44d52146a0301a74856e3530bb2a4bf50
+// sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
 
 /// Counterpart: `contact-operations.schema.json#/$defs/contact_list`.
 /// Viewer-specific current Contact rows.

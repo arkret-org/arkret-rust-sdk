@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-19.2;
-//! sha256=90abeda5c0d407ae9f4d42160f4279d27f7a99e46b17ff1ebaa6a56c71ae44cd
-//! Entries: error_codes=161, reserved_not_emitted=94
+//! Input: registry/error-code-registry.json; version=2026-10-21.1;
+//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf
+//! Entries: error_codes=159, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -63,8 +63,6 @@ pub enum ErrorCode {
     ConsentRequired,
     ContactLineageConflict,
     ContactScopeStale,
-    ContinuityEvidenceUnavailable,
-    ContinuityInvalid,
     ControllerSignedEventRequired,
     CurrentDidAuthorityUnavailable,
     CursorExpired,
@@ -240,8 +238,6 @@ impl ErrorCode {
         Self::ConsentRequired,
         Self::ContactLineageConflict,
         Self::ContactScopeStale,
-        Self::ContinuityEvidenceUnavailable,
-        Self::ContinuityInvalid,
         Self::ControllerSignedEventRequired,
         Self::CurrentDidAuthorityUnavailable,
         Self::CursorExpired,
@@ -404,8 +400,6 @@ impl ErrorCode {
     pub const CONSENT_REQUIRED: &'static str = "consent_required";
     pub const CONTACT_LINEAGE_CONFLICT: &'static str = "contact_lineage_conflict";
     pub const CONTACT_SCOPE_STALE: &'static str = "contact_scope_stale";
-    pub const CONTINUITY_EVIDENCE_UNAVAILABLE: &'static str = "continuity_evidence_unavailable";
-    pub const CONTINUITY_INVALID: &'static str = "continuity_invalid";
     pub const CONTROLLER_SIGNED_EVENT_REQUIRED: &'static str = "controller_signed_event_required";
     pub const CURRENT_DID_AUTHORITY_UNAVAILABLE: &'static str = "current_did_authority_unavailable";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
@@ -579,8 +573,6 @@ impl ErrorCode {
             Self::ConsentRequired => "consent_required",
             Self::ContactLineageConflict => "contact_lineage_conflict",
             Self::ContactScopeStale => "contact_scope_stale",
-            Self::ContinuityEvidenceUnavailable => "continuity_evidence_unavailable",
-            Self::ContinuityInvalid => "continuity_invalid",
             Self::ControllerSignedEventRequired => "controller_signed_event_required",
             Self::CurrentDidAuthorityUnavailable => "current_did_authority_unavailable",
             Self::CursorExpired => "cursor_expired",
@@ -757,8 +749,6 @@ impl ErrorCode {
             "consent_required" => Some(Self::ConsentRequired),
             "contact_lineage_conflict" => Some(Self::ContactLineageConflict),
             "contact_scope_stale" => Some(Self::ContactScopeStale),
-            "continuity_evidence_unavailable" => Some(Self::ContinuityEvidenceUnavailable),
-            "continuity_invalid" => Some(Self::ContinuityInvalid),
             "controller_signed_event_required" => Some(Self::ControllerSignedEventRequired),
             "current_did_authority_unavailable" => Some(Self::CurrentDidAuthorityUnavailable),
             "cursor_expired" => Some(Self::CursorExpired),
@@ -1239,26 +1229,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "An existing Contact binding is discoverable but the source-signed issuer head checkpoint/current lease is stale, unknown or incomplete. Contact-based create/send fails closed while coordinates remain visible to authorized participants.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ContinuityEvidenceUnavailable,
-        type_uri: "https://arkret.org/problems/continuity_evidence_unavailable",
-        title: "Continuity evidence unavailable",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A required bilateral continuity checkpoint, predecessor checkpoint or uncompressed tail segment is not currently available. The operation writes nothing and may be retried only after importing or retrieving the exact portable evidence; no gap is inferred or skipped.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ContinuityInvalid,
-        type_uri: "https://arkret.org/problems/continuity_invalid",
-        title: "Continuity invalid",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "Bilateral continuity evidence has an invalid signature, root/participant mismatch, broken or trimmed edge, rollback, same-sequence fork, accumulator mismatch or one-sided checkpoint. The operation writes nothing and MUST NOT downgrade this result to evidence retrieval.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ControllerSignedEventRequired,
