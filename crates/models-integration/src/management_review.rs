@@ -25,6 +25,14 @@ impl ManagementReviewTarget {
         }
     }
 }
+/// An exact private administrator configuration intent; never an approval.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletConfigurationRef {
+    pub request_id: arkret_wire::RequestId,
+    pub intent_digest: Hash,
+}
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,19 +42,27 @@ pub struct ManagementReviewRequestBody {
     pub management_operation: ManagementOperation,
     pub requester_actor_id: ActorId,
     pub target: ManagementReviewTarget,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub configuration_ref: Option<AppletConfigurationRef>,
 }
 impl ManagementReviewRequestBody {
     /// Immutable private intent uses the actual target digest, so attaching
     /// outer creation votes cannot change or circularly redefine the request.
     pub fn canonical_intent_digest(&self) -> arkret_wire::Result<Hash> {
         self.validate()?;
-        Ok(Hash::new(arkret_canonical::canonical_sha256(
-            &serde_json::json!({
-                "request_id":self.request_id,"effective_scope":self.effective_scope,
-                "management_operation":self.management_operation,"requester_actor_id":self.requester_actor_id,
-                "target_digest":self.target.canonical_target_digest()?
-            }),
-        )?)?)
+        let mut intent = serde_json::json!({
+            "request_id":self.request_id,"effective_scope":self.effective_scope,
+            "management_operation":self.management_operation,"requester_actor_id":self.requester_actor_id,
+            "target_digest":self.target.canonical_target_digest()?
+        });
+        if let Some(reference) = &self.configuration_ref {
+            intent["configuration_ref"] = serde_json::to_value(reference)?;
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(&intent)?)?)
     }
 
     pub fn validate(&self) -> arkret_wire::Result<()> {

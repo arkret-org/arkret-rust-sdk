@@ -376,6 +376,7 @@ fn management_review_is_bound_to_the_exact_service_candidate_and_business_scope(
     )
     .unwrap();
     let mut review = ManagementReviewRequestBody {
+        configuration_ref: None,
         request_id: "0123456789012345678901".into(),
         effective_scope: candidate.creation_scope.clone(),
         management_operation: ManagementOperation::MapGhost,
@@ -385,6 +386,31 @@ fn management_review_is_bound_to_the_exact_service_candidate_and_business_scope(
         },
     };
     review.validate().unwrap();
+    let without_configuration = review.canonical_intent_digest().unwrap();
+    review.configuration_ref = Some(AppletConfigurationRef {
+        request_id: "ak:request:01904100-0000-7000-8000-bbbbbbbbbbbb"
+            .parse()
+            .unwrap(),
+        intent_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+    });
+    assert_ne!(
+        without_configuration,
+        review.canonical_intent_digest().unwrap()
+    );
+    let bound = review.canonical_intent_digest().unwrap();
+    let mut wire = serde_json::to_value(&review).unwrap();
+    assert_eq!(
+        serde_json::from_value::<ManagementReviewRequestBody>(wire.clone())
+            .unwrap()
+            .canonical_intent_digest()
+            .unwrap(),
+        bound
+    );
+    wire["configuration_ref"]["login_token"] = json!("forbidden");
+    assert!(serde_json::from_value::<ManagementReviewRequestBody>(wire).is_err());
+    let mut wire = serde_json::to_value(&review).unwrap();
+    wire["configuration_ref"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<ManagementReviewRequestBody>(wire).is_err());
     let original = review.target.canonical_target_digest().unwrap();
     let ManagementReviewTarget::Event { event } = &mut review.target;
     event.authorization_ref =
