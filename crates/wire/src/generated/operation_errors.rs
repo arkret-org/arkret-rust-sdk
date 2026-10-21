@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-21.2;
-//! sha256=50d0a7b2368f50cc1924d1275b6665e4030bb867c0f059f2df1c7b99f8b09aff Input: registry/
-//! contract-registry.json; version=2026-10-21.4;
-//! sha256=763c1ca9d3c1542a93271d3310d7f2a393a4d3204db1d05be70058ac3a5d0c4f Input: registry/
-//! error-code-registry.json; version=2026-10-19.2;
-//! sha256=90abeda5c0d407ae9f4d42160f4279d27f7a99e46b17ff1ebaa6a56c71ae44cd Entries: operations=228
+//! Input: registry/operations-error-mapping.json; version=2026-10-21.3;
+//! sha256=2c8119881e710f49f42502bdb633d04df8fef49506ef4d0f20d0617eeecd0435 Input: registry/
+//! contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: registry/
+//! error-code-registry.json; version=2026-10-21.1;
+//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf Entries: operations=227
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -680,12 +680,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::ContinuityInvalid),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::NotFound),
-        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Code(ErrorCode::SourceRefsUnverifiable),
         OperationSpecificError::Code(ErrorCode::ContactLineageConflict),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
@@ -696,8 +690,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::SourceRefsUnverifiable),
         OperationSpecificError::Code(ErrorCode::ContactLineageConflict),
-        OperationSpecificError::Code(ErrorCode::ContinuityEvidenceUnavailable),
-        OperationSpecificError::Code(ErrorCode::ContinuityInvalid),
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[

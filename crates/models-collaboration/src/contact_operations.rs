@@ -216,13 +216,22 @@ impl ContactProducerSigner {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RequestAcceptanceReceiptCore {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
     pub holder: ContactPeer,
     pub peer: ContactPeer,
-    pub slot_version: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub slot_predecessor: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    pub version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub predecessor_event_ref: Option<EventId>,
     pub request_event_ref: EventId,
     pub producer_signer: ContactProducerSigner,
     pub source_checkpoint: Hash,
@@ -238,8 +247,8 @@ impl RequestAcceptanceReceiptCore {
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
         self.producer_signer.validate_for_holder(&self.holder)?;
-        if self.slot_version == 0
-            || (self.slot_version == 1) == self.slot_predecessor.is_some()
+        validate_contact_operation_version(self.version, self.predecessor_event_ref.as_ref())?;
+        if self.holder.delivery_station_id() != &self.issuer_id
             || self.holder.contact_actor_id() == self.peer.contact_actor_id()
         {
             return Err(arkret_wire::WireError::Protocol(
@@ -250,7 +259,7 @@ impl RequestAcceptanceReceiptCore {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RequestAcceptanceReceipt {
@@ -354,7 +363,7 @@ impl RequestAcceptanceReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactNextPrepareInput {
     pub contact_round_id: Hash,
-    /// Version carried by the *next* Event, so it starts at two.
+    /// Next holder operation version in the direction lifetime.
     pub version: u64,
     /// Current accepted lineage head, used as the next Event predecessor.
     pub predecessor_event_ref: EventId,
@@ -371,17 +380,37 @@ impl ContactNextPrepareInput {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactCurrentProof {
-    pub contact_round_id: Hash,
-    pub issuer_id: DidCoreId,
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    pub holder: ContactPeer,
     pub peer: ContactPeer,
-    pub terminal: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub contact_round_id: Option<Hash>,
+    pub issuer_id: DidCoreId,
     pub head_event_ref: EventId,
-    pub accepted_commit_event_ids: Vec<EventId>,
-    pub complete_through: u64,
+    pub version: u64,
+    pub scope_instances: Vec<ContactScopeInstance>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub closed_round: Option<Box<ContactRoundClosure>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub fresh_until: DateTime<Utc>,
     pub signature: ProtocolSignature,
@@ -389,72 +418,103 @@ pub struct ContactCurrentProof {
 
 #[derive(Serialize)]
 struct UnsignedContactCurrentProof {
-    contact_round_id: Hash,
-    issuer_id: DidCoreId,
+    trust_domain_id: arkret_wire::TrustDomainId,
+    holder: ContactPeer,
     peer: ContactPeer,
-    terminal: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    initial_contact_round_id: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    contact_round_id: Option<Hash>,
+    issuer_id: DidCoreId,
     head_event_ref: EventId,
-    accepted_commit_event_ids: Vec<EventId>,
-    complete_through: u64,
+    version: u64,
+    scope_instances: Vec<ContactScopeInstance>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    closed_round: Option<Box<ContactRoundClosure>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     fresh_until: DateTime<Utc>,
 }
 
 impl ContactCurrentProof {
-    /// Build the exact unsigned transcript and request its real historical source
-    /// signature once. The caller selects and authenticates that historical key;
-    /// no incomplete signed object or placeholder signature is constructed.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_with(
-        contact_round_id: Hash,
-        issuer_id: DidCoreId,
+        trust_domain_id: arkret_wire::TrustDomainId,
+        holder: ContactPeer,
         peer: ContactPeer,
-        terminal: bool,
+        initial_contact_round_id: Option<Hash>,
+        contact_round_id: Option<Hash>,
+        issuer_id: DidCoreId,
         head_event_ref: EventId,
-        accepted_commit_event_ids: Vec<EventId>,
-        complete_through: u64,
+        version: u64,
+        scope_instances: Vec<ContactScopeInstance>,
+        closed_round: Option<Box<ContactRoundClosure>>,
+        issued_at: DateTime<Utc>,
         fresh_until: DateTime<Utc>,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
         let unsigned = UnsignedContactCurrentProof {
+            trust_domain_id,
+            holder,
+            peer,
+            initial_contact_round_id,
             contact_round_id,
             issuer_id,
-            peer,
-            terminal,
             head_event_ref,
-            accepted_commit_event_ids,
-            complete_through,
+            version,
+            scope_instances,
+            closed_round,
+            issued_at,
             fresh_until,
         };
         let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
         Ok(Self {
+            trust_domain_id: unsigned.trust_domain_id,
+            holder: unsigned.holder,
+            peer: unsigned.peer,
+            initial_contact_round_id: unsigned.initial_contact_round_id,
             contact_round_id: unsigned.contact_round_id,
             issuer_id: unsigned.issuer_id,
-            peer: unsigned.peer,
-            terminal: unsigned.terminal,
             head_event_ref: unsigned.head_event_ref,
-            accepted_commit_event_ids: unsigned.accepted_commit_event_ids,
-            complete_through: unsigned.complete_through,
+            version: unsigned.version,
+            scope_instances: unsigned.scope_instances,
+            closed_round: unsigned.closed_round,
+            issued_at: unsigned.issued_at,
             fresh_until: unsigned.fresh_until,
             signature,
         })
     }
-
-    pub fn head_digest(&self) -> Hash {
-        self.head_event_ref.event_digest()
-    }
-
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         arkret_canonical::canonical_json_bytes(&UnsignedContactCurrentProof {
+            trust_domain_id: self.trust_domain_id.clone(),
+            holder: self.holder.clone(),
+            peer: self.peer.clone(),
+            initial_contact_round_id: self.initial_contact_round_id.clone(),
             contact_round_id: self.contact_round_id.clone(),
             issuer_id: self.issuer_id.clone(),
-            peer: self.peer.clone(),
-            terminal: self.terminal,
             head_event_ref: self.head_event_ref.clone(),
-            accepted_commit_event_ids: self.accepted_commit_event_ids.clone(),
-            complete_through: self.complete_through,
-            fresh_until: self.fresh_until,
+            version: self.version.clone(),
+            scope_instances: self.scope_instances.clone(),
+            closed_round: self.closed_round.clone(),
+            issued_at: self.issued_at.clone(),
+            fresh_until: self.fresh_until.clone(),
         })
+    }
+    pub fn head_digest(&self) -> Hash {
+        self.head_event_ref.event_digest()
     }
 }
 
@@ -487,6 +547,15 @@ pub enum ContactRound {
 }
 
 impl ContactRound {
+    pub fn compute_id(&self) -> arkret_wire::Result<Hash> {
+        self.validate_canonical_order()?;
+        Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+            "ak.contact.round.v1",
+            self,
+        )?)
+        .map_err(Into::into)
+    }
+
     /// Check the received core without changing its signed array order.
     pub fn validate_canonical_order(&self) -> arkret_wire::Result<()> {
         let participants = match self {
@@ -520,6 +589,28 @@ impl ContactRound {
             ));
         }
         Ok(())
+    }
+
+    pub fn normal_from_request_receipt(
+        receipt: &RequestAcceptanceReceipt,
+    ) -> arkret_wire::Result<Self> {
+        receipt.validate_shape()?;
+        let mut pair = [
+            receipt.core.holder.contact_actor_id(),
+            receipt.core.peer.contact_actor_id(),
+        ];
+        if arkret_canonical::canonical_json_bytes(&pair[0])?
+            > arkret_canonical::canonical_json_bytes(&pair[1])?
+        {
+            pair.swap(0, 1);
+        }
+        let round = Self::Normal {
+            sorted_pair_member_ids: pair,
+            request_event_ref: receipt.core.request_event_ref.clone(),
+            request_acceptance_receipt_digest: receipt.computed_receipt_digest()?,
+        };
+        round.validate_canonical_order()?;
+        Ok(round)
     }
 
     /// Construct a local core from exact receipts. Signature/current-proof validation is separate.
@@ -570,10 +661,24 @@ impl ContactRound {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NormalResponseAcceptanceReceipt {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    pub version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub predecessor_event_ref: Option<EventId>,
     pub contact_round_id: Hash,
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
@@ -587,6 +692,20 @@ pub struct NormalResponseAcceptanceReceipt {
 
 #[derive(Serialize)]
 struct UnsignedNormalResponseAcceptanceReceipt {
+    trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    initial_contact_round_id: Option<Hash>,
+    version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    predecessor_event_ref: Option<EventId>,
     contact_round_id: Hash,
     request_receipt: RequestAcceptanceReceipt,
     response_event_ref: EventId,
@@ -598,11 +717,12 @@ struct UnsignedNormalResponseAcceptanceReceipt {
 }
 
 impl NormalResponseAcceptanceReceipt {
-    /// Build the exact unsigned transcript and request its real historical source
-    /// signature once. The caller selects and authenticates that historical key;
-    /// no incomplete signed object or placeholder signature is constructed.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_with(
+        trust_domain_id: arkret_wire::TrustDomainId,
+        initial_contact_round_id: Option<Hash>,
+        version: u64,
+        predecessor_event_ref: Option<EventId>,
         contact_round_id: Hash,
         request_receipt: RequestAcceptanceReceipt,
         response_event_ref: EventId,
@@ -612,8 +732,11 @@ impl NormalResponseAcceptanceReceipt {
         issuer_id: DidCoreId,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
         let unsigned = UnsignedNormalResponseAcceptanceReceipt {
+            trust_domain_id,
+            initial_contact_round_id,
+            version,
+            predecessor_event_ref,
             contact_round_id,
             request_receipt,
             response_event_ref,
@@ -624,6 +747,10 @@ impl NormalResponseAcceptanceReceipt {
         };
         let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
         Ok(Self {
+            trust_domain_id: unsigned.trust_domain_id,
+            initial_contact_round_id: unsigned.initial_contact_round_id,
+            version: unsigned.version,
+            predecessor_event_ref: unsigned.predecessor_event_ref,
             contact_round_id: unsigned.contact_round_id,
             request_receipt: unsigned.request_receipt,
             response_event_ref: unsigned.response_event_ref,
@@ -634,21 +761,23 @@ impl NormalResponseAcceptanceReceipt {
             signature,
         })
     }
-
-    pub fn response_digest(&self) -> Hash {
-        self.response_event_ref.event_digest()
-    }
-
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         arkret_canonical::canonical_json_bytes(&UnsignedNormalResponseAcceptanceReceipt {
+            trust_domain_id: self.trust_domain_id.clone(),
+            initial_contact_round_id: self.initial_contact_round_id.clone(),
+            version: self.version.clone(),
+            predecessor_event_ref: self.predecessor_event_ref.clone(),
             contact_round_id: self.contact_round_id.clone(),
             request_receipt: self.request_receipt.clone(),
             response_event_ref: self.response_event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
             outgoing_slot_absence_digest: self.outgoing_slot_absence_digest.clone(),
-            accepted_at: self.accepted_at,
+            accepted_at: self.accepted_at.clone(),
             issuer_id: self.issuer_id.clone(),
         })
+    }
+    pub fn response_digest(&self) -> Hash {
+        self.response_event_ref.event_digest()
     }
 }
 
@@ -659,20 +788,23 @@ pub enum OutgoingRequestState {
     Absent,
 }
 
-/// Exact CAS observation covered by `outgoing_slot_absence_digest`.
-///
-/// `slot_predecessor` intentionally serializes as JSON null at genesis. No
-/// field in this closed transcript is optional on the wire.
+/// Bounded exact slot observation covered by the absence digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct OutgoingSlotAbsenceTranscript {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
     pub sorted_pair_member_ids: [ActorId; 2],
     pub request_slot_owner: ActorId,
     pub contact_round_id: Hash,
-    pub slot_predecessor: Option<Hash>,
-    pub cas_sequence: u64,
-    pub cas_revision: Vec<EventId>,
+    pub request_event_ref: EventId,
+    pub version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub predecessor_event_ref: Option<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub outgoing_request_state: OutgoingRequestState,
@@ -689,9 +821,8 @@ impl OutgoingSlotAbsenceTranscript {
             || !self
                 .sorted_pair_member_ids
                 .contains(&self.request_slot_owner)
-            || self.cas_sequence == 0
-            || self.cas_revision.is_empty()
-            || !self.cas_revision.windows(2).all(|pair| pair[0] < pair[1])
+            || self.version == 0
+            || (self.version == 1) == self.predecessor_event_ref.is_some()
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid Contact outgoing-slot-absence transcript".to_owned(),
@@ -724,10 +855,24 @@ impl OutgoingSlotAbsenceTranscript {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RejectAcceptanceReceipt {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    pub version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub predecessor_event_ref: Option<EventId>,
     pub request_receipt: RequestAcceptanceReceipt,
     pub reject_event_ref: EventId,
     pub producer_signer: ContactProducerSigner,
@@ -739,6 +884,20 @@ pub struct RejectAcceptanceReceipt {
 
 #[derive(Serialize)]
 struct UnsignedRejectAcceptanceReceipt {
+    trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    initial_contact_round_id: Option<Hash>,
+    version: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    predecessor_event_ref: Option<EventId>,
     request_receipt: RequestAcceptanceReceipt,
     reject_event_ref: EventId,
     producer_signer: ContactProducerSigner,
@@ -748,10 +907,12 @@ struct UnsignedRejectAcceptanceReceipt {
 }
 
 impl RejectAcceptanceReceipt {
-    /// Build the exact unsigned transcript and request its real historical source
-    /// signature once. The caller selects and authenticates that historical key;
-    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
     pub fn sign_with(
+        trust_domain_id: arkret_wire::TrustDomainId,
+        initial_contact_round_id: Option<Hash>,
+        version: u64,
+        predecessor_event_ref: Option<EventId>,
         request_receipt: RequestAcceptanceReceipt,
         reject_event_ref: EventId,
         producer_signer: ContactProducerSigner,
@@ -759,8 +920,11 @@ impl RejectAcceptanceReceipt {
         issuer_id: DidCoreId,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
         let unsigned = UnsignedRejectAcceptanceReceipt {
+            trust_domain_id,
+            initial_contact_round_id,
+            version,
+            predecessor_event_ref,
             request_receipt,
             reject_event_ref,
             producer_signer,
@@ -769,6 +933,10 @@ impl RejectAcceptanceReceipt {
         };
         let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
         Ok(Self {
+            trust_domain_id: unsigned.trust_domain_id,
+            initial_contact_round_id: unsigned.initial_contact_round_id,
+            version: unsigned.version,
+            predecessor_event_ref: unsigned.predecessor_event_ref,
             request_receipt: unsigned.request_receipt,
             reject_event_ref: unsigned.reject_event_ref,
             producer_signer: unsigned.producer_signer,
@@ -777,62 +945,95 @@ impl RejectAcceptanceReceipt {
             signature,
         })
     }
-
-    pub fn reject_digest(&self) -> Hash {
-        self.reject_event_ref.event_digest()
-    }
-
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         arkret_canonical::canonical_json_bytes(&UnsignedRejectAcceptanceReceipt {
+            trust_domain_id: self.trust_domain_id.clone(),
+            initial_contact_round_id: self.initial_contact_round_id.clone(),
+            version: self.version.clone(),
+            predecessor_event_ref: self.predecessor_event_ref.clone(),
             request_receipt: self.request_receipt.clone(),
             reject_event_ref: self.reject_event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
-            accepted_at: self.accepted_at,
+            accepted_at: self.accepted_at.clone(),
             issuer_id: self.issuer_id.clone(),
         })
     }
+    pub fn reject_digest(&self) -> Hash {
+        self.reject_event_ref.event_digest()
+    }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactLineage {
-    pub contact_round_id: Hash,
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub contact_round_id: Option<Hash>,
     pub issuer: ContactPeer,
     pub peer: ContactPeer,
     pub version: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub predecessor_event_ref: Option<EventId>,
     pub event_ref: EventId,
     pub producer_signer: ContactProducerSigner,
     pub granted_to_peer_scopes: Vec<ContactScope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal: Option<bool>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
     pub signature: ProtocolSignature,
 }
 
 #[derive(Serialize)]
 struct UnsignedContactLineage {
-    contact_round_id: Hash,
+    trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    initial_contact_round_id: Option<Hash>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    contact_round_id: Option<Hash>,
     issuer: ContactPeer,
     peer: ContactPeer,
     version: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     predecessor_event_ref: Option<EventId>,
     event_ref: EventId,
     producer_signer: ContactProducerSigner,
     granted_to_peer_scopes: Vec<ContactScope>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    terminal: Option<bool>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    accepted_at: DateTime<Utc>,
 }
 
 impl ContactLineage {
-    /// Build the exact unsigned transcript and request its real historical source
-    /// signature once. The caller selects and authenticates that historical key;
-    /// no incomplete signed object or placeholder signature is constructed.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_with(
-        contact_round_id: Hash,
+        trust_domain_id: arkret_wire::TrustDomainId,
+        initial_contact_round_id: Option<Hash>,
+        contact_round_id: Option<Hash>,
         issuer: ContactPeer,
         peer: ContactPeer,
         version: u64,
@@ -840,11 +1041,12 @@ impl ContactLineage {
         event_ref: EventId,
         producer_signer: ContactProducerSigner,
         granted_to_peer_scopes: Vec<ContactScope>,
-        terminal: Option<bool>,
+        accepted_at: DateTime<Utc>,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate_for_holder(&issuer)?;
         let unsigned = UnsignedContactLineage {
+            trust_domain_id,
+            initial_contact_round_id,
             contact_round_id,
             issuer,
             peer,
@@ -853,10 +1055,12 @@ impl ContactLineage {
             event_ref,
             producer_signer,
             granted_to_peer_scopes,
-            terminal,
+            accepted_at,
         };
         let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
         Ok(Self {
+            trust_domain_id: unsigned.trust_domain_id,
+            initial_contact_round_id: unsigned.initial_contact_round_id,
             contact_round_id: unsigned.contact_round_id,
             issuer: unsigned.issuer,
             peer: unsigned.peer,
@@ -865,22 +1069,23 @@ impl ContactLineage {
             event_ref: unsigned.event_ref,
             producer_signer: unsigned.producer_signer,
             granted_to_peer_scopes: unsigned.granted_to_peer_scopes,
-            terminal: unsigned.terminal,
+            accepted_at: unsigned.accepted_at,
             signature,
         })
     }
-
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
         arkret_canonical::canonical_json_bytes(&UnsignedContactLineage {
+            trust_domain_id: self.trust_domain_id.clone(),
+            initial_contact_round_id: self.initial_contact_round_id.clone(),
             contact_round_id: self.contact_round_id.clone(),
             issuer: self.issuer.clone(),
             peer: self.peer.clone(),
-            version: self.version,
+            version: self.version.clone(),
             predecessor_event_ref: self.predecessor_event_ref.clone(),
             event_ref: self.event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
             granted_to_peer_scopes: self.granted_to_peer_scopes.clone(),
-            terminal: self.terminal,
+            accepted_at: self.accepted_at.clone(),
         })
     }
 }
@@ -912,9 +1117,11 @@ pub struct ContactPrepareRequestBody {
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence: ContactIntroductionEvidence,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub continuity_evidence: Option<ContactContinuityEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub message: Option<String>,
 }
 
@@ -960,405 +1167,168 @@ pub enum ContactScopeUpdateRequestBody {
     Commit(ContactCommitRequestBody),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactScopeInstance {
+    pub contact_scope: ContactScope,
+    pub grant_event_ref: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactRoundBasis {
+    pub contact_round_id: Hash,
+    pub contact_round: ContactRound,
+    pub request_receipts: Vec<RequestAcceptanceReceipt>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub normal_response_receipt: Option<NormalResponseAcceptanceReceipt>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactInitialIdentity {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    pub round: ContactRoundBasis,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub events: Vec<Event>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactRoundClosure {
+    pub contact_round_id: Hash,
+    pub operation: ContactTombstoneEvidence,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactHistoricalScopeInterval {
+    pub contact_scope: ContactScope,
+    pub grant: ContactOperationEvidence,
+    pub round: ContactRoundBasis,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub round_events: Vec<Event>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub closed_by: Option<ContactOperationEvidence>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactCurrentMaterial {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_identity: Option<ContactInitialIdentity>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub round_evidence: Option<ContactRoundBasis>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub round_events: Option<Vec<Event>>,
+    pub head_operation: ContactOperationEvidence,
+    pub scope_grants: Vec<ContactOperationEvidence>,
+    pub historical_intervals: Vec<ContactHistoricalScopeInterval>,
+    pub current_proof: ContactCurrentProof,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactRoundEvidenceBundle {
     pub contact_round_id: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
     pub contact_round: ContactRound,
     pub request_receipts: Vec<RequestAcceptanceReceipt>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub normal_response_receipt: Option<NormalResponseAcceptanceReceipt>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
-    pub current_proofs: Vec<ContactCurrentProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub continuity_checkpoint: Option<BilateralContinuityCheckpoint>,
-}
-
-pub const BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN: &[u8] =
-    b"ak.bilateral-continuity.checkpoint.v1\n";
-pub const BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN: &[u8] =
-    b"ak.bilateral-continuity.accumulator.v1\n";
-pub const CONTACT_CONTINUITY_CONTEXT: &str = "ak.contact.round.continuity.v1";
-
-/// Mutually signed commitment to a contiguous bilateral Contact lineage
-/// prefix. The current v1 schema closes `root_basis` to one uncheckpointed
-/// Contact round bundle; a future domain-neutral carrier must register its
-/// own typed branch instead of reopening this field as arbitrary JSON.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct BilateralContinuityCheckpointCore {
-    pub context: String,
-    pub participants: [AccountId; 2],
-    #[serde(deserialize_with = "deserialize_uncheckpointed_root_basis")]
-    pub root_basis: Box<ContactRoundEvidenceBundle>,
-    /// Contact round id at the compacted-prefix boundary. The first omitted
-    /// tail edge points to this value; bundle content digests remain confined
-    /// to `prefix_accumulator_root`.
-    pub covered_through_contact_round_id: Hash,
-    pub prefix_accumulator_root: Hash,
-    pub covered_prefix_count: u64,
-    pub sequence: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_checkpoint_digest: Option<Hash>,
-}
-
-fn deserialize_uncheckpointed_root_basis<'de, D>(
-    deserializer: D,
-) -> Result<Box<ContactRoundEvidenceBundle>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = serde_json::Value::deserialize(deserializer)?;
-    if value.get("continuity_checkpoint").is_some() {
-        return Err(serde::de::Error::custom(
-            "checkpoint root_basis must be an uncheckpointed Contact round bundle",
-        ));
-    }
-    serde_json::from_value(value)
-        .map(Box::new)
-        .map_err(serde::de::Error::custom)
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct BilateralContinuityCheckpointSignature {
-    pub signer: AccountId,
-    pub signature: ProtocolSignature,
-}
-
-/// One-sided proposal carried to the other participant's Station.
-/// It is not portable continuity evidence until the counterparty has verified
-/// the exact core, appended its signature and durably committed the completed
-/// checkpoint.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct BilateralContinuityCheckpointProposal {
-    pub core: BilateralContinuityCheckpointCore,
-    pub checkpoint_digest: Hash,
-    pub proposer_signature: BilateralContinuityCheckpointSignature,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct BilateralContinuityCheckpoint {
-    pub core: BilateralContinuityCheckpointCore,
-    pub checkpoint_digest: Hash,
-    pub signatures: [BilateralContinuityCheckpointSignature; 2],
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactContinuityEvidence {
-    pub checkpoint: BilateralContinuityCheckpoint,
-    pub uncompressed_tail_entries: Vec<ContactRoundEvidenceBundle>,
-}
-
-/// Holder-authorized request to compact the oldest contiguous terminal prefix
-/// of one durable Contact lineage. The service chooses the exact boundary
-/// deterministically from its accepted history; callers never submit a core.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactContinuityCheckpointRequestBody {
-    pub idempotency_key: IdempotencyKey,
-    pub peer: ContactPeer,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContactContinuityCheckpointStatus {
-    Pending,
-    Committed,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactContinuityCheckpointOutcome {
-    pub status: ContactContinuityCheckpointStatus,
-    pub checkpoint_digest: Hash,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_checkpoint_evidence"
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub continuity_evidence: Option<ContactContinuityEvidence>,
+    pub normal_response_receipt: Option<NormalResponseAcceptanceReceipt>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub glare_concurrency_attestations: Option<[GlareConcurrencyAttestation; 2]>,
+    pub current_proofs: Vec<ContactCurrentProof>,
+    pub initial_identity: ContactInitialIdentity,
+    pub scope_grants: Vec<ContactOperationEvidence>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub round_events: Vec<Event>,
+    pub current_operations: [ContactOperationEvidence; 2],
 }
 
-fn deserialize_checkpoint_evidence<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<ContactContinuityEvidence>, D::Error> {
-    ContactContinuityEvidence::deserialize(deserializer).map(Some)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[allow(clippy::large_enum_variant)]
+pub enum ContactOperationEvidence {
+    Request {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        signed_event: Event,
+        request_receipt: RequestAcceptanceReceipt,
+    },
+    Response {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        signed_event: Event,
+        response_receipt: NormalResponseAcceptanceReceipt,
+    },
+    Reject {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        signed_event: Event,
+        reject_receipt: RejectAcceptanceReceipt,
+    },
+    ScopeUpdate {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        signed_event: Event,
+        lineage: ContactLineage,
+    },
+    Tombstone {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        signed_event: Event,
+        lineage: ContactLineage,
+    },
 }
-
-impl ContactContinuityCheckpointOutcome {
-    /// Consume an own-Station result for this exact holder/peer pair. Portable
-    /// signature verification remains the importing Station's responsibility.
-    pub fn validate_for_request(
-        &self,
-        holder: &AccountId,
-        request: &ContactContinuityCheckpointRequestBody,
-    ) -> arkret_wire::Result<()> {
-        let peer = request.peer.contact_actor_id();
-        let peer = peer.as_account_id().ok_or_else(|| {
-            arkret_wire::WireError::Protocol(
-                "checkpoint peer must be an Account participant".into(),
-            )
-        })?;
-        if peer == holder {
-            return Err(arkret_wire::WireError::Protocol(
-                "checkpoint peer equals holder".into(),
-            ));
-        }
-        match (self.status, &self.continuity_evidence) {
-            (ContactContinuityCheckpointStatus::Pending, None) => Ok(()),
-            (ContactContinuityCheckpointStatus::Committed, Some(evidence)) => {
-                let mut pair = [holder.clone(), peer.clone()];
-                pair.sort();
-                let tail = &evidence.uncompressed_tail_entries;
-                if evidence.checkpoint.checkpoint_digest != self.checkpoint_digest
-                    || evidence.checkpoint.core.participants != pair
-                    || tail.is_empty()
-                    || tail.len() > 64
-                    || tail[0].continuity_checkpoint.as_ref() != Some(&evidence.checkpoint)
-                {
-                    return Err(arkret_wire::WireError::Protocol(
-                        "checkpoint result changed its digest, participants or bounded tail".into(),
-                    ));
-                }
-                evidence.checkpoint.validate_contact_shape()?;
-                validate_recontact_continuity(&tail[0], &tail[1..])
-            }
-            _ => Err(arkret_wire::WireError::Protocol(
-                "checkpoint status and evidence disagree".into(),
-            )),
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactTombstoneEvidence {
+    pub kind: ContactTombstoneEvidenceKind,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub signed_event: Event,
+    pub lineage: ContactLineage,
 }
+string_marker!(ContactTombstoneEvidenceKind, Tombstone, "tombstone");
 
-impl BilateralContinuityCheckpoint {
-    pub fn signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        bilateral_checkpoint_signing_bytes(&self.core)
-    }
-
-    pub fn recompute_digest(&self) -> arkret_wire::Result<Hash> {
-        bilateral_checkpoint_digest(&self.core)
-    }
-
-    pub fn validate_contact_shape(&self) -> arkret_wire::Result<ContactRoundEvidenceBundle> {
-        if self.core.context != CONTACT_CONTINUITY_CONTEXT
-            || self.core.covered_prefix_count == 0
-            || self.core.sequence == 0
-            || (self.core.sequence == 1) == self.core.previous_checkpoint_digest.is_some()
-            || self.core.participants[0] >= self.core.participants[1]
-            || self.signatures[0].signer >= self.signatures[1].signer
-            || self.signatures[0].signer != self.core.participants[0]
-            || self.signatures[1].signer != self.core.participants[1]
-            || self.recompute_digest()? != self.checkpoint_digest
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: bilateral checkpoint shape or digest mismatch".to_owned(),
-            ));
-        }
-        let root = self.core.root_basis.as_ref().clone();
-        if root.previous_terminal_contact_round_id.is_some() || root.continuity_checkpoint.is_some()
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: checkpoint root basis mismatch".to_owned(),
-            ));
-        }
-        Ok(root)
-    }
-}
-
-impl BilateralContinuityCheckpointProposal {
-    pub fn signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        bilateral_checkpoint_signing_bytes(&self.core)
-    }
-
-    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if self.core.context != CONTACT_CONTINUITY_CONTEXT
-            || self.core.covered_prefix_count == 0
-            || self.core.sequence == 0
-            || (self.core.sequence == 1) == self.core.previous_checkpoint_digest.is_some()
-            || self.core.participants[0] >= self.core.participants[1]
-            || self.proposer_signature.signer != self.core.participants[0]
-                && self.proposer_signature.signer != self.core.participants[1]
-            || bilateral_checkpoint_digest(&self.core)? != self.checkpoint_digest
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: bilateral checkpoint proposal mismatch".to_owned(),
-            ));
-        }
-        let root = self.core.root_basis.as_ref();
-        if root.previous_terminal_contact_round_id.is_some() || root.continuity_checkpoint.is_some()
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: checkpoint proposal root basis mismatch".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-fn bilateral_checkpoint_signing_bytes(
-    core: &BilateralContinuityCheckpointCore,
-) -> arkret_canonical::Result<Vec<u8>> {
-    let canonical = arkret_canonical::canonical_json_bytes(core)?;
-    let mut material =
-        Vec::with_capacity(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN.len() + canonical.len());
-    material.extend_from_slice(BILATERAL_CONTINUITY_CHECKPOINT_DOMAIN);
-    material.extend_from_slice(&canonical);
-    Ok(material)
-}
-
-pub fn bilateral_checkpoint_digest(
-    core: &BilateralContinuityCheckpointCore,
-) -> arkret_wire::Result<Hash> {
-    let material = bilateral_checkpoint_signing_bytes(core)
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
-}
-
-/// Derive the only v1 digest of a portable continuity root basis.
-///
-/// The digest is not a wire member: callers recompute `SHA-256(JCS(root_basis))`
-/// from the closed root object whenever an accumulator input needs it.
-pub fn bilateral_continuity_root_basis_digest(
-    root_basis: &ContactRoundEvidenceBundle,
-) -> arkret_wire::Result<Hash> {
-    let canonical = arkret_canonical::canonical_json_bytes(root_basis)
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    Ok(Hash::new(arkret_canonical::sha256_digest(canonical))?)
-}
-
-pub fn bilateral_prefix_accumulator(
-    previous: Option<&Hash>,
-    covered_basis_digests: &[Hash],
-) -> arkret_wire::Result<Hash> {
-    if covered_basis_digests.is_empty() {
-        return Err(arkret_wire::WireError::Protocol(
-            "continuity_invalid: accumulator extension is empty".to_owned(),
-        ));
-    }
-    #[derive(Serialize)]
-    struct Material<'a> {
-        previous: Option<&'a Hash>,
-        covered_basis_digests: &'a [Hash],
-    }
-    let canonical = arkret_canonical::canonical_json_bytes(&Material {
-        previous,
-        covered_basis_digests,
-    })
-    .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-    let mut material =
-        Vec::with_capacity(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN.len() + canonical.len());
-    material.extend_from_slice(BILATERAL_CONTINUITY_ACCUMULATOR_DOMAIN);
-    material.extend_from_slice(&canonical);
-    Ok(Hash::new(arkret_canonical::sha256_digest(material))?)
-}
-
-pub fn validate_recontact_continuity(
-    current: &ContactRoundEvidenceBundle,
-    predecessors: &[ContactRoundEvidenceBundle],
-) -> arkret_wire::Result<()> {
-    if predecessors.len() > 64 {
-        return Err(arkret_wire::WireError::Protocol(
-            "Contact round continuity exceeds 64 predecessors".to_owned(),
-        ));
-    }
-    validate_contact_evidence_directions(current)?;
-    let mut expected = current.previous_terminal_contact_round_id.as_ref();
-    if current
-        .request_receipts
-        .iter()
-        .any(|receipt| receipt.core.previous_terminal_contact_round_id.as_ref() != expected)
-    {
-        return Err(arkret_wire::WireError::Protocol(
-            "current Contact request receipt continuity pointer mismatch".to_owned(),
-        ));
-    }
-    let mut seen = std::collections::BTreeSet::new();
-    seen.insert(current.contact_round_id.clone());
-    for predecessor in predecessors {
-        validate_contact_evidence_directions(predecessor)?;
-        if expected != Some(&predecessor.contact_round_id)
-            || predecessor.current_proofs.len() != 2
-            || predecessor.current_proofs.iter().any(|proof| {
-                !proof.terminal || proof.contact_round_id != predecessor.contact_round_id
-            })
-            || !seen.insert(predecessor.contact_round_id.clone())
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "invalid Contact terminal contact_round continuity edge".to_owned(),
-            ));
-        }
-        if predecessor.request_receipts.iter().any(|receipt| {
-            receipt.core.previous_terminal_contact_round_id
-                != predecessor.previous_terminal_contact_round_id
-        }) {
-            return Err(arkret_wire::WireError::Protocol(
-                "predecessor Contact request receipt continuity pointer mismatch".to_owned(),
-            ));
-        }
-        if predecessor
-            .continuity_checkpoint
-            .as_ref()
-            .is_some_and(|checkpoint| {
-                current
-                    .continuity_checkpoint
-                    .as_ref()
-                    .is_some_and(|current| {
-                        current.checkpoint_digest != checkpoint.checkpoint_digest
-                    })
-            })
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: tail checkpoint binding changed".to_owned(),
-            ));
-        }
-        expected = predecessor.previous_terminal_contact_round_id.as_ref();
-    }
-    if let Some(checkpoint) = &current.continuity_checkpoint {
-        let root = checkpoint.validate_contact_shape()?;
-        let current_pair = contact_round_participants(&current.contact_round);
-        let root_pair = contact_round_participants(&root.contact_round);
-        let checkpoint_pair = [
-            ActorId::account(checkpoint.core.participants[0].clone()),
-            ActorId::account(checkpoint.core.participants[1].clone()),
-        ];
-        if current_pair != root_pair
-            || root_pair != checkpoint_pair
-            || expected != Some(&checkpoint.core.covered_through_contact_round_id)
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "continuity_invalid: checkpoint pair, root or tail terminator mismatch".to_owned(),
-            ));
-        }
-    } else if expected.is_some()
-        || (current.previous_terminal_contact_round_id.is_some() && predecessors.is_empty())
-    {
-        return Err(arkret_wire::WireError::Protocol(
-            "continuity_evidence_unavailable: Contact continuity does not reach its root"
-                .to_owned(),
-        ));
-    }
-    Ok(())
-}
-
-/// Validate participant direction independently from the service signer.
-/// Same-Station pairs may legitimately have equal issuer IDs, so direction is
-/// keyed exclusively by each signed peer/subject pair.
 pub fn validate_contact_evidence_directions(
     bundle: &ContactRoundEvidenceBundle,
 ) -> arkret_wire::Result<()> {
@@ -1527,10 +1497,12 @@ string_marker!(
     "ak.schema.contact_scope_update.v1"
 );
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactScopeUpdatePayload {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    pub initial_contact_round_id: Hash,
     pub schema: ContactScopeUpdateSchema,
     pub peer: ContactPeer,
     pub contact_round_id: Hash,
@@ -1709,7 +1681,11 @@ pub enum PeerContactSubmitRequestBody {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
         introduction_evidence: ContactIntroductionEvidence,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+        )]
         current_proof: Option<ContactCurrentProof>,
     },
     Response {
@@ -1719,7 +1695,11 @@ pub enum PeerContactSubmitRequestBody {
         response_receipt: NormalResponseAcceptanceReceipt,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+        )]
         current_proof: Option<ContactCurrentProof>,
     },
     Reject {
@@ -1748,10 +1728,18 @@ pub enum PeerContactSubmitRequestBody {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
-    ProofRefresh {
+    CurrentRefresh {
         idempotency_key: IdempotencyKey,
-        prior_mirror_receipt: PeerContactMirrorReceipt,
-        current_proof: ContactCurrentProof,
+        requester: ContactPeer,
+        trust_domain_id: arkret_wire::TrustDomainId,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+        )]
+        initial_contact_round_id: Option<Hash>,
+        known_version: u64,
+        grant_event_refs: Vec<EventId>,
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
@@ -1765,24 +1753,26 @@ pub enum PeerContactSubmitRequestBody {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         contact_address: PeerContactAddress,
     },
-    ContinuityCheckpoint {
-        idempotency_key: IdempotencyKey,
-        proposal: BilateralContinuityCheckpointProposal,
-        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-        contact_address: PeerContactAddress,
-    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct GlareConcurrencyAttestation {
+    pub trust_domain_id: arkret_wire::TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub initial_contact_round_id: Option<Hash>,
+    pub contact_round_id: Hash,
+    pub version: u64,
+    pub request_event_ref: EventId,
     pub subject_id: ActorId,
     pub issuer_id: DidCoreId,
     pub peer_id: ActorId,
     pub request_receipt_digests: [Hash; 2],
-    pub observed_commit_event_ids: Vec<EventId>,
-    pub complete_through: u64,
     pub unconsumed_slot_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
@@ -1858,9 +1848,8 @@ string_marker!(
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum PeerContactControlKind {
-    ProofRefresh,
+    CurrentRefresh,
     GlareFinalize,
-    ContinuityCheckpoint,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1871,7 +1860,11 @@ pub struct PeerContactControlReceipt {
     pub request_kind: PeerContactControlKind,
     pub request_digest: Hash,
     pub outcome: PeerContactOutcome,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub result_digest: Option<Hash>,
     pub recipient_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1887,9 +1880,17 @@ pub struct PeerContactEventSubmitOutcome {
     pub result_kind: ContactResultKind,
     pub status: PeerContactOutcome,
     pub mirror_receipt: PeerContactMirrorReceipt,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub current_proof: Option<ContactCurrentProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub retry_after_ms: Option<u64>,
 }
 
@@ -1903,22 +1904,21 @@ pub struct PeerContactEventSubmitOutcome {
 // skew is accepted deliberately.
 #[allow(clippy::large_enum_variant)]
 pub enum PeerContactControlSubmitOutcome {
-    ProofRefresh {
+    CurrentRefresh {
         status: PeerContactOutcome,
         control_receipt: PeerContactControlReceipt,
-        current_proof: ContactCurrentProof,
+        material: ContactCurrentMaterial,
     },
     GlareFinalize {
         status: PeerContactOutcome,
         control_receipt: PeerContactControlReceipt,
         glare_concurrency_attestation: GlareConcurrencyAttestation,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+        )]
         current_proof: Option<ContactCurrentProof>,
-    },
-    ContinuityCheckpoint {
-        status: PeerContactOutcome,
-        control_receipt: PeerContactControlReceipt,
-        checkpoint: BilateralContinuityCheckpoint,
     },
 }
 
@@ -1929,7 +1929,11 @@ pub struct PeerContactControlDeferredOutcome {
     pub status: PeerContactOutcome,
     pub request_kind: PeerContactControlKind,
     pub control_receipt: PeerContactControlReceipt,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub retry_after_ms: Option<u64>,
 }
 
@@ -2040,27 +2044,50 @@ impl ContactPeerEndpoint {
 pub struct ContactListRow {
     pub peer: ContactPeer,
     pub state: ContactState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub request_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub request_message: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub response_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub tombstone_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub next_prepare_input: Option<ContactNextPrepareInput>,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     pub granted_by_peer_scopes: Vec<ContactScope>,
     pub bidirectional_scopes: Vec<ContactScope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub effective_scopes: Option<Vec<ContactScope>>,
-    /// Portable checkpoint plus the exact remaining tail. Present only after
-    /// both participant Stations have committed the same checkpoint and the
-    /// caller explicitly exports it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub continuity_evidence: Option<ContactContinuityEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub direct_conversation: Option<DirectConversationSummary>,
     /// Active agents controlled by this contact that currently accept direct
     /// messages from the authenticated actor. Viewer-specific and fail-closed;
@@ -2071,7 +2098,11 @@ pub struct ContactListRow {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub contact_agent_projections: Vec<ContactAgentProjection>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub peer_endpoint: Option<ContactPeerEndpoint>,
 }
 
@@ -2095,8 +2126,6 @@ struct ContactListRowWire {
     bidirectional_scopes: Vec<ContactScope>,
     #[serde(default)]
     effective_scopes: Option<Vec<ContactScope>>,
-    #[serde(default)]
-    continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default)]
     direct_conversation: Option<DirectConversationSummary>,
     #[serde(default)]
@@ -2124,7 +2153,6 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             granted_by_peer_scopes: wire.granted_by_peer_scopes,
             bidirectional_scopes: wire.bidirectional_scopes,
             effective_scopes: wire.effective_scopes,
-            continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
             contact_agent_projections: wire.contact_agents,
             peer_endpoint: wire.peer_endpoint,
@@ -2477,3 +2505,9 @@ mod contact_list_projection_tests {
 }
 
 include!("generated/contact_operations_contracts.rs");
+
+mod current_state;
+pub use current_state::{
+    ContactDirectionCurrent, ContactPrivateState, peer_contact_control_result_digest,
+    validate_contact_operation_version,
+};
