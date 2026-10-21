@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.5;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
-//! Entries: operation_bundles=43 features=12
+//! Input: registry/contract-registry.json; version=2026-10-21.9;
+//! sha256=9031b0adf07180d84a972f8646791391a5a035cdc607b56064ad7af40e37f787
+//! Entries: operation_bundles=44 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -106,6 +106,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::AppletService,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.applet_service.service_resolution.v1",
+        service_kind: ServiceKind::AppletService,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::OpenServiceReadResolutionV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },
@@ -834,15 +842,11 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfConsentCommandGrantV1,
+                operation_id: ServiceOperationId::SelfConsentCommandReplaceV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfConsentCommandRequestV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfConsentCommandRevokeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -995,10 +999,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfMediaServiceBindingReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfMessagesCommandPrepareV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1522,6 +1522,8 @@ impl OperationBundleDescriptor {
         "ak.operation_bundle.applet_service.applet.v1";
     pub const APPLET_SERVICE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.applet_service.describe.v1";
+    pub const APPLET_SERVICE_SERVICE_RESOLUTION_V1: &'static str =
+        "ak.operation_bundle.applet_service.service_resolution.v1";
     pub const ARCHIVE_NODE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.archive_node.describe.v1";
     pub const BLOB_NODE_DESCRIBE_V1: &'static str = "ak.operation_bundle.blob_node.describe.v1";

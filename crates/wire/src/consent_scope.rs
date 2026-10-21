@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::WireError;
 
 /// Counterpart for `spec/v1/artifacts/schemas/consent-operations.schema.json#/$defs/consent_scope`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentScope {
@@ -21,7 +21,6 @@ pub enum ConsentScope {
     VoiceCall,
     VideoCall,
     Presence,
-    Any,
 }
 
 impl ConsentScope {
@@ -30,7 +29,6 @@ impl ConsentScope {
         Self::VoiceCall,
         Self::VideoCall,
         Self::Presence,
-        Self::Any,
     ];
 
     #[must_use]
@@ -40,7 +38,6 @@ impl ConsentScope {
             Self::VoiceCall => "voice_call",
             Self::VideoCall => "video_call",
             Self::Presence => "presence",
-            Self::Any => "any",
         }
     }
 }
@@ -66,11 +63,10 @@ pub enum ConsentRequestScope {
     VoiceCall,
     VideoCall,
     Presence,
-    Any,
 }
 
 impl ConsentRequestScope {
-    pub const ALL: &'static [Self] = &[Self::VoiceCall, Self::VideoCall, Self::Presence, Self::Any];
+    pub const ALL: &'static [Self] = &[Self::VoiceCall, Self::VideoCall, Self::Presence];
 
     #[must_use]
     pub const fn as_consent_scope(self) -> ConsentScope {
@@ -78,7 +74,6 @@ impl ConsentRequestScope {
             Self::VoiceCall => ConsentScope::VoiceCall,
             Self::VideoCall => ConsentScope::VideoCall,
             Self::Presence => ConsentScope::Presence,
-            Self::Any => ConsentScope::Any,
         }
     }
 
@@ -91,7 +86,6 @@ impl ConsentRequestScope {
             ConsentScope::VoiceCall => Some(Self::VoiceCall),
             ConsentScope::VideoCall => Some(Self::VideoCall),
             ConsentScope::Presence => Some(Self::Presence),
-            ConsentScope::Any => Some(Self::Any),
         }
     }
 
@@ -129,7 +123,6 @@ impl FromStr for ConsentScope {
             "voice_call" => Ok(Self::VoiceCall),
             "video_call" => Ok(Self::VideoCall),
             "presence" => Ok(Self::Presence),
-            "any" => Ok(Self::Any),
             _ => Err(WireError::Protocol(format!(
                 "unsupported consent_scope: {value}"
             ))),

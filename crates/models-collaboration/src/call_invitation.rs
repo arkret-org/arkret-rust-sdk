@@ -200,20 +200,18 @@ impl ConsentCurrentReadOutcome {
                 "Consent current read is stale or bound to a different request",
             ));
         }
-        let mut ids = std::collections::BTreeSet::new();
-        for row in &self.consents {
-            if row.selector.consent_id != row.value.consent_id
-                || !ids.insert(row.selector.consent_id.clone())
-                || row.source_stream_ref != self.effective_stream_head.stream_ref
-                || row.revision.stream_position > self.effective_stream_head.stream_position
-                || row.value.peer != request.peer
-                || (row.value.consent_scope != request.consent_scope
-                    && row.value.consent_scope != arkret_wire::ConsentScope::Any)
+        request.validate()?;
+        if let ConsentCurrentReadState::Present { result } = &self.current {
+            if &result.selector.peer_id != request.peer.actor_id()
+                || result.source_stream_ref != self.effective_stream_head.stream_ref
+                || result.revision.stream_position > self.effective_stream_head.stream_position
+                || result.revision.stream_position == 0
             {
                 return Err(invalid(
                     "Consent read contains an unrelated or incomplete current row",
                 ));
             }
+            result.value.validate()?;
         }
         Ok(())
     }
@@ -221,16 +219,12 @@ impl ConsentCurrentReadOutcome {
     pub fn permits(
         &self,
         request: &ConsentCurrentReadRequestBody,
+        scope: arkret_wire::ConsentScope,
         now: chrono::DateTime<chrono::Utc>,
     ) -> bool {
         self.validate_for_request(request, self.governance_generation, now)
             .is_ok()
-            && self.consents.iter().any(|r| {
-                r.value.status == crate::consent_operations::ConsentState::Active
-                    && r.value.not_before.is_none_or(|start| start <= now)
-                    && r.value.expires_at.is_none_or(|end| now < end)
-                    && r.value.constraints.as_ref().is_none_or(Vec::is_empty)
-            })
+            && matches!(&self.current, ConsentCurrentReadState::Present { result } if result.value.permits(scope, now))
     }
 }
 
@@ -270,20 +264,14 @@ pub fn call_invitation_envelope_digest(
     canonical_request_digest(envelope)
 }
 pub fn consent_value_permits_call(
-    value: &crate::consent_operations::ConsentValue,
+    row: &ConsentCurrentRow,
     inviter: &arkret_wire::ActorId,
     media: &CallInvitationMedia,
     now: chrono::DateTime<chrono::Utc>,
 ) -> bool {
-    let crate::events_payloads::consent::ConsentPeer::Actor { actor_id } = &value.peer;
     media.is_nonempty()
-        && actor_id == inviter
-        && value.status == crate::consent_operations::ConsentState::Active
-        && (value.consent_scope == media.consent_scope()
-            || value.consent_scope == arkret_wire::ConsentScope::Any)
-        && value.not_before.is_none_or(|start| start <= now)
-        && value.expires_at.is_none_or(|end| now < end)
-        && value.constraints.as_ref().is_none_or(Vec::is_empty)
+        && &row.selector.peer_id == inviter
+        && row.value.permits(media.consent_scope(), now)
 }
 
 impl ConsentCurrentReadRequestBody {

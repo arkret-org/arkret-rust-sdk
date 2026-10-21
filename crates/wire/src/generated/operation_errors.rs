@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-21.3;
-//! sha256=2c8119881e710f49f42502bdb633d04df8fef49506ef4d0f20d0617eeecd0435 Input: registry/
-//! contract-registry.json; version=2026-10-21.5;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-21.5;
+//! sha256=72b8775e60237ed01c8e1379a57a172d9975e80622aee3fcf3f5c2193a352a8f Input: registry/
+//! contract-registry.json; version=2026-10-21.9;
+//! sha256=9031b0adf07180d84a972f8646791391a5a035cdc607b56064ad7af40e37f787 Input: registry/
 //! error-code-registry.json; version=2026-10-21.1;
-//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf Entries: operations=227
+//! sha256=6268ea8c52820603e4b2d0e8f63e5b521ac543a6a7eef85df43b5c0a47bbbfaf Entries: operations=225
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -668,9 +668,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         ReasonCode::SnapshotCapacityExceeded,
     )],
     &[],
-    &[OperationSpecificError::Reason(
-        ReasonCode::SnapshotCapacityExceeded,
-    )],
     &[],
     &[],
     &[
@@ -836,17 +833,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::AuthoringRequestExpired),
-        OperationSpecificError::Code(ErrorCode::CapabilityDenied),
-        OperationSpecificError::Code(ErrorCode::DependencyMissing),
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::EpochMismatch),
-        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Code(ErrorCode::NotFound),
-        OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
-        OperationSpecificError::Code(ErrorCode::UnsupportedFeature),
     ],
     &[OperationSpecificError::Code(ErrorCode::RevisionUnavailable)],
     &[

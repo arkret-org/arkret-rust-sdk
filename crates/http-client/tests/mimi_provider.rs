@@ -37,7 +37,7 @@ fn proof() -> PayloadProof {
     serde_json::from_value(json!({"kind":"detached_jws","verification_method":"did:web:alice.example#device-1", "payload_digest":format!("sha256:{}","0".repeat(64)),"created_at":arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),"domain":"ak:trust_domain:station.example","audience":"ak:did_core:web:station.example","jws":"pending"})).unwrap()
 }
 fn request_consent() -> MimiRequestConsentRequestBody {
-    let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"any","proofs":[proof()]})).unwrap();
+    let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"voice_call","proofs":[proof()]})).unwrap();
     v.proofs[0].payload_digest = v.payload_digest().unwrap();
     v.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
         &v.unsigned_proof_binding_bytes(&v.proofs[0].unsigned())
@@ -50,11 +50,11 @@ fn request_consent() -> MimiRequestConsentRequestBody {
 fn update_consent() -> MimiUpdateConsentRequestBody {
     // A structural transport fixture, not proof of Event admission.
     let event = arkret_wire::test_support::raw_event(
-        EventKind::ConsentGrant.as_str(),
+        EventKind::ConsentReplace.as_str(),
         scope(),
         core("alice"),
         core("station"),
-        json!({"consent_id":CONSENT}),
+        json!({"peer":{"kind":"actor","actor_id":actor()},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]}),
     )
     .unwrap();
     let mut v = MimiUpdateConsentRequestBody {

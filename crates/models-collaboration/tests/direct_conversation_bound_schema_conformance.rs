@@ -1,4 +1,4 @@
-//! The participant endorsement remains a closed Event payload, not a service receipt.
+//! The single accepted binding preserves its original participant Event.
 
 use std::fs;
 
@@ -27,80 +27,25 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
 }
 
 fn fixture_payload() -> Value {
-    let vector = binding_vector();
-    let mut payload = vector["input"].clone();
-    payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
-    payload
-}
-
-fn binding_vector() -> Value {
-    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
-    let fixture: Value = serde_json::from_slice(
-        &fs::read(artifacts.join("fixtures/encoding-fixture.json")).unwrap(),
-    )
-    .unwrap();
-    fixture["vectors"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|vector| vector["vector_id"] == "ak.vector.direct_conversation.binding_digest.v1")
-        .unwrap()
-        .clone()
-}
-
-#[test]
-fn binding_digest_matches_domain_separated_canonical_vector() {
-    let vector = binding_vector();
-    let payload: DirectConversationBoundPayload =
-        serde_json::from_value(fixture_payload()).unwrap();
-    let canonical = payload.binding_object_canonical_bytes().unwrap();
-    assert_eq!(
-        std::str::from_utf8(&canonical).unwrap(),
-        vector["expected_canonical_bytes_utf8"].as_str().unwrap()
-    );
-    let mut preimage = vector["domain_separator_utf8"]
-        .as_str()
-        .unwrap()
-        .as_bytes()
-        .to_vec();
-    preimage.extend_from_slice(&canonical);
-    let preimage_hex: String = preimage.iter().map(|byte| format!("{byte:02x}")).collect();
-    assert_eq!(preimage_hex, vector["digest_input_hex"].as_str().unwrap());
-    assert_eq!(
-        payload.binding_digest().unwrap().as_str(),
-        vector["expected_digest"].as_str().unwrap()
-    );
-
-    for case in vector["normalization_cases"].as_array().unwrap() {
-        let normalized: DirectConversationBoundPayload =
-            serde_json::from_value(case["payload"].clone()).unwrap();
-        assert_eq!(
-            normalized.binding_digest().unwrap().as_str(),
-            case["expected_digest"].as_str().unwrap()
-        );
-    }
-    for case in vector["mutation_cases"].as_array().unwrap() {
-        if let Some(input) = case.get("input") {
-            let mut payload = input.clone();
-            payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
-            let changed: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-            assert_eq!(
-                changed.binding_digest().unwrap().as_str(),
-                case["expected_digest"].as_str().unwrap()
-            );
-            assert_ne!(
-                changed.binding_digest().unwrap(),
-                payload_binding_digest(&vector)
-            );
-        }
-    }
-}
-
-fn payload_binding_digest(vector: &Value) -> arkret_wire::Hash {
-    let mut payload = vector["input"].clone();
-    payload["created_at"] = "2026-09-21T00:00:00.000Z".into();
-    let payload: DirectConversationBoundPayload = serde_json::from_value(payload).unwrap();
-    payload.binding_digest().unwrap()
+    use arkret_wire::{AccountId, ActorId, DidCoreId, EventId};
+    let event = |seed| EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [seed; 32]);
+    let station: DidCoreId = "ak:did_core:web:station.example".parse().unwrap();
+    let actor = |name: &str| {
+        ActorId::account(AccountId::new(
+            format!("ak:did_core:web:{name}.example").parse().unwrap(),
+            station.clone(),
+        ))
+    };
+    serde_json::json!({
+        "pair_key": format!("sha256:{}", "12".repeat(32)),
+        "unordered_participant_ids": [actor("alice"),actor("bob")],
+        "realm_id": arkret_wire::RealmId::from_event_id(&event(1)),
+        "main_strand_id": arkret_wire::StrandId::from_event_id(&event(2)),
+        "founding_unit_digest":format!("sha256:{}", "34".repeat(32)),
+        "authorization_basis":{"kind":"accepted_contact","event_refs":[event(3),event(4)]},
+        "initial_exact_pair_group_state_ref":event(5),
+        "created_at":"2026-10-21T00:00:00.000Z"
+    })
 }
 
 #[test]
@@ -186,62 +131,29 @@ fn binding_value_registry() -> arkret_schema::ProtocolSchemaRegistry {
 }
 
 #[test]
-fn binding_current_value_is_an_add_only_dot_set_of_one_digest() {
-    use arkret_models_collaboration::events_payloads::{
-        DirectConversationBindingCurrentValue, DirectConversationBindingEndorsementEntry,
-    };
-    use arkret_models_collaboration::exact_current_results::CanonicalEventDot;
-
-    let payload: DirectConversationBoundPayload =
-        serde_json::from_value(fixture_payload()).unwrap();
-    let dot = |seed: &str| {
-        CanonicalEventDot::new(
-            arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                arkret_canonical::sha256_bytes(seed.as_bytes()),
-            ),
-            0,
-        )
-        .unwrap()
-    };
-    let first = DirectConversationBindingEndorsementEntry {
-        tag_id: dot("first"),
-        value: payload.clone(),
-    };
-    let value = DirectConversationBindingCurrentValue {
-        endorsements: vec![first.clone()],
-    };
-    let mut later = payload.clone();
-    later.created_at += chrono::Duration::seconds(1);
-    let value = value
-        .with_endorsement(DirectConversationBindingEndorsementEntry {
-            tag_id: dot("second"),
-            value: later,
-        })
+fn binding_current_value_contains_one_original_event_and_rejects_endorsement_sets() {
+    use arkret_models_collaboration::events_payloads::DirectConversationBindingCurrentValue;
+    use serde_json::json;
+    let event = arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [8; 32]);
+    let value = json!({"binding_event_ref":event,"binding":fixture_payload()});
+    let registry = binding_value_registry();
+    registry
+        .validate_value("test:direct-conversation-binding-value", &value)
         .unwrap();
-    assert_eq!(value.endorsements.len(), 2);
-    assert!(value.endorsements[0].tag_id.to_string() < value.endorsements[1].tag_id.to_string());
-    assert_eq!(
-        value.binding_digest().unwrap(),
-        payload.binding_digest().unwrap()
-    );
-    assert!(value.endorsed_by(first.tag_id.event_id()));
-    binding_value_registry()
-        .validate_value(
-            "test:direct-conversation-binding-value",
-            &serde_json::to_value(&value).unwrap(),
-        )
-        .unwrap();
-
-    assert!(value.clone().with_endorsement(first).is_err());
-    let mut other = payload;
-    other.pair_key = arkret_wire::Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap();
-    assert!(
-        value
-            .with_endorsement(DirectConversationBindingEndorsementEntry {
-                tag_id: dot("third"),
-                value: other,
-            })
-            .is_err()
-    );
+    let parsed: DirectConversationBindingCurrentValue =
+        serde_json::from_value(value.clone()).unwrap();
+    parsed.validate_shape().unwrap();
+    assert_eq!(parsed.binding_event_ref, event);
+    assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+    for legacy in [
+        json!({"endorsements":[]}),
+        json!({"binding_event_ref":event,"binding":fixture_payload(),"endorsements":[]}),
+    ] {
+        assert!(
+            registry
+                .validate_value("test:direct-conversation-binding-value", &legacy)
+                .is_err()
+        );
+        assert!(serde_json::from_value::<DirectConversationBindingCurrentValue>(legacy).is_err());
+    }
 }

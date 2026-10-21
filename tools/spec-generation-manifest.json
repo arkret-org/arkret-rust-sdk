@@ -449,7 +449,33 @@
         "ManualPresenceState",
         "PresencePreference",
         "PresenceVisibility",
-        "PresenceVisibilityPreference"
+        "PresenceVisibilityPreference",
+        "ConsentCurrentReadState",
+        "CallInvitationMedia",
+        "CallInvitationProof",
+        "CallInvitationAdmissionProof",
+        "CallVoluntaryJoinProof",
+        "CallInvitationSendStatus",
+        "CallInvitationAdmissionPhase",
+        "CallInvitationJoinKind",
+        "CallVoluntaryJoinKind",
+        "CallRefreshJoinKind",
+        "CallInvitationEnvelope",
+        "CallInvitationSendRequestBody",
+        "CallInvitationSendOutcome",
+        "CallInvitationAdmissionRequestBody",
+        "CallInvitationAdmissionOutcome",
+        "CallInvitationDeliveryView",
+        "CallInvitationJoinContext",
+        "CallVoluntaryJoinContext",
+        "CallRefreshJoinContext",
+        "CallMediaJoinContext",
+        "ConsentCurrentSelectorKind",
+        "ConsentCurrentSelector",
+        "ConsentCurrentRow",
+        "ConsentCurrentReadProof",
+        "ConsentCurrentReadRequestBody",
+        "ConsentCurrentReadOutcome"
       ]
     },
     {
@@ -639,7 +665,9 @@
         "schemas/time.schema.json"
       ],
       "provides": [
-        "ConsentGrantPayload"
+        "ConsentPermission",
+        "ConsentExpectedCurrent",
+        "ConsentReplacePayload"
       ]
     },
     {
@@ -1472,21 +1500,8 @@
         "schemas/event-payload.schema.json"
       ],
       "provides": [
-        "DeviceRevokePayload"
-      ]
-    },
-    {
-      "generator": "closed-models",
-      "outputs": [
-        "crates/models-collaboration/src/generated/message_authoring_contracts.rs"
-      ],
-      "owner": "arkret-models-collaboration",
-      "mode": "closed-schema-model",
-      "artifacts": [
-        "schemas/message-authoring.schema.json"
-      ],
-      "provides": [
-        "MessagePrepareOutcome"
+        "DeviceRevokePayload",
+        "AppletManagedDeviceScope"
       ]
     },
     {
@@ -1530,7 +1545,6 @@
       ],
       "provides": [
         "DirectConversationBoundPayload",
-        "DirectConversationBindingEndorsementEntry",
         "DirectConversationBindingCurrentValue"
       ]
     },
@@ -2086,7 +2100,10 @@
         "ConsentPrivateRequestOutcome",
         "ConsentPrivateCommandOutcome",
         "ConsentPrivateProxyRequest",
-        "ConsentPrivateProxyOutcome"
+        "ConsentPrivateProxyOutcome",
+        "ConsentPrivateEffectsPublishStatus",
+        "ConsentPrivateEffectsPublishRequest",
+        "ConsentPrivateEffectsPublishOutcome"
       ]
     },
     {

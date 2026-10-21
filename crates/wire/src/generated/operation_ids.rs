@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.4;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: registered=227
+//! Input: registry/contract-registry.json; version=2026-10-21.8;
+//! sha256=9031b0adf07180d84a972f8646791391a5a035cdc607b56064ad7af40e37f787 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -159,9 +159,8 @@ pub enum ServiceOperationId {
     SelfCommittedEventReadScanV1,
     SelfCommittedEventResourceGetV1,
     SelfCommittedEventStreamSubscribeV1,
-    SelfConsentCommandGrantV1,
+    SelfConsentCommandReplaceV1,
     SelfConsentCommandRequestV1,
-    SelfConsentCommandRevokeV1,
     SelfConsentReadCurrentV1,
     SelfConsentReadListV1,
     SelfConsentResourceGetV1,
@@ -205,7 +204,6 @@ pub enum ServiceOperationId {
     SelfManagementReviewReadStatusV1,
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
-    SelfMessagesCommandPrepareV1,
     SelfMlsReadGroupStateMaterialV1,
     SelfMlsReadRosterAuthorityV1,
     SelfModerationCommandReportV1,
@@ -389,9 +387,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
     ServiceOperationId::SELF_COMMITTED_EVENT_RESOURCE_GET_V1,
     ServiceOperationId::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1,
-    ServiceOperationId::SELF_CONSENT_COMMAND_GRANT_V1,
+    ServiceOperationId::SELF_CONSENT_COMMAND_REPLACE_V1,
     ServiceOperationId::SELF_CONSENT_COMMAND_REQUEST_V1,
-    ServiceOperationId::SELF_CONSENT_COMMAND_REVOKE_V1,
     ServiceOperationId::SELF_CONSENT_READ_CURRENT_V1,
     ServiceOperationId::SELF_CONSENT_READ_LIST_V1,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET_V1,
@@ -435,7 +432,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MANAGEMENT_REVIEW_READ_STATUS_V1,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
-    ServiceOperationId::SELF_MESSAGES_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
@@ -661,9 +657,8 @@ impl ServiceOperationId {
         Self::SelfCommittedEventReadScanV1,
         Self::SelfCommittedEventResourceGetV1,
         Self::SelfCommittedEventStreamSubscribeV1,
-        Self::SelfConsentCommandGrantV1,
+        Self::SelfConsentCommandReplaceV1,
         Self::SelfConsentCommandRequestV1,
-        Self::SelfConsentCommandRevokeV1,
         Self::SelfConsentReadCurrentV1,
         Self::SelfConsentReadListV1,
         Self::SelfConsentResourceGetV1,
@@ -707,7 +702,6 @@ impl ServiceOperationId {
         Self::SelfManagementReviewReadStatusV1,
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
-        Self::SelfMessagesCommandPrepareV1,
         Self::SelfMlsReadGroupStateMaterialV1,
         Self::SelfMlsReadRosterAuthorityV1,
         Self::SelfModerationCommandReportV1,
@@ -1001,9 +995,8 @@ impl ServiceOperationId {
         "ak.self.committed_event.resource.get.v1";
     pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
         "ak.self.committed_event.stream.subscribe.v1";
-    pub const SELF_CONSENT_COMMAND_GRANT_V1: &'static str = "ak.self.consent.command.grant.v1";
+    pub const SELF_CONSENT_COMMAND_REPLACE_V1: &'static str = "ak.self.consent.command.replace.v1";
     pub const SELF_CONSENT_COMMAND_REQUEST_V1: &'static str = "ak.self.consent.command.request.v1";
-    pub const SELF_CONSENT_COMMAND_REVOKE_V1: &'static str = "ak.self.consent.command.revoke.v1";
     pub const SELF_CONSENT_READ_CURRENT_V1: &'static str = "ak.self.consent.read.current.v1";
     pub const SELF_CONSENT_READ_LIST_V1: &'static str = "ak.self.consent.read.list.v1";
     pub const SELF_CONSENT_RESOURCE_GET_V1: &'static str = "ak.self.consent.resource.get.v1";
@@ -1077,8 +1070,6 @@ impl ServiceOperationId {
     pub const SELF_MEDIA_READ_ICE_CONFIG_V1: &'static str = "ak.self.media.read.ice_config.v1";
     pub const SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1: &'static str =
         "ak.self.media_service_binding.read.resolve.v1";
-    pub const SELF_MESSAGES_COMMAND_PREPARE_V1: &'static str =
-        "ak.self.messages.command.prepare.v1";
     pub const SELF_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
         "ak.self.mls.read.group_state_material.v1";
     pub const SELF_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
@@ -1370,9 +1361,8 @@ impl ServiceOperationId {
             Self::SelfCommittedEventStreamSubscribeV1 => {
                 Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
             }
-            Self::SelfConsentCommandGrantV1 => Self::SELF_CONSENT_COMMAND_GRANT_V1,
+            Self::SelfConsentCommandReplaceV1 => Self::SELF_CONSENT_COMMAND_REPLACE_V1,
             Self::SelfConsentCommandRequestV1 => Self::SELF_CONSENT_COMMAND_REQUEST_V1,
-            Self::SelfConsentCommandRevokeV1 => Self::SELF_CONSENT_COMMAND_REVOKE_V1,
             Self::SelfConsentReadCurrentV1 => Self::SELF_CONSENT_READ_CURRENT_V1,
             Self::SelfConsentReadListV1 => Self::SELF_CONSENT_READ_LIST_V1,
             Self::SelfConsentResourceGetV1 => Self::SELF_CONSENT_RESOURCE_GET_V1,
@@ -1436,7 +1426,6 @@ impl ServiceOperationId {
             Self::SelfMediaServiceBindingReadResolveV1 => {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
             }
-            Self::SelfMessagesCommandPrepareV1 => Self::SELF_MESSAGES_COMMAND_PREPARE_V1,
             Self::SelfMlsReadGroupStateMaterialV1 => Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::SelfMlsReadRosterAuthorityV1 => Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
             Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
@@ -1788,9 +1777,8 @@ impl ServiceOperationId {
             Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
                 Some(Self::SelfCommittedEventStreamSubscribeV1)
             }
-            Self::SELF_CONSENT_COMMAND_GRANT_V1 => Some(Self::SelfConsentCommandGrantV1),
+            Self::SELF_CONSENT_COMMAND_REPLACE_V1 => Some(Self::SelfConsentCommandReplaceV1),
             Self::SELF_CONSENT_COMMAND_REQUEST_V1 => Some(Self::SelfConsentCommandRequestV1),
-            Self::SELF_CONSENT_COMMAND_REVOKE_V1 => Some(Self::SelfConsentCommandRevokeV1),
             Self::SELF_CONSENT_READ_CURRENT_V1 => Some(Self::SelfConsentReadCurrentV1),
             Self::SELF_CONSENT_READ_LIST_V1 => Some(Self::SelfConsentReadListV1),
             Self::SELF_CONSENT_RESOURCE_GET_V1 => Some(Self::SelfConsentResourceGetV1),
@@ -1878,7 +1866,6 @@ impl ServiceOperationId {
             Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1 => {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
             }
-            Self::SELF_MESSAGES_COMMAND_PREPARE_V1 => Some(Self::SelfMessagesCommandPrepareV1),
             Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
                 Some(Self::SelfMlsReadGroupStateMaterialV1)
             }
@@ -5460,26 +5447,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfConsentCommandGrantV1,
+        id: ServiceOperationId::SelfConsentCommandReplaceV1,
         http_method: "POST",
-        http_path: "/_arkret/self/consent/results/grant",
-        grpc: Some("SelfConsent/Grant"),
-        mq: Some("self.consent.command.grant"),
+        http_path: "/_arkret/self/consent/results/replace",
+        grpc: Some("SelfConsent/Replace"),
+        mq: Some("self.consent.command.replace"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
+        retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_grant_request_body",
+            "schemas/consent-operations.schema.json#/$defs/consent_replace_request_body",
         ),
         response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_view"),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.read.list.v1\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.self.consent.command.replace.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.consent.grant"])),
+            target: Some(DurableEventTarget::Static(&["ak.consent.replace"])),
             rationale: None,
             branch_contract_json: None,
         }),
@@ -5508,31 +5495,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfConsentCommandRevokeV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/consent/results/revoke",
-        grpc: Some("SelfConsent/Revoke"),
-        mq: Some("self.consent.command.revoke"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_revoke_request_body",
-        ),
-        response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.read.list.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.consent.revoke"])),
-            rationale: None,
             branch_contract_json: None,
         }),
     },
@@ -6523,33 +6485,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfMessagesCommandPrepareV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/messages/prepare",
-        grpc: Some("SelfMessages/Prepare"),
-        mq: Some("self.messages.command.prepare"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(1048576),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/message-authoring.schema.json#/$defs/message_prepare_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/message-authoring.schema.json#/$defs/message_prepare_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "Only a bounded expiring preparation cache; no accepted Event, sequence, membership or projection mutation.",
-            ),
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMlsReadGroupStateMaterialV1,

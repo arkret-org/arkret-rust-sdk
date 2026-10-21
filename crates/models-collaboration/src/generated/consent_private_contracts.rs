@@ -2,10 +2,10 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/consent-private-operations.schema.json
-//! sha256=f10f99368de4d51a99389b7811016d1c5096025ba620030334e803d73173997d
+//! sha256=38706727f4972f923eae34811b49929664b7a6b98546c55d256f376b1fd85fdb
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
+//! sha256=8f43ab7f7fe4be59fd38447b7690378c53af63212ce0eb1df8f8d25fa2a14315
 
 /// Counterpart:
 /// `consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind`.
@@ -71,7 +71,8 @@ pub struct ConsentPrivateListCommand {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentPrivateVersionBody {
-    pub consent_id: arkret_wire::ConsentId,
+    pub peer: crate::events_payloads::consent::ConsentPeer,
+    pub event_id: arkret_wire::EventId,
     pub commit_id: arkret_wire::RealmCommitId,
 }
 
