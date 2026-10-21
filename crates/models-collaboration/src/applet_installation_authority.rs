@@ -202,6 +202,20 @@ pub struct AppletAuthorityMaterialOutcome {
         serialize_with = "serialize_present_current_results"
     )]
     pub current_results: Vec<ExactCurrentResultsReadOutcome>,
+    pub current_binding: AppletCurrentBinding,
+}
+
+/// Current installation is separate from the immutable historical sources.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AppletCurrentBinding {
+    Active {
+        registration_ref: arkret_wire::CommittedEventRef,
+        registration_epoch: Hash,
+        service_id: arkret_wire::DidCoreId,
+    },
+    Inactive {},
 }
 
 impl AppletAuthorityMaterialOutcome {
@@ -221,7 +235,25 @@ impl AppletAuthorityMaterialOutcome {
         for grant in &self.grant_events {
             grant.validate_structural()?;
         }
-        validate_present_current_results_for_scope(&self.effective_scope, &self.current_results)
+        validate_present_current_results_for_scope(&self.effective_scope, &self.current_results)?;
+        if let AppletCurrentBinding::Active {
+            registration_ref,
+            service_id,
+            ..
+        } = &self.current_binding
+        {
+            if self.registration.event.payload.get("service_id").and_then(serde_json::Value::as_str) != Some(service_id.as_str())
+                || !self.current_results.iter().any(|result| matches!(result,
+                    ExactCurrentResultsReadOutcome::Present { effective_stream_head, .. }
+                    if effective_stream_head.stream_ref == registration_ref.stream_ref
+                        && effective_stream_head.stream_position >= registration_ref.stream_position
+                        && (effective_stream_head.stream_position != registration_ref.stream_position
+                            || effective_stream_head.commit_id == registration_ref.commit_id)))
+            {
+                return Err(WireError::Protocol("Current Applet binding differs from the private recipient or covering cut".into()));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -318,6 +350,22 @@ mod authority_material_current_tests {
     use serde_json::{Value, json};
 
     use super::*;
+
+    #[test]
+    fn inactive_binding_cannot_expose_replacement_or_unknown_state() {
+        assert_eq!(
+            serde_json::from_value::<AppletCurrentBinding>(json!({"status":"inactive"})).unwrap(),
+            AppletCurrentBinding::Inactive {}
+        );
+        for member in ["registration_ref", "registration_epoch", "service_id"] {
+            let mut value = json!({"status":"inactive"});
+            value[member] = Value::Null;
+            assert!(serde_json::from_value::<AppletCurrentBinding>(value).is_err());
+        }
+        for value in [json!({"status":"unknown"}), json!({"status":"active"})] {
+            assert!(serde_json::from_value::<AppletCurrentBinding>(value).is_err());
+        }
+    }
 
     fn formal_outcome(status: &str) -> Value {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
