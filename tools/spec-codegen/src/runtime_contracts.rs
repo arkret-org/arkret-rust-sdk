@@ -559,12 +559,24 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                             .iter()
                             .all(|kind| effect.event_kinds.contains(kind))
                 });
-        if !(action.event_mapping_kind == "non_event_surface" || aggregate_carrier)
-            || row.eligibility_kind != "registered_operation_carrier"
-            || carrier.carrier_class != "non_event_operation"
-        {
+        let event_carrier = row.eligibility_kind == "event_submission_carrier"
+            && carrier.carrier_class == "event_submission"
+            && !action.target_event_kinds.is_empty()
+            && approval
+                .event_mapping_defaults
+                .get(&action.event_mapping_kind)
+                .is_some_and(|kind| kind == "event_submission_carrier")
+            && approval
+                .default_carrier_by_eligibility_kind
+                .get(&row.eligibility_kind)
+                == Some(&row.carrier_id);
+        let operation_carrier = (action.event_mapping_kind == "non_event_surface"
+            || aggregate_carrier)
+            && row.eligibility_kind == "registered_operation_carrier"
+            && carrier.carrier_class == "non_event_operation";
+        if !(event_carrier || operation_carrier) {
             bail!(
-                "approval eligibility override for {} does not select a non-event operation carrier",
+                "approval eligibility override for {} does not select its registered carrier class",
                 row.action
             );
         }
@@ -1480,6 +1492,63 @@ mod tests {
                 .to_string()
                 .contains("unknown approver capability action")
         );
+    }
+
+    #[test]
+    fn event_approval_overrides_preserve_the_durable_carrier_and_admin_qualification() {
+        for action_id in ["ak.applet.bot.provision", "ak.applet.ghost.provision"] {
+            let inputs = SpecInputs::load(&spec_artifacts()).expect("load canonical artifacts");
+            validate(&inputs).expect("formal event override");
+            let action = inputs
+                .capability_actions
+                .actions
+                .iter()
+                .find(|action| action.action == action_id)
+                .unwrap();
+            assert_eq!(
+                approval_resolution(&inputs, action),
+                (
+                    "event_submission_carrier",
+                    Some("event_admission_submission.approval_signatures"),
+                )
+            );
+            let descriptor = generate_registry_descriptors(&inputs);
+            let line = descriptor
+                .lines()
+                .find(|line| {
+                    line.contains(&format!(
+                        "action: CapabilityActionId::{},",
+                        variant(action_id, &["ak."])
+                    ))
+                })
+                .unwrap();
+            assert!(
+                line.contains("approver_capability_action: Some(CapabilityActionId::RealmAdmin)")
+            );
+            for mutation in ["class", "targets"] {
+                let mut invalid = SpecInputs::load(&spec_artifacts()).unwrap();
+                if mutation == "class" {
+                    invalid
+                        .capability_actions
+                        .approval_requirement_eligibility
+                        .action_overrides
+                        .iter_mut()
+                        .find(|row| row.action == action_id)
+                        .unwrap()
+                        .eligibility_kind = "registered_operation_carrier".to_owned();
+                } else {
+                    invalid
+                        .capability_actions
+                        .actions
+                        .iter_mut()
+                        .find(|row| row.action == action_id)
+                        .unwrap()
+                        .target_event_kinds
+                        .clear();
+                }
+                assert!(validate(&invalid).is_err(), "{action_id}: {mutation}");
+            }
+        }
     }
 
     #[test]

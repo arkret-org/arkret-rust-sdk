@@ -1609,12 +1609,7 @@ impl AuthorityHandoffRequest {
             .get("object")
             .and_then(|object| object.get("purpose"))
             .and_then(serde_json::Value::as_str)
-            .is_some_and(|purpose| {
-                matches!(
-                    purpose,
-                    "principal_control" | "agent_control" | "applet_managed_control"
-                )
-            });
+            .is_some_and(|purpose| matches!(purpose, "principal_control" | "agent_control"));
         match (
             &self.pcr_private_state,
             &self.handoff.pcr_private_state_digest,

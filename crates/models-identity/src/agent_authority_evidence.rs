@@ -3,8 +3,7 @@
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
 use arkret_wire::{
     AccountId, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString,
-    RealmAuthorityTransition, RealmCommit, RealmCommitId, RealmId, Result, SignerEvidenceRef,
-    TypedCurrentRow, WireError,
+    RealmCommit, RealmCommitId, RealmId, Result, SignerEvidenceRef, TypedCurrentRow, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -88,7 +87,6 @@ pub struct AgentAcceptedAuthorityBundle {
     pub realm_id: RealmId,
     pub genesis_event: Event,
     pub genesis_commit: RealmCommit,
-    pub authority_transitions: Vec<RealmAuthorityTransition>,
     pub signer_histories: Vec<AuthenticatedServiceResolution>,
 }
 
@@ -259,6 +257,13 @@ impl AgentAuthorityState {
     pub fn validate_binding(&self, account: &AccountId) -> Result<()> {
         let genesis = &self.pcr_genesis_event;
         let realm = &genesis.realm_id;
+        let governance = arkret_wire::GenesisGovernance::from_genesis(genesis)?;
+        if !matches!(governance, arkret_wire::GenesisGovernance::Agent(_)) {
+            return Err(invalid(
+                "Agent authority requires its original agent_control genesis",
+            ));
+        }
+        governance.validate_current(&self.authority_id, 0)?;
         if self.authority_id != account.station_id
             || self.agent_id != account.principal_id
             || genesis.actor_id.as_account_id() != Some(account)
@@ -275,6 +280,11 @@ impl AgentAuthorityState {
         for (position, commit) in self.commits.iter().enumerate() {
             commit.validate_content_address()?;
             if commit.realm_id != *realm
+                || commit.governance_generation != 0
+                || commit.authority_ref
+                    != arkret_wire::RealmCommitAuthorityRef::GenesisOrChangeEvent(
+                        genesis.event_id.clone(),
+                    )
                 || commit.stream_ref != self.authority_bundle.genesis_commit.stream_ref
                 || commit.stream_position != position as u64
                 || commit.previous_commit_ref.as_ref()
@@ -467,15 +477,7 @@ impl AgentAuthorityState {
             ));
         }
         let mut events = std::collections::BTreeMap::new();
-        for event in [genesis, &self.key_authorization_event, status]
-            .into_iter()
-            .chain(
-                self.authority_bundle
-                    .authority_transitions
-                    .iter()
-                    .map(|t| &t.change_event),
-            )
-        {
+        for event in [genesis, &self.key_authorization_event, status] {
             if events
                 .insert(&event.event_id, event)
                 .is_some_and(|prior| prior != event)

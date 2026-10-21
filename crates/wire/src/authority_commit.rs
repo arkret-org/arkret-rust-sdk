@@ -589,8 +589,7 @@ pub struct RealmAuthorityBundle {
 pub enum GenesisGovernance {
     Human(AccountId),
     Organization,
-    Agent,
-    AppletManaged,
+    Agent(AccountId),
     Collaboration,
     DirectConversation(DidCoreId),
 }
@@ -625,8 +624,33 @@ impl GenesisGovernance {
                 Ok(Self::Human(account.clone()))
             }
             (Some("principal_control"), (true, true)) => Ok(Self::Organization),
-            (Some("agent_control"), (true, true)) => Ok(Self::Agent),
-            (Some("applet_managed_control"), (true, true)) => Ok(Self::AppletManaged),
+            (Some("agent_control"), (true, true)) => {
+                let account = event.actor_id.as_account_id().ok_or_else(|| {
+                    WireError::Protocol(
+                        "failed_precondition: Agent PCR requires a complete Account actor".into(),
+                    )
+                })?;
+                let controller = event
+                    .executed_by
+                    .as_ref()
+                    .and_then(ActorId::as_account_id)
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "failed_precondition: Agent PCR requires a complete controller Account"
+                                .into(),
+                        )
+                    })?;
+                if account.principal_id == controller.principal_id
+                    || account.station_id != controller.station_id
+                    || payload
+                        .pointer("/object/governance_station_id")
+                        .and_then(Value::as_str)
+                        != Some(account.station_id.as_str())
+                {
+                    return Err(WireError::Protocol("failed_precondition: Agent PCR genesis and controller must share the original account Station".into()));
+                }
+                Ok(Self::Agent(account.clone()))
+            }
             (Some("collaboration"), _) => Ok(Self::Collaboration),
             (Some("direct_conversation"), _) => {
                 let station = payload
@@ -650,10 +674,7 @@ impl GenesisGovernance {
     }
 
     pub fn is_principal_control(&self) -> bool {
-        matches!(
-            self,
-            Self::Human(_) | Self::Organization | Self::Agent | Self::AppletManaged
-        )
+        matches!(self, Self::Human(_) | Self::Organization | Self::Agent(_))
     }
 
     pub fn validate_current(&self, service: &DidCoreId, generation: u64) -> Result<()> {
@@ -672,6 +693,14 @@ impl GenesisGovernance {
                 "failed_precondition: Direct Conversation remains at its genesis Station and initial tenure".into(),
             ));
         }
+        if let Self::Agent(account) = self
+            && (service != &account.station_id || generation != 0)
+        {
+            return Err(WireError::Protocol(
+                "failed_precondition: Agent PCR remains at its account Station and initial tenure"
+                    .into(),
+            ));
+        }
         Ok(())
     }
 
@@ -684,6 +713,11 @@ impl GenesisGovernance {
         if matches!(self, Self::DirectConversation(_)) {
             return Err(WireError::Protocol(
                 "failed_precondition: Direct Conversation governance cannot transfer".into(),
+            ));
+        }
+        if matches!(self, Self::Agent(_)) {
+            return Err(WireError::Protocol(
+                "failed_precondition: Agent PCR cannot independently transfer governance".into(),
             ));
         }
         Ok(())
@@ -747,7 +781,7 @@ impl RealmAuthorityBundle {
             genesis_payload
                 .pointer("/object/purpose")
                 .and_then(Value::as_str),
-            Some("principal_control" | "agent_control" | "applet_managed_control")
+            Some("principal_control" | "agent_control")
         );
         for transition in &self.authority_transitions {
             transition.validate_shape()?;

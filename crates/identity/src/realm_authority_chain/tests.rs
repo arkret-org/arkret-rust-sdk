@@ -302,6 +302,17 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         "purpose": purpose, "governance_station_id": core_id(STATION_A)
     }}))
     .unwrap();
+    if purpose == "agent_control" {
+        genesis_event.executed_by =
+            Some(arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+                core_id(STATION_A),
+            )));
+        genesis_event.authorization_ref = Some(
+            arkret_wire::AuthorizationRef::new("did:web:founder.example#managed-controller")
+                .unwrap(),
+        );
+    }
     genesis_event
         .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
@@ -1899,6 +1910,31 @@ fn human_pcr_rejects_even_a_fully_service_signed_handoff_chain() {
 }
 
 #[test]
+fn agent_pcr_rejects_even_a_fully_service_signed_handoff_chain() {
+    let chain = chain_with_purpose("agent_control");
+    verify_history_signatures(
+        &chain.bundle.genesis_event,
+        &chain.bundle.genesis_commit,
+        &chain.bundle.authority_transitions,
+        &chain.keys,
+    )
+    .unwrap();
+    let error = verify_realm_authority_bundle(
+        &chain.bundle,
+        &RealmAuthorityFreshness::new(now(), Base64UrlString::new(NONCE).unwrap()),
+        &chain.keys,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("Agent PCR"), "{error}");
+    assert!(chain.bundle.validate_shape().is_err());
+}
+
+#[test]
+fn agent_original_station_reads_and_same_identity_updates_remain_valid() {
+    assert_fixed_station_endpoint_and_key_updates("agent_control");
+}
+
+#[test]
 fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
     use arkret_wire::{ActorId, AuthorizationRef, GenesisGovernance};
     let original = chain_with_purpose("principal_control").bundle.genesis_event;
@@ -1913,18 +1949,52 @@ fn immutable_genesis_restriction_distinguishes_human_from_delegated_subjects() {
     assert!(GenesisGovernance::from_genesis(&delegated).is_err());
     delegated.authorization_ref =
         Some(AuthorizationRef::new(original.event_id.to_string()).unwrap());
-    for (purpose, expected) in [
-        ("principal_control", GenesisGovernance::Organization),
-        ("agent_control", GenesisGovernance::Agent),
-        ("applet_managed_control", GenesisGovernance::AppletManaged),
+    assert_eq!(
+        GenesisGovernance::from_genesis(&delegated).unwrap(),
+        GenesisGovernance::Organization
+    );
+    GenesisGovernance::Organization
+        .require_transferable()
+        .unwrap();
+    let agent_genesis = chain_with_purpose("agent_control").bundle.genesis_event;
+    let agent = GenesisGovernance::from_genesis(&agent_genesis).unwrap();
+    assert!(matches!(agent, GenesisGovernance::Agent(_)));
+    assert!(agent.is_principal_control());
+    agent.validate_current(&core_id(STATION_A), 0).unwrap();
+    assert!(agent.validate_current(&core_id(STATION_B), 0).is_err());
+    assert!(agent.validate_current(&core_id(STATION_A), 1).is_err());
+    assert!(agent.require_transferable().is_err());
+    for mutation in [
+        "foreign_controller",
+        "foreign_governor",
+        "service_controller",
+        "self_controller",
     ] {
-        delegated.payload = serde_json::from_value(json!({"object":{"purpose": purpose}})).unwrap();
-        assert_eq!(
-            GenesisGovernance::from_genesis(&delegated).unwrap(),
-            expected
+        let mut invalid = agent_genesis.clone();
+        match mutation {
+            "foreign_controller" => {
+                invalid.executed_by = Some(ActorId::account(arkret_wire::AccountId::new(
+                    DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+                    core_id(STATION_B),
+                )))
+            }
+            "foreign_governor" => {
+                invalid.payload.get_mut("object").unwrap()["governance_station_id"] =
+                    json!(core_id(STATION_B));
+            }
+            "service_controller" => {
+                invalid.executed_by = Some(ActorId::service(core_id(STATION_A)))
+            }
+            _ => invalid.executed_by = Some(invalid.actor_id.clone()),
+        }
+        assert!(
+            GenesisGovernance::from_genesis(&invalid).is_err(),
+            "{mutation}"
         );
-        expected.require_transferable().unwrap();
     }
+    delegated.payload =
+        serde_json::from_value(json!({"object":{"purpose":"applet_managed_control"}})).unwrap();
+    assert!(GenesisGovernance::from_genesis(&delegated).is_err());
     delegated.payload = serde_json::from_value(json!({"object":{"purpose":"unknown"}})).unwrap();
     assert!(GenesisGovernance::from_genesis(&delegated).is_err());
 }
