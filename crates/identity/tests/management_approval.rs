@@ -217,7 +217,8 @@ fn native_management_creation_omits_only_outer_evidence_and_binds_ledger() {
             },
             approval_target: ApprovalTarget::Operation,
             request_canonical_digest: digest.clone(),
-            operation: "ak.self.applet.bot.command.provision.v1".into(),
+            operation: arkret_wire::ServiceOperationId::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1
+                .into(),
             action: CapabilityActionId::AppletBotProvision,
             realm_id: realm,
             initiating_actor_id: service.clone(),
@@ -238,7 +239,7 @@ fn native_management_creation_omits_only_outer_evidence_and_binds_ledger() {
                 &control,
                 candidate,
                 target,
-                "ak.self.applet.bot.command.provision.v1",
+                arkret_wire::ServiceOperationId::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1,
                 CapabilityActionId::AppletBotProvision,
                 &service,
                 at,

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.5;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: schema_ids=231,
-//! active=231
+//! Input: registry/contract-registry.json; version=2026-10-21.11;
+//! sha256=0a00fc2a56501beb7e4c4a3dd0d37a3da0cef007da869c8e1484f19e917bf7e9 Entries: schema_ids=229,
+//! active=229
 
 use serde::{Deserialize, Serialize};
 
@@ -140,8 +140,6 @@ pub enum SchemaId {
     MessageAuthoringContentV1,
     MessageAuthoringIntentV1,
     MessageEncryptionContextV1,
-    MessagePrepareOutcomeV1,
-    MessagePrepareRequestV1,
     MimiInteropV1,
     MimiOperationsV1,
     MlsCommitSubmissionV1,
@@ -375,8 +373,6 @@ impl SchemaId {
         Self::MessageAuthoringContentV1,
         Self::MessageAuthoringIntentV1,
         Self::MessageEncryptionContextV1,
-        Self::MessagePrepareOutcomeV1,
-        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsCommitSubmissionV1,
@@ -610,8 +606,6 @@ impl SchemaId {
         Self::MessageAuthoringContentV1,
         Self::MessageAuthoringIntentV1,
         Self::MessageEncryptionContextV1,
-        Self::MessagePrepareOutcomeV1,
-        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsCommitSubmissionV1,
@@ -1111,10 +1105,6 @@ impl SchemaId {
     /// Closed ordinary message authoring carrier: message_encryption_context.
     pub const MESSAGE_ENCRYPTION_CONTEXT_V1: &'static str =
         "ak.schema.message_encryption_context.v1";
-    /// Closed ordinary message authoring carrier: message_prepare_outcome.
-    pub const MESSAGE_PREPARE_OUTCOME_V1: &'static str = "ak.schema.message_prepare_outcome.v1";
-    /// Closed ordinary message authoring carrier: message_prepare_request_body.
-    pub const MESSAGE_PREPARE_REQUEST_V1: &'static str = "ak.schema.message_prepare_request.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
@@ -1541,8 +1531,6 @@ impl SchemaId {
             Self::MessageAuthoringContentV1 => Self::MESSAGE_AUTHORING_CONTENT_V1,
             Self::MessageAuthoringIntentV1 => Self::MESSAGE_AUTHORING_INTENT_V1,
             Self::MessageEncryptionContextV1 => Self::MESSAGE_ENCRYPTION_CONTEXT_V1,
-            Self::MessagePrepareOutcomeV1 => Self::MESSAGE_PREPARE_OUTCOME_V1,
-            Self::MessagePrepareRequestV1 => Self::MESSAGE_PREPARE_REQUEST_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsCommitSubmissionV1 => Self::MLS_COMMIT_SUBMISSION_V1,
@@ -1825,8 +1813,6 @@ impl SchemaId {
             Self::MessageAuthoringContentV1 => "schemas/message-authoring.schema.json",
             Self::MessageAuthoringIntentV1 => "schemas/message-authoring.schema.json",
             Self::MessageEncryptionContextV1 => "schemas/message-authoring.schema.json",
-            Self::MessagePrepareOutcomeV1 => "schemas/message-authoring.schema.json",
-            Self::MessagePrepareRequestV1 => "schemas/message-authoring.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsCommitSubmissionV1 => "schemas/mls-commit-submission.schema.json",
@@ -2097,8 +2083,6 @@ impl SchemaId {
             Self::MESSAGE_AUTHORING_CONTENT_V1 => Some(Self::MessageAuthoringContentV1),
             Self::MESSAGE_AUTHORING_INTENT_V1 => Some(Self::MessageAuthoringIntentV1),
             Self::MESSAGE_ENCRYPTION_CONTEXT_V1 => Some(Self::MessageEncryptionContextV1),
-            Self::MESSAGE_PREPARE_OUTCOME_V1 => Some(Self::MessagePrepareOutcomeV1),
-            Self::MESSAGE_PREPARE_REQUEST_V1 => Some(Self::MessagePrepareRequestV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_COMMIT_SUBMISSION_V1 => Some(Self::MlsCommitSubmissionV1),

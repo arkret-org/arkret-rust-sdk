@@ -27,7 +27,7 @@ pub enum PinScope {
 
 use crate::{
     AccountId, AccountabilityScopeSet, ActorId, AgentKeyId, Base64UrlString, CapabilityActionId,
-    ConsentId, DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
+    DeviceId, DidUrl, Event, HistoryAccess, MimiRoomUri, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -1584,7 +1584,7 @@ pub enum CurrentSelector {
         call_id: CallId,
     },
     Consent {
-        consent_id: ConsentId,
+        peer_id: ActorId,
     },
     CallFocus {
         call_id: CallId,
@@ -1815,7 +1815,7 @@ enum FlatCurrentSelector {
         call_id: CallId,
     },
     Consent {
-        consent_id: ConsentId,
+        peer_id: ActorId,
     },
     CallFocus {
         call_id: CallId,
@@ -2186,7 +2186,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         primary_conflict_domain,
                     },
                     FlatCurrentSelector::CallState { call_id } => Self::CallState { call_id },
-                    FlatCurrentSelector::Consent { consent_id } => Self::Consent { consent_id },
+                    FlatCurrentSelector::Consent { peer_id } => Self::Consent { peer_id },
                     FlatCurrentSelector::CallFocus { call_id } => Self::CallFocus { call_id },
                     FlatCurrentSelector::CallRoster { call_id } => Self::CallRoster { call_id },
                     FlatCurrentSelector::CallModeration { call_id } => {

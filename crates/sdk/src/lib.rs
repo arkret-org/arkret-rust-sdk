@@ -194,11 +194,10 @@ pub use arkret_models_collaboration::governance::realm_join_intake::{
 };
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
-pub use arkret_models_collaboration::governance_payloads::*;
 pub use arkret_models_collaboration::mention_composer::*;
 pub use arkret_models_collaboration::message_authoring::{
     MessageAuthoringContent, MessageAuthoringIntent, MessageEncryptionContext,
-    MessagePrepareOutcome, MessagePrepareRequestBody, MessageSubmitRequestBody,
+    MessageSubmitRequestBody,
 };
 pub use arkret_models_collaboration::mimi_operations::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;

@@ -10,6 +10,5 @@ pub const PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE: &str =
     "/_arkret/self/direct-conversations/resolve";
 pub const PATH_SELF_CONSENT_RESULTS: &str = "/_arkret/self/consent/results";
 pub const PATH_SELF_CONSENT_RESULT: &str = "/_arkret/self/consent/result";
-pub const PATH_SELF_CONSENT_RESULTS_GRANT: &str = "/_arkret/self/consent/results/grant";
-pub const PATH_SELF_CONSENT_RESULTS_REVOKE: &str = "/_arkret/self/consent/results/revoke";
+pub const PATH_SELF_CONSENT_RESULTS_REPLACE: &str = "/_arkret/self/consent/results/replace";
 pub const PATH_SELF_CONSENT_REQUEST: &str = "/_arkret/self/consent/request";

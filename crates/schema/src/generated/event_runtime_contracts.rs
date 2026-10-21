@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.1;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
-//! Entries: active_events=141
+//! Input: registry/contract-registry.json; version=2026-10-21.2;
+//! sha256=0a00fc2a56501beb7e4c4a3dd0d37a3da0cef007da869c8e1484f19e917bf7e9
+//! Entries: active_events=140
 
 use arkret_wire::event_kind_str;
 
@@ -160,12 +160,7 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CONSENT_GRANT,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CONSENT_REVOKE,
+        event_kind: event_kind_str::CONSENT_REPLACE,
         id_source: None,
         derived_id_kinds: &[],
     },

@@ -2,17 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=a4c646467cc0e400d6cb24a119fe6791612dcf3a3a8d77fd355f9429600679bc
+// sha256=db43f4934d4601ea90be4c1dd25628271e264c7fd7058283c6b765e30217463c
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=9794e5f6afb46725da6449147dea930e65a3b535ffefdf5c0f3541306be35c63
+// sha256=bfee8c04c7b3d9e76727652feaa2e49488bb443f0bb99670a13dd07f2be02fe3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=493cae310937341f71c829355ac772a12a878b5f7c2e20a5e915ba45fda6c2aa
+// sha256=8f43ab7f7fe4be59fd38447b7690378c53af63212ce0eb1df8f8d25fa2a14315
 
 /// Counterpart: `event-payload.schema.json#/$defs/direct_conversation_bound_payload`.
 /// `event-payload.schema.json#/$defs/direct_conversation_bound_payload`.
-/// `binding_digest` is receiver-derived and deliberately absent from the wire.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBoundPayload {
@@ -30,26 +29,11 @@ pub struct DirectConversationBoundPayload {
     pub created_at: DateTime<Utc>,
 }
 
-/// Counterpart:
-/// `typed-current-result.schema.json#/$defs/direct_conversation_binding_endorsement_entry`.
-/// One endorsement of the settled binding
-/// (`typed-current-result.schema.json#/$defs/direct_conversation_binding_endorsement_entry`):
-/// the canonical dot of the accepted `ak.direct_conversation.bound` write and
-/// that Event's complete payload.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectConversationBindingEndorsementEntry {
-    pub tag_id: crate::exact_current_results::CanonicalEventDot,
-    pub value: DirectConversationBoundPayload,
-}
-
 /// Counterpart: `typed-current-result.schema.json#/$defs/direct_conversation_binding_value`.
-/// Closed value of the `direct_conversation_binding` typed current result
-/// (`typed-current-result.schema.json#/$defs/direct_conversation_binding_value`):
-/// the add-only, canonically sorted dot set of accepted endorsements
-/// (`contact-and-direct-conversation.md` section 8.3).
+/// The immutable first accepted binding Event and its original payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBindingCurrentValue {
-    pub endorsements: Vec<DirectConversationBindingEndorsementEntry>,
+    pub binding_event_ref: EventId,
+    pub binding: DirectConversationBoundPayload,
 }

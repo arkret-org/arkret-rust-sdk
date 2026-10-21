@@ -362,7 +362,7 @@ pub struct PrincipalLocatorProof {
 pub use arkret_models_identity::proof::DetachedPayloadProof;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum IntroductionEvidence {
     LocatorRef {
@@ -370,8 +370,6 @@ pub enum IntroductionEvidence {
     },
     ConsentGrant {
         consent_grant_ref: EventId,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        consent_id: Option<String>,
     },
     SharedRealm {
         realm_id: RealmId,

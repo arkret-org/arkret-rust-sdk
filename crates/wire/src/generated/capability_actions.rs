@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-21.5;
-//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: registered=154
+//! Input: registry/contract-registry.json; version=2026-10-21.11;
+//! sha256=0a00fc2a56501beb7e4c4a3dd0d37a3da0cef007da869c8e1484f19e917bf7e9 Entries: registered=153
 
 use serde::{Deserialize, Serialize};
 
@@ -44,8 +44,7 @@ pub enum CapabilityActionId {
     CircleMemberAdd,
     CircleMemberAddOthers,
     CircleMemberManage,
-    ConsentGrant,
-    ConsentRevoke,
+    ConsentReplace,
     ContactScopeUpdate,
     EventRead,
     InviteAccept,
@@ -202,8 +201,7 @@ impl CapabilityActionId {
         Self::CircleMemberAdd,
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
-        Self::ConsentGrant,
-        Self::ConsentRevoke,
+        Self::ConsentReplace,
         Self::ContactScopeUpdate,
         Self::EventRead,
         Self::InviteAccept,
@@ -358,8 +356,7 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
-    pub const CONSENT_GRANT: &'static str = "ak.consent.grant";
-    pub const CONSENT_REVOKE: &'static str = "ak.consent.revoke";
+    pub const CONSENT_REPLACE: &'static str = "ak.consent.replace";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
     pub const EVENT_READ: &'static str = "ak.event.read";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
@@ -525,8 +522,7 @@ impl CapabilityActionId {
             Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
-            Self::ConsentGrant => Self::CONSENT_GRANT,
-            Self::ConsentRevoke => Self::CONSENT_REVOKE,
+            Self::ConsentReplace => Self::CONSENT_REPLACE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
             Self::EventRead => Self::EVENT_READ,
             Self::InviteAccept => Self::INVITE_ACCEPT,
@@ -692,8 +688,7 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
-            Self::CONSENT_GRANT => Some(Self::ConsentGrant),
-            Self::CONSENT_REVOKE => Some(Self::ConsentRevoke),
+            Self::CONSENT_REPLACE => Some(Self::ConsentReplace),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
             Self::EVENT_READ => Some(Self::EventRead),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),

@@ -219,10 +219,9 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         station.service_id.clone(),
     );
     let at = station.registered_at + Duration::seconds(20);
-    let initial = RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [1; 32]));
     let mut genesis = arkret_wire::test_support::raw_event_for_actor_at(
         "ak.realm.create",
-        ScopeRef::Realm { realm_id: initial },
+        ScopeRef::RealmGenesis,
         ActorId::account(agent.clone()),
         json!({"object": {
           "schema":"ak.schema.realm_genesis.v1","purpose":"agent_control","genesis_salt":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",

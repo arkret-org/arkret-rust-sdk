@@ -11,9 +11,7 @@ use arkret_models_collaboration::agent_scope::AgentKeyPairRequestBody;
 use arkret_models_collaboration::authority_commit::{
     PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit, SelfAuthoritySubmitRequest,
 };
-use arkret_models_collaboration::consent_operations::{
-    ConsentGrantRequestBody, ConsentRevokeRequestBody,
-};
+use arkret_models_collaboration::consent_operations::ConsentReplaceRequestBody;
 use arkret_models_collaboration::contact_operations::{
     ContactAcceptRequestBody, ContactCommitRequestBody, ContactOperationRequestBody,
     ContactRejectRequestBody, ContactScopeUpdateRequestBody, ContactTombstoneRequestBody,
@@ -95,15 +93,9 @@ request!(
     canonical_shape(self)
 );
 request!(
-    ConsentGrantRequestBody,
+    ConsentReplaceRequestBody,
     self,
-    vec![&self.grant_event.event],
-    self.validate()
-);
-request!(
-    ConsentRevokeRequestBody,
-    self,
-    vec![&self.revoke_event.event],
+    vec![&self.consent_event.event],
     self.validate()
 );
 request!(

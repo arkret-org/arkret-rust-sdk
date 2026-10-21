@@ -459,18 +459,10 @@ pub enum MimiConsentDecision {
 }
 
 impl MimiConsentDecision {
-    /// Event kind the decision's carried consent Event must already be.
-    ///
-    /// `accept` requires `ak.consent.grant`; `deny` and `revoke` both require
-    /// `ak.consent.revoke`. The facade never synthesizes, rebuilds or co-signs
-    /// that Event, so the decision and the caller-authored kind have to agree
-    /// on the wire.
+    /// Every decision carries the holder's exact full-set replacement Event.
     #[must_use]
     pub const fn required_consent_event_kind(self) -> EventKind {
-        match self {
-            Self::Accept => EventKind::ConsentGrant,
-            Self::Deny | Self::Revoke => EventKind::ConsentRevoke,
-        }
+        EventKind::ConsentReplace
     }
 }
 
@@ -504,7 +496,7 @@ pub struct MimiUpdateConsentRequestBody {
 
 impl MimiUpdateConsentRequestBody {
     /// The carried Event must be the decision's own kind, authored by the same
-    /// Actor the request is signed as, and already name this correlation.
+    /// Actor the request is signed as. Correlation is private facade state.
     pub fn validate_consent_event(&self) -> Result<()> {
         let event = &self.consent_event.event;
         let expected_kind = self.decision.required_consent_event_kind();
@@ -513,12 +505,9 @@ impl MimiUpdateConsentRequestBody {
                 "MIMI consent decision, event kind, and actor binding mismatch".to_owned(),
             ));
         }
-        if event.payload.get("consent_id").and_then(Value::as_str) != Some(self.consent_id.as_str())
-        {
-            return Err(WireError::Protocol(
-                "MIMI consent event payload.consent_id mismatch".to_owned(),
-            ));
-        }
+        let payload: crate::events_payloads::consent::ConsentReplacePayload =
+            serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+        payload.validate()?;
         Ok(())
     }
 
@@ -690,7 +679,7 @@ mod tests {
             "consent_id": consent_id(),
             "decision": decision,
             "actor_id": holder_actor_id(),
-            "consent_event": consent_event(kind, json!({"consent_id": consent_id()})),
+            "consent_event": consent_event(kind, json!({"peer":{"kind":"actor","actor_id":ActorId::account(AccountId::new(alice(), station()))},"expected_current":{"state":"never_written"},"permissions":[]})),
             "signature": fixture_proof()
         })
     }
@@ -768,7 +757,7 @@ mod tests {
 
     #[test]
     fn update_consent_body_round_trips_and_is_closed() {
-        let value = update_consent_value("accept", EventKind::ConsentGrant);
+        let value = update_consent_value("accept", EventKind::ConsentReplace);
         let parsed: MimiUpdateConsentRequestBody =
             serde_json::from_value(value.clone()).expect("closed request body");
         parsed
@@ -805,29 +794,28 @@ mod tests {
     fn update_consent_rejects_an_event_that_contradicts_the_decision() {
         assert_eq!(
             MimiConsentDecision::Deny.required_consent_event_kind(),
-            EventKind::ConsentRevoke
+            EventKind::ConsentReplace
         );
         assert_eq!(
             MimiConsentDecision::Revoke.required_consent_event_kind(),
-            EventKind::ConsentRevoke
+            EventKind::ConsentReplace
         );
 
         let wrong_kind: MimiUpdateConsentRequestBody =
-            serde_json::from_value(update_consent_value("deny", EventKind::ConsentGrant)).unwrap();
+            serde_json::from_value(update_consent_value("deny", EventKind::MessageCreate)).unwrap();
         assert!(wrong_kind.validate_consent_event().is_err());
 
-        let mut wrong_correlation: MimiUpdateConsentRequestBody =
-            serde_json::from_value(update_consent_value("revoke", EventKind::ConsentRevoke))
+        let mut wrong_actor: MimiUpdateConsentRequestBody =
+            serde_json::from_value(update_consent_value("revoke", EventKind::ConsentReplace))
                 .unwrap();
-        wrong_correlation.consent_id =
-            ConsentId::new("ak:consent:0198ff00-0000-7000-8000-000000000002").unwrap();
-        assert!(wrong_correlation.validate_consent_event().is_err());
+        wrong_actor.actor_id = ActorId::account(AccountId::new(alice(), station()));
+        assert!(wrong_actor.validate_consent_event().is_err());
     }
 
     #[test]
     fn update_consent_transcript_binds_the_correlation_and_decision() {
         let body: MimiUpdateConsentRequestBody =
-            serde_json::from_value(update_consent_value("accept", EventKind::ConsentGrant))
+            serde_json::from_value(update_consent_value("accept", EventKind::ConsentReplace))
                 .unwrap();
         let mut proof = fixture_proof();
         proof.payload_digest = body.payload_digest().unwrap();
