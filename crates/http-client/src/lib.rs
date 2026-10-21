@@ -35,6 +35,7 @@ mod client_internals;
 mod endpoints;
 mod error;
 mod key_backup_client;
+pub mod mimi_directory;
 pub mod own_station_device_results;
 pub mod own_station_results;
 mod request;
