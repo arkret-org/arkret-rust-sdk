@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=db43f4934d4601ea90be4c1dd25628271e264c7fd7058283c6b765e30217463c
+// sha256=51122d20a1426cc7e23a5e93ea307be964a90e3eaa9e5980d051ae67c2634887
 //
 // Input: schemas/account-operations.schema.json
 // sha256=b4be514e16b4a5154a4cb3bd56cf062f9ffb2cfc29ef25a26777a29f1e3d7644
@@ -17,13 +17,13 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/typed-current-result.schema.json
-// sha256=bfee8c04c7b3d9e76727652feaa2e49488bb443f0bb99670a13dd07f2be02fe3
+// sha256=224f4055e7e30ab5a95a401acc78ea65e9fac2e347ea0fcd0931860a3c6feec1
 //
 // Input: schemas/agent-provision.schema.json
 // sha256=4d82da00b1a80c01ca4ce46938ae687ea60b1aff59c31f9e2211e496eed6070c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
+// sha256=845a18ec30cf4928c1f028c2c06dbd9f098a9996b00093b60ded7690cd8ad896
 
 /// Counterpart: `event-payload.schema.json#/$defs/agent_action_approve_payload`.
 /// Counterpart for

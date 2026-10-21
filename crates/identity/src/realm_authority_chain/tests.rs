@@ -1674,6 +1674,8 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
         commit_id: transition.change_commit.commit_id.clone(),
     }];
     let mut snapshot = RealmStateSnapshot {
+        purpose: arkret_wire::RealmSnapshotPurpose::FullRecovery,
+        history_basis: None,
         snapshot_id: RealmSnapshotId::from_digest([0; 32]),
         realm_id: cut_realm,
         governance_generation: 0,

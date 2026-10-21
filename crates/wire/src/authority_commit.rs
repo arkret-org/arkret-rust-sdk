@@ -849,12 +849,38 @@ pub struct RetentionAndHistoryFloor {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmSnapshotPurpose {
+    FullRecovery,
+    StreamHistory,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSnapshotHistoryBasis {
+    pub account_id: crate::AccountId,
+    pub stream_ref: CommitStreamRef,
+    pub anchor_position: u64,
+    pub anchor_commit_ref: RealmCommitId,
+    pub accepted_dependency_refs: Vec<crate::CommittedEventRef>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmStateSnapshot {
     pub snapshot_id: RealmSnapshotId,
     pub realm_id: RealmId,
     pub governance_generation: u64,
+    pub purpose: RealmSnapshotPurpose,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub history_basis: Option<RealmSnapshotHistoryBasis>,
     pub visible_stream_heads: Vec<CommitStreamHead>,
     pub current_state_entries: Vec<TypedCurrentRow>,
     pub retention_and_history_floor: RetentionAndHistoryFloor,
@@ -864,6 +890,128 @@ pub struct RealmStateSnapshot {
 }
 
 impl RealmStateSnapshot {
+    pub fn require_full_recovery(&self) -> Result<()> {
+        self.validate_purpose()?;
+        if self.purpose != RealmSnapshotPurpose::FullRecovery {
+            return Err(WireError::Protocol(
+                "historical basis cannot replace current state".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate signed purpose, exact selector coverage and dependency closure.
+    /// Source completeness at the declared cut remains the governor's duty.
+    pub fn validate_purpose(&self) -> Result<()> {
+        let reject = || WireError::Protocol("snapshot purpose or history coverage mismatch".into());
+        let basis = match (&self.purpose, &self.history_basis) {
+            (RealmSnapshotPurpose::FullRecovery, None) => return Ok(()),
+            (RealmSnapshotPurpose::StreamHistory, Some(basis)) => basis,
+            _ => return Err(reject()),
+        };
+        basis.account_id.validate()?;
+        if basis.stream_ref.realm_id() != &self.realm_id {
+            return Err(reject());
+        }
+        let target = self
+            .visible_stream_heads
+            .iter()
+            .find(|head| head.stream_ref == basis.stream_ref)
+            .ok_or_else(reject)?;
+        if target.stream_position != basis.anchor_position
+            || target.commit_id != basis.anchor_commit_ref
+        {
+            return Err(reject());
+        }
+        let realm = CommitStreamRef::Realm {
+            realm_id: self.realm_id.clone(),
+        };
+        let parent = match &basis.stream_ref {
+            CommitStreamRef::Realm { .. } => None,
+            CommitStreamRef::Circle { circle_id, .. } => Some(crate::CurrentSelector::Circle {
+                circle_id: circle_id.clone(),
+            }),
+            CommitStreamRef::Sidecar { sidecar_id, .. } => Some(crate::CurrentSelector::Sidecar {
+                sidecar_id: sidecar_id.clone(),
+            }),
+            _ => return Err(reject()),
+        };
+        let member = crate::CurrentSelector::MemberState {
+            actor_id: ActorId::account(basis.account_id.clone()),
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        let mut sources = std::collections::BTreeSet::from([basis.stream_ref.clone()]);
+        let mut dependencies = Vec::new();
+        let mut parent_seen = false;
+        let mut member_seen = false;
+        for row in &self.current_state_entries {
+            let TypedCurrentRow::Value {
+                selector,
+                source_stream_ref,
+                revision,
+                ..
+            } = row;
+            if !seen.insert(crate::canonical::canonical_json_bytes(selector)?) {
+                return Err(reject());
+            }
+            if source_stream_ref == &basis.stream_ref {
+                if matches!(
+                    selector,
+                    crate::CurrentSelector::Circle { .. } | crate::CurrentSelector::Sidecar { .. }
+                ) {
+                    return Err(reject());
+                }
+                continue;
+            }
+            if parent.is_none()
+                || source_stream_ref != &realm
+                || (Some(selector) != parent.as_ref() && selector != &member)
+            {
+                return Err(reject());
+            }
+            parent_seen |= Some(selector) == parent.as_ref();
+            member_seen |= selector == &member;
+            sources.insert(source_stream_ref.clone());
+            let matching: Vec<_> = basis
+                .accepted_dependency_refs
+                .iter()
+                .filter(|dep| {
+                    dep.stream_ref == *source_stream_ref
+                        && dep.commit_id == revision.commit_id
+                        && dep.stream_position == revision.stream_position
+                })
+                .collect();
+            if matching.len() != 1 {
+                return Err(reject());
+            }
+            if !dependencies.contains(matching[0]) {
+                dependencies.push(matching[0].clone());
+            }
+        }
+        dependencies.sort();
+        let heads: std::collections::BTreeSet<_> = self
+            .visible_stream_heads
+            .iter()
+            .map(|h| h.stream_ref.clone())
+            .collect();
+        let floors: std::collections::BTreeSet<_> = self
+            .retention_and_history_floor
+            .stream_floors
+            .iter()
+            .map(|f| f.stream_ref.clone())
+            .collect();
+        if (parent.is_some() && (!parent_seen || !member_seen))
+            || dependencies != basis.accepted_dependency_refs
+            || heads != sources
+            || floors != sources
+            || heads.len() != self.visible_stream_heads.len()
+            || floors.len() != self.retention_and_history_floor.stream_floors.len()
+        {
+            return Err(reject());
+        }
+        Ok(())
+    }
+
     /// The exact typed revision of `member`'s current parent Realm
     /// `member_state` join in this snapshot's cut -- the value a Circle join
     /// signs as `parent_membership_revision` (`zh/models/circle.md` section

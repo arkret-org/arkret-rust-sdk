@@ -374,35 +374,14 @@ impl InviteCancelPayload {
 pub enum InviteRevokeTargetState {
     Revoked,
     Expired,
-    /// The delivery service could not reach the private invite delivery target.
-    ///
-    /// It is the only non-terminal target state and the only one that keeps the
-    /// invite inside the live set, so it derives no
-    /// `ak.component.invite.live_target.v1` release write
-    /// (`zh/models/governance-objects.md` section 5.3).
-    SendFailed,
-    RevokedByCapabilityLoss,
-    RevokedByInviterLeft,
-    InvalidatedByRateLimit,
 }
 
-/// Closed source states for a revoke transition.
+/// Closed source states for a terminal revoke transition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteRevokePreviousState {
     Pending,
     Claimed,
-    SendFailed,
-}
-
-impl InviteRevokeTargetState {
-    /// Whether this transition releases the invitee's Realm live-target slot.
-    ///
-    /// `send_failed` keeps the invite live, so it MUST NOT release; every other
-    /// registered target state is terminal and MUST.
-    pub const fn releases_live_target(self) -> bool {
-        !matches!(self, Self::SendFailed)
-    }
 }
 
 /// High-risk/direct-or-third-party revocation payload
@@ -414,8 +393,7 @@ impl InviteRevokeTargetState {
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
     pub previous_state: InviteRevokePreviousState,
-    /// Present exactly when the target Invite stores one and `target_state` is
-    /// not `send_failed`: it is the only signed source the
+    /// Present exactly when the target Invite stores one: it is the signed source the
     /// `invite_live_target` subject can be derived from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invitee_account_id: Option<AccountId>,
@@ -457,28 +435,9 @@ impl InviteRevokePayload {
         self
     }
 
-    /// Enforce the schema's `if/then`: `send_failed` MUST NOT carry
-    /// `invitee_account_id`.
-    ///
-    /// A `send_failed` Move that carried one would derive a slot release write
-    /// while the invite is still live, which is exactly the leak the live set
-    /// definition forbids (`zh/models/governance-objects.md` section 5.3).
+    /// Validate the signed target identity. Both terminal targets release only
+    /// the stored directed Invite's own live-target slot.
     pub fn validate(&self) -> Result<()> {
-        if self.target_state == InviteRevokeTargetState::SendFailed
-            && self.invitee_account_id.is_some()
-        {
-            return Err(WireError::Protocol(
-                "invite revoke payload must omit invitee_account_id when target_state is send_failed"
-                    .to_owned(),
-            ));
-        }
-        if self.target_state == InviteRevokeTargetState::SendFailed
-            && self.previous_state != InviteRevokePreviousState::Pending
-        {
-            return Err(WireError::Protocol(
-                "invite revoke send_failed requires previous_state pending".to_owned(),
-            ));
-        }
         if let Some(invitee_account_id) = &self.invitee_account_id {
             invitee_account_id.validate()?;
         }
@@ -1051,7 +1010,6 @@ mod invite_accept_payload_tests {
         for state in [
             InviteRevokePreviousState::Pending,
             InviteRevokePreviousState::Claimed,
-            InviteRevokePreviousState::SendFailed,
         ] {
             let payload = InviteRevokePayload::new(
                 invite_id.clone(),
@@ -1073,13 +1031,19 @@ mod invite_accept_payload_tests {
         missing["previous_state"] = serde_json::json!("accepted");
         assert!(serde_json::from_value::<InviteRevokePayload>(missing).is_err());
 
-        let invalid = InviteRevokePayload::new(
-            invite_id,
-            InviteRevokePreviousState::Claimed,
-            None,
-            InviteRevokeTargetState::SendFailed,
-        );
-        assert!(invalid.validate().is_err());
+        for retired in [
+            "send_failed",
+            "revoked_by_capability_loss",
+            "revoked_by_inviter_left",
+            "invalidated_by_rate_limit",
+        ] {
+            assert!(
+                serde_json::from_value::<InviteRevokePayload>(serde_json::json!({
+                    "invite_id": invite_id, "previous_state": "pending", "target_state": retired
+                }))
+                .is_err()
+            );
+        }
     }
 
     #[test]
@@ -1106,7 +1070,7 @@ mod invite_accept_payload_tests {
 
         let revoke = serde_json::json!({
             "invite_id": invite_id,
-            "previous_state": "send_failed",
+            "previous_state": "pending",
             "invitee_account_id": invitee,
             "target_state": "expired",
             "reason_code": "delivery_target_unreachable"
