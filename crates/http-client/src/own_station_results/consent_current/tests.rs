@@ -456,9 +456,11 @@ fn nonhuman_consent_uses_verified_authority_and_retains_current_assertion_deadli
             arkret_signatures::call_invitation::verify_consent_current_read(
                 &stale,
                 &request,
+                &station.verification_method,
                 &PublicKeyMaterial::Ed25519Raw {
                     bytes: station.signing_key.verifying_key().to_bytes().to_vec(),
                 },
+                stale.governance_generation,
                 now(),
             )
             .unwrap();

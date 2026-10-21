@@ -28,10 +28,17 @@ pub fn sign_consent_current_read(
 pub fn verify_consent_current_read(
     outcome: &arkret_models_collaboration::consent_operations::ConsentCurrentReadOutcome,
     request: &arkret_models_collaboration::consent_operations::ConsentCurrentReadRequestBody,
+    authority_method: &DidUrl,
     key: &PublicKeyMaterial,
+    generation: u64,
     now: DateTime<Utc>,
 ) -> Result<()> {
-    outcome.validate_for_request(request, outcome.governance_generation, now)?;
+    if outcome.proof.verification_method != authority_method.as_str() {
+        return Err(Error::Protocol(
+            "Consent read names another authority signer".into(),
+        ));
+    }
+    outcome.validate_for_request(request, generation, now)?;
     Ed25519DetachedJwsVerifier::new()
         .verify_detached_jws(&outcome.proof.jws, &outcome.signature_input()?, key)
         .map(|_| ())

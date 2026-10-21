@@ -449,7 +449,32 @@
         "ManualPresenceState",
         "PresencePreference",
         "PresenceVisibility",
-        "PresenceVisibilityPreference"
+        "PresenceVisibilityPreference",
+        "CallInvitationMedia",
+        "CallInvitationProof",
+        "CallInvitationAdmissionProof",
+        "CallVoluntaryJoinProof",
+        "CallInvitationSendStatus",
+        "CallInvitationAdmissionPhase",
+        "CallInvitationJoinKind",
+        "CallVoluntaryJoinKind",
+        "CallRefreshJoinKind",
+        "CallInvitationEnvelope",
+        "CallInvitationSendRequestBody",
+        "CallInvitationSendOutcome",
+        "CallInvitationAdmissionRequestBody",
+        "CallInvitationAdmissionOutcome",
+        "CallInvitationDeliveryView",
+        "CallInvitationJoinContext",
+        "CallVoluntaryJoinContext",
+        "CallRefreshJoinContext",
+        "CallMediaJoinContext",
+        "ConsentCurrentSelectorKind",
+        "ConsentCurrentSelector",
+        "ConsentCurrentRow",
+        "ConsentCurrentReadProof",
+        "ConsentCurrentReadRequestBody",
+        "ConsentCurrentReadOutcome"
       ]
     },
     {
@@ -2074,7 +2099,10 @@
         "ConsentPrivateRequestOutcome",
         "ConsentPrivateCommandOutcome",
         "ConsentPrivateProxyRequest",
-        "ConsentPrivateProxyOutcome"
+        "ConsentPrivateProxyOutcome",
+        "ConsentPrivateEffectsPublishStatus",
+        "ConsentPrivateEffectsPublishRequest",
+        "ConsentPrivateEffectsPublishOutcome"
       ]
     },
     {

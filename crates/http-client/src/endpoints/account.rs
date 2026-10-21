@@ -113,7 +113,7 @@ impl Client {
         request: &VerifiedSubmission<ConsentReplaceRequestBody>,
     ) -> Result<ConsentView> {
         let outcome: ConsentView = self
-            .post("/_arkret/self/consent/results/replace", request)
+            .post(arkret_wire::PATH_SELF_CONSENT_RESULTS_REPLACE, request)
             .await?;
         outcome.validate()?;
         Ok(outcome)

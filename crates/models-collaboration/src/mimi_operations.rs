@@ -495,7 +495,7 @@ pub struct MimiUpdateConsentRequestBody {
 
 impl MimiUpdateConsentRequestBody {
     /// The carried Event must be the decision's own kind, authored by the same
-    /// Actor the request is signed as, and already name this correlation.
+    /// Actor the request is signed as. Correlation is private facade state.
     pub fn validate_consent_event(&self) -> Result<()> {
         let event = &self.consent_event.event;
         let expected_kind = self.decision.required_consent_event_kind();

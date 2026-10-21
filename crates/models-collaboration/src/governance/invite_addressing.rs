@@ -362,7 +362,7 @@ pub struct PrincipalLocatorProof {
 pub use arkret_models_identity::proof::DetachedPayloadProof;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)]
 pub enum IntroductionEvidence {
     LocatorRef {

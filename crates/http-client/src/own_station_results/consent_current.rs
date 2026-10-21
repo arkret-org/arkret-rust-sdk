@@ -237,7 +237,9 @@ impl ConsentCurrentReadAuthority {
         arkret_signatures::call_invitation::verify_consent_current_read(
             outcome,
             request,
+            &outcome.proof.verification_method,
             &key.public_key,
+            self.generation,
             now,
         )?;
         Ok(())

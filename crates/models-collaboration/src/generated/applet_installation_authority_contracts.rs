@@ -5,7 +5,7 @@
 // sha256=f8400dece56a5000e75825d2222eddfcedfe31a265b43e7fe1fc823e7f888bc2
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `applet-authority-material.schema.json#/$defs/request`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

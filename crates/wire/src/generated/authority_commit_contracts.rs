@@ -26,7 +26,7 @@
 // sha256=5429e875d095ff71e7c0d290032f96c9ac7c89714ea99fd6df70c906759ca5c4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_row`.
 /// One established authority stream the caller may know exists

@@ -5,7 +5,7 @@
 // sha256=00e7ef26b6ad616e2040ab3f32885144995918d1779d1ae2aecc3016a7156881
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `sdk-conformance-claim.schema.json#/$defs/issuer`.
 /// `spec/v1/artifacts/schemas/sdk-conformance-claim.schema.json#/$defs/issuer`.

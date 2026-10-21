@@ -20,7 +20,7 @@
 // sha256=cf32adc7dde893269afa676f7f507979b0f1899e2c565185d7a9f752c4f4e2ff
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
 /// Counterpart for

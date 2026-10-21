@@ -52,16 +52,10 @@ fn only_registered_creation_approvals_use_an_explicit_administrator_grant() {
         .collect::<Vec<_>>();
     assert_eq!(
         overridden,
-        vec![
-            (
-                CapabilityActionId::AppletBotProvision,
-                CapabilityActionId::RealmAdmin
-            ),
-            (
-                CapabilityActionId::AppletGhostProvision,
-                CapabilityActionId::RealmAdmin
-            ),
-        ]
+        vec![(
+            CapabilityActionId::AppletConfigure,
+            CapabilityActionId::RealmAdmin
+        )]
     );
     for (action, _) in overridden {
         let carrier = approval_evidence_carrier_for_action(action).unwrap();

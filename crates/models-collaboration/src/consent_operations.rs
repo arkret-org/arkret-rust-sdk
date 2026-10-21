@@ -24,7 +24,6 @@ pub struct ConsentView {
     pub updated_at: DateTime<Utc>,
     pub revision: CurrentRevision,
 }
-
 impl ConsentView {
     pub fn validate(&self) -> Result<()> {
         if self.permission_scopes.len() > 4

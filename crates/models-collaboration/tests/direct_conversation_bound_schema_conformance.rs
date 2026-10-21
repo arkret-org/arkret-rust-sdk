@@ -1,4 +1,4 @@
-//! The participant endorsement remains a closed Event payload, not a service receipt.
+//! The single accepted binding preserves its original participant Event.
 
 use std::fs;
 

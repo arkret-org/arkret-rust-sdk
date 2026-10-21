@@ -11,7 +11,7 @@
 // sha256=bf1d0445915ff6f1f6371f39b4c070c67cd2af55f03bbd0a736216f62ed44d51
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `invite-delivery.schema.json`.
 /// Strong cell value for the `ak.account.invite_delivery` account-data key

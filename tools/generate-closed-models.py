@@ -204,7 +204,37 @@ class Generator:
         lines.append(f'#[derive({", ".join(traits)})]')
         if row.get("expect_large_enum_variant"):
             lines.append('#[expect(clippy::large_enum_variant, reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy.")]')
-        if "oneOf" in node:
+        if "oneOf" in node and all("$ref" not in branch for branch in node["oneOf"]):
+            branches = node["oneOf"]
+            tags = [set(key for key, value in branch.get("properties", {}).items()
+                        if isinstance(value.get("const"), str)) for branch in branches]
+            common = set.intersection(*tags) if tags else set()
+            if len(common) != 1:
+                raise ValueError(f"inline union requires one common constant discriminator: {pointer}")
+            tag = common.pop()
+            lines += [f'#[serde(tag = "{tag}", deny_unknown_fields)]', f"pub enum {name} {{"]
+            values = set()
+            for index, branch in enumerate(branches):
+                properties = branch.get("properties", {})
+                required = set(branch.get("required", []))
+                value = properties[tag]["const"]
+                if (branch.get("type") != "object" or branch.get("additionalProperties") is not False
+                    or required != set(properties) or value in values
+                    or any(key in branch for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas"))):
+                    raise ValueError(f"inline union requires closed required distinct branches: {pointer}")
+                values.add(value)
+                lines += [f'    #[serde(rename = {json.dumps(value)})]', f"    {rust_name(value)} {{"]
+                for field, shape in properties.items():
+                    if field == tag:
+                        continue
+                    if not re.fullmatch(r"[a-z][a-z0-9_]*", field) or field in {"type", "ref", "self", "mod"}:
+                        raise ValueError(f"unsupported Rust field name: {field}")
+                    typ, timestamp = self.rust_type(shape, f"{pointer}/oneOf/{index}/properties/{field}")
+                    if timestamp:
+                        lines.append(f'        #[serde(with = "{HELPERS}::canonical_timestamp")]')
+                    lines.append(f"        {field}: {typ},")
+                lines.append("    },")
+        elif "oneOf" in node:
             lines += ['#[serde(untagged)]', f"pub enum {name} {{"]
             kinds = set()
             for branch in node["oneOf"]:

@@ -26,7 +26,7 @@
 // sha256=db43f4934d4601ea90be4c1dd25628271e264c7fd7058283c6b765e30217463c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.

@@ -8,7 +8,7 @@
 // sha256=4d82da00b1a80c01ca4ce46938ae687ea60b1aff59c31f9e2211e496eed6070c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=ee958bb963f35540b3d330cc3731d78e388ab09c402e48014a9739bbca5c1c40
+// sha256=af762bea6b5c7998721f966a440cccf3d905502ca61a6fb56cd69e1fd9203800
 
 /// Counterpart: `typed-current-result.schema.json#/$defs/agent_selector_claim_value`.
 /// Value of the `agent_selector_claim` typed current result

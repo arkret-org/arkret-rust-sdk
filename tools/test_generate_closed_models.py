@@ -189,6 +189,32 @@ class ClosedModelsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.generate()
 
+    def test_inline_state_union_requires_a_closed_distinct_required_discriminator(self):
+        self.schema = {"oneOf": [
+            {"type": "object", "additionalProperties": False, "required": ["state"],
+             "properties": {"state": {"const": "never_written"}}},
+            {"type": "object", "additionalProperties": False, "required": ["state", "revision"],
+             "properties": {"state": {"const": "present"}, "revision": {"type": "string"}}},
+        ]}
+        output = self.generate()
+        self.assertIn('serde(tag = "state", deny_unknown_fields)', output)
+        self.assertIn('NeverWritten {', output)
+        self.assertIn('revision: String', output)
+        for change in ("duplicate", "optional", "open", "composition"):
+            original = copy.deepcopy(self.schema)
+            branch = self.schema["oneOf"][1]
+            if change == "duplicate":
+                branch["properties"]["state"]["const"] = "never_written"
+            elif change == "optional":
+                branch["required"] = ["revision"]
+            elif change == "open":
+                branch["additionalProperties"] = True
+            else:
+                branch["not"] = {}
+            with self.assertRaises(ValueError):
+                self.generate()
+            self.schema = original
+
     def test_union_requires_disjoint_closed_required_kind(self):
         self.schema = {"oneOf": [{"$ref": "#/$defs/left"}, {"$ref": "#/$defs/right"}], "$defs": {}}
         for name in ("left", "right"):
