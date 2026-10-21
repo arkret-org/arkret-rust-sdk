@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f
-//! Entries: http_signature_scenarios=8, freshness_profile=ak.http_signature.freshness.v1
+//! Input: registry/contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
+//! Entries: http_signature_scenarios=9, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HttpSignatureScenario {
@@ -14,6 +14,7 @@ pub enum HttpSignatureScenario {
     AppletManagedDeviceV1,
     CallInvitationV1,
     ConsentCurrentReadV1,
+    RealmActorControlV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,6 +110,17 @@ const CONSENT_CURRENT_READ_V1_CONDITIONAL_COMPONENTS:
         component: "destination-service-endpoint-digest",
         condition: "the destination is reached through a shared ingress",
     }];
+const REALM_ACTOR_CONTROL_V1_CONDITIONAL_COMPONENTS:
+    &[HttpSignatureConditionalComponentDescriptor] = &[
+    HttpSignatureConditionalComponentDescriptor {
+        component: "content-digest",
+        condition: "the request carries a body",
+    },
+    HttpSignatureConditionalComponentDescriptor {
+        component: "idempotency-key",
+        condition: "the operation uses an idempotency key",
+    },
+];
 
 pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
     HttpSignatureScenarioDescriptor {
@@ -135,13 +147,15 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.peer.strand.watch.read.current.v1",
             "ak.self.applet.authority.read.material.v1",
             "ak.self.applet.bot.command.preview.v1",
-            "ak.self.applet.bot.command.provision.v1",
             "ak.self.applet.ghost.command.preview.v1",
-            "ak.self.applet.ghost.command.provision.v1",
             "ak.self.events.command.submit.v1",
             "ak.self.management_review.command.decide.v1",
             "ak.self.management_review.command.request.v1",
             "ak.self.management_review.read.status.v1",
+            "ak.edge.applet.configuration.command.execute.v1",
+            "ak.self.realm_actor.read.material.v1",
+            "ak.peer.realm_actor.read.material.v1",
+            "ak.peer.applet.configuration.command.submit.v1",
         ],
     },
     HttpSignatureScenarioDescriptor {
@@ -267,6 +281,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.realm_state_snapshot.read.by_ref.v1",
             "ak.self.realm_state_snapshot.read.manifest_head.v1",
             "ak.self.events.command.submit.v1",
+            "ak.self.realm_actor.read.material.v1",
         ],
     },
     HttpSignatureScenarioDescriptor {
@@ -321,6 +336,25 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
         ],
         freshness_profile_id: "ak.http_signature.freshness.v1",
         operations: &["ak.peer.consent.read.current.v1"],
+    },
+    HttpSignatureScenarioDescriptor {
+        scenario: HttpSignatureScenario::RealmActorControlV1,
+        scenario_id: "ak.http_signature.scenario.realm_actor_control.v1",
+        extends: None,
+        additional_covered_components: &["arkret-realm-actor-control", "destination-service-id"],
+        conditional_covered_components: REALM_ACTOR_CONTROL_V1_CONDITIONAL_COMPONENTS,
+        required_headers: &[
+            "Signature",
+            "Signature-Input",
+            "Arkret-Operation",
+            "Arkret-Realm-Actor-Control",
+            "Destination-Service-ID",
+        ],
+        freshness_profile_id: "ak.http_signature.freshness.v1",
+        operations: &[
+            "ak.self.events.command.submit.v1",
+            "ak.self.realm_actor.read.material.v1",
+        ],
     },
 ];
 

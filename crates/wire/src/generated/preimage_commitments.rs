@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.1;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Input: reachable event
+//! Input: registry/contract-registry.json; version=2026-10-21.1;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=835a60977922141fda0a05c8ea5b0e40c4f8a80d8837ea1f446d40f31f01b4ce
-//! Entries: preimage_commitments=39
+//! sha256=8b3c68d281832a207375f4ba844879cab6c547d4c57b962a1d29376a20a47903
+//! Entries: preimage_commitments=43
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -33,6 +33,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
         schema_file: "schemas/agent-provision.schema.json",
         json_pointer: "/properties/principal_control_realm_id",
         commitment: PreimageCommitment::LaterSubmission,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/authority-commit-operations.schema.json",
+        json_pointer: "/$defs/committed_event_ref/properties/event_id",
+        commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/call-recording-artifact.schema.json",
@@ -131,12 +136,27 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_accepted_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/contact_accepted_payload/properties/request_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_rejected_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/contact_rejected_payload/properties/request_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/contact_requested_payload/properties/predecessor_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

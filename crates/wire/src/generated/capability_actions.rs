@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Entries: registered=150
+//! Input: registry/contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: registered=154
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,7 @@ pub enum CapabilityActionId {
     AgentSidecarWrite,
     AppletBotProvision,
     AppletBridgeError,
+    AppletConfigure,
     AppletGhostProvision,
     AppletJoin,
     AppletPublish,
@@ -93,6 +94,9 @@ pub enum CapabilityActionId {
     ReactionAdd,
     ReactionRemove,
     ReadCursorAdvance,
+    RealmActorAudit,
+    RealmActorManage,
+    RealmActorManagerChange,
     RealmAdmin,
     RealmAlias,
     RealmArchive,
@@ -175,6 +179,7 @@ impl CapabilityActionId {
         Self::AgentSidecarWrite,
         Self::AppletBotProvision,
         Self::AppletBridgeError,
+        Self::AppletConfigure,
         Self::AppletGhostProvision,
         Self::AppletJoin,
         Self::AppletPublish,
@@ -247,6 +252,9 @@ impl CapabilityActionId {
         Self::ReactionAdd,
         Self::ReactionRemove,
         Self::ReadCursorAdvance,
+        Self::RealmActorAudit,
+        Self::RealmActorManage,
+        Self::RealmActorManagerChange,
         Self::RealmAdmin,
         Self::RealmAlias,
         Self::RealmArchive,
@@ -327,6 +335,7 @@ impl CapabilityActionId {
     pub const AGENT_SIDECAR_WRITE: &'static str = "ak.agent.sidecar.write";
     pub const APPLET_BOT_PROVISION: &'static str = "ak.applet.bot.provision";
     pub const APPLET_BRIDGE_ERROR: &'static str = "ak.applet.bridge_error";
+    pub const APPLET_CONFIGURE: &'static str = "ak.applet.configure";
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
     pub const APPLET_JOIN: &'static str = "ak.applet.join";
     pub const APPLET_PUBLISH: &'static str = "ak.applet.publish";
@@ -399,6 +408,9 @@ impl CapabilityActionId {
     pub const REACTION_ADD: &'static str = "ak.reaction.add";
     pub const REACTION_REMOVE: &'static str = "ak.reaction.remove";
     pub const READ_CURSOR_ADVANCE: &'static str = "ak.read_cursor.advance";
+    pub const REALM_ACTOR_AUDIT: &'static str = "ak.realm.actor.audit";
+    pub const REALM_ACTOR_MANAGE: &'static str = "ak.realm.actor.manage";
+    pub const REALM_ACTOR_MANAGER_CHANGE: &'static str = "ak.realm.actor.manager.change";
     pub const REALM_ADMIN: &'static str = "ak.realm.admin";
     pub const REALM_ALIAS: &'static str = "ak.realm.alias";
     pub const REALM_ARCHIVE: &'static str = "ak.realm.archive";
@@ -490,6 +502,7 @@ impl CapabilityActionId {
             Self::AgentSidecarWrite => Self::AGENT_SIDECAR_WRITE,
             Self::AppletBotProvision => Self::APPLET_BOT_PROVISION,
             Self::AppletBridgeError => Self::APPLET_BRIDGE_ERROR,
+            Self::AppletConfigure => Self::APPLET_CONFIGURE,
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
             Self::AppletJoin => Self::APPLET_JOIN,
             Self::AppletPublish => Self::APPLET_PUBLISH,
@@ -562,6 +575,9 @@ impl CapabilityActionId {
             Self::ReactionAdd => Self::REACTION_ADD,
             Self::ReactionRemove => Self::REACTION_REMOVE,
             Self::ReadCursorAdvance => Self::READ_CURSOR_ADVANCE,
+            Self::RealmActorAudit => Self::REALM_ACTOR_AUDIT,
+            Self::RealmActorManage => Self::REALM_ACTOR_MANAGE,
+            Self::RealmActorManagerChange => Self::REALM_ACTOR_MANAGER_CHANGE,
             Self::RealmAdmin => Self::REALM_ADMIN,
             Self::RealmAlias => Self::REALM_ALIAS,
             Self::RealmArchive => Self::REALM_ARCHIVE,
@@ -653,6 +669,7 @@ impl CapabilityActionId {
             Self::AGENT_SIDECAR_WRITE => Some(Self::AgentSidecarWrite),
             Self::APPLET_BOT_PROVISION => Some(Self::AppletBotProvision),
             Self::APPLET_BRIDGE_ERROR => Some(Self::AppletBridgeError),
+            Self::APPLET_CONFIGURE => Some(Self::AppletConfigure),
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
             Self::APPLET_JOIN => Some(Self::AppletJoin),
             Self::APPLET_PUBLISH => Some(Self::AppletPublish),
@@ -725,6 +742,9 @@ impl CapabilityActionId {
             Self::REACTION_ADD => Some(Self::ReactionAdd),
             Self::REACTION_REMOVE => Some(Self::ReactionRemove),
             Self::READ_CURSOR_ADVANCE => Some(Self::ReadCursorAdvance),
+            Self::REALM_ACTOR_AUDIT => Some(Self::RealmActorAudit),
+            Self::REALM_ACTOR_MANAGE => Some(Self::RealmActorManage),
+            Self::REALM_ACTOR_MANAGER_CHANGE => Some(Self::RealmActorManagerChange),
             Self::REALM_ADMIN => Some(Self::RealmAdmin),
             Self::REALM_ALIAS => Some(Self::RealmAlias),
             Self::REALM_ARCHIVE => Some(Self::RealmArchive),

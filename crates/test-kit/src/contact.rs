@@ -1,4 +1,4 @@
-//! Real producer/source signatures and exact bilateral Contact history.
+//! Real producer/source signatures and exact bilateral Contact originals.
 //!
 //! These are protocol fixtures, not evidence that a live Station accepted them.
 //! Reject is an alternative to Response, never a successor to an accepted round.
@@ -91,19 +91,23 @@ impl ContactParticipant<'_> {
         &self,
         peer: ContactPeer,
         round: Hash,
-        events: &[EventId],
-        terminal: bool,
+        head: EventId,
+        version: u64,
+        scope_instances: Vec<ContactScopeInstance>,
         at: DateTime<Utc>,
     ) -> Result<ContactCurrentProof> {
-        ensure!(!events.is_empty(), "Contact history cannot be empty");
         Ok(ContactCurrentProof::sign_with(
-            round,
-            self.authority.service_id.clone(),
+            contact_trust_domain(),
+            self.peer(),
             peer,
-            terminal,
-            events.last().unwrap().clone(),
-            events.to_vec(),
-            events.len() as u64,
+            Some(round.clone()),
+            Some(round),
+            self.authority.service_id.clone(),
+            head,
+            version,
+            scope_instances,
+            None,
+            at,
             at + Duration::minutes(15),
             |bytes| self.authority.sign(bytes, at),
         )?)
@@ -139,6 +143,9 @@ impl ContactCeremonyFixture {
         let intro = ContactIntroductionEvidence::ExplicitAddress;
         let request = requester.event::<event_spec::ContactRequested>(
             ContactRequestedPayload {
+                trust_domain_id: contact_trust_domain(),
+                version: 1,
+                predecessor_event_ref: None,
                 peer: responder.peer(),
                 granted_to_peer_scopes: vec![ContactScope::Invite, ContactScope::DirectMessage],
                 introduction_evidence_digest: Hash::new(
@@ -147,7 +154,7 @@ impl ContactCeremonyFixture {
                         &intro,
                     )?,
                 )?,
-                previous_terminal_contact_round_id: None,
+                initial_contact_round_id: None,
                 message: None,
             },
             at,
@@ -156,12 +163,16 @@ impl ContactCeremonyFixture {
             RequestAcceptanceReceiptCore {
                 holder: requester.peer(),
                 peer: responder.peer(),
-                slot_version: 1,
-                slot_predecessor: None,
-                previous_terminal_contact_round_id: None,
+                version: 1,
+                predecessor_event_ref: None,
+                trust_domain_id: contact_trust_domain(),
+                initial_contact_round_id: None,
                 request_event_ref: request.event_id.clone(),
                 producer_signer: requester.producer()?,
-                source_checkpoint: Hash::new(arkret_canonical::canonical_sha256(&request)?)?,
+                source_checkpoint: Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+                    arkret_wire::DomainSeparationId::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,
+                    &serde_json::json!({"event_ref":request.event_id,"event_digest":request.event_id.event_digest()}),
+                )?)?,
                 accepted_at: at,
                 issuer_id: requester.authority.service_id.clone(),
             },
@@ -184,12 +195,14 @@ impl ContactCeremonyFixture {
         )?)?;
         let accepted = responder.event::<event_spec::ContactAccepted>(
             ContactAcceptedPayload {
+                trust_domain_id: contact_trust_domain(),
+                predecessor_event_ref: None,
                 peer: requester.peer(),
                 contact_round_id: round_id.clone(),
                 version: 1,
                 request_event_ref: request.event_id.clone(),
                 request_acceptance_receipt_digest: receipt.computed_receipt_digest()?,
-                previous_terminal_contact_round_id: None,
+                initial_contact_round_id: None,
                 granted_to_peer_scopes: vec![ContactScope::Invite, ContactScope::DirectMessage],
             },
             at,
@@ -198,13 +211,18 @@ impl ContactCeremonyFixture {
             sorted_pair_member_ids: pair,
             request_slot_owner: responder.peer().contact_actor_id(),
             contact_round_id: round_id.clone(),
-            slot_predecessor: None,
-            cas_sequence: 1,
-            cas_revision: vec![request.event_id.clone()],
+            trust_domain_id: contact_trust_domain(),
+            predecessor_event_ref: None,
+            version: 1,
+            request_event_ref: request.event_id.clone(),
             observed_at: at,
             outgoing_request_state: OutgoingRequestState::Absent,
         };
         let response_receipt = NormalResponseAcceptanceReceipt::sign_with(
+            contact_trust_domain(),
+            None,
+            1,
+            None,
             round_id.clone(),
             receipt.clone(),
             accepted.event_id.clone(),
@@ -214,21 +232,31 @@ impl ContactCeremonyFixture {
             responder.authority.service_id.clone(),
             |bytes| responder.authority.sign(bytes, at),
         )?;
-        let lineage =
-            |event: &Event, version, predecessor, scopes, terminal| -> Result<ContactLineage> {
-                Ok(ContactLineage::sign_with(
-                    round_id.clone(),
-                    responder.peer(),
-                    requester.peer(),
-                    version,
-                    predecessor,
-                    event.event_id.clone(),
-                    responder.producer()?,
-                    scopes,
-                    terminal,
-                    |bytes| responder.authority.sign(bytes, at),
-                )?)
-            };
+        let lineage = |event: &Event,
+                       version,
+                       predecessor,
+                       scopes,
+                       _terminal: Option<bool>|
+         -> Result<ContactLineage> {
+            Ok(ContactLineage::sign_with(
+                contact_trust_domain(),
+                if version == 1 {
+                    None
+                } else {
+                    Some(round_id.clone())
+                },
+                Some(round_id.clone()),
+                responder.peer(),
+                requester.peer(),
+                version,
+                predecessor,
+                event.event_id.clone(),
+                responder.producer()?,
+                scopes,
+                at,
+                |bytes| responder.authority.sign(bytes, at),
+            )?)
+        };
         let response_lineage = lineage(
             &accepted,
             1,
@@ -239,19 +267,37 @@ impl ContactCeremonyFixture {
         let initial_request = requester.current(
             responder.peer(),
             round_id.clone(),
-            std::slice::from_ref(&request.event_id),
-            false,
+            request.event_id.clone(),
+            1,
+            [ContactScope::Invite, ContactScope::DirectMessage]
+                .into_iter()
+                .map(|contact_scope| ContactScopeInstance {
+                    contact_scope,
+                    grant_event_ref: request.event_id.clone(),
+                })
+                .collect(),
             at,
         )?;
         let initial_response = responder.current(
             requester.peer(),
             round_id.clone(),
-            std::slice::from_ref(&accepted.event_id),
-            false,
+            accepted.event_id.clone(),
+            1,
+            [ContactScope::Invite, ContactScope::DirectMessage]
+                .into_iter()
+                .map(|contact_scope| ContactScopeInstance {
+                    contact_scope,
+                    grant_event_ref: accepted.event_id.clone(),
+                })
+                .collect(),
             at,
         )?;
         let reject = responder.event::<event_spec::ContactRejected>(
             ContactRejectedPayload {
+                trust_domain_id: contact_trust_domain(),
+                initial_contact_round_id: None,
+                version: 1,
+                predecessor_event_ref: None,
                 peer: requester.peer(),
                 request_event_ref: request.event_id.clone(),
                 request_acceptance_receipt_digest: receipt.computed_receipt_digest()?,
@@ -260,6 +306,10 @@ impl ContactCeremonyFixture {
             at,
         )?;
         let reject_receipt = RejectAcceptanceReceipt::sign_with(
+            contact_trust_domain(),
+            None,
+            1,
+            None,
             receipt.clone(),
             reject.event_id.clone(),
             responder.producer()?,
@@ -269,6 +319,8 @@ impl ContactCeremonyFixture {
         )?;
         let update = responder.event::<event_spec::ContactScopeUpdate>(
             ContactScopeUpdatePayload {
+                trust_domain_id: contact_trust_domain(),
+                initial_contact_round_id: round_id.clone(),
                 schema: ContactScopeUpdateSchema::V1,
                 peer: requester.peer(),
                 contact_round_id: round_id.clone(),
@@ -288,12 +340,18 @@ impl ContactCeremonyFixture {
         let update_proof = responder.current(
             requester.peer(),
             round_id.clone(),
-            &[accepted.event_id.clone(), update.event_id.clone()],
-            false,
+            update.event_id.clone(),
+            2,
+            vec![ContactScopeInstance {
+                contact_scope: ContactScope::DirectMessage,
+                grant_event_ref: accepted.event_id.clone(),
+            }],
             at,
         )?;
         let terminal = responder.event::<event_spec::ContactTombstone>(
             ContactTombstonedPayload {
+                trust_domain_id: contact_trust_domain(),
+                initial_contact_round_id: round_id.clone(),
                 peer: requester.peer(),
                 contact_round_id: round_id.clone(),
                 version: 3,
@@ -309,42 +367,79 @@ impl ContactCeremonyFixture {
             vec![],
             Some(true),
         )?;
-        let terminal_proof = responder.current(
-            requester.peer(),
-            round_id.clone(),
-            &[
-                accepted.event_id.clone(),
-                update.event_id.clone(),
-                terminal.event_id.clone(),
-            ],
-            true,
-            at,
-        )?;
         let key = |value| arkret_wire::IdempotencyKey::new(value).map_err(anyhow::Error::msg);
         // Receipt of the peer's verified terminal fences this direction without
         // inventing a new holder Event or incrementing its directional version.
+        let closure = ContactRoundClosure {
+            contact_round_id: round_id.clone(),
+            operation: ContactTombstoneEvidence {
+                kind: ContactTombstoneEvidenceKind::Tombstone,
+                signed_event: terminal.clone(),
+                lineage: terminated.clone(),
+            },
+        };
         let terminal_acknowledgement = ContactCurrentProof::sign_with(
-            round_id.clone(),
-            requester.authority.service_id.clone(),
+            contact_trust_domain(),
+            requester.peer(),
             responder.peer(),
-            true,
-            terminal.event_id.clone(),
-            vec![request.event_id.clone(), terminal.event_id.clone()],
+            Some(round_id.clone()),
+            Some(round_id.clone()),
+            requester.authority.service_id.clone(),
+            request.event_id.clone(),
             1,
+            vec![],
+            Some(Box::new(closure.clone())),
+            at,
             at + Duration::minutes(15),
             |bytes| requester.authority.sign(bytes, at),
         )?;
+        let terminal_proof = ContactCurrentProof::sign_with(
+            contact_trust_domain(),
+            responder.peer(),
+            requester.peer(),
+            Some(round_id.clone()),
+            Some(round_id.clone()),
+            responder.authority.service_id.clone(),
+            terminal.event_id.clone(),
+            3,
+            vec![],
+            Some(Box::new(closure)),
+            at,
+            at + Duration::minutes(15),
+            |bytes| responder.authority.sign(bytes, at),
+        )?;
+        let request_op = ContactOperationEvidence::Request {
+            signed_event: request.clone(),
+            request_receipt: receipt.clone(),
+        };
+        let response_op = ContactOperationEvidence::Response {
+            signed_event: accepted.clone(),
+            response_receipt: response_receipt.clone(),
+        };
+        let basis = ContactRoundBasis {
+            contact_round_id: round_id.clone(),
+            contact_round: core.clone(),
+            request_receipts: vec![receipt.clone()],
+            normal_response_receipt: Some(response_receipt.clone()),
+            glare_concurrency_attestations: None,
+        };
         Ok(Self {
             terminal_acknowledgement,
             round: ContactRoundEvidenceBundle {
                 contact_round_id: round_id,
-                previous_terminal_contact_round_id: None,
+                initial_identity: ContactInitialIdentity {
+                    trust_domain_id: contact_trust_domain(),
+                    round: basis,
+                    events: vec![request.clone(), accepted.clone()],
+                },
+                round_events: vec![request.clone(), accepted.clone()],
+                current_operations: [request_op.clone(), response_op.clone()],
+                scope_grants: vec![request_op, response_op],
                 contact_round: core,
                 request_receipts: vec![receipt.clone()],
                 normal_response_receipt: Some(response_receipt.clone()),
                 glare_concurrency_attestations: None,
                 current_proofs: vec![initial_request, initial_response.clone()],
-                continuity_checkpoint: None,
             },
             request: PeerContactSubmitRequestBody::Request {
                 idempotency_key: key("fixture-request")?,
@@ -385,4 +480,9 @@ impl ContactCeremonyFixture {
             outgoing_slot_absence: absence,
         })
     }
+}
+
+/// Shared deterministic domain for synthetic Contact ceremonies.
+pub fn contact_trust_domain() -> arkret_wire::TrustDomainId {
+    arkret_wire::TrustDomainId::new("ak:trust_domain:contact.test").expect("fixture trust domain")
 }

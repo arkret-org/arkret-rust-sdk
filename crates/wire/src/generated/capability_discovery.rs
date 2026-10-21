@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f
-//! Entries: operation_bundles=42 features=12
+//! Input: registry/contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
+//! Entries: operation_bundles=43 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -54,6 +54,52 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.applet_service.applet.v1",
+        service_kind: ServiceKind::AppletService,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletActorReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletCommandTransactionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletConfigurationCommandExecuteV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadDescribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadPingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletReadProtocolMetadataV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletRealmReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletThirdPartyLocationsReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.applet_service.describe.v1",
@@ -434,10 +480,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletManagedActorCommandAuthorV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::EdgeAppletReadDescribeV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -472,15 +514,7 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfAppletBotCommandProvisionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletGhostCommandPreviewV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfAppletGhostCommandProvisionV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
@@ -489,6 +523,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         operation_bundle_id: "ak.operation_bundle.station.applet_install.v1",
         service_kind: ServiceKind::Station,
         members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerAppletConfigurationCommandSubmitV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerRealmActorReadMaterialV1,
+                binding_kind: BindingKind::HttpJson,
+            },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletAuthorityReadMaterialV1,
                 binding_kind: BindingKind::HttpJson,
@@ -502,11 +544,19 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfAppletConfigurationCommandSubmitV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletInstallCommandPreviewV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfAppletRevokeCommandPreviewV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmActorReadMaterialV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
@@ -805,10 +855,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfConsentResourceGetV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfContactCommandCheckpointV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1472,6 +1518,8 @@ impl FeatureDescriptor {
 impl OperationBundleDescriptor {
     pub const AGENT_RUNTIME_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.agent_runtime.describe.v1";
+    pub const APPLET_SERVICE_APPLET_V1: &'static str =
+        "ak.operation_bundle.applet_service.applet.v1";
     pub const APPLET_SERVICE_DESCRIBE_V1: &'static str =
         "ak.operation_bundle.applet_service.describe.v1";
     pub const ARCHIVE_NODE_DESCRIBE_V1: &'static str =

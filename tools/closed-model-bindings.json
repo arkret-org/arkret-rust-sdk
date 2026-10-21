@@ -172,7 +172,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// §5.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// \u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -210,14 +210,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// §5.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration — natural-language tier guessing",
+              "/// \u00a75.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration \u2014 natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
               "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_after =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift §5.4",
+              "/// same value. Two separately maintained constants are exactly the drift \u00a75.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -287,7 +287,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest — digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest \u2014 digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -329,7 +329,7 @@
             "attributes": [
               "/// Signed identity receipt from a DID registry",
               "/// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).",
-              "/// The registry / witness endorsement of a key-log head travels here —",
+              "/// The registry / witness endorsement of a key-log head travels here \u2014",
               "/// never inside the key-log entry's `proofs[]`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -978,6 +978,14 @@
                 "name": "expected_state_digest",
                 "visibility": "pub",
                 "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "expected_revision": {
+                "name": "expected_revision",
+                "visibility": "pub",
+                "type": "Option<CurrentRevision>",
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
@@ -2284,6 +2292,36 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
+              "trust_domain_id": {
+                "name": "trust_domain_id",
+                "visibility": "pub",
+                "type": "TrustDomainId",
+                "attributes": []
+              },
+              "initial_contact_round_id": {
+                "name": "initial_contact_round_id",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "version": {
+                "name": "version",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": [
+                  "#[serde(serialize_with = \"serialize_contact_version\", deserialize_with = \"deserialize_contact_version\")]"
+                ]
+              },
+              "predecessor_event_ref": {
+                "name": "predecessor_event_ref",
+                "visibility": "pub",
+                "type": "Option<EventId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
               "peer": {
                 "name": "peer",
                 "visibility": "pub",
@@ -2296,14 +2334,6 @@
                 "type": "Hash",
                 "attributes": []
               },
-              "version": {
-                "name": "version",
-                "visibility": "pub",
-                "type": "u64",
-                "attributes": [
-                  "#[serde(\n        serialize_with = \"serialize_initial_version\",\n        deserialize_with = \"deserialize_initial_version\"\n    )]"
-                ]
-              },
               "request_event_ref": {
                 "name": "request_event_ref",
                 "visibility": "pub",
@@ -2315,14 +2345,6 @@
                 "visibility": "pub",
                 "type": "Hash",
                 "attributes": []
-              },
-              "previous_terminal_contact_round_id": {
-                "name": "previous_terminal_contact_round_id",
-                "visibility": "pub",
-                "type": "Option<Hash>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               },
               "granted_to_peer_scopes": {
                 "name": "granted_to_peer_scopes",
@@ -2345,6 +2367,36 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
+              "trust_domain_id": {
+                "name": "trust_domain_id",
+                "visibility": "pub",
+                "type": "TrustDomainId",
+                "attributes": []
+              },
+              "initial_contact_round_id": {
+                "name": "initial_contact_round_id",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "version": {
+                "name": "version",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": [
+                  "#[serde(serialize_with = \"serialize_contact_version\", deserialize_with = \"deserialize_contact_version\")]"
+                ]
+              },
+              "predecessor_event_ref": {
+                "name": "predecessor_event_ref",
+                "visibility": "pub",
+                "type": "Option<EventId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
               "peer": {
                 "name": "peer",
                 "visibility": "pub",
@@ -2386,6 +2438,36 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
+              "trust_domain_id": {
+                "name": "trust_domain_id",
+                "visibility": "pub",
+                "type": "TrustDomainId",
+                "attributes": []
+              },
+              "initial_contact_round_id": {
+                "name": "initial_contact_round_id",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "version": {
+                "name": "version",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": [
+                  "#[serde(serialize_with = \"serialize_contact_version\", deserialize_with = \"deserialize_contact_version\")]"
+                ]
+              },
+              "predecessor_event_ref": {
+                "name": "predecessor_event_ref",
+                "visibility": "pub",
+                "type": "Option<EventId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
               "peer": {
                 "name": "peer",
                 "visibility": "pub",
@@ -2403,14 +2485,6 @@
                 "visibility": "pub",
                 "type": "Hash",
                 "attributes": []
-              },
-              "previous_terminal_contact_round_id": {
-                "name": "previous_terminal_contact_round_id",
-                "visibility": "pub",
-                "type": "Option<Hash>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               },
               "message": {
                 "name": "message",
@@ -2435,6 +2509,32 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
+              "trust_domain_id": {
+                "name": "trust_domain_id",
+                "visibility": "pub",
+                "type": "TrustDomainId",
+                "attributes": []
+              },
+              "initial_contact_round_id": {
+                "name": "initial_contact_round_id",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              },
+              "version": {
+                "name": "version",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": [
+                  "#[serde(serialize_with = \"serialize_contact_version\", deserialize_with = \"deserialize_contact_version\")]"
+                ]
+              },
+              "predecessor_event_ref": {
+                "name": "predecessor_event_ref",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              },
               "peer": {
                 "name": "peer",
                 "visibility": "pub",
@@ -2445,20 +2545,6 @@
                 "name": "contact_round_id",
                 "visibility": "pub",
                 "type": "Hash",
-                "attributes": []
-              },
-              "version": {
-                "name": "version",
-                "visibility": "pub",
-                "type": "u64",
-                "attributes": [
-                  "#[serde(\n        serialize_with = \"serialize_successor_version\",\n        deserialize_with = \"deserialize_successor_version\"\n    )]"
-                ]
-              },
-              "predecessor_event_ref": {
-                "name": "predecessor_event_ref",
-                "visibility": "pub",
-                "type": "EventId",
                 "attributes": []
               },
               "reason": {
@@ -3176,7 +3262,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` — `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` \u2014 `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3396,7 +3482,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` §5.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` \u00a75.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -3917,7 +4003,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` \u2014 writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -4572,7 +4658,7 @@
               "///",
               "/// The item is a read-side View over the accepted `moderation_report` typed",
               "/// current result and the `moderation_state` records that point at it, not a",
-              "/// second stored state (content-moderation.md §3.3): `id` is the report Event",
+              "/// second stored state (content-moderation.md \u00a73.3): `id` is the report Event",
               "/// id retyped to `moderation_queue_item`, `report` is the complete accepted",
               "/// report payload and `created_at` the accepting Commit time.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -5010,11 +5096,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration \u2014 the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` §3.3).",
+              "/// (`discovery/object-addressing.md` \u00a73.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5710,7 +5796,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` §3.5).",
+              "/// (`zh/discovery/profiles-presence.md` \u00a73.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5763,7 +5849,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens — the",
+              "/// payload kind is the `kind` const. One type both seals and opens \u2014 the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6468,7 +6554,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` §2.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` \u00a72.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -9346,7 +9432,7 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read — never",
+              "/// caller writes back against the `revision` of the exact entry it read \u2014 never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
               "/// `account-current-result.schema.json#/$defs/current`.",
@@ -9483,7 +9569,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone —",
+              "/// RealmCommit witness, so this binding names the authorization Event alone \u2014",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -11079,7 +11165,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class",
+              "/// \u00a77.5.0 / \u00a77.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -11191,7 +11277,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management §7.6.1).",
+              "/// summary of one stored envelope (key-management \u00a77.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -11776,6 +11862,14 @@
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"deserialize_optional_original_digest\")]"
                 ]
+              },
+              "management_private_state_digest": {
+                "name": "management_private_state_digest",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }
@@ -12229,7 +12323,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple — gate, Realm, applicant, policy revision, creation time —",
+              "/// The binding tuple \u2014 gate, Realm, applicant, policy revision, creation time \u2014",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -12327,7 +12421,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here —",
+              "/// inkson call sites tried to emit are intentionally NOT representable here \u2014",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
@@ -12725,6 +12819,14 @@
                 "visibility": "pub",
                 "type": "Option<PcrPrivateHandoffManifest>",
                 "attributes": []
+              },
+              "management_private_state": {
+                "name": "management_private_state",
+                "visibility": "pub",
+                "type": "Option<ManagementPrivateHandoffManifest>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }
@@ -12810,6 +12912,49 @@
                 "name": "effective_stream_head",
                 "visibility": "pub",
                 "type": "CommitStreamHead",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "state_digest": {
+                "name": "state_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ManagementPrivateHandoffManifest",
+          "schema": "authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest",
+          "rust": {
+            "signature": "pub struct ManagementPrivateHandoffManifest",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "final_stream_heads_digest": {
+                "name": "final_stream_heads_digest",
+                "visibility": "pub",
+                "type": "Hash",
                 "attributes": []
               },
               "nonce": {
@@ -13900,6 +14045,14 @@
                 "type": "BTreeMap<String, Value>",
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"BTreeMap::is_empty\")]"
+                ]
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "Option<ActorId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               }
             }

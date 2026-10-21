@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=263165a38c080d9c65f9dc48031cb6f47a0c373d1a9f24b8c11922067ad9cac0
+// sha256=1d714ef5fe85dd72cdd39c417a69c70e3c731a324fc62f6d234cd6e8768c4815
 //
 // Input: schemas/common-ids.schema.json
-// sha256=668d983321918e5b1522715d1f70774665adf7d4bfacf0e61df914f3404f6ccf
+// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=d27aff562a6c1628ec46d4e850170d384869963a898494b561139f314ad91286
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
@@ -78,6 +78,9 @@ pub struct AuthorityHandoffRequest {
     )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pcr_private_state: Option<PcrPrivateHandoffManifest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub management_private_state: Option<ManagementPrivateHandoffManifest>,
 }
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/committed_event_submission`.
@@ -108,6 +111,18 @@ pub struct PcrPrivateHandoffManifest {
     pub holder_account_id: arkret_wire::AccountId,
     pub governance_generation: u64,
     pub effective_stream_head: CommitStreamHead,
+    pub nonce: String,
+    pub state_digest: Hash,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/management_private_handoff_manifest`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManagementPrivateHandoffManifest {
+    pub realm_id: RealmId,
+    pub governance_generation: u64,
+    pub final_stream_heads_digest: Hash,
     pub nonce: String,
     pub state_digest: Hash,
 }

@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/applet-managed-authority-registry.json; version=2026-10-16.1;
-//! sha256=aae81144173ee5fff611d4fbe6862490e3b0a6e2b8bb85081c9ad31627472b1c Input: registry/
-//! contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f
-//! Entries: managed_device_operations=21
+//! Input: registry/applet-managed-authority-registry.json; version=2026-10-21.2;
+//! sha256=1a1f3dbe6da8be9413ec998ae5f7f7e2062c5abcf8c121471b4bdd5da4d47d32 Input: registry/
+//! contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
+//! Entries: managed_device_operations=22
 
 use super::{CapabilityActionId, ServiceOperationId};
 
@@ -14,6 +14,7 @@ pub enum ManagedDeviceControl {
     OwnExactKeypackageRevoke,
     OwnScopeBoundKeypackageUpload,
     OwnExactDurableWelcomeReceiptConsume,
+    OwnExactDeviceAuthorizationMaterialRead,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,6 +101,9 @@ pub const fn applet_managed_device_scope_rule(
         ServiceOperationId::SelfEventsCommandSubmitV1 => {
             ManagedDeviceScopeRule::SubmittedBusinessActions
         }
+        ServiceOperationId::SelfRealmActorReadMaterialV1 => ManagedDeviceScopeRule::DeviceControl(
+            ManagedDeviceControl::OwnExactDeviceAuthorizationMaterialRead,
+        ),
         _ => return None,
     })
 }

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-18.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Entries: registered=225
+//! Input: registry/contract-registry.json; version=2026-10-21.4;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: registered=227
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum ServiceOperationId {
     EdgeAppletActorReadResolveV1,
     EdgeAppletCommandTransactionV1,
+    EdgeAppletConfigurationCommandExecuteV1,
     EdgeAppletManagedActorCommandAuthorV1,
     EdgeAppletReadDescribeV1,
     EdgeAppletReadPingV1,
@@ -66,6 +67,7 @@ pub enum ServiceOperationId {
     OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
+    PeerAppletConfigurationCommandSubmitV1,
     PeerCallInvitationCommandRelayV1,
     PeerCallInvitationReadAdmissionV1,
     PeerCommittedEventReadScanV1,
@@ -83,6 +85,7 @@ pub enum ServiceOperationId {
     PeerMlsCommandAttestAddV1,
     PeerMlsReadGroupStateMaterialV1,
     PeerMlsReadRosterAuthorityV1,
+    PeerRealmActorReadMaterialV1,
     PeerRealmAuthorityCommandHandoffV1,
     PeerRealmJoinReadBootstrapV1,
     PeerRealmJoinReadPreviewV1,
@@ -132,11 +135,10 @@ pub enum ServiceOperationId {
     SelfAgentSidecarResourceGetV1,
     SelfAppletAuthorityReadMaterialV1,
     SelfAppletBotCommandPreviewV1,
-    SelfAppletBotCommandProvisionV1,
     SelfAppletCommandInstallV1,
     SelfAppletCommandRevokeV1,
+    SelfAppletConfigurationCommandSubmitV1,
     SelfAppletGhostCommandPreviewV1,
-    SelfAppletGhostCommandProvisionV1,
     SelfAppletInstallCommandPreviewV1,
     SelfAppletRevokeCommandPreviewV1,
     SelfAuthzGrantsReadEffectiveV1,
@@ -163,7 +165,6 @@ pub enum ServiceOperationId {
     SelfConsentReadCurrentV1,
     SelfConsentReadListV1,
     SelfConsentResourceGetV1,
-    SelfContactCommandCheckpointV1,
     SelfContactCommandRejectV1,
     SelfContactCommandRequestV1,
     SelfContactCommandRespondV1,
@@ -215,6 +216,7 @@ pub enum ServiceOperationId {
     SelfRealmReadExportV1,
     SelfRealmReadStreamsV1,
     SelfRealmResourceGetV1,
+    SelfRealmActorReadMaterialV1,
     SelfRealmJoinCommandPrepareV1,
     SelfRealmJoinReadPreviewV1,
     SelfRealmLinkReadListV1,
@@ -238,6 +240,7 @@ pub enum ServiceOperationId {
 pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
     ServiceOperationId::EDGE_APPLET_COMMAND_TRANSACTION_V1,
+    ServiceOperationId::EDGE_APPLET_CONFIGURATION_COMMAND_EXECUTE_V1,
     ServiceOperationId::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1,
     ServiceOperationId::EDGE_APPLET_READ_DESCRIBE_V1,
     ServiceOperationId::EDGE_APPLET_READ_PING_V1,
@@ -294,6 +297,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+    ServiceOperationId::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
     ServiceOperationId::PEER_CALL_INVITATION_READ_ADMISSION_V1,
     ServiceOperationId::PEER_COMMITTED_EVENT_READ_SCAN_V1,
@@ -311,6 +315,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_MLS_COMMAND_ATTEST_ADD_V1,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::PEER_MLS_READ_ROSTER_AUTHORITY_V1,
+    ServiceOperationId::PEER_REALM_ACTOR_READ_MATERIAL_V1,
     ServiceOperationId::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
     ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
@@ -360,11 +365,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
     ServiceOperationId::SELF_APPLET_AUTHORITY_READ_MATERIAL_V1,
     ServiceOperationId::SELF_APPLET_BOT_COMMAND_PREVIEW_V1,
-    ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_INSTALL_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE_V1,
+    ServiceOperationId::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
-    ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
     ServiceOperationId::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
     ServiceOperationId::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -391,7 +395,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONSENT_READ_CURRENT_V1,
     ServiceOperationId::SELF_CONSENT_READ_LIST_V1,
     ServiceOperationId::SELF_CONSENT_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_CONTACT_COMMAND_CHECKPOINT_V1,
     ServiceOperationId::SELF_CONTACT_COMMAND_REJECT_V1,
     ServiceOperationId::SELF_CONTACT_COMMAND_REQUEST_V1,
     ServiceOperationId::SELF_CONTACT_COMMAND_RESPOND_V1,
@@ -443,6 +446,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_READ_EXPORT_V1,
     ServiceOperationId::SELF_REALM_READ_STREAMS_V1,
     ServiceOperationId::SELF_REALM_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_REALM_ACTOR_READ_MATERIAL_V1,
     ServiceOperationId::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
@@ -508,6 +512,7 @@ impl ServiceOperationId {
     pub const ALL: &'static [Self] = &[
         Self::EdgeAppletActorReadResolveV1,
         Self::EdgeAppletCommandTransactionV1,
+        Self::EdgeAppletConfigurationCommandExecuteV1,
         Self::EdgeAppletManagedActorCommandAuthorV1,
         Self::EdgeAppletReadDescribeV1,
         Self::EdgeAppletReadPingV1,
@@ -564,6 +569,7 @@ impl ServiceOperationId {
         Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
+        Self::PeerAppletConfigurationCommandSubmitV1,
         Self::PeerCallInvitationCommandRelayV1,
         Self::PeerCallInvitationReadAdmissionV1,
         Self::PeerCommittedEventReadScanV1,
@@ -581,6 +587,7 @@ impl ServiceOperationId {
         Self::PeerMlsCommandAttestAddV1,
         Self::PeerMlsReadGroupStateMaterialV1,
         Self::PeerMlsReadRosterAuthorityV1,
+        Self::PeerRealmActorReadMaterialV1,
         Self::PeerRealmAuthorityCommandHandoffV1,
         Self::PeerRealmJoinReadBootstrapV1,
         Self::PeerRealmJoinReadPreviewV1,
@@ -630,11 +637,10 @@ impl ServiceOperationId {
         Self::SelfAgentSidecarResourceGetV1,
         Self::SelfAppletAuthorityReadMaterialV1,
         Self::SelfAppletBotCommandPreviewV1,
-        Self::SelfAppletBotCommandProvisionV1,
         Self::SelfAppletCommandInstallV1,
         Self::SelfAppletCommandRevokeV1,
+        Self::SelfAppletConfigurationCommandSubmitV1,
         Self::SelfAppletGhostCommandPreviewV1,
-        Self::SelfAppletGhostCommandProvisionV1,
         Self::SelfAppletInstallCommandPreviewV1,
         Self::SelfAppletRevokeCommandPreviewV1,
         Self::SelfAuthzGrantsReadEffectiveV1,
@@ -661,7 +667,6 @@ impl ServiceOperationId {
         Self::SelfConsentReadCurrentV1,
         Self::SelfConsentReadListV1,
         Self::SelfConsentResourceGetV1,
-        Self::SelfContactCommandCheckpointV1,
         Self::SelfContactCommandRejectV1,
         Self::SelfContactCommandRequestV1,
         Self::SelfContactCommandRespondV1,
@@ -713,6 +718,7 @@ impl ServiceOperationId {
         Self::SelfRealmReadExportV1,
         Self::SelfRealmReadStreamsV1,
         Self::SelfRealmResourceGetV1,
+        Self::SelfRealmActorReadMaterialV1,
         Self::SelfRealmJoinCommandPrepareV1,
         Self::SelfRealmJoinReadPreviewV1,
         Self::SelfRealmLinkReadListV1,
@@ -737,6 +743,8 @@ impl ServiceOperationId {
         "ak.edge.applet.actor.read.resolve.v1";
     pub const EDGE_APPLET_COMMAND_TRANSACTION_V1: &'static str =
         "ak.edge.applet.command.transaction.v1";
+    pub const EDGE_APPLET_CONFIGURATION_COMMAND_EXECUTE_V1: &'static str =
+        "ak.edge.applet.configuration.command.execute.v1";
     pub const EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1: &'static str =
         "ak.edge.applet.managed_actor.command.author.v1";
     pub const EDGE_APPLET_READ_DESCRIBE_V1: &'static str = "ak.edge.applet.read.describe.v1";
@@ -840,6 +848,8 @@ impl ServiceOperationId {
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
         "ak.peer.account_status.read.resolve.v1";
+    pub const PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1: &'static str =
+        "ak.peer.applet.configuration.command.submit.v1";
     pub const PEER_CALL_INVITATION_COMMAND_RELAY_V1: &'static str =
         "ak.peer.call.invitation.command.relay.v1";
     pub const PEER_CALL_INVITATION_READ_ADMISSION_V1: &'static str =
@@ -867,6 +877,8 @@ impl ServiceOperationId {
         "ak.peer.mls.read.group_state_material.v1";
     pub const PEER_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
         "ak.peer.mls.read.roster_authority.v1";
+    pub const PEER_REALM_ACTOR_READ_MATERIAL_V1: &'static str =
+        "ak.peer.realm_actor.read.material.v1";
     pub const PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1: &'static str =
         "ak.peer.realm_authority.command.handoff.v1";
     pub const PEER_REALM_JOIN_READ_BOOTSTRAP_V1: &'static str =
@@ -952,14 +964,12 @@ impl ServiceOperationId {
         "ak.self.applet.authority.read.material.v1";
     pub const SELF_APPLET_BOT_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.bot.command.preview.v1";
-    pub const SELF_APPLET_BOT_COMMAND_PROVISION_V1: &'static str =
-        "ak.self.applet.bot.command.provision.v1";
     pub const SELF_APPLET_COMMAND_INSTALL_V1: &'static str = "ak.self.applet.command.install.v1";
     pub const SELF_APPLET_COMMAND_REVOKE_V1: &'static str = "ak.self.applet.command.revoke.v1";
+    pub const SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1: &'static str =
+        "ak.self.applet.configuration.command.submit.v1";
     pub const SELF_APPLET_GHOST_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.ghost.command.preview.v1";
-    pub const SELF_APPLET_GHOST_COMMAND_PROVISION_V1: &'static str =
-        "ak.self.applet.ghost.command.provision.v1";
     pub const SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1: &'static str =
         "ak.self.applet.install.command.preview.v1";
     pub const SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1: &'static str =
@@ -997,8 +1007,6 @@ impl ServiceOperationId {
     pub const SELF_CONSENT_READ_CURRENT_V1: &'static str = "ak.self.consent.read.current.v1";
     pub const SELF_CONSENT_READ_LIST_V1: &'static str = "ak.self.consent.read.list.v1";
     pub const SELF_CONSENT_RESOURCE_GET_V1: &'static str = "ak.self.consent.resource.get.v1";
-    pub const SELF_CONTACT_COMMAND_CHECKPOINT_V1: &'static str =
-        "ak.self.contact.command.checkpoint.v1";
     pub const SELF_CONTACT_COMMAND_REJECT_V1: &'static str = "ak.self.contact.command.reject.v1";
     pub const SELF_CONTACT_COMMAND_REQUEST_V1: &'static str = "ak.self.contact.command.request.v1";
     pub const SELF_CONTACT_COMMAND_RESPOND_V1: &'static str = "ak.self.contact.command.respond.v1";
@@ -1085,6 +1093,8 @@ impl ServiceOperationId {
     pub const SELF_REALM_READ_EXPORT_V1: &'static str = "ak.self.realm.read.export.v1";
     pub const SELF_REALM_READ_STREAMS_V1: &'static str = "ak.self.realm.read.streams.v1";
     pub const SELF_REALM_RESOURCE_GET_V1: &'static str = "ak.self.realm.resource.get.v1";
+    pub const SELF_REALM_ACTOR_READ_MATERIAL_V1: &'static str =
+        "ak.self.realm_actor.read.material.v1";
     pub const SELF_REALM_JOIN_COMMAND_PREPARE_V1: &'static str =
         "ak.self.realm_join.command.prepare.v1";
     pub const SELF_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.self.realm_join.read.preview.v1";
@@ -1119,6 +1129,9 @@ impl ServiceOperationId {
         match self {
             Self::EdgeAppletActorReadResolveV1 => Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1,
             Self::EdgeAppletCommandTransactionV1 => Self::EDGE_APPLET_COMMAND_TRANSACTION_V1,
+            Self::EdgeAppletConfigurationCommandExecuteV1 => {
+                Self::EDGE_APPLET_CONFIGURATION_COMMAND_EXECUTE_V1
+            }
             Self::EdgeAppletManagedActorCommandAuthorV1 => {
                 Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1
             }
@@ -1217,6 +1230,9 @@ impl ServiceOperationId {
             }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
+            Self::PeerAppletConfigurationCommandSubmitV1 => {
+                Self::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1
+            }
             Self::PeerCallInvitationCommandRelayV1 => Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1,
             Self::PeerCallInvitationReadAdmissionV1 => Self::PEER_CALL_INVITATION_READ_ADMISSION_V1,
             Self::PeerCommittedEventReadScanV1 => Self::PEER_COMMITTED_EVENT_READ_SCAN_V1,
@@ -1236,6 +1252,7 @@ impl ServiceOperationId {
             Self::PeerMlsCommandAttestAddV1 => Self::PEER_MLS_COMMAND_ATTEST_ADD_V1,
             Self::PeerMlsReadGroupStateMaterialV1 => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::PeerMlsReadRosterAuthorityV1 => Self::PEER_MLS_READ_ROSTER_AUTHORITY_V1,
+            Self::PeerRealmActorReadMaterialV1 => Self::PEER_REALM_ACTOR_READ_MATERIAL_V1,
             Self::PeerRealmAuthorityCommandHandoffV1 => {
                 Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1
             }
@@ -1323,11 +1340,12 @@ impl ServiceOperationId {
             Self::SelfAgentSidecarResourceGetV1 => Self::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
             Self::SelfAppletAuthorityReadMaterialV1 => Self::SELF_APPLET_AUTHORITY_READ_MATERIAL_V1,
             Self::SelfAppletBotCommandPreviewV1 => Self::SELF_APPLET_BOT_COMMAND_PREVIEW_V1,
-            Self::SelfAppletBotCommandProvisionV1 => Self::SELF_APPLET_BOT_COMMAND_PROVISION_V1,
             Self::SelfAppletCommandInstallV1 => Self::SELF_APPLET_COMMAND_INSTALL_V1,
             Self::SelfAppletCommandRevokeV1 => Self::SELF_APPLET_COMMAND_REVOKE_V1,
+            Self::SelfAppletConfigurationCommandSubmitV1 => {
+                Self::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1
+            }
             Self::SelfAppletGhostCommandPreviewV1 => Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
-            Self::SelfAppletGhostCommandProvisionV1 => Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1,
             Self::SelfAppletInstallCommandPreviewV1 => Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1,
             Self::SelfAppletRevokeCommandPreviewV1 => Self::SELF_APPLET_REVOKE_COMMAND_PREVIEW_V1,
             Self::SelfAuthzGrantsReadEffectiveV1 => Self::SELF_AUTHZ_GRANTS_READ_EFFECTIVE_V1,
@@ -1358,7 +1376,6 @@ impl ServiceOperationId {
             Self::SelfConsentReadCurrentV1 => Self::SELF_CONSENT_READ_CURRENT_V1,
             Self::SelfConsentReadListV1 => Self::SELF_CONSENT_READ_LIST_V1,
             Self::SelfConsentResourceGetV1 => Self::SELF_CONSENT_RESOURCE_GET_V1,
-            Self::SelfContactCommandCheckpointV1 => Self::SELF_CONTACT_COMMAND_CHECKPOINT_V1,
             Self::SelfContactCommandRejectV1 => Self::SELF_CONTACT_COMMAND_REJECT_V1,
             Self::SelfContactCommandRequestV1 => Self::SELF_CONTACT_COMMAND_REQUEST_V1,
             Self::SelfContactCommandRespondV1 => Self::SELF_CONTACT_COMMAND_RESPOND_V1,
@@ -1430,6 +1447,7 @@ impl ServiceOperationId {
             Self::SelfRealmReadExportV1 => Self::SELF_REALM_READ_EXPORT_V1,
             Self::SelfRealmReadStreamsV1 => Self::SELF_REALM_READ_STREAMS_V1,
             Self::SelfRealmResourceGetV1 => Self::SELF_REALM_RESOURCE_GET_V1,
+            Self::SelfRealmActorReadMaterialV1 => Self::SELF_REALM_ACTOR_READ_MATERIAL_V1,
             Self::SelfRealmJoinCommandPrepareV1 => Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
             Self::SelfRealmJoinReadPreviewV1 => Self::SELF_REALM_JOIN_READ_PREVIEW_V1,
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
@@ -1469,6 +1487,9 @@ impl ServiceOperationId {
         match value {
             Self::EDGE_APPLET_ACTOR_READ_RESOLVE_V1 => Some(Self::EdgeAppletActorReadResolveV1),
             Self::EDGE_APPLET_COMMAND_TRANSACTION_V1 => Some(Self::EdgeAppletCommandTransactionV1),
+            Self::EDGE_APPLET_CONFIGURATION_COMMAND_EXECUTE_V1 => {
+                Some(Self::EdgeAppletConfigurationCommandExecuteV1)
+            }
             Self::EDGE_APPLET_MANAGED_ACTOR_COMMAND_AUTHOR_V1 => {
                 Some(Self::EdgeAppletManagedActorCommandAuthorV1)
             }
@@ -1589,6 +1610,9 @@ impl ServiceOperationId {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
             Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1 => Some(Self::PeerAccountStatusReadResolveV1),
+            Self::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1 => {
+                Some(Self::PeerAppletConfigurationCommandSubmitV1)
+            }
             Self::PEER_CALL_INVITATION_COMMAND_RELAY_V1 => {
                 Some(Self::PeerCallInvitationCommandRelayV1)
             }
@@ -1620,6 +1644,7 @@ impl ServiceOperationId {
                 Some(Self::PeerMlsReadGroupStateMaterialV1)
             }
             Self::PEER_MLS_READ_ROSTER_AUTHORITY_V1 => Some(Self::PeerMlsReadRosterAuthorityV1),
+            Self::PEER_REALM_ACTOR_READ_MATERIAL_V1 => Some(Self::PeerRealmActorReadMaterialV1),
             Self::PEER_REALM_AUTHORITY_COMMAND_HANDOFF_V1 => {
                 Some(Self::PeerRealmAuthorityCommandHandoffV1)
             }
@@ -1721,16 +1746,13 @@ impl ServiceOperationId {
                 Some(Self::SelfAppletAuthorityReadMaterialV1)
             }
             Self::SELF_APPLET_BOT_COMMAND_PREVIEW_V1 => Some(Self::SelfAppletBotCommandPreviewV1),
-            Self::SELF_APPLET_BOT_COMMAND_PROVISION_V1 => {
-                Some(Self::SelfAppletBotCommandProvisionV1)
-            }
             Self::SELF_APPLET_COMMAND_INSTALL_V1 => Some(Self::SelfAppletCommandInstallV1),
             Self::SELF_APPLET_COMMAND_REVOKE_V1 => Some(Self::SelfAppletCommandRevokeV1),
+            Self::SELF_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1 => {
+                Some(Self::SelfAppletConfigurationCommandSubmitV1)
+            }
             Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1 => {
                 Some(Self::SelfAppletGhostCommandPreviewV1)
-            }
-            Self::SELF_APPLET_GHOST_COMMAND_PROVISION_V1 => {
-                Some(Self::SelfAppletGhostCommandProvisionV1)
             }
             Self::SELF_APPLET_INSTALL_COMMAND_PREVIEW_V1 => {
                 Some(Self::SelfAppletInstallCommandPreviewV1)
@@ -1772,7 +1794,6 @@ impl ServiceOperationId {
             Self::SELF_CONSENT_READ_CURRENT_V1 => Some(Self::SelfConsentReadCurrentV1),
             Self::SELF_CONSENT_READ_LIST_V1 => Some(Self::SelfConsentReadListV1),
             Self::SELF_CONSENT_RESOURCE_GET_V1 => Some(Self::SelfConsentResourceGetV1),
-            Self::SELF_CONTACT_COMMAND_CHECKPOINT_V1 => Some(Self::SelfContactCommandCheckpointV1),
             Self::SELF_CONTACT_COMMAND_REJECT_V1 => Some(Self::SelfContactCommandRejectV1),
             Self::SELF_CONTACT_COMMAND_REQUEST_V1 => Some(Self::SelfContactCommandRequestV1),
             Self::SELF_CONTACT_COMMAND_RESPOND_V1 => Some(Self::SelfContactCommandRespondV1),
@@ -1870,6 +1891,7 @@ impl ServiceOperationId {
             Self::SELF_REALM_READ_EXPORT_V1 => Some(Self::SelfRealmReadExportV1),
             Self::SELF_REALM_READ_STREAMS_V1 => Some(Self::SelfRealmReadStreamsV1),
             Self::SELF_REALM_RESOURCE_GET_V1 => Some(Self::SelfRealmResourceGetV1),
+            Self::SELF_REALM_ACTOR_READ_MATERIAL_V1 => Some(Self::SelfRealmActorReadMaterialV1),
             Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1 => Some(Self::SelfRealmJoinCommandPrepareV1),
             Self::SELF_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::SelfRealmJoinReadPreviewV1),
             Self::SELF_REALM_LINK_READ_LIST_V1 => Some(Self::SelfRealmLinkReadListV1),
@@ -2042,6 +2064,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::EdgeAppletConfigurationCommandExecuteV1,
+        http_method: "POST",
+        http_path: "/_arkret/edge/applet/configuration",
+        grpc: Some("EdgeApplet/AppletConfigurationExecute"),
+        mq: Some("edge.applet.configuration.command.execute"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/execution_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/execution_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private bounded configuration intent, result and delivery state only; no Event, account, membership or business grant is implicitly accepted.",
+            ),
             branch_contract_json: None,
         }),
     },
@@ -3343,6 +3392,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerAppletConfigurationCommandSubmitV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/applets/{applet_id}/configuration",
+        grpc: Some("PeerManagement/AppletConfigurationSubmit"),
+        mq: Some("peer.applet.configuration.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(262144),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/peer_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private bounded configuration intent, result and delivery state only; no Event, account, membership or business grant is implicitly accepted.",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerCallInvitationCommandRelayV1,
         http_method: "POST",
         http_path: "/_arkret/peer/rtc/invitation",
@@ -3744,6 +3820,27 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerRealmActorReadMaterialV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/realm-actors/material",
+        grpc: Some("PeerRealmActor/ReadMaterial"),
+        mq: Some("peer.realm_actor.read.material"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(4194304),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/peer_request"),
+        response_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/outcome"),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("Read-only authorized exact material."),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
@@ -4825,36 +4922,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAppletBotCommandProvisionV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/applets/{applet_id}/bots/provision",
-        grpc: Some("SelfApplet/BotProvision"),
-        mq: Some("self.applet.bot.command.provision"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.applet.managed_actor.provision",
-                "ak.realm.create",
-                "ak.identity.accountability_grant",
-                "ak.profile.create",
-            ])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletCommandInstallV1,
         http_method: "POST",
         http_path: "/_arkret/self/applets/install",
@@ -4911,6 +4978,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfAppletConfigurationCommandSubmitV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/applets/{applet_id}/configuration",
+        grpc: Some("SelfManagement/AppletConfigurationSubmit"),
+        mq: Some("self.applet.configuration.command.submit"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/request",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-configuration-operations.schema.json#/$defs/outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Private bounded configuration intent, result and delivery state only; no Event, account, membership or business grant is implicitly accepted.",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletGhostCommandPreviewV1,
         http_method: "POST",
         http_path: "/_arkret/self/applets/{applet_id}/ghosts/provision/preview",
@@ -4934,36 +5028,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some(
                 "No Event is admitted, but the Station durably records the current subject generation and exact signed request before returning",
             ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAppletGhostCommandProvisionV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/applets/{applet_id}/ghosts/provision",
-        grpc: Some("SelfApplet/GhostProvision"),
-        mq: Some("self.applet.ghost.command.provision"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&[
-                "ak.applet.managed_actor.provision",
-                "ak.realm.create",
-                "ak.identity.accountability_grant",
-                "ak.profile.create",
-            ])),
-            rationale: None,
             branch_contract_json: None,
         }),
     },
@@ -5528,33 +5592,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some("schemas/consent-operations.schema.json#/$defs/consent_view"),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfContactCommandCheckpointV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/contacts/continuity-checkpoint",
-        grpc: Some("SelfContact/ContinuityCheckpoint"),
-        mq: Some("self.contact.command.checkpoint"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_continuity_checkpoint_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_continuity_checkpoint_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "compacts_already_accepted_contact_evidence_without_authoring_an_event",
-            ),
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfContactCommandRejectV1,
@@ -6709,6 +6746,27 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmActorReadMaterialV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/realm-actors/material",
+        grpc: Some("SelfManagement/RealmActorReadMaterial"),
+        mq: Some("self.realm_actor.read.material"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(4194304),
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/request"),
+        response_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/outcome"),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("Read-only authorized exact material."),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmJoinCommandPrepareV1,

@@ -2,13 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=deec42771ac61327cec2794982e07dbd345c0dc58de617248bcfc6331ba020ee
+// sha256=a4c646467cc0e400d6cb24a119fe6791612dcf3a3a8d77fd355f9429600679bc
+//
+// Input: schemas/principal-operations.schema.json
+// sha256=c38b1b1a301afa59c2566347c20c59d5349e54aa26a859d70bb608f40d531811
 //
 // Input: schemas/account-operations.schema.json
-// sha256=c6611a13d214c89389ba946b1a4d7b61450fe3d21caf07fce698927c51666d05
+// sha256=b4be514e16b4a5154a4cb3bd56cf062f9ffb2cfc29ef25a26777a29f1e3d7644
+//
+// Input: schemas/common-ids.schema.json
+// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=d27aff562a6c1628ec46d4e850170d384869963a898494b561139f314ad91286
 
 /// Counterpart: `event-payload.schema.json#/$defs/contact_accepted_payload`.
 /// Counterpart for
@@ -16,18 +22,22 @@
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactAcceptedPayload {
-    pub peer: ContactPeer,
-    pub contact_round_id: Hash,
-    #[serde(
-        serialize_with = "serialize_initial_version",
-        deserialize_with = "deserialize_initial_version"
-    )]
-    pub version: u64,
-    pub request_event_ref: EventId,
-    pub request_acceptance_receipt_digest: Hash,
+    pub trust_domain_id: TrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
+    pub initial_contact_round_id: Option<Hash>,
+    #[serde(
+        serialize_with = "serialize_contact_version",
+        deserialize_with = "deserialize_contact_version"
+    )]
+    pub version: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub predecessor_event_ref: Option<EventId>,
+    pub peer: ContactPeer,
+    pub contact_round_id: Hash,
+    pub request_event_ref: EventId,
+    pub request_acceptance_receipt_digest: Hash,
     pub granted_to_peer_scopes: Vec<ContactScope>,
 }
 
@@ -37,6 +47,18 @@ pub struct ContactAcceptedPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactRejectedPayload {
+    pub trust_domain_id: TrustDomainId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub initial_contact_round_id: Option<Hash>,
+    #[serde(
+        serialize_with = "serialize_contact_version",
+        deserialize_with = "deserialize_contact_version"
+    )]
+    pub version: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub predecessor_event_ref: Option<EventId>,
     pub peer: ContactPeer,
     pub request_event_ref: EventId,
     pub request_acceptance_receipt_digest: Hash,
@@ -51,12 +73,21 @@ pub struct ContactRejectedPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactRequestedPayload {
+    pub trust_domain_id: TrustDomainId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub initial_contact_round_id: Option<Hash>,
+    #[serde(
+        serialize_with = "serialize_contact_version",
+        deserialize_with = "deserialize_contact_version"
+    )]
+    pub version: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub predecessor_event_ref: Option<EventId>,
     pub peer: ContactPeer,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub message: Option<String>,
@@ -68,14 +99,16 @@ pub struct ContactRequestedPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactTombstonedPayload {
-    pub peer: ContactPeer,
-    pub contact_round_id: Hash,
+    pub trust_domain_id: TrustDomainId,
+    pub initial_contact_round_id: Hash,
     #[serde(
-        serialize_with = "serialize_successor_version",
-        deserialize_with = "deserialize_successor_version"
+        serialize_with = "serialize_contact_version",
+        deserialize_with = "deserialize_contact_version"
     )]
     pub version: u64,
     pub predecessor_event_ref: EventId,
+    pub peer: ContactPeer,
+    pub contact_round_id: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub reason: Option<String>,

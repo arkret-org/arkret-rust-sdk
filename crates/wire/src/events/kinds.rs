@@ -83,6 +83,14 @@ pub fn is_standard_event_kind(kind: &str) -> bool {
 /// Classify a protocol event kind without deserializing its content.
 pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
+        EventKind::RealmActorControlReset
+        | EventKind::RealmActorControlUpdate
+        | EventKind::RealmActorCreate
+        | EventKind::RealmActorDevicesReset
+        | EventKind::RealmActorManagerChange
+        | EventKind::RealmActorRecoveryBegin
+        | EventKind::RealmActorRecoverySet
+        | EventKind::RealmActorStatusSet => EventProductClass::Realm,
         EventKind::AccountDataSet => EventProductClass::Account,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
@@ -100,7 +108,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AgentSidecarExchangeControl => EventProductClass::Sidecar,
         EventKind::AppletBridgeError
         | EventKind::AppletDiscovery
-        | EventKind::AppletManagedActorProvision
         | EventKind::AppletRegistration => EventProductClass::Applet,
         EventKind::AuditAccessed | EventKind::AuditErasureReceipt => EventProductClass::Audit,
         EventKind::CapabilityGrant

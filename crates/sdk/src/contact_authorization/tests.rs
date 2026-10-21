@@ -1,5 +1,5 @@
 use arkret_identity::AuthorityHistoryUnavailable;
-use arkret_models_collaboration::contact_operations::ContactLineage;
+use arkret_models_collaboration::contact_operations::{ContactLineage, ContactScopeUpdatePayload};
 use arkret_models_identity::IdentityLogListOutcome;
 use arkret_signatures::webvh::{ServiceInceptionInput, prepare_service_inception};
 use arkret_wire::{AccountId, Base64UrlString, Did, DidUrl};
@@ -77,9 +77,15 @@ impl Fixture {
     fn sign(&self, bytes: &[u8]) -> String {
         arkret_signatures::sign_ed25519_detached_jws(&self.key, bytes).unwrap()
     }
-    fn lineage(&self, version: u8, scopes: &[ContactScope], terminal: bool) -> ContactLineage {
+    fn lineage(&self, version: u8, scopes: &[ContactScope], _terminal: bool) -> ContactLineage {
         let mut lineage = ContactLineage {
-            contact_round_id: self.round.clone(),
+            trust_domain_id: domain(),
+            initial_contact_round_id: if version == 1 {
+                None
+            } else {
+                Some(self.round.clone())
+            },
+            contact_round_id: Some(self.round.clone()),
             issuer: self.issuer.clone(),
             peer: self.peer.clone(),
             version: u64::from(version),
@@ -95,7 +101,7 @@ impl Fixture {
                 },
             ),
             granted_to_peer_scopes: scopes.to_vec(),
-            terminal: terminal.then_some(true),
+            accepted_at: self.signature.created_at,
             signature: self.signature.clone(),
         };
         self.resign(&mut lineage);
@@ -104,237 +110,37 @@ impl Fixture {
     fn resign(&self, lineage: &mut ContactLineage) {
         lineage.signature.jws = self.sign(&lineage.canonical_signing_bytes().unwrap());
     }
-    fn checkpoint(&self, last: &ContactLineage) -> ContactCurrentProof {
+    fn current_proof(&self, last: &ContactLineage) -> ContactCurrentProof {
         let mut proof = ContactCurrentProof {
-            contact_round_id: self.round.clone(),
-            issuer_id: self.issuer.delivery_station_id().clone(),
-            peer: self.peer.clone(),
-            terminal: last.terminal == Some(true),
+            trust_domain_id: domain(),
+            holder: last.issuer.clone(),
+            peer: last.peer.clone(),
+            initial_contact_round_id: Some(self.round.clone()),
+            contact_round_id: Some(self.round.clone()),
+            issuer_id: last.issuer.delivery_station_id().clone(),
             head_event_ref: last.event_ref.clone(),
-            accepted_commit_event_ids: vec![last.event_ref.clone()],
-            complete_through: last.version,
+            version: last.version,
+            scope_instances: last
+                .granted_to_peer_scopes
+                .iter()
+                .map(|scope| {
+                    arkret_models_collaboration::contact_operations::ContactScopeInstance {
+                        contact_scope: *scope,
+                        grant_event_ref: last.event_ref.clone(),
+                    }
+                })
+                .collect(),
+            closed_round: None,
+            issued_at: self.signature.created_at,
             fresh_until: self.signature.created_at + Duration::minutes(5),
             signature: self.signature.clone(),
         };
         proof.signature.jws = self.sign(&proof.canonical_signing_bytes().unwrap());
         proof
     }
-    fn verify(&self, chain: &[ContactLineage]) -> Result<VerifiedContactDirection> {
-        verify_test_lineage_history(
-            &self.issuer,
-            &self.peer,
-            &self.round,
-            chain,
-            &self.checkpoint(chain.last().unwrap()),
-            self.signature.created_at,
-            self,
-        )
-    }
 }
 fn event_id(value: u8) -> EventId {
     EventId::from_digest(DigestSuite::Sha256, [value; 32])
-}
-
-#[test]
-fn scopes_keep_their_generation_until_removed_then_readded() {
-    use ContactScope::{DirectMessage, Presence, VoiceCall};
-    let fixture = Fixture::new();
-    let chain = vec![
-        fixture.lineage(1, &[DirectMessage, Presence], false),
-        fixture.lineage(2, &[DirectMessage, VoiceCall], false),
-        fixture.lineage(3, &[VoiceCall], false),
-        fixture.lineage(4, &[DirectMessage, VoiceCall], false),
-    ];
-    let verified = fixture.verify(&chain).unwrap();
-    let retained = verified.open_interval(VoiceCall).unwrap();
-    assert_eq!(retained.authorization_event_id(), &event_id(1));
-    assert_eq!(retained.generation_event_id(), &event_id(2));
-    let readded = verified.open_interval(DirectMessage).unwrap();
-    assert_eq!(readded.authorization_event_id(), &event_id(1));
-    assert_eq!(readded.generation_event_id(), &event_id(4));
-    assert!(
-        verified
-            .intervals()
-            .iter()
-            .any(|interval| interval.scope() == DirectMessage
-                && interval.generation_event_id() == &event_id(1)
-                && interval.closed_by() == Some(&event_id(3)))
-    );
-    assert!(verified.open_interval(Presence).is_none());
-    assert!(matches!(
-        verified.require_current_at(fixture.signature.created_at + Duration::hours(1)),
-        Err(ContactAuthorizationError::NotCurrent)
-    ));
-    assert_eq!(
-        verified
-            .open_interval(DirectMessage)
-            .unwrap()
-            .generation_event_id(),
-        &event_id(4)
-    );
-}
-
-#[test]
-fn terminal_closes_every_scope_and_cannot_reopen_the_round() {
-    let fixture = Fixture::new();
-    let mut chain = vec![
-        fixture.lineage(1, &[ContactScope::DirectMessage], false),
-        fixture.lineage(2, &[ContactScope::DirectMessage], true),
-    ];
-    let verified = fixture.verify(&chain).unwrap();
-    assert!(
-        verified
-            .open_interval(ContactScope::DirectMessage)
-            .is_none()
-    );
-    assert_eq!(verified.intervals()[0].closed_by(), Some(&event_id(2)));
-    chain.push(fixture.lineage(3, &[ContactScope::DirectMessage], false));
-    assert!(matches!(
-        fixture.verify(&chain),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-}
-
-#[test]
-fn incomplete_chains_are_pending_but_false_predecessors_are_invalid() {
-    let fixture = Fixture::new();
-    let first = fixture.lineage(1, &[ContactScope::DirectMessage], false);
-    let second = fixture.lineage(2, &[], false);
-    let third = fixture.lineage(3, &[ContactScope::DirectMessage], false);
-    assert!(matches!(
-        fixture.verify(&[second.clone(), third.clone()]),
-        Err(ContactAuthorizationError::MissingMaterial(_))
-    ));
-    assert!(matches!(
-        fixture.verify(&[first.clone(), third]),
-        Err(ContactAuthorizationError::MissingMaterial(_))
-    ));
-    let mut bad = second;
-    bad.predecessor_event_ref = Some(event_id(9));
-    fixture.resign(&mut bad);
-    assert!(matches!(
-        fixture.verify(&[first, bad]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-}
-
-#[test]
-fn rejects_wrong_pair_round_source_and_payload_tampering() {
-    let fixture = Fixture::new();
-    let original = fixture.lineage(1, &[ContactScope::DirectMessage], false);
-    let mut wrong_pair = original.clone();
-    wrong_pair.peer = fixture.issuer.clone();
-    fixture.resign(&mut wrong_pair);
-    assert!(matches!(
-        fixture.verify(&[wrong_pair]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-    let mut wrong_round = original.clone();
-    wrong_round.contact_round_id = Hash::new(format!("sha256:{}", "44".repeat(32))).unwrap();
-    fixture.resign(&mut wrong_round);
-    assert!(matches!(
-        fixture.verify(&[wrong_round]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-    let mut wrong_source = original.clone();
-    wrong_source.signature.verification_method =
-        DidUrl::new("did:webvh:zother:other.example#key").unwrap();
-    assert!(matches!(
-        fixture.verify(&[wrong_source]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-    let mut tampered = original;
-    tampered.granted_to_peer_scopes.push(ContactScope::Presence);
-    assert!(matches!(
-        fixture.verify(&[tampered]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-}
-
-#[test]
-fn verifies_method_history_and_historical_assertion_relationship() {
-    let mut fixture = Fixture::new();
-    let mut lineage = fixture.lineage(1, &[ContactScope::DirectMessage], false);
-    lineage.signature.verification_method =
-        DidUrl::new(format!("{}#not-an-assertion-key", fixture.history.did)).unwrap();
-    assert!(matches!(
-        fixture.verify(&[lineage]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-    let lineage = fixture.lineage(1, &[ContactScope::DirectMessage], false);
-    fixture.history.has_more = true;
-    assert!(matches!(
-        fixture.verify(std::slice::from_ref(&lineage)),
-        Err(ContactAuthorizationError::MissingMaterial(_))
-    ));
-    fixture.history.has_more = false;
-    fixture.history.entries[0]["state"]["alsoKnownAs"] =
-        serde_json::json!(["https://forged.example/"]);
-    assert!(matches!(
-        fixture.verify(&[lineage]),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
-    ));
-}
-
-#[test]
-fn first_observation_requires_current_evidence() {
-    let fixture = Fixture::new();
-    let chain = vec![fixture.lineage(1, &[ContactScope::DirectMessage], false)];
-    let checkpoint = fixture.checkpoint(&chain[0]);
-    assert!(matches!(
-        verify_test_lineage_history(
-            &fixture.issuer,
-            &fixture.peer,
-            &fixture.round,
-            &chain,
-            &checkpoint,
-            checkpoint.fresh_until,
-            &fixture
-        ),
-        Err(ContactAuthorizationError::NotCurrent)
-    ));
-}
-
-fn verify_test_lineage_history(
-    issuer: &ContactPeer,
-    peer: &ContactPeer,
-    round: &Hash,
-    lineages: &[ContactLineage],
-    checkpoint: &ContactCurrentProof,
-    observed_at: DateTime<Utc>,
-    resolver: &dyn AuthorityDidHistoryResolver,
-) -> Result<VerifiedContactDirection> {
-    let transitions = lineages
-        .iter()
-        .map(|lineage| {
-            verify_source_signature(
-                issuer.delivery_station_id(),
-                &lineage.signature,
-                &lineage.canonical_signing_bytes().map_err(invalid)?,
-                resolver,
-            )?;
-            Ok(ContactTransition {
-                contact_round_id: lineage.contact_round_id.clone(),
-                issuer: lineage.issuer.clone(),
-                peer: lineage.peer.clone(),
-                version: lineage.version,
-                predecessor_event_ref: lineage.predecessor_event_ref.clone(),
-                event_ref: lineage.event_ref.clone(),
-                granted_to_peer_scopes: lineage.granted_to_peer_scopes.clone(),
-                terminal: lineage.terminal,
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    verify_transition_history(
-        issuer,
-        peer,
-        round,
-        &transitions,
-        checkpoint,
-        observed_at,
-        resolver,
-        None,
-    )
 }
 
 struct CarrierFixture {
@@ -432,7 +238,7 @@ impl CarrierFixture {
         let event = self.event(
             EventKind::ContactRequested,
             serde_json::json!({
-                "peer":self.source.peer, "granted_to_peer_scopes":["direct_message"],
+                "trust_domain_id":domain(),"version":1,"peer":self.source.peer, "granted_to_peer_scopes":["direct_message"],
                 "introduction_evidence_digest":arkret_canonical::sha256_digest(bytes),
             }),
         );
@@ -440,12 +246,10 @@ impl CarrierFixture {
             core: RequestAcceptanceReceiptCore {
                 holder: self.source.issuer.clone(),
                 peer: self.source.peer.clone(),
-                slot_version: 1,
-                slot_predecessor: None,
-                previous_terminal_contact_round_id: None,
+                trust_domain_id:domain(),version:1,predecessor_event_ref:None,initial_contact_round_id:None,
                 request_event_ref: event.event_id.clone(),
                 producer_signer: self.producer_signer(),
-                source_checkpoint: self.source.round.clone(),
+                source_checkpoint:Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(arkret_wire::DomainSeparationId::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,&serde_json::json!({"event_ref":event.event_id,"event_digest":event.event_id.event_digest()})).unwrap()).unwrap(),
                 accepted_at: event.created_at,
                 issuer_id: self.source.issuer.delivery_station_id().clone(),
             },
@@ -481,11 +285,11 @@ impl CarrierFixture {
         terminal: bool,
     ) -> PeerContactSubmitRequestBody {
         let payload = if terminal {
-            serde_json::json!({"peer":self.source.peer,"contact_round_id":self.source.round,
+            serde_json::json!({"trust_domain_id":domain(),"initial_contact_round_id":self.source.round,"peer":self.source.peer,"contact_round_id":self.source.round,
             "version":version,"predecessor_event_ref":previous})
         } else {
             serde_json::json!({"schema":"ak.schema.contact_scope_update.v1",
-            "peer":self.source.peer,"contact_round_id":self.source.round,"version":version,"predecessor_event_ref":previous,"granted_to_peer_scopes":["voice_call"]})
+            "trust_domain_id":domain(),"initial_contact_round_id":self.source.round,"peer":self.source.peer,"contact_round_id":self.source.round,"version":version,"predecessor_event_ref":previous,"granted_to_peer_scopes":["voice_call"]})
         };
         let event = self.event(
             if terminal {
@@ -508,7 +312,7 @@ impl CarrierFixture {
         lineage.producer_signer = self.producer_signer();
         lineage.predecessor_event_ref = Some(previous.clone());
         self.source.resign(&mut lineage);
-        let checkpoint = self.source.checkpoint(&lineage);
+        let checkpoint = self.source.current_proof(&lineage);
         if terminal {
             PeerContactSubmitRequestBody::Tombstone {
                 idempotency_key: arkret_wire::IdempotencyKey::new("terminal-fixture").unwrap(),
@@ -536,7 +340,7 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
     let verified = fixture.authenticate(&carrier).unwrap();
     assert_eq!(verified.kind(), EventKind::ContactRequested);
     assert!(
-        verified.transition.is_none(),
+        verified.terminal_fence().is_none(),
         "a lone request does not grant a completed round"
     );
     let mut bad_source = carrier.clone();
@@ -787,351 +591,6 @@ fn carrier_scope_and_terminal_bind_real_event_not_unsigned_lineage() {
 }
 
 #[test]
-fn carrier_later_head_requires_exact_successor_chain_and_remote_terminal_preserves_local_version() {
-    let fixture = CarrierFixture::new();
-    let initial = ContactTransition {
-        contact_round_id: fixture.source.round.clone(),
-        issuer: fixture.source.issuer.clone(),
-        peer: fixture.source.peer.clone(),
-        version: 1,
-        predecessor_event_ref: None,
-        event_ref: event_id(1),
-        granted_to_peer_scopes: vec![ContactScope::DirectMessage],
-        terminal: None,
-    };
-    let mut other = initial.clone();
-    other.issuer = fixture.source.peer.clone();
-    other.peer = fixture.source.issuer.clone();
-    other.event_ref = event_id(7);
-    // This reducer test supplies origins directly; carrier and round-origin
-    // authentication have independent cryptographic tests below and above.
-    let round = VerifiedContactRound {
-        round: fixture.source.round.clone(),
-        origins: [initial, other],
-        origin_checkpoints: Vec::new(),
-    };
-    let mut v2 = fixture.successor(&event_id(1), 2, false);
-    let id2 = fixture.authenticate(&v2).unwrap().event_id;
-    let v3 = fixture.successor(&id2, 3, true);
-    let proof3 = match &v3 {
-        PeerContactSubmitRequestBody::Tombstone { current_proof, .. } => current_proof.clone(),
-        _ => unreachable!(),
-    };
-    if let PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. } = &mut v2 {
-        *current_proof = proof3.clone();
-    }
-    let e2 = fixture.authenticate(&v2).unwrap();
-    let e3 = fixture.authenticate(&v3).unwrap();
-    assert!(matches!(
-        verify_contact_direction_history(
-            &round,
-            &fixture.source.issuer,
-            std::slice::from_ref(&e2),
-            &proof3,
-            fixture.source.signature.created_at,
-            &fixture.source,
-            None
-        ),
-        Err(ContactAuthorizationError::MissingMaterial(_))
-    ));
-    let verified = verify_contact_direction_history(
-        &round,
-        &fixture.source.issuer,
-        &[e2, e3.clone()],
-        &proof3,
-        fixture.source.signature.created_at,
-        &fixture.source,
-        None,
-    )
-    .unwrap();
-    assert!(verified.open_interval(ContactScope::VoiceCall).is_none());
-    let mut opposite = proof3;
-    opposite.peer = fixture.source.issuer.clone();
-    opposite.complete_through = 1;
-    opposite.signature.jws = fixture
-        .source
-        .sign(&opposite.canonical_signing_bytes().unwrap());
-    let verified = verify_contact_direction_history(
-        &round,
-        &fixture.source.peer,
-        &[],
-        &opposite,
-        fixture.source.signature.created_at,
-        &fixture.source,
-        e3.terminal_fence().as_ref(),
-    )
-    .unwrap();
-    assert!(
-        verified
-            .open_interval(ContactScope::DirectMessage)
-            .is_none()
-    );
-    opposite.complete_through = 3;
-    opposite.signature.jws = fixture
-        .source
-        .sign(&opposite.canonical_signing_bytes().unwrap());
-    assert!(
-        verify_contact_direction_history(
-            &round,
-            &fixture.source.peer,
-            &[],
-            &opposite,
-            fixture.source.signature.created_at,
-            &fixture.source,
-            e3.terminal_fence().as_ref()
-        )
-        .is_err()
-    );
-}
-
-impl CarrierFixture {
-    fn reversed(&self) -> Self {
-        let mut reverse = Self::new();
-        std::mem::swap(&mut reverse.source.issuer, &mut reverse.source.peer);
-        reverse.method = DidUrl::new(
-            "did:webvh:zfixturebob:bob.example#ak:device:0196419b-0000-7000-8000-000000000001",
-        )
-        .unwrap();
-        reverse
-    }
-    fn initial_proof(&self, round: &Hash, event: &EventId) -> ContactCurrentProof {
-        let mut proof = self.source.checkpoint(&self.source.lineage(1, &[], false));
-        proof.contact_round_id = round.clone();
-        proof.head_event_ref = event.clone();
-        proof.accepted_commit_event_ids = vec![event.clone()];
-        proof.signature.jws = self.source.sign(&proof.canonical_signing_bytes().unwrap());
-        proof
-    }
-}
-
-#[test]
-fn carrier_normal_round_uses_exact_request_and_response_origins_and_reject_never_grants() {
-    use arkret_models_collaboration::contact_operations::{
-        NormalResponseAcceptanceReceipt, RejectAcceptanceReceipt,
-    };
-    let a = CarrierFixture::new();
-    let b = a.reversed();
-    let request = a.request();
-    let er = a.authenticate(&request).unwrap();
-    let PeerContactSubmitRequestBody::Request {
-        request_receipt, ..
-    } = &request
-    else {
-        unreachable!()
-    };
-    let mut pair = [
-        a.source.issuer.contact_actor_id(),
-        b.source.issuer.contact_actor_id(),
-    ];
-    pair.sort_by_key(|actor| arkret_canonical::canonical_json_bytes(actor).unwrap());
-    let core = ContactRound::Normal {
-        sorted_pair_member_ids: pair,
-        request_event_ref: er.event_id.clone(),
-        request_acceptance_receipt_digest: request_receipt.computed_receipt_digest().unwrap(),
-    };
-    let round = compute_contact_round_id(&core).unwrap();
-    let accept=b.event(EventKind::ContactAccepted,serde_json::json!({"peer":b.source.peer,"contact_round_id":round,"version":1,
-        "request_event_ref":er.event_id,"request_acceptance_receipt_digest":request_receipt.computed_receipt_digest().unwrap(),"granted_to_peer_scopes":["voice_call"]}));
-    let mut response = NormalResponseAcceptanceReceipt {
-        contact_round_id: round.clone(),
-        request_receipt: request_receipt.clone(),
-        response_event_ref: accept.event_id.clone(),
-        producer_signer: b.producer_signer(),
-        outgoing_slot_absence_digest: a.source.round.clone(),
-        accepted_at: accept.created_at,
-        issuer_id: b.source.issuer.delivery_station_id().clone(),
-        signature: b.source.signature.clone(),
-    };
-    response.signature.jws = b.source.sign(&response.canonical_signing_bytes().unwrap());
-    let accepted = PeerContactSubmitRequestBody::Response {
-        idempotency_key: arkret_wire::IdempotencyKey::new("response-fixture").unwrap(),
-        signed_event: accept,
-        response_receipt: response.clone(),
-        contact_address: b.address(),
-        current_proof: None,
-    };
-    let ea = b.authenticate(&accepted).unwrap();
-    let mut bundle = ContactRoundEvidenceBundle {
-        contact_round_id: round.clone(),
-        previous_terminal_contact_round_id: None,
-        contact_round: core,
-        request_receipts: vec![request_receipt.clone()],
-        normal_response_receipt: Some(response),
-        glare_concurrency_attestations: None,
-        current_proofs: vec![
-            a.initial_proof(&round, &er.event_id),
-            b.initial_proof(&round, &ea.event_id),
-        ],
-        continuity_checkpoint: None,
-    };
-    let verified = verify_contact_round_origins(
-        &bundle,
-        &[er.clone(), ea.clone()],
-        a.source.signature.created_at,
-        &a.source,
-    )
-    .unwrap();
-    let first = verify_contact_direction_history(
-        &verified,
-        &a.source.issuer,
-        &[],
-        &bundle.current_proofs[0],
-        a.source.signature.created_at,
-        &a.source,
-        None,
-    )
-    .unwrap();
-    assert_eq!(
-        first
-            .open_interval(ContactScope::DirectMessage)
-            .unwrap()
-            .authorization_event_id(),
-        &er.event_id
-    );
-    let second = verify_contact_direction_history(
-        &verified,
-        &b.source.issuer,
-        &[],
-        &bundle.current_proofs[1],
-        a.source.signature.created_at,
-        &a.source,
-        None,
-    )
-    .unwrap();
-    assert_eq!(
-        second
-            .open_interval(ContactScope::VoiceCall)
-            .unwrap()
-            .generation_event_id(),
-        &ea.event_id
-    );
-    bundle.current_proofs[1] = bundle.current_proofs[0].clone();
-    assert!(
-        verify_contact_round_origins(
-            &bundle,
-            &[er.clone(), ea],
-            a.source.signature.created_at,
-            &a.source
-        )
-        .is_err(),
-        "equal Station ids cannot disguise duplicate directions"
-    );
-    let reject = b.event(
-        EventKind::ContactRejected,
-        serde_json::json!({"peer":b.source.peer,"request_event_ref":er.event_id,
-        "request_acceptance_receipt_digest":request_receipt.computed_receipt_digest().unwrap()}),
-    );
-    let mut receipt = RejectAcceptanceReceipt {
-        request_receipt: request_receipt.clone(),
-        reject_event_ref: reject.event_id.clone(),
-        producer_signer: b.producer_signer(),
-        accepted_at: reject.created_at,
-        issuer_id: b.source.issuer.delivery_station_id().clone(),
-        signature: b.source.signature.clone(),
-    };
-    receipt.signature.jws = b.source.sign(&receipt.canonical_signing_bytes().unwrap());
-    let rejected = PeerContactSubmitRequestBody::Reject {
-        idempotency_key: arkret_wire::IdempotencyKey::new("reject-fixture").unwrap(),
-        signed_event: reject,
-        reject_receipt: receipt,
-        contact_address: b.address(),
-    };
-    let rejected = b.authenticate(&rejected).unwrap();
-    assert!(rejected.transition.is_none());
-    assert!(rejected.terminal_fence().is_none());
-}
-
-#[test]
-fn carrier_glare_round_authenticates_both_requests_and_both_source_attestations() {
-    use arkret_models_collaboration::contact_operations::GlareConcurrencyAttestation;
-    let a = CarrierFixture::new();
-    let b = a.reversed();
-    let ar = a.request();
-    let br = b.request();
-    let ea = a.authenticate(&ar).unwrap();
-    let eb = b.authenticate(&br).unwrap();
-    let PeerContactSubmitRequestBody::Request {
-        request_receipt: ra,
-        ..
-    } = ar
-    else {
-        unreachable!()
-    };
-    let PeerContactSubmitRequestBody::Request {
-        request_receipt: rb,
-        ..
-    } = br
-    else {
-        unreachable!()
-    };
-    let core = ContactRound::glare_from_request_receipts(&[ra.clone(), rb.clone()]).unwrap();
-    let round = compute_contact_round_id(&core).unwrap();
-    let attestation = |f: &CarrierFixture| {
-        let mut proof = GlareConcurrencyAttestation {
-            subject_id: f.source.issuer.contact_actor_id(),
-            issuer_id: f.source.issuer.delivery_station_id().clone(),
-            peer_id: f.source.peer.contact_actor_id(),
-            request_receipt_digests: [
-                ra.computed_receipt_digest().unwrap(),
-                rb.computed_receipt_digest().unwrap(),
-            ],
-            observed_commit_event_ids: vec![ea.event_id.clone(), eb.event_id.clone()],
-            complete_through: 1,
-            unconsumed_slot_checkpoint: f.source.round.clone(),
-            observed_at: f.source.signature.created_at,
-            signature: f.source.signature.clone(),
-        };
-        proof.signature.jws = f.source.sign(&proof.canonical_signing_bytes().unwrap());
-        proof
-    };
-    let mut bundle = ContactRoundEvidenceBundle {
-        contact_round_id: round.clone(),
-        previous_terminal_contact_round_id: None,
-        contact_round: core,
-        request_receipts: vec![ra.clone(), rb.clone()],
-        normal_response_receipt: None,
-        glare_concurrency_attestations: Some([attestation(&a), attestation(&b)]),
-        current_proofs: vec![
-            a.initial_proof(&round, &ea.event_id),
-            b.initial_proof(&round, &eb.event_id),
-        ],
-        continuity_checkpoint: None,
-    };
-    let verified = verify_contact_round_origins(
-        &bundle,
-        &[ea.clone(), eb.clone()],
-        a.source.signature.created_at,
-        &a.source,
-    )
-    .unwrap();
-    for (index, event) in [&ea, &eb].into_iter().enumerate() {
-        let direction = verify_contact_direction_history(
-            &verified,
-            event.holder(),
-            &[],
-            &bundle.current_proofs[index],
-            a.source.signature.created_at,
-            &a.source,
-            None,
-        )
-        .unwrap();
-        assert_eq!(
-            direction
-                .open_interval(ContactScope::DirectMessage)
-                .unwrap()
-                .authorization_event_id(),
-            event.event_id()
-        );
-    }
-    bundle.glare_concurrency_attestations.as_mut().unwrap()[1].subject_id =
-        a.source.issuer.contact_actor_id();
-    assert!(
-        verify_contact_round_origins(&bundle, &[ea, eb], a.source.signature.created_at, &a.source)
-            .is_err()
-    );
-}
-
-#[test]
 fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() {
     use arkret_signatures::webvh::{
         AgentBindingUpdateInput, AgentInceptionInput, prepare_agent_binding_update,
@@ -1144,7 +603,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
     else {
         unreachable!()
     };
-    let mut event= f.event(EventKind::ContactTombstone,serde_json::json!({"peer":f.source.peer,"contact_round_id":f.source.round,"version":2,"predecessor_event_ref":event_id(1)}));
+    let mut event= f.event(EventKind::ContactTombstone,serde_json::json!({"trust_domain_id":domain(),"initial_contact_round_id":f.source.round,"peer":f.source.peer,"contact_round_id":f.source.round,"version":2,"predecessor_event_ref":event_id(1)}));
     let at = f.source.signature.created_at;
     let endpoint = "https://agents.example/".parse().unwrap();
     let next = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
@@ -1242,7 +701,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         lineage.event_ref = event.event_id.clone();
         lineage.producer_signer = producer;
         f.source.resign(&mut lineage);
-        let current_proof = f.source.checkpoint(&lineage);
+        let current_proof = f.source.current_proof(&lineage);
         PeerContactSubmitRequestBody::Tombstone {
             idempotency_key: arkret_wire::IdempotencyKey::new("controller-contact").unwrap(),
             signed_event: event,
@@ -1340,70 +799,1038 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
     );
 }
 
-#[test]
-fn carrier_current_proof_cannot_precede_its_command_or_skip_remote_terminal_local_history() {
-    let f = CarrierFixture::new();
-    let initial = ContactTransition {
-        contact_round_id: f.source.round.clone(),
-        issuer: f.source.issuer.clone(),
-        peer: f.source.peer.clone(),
-        version: 1,
-        predecessor_event_ref: None,
-        event_ref: event_id(1),
-        granted_to_peer_scopes: vec![ContactScope::DirectMessage],
-        terminal: None,
-    };
-    let mut other = initial.clone();
-    other.issuer = f.source.peer.clone();
-    other.peer = f.source.issuer.clone();
-    other.event_ref = event_id(7);
-    let mut round = VerifiedContactRound {
-        round: f.source.round.clone(),
-        origins: [initial, other],
-        origin_checkpoints: Vec::new(),
-    };
-    let mut carrier = f.successor(&event_id(1), 2, false);
-    let current = match &carrier {
-        PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. } => current_proof.clone(),
-        _ => unreachable!(),
-    };
-    if let PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. } = &mut carrier {
-        *current_proof = f.initial_proof(&f.source.round, &event_id(1));
+fn domain() -> arkret_wire::TrustDomainId {
+    arkret_wire::TrustDomainId::new("ak:trust_domain:contact.test").unwrap()
+}
+
+struct Ceremony {
+    a: arkret_test_kit::service_identity::ServiceIdentityFixture,
+    b: arkret_test_kit::service_identity::ServiceIdentityFixture,
+    wire: arkret_test_kit::contact::ContactCeremonyFixture,
+    at: DateTime<Utc>,
+}
+impl AuthorityDidHistoryResolver for Ceremony {
+    fn resolve_complete_history(
+        &self,
+        did: &Did,
+    ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+        for source in [&self.a, &self.b] {
+            if &source.history.did == did {
+                return Ok(source.history.clone());
+            }
+        }
+        Err(AuthorityHistoryUnavailable {
+            message: "unknown fixture method".into(),
+        })
     }
-    let event = f.authenticate(&carrier).unwrap();
+}
+impl Ceremony {
+    fn new() -> Self {
+        use arkret_test_kit::contact::{ContactCeremonyFixture, ContactParticipant};
+        use arkret_test_kit::service_identity::ServiceIdentityFixture;
+        let at = Utc.with_ymd_and_hms(2026, 9, 12, 1, 0, 0).unwrap();
+        let a = ServiceIdentityFixture::webvh(
+            &"https://station-a.example/".parse().unwrap(),
+            1201,
+            [11; 32],
+            "source-a",
+            at - Duration::minutes(1),
+            at,
+        )
+        .unwrap();
+        let b = ServiceIdentityFixture::webvh(
+            &"https://station-b.example/".parse().unwrap(),
+            1202,
+            [12; 32],
+            "source-b",
+            at - Duration::minutes(1),
+            at,
+        )
+        .unwrap();
+        let participant = |seed, station: &ServiceIdentityFixture, realm: u8| {
+            let key = SigningKey::from_bytes(&[seed; 32]);
+            let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                &key.verifying_key().to_bytes(),
+            );
+            let did = Did::new(format!("did:key:{multibase}")).unwrap();
+            (
+                AccountId::new(
+                    arkret_wire::project_did_to_core_id(&did).unwrap(),
+                    station.service_id.clone(),
+                ),
+                DidUrl::new(format!("{did}#{multibase}")).unwrap(),
+                arkret_wire::RealmId::from_event_id(&event_id(realm)),
+            )
+        };
+        let (aa, am, ar) = participant(21, &a, 31);
+        let (ba, bm, br) = participant(22, &b, 32);
+        let wire = ContactCeremonyFixture::normal(
+            &ContactParticipant {
+                account_id: aa,
+                realm_id: ar,
+                verification_method: am,
+                signing_seed: [21; 32],
+                authority: &a,
+            },
+            &ContactParticipant {
+                account_id: ba,
+                realm_id: br,
+                verification_method: bm,
+                signing_seed: [22; 32],
+                authority: &b,
+            },
+            at,
+        )
+        .unwrap();
+        Self { a, b, wire, at }
+    }
+    fn material(&self, index: usize) -> ContactCurrentMaterial {
+        let bundle = &self.wire.round;
+        let head = bundle.current_operations[index].clone();
+        ContactCurrentMaterial {
+            initial_identity: Some(bundle.initial_identity.clone()),
+            round_evidence: Some(bundle.basis()),
+            round_events: Some(bundle.round_events.clone()),
+            scope_grants: bundle
+                .scope_grants
+                .iter()
+                .filter(|op| op.holder() == head.holder())
+                .cloned()
+                .collect(),
+            historical_intervals: vec![],
+            current_proof: bundle
+                .current_proofs
+                .iter()
+                .find(|p| &p.holder == head.holder())
+                .unwrap()
+                .clone(),
+            head_operation: head,
+        }
+    }
+    fn verify(&self, material: &ContactCurrentMaterial) -> Result<VerifiedContactCurrentMaterial> {
+        verify_contact_current_material(
+            material,
+            material.head_operation.holder(),
+            material.head_operation.peer(),
+            &domain(),
+            DigestSuite::Sha256,
+            self.at + Duration::seconds(2),
+            self,
+        )
+    }
+    fn sign_state(
+        &self,
+        state: &arkret_models_collaboration::contact_operations::ContactPrivateState,
+        holder: &ContactPeer,
+        offset: i64,
+    ) -> ContactCurrentProof {
+        let d = state.direction(holder).unwrap();
+        let at = self.at + Duration::seconds(offset);
+        let source = if holder.delivery_station_id() == &self.a.service_id {
+            &self.a
+        } else {
+            &self.b
+        };
+        ContactCurrentProof::sign_with(
+            domain(),
+            holder.clone(),
+            d.head_operation.peer().clone(),
+            state
+                .initial_identity
+                .as_ref()
+                .map(|i| i.round.contact_round_id.clone()),
+            state
+                .round_basis
+                .as_ref()
+                .map(|r| r.contact_round_id.clone()),
+            source.service_id.clone(),
+            d.head_operation.event().event_id.clone(),
+            d.head_operation.version(),
+            d.scope_instances.clone(),
+            d.closed_round.clone().map(Box::new),
+            at,
+            at + Duration::minutes(5),
+            |bytes| source.sign(bytes, at),
+        )
+        .unwrap()
+    }
+    fn state(&self) -> arkret_models_collaboration::contact_operations::ContactPrivateState {
+        let mut state =
+            arkret_models_collaboration::contact_operations::ContactPrivateState::default();
+        for index in 0..2 {
+            state
+                .install_authenticated_current(self.material(index))
+                .unwrap();
+        }
+        state
+    }
+}
+#[test]
+fn current_recovers_without_prior_mirror_and_authenticates_both_round_intents() {
+    let fixture = Ceremony::new();
+    for index in 0..2 {
+        let material = fixture.material(index);
+        let verified = fixture.verify(&material).unwrap();
+        assert!(
+            verified
+                .direction()
+                .unwrap()
+                .open_interval(ContactScope::DirectMessage)
+                .is_some()
+        );
+        let mut missing = material;
+        missing.round_events.as_mut().unwrap().pop();
+        assert!(fixture.verify(&missing).is_err());
+    }
+}
+#[test]
+fn source_signature_and_original_holder_signature_are_independent() {
+    let fixture = Ceremony::new();
+    let mut material = fixture.material(0);
+    material.current_proof.scope_instances.clear();
+    assert!(fixture.verify(&material).is_err());
+    let mut material = fixture.material(0);
+    let ContactOperationEvidence::Request { signed_event, .. } = &mut material.head_operation
+    else {
+        unreachable!()
+    };
+    signed_event.producer_proof.as_mut().unwrap().jws.push('A');
+    assert!(fixture.verify(&material).is_err());
+}
+#[test]
+fn current_source_history_must_be_complete_and_historical_assertion_authorized() {
+    let mut fixture = Ceremony::new();
+    let material = fixture.material(0);
+    fixture.a.history.has_more = true;
+    assert!(fixture.verify(&material).is_err());
+    fixture.a.history.has_more = false;
+    fixture.a.history.entries.clear();
+    assert!(fixture.verify(&material).is_err());
+}
+#[test]
+fn current_material_binds_full_pair_domain_and_exact_original_head() {
+    let fixture = Ceremony::new();
+    for field in ["holder", "peer", "trust_domain_id", "head_event_ref"] {
+        let mut value = serde_json::to_value(fixture.material(0)).unwrap();
+        value["current_proof"][field] = match field {
+            "holder" => {
+                serde_json::to_value(fixture.wire.round.current_proofs[1].holder.clone()).unwrap()
+            }
+            "peer" => {
+                serde_json::to_value(fixture.wire.round.current_proofs[0].holder.clone()).unwrap()
+            }
+            "trust_domain_id" => serde_json::json!("ak:trust_domain:other.example"),
+            _ => serde_json::to_value(event_id(99)).unwrap(),
+        };
+        let changed: ContactCurrentMaterial = serde_json::from_value(value).unwrap();
+        assert!(fixture.verify(&changed).is_err(), "{field}");
+    }
+}
+#[test]
+fn narrowing_retains_an_existing_scope_instance_and_readd_uses_new_original() {
+    use arkret_models_collaboration::contact_operations::{
+        ContactScopeInstance, ContactScopeUpdateSchema,
+    };
+    use arkret_test_kit::contact::ContactParticipant;
+    let fixture = Ceremony::new();
+    let mut state = fixture.state();
+    let operation = contact_carrier_operation(&fixture.wire.scope_update).unwrap();
+    let holder = operation.holder().clone();
+    let old = state.direction(&holder).unwrap().scope_instances.clone();
+    state.apply_confirmed(operation.clone()).unwrap();
+    let retained = state
+        .direction(&holder)
+        .unwrap()
+        .scope_instances
+        .iter()
+        .find(|i| i.contact_scope == ContactScope::DirectMessage)
+        .unwrap();
+    assert_eq!(
+        retained,
+        old.iter()
+            .find(|i| i.contact_scope == ContactScope::DirectMessage)
+            .unwrap()
+    );
+    let participant = ContactParticipant {
+        account_id: holder.contact_actor_id().as_account_id().unwrap().clone(),
+        realm_id: operation.event().realm_id.clone(),
+        verification_method: operation.producer_signer().verification_method().clone(),
+        signing_seed: [22; 32],
+        authority: &fixture.b,
+    };
+    let event = participant
+        .event::<arkret_wire::event_spec::ContactScopeUpdate>(
+            ContactScopeUpdatePayload {
+                schema: ContactScopeUpdateSchema::V1,
+                trust_domain_id: domain(),
+                initial_contact_round_id: fixture.wire.round.contact_round_id.clone(),
+                version: 3,
+                predecessor_event_ref: operation.event().event_id.clone(),
+                peer: operation.peer().clone(),
+                contact_round_id: fixture.wire.round.contact_round_id.clone(),
+                granted_to_peer_scopes: vec![ContactScope::Invite, ContactScope::DirectMessage],
+            },
+            fixture.at,
+        )
+        .unwrap();
+    let lineage = ContactLineage::sign_with(
+        domain(),
+        Some(fixture.wire.round.contact_round_id.clone()),
+        Some(fixture.wire.round.contact_round_id.clone()),
+        holder.clone(),
+        operation.peer().clone(),
+        3,
+        Some(operation.event().event_id.clone()),
+        event.event_id.clone(),
+        operation.producer_signer().clone(),
+        vec![ContactScope::Invite, ContactScope::DirectMessage],
+        fixture.at,
+        |bytes| fixture.b.sign(bytes, fixture.at),
+    )
+    .unwrap();
+    state
+        .apply_confirmed(ContactOperationEvidence::ScopeUpdate {
+            signed_event: event.clone(),
+            lineage,
+        })
+        .unwrap();
+    let new = state
+        .direction(&holder)
+        .unwrap()
+        .scope_instances
+        .iter()
+        .find(|i| i.contact_scope == ContactScope::Invite)
+        .unwrap();
+    assert_eq!(
+        new,
+        &ContactScopeInstance {
+            contact_scope: ContactScope::Invite,
+            grant_event_ref: event.event_id
+        }
+    );
+    assert_ne!(
+        new,
+        old.iter()
+            .find(|i| i.contact_scope == ContactScope::Invite)
+            .unwrap()
+    );
+}
+#[test]
+fn remote_closure_preserves_own_original_head_and_lifetime_version() {
+    let fixture = Ceremony::new();
+    let mut state = fixture.state();
+    let operation = contact_carrier_operation(&fixture.wire.scope_update).unwrap();
+    state.apply_confirmed(operation).unwrap();
+    let operation = contact_carrier_operation(&fixture.wire.tombstone).unwrap();
+    let ContactOperationEvidence::Tombstone {
+        signed_event,
+        lineage,
+    } = operation
+    else {
+        unreachable!()
+    };
+    let own = fixture.material(0).head_operation.holder().clone();
+    let head = state
+        .direction(&own)
+        .unwrap()
+        .head_operation
+        .event()
+        .event_id
+        .clone();
+    state
+        .apply_confirmed(ContactOperationEvidence::Tombstone {
+            signed_event: signed_event.clone(),
+            lineage: lineage.clone(),
+        })
+        .unwrap();
+    state.close_round(arkret_models_collaboration::contact_operations::ContactRoundClosure{contact_round_id:fixture.wire.round.contact_round_id.clone(),operation:arkret_models_collaboration::contact_operations::ContactTombstoneEvidence{kind:arkret_models_collaboration::contact_operations::ContactTombstoneEvidenceKind::Tombstone,signed_event,lineage}}).unwrap();
+    let proof = fixture.sign_state(&state, &own, 1);
+    assert_eq!(proof.head_event_ref, head);
+    assert_eq!(proof.version, 1);
+    assert!(proof.scope_instances.is_empty());
+    let mut material = fixture.material(0);
+    material.current_proof = proof;
+    material.scope_grants.clear();
+    let verified = fixture.verify(&material).unwrap();
+    assert!(verified.closure().is_some());
+    assert!(
+        verified
+            .direction()
+            .unwrap()
+            .open_interval(ContactScope::DirectMessage)
+            .is_none()
+    );
+    assert!(
+        state
+            .install_authenticated_current(fixture.material(0))
+            .is_err(),
+        "an older lease cannot revive known exact-round closure"
+    );
+}
+#[test]
+fn lease_expiry_does_not_revoke_an_already_verified_ordinary_scope() {
+    let fixture = Ceremony::new();
+    let material = fixture.material(0);
+    let verified = fixture.verify(&material).unwrap();
+    let direction = verified.direction().unwrap();
+    assert!(
+        direction
+            .require_current_at(material.current_proof.fresh_until)
+            .is_err()
+    );
+    assert!(
+        direction
+            .open_interval(ContactScope::DirectMessage)
+            .is_some()
+    );
     assert!(matches!(
-        verify_contact_direction_history(
-            &round,
-            &f.source.issuer,
-            &[event],
-            &current,
-            f.source.signature.created_at,
-            &f.source,
-            None
+        verify_contact_current_material(
+            &material,
+            material.head_operation.holder(),
+            material.head_operation.peer(),
+            &domain(),
+            DigestSuite::Sha256,
+            material.current_proof.fresh_until,
+            &fixture
         ),
-        Err(ContactAuthorizationError::InvalidEvidence(_))
+        Err(ContactAuthorizationError::NotCurrent)
     ));
-    let terminal = f.successor(&event_id(1), 2, true);
-    let terminal = f.authenticate(&terminal).unwrap();
-    let fence = terminal.terminal_fence().unwrap();
-    let mut proof = f.initial_proof(&f.source.round, terminal.event_id());
-    proof.peer = f.source.issuer.clone();
-    proof.terminal = true;
-    proof.signature.jws = f.source.sign(&proof.canonical_signing_bytes().unwrap());
-    let mut higher = proof.clone();
-    higher.complete_through = 9;
-    higher.signature.jws = f.source.sign(&higher.canonical_signing_bytes().unwrap());
-    round.origin_checkpoints.push(higher);
-    assert!(matches!(
-        verify_contact_direction_history(
-            &round,
-            &f.source.peer,
-            &[],
-            &proof,
-            f.source.signature.created_at,
-            &f.source,
-            Some(&fence)
-        ),
-        Err(ContactAuthorizationError::MissingMaterial(_))
-    ));
+}
+#[test]
+fn same_version_refresh_compares_the_immutable_original_instead_of_proof_bytes() {
+    let fixture = Ceremony::new();
+    let mut state = fixture.state();
+    let mut material = fixture.material(0);
+    material.current_proof = fixture.sign_state(&state, material.head_operation.holder(), 1);
+    state
+        .install_authenticated_current(material.clone())
+        .unwrap();
+    assert_eq!(
+        state
+            .direction(material.head_operation.holder())
+            .unwrap()
+            .head_operation
+            .version(),
+        1
+    );
+    let mut conflict = material.clone();
+    let ContactOperationEvidence::Request { signed_event, .. } = &mut conflict.head_operation
+    else {
+        unreachable!()
+    };
+    signed_event.producer_proof.as_mut().unwrap().jws.push('A');
+    assert!(state.install_authenticated_current(conflict).is_err());
+    assert!(
+        state
+            .install_authenticated_current(fixture.material(0))
+            .is_ok()
+    );
+    assert_eq!(
+        state
+            .direction(material.head_operation.holder())
+            .unwrap()
+            .current_proof
+            .as_ref()
+            .unwrap()
+            .issued_at,
+        material.current_proof.issued_at
+    );
+}
+#[test]
+fn optional_wire_members_reject_explicit_null_and_retired_continuity_fields() {
+    let fixture = Ceremony::new();
+    let material = fixture.material(0);
+    for field in [
+        "closed_round",
+        "initial_contact_round_id",
+        "contact_round_id",
+    ] {
+        let mut value = serde_json::to_value(&material.current_proof).unwrap();
+        value[field] = serde_json::Value::Null;
+        assert!(
+            serde_json::from_value::<ContactCurrentProof>(value).is_err(),
+            "{field}"
+        );
+    }
+    let mut value = serde_json::to_value(&material.current_proof).unwrap();
+    value["complete_through"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<ContactCurrentProof>(value).is_err());
+}
+#[test]
+fn historical_first_close_requires_the_full_signed_control_result() {
+    use arkret_models_collaboration::contact_operations::*;
+    let fixture = Ceremony::new();
+    let mut state = fixture.state();
+    let update = contact_carrier_operation(&fixture.wire.scope_update).unwrap();
+    let holder = update.holder().clone();
+    let peer = update.peer().clone();
+    state.apply_confirmed(update.clone()).unwrap();
+    let base = fixture.material(1);
+    let proof = fixture.sign_state(&state, &holder, 1);
+    let direction = state.direction(&holder).unwrap();
+    let material = ContactCurrentMaterial {
+        initial_identity: base.initial_identity,
+        round_evidence: base.round_evidence,
+        round_events: base.round_events.clone(),
+        head_operation: update.clone(),
+        scope_grants: direction.scope_grants.clone(),
+        historical_intervals: vec![ContactHistoricalScopeInterval {
+            contact_scope: ContactScope::Invite,
+            grant: base.head_operation,
+            round: fixture.wire.round.basis(),
+            round_events: fixture.wire.round.round_events.clone(),
+            closed_by: Some(update),
+        }],
+        current_proof: proof,
+    };
+    assert!(
+        fixture.verify(&material).is_err(),
+        "Event signatures alone do not certify the first interval boundary"
+    );
+    let request = PeerContactSubmitRequestBody::CurrentRefresh {
+        idempotency_key: arkret_wire::IdempotencyKey::new("current-history-kat").unwrap(),
+        requester: peer,
+        trust_domain_id: domain(),
+        initial_contact_round_id: Some(fixture.wire.round.contact_round_id.clone()),
+        known_version: 1,
+        grant_event_refs: vec![
+            material.historical_intervals[0]
+                .grant
+                .event()
+                .event_id
+                .clone(),
+        ],
+        contact_address:
+            arkret_models_collaboration::governance::peer_contact::PeerContactAddress::for_recipient(
+                holder,
+                arkret_models_identity::ServiceResolutionCarrier::Inline {
+                    inline: fixture.b.resolution.clone(),
+                },
+            ),
+    };
+    let request_digest = Hash::new(arkret_canonical::canonical_sha256(&request).unwrap()).unwrap();
+    let result_digest = peer_contact_control_result_digest(
+        &request_digest,
+        PeerContactControlKind::CurrentRefresh,
+        None,
+        None,
+        Some(&material),
+    )
+    .unwrap();
+    let at = fixture.at + Duration::seconds(1);
+    let unsigned = serde_json::json!({"domain":"ak.peer_contact.control_receipt.v1","request_kind":"current_refresh","request_digest":request_digest,"outcome":"accepted","result_digest":result_digest,"recipient_id":fixture.b.service_id,"received_at":arkret_canonical::format_timestamp_canonical(at),"issuer_id":fixture.b.service_id});
+    let signature = fixture
+        .b
+        .sign(
+            &arkret_canonical::canonical_json_bytes(&unsigned).unwrap(),
+            at,
+        )
+        .unwrap();
+    let receipt = PeerContactControlReceipt {
+        domain: PeerContactControlReceiptDomain::V1,
+        request_kind: PeerContactControlKind::CurrentRefresh,
+        request_digest,
+        outcome: PeerContactOutcome::Accepted,
+        result_digest: Some(result_digest),
+        recipient_id: fixture.b.service_id.clone(),
+        received_at: at,
+        issuer_id: fixture.b.service_id.clone(),
+        signature,
+    };
+    let result =
+        PeerContactSubmitOutcome::Control(PeerContactControlSubmitOutcome::CurrentRefresh {
+            status: PeerContactOutcome::Accepted,
+            control_receipt: receipt,
+            material,
+        });
+    verify_contact_current_refresh_response(
+        &request,
+        &result,
+        DigestSuite::Sha256,
+        fixture.at + Duration::seconds(2),
+        &fixture,
+    )
+    .unwrap();
+    let mut tampered = result;
+    let PeerContactSubmitOutcome::Control(PeerContactControlSubmitOutcome::CurrentRefresh {
+        material,
+        ..
+    }) = &mut tampered
+    else {
+        unreachable!()
+    };
+    material.historical_intervals[0].closed_by = None;
+    assert!(
+        verify_contact_current_refresh_response(
+            &request,
+            &tampered,
+            DigestSuite::Sha256,
+            fixture.at + Duration::seconds(2),
+            &fixture
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn glare_slot_attestation_signs_protocol_timestamp_and_exact_bounded_choice() {
+    use arkret_models_collaboration::contact_operations::GlareConcurrencyAttestation;
+    let f = Ceremony::new();
+    let op = &f.wire.round.current_operations[0];
+    let proof = GlareConcurrencyAttestation::sign_with(
+        domain(),
+        None,
+        f.wire.round.contact_round_id.clone(),
+        op.version(),
+        op.event().event_id.clone(),
+        op.holder().contact_actor_id(),
+        f.a.service_id.clone(),
+        op.peer().contact_actor_id(),
+        [event_id(81).event_digest(), event_id(82).event_digest()],
+        f.at,
+        |bytes| Ok(f.a.sign(bytes, f.at).unwrap()),
+    )
+    .unwrap();
+    proof.validate_slot_commitment().unwrap();
+    assert_eq!(
+        serde_json::to_value(&proof).unwrap()["observed_at"],
+        "2026-09-12T01:00:00.000Z"
+    );
+    verify_source_signature_at(
+        &f.a.service_id,
+        &proof.signature,
+        &proof.canonical_signing_bytes().unwrap(),
+        f.at,
+        &f,
+    )
+    .unwrap();
+    let mut changed = proof.clone();
+    changed.version += 1;
+    assert!(changed.validate_slot_commitment().is_err());
+    changed.unconsumed_slot_checkpoint = changed.slot_commitment().unwrap();
+    assert!(
+        verify_source_signature_at(
+            &f.a.service_id,
+            &changed.signature,
+            &changed.canonical_signing_bytes().unwrap(),
+            f.at,
+            &f
+        )
+        .is_err()
+    );
+    changed = proof;
+    changed.observed_at += Duration::milliseconds(1);
+    assert!(changed.validate_slot_commitment().is_err());
+}
+
+#[test]
+fn delayed_lineage_uses_issuance_key_while_receipts_retain_acceptance_key() {
+    use arkret_signatures::webvh::{
+        ServiceInceptionInput, ServiceRotationInput, prepare_service_inception_with_did_key_seed,
+        prepare_service_rotation,
+    };
+    let mut f = Ceremony::new();
+    let later = f.at + Duration::seconds(2);
+    let mut rng = ChaChaRng::seed_from_u64(1202);
+    let inception = prepare_service_inception_with_did_key_seed(
+        &mut rng,
+        &ServiceInceptionInput {
+            principal_endpoint: &"https://station-b.example/".parse().unwrap(),
+            local_id: "service",
+            also_known_as: &[],
+            version_time: f.at - Duration::minutes(1),
+            did_key_fragment: Some("source-b"),
+        },
+        &[12; 32],
+    )
+    .unwrap();
+    assert_eq!(inception.log_entry, f.b.history.entries[0]);
+    let key = SigningKey::from_bytes(&[54; 32]);
+    let mut state = f.b.history.entries[0]["state"].clone();
+    let method = state["verificationMethod"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|m| m["id"] == f.b.verification_method.as_str())
+        .unwrap();
+    method["publicKeyMultibase"] = serde_json::json!(
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(key.verifying_key().as_bytes())
+    );
+    let next = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+        SigningKey::from_bytes(&[55; 32]).verifying_key().as_bytes(),
+    );
+    let rotation = prepare_service_rotation(&ServiceRotationInput {
+        did: f.b.history.did.as_str(),
+        previous_entries: &f.b.history.entries,
+        state: &state,
+        current_update_seed: &inception.next_update_key_seed,
+        next_update_public_key_multibase: &next,
+        version_time: f.at + Duration::seconds(1),
+    })
+    .unwrap();
+    f.b.history.entries.push(rotation.log_entry);
+    f.b.signing_key = key;
+    let mut carrier = f.wire.scope_update.clone();
+    let PeerContactSubmitRequestBody::ScopeUpdate { lineage, .. } = &mut carrier else {
+        unreachable!()
+    };
+    assert_eq!(lineage.accepted_at, f.at);
+    lineage.signature =
+        f.b.sign(&lineage.canonical_signing_bytes().unwrap(), later)
+            .unwrap();
+    let holder = f.wire.round.current_operations[1].holder().clone();
+    authenticate_contact_event_carrier(&carrier, &holder, DigestSuite::Sha256, later, &f).unwrap();
+    let PeerContactSubmitRequestBody::ScopeUpdate { lineage, .. } = &mut carrier else {
+        unreachable!()
+    };
+    lineage.signature =
+        f.b.sign(&lineage.canonical_signing_bytes().unwrap(), f.at)
+            .unwrap();
+    assert!(
+        authenticate_contact_event_carrier(&carrier, &holder, DigestSuite::Sha256, later, &f)
+            .is_err()
+    );
+    let mut response = f.wire.response.clone();
+    let PeerContactSubmitRequestBody::Response {
+        response_receipt, ..
+    } = &mut response
+    else {
+        unreachable!()
+    };
+    response_receipt.signature.created_at = later;
+    response_receipt.signature.jws = arkret_signatures::sign_ed25519_detached_jws(
+        &SigningKey::from_bytes(&[12; 32]),
+        &response_receipt.canonical_signing_bytes().unwrap(),
+    )
+    .unwrap();
+    authenticate_contact_event_carrier(&response, &holder, DigestSuite::Sha256, later, &f).unwrap();
+}
+
+#[test]
+fn signed_contact_request_cannot_introduce_a_future_round_or_unknown_wire_member() {
+    for member in ["contact_round_id", "retired_continuity"] {
+        let f = CarrierFixture::new();
+        let mut carrier = f.request();
+        let PeerContactSubmitRequestBody::Request {
+            signed_event,
+            request_receipt,
+            ..
+        } = &mut carrier
+        else {
+            unreachable!()
+        };
+        signed_event
+            .payload
+            .insert(member.into(), serde_json::json!(f.source.round));
+        *signed_event = f.sign_event(signed_event.clone());
+        request_receipt.core.request_event_ref = signed_event.event_id.clone();
+        request_receipt.core.source_checkpoint=Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(arkret_wire::DomainSeparationId::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,&serde_json::json!({"event_ref":signed_event.event_id,"event_digest":signed_event.event_id.event_digest()})).unwrap()).unwrap();
+        request_receipt.receipt_digest = request_receipt.computed_core_digest().unwrap();
+        request_receipt.signature.jws = f
+            .source
+            .sign(&request_receipt.canonical_signing_bytes().unwrap());
+        assert!(f.authenticate(&carrier).is_err(), "{member}");
+    }
+}
+
+#[test]
+fn current_tombstone_original_fences_both_directions_without_a_duplicate_hint() {
+    let f = Ceremony::new();
+    let mut state = f.state();
+    let mut material = f.material(1);
+    material.head_operation = contact_carrier_operation(&f.wire.tombstone).unwrap();
+    material.scope_grants.clear();
+    let PeerContactSubmitRequestBody::Tombstone { current_proof, .. } = &f.wire.tombstone else {
+        unreachable!()
+    };
+    material.current_proof = current_proof.clone();
+    material.current_proof.closed_round = None;
+    material.current_proof.signature =
+        f.b.sign(
+            &material.current_proof.canonical_signing_bytes().unwrap(),
+            f.at,
+        )
+        .unwrap();
+    let verified = f.verify(&material).unwrap();
+    assert!(verified.closure().is_some());
+    state.install_authenticated_current(material).unwrap();
+    assert!(
+        state
+            .directions
+            .iter()
+            .all(|d| d.scope_instances.is_empty())
+    );
+    assert_eq!(
+        state
+            .directions
+            .iter()
+            .find(|d| d.head_operation.holder() == f.wire.round.current_operations[0].holder())
+            .unwrap()
+            .head_operation
+            .version(),
+        1
+    );
+    assert!(state.observed_closure.is_some());
+}
+
+#[test]
+fn recovered_recontact_request_clears_old_round_but_preserves_first_identity_and_cursors() {
+    use arkret_models_collaboration::events_payloads::contact::ContactRequestedPayload;
+    use arkret_test_kit::contact::ContactParticipant;
+    let f = Ceremony::new();
+    let mut state = f.state();
+    let terminal = contact_carrier_operation(&f.wire.tombstone).unwrap();
+    state
+        .apply_confirmed(contact_carrier_operation(&f.wire.scope_update).unwrap())
+        .unwrap();
+    state.apply_confirmed(terminal.clone()).unwrap();
+    state
+        .close_round(terminal.round_closure().unwrap())
+        .unwrap();
+    let initial = state.initial_identity.clone();
+    let holder = terminal.holder().clone();
+    let peer = terminal.peer().clone();
+    let p = ContactParticipant {
+        account_id: holder.contact_actor_id().as_account_id().unwrap().clone(),
+        realm_id: terminal.event().realm_id.clone(),
+        verification_method: terminal.producer_signer().verification_method().clone(),
+        signing_seed: [22; 32],
+        authority: &f.b,
+    };
+    let event = p
+        .event::<arkret_wire::event_spec::ContactRequested>(
+            ContactRequestedPayload {
+                trust_domain_id: domain(),
+                initial_contact_round_id: Some(f.wire.round.contact_round_id.clone()),
+                version: 4,
+                predecessor_event_ref: Some(terminal.event().event_id.clone()),
+                peer: peer.clone(),
+                granted_to_peer_scopes: vec![ContactScope::DirectMessage],
+                introduction_evidence_digest: event_id(71).event_digest(),
+                message: None,
+            },
+            f.at,
+        )
+        .unwrap();
+    let receipt=RequestAcceptanceReceipt::sign_with(arkret_models_collaboration::contact_operations::RequestAcceptanceReceiptCore{trust_domain_id:domain(),holder:holder.clone(),peer:peer.clone(),version:4,predecessor_event_ref:Some(terminal.event().event_id.clone()),initial_contact_round_id:Some(f.wire.round.contact_round_id.clone()),request_event_ref:event.event_id.clone(),producer_signer:p.producer().unwrap(),source_checkpoint:Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(arkret_wire::DomainSeparationId::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,&serde_json::json!({"event_ref":event.event_id,"event_digest":event.event_id.event_digest()})).unwrap()).unwrap(),accepted_at:f.at,issuer_id:f.b.service_id.clone()},|bytes|f.b.sign(bytes,f.at)).unwrap();
+    let proof = ContactCurrentProof::sign_with(
+        domain(),
+        holder.clone(),
+        peer.clone(),
+        Some(f.wire.round.contact_round_id.clone()),
+        None,
+        f.b.service_id.clone(),
+        event.event_id.clone(),
+        4,
+        vec![],
+        Some(Box::new(terminal.round_closure().unwrap())),
+        f.at,
+        f.at + Duration::minutes(5),
+        |bytes| f.b.sign(bytes, f.at),
+    )
+    .unwrap();
+    let material = ContactCurrentMaterial {
+        initial_identity: initial.clone(),
+        round_evidence: None,
+        round_events: None,
+        head_operation: ContactOperationEvidence::Request {
+            signed_event: event,
+            request_receipt: receipt,
+        },
+        scope_grants: vec![],
+        historical_intervals: vec![],
+        current_proof: proof,
+    };
+    verify_contact_current_material(
+        &material,
+        &holder,
+        &peer,
+        &domain(),
+        DigestSuite::Sha256,
+        f.at,
+        &f,
+    )
+    .unwrap();
+    state.install_authenticated_current(material).unwrap();
+    assert_eq!(state.initial_identity, initial);
+    assert!(state.round_basis.is_none());
+    assert!(state.round_events.is_empty());
+    assert_eq!(
+        state.direction(&holder).unwrap().head_operation.version(),
+        4
+    );
+    assert_eq!(state.direction(&peer).unwrap().head_operation.version(), 1);
+    assert!(
+        state
+            .directions
+            .iter()
+            .all(|d| d.scope_instances.is_empty())
+    );
+}
+
+#[test]
+fn independently_observed_gap_narrowing_fences_old_grants_without_inventing_a_head() {
+    use arkret_models_collaboration::contact_operations::ContactScopeUpdateSchema;
+    use arkret_test_kit::contact::ContactParticipant;
+    let f = Ceremony::new();
+    let mut state = f.state();
+    let prior = contact_carrier_operation(&f.wire.scope_update).unwrap();
+    let participant = ContactParticipant {
+        account_id: prior
+            .holder()
+            .contact_actor_id()
+            .as_account_id()
+            .unwrap()
+            .clone(),
+        realm_id: prior.event().realm_id.clone(),
+        verification_method: prior.producer_signer().verification_method().clone(),
+        signing_seed: [22; 32],
+        authority: &f.b,
+    };
+    let event = participant
+        .event::<arkret_wire::event_spec::ContactScopeUpdate>(
+            ContactScopeUpdatePayload {
+                schema: ContactScopeUpdateSchema::V1,
+                trust_domain_id: domain(),
+                initial_contact_round_id: f.wire.round.contact_round_id.clone(),
+                version: 4,
+                predecessor_event_ref: event_id(72),
+                peer: prior.peer().clone(),
+                contact_round_id: f.wire.round.contact_round_id.clone(),
+                granted_to_peer_scopes: vec![],
+            },
+            f.at,
+        )
+        .unwrap();
+    let lineage = ContactLineage::sign_with(
+        domain(),
+        Some(f.wire.round.contact_round_id.clone()),
+        Some(f.wire.round.contact_round_id.clone()),
+        prior.holder().clone(),
+        prior.peer().clone(),
+        4,
+        Some(event_id(72)),
+        event.event_id.clone(),
+        participant.producer().unwrap(),
+        vec![],
+        f.at,
+        |bytes| f.b.sign(bytes, f.at),
+    )
+    .unwrap();
+    let operation = ContactOperationEvidence::ScopeUpdate {
+        signed_event: event,
+        lineage,
+    };
+    verify_original_operation(&operation, DigestSuite::Sha256, f.at, &f).unwrap();
+    state.observe_authenticated_operation(&operation).unwrap();
+    let direction = state.direction(operation.holder()).unwrap();
+    assert_eq!(direction.head_operation.version(), 1);
+    assert!(direction.scope_instances.is_empty());
+    assert!(direction.current_proof.is_none());
+    assert!(state.apply_confirmed(operation).is_err());
+    assert!(state.install_authenticated_current(f.material(1)).is_err());
+    assert_eq!(state.directions.len(), 2);
+}
+
+#[test]
+fn known_first_root_without_originals_requires_bounded_recovery_before_authoring() {
+    use arkret_models_collaboration::contact_operations::ContactPrivateState;
+    let f = Ceremony::new();
+    let operation = contact_carrier_operation(&f.wire.scope_update).unwrap();
+    let mut state = ContactPrivateState::default();
+    state.observe_authenticated_operation(&operation).unwrap();
+    assert!(state.initial_identity.is_none());
+    assert_eq!(
+        state.initial_root_floor.as_ref(),
+        Some(&f.wire.round.contact_round_id)
+    );
+    assert!(state.next_operation(operation.holder()).is_err());
+    state.install_authenticated_current(f.material(1)).unwrap();
+    assert_eq!(state.next_operation(operation.holder()).unwrap().0, 2);
+}
+
+#[test]
+fn normal_response_nested_request_cannot_change_the_fixed_identity_or_round_commitment() {
+    let f = Ceremony::new();
+    let mut operation = f.material(1).head_operation;
+    let ContactOperationEvidence::Response {
+        response_receipt, ..
+    } = &mut operation
+    else {
+        panic!("normal response required");
+    };
+    response_receipt
+        .request_receipt
+        .core
+        .initial_contact_round_id = Some(event_id(93).event_digest());
+    assert!(operation.validate_shape().is_err());
+    let mut operation = f.material(1).head_operation;
+    let ContactOperationEvidence::Response {
+        response_receipt,
+        signed_event,
+    } = &mut operation
+    else {
+        unreachable!()
+    };
+    response_receipt.contact_round_id = event_id(94).event_digest();
+    signed_event.payload.insert(
+        "contact_round_id".into(),
+        serde_json::to_value(&response_receipt.contact_round_id).unwrap(),
+    );
+    assert!(operation.validate_shape().is_err());
+}
+
+#[test]
+fn signed_current_cannot_restore_a_scope_removed_by_the_original_holder_head() {
+    let f = Ceremony::new();
+    let mut state = f.state();
+    let operation = contact_carrier_operation(&f.wire.scope_update).unwrap();
+    state.apply_confirmed(operation.clone()).unwrap();
+    let mut material = f.material(1);
+    material.head_operation = operation.clone();
+    material.current_proof = f.sign_state(&state, operation.holder(), 1);
+    f.verify(&material).unwrap();
+    material.current_proof.scope_instances.push(
+        arkret_models_collaboration::contact_operations::ContactScopeInstance {
+            contact_scope: ContactScope::Invite,
+            grant_event_ref: f.material(1).head_operation.event().event_id.clone(),
+        },
+    );
+    material.current_proof.signature =
+        f.b.sign(
+            &material.current_proof.canonical_signing_bytes().unwrap(),
+            material.current_proof.issued_at,
+        )
+        .unwrap();
+    assert!(f.verify(&material).is_err());
+    assert!(state.install_authenticated_current(material).is_err());
+}
+
+#[test]
+fn independent_closure_cannot_be_reestablished_by_an_old_round_or_a_frozen_current() {
+    let f = Ceremony::new();
+    let mut state = f.state();
+    let terminal = contact_carrier_operation(&f.wire.tombstone).unwrap();
+    state
+        .close_round(terminal.round_closure().unwrap())
+        .unwrap();
+    assert!(
+        state
+            .establish(f.wire.round.basis(), f.wire.round.round_events.clone())
+            .is_err()
+    );
+    let mut material = f.material(0);
+    material.current_proof = f.sign_state(&state, material.head_operation.holder(), 1);
+    material.scope_grants.clear();
+    f.verify(&material).unwrap();
+    state.round_basis = None;
+    state.round_events.clear();
+    state
+        .install_authenticated_current(material.clone())
+        .unwrap();
+    assert!(state.round_basis.is_none());
+    material.round_evidence = None;
+    material.round_events = None;
+    f.verify(&material).unwrap();
+    assert!(material.current_proof.scope_instances.is_empty());
 }

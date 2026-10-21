@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=150, approval_carriers=3, schemas=230, account_data_patterns=24
+//! special_forms=15, actions=154, approval_carriers=2, schemas=231, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -420,21 +420,11 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
 
 pub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[
     ApprovalEvidenceCarrierDescriptor {
-        carrier_id: "applet_bot_provision.approval_signatures",
+        carrier_id: "applet_configuration.approval_signatures",
         carrier_class: "non_event_operation",
-        operation_id: "ak.self.applet.bot.command.provision.v1",
-        request_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body",
-        carrier_schema_ref: "schemas/applet-bot-operations.schema.json#/$defs/bot_actor_provision_request_body/properties/approval_signatures",
-        carrier_field: "approval_signatures",
-        evidence_schema_ref: "schemas/approval-signature.schema.json",
-        allowed_target_kinds: &["operation"],
-    },
-    ApprovalEvidenceCarrierDescriptor {
-        carrier_id: "applet_ghost_provision.approval_signatures",
-        carrier_class: "non_event_operation",
-        operation_id: "ak.self.applet.ghost.command.provision.v1",
-        request_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body",
-        carrier_schema_ref: "schemas/applet-ghost-operations.schema.json#/$defs/ghost_actor_provision_request_body/properties/approval_signatures",
+        operation_id: "ak.self.applet.configuration.command.submit.v1",
+        request_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/request",
+        carrier_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/request/properties/approval_signatures",
         carrier_field: "approval_signatures",
         evidence_schema_ref: "schemas/approval-signature.schema.json",
         allowed_target_kinds: &["operation"],
@@ -635,18 +625,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &["applet_id", "executed_by", "registration_epoch"],
         required_evaluator_checks: &[
             "active_applet_registration_exact",
-            "bot_managed_actor_provision_unit_atomic",
+            "realm_actor_creation_scope",
+            "realm_actor_candidate_and_controller_proof",
+            "realm_actor_creation_atomic",
         ],
-        target_event_kinds: &[event_kind_str::APPLET_MANAGED_ACTOR_PROVISION],
+        target_event_kinds: &[event_kind_str::REALM_ACTOR_CREATE],
         grant_authority_actions: &[],
         profile: Some("ak.profile.applet_service.v1"),
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "operation_verb",
-        approval_requirement_eligibility:
-            ApprovalRequirementEligibility::RegisteredOperationCarrier,
-        approval_evidence_carrier_id: Some("applet_bot_provision.approval_signatures"),
-        approver_capability_action: Some(CapabilityActionId::RealmAdmin),
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletBridgeError,
@@ -665,25 +656,43 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approver_capability_action: None,
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::AppletConfigure,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &["current_scope_realm_admin"],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::RegisteredOperationCarrier,
+        approval_evidence_carrier_id: Some("applet_configuration.approval_signatures"),
+        approver_capability_action: Some(CapabilityActionId::RealmAdmin),
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::AppletGhostProvision,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &["applet_id", "executed_by", "registration_epoch"],
         required_evaluator_checks: &[
             "active_applet_registration_exact",
+            "realm_actor_creation_scope",
+            "realm_actor_candidate_and_controller_proof",
+            "realm_actor_creation_atomic",
             "ghost_actor_namespace_match",
-            "ghost_managed_actor_provision_unit_atomic",
         ],
-        target_event_kinds: &[event_kind_str::APPLET_MANAGED_ACTOR_PROVISION],
+        target_event_kinds: &[event_kind_str::REALM_ACTOR_CREATE],
         grant_authority_actions: &[],
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "operation_verb",
-        approval_requirement_eligibility:
-            ApprovalRequirementEligibility::RegisteredOperationCarrier,
-        approval_evidence_carrier_id: Some("applet_ghost_provision.approval_signatures"),
-        approver_capability_action: Some(CapabilityActionId::RealmAdmin),
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::AppletJoin,
@@ -1900,6 +1909,70 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approver_capability_action: None,
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmActorAudit,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[
+            "realm_actor_exact_target",
+            "realm_actor_current_governor",
+            "realm_actor_management_policy",
+        ],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmActorManage,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[
+            "realm_actor_exact_target",
+            "realm_actor_current_governor",
+            "realm_actor_management_policy",
+        ],
+        target_event_kinds: &[
+            event_kind_str::REALM_ACTOR_STATUS_SET,
+            event_kind_str::REALM_ACTOR_RECOVERY_SET,
+        ],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "operation_verb",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmActorManagerChange,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[
+            "realm_actor_exact_target",
+            "realm_actor_current_governor",
+            "realm_actor_management_policy",
+        ],
+        target_event_kinds: &[event_kind_str::REALM_ACTOR_MANAGER_CHANGE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::RealmAdmin,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2161,6 +2234,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::PROFILE_UPDATE,
             event_kind_str::REACTION_ADD,
             event_kind_str::REACTION_REMOVE,
+            event_kind_str::REALM_ACTOR_MANAGER_CHANGE,
+            event_kind_str::REALM_ACTOR_RECOVERY_SET,
+            event_kind_str::REALM_ACTOR_STATUS_SET,
             event_kind_str::REALM_ALIAS,
             event_kind_str::REALM_ARCHIVE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
@@ -2211,6 +2287,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.agent.key.revoke",
             "ak.agent.publish",
             "ak.applet.bridge_error",
+            "ak.applet.configure",
             "ak.applet.join",
             "ak.applet.publish",
             "ak.approval.vote",
@@ -2270,6 +2347,9 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.presence.broadcast",
             "ak.reaction.add",
             "ak.reaction.remove",
+            "ak.realm.actor.audit",
+            "ak.realm.actor.manage",
+            "ak.realm.actor.manager.change",
             "ak.realm.admin",
             "ak.realm.alias",
             "ak.realm.archive",
@@ -3305,6 +3385,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-bot-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::APPLET_CONFIGURATION_OPERATIONS_V1,
+        file: "schemas/applet-configuration-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::APPLET_DEVICE_AUTHENTICATION_V1,
         file: "schemas/applet-device-authentication.schema.json",
     },
@@ -3337,16 +3421,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/applet-install-plan.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1,
-        file: "schemas/applet-install-authoring.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1,
         file: "schemas/applet-install-authoring.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::APPLET_MANAGED_ACTOR_PROVISION_V1,
-        file: "schemas/applet-managed-actor.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_PACKAGE_V1,
@@ -3815,6 +3891,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_V1,
         file: "schemas/realm.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_ACTOR_CREATE_V1,
+        file: "schemas/realm-actor.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_ACTOR_MATERIAL_V1,
+        file: "schemas/realm-actor-material.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_AUTHORITY_BUNDLE_V1,

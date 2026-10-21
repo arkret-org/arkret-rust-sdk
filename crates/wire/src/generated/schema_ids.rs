@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.3;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f Entries: schema_ids=230,
-//! active=230
+//! Input: registry/contract-registry.json; version=2026-10-21.5;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035 Entries: schema_ids=231,
+//! active=231
 
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +44,7 @@ pub enum SchemaId {
     AppletAuthorityMaterialV1,
     AppletBotAuthoringRequestBasisV1,
     AppletBotOperationsV1,
+    AppletConfigurationOperationsV1,
     AppletDeviceAuthenticationV1,
     AppletEdgeOperationsV1,
     AppletGhostAuthoringRequestBasisV1,
@@ -52,9 +53,7 @@ pub enum SchemaId {
     AppletInstallAuthoringRequestBasisV1,
     AppletInstallOperationsV1,
     AppletInstallPlanV1,
-    AppletManagedActorAuthoringBundleV1,
     AppletManagedActorAuthoringRequestV1,
-    AppletManagedActorProvisionV1,
     AppletPackageV1,
     AppletRegistrationEpochEvidenceV1,
     AppletRegistrationEpochTranscriptV1,
@@ -172,6 +171,8 @@ pub enum SchemaId {
     ReadCursorUpdateV1,
     ReadReceiptV1,
     RealmV1,
+    RealmActorCreateV1,
+    RealmActorMaterialV1,
     RealmAuthorityBundleV1,
     RealmAuthorityHandoffV1,
     RealmCommitV1,
@@ -278,6 +279,7 @@ impl SchemaId {
         Self::AppletAuthorityMaterialV1,
         Self::AppletBotAuthoringRequestBasisV1,
         Self::AppletBotOperationsV1,
+        Self::AppletConfigurationOperationsV1,
         Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
@@ -286,9 +288,7 @@ impl SchemaId {
         Self::AppletInstallAuthoringRequestBasisV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
-        Self::AppletManagedActorAuthoringBundleV1,
         Self::AppletManagedActorAuthoringRequestV1,
-        Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
@@ -406,6 +406,8 @@ impl SchemaId {
         Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmActorCreateV1,
+        Self::RealmActorMaterialV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
         Self::RealmCommitV1,
@@ -512,6 +514,7 @@ impl SchemaId {
         Self::AppletAuthorityMaterialV1,
         Self::AppletBotAuthoringRequestBasisV1,
         Self::AppletBotOperationsV1,
+        Self::AppletConfigurationOperationsV1,
         Self::AppletDeviceAuthenticationV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
@@ -520,9 +523,7 @@ impl SchemaId {
         Self::AppletInstallAuthoringRequestBasisV1,
         Self::AppletInstallOperationsV1,
         Self::AppletInstallPlanV1,
-        Self::AppletManagedActorAuthoringBundleV1,
         Self::AppletManagedActorAuthoringRequestV1,
-        Self::AppletManagedActorProvisionV1,
         Self::AppletPackageV1,
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
@@ -640,6 +641,8 @@ impl SchemaId {
         Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
+        Self::RealmActorCreateV1,
+        Self::RealmActorMaterialV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
         Self::RealmCommitV1,
@@ -822,6 +825,9 @@ impl SchemaId {
         "ak.schema.applet_bot_authoring_request_basis.v1";
     /// Closed post-install Bot creation preview and commit DTOs.
     pub const APPLET_BOT_OPERATIONS_V1: &'static str = "ak.schema.applet_bot_operations.v1";
+    /// Bounded administrator configuration command, B-to-C execution and source result
+    pub const APPLET_CONFIGURATION_OPERATIONS_V1: &'static str =
+        "ak.schema.applet_configuration_operations.v1";
     /// Closed signed managed Device request metadata.
     pub const APPLET_DEVICE_AUTHENTICATION_V1: &'static str =
         "ak.schema.applet_device_authentication.v1";
@@ -831,8 +837,8 @@ impl SchemaId {
     /// coordinates, Realm and external tuple.
     pub const APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1: &'static str =
         "ak.schema.applet_ghost_authoring_request_basis.v1";
-    /// Closed request/response DTO bundle for ak.self.applet.ghost.command.provision.v1
-    /// (Applet-managed Ghost Actor provisioning by an installed bridge Applet).
+    /// Closed request/response DTO bundle for ak.self.events.command.submit.v1 (Applet-managed
+    /// Ghost Actor provisioning by an installed bridge Applet).
     pub const APPLET_GHOST_OPERATIONS_V1: &'static str = "ak.schema.applet_ghost_operations.v1";
     /// Closed Station preview, Applet authoring request, and managed-actor creation bundle DTOs for
     /// the durable co-sign handshake.
@@ -848,17 +854,9 @@ impl SchemaId {
     /// by install commit before admission. plan_digest is calculated over this object with
     /// plan_digest omitted.
     pub const APPLET_INSTALL_PLAN_V1: &'static str = "ak.schema.applet_install_plan.v1";
-    /// Exact four-Event service-authored managed-actor creation bundle returned by the Applet
-    /// service after validating an authoring request.
-    pub const APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1: &'static str =
-        "ak.schema.applet_managed_actor_authoring_bundle.v1";
     /// Station-signed, expiry-bounded provision_bot or provision_ghost authoring request.
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1: &'static str =
         "ak.schema.applet_managed_actor_authoring_request.v1";
-    /// Immutable service-authored Bot/Ghost creation authority cross-bound to an
-    /// applet_managed_control PCR genesis.
-    pub const APPLET_MANAGED_ACTOR_PROVISION_V1: &'static str =
-        "ak.schema.applet_managed_actor_provision.v1";
     /// Controller-signed package used by ak.self.applet.command.install.v1 preview/commit to derive
     /// ak.applet.registration and capability grants. Distribution object only; not Realm history
     /// truth and not authorization.
@@ -1186,6 +1184,10 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
+    /// Realm-owned Applet Bot/Ghost private identity/control contract.
+    pub const REALM_ACTOR_CREATE_V1: &'static str = "ak.schema.realm_actor_create.v1";
+    /// Realm-owned Applet Bot/Ghost private identity/control contract.
+    pub const REALM_ACTOR_MATERIAL_V1: &'static str = "ak.schema.realm_actor_material.v1";
     /// Genesis-to-current authority discovery proof bundle.
     pub const REALM_AUTHORITY_BUNDLE_V1: &'static str = "ak.schema.realm_authority_bundle.v1";
     /// Dual-signed planned authority generation transfer.
@@ -1427,6 +1429,7 @@ impl SchemaId {
             Self::AppletAuthorityMaterialV1 => Self::APPLET_AUTHORITY_MATERIAL_V1,
             Self::AppletBotAuthoringRequestBasisV1 => Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
             Self::AppletBotOperationsV1 => Self::APPLET_BOT_OPERATIONS_V1,
+            Self::AppletConfigurationOperationsV1 => Self::APPLET_CONFIGURATION_OPERATIONS_V1,
             Self::AppletDeviceAuthenticationV1 => Self::APPLET_DEVICE_AUTHENTICATION_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostAuthoringRequestBasisV1 => {
@@ -1439,13 +1442,9 @@ impl SchemaId {
             }
             Self::AppletInstallOperationsV1 => Self::APPLET_INSTALL_OPERATIONS_V1,
             Self::AppletInstallPlanV1 => Self::APPLET_INSTALL_PLAN_V1,
-            Self::AppletManagedActorAuthoringBundleV1 => {
-                Self::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1
-            }
             Self::AppletManagedActorAuthoringRequestV1 => {
                 Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1
             }
-            Self::AppletManagedActorProvisionV1 => Self::APPLET_MANAGED_ACTOR_PROVISION_V1,
             Self::AppletPackageV1 => Self::APPLET_PACKAGE_V1,
             Self::AppletRegistrationEpochEvidenceV1 => Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1,
             Self::AppletRegistrationEpochTranscriptV1 => {
@@ -1573,6 +1572,8 @@ impl SchemaId {
             Self::ReadCursorUpdateV1 => Self::READ_CURSOR_UPDATE_V1,
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
             Self::RealmV1 => Self::REALM_V1,
+            Self::RealmActorCreateV1 => Self::REALM_ACTOR_CREATE_V1,
+            Self::RealmActorMaterialV1 => Self::REALM_ACTOR_MATERIAL_V1,
             Self::RealmAuthorityBundleV1 => Self::REALM_AUTHORITY_BUNDLE_V1,
             Self::RealmAuthorityHandoffV1 => Self::REALM_AUTHORITY_HANDOFF_V1,
             Self::RealmCommitV1 => Self::REALM_COMMIT_V1,
@@ -1696,6 +1697,9 @@ impl SchemaId {
                 "schemas/applet-install-authoring.schema.json"
             }
             Self::AppletBotOperationsV1 => "schemas/applet-bot-operations.schema.json",
+            Self::AppletConfigurationOperationsV1 => {
+                "schemas/applet-configuration-operations.schema.json"
+            }
             Self::AppletDeviceAuthenticationV1 => {
                 "schemas/applet-device-authentication.schema.json"
             }
@@ -1710,13 +1714,9 @@ impl SchemaId {
             }
             Self::AppletInstallOperationsV1 => "schemas/applet-install-operations.schema.json",
             Self::AppletInstallPlanV1 => "schemas/applet-install-plan.schema.json",
-            Self::AppletManagedActorAuthoringBundleV1 => {
-                "schemas/applet-install-authoring.schema.json"
-            }
             Self::AppletManagedActorAuthoringRequestV1 => {
                 "schemas/applet-install-authoring.schema.json"
             }
-            Self::AppletManagedActorProvisionV1 => "schemas/applet-managed-actor.schema.json",
             Self::AppletPackageV1 => "schemas/applet-package.schema.json",
             Self::AppletRegistrationEpochEvidenceV1 => {
                 "schemas/applet-registration-epoch-evidence.schema.json"
@@ -1858,6 +1858,8 @@ impl SchemaId {
             Self::ReadCursorUpdateV1 => "schemas/device-message.schema.json",
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
             Self::RealmV1 => "schemas/realm.schema.json",
+            Self::RealmActorCreateV1 => "schemas/realm-actor.schema.json",
+            Self::RealmActorMaterialV1 => "schemas/realm-actor-material.schema.json",
             Self::RealmAuthorityBundleV1 => "schemas/realm-authority-bundle.schema.json",
             Self::RealmAuthorityHandoffV1 => "schemas/realm-authority-handoff.schema.json",
             Self::RealmCommitV1 => "schemas/realm-commit.schema.json",
@@ -1979,6 +1981,7 @@ impl SchemaId {
                 Some(Self::AppletBotAuthoringRequestBasisV1)
             }
             Self::APPLET_BOT_OPERATIONS_V1 => Some(Self::AppletBotOperationsV1),
+            Self::APPLET_CONFIGURATION_OPERATIONS_V1 => Some(Self::AppletConfigurationOperationsV1),
             Self::APPLET_DEVICE_AUTHENTICATION_V1 => Some(Self::AppletDeviceAuthenticationV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1 => {
@@ -1991,13 +1994,9 @@ impl SchemaId {
             }
             Self::APPLET_INSTALL_OPERATIONS_V1 => Some(Self::AppletInstallOperationsV1),
             Self::APPLET_INSTALL_PLAN_V1 => Some(Self::AppletInstallPlanV1),
-            Self::APPLET_MANAGED_ACTOR_AUTHORING_BUNDLE_V1 => {
-                Some(Self::AppletManagedActorAuthoringBundleV1)
-            }
             Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_V1 => {
                 Some(Self::AppletManagedActorAuthoringRequestV1)
             }
-            Self::APPLET_MANAGED_ACTOR_PROVISION_V1 => Some(Self::AppletManagedActorProvisionV1),
             Self::APPLET_PACKAGE_V1 => Some(Self::AppletPackageV1),
             Self::APPLET_REGISTRATION_EPOCH_EVIDENCE_V1 => {
                 Some(Self::AppletRegistrationEpochEvidenceV1)
@@ -2129,6 +2128,8 @@ impl SchemaId {
             Self::READ_CURSOR_UPDATE_V1 => Some(Self::ReadCursorUpdateV1),
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),
             Self::REALM_V1 => Some(Self::RealmV1),
+            Self::REALM_ACTOR_CREATE_V1 => Some(Self::RealmActorCreateV1),
+            Self::REALM_ACTOR_MATERIAL_V1 => Some(Self::RealmActorMaterialV1),
             Self::REALM_AUTHORITY_BUNDLE_V1 => Some(Self::RealmAuthorityBundleV1),
             Self::REALM_AUTHORITY_HANDOFF_V1 => Some(Self::RealmAuthorityHandoffV1),
             Self::REALM_COMMIT_V1 => Some(Self::RealmCommitV1),

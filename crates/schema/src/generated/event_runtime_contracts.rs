@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-19.1;
-//! sha256=f60768abb5c36311f9ddbbc39d04c7f6c00c7722d0675358957ca541aec9c26f
-//! Entries: active_events=134
+//! Input: registry/contract-registry.json; version=2026-10-21.1;
+//! sha256=7762686e388c5ad985336ff84ca63661248eca30b84e742b7f33361536c5d035
+//! Entries: active_events=141
 
 use arkret_wire::event_kind_str;
 
@@ -76,11 +76,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::APPLET_DISCOVERY,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::APPLET_MANAGED_ACTOR_PROVISION,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -406,6 +401,46 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::READ_CURSOR_ADVANCE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_CONTROL_RESET,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_CONTROL_UPDATE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_CREATE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_DEVICES_RESET,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_MANAGER_CHANGE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_RECOVERY_BEGIN,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_RECOVERY_SET,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_ACTOR_STATUS_SET,
         id_source: None,
         derived_id_kinds: &[],
     },

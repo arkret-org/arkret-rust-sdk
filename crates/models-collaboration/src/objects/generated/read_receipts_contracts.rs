@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/notification.schema.json
-// sha256=45e7443fe58e3de2a8bbb6deaeb433ad8f66e1f52ae55bf67101f3541d192ec5
+// sha256=0ed2084f0b1f8e9ca979c5daf5f39ac54c4b49a348f9618561820a2ffa95b5b3
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c0dd616b73cb58355247f04ec903123c52cd61b038fe2b7df35029d0b6802c1
+// sha256=d27aff562a6c1628ec46d4e850170d384869963a898494b561139f314ad91286
 
 /// Counterpart: `notification.schema.json#/$defs/ordinary_projection_content`.
 /// Counterpart for

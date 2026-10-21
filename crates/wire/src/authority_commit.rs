@@ -1138,8 +1138,6 @@ impl ApprovalSignature {
             && !matches!(
                 self.input.operation.as_str(),
                 crate::ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1
-                    | crate::ServiceOperationId::SELF_APPLET_BOT_COMMAND_PROVISION_V1
-                    | crate::ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PROVISION_V1
             )
         {
             return Err(WireError::Protocol(

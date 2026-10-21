@@ -508,7 +508,7 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
     let mut overridden_actions = BTreeSet::new();
     for row in &approval.action_overrides {
         let expected_approver_action = match row.action.as_str() {
-            "ak.applet.bot.provision" | "ak.applet.ghost.provision" => Some("ak.realm.admin"),
+            "ak.applet.bot.provision" | "ak.applet.ghost.provision" | "ak.applet.configure" => Some("ak.realm.admin"),
             _ => None,
         };
         if row.approver_capability_action.as_deref() != expected_approver_action {
