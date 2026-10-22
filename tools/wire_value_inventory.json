@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 526,
+    "total": 532,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -63,7 +63,7 @@
       "models-discovery": 4,
       "models-identity": 12,
       "models-integration": 8,
-      "runtime": 4,
+      "runtime": 5,
       "schema": 1,
       "schema-conformance": 7,
       "server": 1,
@@ -75,32 +75,32 @@
     },
     "by_category": {
       "closed_dispatch": 1,
-      "json_authoring": 113,
-      "json_path_mutation": 67,
+      "json_authoring": 117,
+      "json_path_mutation": 68,
       "paired_api": 13,
-      "public_value_field": 332
+      "public_value_field": 333
     },
     "by_classification": {
-      "independent": 13,
-      "internal_or_fixture": 14,
+      "independent": 14,
+      "internal_or_fixture": 15,
       "open_json": 76,
-      "polymorphic_boundary": 423
+      "polymorphic_boundary": 427
     },
     "by_lifecycle": {
-      "retained_boundary": 526
+      "retained_boundary": 532
     },
     "by_decision": {
-      "independent": 13,
+      "independent": 15,
       "open": 76,
-      "raw": 437
+      "raw": 441
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 185,
-      "bridges": 5,
+      "bridges": 7,
       "chime": 3,
       "coauth": 44,
       "codmin": 1,
-      "coland": 231,
+      "coland": 235,
       "flagon": 1,
       "floria": 12,
       "garth": 3,
@@ -111,7 +111,7 @@
       "open_json": 2,
       "open_json_container": 19,
       "open_map": 52,
-      "unknown": 444
+      "unknown": 450
     }
   },
   "entries": [
@@ -214,6 +214,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public serde_json::Map<String, serde_json::Value> field"
+    },
+    {
+      "finding": "bridges/crates/runtime/src/managed_device/processing.rs::PendingNativeReply.processing_binding",
+      "category": "public_value_field",
+      "rust_field": "bridges/crates/runtime/src/managed_device/processing.rs::PendingNativeReply.processing_binding",
+      "crate": "runtime",
+      "file": "bridges/crates/runtime/src/managed_device/processing.rs",
+      "path": "bridges/crates/runtime/src/managed_device/processing.rs",
+      "owner": "PendingNativeReply",
+      "owner_repository": "bridges",
+      "symbol": "PendingNativeReply.processing_binding",
+      "field": "processing_binding",
+      "discriminator": null,
+      "data_field": "processing_binding",
+      "rust_type": "serde_json::Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "independent",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "Bridges deployment-private encrypted reply processing fingerprint",
+      "action": "Retain only as caller-owned local processing identity; keep NativeContent and recipient authorization in SDK-owned types.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "prepare_native_reply<E: Serialize> includes the caller binding in the durable input digest and encrypts the reply record. Recovery recomputes that digest before publication; this field is not a v1 wire payload.",
+      "evidence": "public serde_json::Value field"
     },
     {
       "finding": "chime/src/push/wire.rs::ChimePushRegisterDeviceRequest.proof",
@@ -9441,6 +9466,56 @@
       "evidence": "json!({\"kind\":\"realm_actor_profile\",\"actor_id\":event.actor_id})"
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:49ff7723276a1284",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/applets.rs",
+      "path": "coland/crates/storage-postgres/src/applets.rs",
+      "owner": "require_revoke_member_current_in_connection",
+      "owner_repository": "coland",
+      "symbol": "require_revoke_member_current_in_connection",
+      "field": "actor_id,kind",
+      "discriminator": "kind",
+      "data_field": "actor_id,kind",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "typed-current-result.schema.json#/$defs/realm_actor_manager_selector",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "evidence": "serde_json::json!({\"kind\":\"realm_actor_manager\",\"actor_id\":target})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:7d4d4a46cfef9569",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/applets.rs",
+      "path": "coland/crates/storage-postgres/src/applets.rs",
+      "owner": "require_revoke_member_current_in_connection",
+      "owner_repository": "coland",
+      "symbol": "require_revoke_member_current_in_connection",
+      "field": "request",
+      "discriminator": null,
+      "data_field": "request",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "Coland private PostgreSQL JSONB containment predicate over a saved SDK AppletRevokeRequestBody",
+      "action": "Retain as a partial database search predicate only; deserialize and compare the complete saved SDK request before authorizing a revoke member effect.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The fragment is bound only to record @> $1. The matched saved request is decoded as SDK AppletRevokeRequestBody and the exact submitted Event, Realm and manager are rechecked; the fragment is never a submitted protocol request.",
+      "evidence": "serde_json::json!({\"revoke_execution\":{\"request\":{ \"membership_state_events\":[{\"event\":{\"event_id\":event.event_id}}] }}})"
+    },
+    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_results.rs::release_in_connection:7a32af1e173bbca7",
       "category": "json_authoring",
       "rust_field": null,
@@ -9614,6 +9689,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
       "evidence": "serde_json::json!({\"kind\":\"realm_actor_manager\",\"actor_id\":actor_id})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/managed_message_actor.rs::service_for_event:f3a82c9b07e46004",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/managed_message_actor.rs",
+      "path": "coland/crates/storage-postgres/src/managed_message_actor.rs",
+      "owner": "service_for_event",
+      "owner_repository": "coland",
+      "symbol": "service_for_event",
+      "field": "actor_id,kind",
+      "discriminator": "kind",
+      "data_field": "actor_id,kind",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "typed-current-result.schema.json#/$defs/realm_actor_manager_selector",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "evidence": "serde_json::json!({\"kind\":\"realm_actor_manager\",\"actor_id\":event.actor_id})"
     },
     {
       "finding": "json_authoring:coland/crates/storage-postgres/src/morph_projection_reads.rs::comments_for_document:980f2870b73f34c0",
@@ -9864,6 +9964,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
       "evidence": "json!({\"kind\":\"realm_actor_control\",\"actor_id\":actor})"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_creation.rs::inventory:6e4ec04647ef3a9d",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "coland/crates/storage-postgres/src/realm_actor_creation.rs",
+      "path": "coland/crates/storage-postgres/src/realm_actor_creation.rs",
+      "owner": "inventory",
+      "owner_repository": "coland",
+      "symbol": "inventory",
+      "field": "actor_id,kind",
+      "discriminator": "kind",
+      "data_field": "actor_id,kind",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "typed-current-result.schema.json#/$defs/realm_actor_manager_selector",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "evidence": "serde_json::json!({\"kind\":\"realm_actor_manager\", \"actor_id\":candidate.actor_id})"
     },
     {
       "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_device_authority.rs::current_in_connection:3bf0209bc158412b",
@@ -11239,6 +11364,31 @@
       "test": "cargo test -p inkson --lib state::to_device_raw",
       "reason": "Accepted cancel/revoke receipt updates the local pending-member projection. This exact JSON is written to the bounded local raw-operation cache after submission succeeds; it is not a POST body and must not be mistaken for an authoritative wire DTO.",
       "evidence": "json!({ \"kind\": if is_direct { event_kind_str::INVITE_CANCEL } else { event_kind_str::INVITE_REVOKE }, \"invite_id\": invite_id.clone(), \"invitee_id\": direct_invitee, \"state\": \"revoked\", \"event_id\": resp.event_id, })"
+    },
+    {
+      "finding": "json_path_mutation:bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs::prepare_manager_event:599dbb488095911d",
+      "category": "json_path_mutation",
+      "rust_field": null,
+      "crate": null,
+      "file": "bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs",
+      "path": "bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs",
+      "owner": "prepare_manager_event",
+      "owner_repository": "bridges",
+      "symbol": "prepare_manager_event",
+      "field": "actor_id",
+      "discriminator": null,
+      "data_field": "actor_id",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-actor.schema.json#/$defs/manager_change_payload",
+      "action": "Retain the exact typed-transcript-to-typed-payload conversion boundary; require SDK RealmActorManagerChangePayload decoding before building the typed Event.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The code serializes the SDK manager-acceptance transcript, adjusts its carrier members, and immediately deserializes to the SDK RealmActorManagerChangePayload before TypedEventDraft construction. The raw intermediate does not authorize business use.",
+      "evidence": "object.remove(\"actor_id\");"
     },
     {
       "finding": "json_path_mutation:coauth/crates/backend/src/handlers/arkret/session_grant/refresh.rs::refresh_session_grant:2d57b8fcb82364af",
@@ -12766,15 +12916,15 @@
       "evidence": "body.insert("
     },
     {
-      "finding": "json_path_mutation:inkson/src/state/demand_sync.rs::apply_demand_summary:64f2cf227a8ad3f1",
+      "finding": "json_path_mutation:inkson/src/state/demand_sync.rs::project_demand_summary:64f2cf227a8ad3f1",
       "category": "json_path_mutation",
       "rust_field": null,
       "crate": null,
       "file": "inkson/src/state/demand_sync.rs",
       "path": "inkson/src/state/demand_sync.rs",
-      "owner": "apply_demand_summary",
+      "owner": "project_demand_summary",
       "owner_repository": "inkson",
-      "symbol": "apply_demand_summary",
+      "symbol": "project_demand_summary",
       "field": "realm_id",
       "discriminator": null,
       "data_field": "realm_id",
@@ -12787,7 +12937,7 @@
       "authority": "arkret-spec protocol schema owning realm_id",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
+      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated. The unchanged evidence moved from apply_demand_summary to the pure project_demand_summary boundary; retain the existing raw migration obligation.",
       "evidence": "object.insert(\"realm_id\".into(), Value::String(row.realm_id.to_string()));"
     },
     {
