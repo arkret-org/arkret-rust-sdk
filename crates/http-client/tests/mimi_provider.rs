@@ -54,7 +54,7 @@ fn update_consent() -> MimiUpdateConsentRequestBody {
         scope(),
         core("alice"),
         core("station"),
-        json!({"peer":{"kind":"actor","actor_id":actor()},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]}),
+        json!({"peer":{"kind":"actor","actor_id":ActorId::account(AccountId::new(core("bob"),core("station")))},"expected_current":{"state":"never_written"},"permissions":[{"consent_scope":"voice_call"}]}),
     )
     .unwrap();
     let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(

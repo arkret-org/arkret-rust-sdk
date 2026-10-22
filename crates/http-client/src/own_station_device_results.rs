@@ -535,6 +535,11 @@ impl OwnStationDeviceClient {
     > {
         self.check_context()?;
         let value = self.client.receive_device_messages(after, limit).await?;
+        value.validate_realm_device_recipient(
+            &self.context.actor_id,
+            &self.context.device_id,
+            &self.context.effective_scope,
+        )?;
         self.bind((after.map(str::to_owned), limit), value)
     }
 }

@@ -558,13 +558,17 @@ impl MimiUpdateConsentRequestBody {
             .permissions
             .iter()
             .find(|p| p.consent_scope == scope);
+        let existed = previous
+            .iter()
+            .any(|permission| permission.consent_scope == scope);
         let valid_target = match self.decision {
             MimiConsentDecision::Accept => target.is_some(),
-            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => target.is_none(),
+            MimiConsentDecision::Deny | MimiConsentDecision::Revoke => existed && target.is_none(),
         };
         if previous_others != next_others || !valid_target {
             return Err(WireError::Protocol(
-                "MIMI replacement changes permissions outside its correlated scope".into(),
+                "MIMI replacement has no valid correlated change or alters unrelated permissions"
+                    .into(),
             ));
         }
         Ok(())
@@ -882,6 +886,85 @@ mod tests {
     }
 
     #[test]
+    fn mimi_removal_cannot_synthesize_a_decision_from_never_written() {
+        use arkret_wire::ConsentScope;
+
+        let peer = holder_actor_id();
+        for decision in [MimiConsentDecision::Deny, MimiConsentDecision::Revoke] {
+            let mut request: MimiUpdateConsentRequestBody =
+                serde_json::from_value(update_consent_value("accept", EventKind::ConsentReplace))
+                    .unwrap();
+            request.decision = decision;
+            request.consent_event = consent_event(
+                EventKind::ConsentReplace,
+                json!({
+                    "peer":{"kind":"actor","actor_id":peer},
+                    "expected_current":{"state":"never_written"},
+                    "permissions":[]
+                }),
+            );
+            request.validate_consent_event().unwrap();
+            assert!(
+                request
+                    .validate_replacement_for(&peer, ConsentScope::VoiceCall, None)
+                    .is_err(),
+                "deny/revoke requires an existing correlated permission",
+            );
+        }
+    }
+
+    #[test]
+    fn mimi_removal_cannot_synthesize_a_decision_when_another_scope_exists() {
+        use arkret_wire::{CommitStreamRef, ConsentScope, CurrentRevision, RealmCommitId};
+
+        use crate::call_invitation::{
+            ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
+        };
+        use crate::consent_operations::ConsentValue;
+
+        let peer = holder_actor_id();
+        let revision = CurrentRevision {
+            commit_id: RealmCommitId::from_digest([19; 32]),
+            stream_position: 9,
+        };
+        let permissions = json!([{"consent_scope":"presence","constraints":[],"reason":""}]);
+        for decision in [MimiConsentDecision::Deny, MimiConsentDecision::Revoke] {
+            let mut request: MimiUpdateConsentRequestBody =
+                serde_json::from_value(update_consent_value("accept", EventKind::ConsentReplace))
+                    .unwrap();
+            request.decision = decision;
+            request.consent_event = consent_event(
+                EventKind::ConsentReplace,
+                json!({
+                    "peer":{"kind":"actor","actor_id":peer},
+                    "expected_current":{"state":"present","revision":revision},
+                    "permissions":permissions
+                }),
+            );
+            let current = ConsentCurrentRow {
+                selector: ConsentCurrentSelector {
+                    kind: ConsentCurrentSelectorKind::Consent,
+                    peer_id: peer.clone(),
+                },
+                source_stream_ref: CommitStreamRef::Realm {
+                    realm_id: request.consent_event.event.realm_id.clone(),
+                },
+                revision: revision.clone(),
+                value: ConsentValue {
+                    permissions: serde_json::from_value(permissions.clone()).unwrap(),
+                },
+            };
+            request.validate_consent_event().unwrap();
+            assert!(
+                request
+                    .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
+                    .is_err(),
+                "an unrelated stored scope cannot supply the correlated precondition",
+            );
+        }
+    }
+
+    #[test]
     fn mimi_replacement_binds_exact_current_and_preserves_unrelated_optional_members() {
         use arkret_wire::{CommitStreamRef, ConsentScope, CurrentRevision, RealmCommitId};
 
@@ -916,6 +999,11 @@ mod tests {
         request
             .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
             .unwrap();
+        request.decision = MimiConsentDecision::Deny;
+        request
+            .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&current))
+            .unwrap();
+        request.decision = MimiConsentDecision::Revoke;
         request.consent_event = consent_event(
             EventKind::ConsentReplace,
             replacement(json!([{"consent_scope":"presence","reason":""}])),
