@@ -6153,6 +6153,54 @@
       "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
       "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchCurrentValue, before updating its SDK TypedCurrentRow collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
       "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocument.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocumentMetadata.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidService.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::VerificationMethod.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
     }
   ]
 }

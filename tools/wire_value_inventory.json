@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 533,
+    "total": 537,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -46,7 +46,7 @@
       "account-types": 4,
       "admin-types": 2,
       "arkret-rust-sdk": 1,
-      "backend": 8,
+      "backend": 12,
       "chime": 3,
       "codmin": 1,
       "contracts": 8,
@@ -78,27 +78,27 @@
       "json_authoring": 117,
       "json_path_mutation": 68,
       "paired_api": 13,
-      "public_value_field": 333
+      "public_value_field": 337
     },
     "by_classification": {
       "independent": 14,
       "internal_or_fixture": 16,
       "open_json": 76,
-      "polymorphic_boundary": 427
+      "polymorphic_boundary": 431
     },
     "by_lifecycle": {
-      "retained_boundary": 533
+      "retained_boundary": 537
     },
     "by_decision": {
       "independent": 15,
       "open": 76,
-      "raw": 442
+      "raw": 446
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 185,
       "bridges": 7,
       "chime": 3,
-      "coauth": 44,
+      "coauth": 48,
       "codmin": 1,
       "coland": 235,
       "flagon": 1,
@@ -111,7 +111,7 @@
       "open_json": 2,
       "open_json_container": 19,
       "open_map": 52,
-      "unknown": 451
+      "unknown": 455
     }
   },
   "entries": [
@@ -564,6 +564,106 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "Review status records review lifecycle only and never selects or dispatches the original invite document.",
       "evidence": "public serde_json::Value field"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocument.additional_properties",
+      "category": "public_value_field",
+      "rust_field": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocument.additional_properties",
+      "crate": "backend",
+      "file": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "path": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "owner": "DidDocument",
+      "owner_repository": "coauth",
+      "symbol": "DidDocument.additional_properties",
+      "field": "additional_properties",
+      "discriminator": null,
+      "data_field": "additional_properties",
+      "rust_type": "BTreeMap<String, serde_json::Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "evidence": "public BTreeMap<String, serde_json::Value> field"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocumentMetadata.additional_properties",
+      "category": "public_value_field",
+      "rust_field": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocumentMetadata.additional_properties",
+      "crate": "backend",
+      "file": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "path": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "owner": "DidDocumentMetadata",
+      "owner_repository": "coauth",
+      "symbol": "DidDocumentMetadata.additional_properties",
+      "field": "additional_properties",
+      "discriminator": null,
+      "data_field": "additional_properties",
+      "rust_type": "BTreeMap<String, serde_json::Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "evidence": "public BTreeMap<String, serde_json::Value> field"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidService.additional_properties",
+      "category": "public_value_field",
+      "rust_field": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidService.additional_properties",
+      "crate": "backend",
+      "file": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "path": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "owner": "DidService",
+      "owner_repository": "coauth",
+      "symbol": "DidService.additional_properties",
+      "field": "additional_properties",
+      "discriminator": "kind",
+      "data_field": "additional_properties",
+      "rust_type": "BTreeMap<String, serde_json::Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "evidence": "public BTreeMap<String, serde_json::Value> field"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::VerificationMethod.additional_properties",
+      "category": "public_value_field",
+      "rust_field": "coauth/crates/backend/src/handlers/arkret/did_document.rs::VerificationMethod.additional_properties",
+      "crate": "backend",
+      "file": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "path": "coauth/crates/backend/src/handlers/arkret/did_document.rs",
+      "owner": "VerificationMethod",
+      "owner_repository": "coauth",
+      "symbol": "VerificationMethod.additional_properties",
+      "field": "additional_properties",
+      "discriminator": "kind",
+      "data_field": "additional_properties",
+      "rust_type": "BTreeMap<String, serde_json::Value>",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "evidence": "public BTreeMap<String, serde_json::Value> field"
     },
     {
       "finding": "coauth/crates/backend/src/handlers/arkret/mod.rs::DebugIssueDpopGrantRequestBody.dpop_jwk",
