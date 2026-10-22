@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "30c10eef22cc8586197db9cffe6686edb621aa44",
+      "commit": "b07dc92b102e59f7fa167e08dd66e56872cca177",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -1111,7 +1111,7 @@
   "resolved_candidates": [
     {
       "repository": "cotest",
-      "commit": "30c10eef22cc8586197db9cffe6686edb621aa44"
+      "commit": "b07dc92b102e59f7fa167e08dd66e56872cca177"
     }
   ]
 }
