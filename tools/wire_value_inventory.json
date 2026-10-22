@@ -10741,7 +10741,7 @@
       "evidence": "json!({ \"backup_id\": self.backup_id.as_str(), \"actor_id\": self.actor_id, \"device_id\": self.device_id.as_ref().map(DeviceId::as_str), \"backup_kind\": self.backup_class_wire(), \"backup_version\": self.backup_version, \"created_at\": format_timestamp_canonical(self.created_at), \"aead..."
     },
     {
-      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:7d68a0e5b091d71a",
+      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:cc64d8f4491199a5",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
