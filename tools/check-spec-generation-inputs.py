@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject derived artifact inputs before SDK code generation starts."""
+"""Reject derived or non-LF artifact inputs before SDK code generation starts."""
 
 import argparse
 import glob
@@ -7,12 +7,21 @@ import json
 from pathlib import Path
 
 
+def read_artifact_json(path: Path):
+    raw = path.read_bytes()
+    if b"\r" in raw:
+        raise ValueError(
+            f"noncanonical artifact line endings: {path}; "
+            "align the Spec working tree with its Git eol=lf attributes before generation; "
+            "artifact source digests cover the actual bytes"
+        )
+    return json.loads(raw.decode("utf-8"))
+
+
 def check_inputs(artifacts_dir: Path, generation_manifest: Path) -> None:
     artifacts_dir = artifacts_dir.resolve(strict=True)
     manifest = json.loads(generation_manifest.read_text(encoding="utf-8"))
-    registry_manifest = json.loads(
-        (artifacts_dir / "registry/registry-manifest.json").read_text(encoding="utf-8")
-    )
+    registry_manifest = read_artifact_json(artifacts_dir / "registry/registry-manifest.json")
     if registry_manifest.get("source_of_truth") is not True:
         raise ValueError("registry manifest must be canonical")
 
@@ -42,7 +51,7 @@ def check_inputs(artifacts_dir: Path, generation_manifest: Path) -> None:
                     if row.get("source_role") != "canonical" or row.get("source_of_truth") is not True:
                         raise ValueError(f"derived registry cannot be a generation input: {relative}")
                 if path.suffix == ".json":
-                    artifact = json.loads(path.read_text(encoding="utf-8"))
+                    artifact = read_artifact_json(path)
                     if artifact.get("source_of_truth") is False:
                         raise ValueError(f"derived artifact cannot be a generation input: {relative}")
 

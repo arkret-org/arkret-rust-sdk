@@ -33,7 +33,7 @@ if ($duplicates.Count -ne 0) {
 
 & python (Join-Path $PSScriptRoot 'check-spec-generation-inputs.py') --artifacts-dir $artifacts --manifest $manifestPath
 if ($LASTEXITCODE -ne 0) {
-    throw 'generation manifest includes an invalid or derived artifact input'
+    throw 'generation manifest includes an invalid, derived, or noncanonical artifact input'
 }
 
 # Both modes generate into a scratch tree first. A generator that fails part

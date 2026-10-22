@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 import tempfile
@@ -38,13 +39,49 @@ class GenerationInputTests(unittest.TestCase):
 
     @staticmethod
     def write_json(path, value):
-        path.write_text(json.dumps(value), encoding="utf-8")
+        path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8", newline="\n")
 
     def check(self):
         MODULE.check_inputs(self.root, self.manifest)
 
     def test_canonical_registry_is_accepted(self):
         self.check()
+
+    def test_noncanonical_artifact_line_endings_fail_without_rewriting_source(self):
+        canonical = self.registry_input.read_bytes()
+        for ending in (b"\r\n", b"\r"):
+            with self.subTest(ending=ending):
+                source = canonical.replace(b"\n", ending)
+                self.assertNotEqual(hashlib.sha256(source).digest(), hashlib.sha256(canonical).digest())
+                self.registry_input.write_bytes(source)
+                with self.assertRaisesRegex(ValueError, r"canonical\.json.*Git eol=lf"):
+                    self.check()
+                self.assertEqual(self.registry_input.read_bytes(), source)
+        self.registry_input.write_bytes(canonical)
+        self.check()
+
+    def test_registry_manifest_also_requires_original_lf_bytes(self):
+        source = self.registry_manifest.read_bytes().replace(b"\n", b"\r\n")
+        self.registry_manifest.write_bytes(source)
+        with self.assertRaisesRegex(ValueError, r"registry-manifest\.json.*Git eol=lf"):
+            self.check()
+        self.assertEqual(self.registry_manifest.read_bytes(), source)
+
+    def test_escaped_payload_carriage_return_is_not_an_artifact_line_ending(self):
+        self.write_json(self.registry_input, {"source_of_truth": True, "payload": "a\r\nb"})
+        source = self.registry_input.read_bytes()
+        self.assertNotIn(b"\r", source)
+        self.check()
+        self.assertEqual(self.registry_input.read_bytes(), source)
+
+    def test_non_registry_json_inputs_require_lf_too(self):
+        source = b'{\r\n  "source_of_truth": true\r\n}\r\n'
+        artifact = self.root / "schema.json"
+        artifact.write_bytes(source)
+        self.write_json(self.manifest, {"entries": [{"artifacts": ["schema.json"]}]})
+        with self.assertRaisesRegex(ValueError, r"schema\.json.*Git eol=lf"):
+            self.check()
+        self.assertEqual(artifact.read_bytes(), source)
 
     def test_derived_registry_role_is_rejected(self):
         value = json.loads(self.registry_manifest.read_text())

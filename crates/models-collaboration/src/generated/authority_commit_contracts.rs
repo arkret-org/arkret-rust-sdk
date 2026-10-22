@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=9d0b9f3d96a50a017f0229841b8224bca0dfd495c38cea339780b02b0d97f8d6
+// sha256=1d0ad5c145091c227cb414f5a677679d5e286d16a5e5819328c907b2432e5350
 //
 // Input: schemas/common-ids.schema.json
 // sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
