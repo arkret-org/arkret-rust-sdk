@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "82b995965df3cd524c2d6d372986b30a62ab7a39",
+      "commit": "d012011c7fa597dcad78ded9feeb0779c9e805a9",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "5a59458d8eacbb47b1792f1a1d8ebd20b3e598f9",
+      "commit": "e02f0eee4d0f858ff1bba1bc8dbe636c949820d1",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -75,7 +75,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "c615e0d7fd40c05204f04f80cb9f4e914a0580cd",
+      "commit": "5a48ca0b5946d25613e3c65e4d2628bfa345b08a",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "104ca34cf435a29cc7148a2274bb6fdf2385ddc3",
+      "commit": "f39652839e0660004168ca9c8385ae7205f5f469",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "4dac571404c9709739dee2646fc1c74e8c3ccca7",
+      "commit": "970170f69b62f841f8214e43911feac7daf3a4f6",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "e4426cbeee362c0fc78693349a17dec9251f9bd4",
+      "commit": "cbd5077634efa968cf7324e4076227f3a3475271",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
@@ -1107,5 +1107,15 @@
         ]
       }
     ]
-  }
+  },
+  "resolved_candidates": [
+    {
+      "repository": "savfox",
+      "commit": "cbd5077634efa968cf7324e4076227f3a3475271"
+    },
+    {
+      "repository": "cotest",
+      "commit": "970170f69b62f841f8214e43911feac7daf3a4f6"
+    }
+  ]
 }
