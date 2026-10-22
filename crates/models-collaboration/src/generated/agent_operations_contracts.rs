@@ -23,7 +23,7 @@
 // sha256=cf32adc7dde893269afa676f7f507979b0f1899e2c565185d7a9f752c4f4e2ff
 //
 // Input: schemas/event-payload.schema.json
-// sha256=5210d9cda5e05851274d77802d4d609d186411af48ceda43c94fcabf571291f1
+// sha256=2b2d0ce9fa804d2ae258c0145cea673b09dfe7ee09e445fcfb07e6c9b23559d9
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
