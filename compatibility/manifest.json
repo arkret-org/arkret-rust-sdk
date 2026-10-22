@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "f0b4f980dcbf0a784434c67cef45288b47b89fe0",
+      "commit": "46a3fc952a244b4769be6a5886e9a96323204f6c",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "e170c348422a3bf7d93c1bca450ff5a85f861601",
+      "commit": "f20ba7b385976e00ffcd408b54ea2b89464e4733",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "94e38dfc064563a3b44c208314523d0ae7820a3e",
+      "commit": "c1437b766e2ee82ca358e82b3f5053b922e0e55c",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
