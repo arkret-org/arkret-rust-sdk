@@ -1,4 +1,7 @@
 [default-config]
+# Use compiler instrumentation for the cryptographic workspace's test suite.
+# Linux otherwise defaults to tracing execution through Ptrace.
+engine = "Llvm"
 debug = false
 verbose = false
 workspace = true
