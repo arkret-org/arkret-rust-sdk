@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "efa4fd59c5a315f99cabe0727bce5b4d3cad0a05",
+      "commit": "970170f69b62f841f8214e43911feac7daf3a4f6",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "e4426cbeee362c0fc78693349a17dec9251f9bd4",
+      "commit": "cbd5077634efa968cf7324e4076227f3a3475271",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
@@ -1107,5 +1107,15 @@
         ]
       }
     ]
-  }
+  },
+  "resolved_candidates": [
+    {
+      "repository": "savfox",
+      "commit": "cbd5077634efa968cf7324e4076227f3a3475271"
+    },
+    {
+      "repository": "cotest",
+      "commit": "970170f69b62f841f8214e43911feac7daf3a4f6"
+    }
+  ]
 }
