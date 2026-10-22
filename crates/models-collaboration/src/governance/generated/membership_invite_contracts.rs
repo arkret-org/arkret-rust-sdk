@@ -5,7 +5,7 @@
 // sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
 //
 // Input: schemas/event-payload.schema.json
-// sha256=5210d9cda5e05851274d77802d4d609d186411af48ceda43c94fcabf571291f1
+// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
 //
 // Input: schemas/account-operations.schema.json
 // sha256=b4be514e16b4a5154a4cb3bd56cf062f9ffb2cfc29ef25a26777a29f1e3d7644
