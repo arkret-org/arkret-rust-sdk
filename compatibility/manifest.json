@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "82b995965df3cd524c2d6d372986b30a62ab7a39",
+      "commit": "1ccdbf0940478d32760f6303718f9dffbb2b3323",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "58f3f9557c4b51243884fd7ef59d90a9a31d52a6",
+      "commit": "e4426cbeee362c0fc78693349a17dec9251f9bd4",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
