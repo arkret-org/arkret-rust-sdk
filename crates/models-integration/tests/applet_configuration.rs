@@ -15,6 +15,7 @@ fn peer_configuration_carries_full_account_and_preserves_the_original_request() 
             "command": "configure",
             "intent": {
                 "request_id": execution["request_id"],
+                "service_id": execution["service_id"],
                 "effective_scope": execution["effective_scope"],
                 "selection": execution["selection"],
             }

@@ -44,7 +44,7 @@ fn fixture() -> (
         "ak.applet.registration",
         scope.clone(),
         service.clone(),
-        json!({"applet_id":applet}),
+        json!({"applet_id":applet,"service_id":"ak:did_core:web:applet.example"}),
     )
     .with_created_at(now)
     .sign_verifiable(&signer)
@@ -116,6 +116,7 @@ fn fixture() -> (
     };
     let outcome = AppletAuthorityMaterialOutcome {
         applet_id: applet.clone(),
+        service_id: "ak:did_core:web:applet.example".parse().unwrap(),
         effective_scope: scope.clone(),
         registration: AppletCommittedEvent {
             event: registration,
