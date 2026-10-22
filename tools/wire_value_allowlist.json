@@ -6141,6 +6141,18 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated. The unchanged evidence moved from apply_demand_summary to the pure project_demand_summary boundary; retain the existing raw migration obligation.",
       "adjudication": "manual"
+    },
+    {
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:6520b2be39e42354",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_sdk::event_spec; arkret_wire::{EventKind, CurrentSelector, TypedCurrentRow, StrandWatchCurrentValue}",
+      "owner_repository": "inkson",
+      "action": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchCurrentValue, before updating its SDK TypedCurrentRow collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
+      "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
+      "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchCurrentValue, before updating its SDK TypedCurrentRow collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
+      "adjudication": "manual"
     }
   ]
 }
