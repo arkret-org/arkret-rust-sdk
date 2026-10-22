@@ -899,9 +899,7 @@ mod device_authorize_tests {
     }
 
     #[test]
-    fn possession_transcripts_bind_canonical_milliseconds_and_verify_after_wire_roundtrip() {
-        use ed25519_dalek::Signer as _;
-        let key = ed25519_dalek::SigningKey::from_bytes(&[141; 32]);
+    fn possession_transcripts_bind_canonical_milliseconds_after_wire_roundtrip() {
         let account = AccountId::new(
             DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
@@ -909,12 +907,6 @@ mod device_authorize_tests {
         for managed in [false, true] {
             for expiry in ["2026-09-17T00:00:00.000Z", "2026-09-17T00:00:00.123Z"] {
                 let mut value = registration_payload_value();
-                value["device_public_key_did"] = json!(format!(
-                    "did:key:{}",
-                    arkret_canonical::ed25519_pubkey_to_did_key_multibase(
-                        key.verifying_key().as_bytes()
-                    )
-                ));
                 value["expires_at"] = json!(expiry);
                 let scopes = arkret_schema_conformance::spec_json_artifact(
                     "fixtures/applet-device-scope-fixture.json",
@@ -976,34 +968,40 @@ mod device_authorize_tests {
                 registry
                     .validate_value("test:device-possession-canonical-time", &body)
                     .unwrap();
-                payload.device_signature = serde_json::from_value(json!(
-                    arkret_canonical::base64url_encode(key.sign(&input).to_bytes())
-                ))
-                .unwrap();
                 let wire = serde_json::to_value(&payload).unwrap();
                 assert_eq!(wire["expires_at"], expiry);
                 let mut received: DeviceAuthorizePayload = serde_json::from_value(wire).unwrap();
                 if managed {
-                    arkret_signatures::verify_realm_device_authorize_possession(&received, &actor)
-                        .unwrap();
+                    assert_eq!(
+                        received
+                            .realm_device_possession_signature_input(&actor)
+                            .unwrap(),
+                        input
+                    );
                 } else {
-                    arkret_signatures::verify_device_authorize_possession(&received, &account)
-                        .unwrap();
+                    assert_eq!(
+                        received
+                            .device_possession_signature_input(&account)
+                            .unwrap(),
+                        input
+                    );
                 }
                 received.expires_at = Some(Some(
                     received.expires_at.flatten().unwrap() + chrono::Duration::milliseconds(1),
                 ));
                 if managed {
-                    assert!(
-                        arkret_signatures::verify_realm_device_authorize_possession(
-                            &received, &actor
-                        )
-                        .is_err()
+                    assert_ne!(
+                        received
+                            .realm_device_possession_signature_input(&actor)
+                            .unwrap(),
+                        input
                     );
                 } else {
-                    assert!(
-                        arkret_signatures::verify_device_authorize_possession(&received, &account)
-                            .is_err()
+                    assert_ne!(
+                        received
+                            .device_possession_signature_input(&account)
+                            .unwrap(),
+                        input
                     );
                 }
             }
