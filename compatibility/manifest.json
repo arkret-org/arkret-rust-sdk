@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "c96dc4750990ee9c286208d91dfe7a931f9873bb",
+      "commit": "f0b4f980dcbf0a784434c67cef45288b47b89fe0",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "a5790f774fbb28a8c2d1a0832742740b762407e0",
+      "commit": "e170c348422a3bf7d93c1bca450ff5a85f861601",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
