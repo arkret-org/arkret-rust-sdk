@@ -149,7 +149,7 @@ fn request(station: &ServiceIdentityFixture) -> ConsentCurrentReadRequestBody {
         "holder_account_id":holder(station),
         "peer":{"kind":"actor","actor_id":ActorId::account(holder(station))},
         "audience_actor_id":ActorId::service(station.service_id.clone()),
-        "nonce":arkret_canonical::base64url_encode(&[19;32]),
+        "nonce":arkret_canonical::base64url_encode([19;32]),
     }))
     .unwrap()
 }
@@ -319,7 +319,7 @@ fn consent_production_verifier_rejects_bad_proof_nonce_method_key_pcr_and_genera
         );
     }
     let mut replay = request.clone();
-    replay.nonce = arkret_canonical::base64url_encode(&[23; 32]);
+    replay.nonce = arkret_canonical::base64url_encode([23; 32]);
     assert!(
         authority
             .verify_outcome(&replay, &signed, document, now())
@@ -358,7 +358,7 @@ fn verified_nonhuman(station: &ServiceIdentityFixture) -> VerifiedRealmAuthority
         stream_position: 2,
         commit_id: arkret_wire::RealmCommitId::from_digest([47; 32]),
     };
-    let nonce = Base64UrlString::new(arkret_canonical::base64url_encode(&[97; 32])).unwrap();
+    let nonce = Base64UrlString::new(arkret_canonical::base64url_encode([97; 32])).unwrap();
     let mut assertion = RealmAuthorityCurrentAssertion {
         realm_id: realm.clone(),
         current_generation: 0,
@@ -504,7 +504,7 @@ fn nonhuman_consent_uses_verified_authority_and_retains_current_assertion_deadli
     let mut bound = client.bind(request, signed).unwrap();
     bound.valid_until = Some(now() - Duration::seconds(1));
     assert!(bound.value().is_err());
-    assert!(bound.clone().into_value().is_err());
+    assert!(bound.into_value().is_err());
 }
 
 #[tokio::test]

@@ -349,7 +349,8 @@ async fn invalid_provider_context_fails_before_connecting() {
         client.mimi_notify(STRAND, &notify).await,
         Err(arkret_http_client::Error::Protocol(_))
     ));
-    for provider in ["mimi://bad\0header"] {
+    {
+        let provider = "mimi://bad\0header";
         assert!(
             client
                 .clone()

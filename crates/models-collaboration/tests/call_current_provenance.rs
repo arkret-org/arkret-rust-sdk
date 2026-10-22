@@ -180,7 +180,7 @@ fn roster_keeps_same_principal_at_different_stations_separate() {
             tag_id: CanonicalEventDot::new(left.event_ref.clone(), 7)
                 .unwrap()
                 .to_string(),
-            source_commit: left.clone(),
+            source_commit: left,
             value: CallRosterDelta::Leave {
                 actor_id: participant_actor("ak:did_core:web:station.example"),
                 device_id: "ak:device:01964137-0000-7000-8000-000000000001".into(),
@@ -213,7 +213,7 @@ fn moderation_restore_removes_only_the_exact_full_actor_ban_and_keeps_kick() {
         let mut value = json!({"op":"remove_participant","removal":{"actor_id":target,"action":action,"removed_by":"ak:did_core:web:moderator.example","removed_at":"2026-10-15T00:00:00.000Z"}});
         if let Some(device) = device {
             value["removal"]["device_id"] = json!(device)
-        };
+        }
         value
     };
     let current =

@@ -420,16 +420,17 @@ impl AppletAuthorityMaterialOutcome {
                 registration_epoch,
                 service_id: current_service,
             } = &self.current_binding
-            {
-                if current_service != service_id
+                && (current_service != service_id
                     || registration_ref.stream_ref
                         != (arkret_wire::CommitStreamRef::Realm {
                             realm_id: request.effective_scope.realm_id().clone(),
                         })
-                    || !registration_epoch.as_str().starts_with("sha256:")
-                {
-                    return Err(WireError::Protocol("Applet active binding differs from its Service, exact scope or current cut".into()));
-                }
+                    || !registration_epoch.as_str().starts_with("sha256:"))
+            {
+                return Err(WireError::Protocol(
+                    "Applet active binding differs from its Service, exact scope or current cut"
+                        .into(),
+                ));
             }
         }
         if seen.len() != request.grant_ids.len() {
@@ -463,18 +464,16 @@ impl AppletAuthorityMaterialOutcome {
             service_id,
             ..
         } = &self.current_binding
-        {
-            if self.registration.event.payload.get("service_id").and_then(serde_json::Value::as_str) != Some(service_id.as_str())
+            && (self.registration.event.payload.get("service_id").and_then(serde_json::Value::as_str) != Some(service_id.as_str())
                 || !self.current_results.iter().any(|result| matches!(result,
                     ExactCurrentResultsReadOutcome::Present { effective_stream_head, .. }
                     if effective_stream_head.stream_ref == registration_ref.stream_ref
                         && effective_stream_head.stream_position >= registration_ref.stream_position
                         && (effective_stream_head.stream_position != registration_ref.stream_position
-                            || effective_stream_head.commit_id == registration_ref.commit_id)))
+                            || effective_stream_head.commit_id == registration_ref.commit_id))))
             {
                 return Err(WireError::Protocol("Current Applet binding differs from the private recipient or covering cut".into()));
             }
-        }
         Ok(())
     }
 }

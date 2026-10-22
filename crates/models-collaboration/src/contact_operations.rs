@@ -506,11 +506,11 @@ impl ContactCurrentProof {
             contact_round_id: self.contact_round_id.clone(),
             issuer_id: self.issuer_id.clone(),
             head_event_ref: self.head_event_ref.clone(),
-            version: self.version.clone(),
+            version: self.version,
             scope_instances: self.scope_instances.clone(),
             closed_round: self.closed_round.clone(),
-            issued_at: self.issued_at.clone(),
-            fresh_until: self.fresh_until.clone(),
+            issued_at: self.issued_at,
+            fresh_until: self.fresh_until,
         })
     }
     pub fn head_digest(&self) -> Hash {
@@ -765,14 +765,14 @@ impl NormalResponseAcceptanceReceipt {
         arkret_canonical::canonical_json_bytes(&UnsignedNormalResponseAcceptanceReceipt {
             trust_domain_id: self.trust_domain_id.clone(),
             initial_contact_round_id: self.initial_contact_round_id.clone(),
-            version: self.version.clone(),
+            version: self.version,
             predecessor_event_ref: self.predecessor_event_ref.clone(),
             contact_round_id: self.contact_round_id.clone(),
             request_receipt: self.request_receipt.clone(),
             response_event_ref: self.response_event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
             outgoing_slot_absence_digest: self.outgoing_slot_absence_digest.clone(),
-            accepted_at: self.accepted_at.clone(),
+            accepted_at: self.accepted_at,
             issuer_id: self.issuer_id.clone(),
         })
     }
@@ -949,12 +949,12 @@ impl RejectAcceptanceReceipt {
         arkret_canonical::canonical_json_bytes(&UnsignedRejectAcceptanceReceipt {
             trust_domain_id: self.trust_domain_id.clone(),
             initial_contact_round_id: self.initial_contact_round_id.clone(),
-            version: self.version.clone(),
+            version: self.version,
             predecessor_event_ref: self.predecessor_event_ref.clone(),
             request_receipt: self.request_receipt.clone(),
             reject_event_ref: self.reject_event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
-            accepted_at: self.accepted_at.clone(),
+            accepted_at: self.accepted_at,
             issuer_id: self.issuer_id.clone(),
         })
     }
@@ -1080,12 +1080,12 @@ impl ContactLineage {
             contact_round_id: self.contact_round_id.clone(),
             issuer: self.issuer.clone(),
             peer: self.peer.clone(),
-            version: self.version.clone(),
+            version: self.version,
             predecessor_event_ref: self.predecessor_event_ref.clone(),
             event_ref: self.event_ref.clone(),
             producer_signer: self.producer_signer.clone(),
             granted_to_peer_scopes: self.granted_to_peer_scopes.clone(),
-            accepted_at: self.accepted_at.clone(),
+            accepted_at: self.accepted_at,
         })
     }
 }

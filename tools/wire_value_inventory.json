@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 525,
+    "total": 526,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -58,7 +58,7 @@
       "http": 9,
       "identity": 6,
       "inkson": 16,
-      "models-collaboration": 71,
+      "models-collaboration": 72,
       "models-crypto": 2,
       "models-discovery": 4,
       "models-identity": 12,
@@ -78,24 +78,24 @@
       "json_authoring": 113,
       "json_path_mutation": 67,
       "paired_api": 13,
-      "public_value_field": 331
+      "public_value_field": 332
     },
     "by_classification": {
       "independent": 13,
       "internal_or_fixture": 14,
       "open_json": 76,
-      "polymorphic_boundary": 422
+      "polymorphic_boundary": 423
     },
     "by_lifecycle": {
-      "retained_boundary": 525
+      "retained_boundary": 526
     },
     "by_decision": {
       "independent": 13,
       "open": 76,
-      "raw": 436
+      "raw": 437
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 184,
+      "arkret-rust-sdk": 185,
       "bridges": 5,
       "chime": 3,
       "coauth": 44,
@@ -107,7 +107,7 @@
       "inkson": 41
     },
     "by_schema_shape": {
-      "closed": 8,
+      "closed": 9,
       "open_json": 2,
       "open_json_container": 19,
       "open_map": 52,
@@ -4839,6 +4839,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "evidence": "public Option<BTreeMap<String, Value>> field"
+    },
+    {
+      "finding": "crates/models-collaboration/src/exact_current_results.rs::AppletRegistrationExactCurrentRow.value",
+      "category": "public_value_field",
+      "rust_field": "crates/models-collaboration/src/exact_current_results.rs::AppletRegistrationExactCurrentRow.value",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/exact_current_results.rs",
+      "path": "crates/models-collaboration/src/exact_current_results.rs",
+      "owner": "AppletRegistrationExactCurrentRow",
+      "owner_repository": "arkret-rust-sdk",
+      "symbol": "AppletRegistrationExactCurrentRow.value",
+      "field": "value",
+      "discriminator": null,
+      "data_field": "value",
+      "rust_type": "serde_json::Value",
+      "spec_pointer": "typed-current-result.schema.json#/$defs/applet_registration_result/properties/value",
+      "schema_shape": "closed",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "event-payload.schema.json#/$defs/applet_registration_payload",
+      "action": "Retain the shared read carrier; decode with arkret_models_integration::AppletRegistrationPayload before business use.",
+      "test": "cargo test -p arkret-models-integration --test applet_registration",
+      "reason": "The collaboration-domain exact-current carrier cannot depend on the integration domain without a dependency cycle. The HTTP client exact-current and Applet material endpoints decode this value to the sole AppletRegistrationPayload implementation before returning it; the closed registration contract is tested in applet_registration.",
+      "evidence": "public serde_json::Value field"
     },
     {
       "finding": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentView.grants",

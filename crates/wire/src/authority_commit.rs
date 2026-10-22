@@ -860,11 +860,11 @@ pub enum RealmSnapshotPurpose {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSnapshotHistoryBasis {
-    pub account_id: crate::AccountId,
+    pub account_id: AccountId,
     pub stream_ref: CommitStreamRef,
     pub anchor_position: u64,
     pub anchor_commit_ref: RealmCommitId,
-    pub accepted_dependency_refs: Vec<crate::CommittedEventRef>,
+    pub accepted_dependency_refs: Vec<CommittedEventRef>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -928,15 +928,15 @@ impl RealmStateSnapshot {
         };
         let parent = match &basis.stream_ref {
             CommitStreamRef::Realm { .. } => None,
-            CommitStreamRef::Circle { circle_id, .. } => Some(crate::CurrentSelector::Circle {
+            CommitStreamRef::Circle { circle_id, .. } => Some(CurrentSelector::Circle {
                 circle_id: circle_id.clone(),
             }),
-            CommitStreamRef::Sidecar { sidecar_id, .. } => Some(crate::CurrentSelector::Sidecar {
+            CommitStreamRef::Sidecar { sidecar_id, .. } => Some(CurrentSelector::Sidecar {
                 sidecar_id: sidecar_id.clone(),
             }),
             _ => return Err(reject()),
         };
-        let member = crate::CurrentSelector::MemberState {
+        let member = CurrentSelector::MemberState {
             actor_id: ActorId::account(basis.account_id.clone()),
         };
         let mut seen = std::collections::BTreeSet::new();
@@ -957,7 +957,7 @@ impl RealmStateSnapshot {
             if source_stream_ref == &basis.stream_ref {
                 if matches!(
                     selector,
-                    crate::CurrentSelector::Circle { .. } | crate::CurrentSelector::Sidecar { .. }
+                    CurrentSelector::Circle { .. } | CurrentSelector::Sidecar { .. }
                 ) {
                     return Err(reject());
                 }

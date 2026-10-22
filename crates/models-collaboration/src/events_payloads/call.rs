@@ -1127,10 +1127,10 @@ pub fn call_current_source_commits(rows: &[TypedCurrentRow]) -> Result<Vec<Realm
         };
         for commit in sources {
             let key = (commit.stream_ref.clone(), commit.stream_position);
-            if let Some(old) = commits.insert(key, commit.clone()) {
-                if old != commit {
-                    return schema_violation("Call axes disagree on one original Commit");
-                }
+            if let Some(old) = commits.insert(key, commit.clone())
+                && old != commit
+            {
+                return schema_violation("Call axes disagree on one original Commit");
             }
         }
     }

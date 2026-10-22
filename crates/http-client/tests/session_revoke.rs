@@ -27,13 +27,9 @@ fn proof() -> AccountLifecycleProof {
         signature: "frozen-inner-signature".into(),
     }
 }
-fn server(
-    responses: Vec<(u16, Value)>,
-) -> (
-    Client,
-    std::thread::JoinHandle<Vec<(String, Vec<u8>)>>,
-    Arc<AtomicUsize>,
-) {
+type CapturedRequests = std::thread::JoinHandle<Vec<(String, Vec<u8>)>>;
+
+fn server(responses: Vec<(u16, Value)>) -> (Client, CapturedRequests, Arc<AtomicUsize>) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let base = format!("http://{}/", listener.local_addr().unwrap());
     let handle = std::thread::spawn(move || {

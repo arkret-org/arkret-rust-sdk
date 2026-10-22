@@ -71,7 +71,7 @@ fn every_formal_case_has_matching_schema_and_sdk_decisions_without_losing_option
             .unwrap();
         let key = format!("test:simplification:{name}");
         registry
-            .register_fragment(&key, schema, &format!("#{fragment}"))
+            .register_fragment(&key, schema, format!("#{fragment}"))
             .unwrap();
         let value = &case["instance"];
         let expected = case["expect_valid"].as_bool().unwrap();

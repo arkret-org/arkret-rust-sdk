@@ -1,4 +1,5 @@
 //! Exact-peer replacement preserves the complete permission set.
+use arkret_canonical::format_timestamp_canonical;
 use arkret_models_collaboration::call_invitation::{
     ConsentCurrentReadOutcome, ConsentCurrentReadRequestBody,
 };
@@ -96,8 +97,8 @@ fn permission_read(
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":realm},"stream_position":7,"commit_id":commit},
         "current":{"state":"present","result":{"selector":{"kind":"consent","peer_id":actor_id},
             "source_stream_ref":{"kind":"realm","realm_id":realm},"revision":{"commit_id":commit,"stream_position":7},"value":value}},
-        "evaluated_at":now.to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
-        "expires_at":(now+chrono::Duration::seconds(30)).to_rfc3339_opts(chrono::SecondsFormat::Millis,true),
+        "evaluated_at":format_timestamp_canonical(now),
+        "expires_at":format_timestamp_canonical(now+chrono::Duration::seconds(30)),
         "proof":{"verification_method":"did:web:station.example#authority","jws":"local-evaluator-fixture-unverified"}
     })).unwrap();
     (request, outcome)
@@ -119,7 +120,7 @@ fn full_native_replacement_roundtrips_unrelated_expired_permissions_and_optional
     // Native replacement may change the full set. Correlation-purpose limits
     // belong to the real MIMI admission helper, whose PG/HTTP tests reject a
     // voice revoke that also changes presence. DTO shape cannot enforce them.
-    let mut native_edit = target.clone();
+    let mut native_edit = target;
     native_edit.permissions[0].reason = None;
     native_edit.permissions.remove(1);
     native_edit.validate().unwrap();

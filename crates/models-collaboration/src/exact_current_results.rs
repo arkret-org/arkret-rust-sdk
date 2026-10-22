@@ -278,6 +278,9 @@ pub struct AppletRegistrationExactCurrentRow {
     pub selector: AppletRegistrationExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
+    /// Raw `event-payload.schema.json#/$defs/applet_registration_payload`.
+    /// The HTTP client decodes this to AppletRegistrationPayload before use;
+    /// the shared collaboration carrier cannot depend on the integration domain.
     pub value: serde_json::Value,
 }
 

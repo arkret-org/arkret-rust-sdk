@@ -2141,6 +2141,18 @@
       "spec_pointer": "view.schema.json#/$defs/view_definition/properties/timeline"
     },
     {
+      "finding": "crates/models-collaboration/src/exact_current_results.rs::AppletRegistrationExactCurrentRow.value",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "spec_pointer": "typed-current-result.schema.json#/$defs/applet_registration_result/properties/value",
+      "authority": "event-payload.schema.json#/$defs/applet_registration_payload",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain the shared read carrier; decode with arkret_models_integration::AppletRegistrationPayload before business use.",
+      "test": "cargo test -p arkret-models-integration --test applet_registration",
+      "reason": "The collaboration-domain exact-current carrier cannot depend on the integration domain without a dependency cycle. The HTTP client exact-current and Applet material endpoints decode this value to the sole AppletRegistrationPayload implementation before returning it; the closed registration contract is tested in applet_registration."
+    },
+    {
       "finding": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentView.grants",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

@@ -177,6 +177,7 @@ fn commit(
         key,
     )
 }
+#[allow(clippy::too_many_arguments)]
 fn commit_for_realm(
     realm: &RealmId,
     seed: u8,
@@ -446,7 +447,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     .unwrap();
 
     let bundle = RealmAuthorityBundle {
-        realm_id: realm.clone(),
+        realm_id: realm,
         genesis_event,
         genesis_commit,
         authority_transitions: vec![RealmAuthorityTransition {

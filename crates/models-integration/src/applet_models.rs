@@ -301,7 +301,7 @@ impl AppletManagedActorAuthoringContext {
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
     pub revoke_plan_digest: Hash,
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub effective_scope: ScopeRef,
     pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -371,7 +371,7 @@ pub enum AppletInstallEffectiveStatus {
 pub struct AppletInstallOutcome {
     pub install_id: String,
     pub applet_id: AppletId,
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
     pub capability_grant_refs: Vec<GrantId>,
@@ -385,7 +385,7 @@ pub struct AppletInstallOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokePreviewRequestBody {
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub effective_scope: ScopeRef,
     pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -473,7 +473,7 @@ pub enum AppletManagedMembershipRemoval {
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokePlan {
     pub applet_id: AppletId,
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     pub reason_code: ReasonCode,
@@ -1286,7 +1286,7 @@ impl AppletBotAuthoringRequestBasis {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletBotPreviewRequestBody {
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub effective_scope: ScopeRef,
     pub request_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

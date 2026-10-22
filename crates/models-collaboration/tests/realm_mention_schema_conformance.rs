@@ -109,7 +109,7 @@ fn nested_mentions_preserve_full_identity_and_reject_another_realm() {
             .unwrap()
             .is_empty()
     );
-    let mut wrong = content.clone();
+    let mut wrong = content;
     wrong["parts"][0]["mentions"][0]["subject_actor_id"] = realm_subject(OTHER_REALM);
     assert!(validate_mentions_in_realm(&wrong, &realm).is_err());
     assert_ne!(

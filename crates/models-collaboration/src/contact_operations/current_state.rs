@@ -1238,58 +1238,54 @@ impl ContactPrivateState {
         material: ContactCurrentMaterial,
     ) -> arkret_wire::Result<()> {
         material.validate_shape()?;
-        if let Some(root) = &self.initial_root_floor {
-            if material
+        if let Some(root) = &self.initial_root_floor
+            && material
                 .initial_identity
                 .as_ref()
                 .map(|i| &i.round.contact_round_id)
                 != Some(root)
-            {
-                return Err(invalid("current recovery changes observed first identity"));
-            }
+        {
+            return Err(invalid("current recovery changes observed first identity"));
         }
-        if let Some(close) = &self.observed_scope_update {
-            if close.holder() == material.head_operation.holder()
-                && close.event().payload.get("contact_round_id")
-                    == material
-                        .head_operation
-                        .event()
-                        .payload
-                        .get("contact_round_id")
-            {
-                let retained = close.granted_scopes()?;
-                if material.current_proof.scope_instances.iter().any(|i| {
-                    !retained.contains(&i.contact_scope)
-                        && material.scope_grants.iter().any(|g| {
-                            g.event().event_id == i.grant_event_ref && g.version() < close.version()
-                        })
-                }) {
-                    return Err(invalid(
-                        "current recovery revives an observed removed grant instance",
-                    ));
-                }
+        if let Some(close) = &self.observed_scope_update
+            && close.holder() == material.head_operation.holder()
+            && close.event().payload.get("contact_round_id")
+                == material
+                    .head_operation
+                    .event()
+                    .payload
+                    .get("contact_round_id")
+        {
+            let retained = close.granted_scopes()?;
+            if material.current_proof.scope_instances.iter().any(|i| {
+                !retained.contains(&i.contact_scope)
+                    && material.scope_grants.iter().any(|g| {
+                        g.event().event_id == i.grant_event_ref && g.version() < close.version()
+                    })
+            }) {
+                return Err(invalid(
+                    "current recovery revives an observed removed grant instance",
+                ));
             }
         }
         if let Some(root) = self
             .observed_closure
             .as_ref()
             .and_then(|c| c.operation.lineage.initial_contact_round_id.as_ref())
-        {
-            if material
+            && material
                 .initial_identity
                 .as_ref()
                 .map(|i| &i.round.contact_round_id)
                 != Some(root)
-            {
-                return Err(invalid(
-                    "recovery conflicts with authenticated closed-round first identity",
-                ));
-            }
+        {
+            return Err(invalid(
+                "recovery conflicts with authenticated closed-round first identity",
+            ));
         }
-        if let Some(initial) = &self.initial_identity {
-            if material.initial_identity.as_ref() != Some(initial) {
-                return Err(invalid("current recovery changes immutable first identity"));
-            }
+        if let Some(initial) = &self.initial_identity
+            && material.initial_identity.as_ref() != Some(initial)
+        {
+            return Err(invalid("current recovery changes immutable first identity"));
         }
         if let Some(closure) = &material.current_proof.closed_round {
             self.close_round((**closure).clone())?;
@@ -1311,13 +1307,12 @@ impl ContactPrivateState {
                     "same Contact version carries conflicting operation bytes",
                 ));
             }
-            if let Some(closure) = &prior.closed_round {
-                if material.current_proof.contact_round_id.as_ref()
+            if let Some(closure) = &prior.closed_round
+                && material.current_proof.contact_round_id.as_ref()
                     == Some(&closure.contact_round_id)
-                    && !material.current_proof.scope_instances.is_empty()
-                {
-                    return Err(invalid("current response revives a known closed round"));
-                }
+                && !material.current_proof.scope_instances.is_empty()
+            {
+                return Err(invalid("current response revives a known closed round"));
             }
             if prior.head_operation.version() == material.head_operation.version() {
                 if prior
@@ -1330,12 +1325,12 @@ impl ContactPrivateState {
                 if self.round_basis.is_some() && material.round_evidence.is_none() {
                     return Ok(());
                 }
-                if let (Some(old), Some(new)) = (&self.round_basis, &material.round_evidence) {
-                    if old.contact_round_id != new.contact_round_id {
-                        return Err(invalid(
-                            "same original operation establishes conflicting rounds",
-                        ));
-                    }
+                if let (Some(old), Some(new)) = (&self.round_basis, &material.round_evidence)
+                    && old.contact_round_id != new.contact_round_id
+                {
+                    return Err(invalid(
+                        "same original operation establishes conflicting rounds",
+                    ));
                 }
             }
         }

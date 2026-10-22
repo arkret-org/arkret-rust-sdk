@@ -565,15 +565,14 @@ pub struct PeerKeysQueryRequestBody {
 impl PeerKeysQueryRequestBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let requester = self.requester()?;
-        if let Some(actor) = requester.as_realm_actor_id() {
-            if self.purpose != PeerKeysQueryPurpose::MlsGroupAdmission
+        if let Some(actor) = requester.as_realm_actor_id()
+            && (self.purpose != PeerKeysQueryPurpose::MlsGroupAdmission
                 || !matches!(&self.relationship_basis,
-                    PeerKeysRelationshipBasis::RealmMembership { realm_id } if realm_id == &actor.realm_id)
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "Realm device lookup requires MLS admission in the requester's Realm".into(),
-                ));
-            }
+                    PeerKeysRelationshipBasis::RealmMembership { realm_id } if realm_id == &actor.realm_id))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Realm device lookup requires MLS admission in the requester's Realm".into(),
+            ));
         }
         validate_device_key_selectors(&self.device_keys)?;
         for selector in &self.device_keys {
@@ -1149,13 +1148,10 @@ mod peer_keys_query_tests {
     #[test]
     fn realm_peer_request_is_closed_and_only_for_same_realm_mls() {
         let mut request = request();
-        let realm =
-            arkret_wire::RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
-                .unwrap();
+        let realm = RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
         request.requester_actor_id = Some(arkret_wire::ActorId::realm(arkret_wire::RealmActorId {
             realm_id: realm.clone(),
-            principal_id: arkret_wire::DidCoreId::new("ak:did_core:webvh:zRealmRequesterFixture")
-                .unwrap(),
+            principal_id: DidCoreId::new("ak:did_core:webvh:zRealmRequesterFixture").unwrap(),
         }));
         request.requester_account_id = None;
         request.purpose = PeerKeysQueryPurpose::MlsGroupAdmission;
@@ -1179,8 +1175,7 @@ mod peer_keys_query_tests {
             &mut wrong.relationship_basis
         {
             *realm_id =
-                arkret_wire::RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj6")
-                    .unwrap();
+                RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj6").unwrap();
         }
         assert!(wrong.validate().is_err());
         wrong = request.clone();

@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -8,18 +7,16 @@ use arkret_models_integration::{
     AppletBotAuthoringRequestBasis, AppletDidMethodVersionEvidence, AppletEndpointAuth,
     AppletEndpointEntry, AppletEndpointMethod, AppletInstallAuthoringRequestBasis,
     AppletInstallPlan, AppletInstallPreviewRequestBody, AppletManagedActorAuthoringRequest,
-    AppletManagedActorProof, AppletManagedActorPurpose, AppletNamespaceDomain,
-    AppletNamespaceEntry, AppletPackage, AppletPingOutcome, AppletRegistrationEpochEvidence,
-    AppletRegistrationEpochTranscript, AppletRegistrationPayload, AppletTransactionOutcome,
-    AppletWireNamespaces, DetachedProof, E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth,
-    WidgetEffect,
+    AppletManagedActorPurpose, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
+    AppletPingOutcome, AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript,
+    AppletRegistrationPayload, AppletTransactionOutcome, AppletWireNamespaces, DetachedProof,
+    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_wire::{
-    ActorId, AppletId, CircleId, CommitStreamHead, CommitStreamRef, CommittedEventRef, Did,
-    DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyJsonObject, PayloadSignature, PayloadSigner,
-    PlanId, ProducerEventProof, RealmCommitId, RealmId, Result as WireResult, ScopeRef, SidecarId,
-    SignerEvidenceRef,
+    ActorId, AppletId, CircleId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event,
+    EventId, Hash, PayloadSignature, PayloadSigner, PlanId, ProducerEventProof, RealmCommitId,
+    RealmId, Result as WireResult, ScopeRef, SidecarId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -820,22 +817,22 @@ fn sample_authoring_request() -> AppletManagedActorAuthoringRequest {
         authorization_ref: arkret_wire::GrantId::from_event_id(&capability_grant_event.event_id),
         registration_epoch_evidence,
         package_digest: package.package_digest.unwrap(),
-        effective_scope: scope.clone(),
+        effective_scope: scope,
         request_id: "bot-create-001".into(),
     };
     let signer = StubSigner {
         did: did("station"),
         verification_method: DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
     };
-    let authoring_request = AppletManagedActorAuthoringRequest::sign_bot(
+
+    AppletManagedActorAuthoringRequest::sign_bot(
         basis,
         governance_station_id(),
         requested_at,
         requested_expires_at,
         &signer,
     )
-    .unwrap();
-    authoring_request
+    .unwrap()
 }
 
 #[test]
@@ -991,100 +988,4 @@ fn validate_fragment(file: &str, fragment: &str, value: &Value) {
     registry
         .validate_value(&schema_id, value)
         .unwrap_or_else(|error| panic!("{file}{fragment} rejected the document: {error}"));
-}
-
-/// Top-level member names of a serialized JSON object, in source order.
-///
-/// `serde_json` parses objects into a sorted map, which destroys the very
-/// ordering the caller below exists to assert, so the names are read off the
-/// raw text instead. serde emits struct fields in declaration order.
-fn declared_member_names(text: &str) -> Vec<String> {
-    let bytes = text.as_bytes();
-    assert_eq!(bytes[0], b'{', "expected a JSON object");
-    let mut members = Vec::new();
-    let mut index = 1usize;
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut key_start = None;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if byte == b'\\' {
-                escaped = true;
-            } else if byte == b'"' {
-                in_string = false;
-                let start = key_start.take().expect("a string always has a start");
-                if depth == 0 && bytes.get(index + 1) == Some(&b':') {
-                    members
-                        .push(serde_json::from_str::<String>(&text[start..=index]).expect("key"));
-                }
-            }
-        } else {
-            match byte {
-                b'"' => {
-                    in_string = true;
-                    key_start = Some(index);
-                }
-                b'{' | b'[' => depth += 1,
-                b'}' | b']' => {
-                    if depth == 0 {
-                        break;
-                    }
-                    depth -= 1;
-                }
-                _ => {}
-            }
-        }
-        index += 1;
-    }
-    members
-}
-
-/// Member names of one `$defs` entry's `properties`, in published order.
-fn published_property_order(file: &str, def: &str) -> Vec<String> {
-    let text = schema_text(file);
-    let start = text
-        .find(&format!("\n    \"{def}\": {{"))
-        .unwrap_or_else(|| panic!("{file} has no $defs entry `{def}`"));
-    let rest = &text[start + 1..];
-    // Every `$defs` entry is published at one exact indent, so the next line
-    // that opens a quoted member there ends this one.
-    let end = rest[1..]
-        .find("\n    \"")
-        .map_or(rest.len(), |offset| offset + 1);
-    let marker = "\"properties\": ";
-    let at = rest[..end]
-        .find(marker)
-        .unwrap_or_else(|| panic!("{def} declares no `properties`"));
-    declared_member_names(&rest[at + marker.len()..end])
-}
-
-/// Member names one `$defs` entry lists as `required`, in published order.
-fn published_required(file: &str, def: &str) -> Vec<String> {
-    let schema: Value = serde_json::from_str(&schema_text(file)).expect("schema artifact is JSON");
-    serde_json::from_value(schema["$defs"][def]["required"].clone())
-        .unwrap_or_else(|error| panic!("{def} has no `required` list: {error}"))
-}
-
-/// Assert that a struct's members are exactly its `$defs` entry's members, in
-/// the published order, with nothing optional on either side.
-///
-/// The SDK convention is that field declaration order equals the schema's
-/// `properties` order byte-for-byte, and `required` is read separately so a
-/// member that exists in the schema but not in the struct fails too.
-fn assert_matches_published_shape<T: serde::Serialize>(file: &str, def: &str, value: &T) {
-    let declared = declared_member_names(&serde_json::to_string(value).expect("value serializes"));
-    assert_eq!(
-        declared,
-        published_property_order(file, def),
-        "{def}: field declaration order must equal the published `properties` order"
-    );
-    assert_eq!(
-        declared,
-        published_required(file, def),
-        "{def}: every published member is required, and the struct carries all of them"
-    );
 }

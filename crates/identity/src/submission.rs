@@ -568,7 +568,7 @@ mod tests {
         let token = VerifiedProducerEvent::verify(wire.clone(), &context).unwrap();
         let request = EventsSubmitBatchRequestBody::new(vec![
             EventAdmissionSubmission::new(wire.clone()),
-            EventAdmissionSubmission::new(wire.clone()),
+            EventAdmissionSubmission::new(wire),
         ])
         .unwrap();
         assert!(VerifiedSubmission::from_verified_events(request.clone(), &[]).is_err());

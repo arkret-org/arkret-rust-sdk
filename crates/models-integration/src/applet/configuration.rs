@@ -44,7 +44,7 @@ pub enum AppletConfigurationCommand {
 #[serde(deny_unknown_fields)]
 pub struct AppletConfigurationIntent {
     pub request_id: RequestId,
-    pub service_id: arkret_wire::DidCoreId,
+    pub service_id: DidCoreId,
     pub effective_scope: ScopeRef,
     pub selection: AppletConfigurationSelection,
 }
@@ -384,10 +384,9 @@ impl AppletConfigurationExecutionOutcome {
                 ));
             }
             if let AppletConfigurationSelection::ExistingRealmActor { actor_id } = &intent.selection
+                && self.actor_id.as_ref() != Some(actor_id)
             {
-                if self.actor_id.as_ref() != Some(actor_id) {
-                    return Err(invalid("reused actor differs from the original selection"));
-                }
+                return Err(invalid("reused actor differs from the original selection"));
             }
         }
         if (self.status == Status::Candidate) != self.create_event.is_some() {

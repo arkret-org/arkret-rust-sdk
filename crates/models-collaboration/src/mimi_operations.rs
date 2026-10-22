@@ -1017,7 +1017,7 @@ mod tests {
             EventKind::ConsentReplace,
             replacement(json!([{"consent_scope":"presence","constraints":[],"reason":""}])),
         );
-        let mut stale = current.clone();
+        let mut stale = current;
         stale.revision.stream_position += 1;
         assert!(
             request

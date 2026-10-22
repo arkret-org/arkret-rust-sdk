@@ -1,4 +1,4 @@
-use arkret_canonical::{DigestSuite, canonical_sha256};
+use arkret_canonical::{DigestSuite, canonical_sha256, format_timestamp_canonical};
 use arkret_models_identity::*;
 use arkret_models_integration::*;
 use arkret_signatures::Ed25519PayloadSigner;
@@ -300,7 +300,7 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
     bad = payload.clone();
     bad.new_generation = 3;
     assert!(verify(&bad).is_err());
-    bad = payload.clone();
+    bad = payload;
     bad.new_service_id = creation.service_id.clone();
     assert!(verify(&bad).is_err());
     let mut old_retained = state;
@@ -378,7 +378,7 @@ fn management_review_is_bound_to_the_exact_service_candidate_and_business_scope(
     let mut review = ManagementReviewRequestBody {
         configuration_ref: None,
         request_id: "0123456789012345678901".into(),
-        effective_scope: candidate.creation_scope.clone(),
+        effective_scope: candidate.creation_scope,
         management_operation: ManagementOperation::MapGhost,
         requester_actor_id: event.actor_id.clone(),
         target: ManagementReviewTarget::Event {
@@ -492,7 +492,7 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
             "kind":"realm_recovery_service", "event_id":event.event_id, "actor_id":actor,
             "target_actor_id":begin.target_actor_id,"verification_method":event.producer_proof.as_ref().unwrap().verification_method,
             "public_key_b64u":arkret_canonical::base64url_encode(SigningKey::from_bytes(&[34;32]).verifying_key().as_bytes()),
-            "accepted_at":creation.control_signature.created_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),"applet_id":creation.applet_id,
+            "accepted_at":format_timestamp_canonical(creation.control_signature.created_at),"applet_id":creation.applet_id,
             "registration_epoch":Hash::new(canonical_sha256(&"registration").unwrap()).unwrap(),
             "registration_ref":begin.manager_ref,"manager_ref":begin.manager_ref,"recovery_ref":begin.recovery_ref
         })).unwrap();
@@ -691,7 +691,7 @@ fn recovery_verifies_native_successor_without_old_control_signature_and_finishes
         )
         .is_err()
     );
-    let mut wrong = current.clone();
+    let mut wrong = current;
     wrong.method_history_head = canonical_sha256(&"fork").unwrap();
     assert!(
         arkret_identity::verify_realm_actor_recovery_plan(

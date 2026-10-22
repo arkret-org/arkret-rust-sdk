@@ -1782,7 +1782,7 @@ fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
         realm_id: realm_id.clone(),
     };
     let commit_id = RealmCommitId::from_digest([92; 32]);
-    let account = crate::AccountId::new(
+    let account = AccountId::new(
         DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
         DidCoreId::new("ak:did_core:web:station.example").unwrap(),
     );
@@ -1805,7 +1805,7 @@ fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
         }],
         current_state_entries: vec![],
         retention_and_history_floor: RetentionAndHistoryFloor {
-            history_access: crate::HistoryAccess::SinceJoin,
+            history_access: HistoryAccess::SinceJoin,
             stream_floors: vec![StreamHistoryFloor {
                 stream_ref,
                 oldest_position: 1,
@@ -1825,13 +1825,13 @@ fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
     snapshot.history_basis = None;
     snapshot.require_full_recovery().unwrap();
     let mut null_basis = serde_json::to_value(snapshot).unwrap();
-    null_basis["history_basis"] = serde_json::Value::Null;
+    null_basis["history_basis"] = Value::Null;
     assert!(serde_json::from_value::<RealmStateSnapshot>(null_basis).is_err());
     snapshot = original;
     snapshot.visible_stream_heads.push(CommitStreamHead {
         stream_ref: CommitStreamRef::Circle {
             realm_id,
-            circle_id: crate::CircleId::from_event_id(&event),
+            circle_id: CircleId::from_event_id(&event),
         },
         stream_position: 0,
         commit_id: RealmCommitId::from_digest([94; 32]),

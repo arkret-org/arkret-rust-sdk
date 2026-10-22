@@ -285,6 +285,7 @@ pub fn verify_realm_actor_control_successor(
 /// Verify the native-key handover and the receiving Service's acceptance.
 /// Locked manager/control revisions, registration and governance permission
 /// remain obligations of the accepting Realm transaction.
+#[allow(clippy::too_many_arguments)]
 pub fn verify_realm_actor_manager_successor(
     actor: &arkret_wire::ActorId,
     applet: &arkret_wire::AppletId,

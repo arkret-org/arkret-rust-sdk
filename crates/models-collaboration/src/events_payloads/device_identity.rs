@@ -962,7 +962,7 @@ mod device_authorize_tests {
                     .register_fragment(
                         "test:device-possession-canonical-time",
                         schema,
-                        &format!("#/$defs/{fragment}"),
+                        format!("#/$defs/{fragment}"),
                     )
                     .unwrap();
                 registry

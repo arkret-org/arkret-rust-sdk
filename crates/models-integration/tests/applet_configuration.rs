@@ -107,7 +107,7 @@ fn handoff_refresh_preserves_intent_and_changes_the_signed_command() {
     );
     let mut substituted = request.clone();
     substituted.intent.originating_actor_id =
-        arkret_wire::ActorId::service(request.intent.service_id.clone());
+        arkret_wire::ActorId::service(request.intent.service_id);
     assert!(substituted.intent.validate().is_err());
 }
 

@@ -250,6 +250,7 @@ impl Client {
         self.blob_upload_part(metadata, part).await
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     async fn blob_upload_part(
         &self,
         metadata: &BlobUploadMetadata,

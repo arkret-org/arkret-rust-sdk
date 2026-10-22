@@ -332,8 +332,7 @@ mod tests {
 
     #[test]
     fn realm_device_queue_rejects_device_messages_and_account_substitution() {
-        let event =
-            arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
         let realm = arkret_wire::RealmId::from_event_id(&event);
         let actor = arkret_wire::ActorId::realm(arkret_wire::RealmActorId {
             realm_id: realm.clone(),

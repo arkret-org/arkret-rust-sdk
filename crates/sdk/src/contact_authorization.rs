@@ -728,6 +728,7 @@ impl VerifiedContactCurrentMaterial {
         self.closure.as_ref()
     }
 }
+#[allow(clippy::too_many_arguments)]
 fn verify_current_material_inner(
     material: &ContactCurrentMaterial,
     expected_holder: &ContactPeer,

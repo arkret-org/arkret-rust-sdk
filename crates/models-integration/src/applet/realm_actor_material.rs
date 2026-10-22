@@ -58,6 +58,8 @@ pub enum RealmActorMaterialPurpose {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+// Keep the public wire carrier's fields inline, matching the other material DTOs.
+#[allow(clippy::large_enum_variant)]
 pub enum RealmActorMaterialCurrentEntry {
     Present {
         row: TypedCurrentRow,
@@ -139,6 +141,8 @@ pub enum RealmActorOperationOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
+// Accepted originals are carried intact; boxing would change the public Rust API.
+#[allow(clippy::large_enum_variant)]
 pub enum RealmActorMaterialResult {
     Current {
         entries: Vec<RealmActorMaterialCurrentEntry>,
@@ -398,8 +402,7 @@ impl RealmActorMaterialOutcome {
                     decided_at,
                     ..
                 } = outcome
-                {
-                    if (*state == RealmActorDeviceRevokeState::Pending) != decided_at.is_none()
+                    && ((*state == RealmActorDeviceRevokeState::Pending) != decided_at.is_none()
                         || *authorized_generation_ref == 0
                         || proposal_ref.stream_ref != stream
                         || authorization_ref.stream_ref != stream
@@ -411,68 +414,23 @@ impl RealmActorMaterialOutcome {
                             proposal_ref.stream_position > head.stream_position
                                 || (proposal_ref.stream_position == head.stream_position
                                     && proposal_ref.commit_id != head.commit_id)
-                        })
-                    {
-                        return Err(invalid());
-                    }
+                        }))
+                {
+                    return Err(invalid());
                 }
                 if let RealmActorOperationOutcome::Recovery {
                     state,
                     terminal_ref,
                     ..
                 } = outcome
+                    && (*state == RealmActorRecoveryState::Pending) != terminal_ref.is_none()
                 {
-                    if (*state == RealmActorRecoveryState::Pending) != terminal_ref.is_none() {
-                        return Err(invalid());
-                    }
+                    return Err(invalid());
                 }
             }
             _ => return Err(invalid()),
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod revoke_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn device_revoke_requires_nullable_terminal_field_and_canonical_time() {
-        let token = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB";
-        let source = json!({
-            "event_id":format!("ak:event:{token}"),
-            "commit_id":format!("ak:realm_commit:{token}"),
-            "stream_ref":{"kind":"realm_control","realm_id":format!("ak:realm:{token}")},
-            "stream_position":0
-        });
-        let value = json!({"status":"device_revoke","proposal_ref":source,
-            "device_id":"ak:device:00000000-0000-7000-8000-000000000001",
-            "authorization_ref":source,"authorized_generation_ref":1,"state":"pending","decided_at":null});
-        let parsed: RealmActorOperationOutcome = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
-        for field in [
-            "decided_at",
-            "authorization_ref",
-            "authorized_generation_ref",
-        ] {
-            let mut missing = value.clone();
-            missing.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<RealmActorOperationOutcome>(missing).is_err());
-        }
-        for timestamp in ["2026-10-20T00:00:00Z", "2026-10-20T00:00:00.000+00:00"] {
-            let mut invalid = value.clone();
-            invalid["state"] = json!("accepted");
-            invalid["decided_at"] = json!(timestamp);
-            assert!(serde_json::from_value::<RealmActorOperationOutcome>(invalid).is_err());
-        }
-        let mut terminal = value;
-        terminal["state"] = json!("accepted");
-        terminal["decided_at"] = json!("2026-10-20T00:00:00.000Z");
-        let parsed: RealmActorOperationOutcome = serde_json::from_value(terminal.clone()).unwrap();
-        assert_eq!(serde_json::to_value(parsed).unwrap(), terminal);
     }
 }
 
@@ -667,4 +625,47 @@ pub fn validate_realm_actor_current_writer(
         return Err(invalid());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod revoke_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn device_revoke_requires_nullable_terminal_field_and_canonical_time() {
+        let token = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB";
+        let source = json!({
+            "event_id":format!("ak:event:{token}"),
+            "commit_id":format!("ak:realm_commit:{token}"),
+            "stream_ref":{"kind":"realm_control","realm_id":format!("ak:realm:{token}")},
+            "stream_position":0
+        });
+        let value = json!({"status":"device_revoke","proposal_ref":source,
+            "device_id":"ak:device:00000000-0000-7000-8000-000000000001",
+            "authorization_ref":source,"authorized_generation_ref":1,"state":"pending","decided_at":null});
+        let parsed: RealmActorOperationOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        for field in [
+            "decided_at",
+            "authorization_ref",
+            "authorized_generation_ref",
+        ] {
+            let mut missing = value.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<RealmActorOperationOutcome>(missing).is_err());
+        }
+        for timestamp in ["2026-10-20T00:00:00Z", "2026-10-20T00:00:00.000+00:00"] {
+            let mut invalid = value.clone();
+            invalid["state"] = json!("accepted");
+            invalid["decided_at"] = json!(timestamp);
+            assert!(serde_json::from_value::<RealmActorOperationOutcome>(invalid).is_err());
+        }
+        let mut terminal = value;
+        terminal["state"] = json!("accepted");
+        terminal["decided_at"] = json!("2026-10-20T00:00:00.000Z");
+        let parsed: RealmActorOperationOutcome = serde_json::from_value(terminal.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), terminal);
+    }
 }

@@ -1,30 +1,30 @@
 {
   "summary": {
-    "total": 1528,
+    "total": 1533,
     "by_classification": {
       "A": 7,
-      "B": 897,
-      "needs_review": 624
+      "B": 899,
+      "needs_review": 627
     },
     "by_openness": {
-      "closed": 904,
-      "unresolved": 624
+      "closed": 906,
+      "unresolved": 627
     },
     "by_crate": {
       "crypto": 2,
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 900,
+      "models-collaboration": 903,
       "models-crypto": 163,
       "models-discovery": 13,
       "models-identity": 151,
-      "models-integration": 139,
+      "models-integration": 140,
       "policy": 1,
       "schema": 10,
       "schema-conformance": 1,
       "signatures": 6,
-      "wire": 119
+      "wire": 120
     }
   },
   "entries": [
@@ -5222,6 +5222,32 @@
       "line": 250,
       "kind": "struct",
       "value_kind": "CapabilityGrantExactCurrentRow",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::AppletRegistrationExactCurrentSelector",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/exact_current_results.rs",
+      "line": 266,
+      "kind": "struct",
+      "value_kind": "AppletRegistrationExactCurrentSelector",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/exact_current_results.rs::AppletRegistrationExactCurrentRow",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/exact_current_results.rs",
+      "line": 276,
+      "kind": "struct",
+      "value_kind": "AppletRegistrationExactCurrentRow",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -17410,6 +17436,19 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/models-integration/src/applet_models.rs::AppletActorView",
+      "crate": "models-integration",
+      "file": "crates/models-integration/src/applet_models.rs",
+      "line": 675,
+      "kind": "struct",
+      "value_kind": "AppletActorView",
+      "spec_pointer": "applet-edge-operations.schema.json#/$defs/applet_actor_view",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/models-integration/src/applet_models.rs::AppletInstallPreviewRequestBody",
       "crate": "models-integration",
       "file": "crates/models-integration/src/applet_models.rs",
@@ -18560,6 +18599,19 @@
       "line": 786,
       "kind": "struct",
       "value_kind": "RetentionAndHistoryFloor",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::RealmSnapshotHistoryBasis",
+      "crate": "wire",
+      "file": "crates/wire/src/authority_commit.rs",
+      "line": 861,
+      "kind": "struct",
+      "value_kind": "RealmSnapshotHistoryBasis",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
