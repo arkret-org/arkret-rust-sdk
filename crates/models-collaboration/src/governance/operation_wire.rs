@@ -207,8 +207,12 @@ pub enum AppletPolicyTarget {
     Requester {
         actor_id: ActorId,
     },
+    Applet {
+        applet_id: arkret_wire::AppletId,
+    },
     Installation {
         applet_id: arkret_wire::AppletId,
+        service_id: arkret_wire::DidCoreId,
         effective_scope: arkret_wire::ScopeRef,
     },
     ManagedActor {

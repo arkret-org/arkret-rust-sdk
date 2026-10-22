@@ -507,6 +507,11 @@ impl Client {
         outcome
             .validate_for_request(request, expected_governance_generation)
             .map_err(|error| Error::Protocol(error.to_string()))?;
+        if let ExactCurrentResultsReadOutcome::Present {
+            entry: arkret_models_collaboration::exact_current_results::ExactCurrentResultEntry::AppletRegistration(row), ..
+        } = &outcome {
+            let _payload: arkret_models_integration::AppletRegistrationPayload = serde_json::from_value(row.value.clone())?;
+        }
         Ok(outcome)
     }
 

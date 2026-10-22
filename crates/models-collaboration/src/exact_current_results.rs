@@ -207,6 +207,7 @@ pub enum ExactCurrentResultSelector {
     ModerationState(ModerationStateExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
     CapabilityGrant(CapabilityGrantExactCurrentSelector),
+    AppletRegistration(AppletRegistrationExactCurrentSelector),
     Policy(PolicyExactCurrentSelector),
     CalendarScheduleSource(CalendarScheduleSourceExactSelector),
 }
@@ -255,6 +256,31 @@ pub struct CapabilityGrantExactCurrentRow {
     pub value: crate::governance::grant_constraint::CapabilityGrant,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletRegistrationExactCurrentSelectorKind {
+    AppletRegistration,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRegistrationExactCurrentSelector {
+    pub kind: AppletRegistrationExactCurrentSelectorKind,
+    pub applet_id: arkret_wire::AppletId,
+    pub service_id: arkret_wire::DidCoreId,
+}
+
+/// The Event payload is decoded by the integration domain's single
+/// AppletRegistrationPayload implementation after this shared read carrier.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRegistrationExactCurrentRow {
+    pub selector: AppletRegistrationExactCurrentSelector,
+    pub source_stream_ref: CommitStreamRef,
+    pub revision: CurrentRevision,
+    pub value: serde_json::Value,
+}
+
 impl ExactCurrentResultSelector {
     pub fn validate(&self) -> Result<()> {
         match self {
@@ -262,6 +288,7 @@ impl ExactCurrentResultSelector {
             Self::ModerationState(_)
             | Self::AgentInteraction(_)
             | Self::Policy(_)
+            | Self::AppletRegistration(_)
             | Self::CapabilityGrant(_)
             | Self::CalendarScheduleSource(_) => Ok(()),
         }
@@ -358,6 +385,7 @@ pub enum ExactCurrentResultEntry {
     ModerationState(ModerationStateExactCurrentRow),
     AgentInteraction(AgentInteractionExactCurrentRow),
     CapabilityGrant(CapabilityGrantExactCurrentRow),
+    AppletRegistration(AppletRegistrationExactCurrentRow),
     Policy(PolicyExactCurrentRow),
     CalendarScheduleSource(CalendarScheduleSourceExactRow),
 }
@@ -393,6 +421,7 @@ impl ExactCurrentResultEntry {
             Self::Relation(entry) => &entry.revision,
             Self::ModerationState(entry) => &entry.revision,
             Self::AgentInteraction(entry) => &entry.revision,
+            Self::AppletRegistration(entry) => &entry.revision,
             Self::CapabilityGrant(entry) => &entry.revision,
             Self::Policy(entry) => &entry.revision,
             Self::CalendarScheduleSource(entry) => &entry.revision,
@@ -404,6 +433,7 @@ impl ExactCurrentResultEntry {
             Self::Relation(entry) => &entry.source_stream_ref,
             Self::ModerationState(entry) => &entry.source_stream_ref,
             Self::AgentInteraction(entry) => &entry.source_stream_ref,
+            Self::AppletRegistration(entry) => &entry.source_stream_ref,
             Self::CapabilityGrant(entry) => &entry.source_stream_ref,
             Self::Policy(entry) => &entry.source_stream_ref,
             Self::CalendarScheduleSource(entry) => &entry.source_stream_ref,
@@ -411,6 +441,13 @@ impl ExactCurrentResultEntry {
     }
 
     fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+        if let (
+            Self::AppletRegistration(entry),
+            ExactCurrentResultSelector::AppletRegistration(selector),
+        ) = (self, requested)
+        {
+            return &entry.selector == selector;
+        }
         if let (Self::Policy(entry), ExactCurrentResultSelector::Policy(selector)) =
             (self, requested)
         {
@@ -452,6 +489,28 @@ impl ExactCurrentResultEntry {
 
     fn validate_value(&self, realm_id: &RealmId) -> Result<()> {
         match self {
+            Self::AppletRegistration(entry) => {
+                if entry
+                    .value
+                    .get("applet_id")
+                    .and_then(serde_json::Value::as_str)
+                    != Some(entry.selector.applet_id.as_str())
+                    || entry
+                        .value
+                        .get("service_id")
+                        .and_then(serde_json::Value::as_str)
+                        != Some(entry.selector.service_id.as_str())
+                    || entry.source_stream_ref
+                        != (CommitStreamRef::Realm {
+                            realm_id: realm_id.clone(),
+                        })
+                {
+                    return Err(WireError::Protocol(
+                        "Applet registration current binding mismatch".into(),
+                    ));
+                }
+                Ok(())
+            }
             Self::Policy(entry) => {
                 entry.value.validate()?;
                 if &entry.selector.policy_id != entry.value.policy_id()
@@ -563,6 +622,7 @@ impl ExactCurrentResultEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NeverWrittenExactCurrentSelector {
+    AppletRegistration(AppletRegistrationExactCurrentSelector),
     Policy(PolicyExactCurrentSelector),
     Relation(RelationExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
@@ -628,7 +688,8 @@ impl ExactCurrentResultsReadOutcome {
             Self::NeverWritten { selector, .. } => {
                 if matches!(
                     selector,
-                    NeverWrittenExactCurrentSelector::AgentInteraction(_)
+                    NeverWrittenExactCurrentSelector::AppletRegistration(_)
+                        | NeverWrittenExactCurrentSelector::AgentInteraction(_)
                         | NeverWrittenExactCurrentSelector::Policy(_)
                 ) && head.stream_ref
                     != (CommitStreamRef::Realm {
@@ -643,6 +704,7 @@ impl ExactCurrentResultsReadOutcome {
                     (&request.selector, selector),
                     (ExactCurrentResultSelector::Relation(requested), NeverWrittenExactCurrentSelector::Relation(actual)) if requested == actual
                 ) && !matches!((&request.selector, selector), (ExactCurrentResultSelector::AgentInteraction(requested), NeverWrittenExactCurrentSelector::AgentInteraction(actual)) if requested == actual)
+                    && !matches!((&request.selector,selector),(ExactCurrentResultSelector::AppletRegistration(requested),NeverWrittenExactCurrentSelector::AppletRegistration(actual)) if requested==actual)
                     && !matches!((&request.selector,selector),(ExactCurrentResultSelector::Policy(requested),NeverWrittenExactCurrentSelector::Policy(actual)) if requested==actual)
                 {
                     return Err(WireError::Protocol(

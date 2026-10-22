@@ -1664,6 +1664,7 @@ pub enum CurrentSelector {
     RealmGenesis,
     AppletRegistration {
         applet_id: AppletId,
+        service_id: DidCoreId,
     },
     RealmOrganization {
         organization_id: DidCoreId,
@@ -1920,6 +1921,7 @@ enum FlatCurrentSelector {
     RealmGenesis,
     AppletRegistration {
         applet_id: AppletId,
+        service_id: DidCoreId,
     },
     RealmOrganization {
         organization_id: DidCoreId,
@@ -2273,9 +2275,13 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         source_context_ref,
                     },
                     FlatCurrentSelector::RealmGenesis => Self::RealmGenesis,
-                    FlatCurrentSelector::AppletRegistration { applet_id } => {
-                        Self::AppletRegistration { applet_id }
-                    }
+                    FlatCurrentSelector::AppletRegistration {
+                        applet_id,
+                        service_id,
+                    } => Self::AppletRegistration {
+                        applet_id,
+                        service_id,
+                    },
                     FlatCurrentSelector::RealmOrganization {
                         organization_id,
                         relationship,

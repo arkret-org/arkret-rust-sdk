@@ -35,6 +35,22 @@ pub fn verify_realm_actor_native_history(
     {
         return Err(invalid("native recovery identity or history bounds differ"));
     }
+    if entries
+        .first()
+        .and_then(|entry| entry.pointer("/parameters/portable"))
+        .and_then(Value::as_bool)
+        != Some(true)
+        || entries.iter().any(|entry| {
+            entry
+                .pointer("/parameters/portable")
+                .and_then(Value::as_bool)
+                == Some(false)
+        })
+    {
+        return Err(invalid(
+            "Realm actor native history must retain portability from inception",
+        ));
+    }
     let log = crate::verify_did_webvh_v1_chain(&resolution.did, entries)?;
     if log.head_version_id != resolution.version_id
         || arkret_canonical::canonical_sha256(

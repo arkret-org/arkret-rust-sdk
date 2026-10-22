@@ -15,6 +15,7 @@ pub struct AppletInstallPlan {
     pub schema: String,
     pub plan_id: PlanId,
     pub applet_id: AppletId,
+    pub service_id: arkret_wire::DidCoreId,
     pub package_digest: Hash,
     pub registration_epoch: Hash,
     pub effective_scope: ScopeRef,

@@ -887,7 +887,7 @@ pub fn prepare_realm_actor_inception(
         input.root_seed,
         input.next_root_public_key_multibase,
         None,
-        false,
+        true,
         |did, _endpoint| {
             let method = format!("{did}#managed-controller");
             Ok(json!({

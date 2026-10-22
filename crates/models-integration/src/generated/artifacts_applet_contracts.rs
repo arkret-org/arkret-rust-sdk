@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-edge-operations.schema.json
-// sha256=3beb0103c04f1c7c8c6ed3627af0d6b6ce8051852dabeb1a08feac4d29a2655c
+// sha256=1f0506e1a93a17af4329eb42f1dd5b8cd0ea70c86a364941b0bc06884ca18902
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
@@ -14,10 +14,10 @@
 // sha256=134ef4b7401aec43c6b0b6948548be2e7dd5752b0714400f54a6d7cb4012bf2d
 //
 // Input: schemas/applet-install-plan.schema.json
-// sha256=a97d9cd61f5f912a5d899f4214c83002f9deff71f1dbaeeab9009a8b69519a3c
+// sha256=e896f502c8ce0ac975fbbf4211dcd153722fcac2b8b30f5fa459c6432da53b33
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=845a18ec30cf4928c1f028c2c06dbd9f098a9996b00093b60ded7690cd8ad896
+// sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for

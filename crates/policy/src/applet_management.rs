@@ -21,6 +21,7 @@ pub struct AppletManagementContext<'a> {
     /// Exact (controller, Applet) pair established by current ownership evidence.
     pub requester_actor_id: &'a ActorId,
     pub applet_id: &'a AppletId,
+    pub service_id: &'a arkret_wire::DidCoreId,
     pub effective_scope: &'a ScopeRef,
     pub managed_actor_id: Option<&'a ActorId>,
     pub operation: AppletPolicyOperation,
@@ -195,10 +196,16 @@ pub fn select_applet_management(
                 AppletPolicyTarget::Requester { actor_id } => {
                     actor_id == context.requester_actor_id
                 }
+                AppletPolicyTarget::Applet { applet_id } => applet_id == context.applet_id,
                 AppletPolicyTarget::Installation {
                     applet_id,
+                    service_id,
                     effective_scope,
-                } => applet_id == context.applet_id && effective_scope == context.effective_scope,
+                } => {
+                    applet_id == context.applet_id
+                        && service_id == context.service_id
+                        && effective_scope == context.effective_scope
+                }
                 AppletPolicyTarget::ManagedActor { actor_id } => {
                     context.managed_actor_id == Some(actor_id)
                 }
@@ -345,6 +352,7 @@ mod tests {
             realm_id: &realm,
             requester_actor_id: &requester,
             applet_id: &applet,
+            service_id: &arkret_wire::DidCoreId::new("ak:did_core:webvh:zservice").unwrap(),
             effective_scope: &scope,
             managed_actor_id: None,
             operation: AppletPolicyOperation::CreateBot,
@@ -434,6 +442,7 @@ mod tests {
             realm_id: &realm,
             requester_actor_id: &requester,
             applet_id: &applet,
+            service_id: &arkret_wire::DidCoreId::new("ak:did_core:webvh:zservice").unwrap(),
             effective_scope: &scope,
             managed_actor_id: None,
             operation: AppletPolicyOperation::CreateBot,
@@ -497,6 +506,7 @@ mod tests {
             realm_id: &realm,
             requester_actor_id: &actor,
             applet_id: &applet,
+            service_id: &arkret_wire::DidCoreId::new("ak:did_core:webvh:zservice").unwrap(),
             effective_scope: &scope,
             managed_actor_id: Some(&actor),
             operation: AppletPolicyOperation::Execute,

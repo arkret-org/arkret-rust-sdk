@@ -81,15 +81,13 @@ impl<'de> Deserialize<'de> for AppletManagedActorMethodHistoryEvidence {
 
 /// Which namespace bucket a claim lives in. The wire model
 /// (`applet-schema.md` §1.namespaces) groups claims into exactly
-/// `actors` / `realms` / `handles`; the bucket — not a separate `kind`
+/// `realms` / `handles`; the bucket — not a separate `kind`
 /// field — determines the segment separator set used for pattern
 /// matching (§2).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletNamespaceDomain {
-    /// Actor / DID namespace. Separator: `:` only; `#fragment` is ignored.
-    Actors,
     /// Realm / portal namespace. Separators: `:` and `/`.
     Realms,
     /// Handle namespace. Separators: `:` and `/`.
@@ -100,7 +98,6 @@ impl AppletNamespaceDomain {
     /// Segment separators for this domain per `applet-schema.md` §2.
     pub(super) fn separators(self) -> &'static [u8] {
         match self {
-            AppletNamespaceDomain::Actors => b":",
             AppletNamespaceDomain::Realms | AppletNamespaceDomain::Handles => b":/",
         }
     }
@@ -162,8 +159,6 @@ impl AppletNamespaceEntry {
 #[serde(deny_unknown_fields)]
 pub struct AppletWireNamespaces {
     #[serde(default)]
-    pub actors: Vec<AppletNamespaceEntry>,
-    #[serde(default)]
     pub realms: Vec<AppletNamespaceEntry>,
     #[serde(default)]
     pub handles: Vec<AppletNamespaceEntry>,
@@ -177,7 +172,6 @@ impl AppletWireNamespaces {
     pub fn conflicts_with(&self, other: &AppletWireNamespaces) -> Vec<AppletNamespaceConflict> {
         let mut conflicts = Vec::new();
         for (domain, mine, theirs) in [
-            (AppletNamespaceDomain::Actors, &self.actors, &other.actors),
             (AppletNamespaceDomain::Realms, &self.realms, &other.realms),
             (
                 AppletNamespaceDomain::Handles,
@@ -489,6 +483,7 @@ pub struct AppletRegistrationEpochDidDocument {
 pub struct AppletRegistrationPayload {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
+    pub expected_revision: Option<arkret_wire::CurrentRevision>,
     pub controller_principal_id: DidCoreId,
     pub base_url: String,
     pub claimed_profiles: Vec<String>,
@@ -538,6 +533,8 @@ pub struct AppletRegistrationManifest {
 struct AppletRegistrationPayloadWire {
     applet_id: AppletId,
     service_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
+    expected_revision: Option<arkret_wire::CurrentRevision>,
     controller_principal_id: DidCoreId,
     base_url: String,
     claimed_profiles: Vec<String>,
@@ -564,6 +561,7 @@ impl<'de> Deserialize<'de> for AppletRegistrationPayload {
         Ok(Self {
             applet_id: wire.applet_id,
             service_id: wire.service_id,
+            expected_revision: wire.expected_revision,
             controller_principal_id: wire.controller_principal_id,
             base_url: wire.base_url,
             claimed_profiles: wire.claimed_profiles,
@@ -941,10 +939,6 @@ impl AppletRegistrationEpochTranscript {
     pub fn normalize(&mut self) -> Result<()> {
         sort_unique_strings("protocols", &mut self.derived_registration.protocols)?;
         sort_namespace_entries(
-            "namespaces.actors",
-            &mut self.derived_registration.namespaces.actors,
-        )?;
-        sort_namespace_entries(
             "namespaces.realms",
             &mut self.derived_registration.namespaces.realms,
         )?;
@@ -1041,10 +1035,6 @@ impl AppletRegistrationEpochTranscript {
             ));
         }
         validate_strictly_sorted_strings("protocols", &self.derived_registration.protocols)?;
-        validate_namespace_entries(
-            "namespaces.actors",
-            &self.derived_registration.namespaces.actors,
-        )?;
         validate_namespace_entries(
             "namespaces.realms",
             &self.derived_registration.namespaces.realms,
@@ -1515,11 +1505,13 @@ impl AppletPackage {
     pub fn to_registration(
         &self,
         registration_epoch_evidence: &AppletRegistrationEpochEvidence,
+        expected_revision: Option<arkret_wire::CurrentRevision>,
     ) -> Result<AppletRegistrationPayload> {
         self.validate_with_epoch_evidence(registration_epoch_evidence)?;
         Ok(AppletRegistrationPayload {
             applet_id: self.applet_id.clone(),
             service_id: self.service_id.clone(),
+            expected_revision,
             controller_principal_id: self.controller_principal_id.clone(),
             base_url: self.base_url.clone(),
             claimed_profiles: self.claimed_profiles.clone(),

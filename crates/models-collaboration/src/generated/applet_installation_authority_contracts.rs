@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-authority-material.schema.json
-// sha256=f8400dece56a5000e75825d2222eddfcedfe31a265b43e7fe1fc823e7f888bc2
+// sha256=97cb8643074299d98ccef6546522589d6389d1f2ab96fd4f84c4e067f38df6ec
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=845a18ec30cf4928c1f028c2c06dbd9f098a9996b00093b60ded7690cd8ad896
+// sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
 
 /// Counterpart: `applet-authority-material.schema.json#/$defs/request`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -22,6 +22,7 @@ pub struct AppletAuthorityMaterialRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AppletAuthorityMaterialOutcome {
     pub applet_id: arkret_wire::AppletId,
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: arkret_wire::ScopeRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub registration: AppletCommittedEvent,

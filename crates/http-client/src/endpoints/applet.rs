@@ -238,16 +238,32 @@ impl Client {
         reject_path_segment(applet_id)?;
         let applet = arkret_wire::AppletId::new(applet_id.to_owned())?;
         request.validate()?;
+        let (source, _) = self.service_signature_identity.as_ref().ok_or_else(|| {
+            crate::Error::Protocol("Applet authority material requires a Service signer".into())
+        })?;
         let material: arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome = self.post(
             &format!("/_arkret/self/applets/{applet_id}/authority/material"),
             request,
         ).await?;
         material.validate_for_request(&applet, request)?;
+        if &material.service_id != source {
+            return Err(crate::Error::Protocol(
+                "Applet material belongs to another authenticated Service".into(),
+            ));
+        }
+        for result in &material.current_results {
+            if let arkret_models_collaboration::exact_current_results::ExactCurrentResultsReadOutcome::Present {
+                entry: arkret_models_collaboration::exact_current_results::ExactCurrentResultEntry::AppletRegistration(row), ..
+            } = result {
+                let _: arkret_models_integration::AppletRegistrationPayload =
+                    serde_json::from_value(row.value.clone())?;
+            }
+        }
         let registration: arkret_models_integration::AppletRegistrationPayload =
             serde_json::from_value(serde_json::to_value(&material.registration.event.payload)?)?;
-        if registration.applet_id != applet {
+        if registration.applet_id != applet || registration.service_id != material.service_id {
             return Err(crate::Error::Protocol(
-                "Applet material registration belongs to another Applet".into(),
+                "Applet material registration belongs to another Applet or Service".into(),
             ));
         }
         let service = arkret_wire::ActorId::service(registration.service_id.clone());
@@ -479,22 +495,84 @@ impl Client {
         .await
     }
 
-    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
-        reject_path_segment(actor_id)?;
-        let path = format!("/_arkret/edge/applet/actors/{actor_id}");
-        self.get(&path).await
+    /// Query a known complete Realm actor as its current governing Station.
+    /// The client must carry that Station's Service HTTP signer.
+    pub async fn applet_actor(
+        &self,
+        source: &DidCoreId,
+        destination: &DidCoreId,
+        actor_id: &arkret_wire::ActorId,
+    ) -> Result<AppletActorView> {
+        actor_id.validate()?;
+        if actor_id.as_realm_actor_id().is_none() {
+            return Err(crate::Error::Protocol(
+                "Applet lookup requires a Realm ActorId".into(),
+            ));
+        }
+        let mut encoded = String::new();
+        for byte in arkret_canonical::canonical_json_bytes(actor_id)? {
+            if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+                encoded.push(char::from(byte));
+            } else {
+                use std::fmt::Write as _;
+                let _ = write!(&mut encoded, "%{byte:02X}");
+            }
+        }
+        let path = format!("/_arkret/edge/applet/actors/{encoded}");
+        let request = self
+            .service_request(Method::GET, &path)?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+            .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str());
+        let outcome: AppletActorView = self
+            .send_json_protocol_replay_safe_for_scenario(
+                request,
+                HttpSignatureScenario::ServiceToServiceV1,
+            )
+            .await?;
+        if !outcome.exists || outcome.actor_id.as_ref() != Some(actor_id) {
+            return Err(crate::Error::Protocol(
+                "Applet lookup returned another complete actor".into(),
+            ));
+        }
+        Ok(outcome)
     }
 
-    pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView> {
+    pub async fn applet_realm(
+        &self,
+        source: &DidCoreId,
+        destination: &DidCoreId,
+        realm_id_or_alias: &str,
+    ) -> Result<AppletRealmView> {
         reject_path_segment(realm_id_or_alias)?;
         let path = format!("/_arkret/edge/applet/realms/{realm_id_or_alias}");
-        self.get(&path).await
+        let request = self
+            .service_request(Method::GET, &path)?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+            .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str());
+        self.send_json_protocol_replay_safe_for_scenario(
+            request,
+            HttpSignatureScenario::ServiceToServiceV1,
+        )
+        .await
     }
 
-    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata> {
+    pub async fn applet_protocol(
+        &self,
+        source: &DidCoreId,
+        destination: &DidCoreId,
+        protocol: &str,
+    ) -> Result<AppletProtocolMetadata> {
         reject_path_segment(protocol)?;
         let path = format!("/_arkret/edge/applet/protocols/{protocol}");
-        self.get(&path).await
+        let request = self
+            .service_request(Method::GET, &path)?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+            .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str());
+        self.send_json_protocol_replay_safe_for_scenario(
+            request,
+            HttpSignatureScenario::ServiceToServiceV1,
+        )
+        .await
     }
 }
 

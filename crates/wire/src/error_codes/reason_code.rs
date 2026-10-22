@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-22.1;
-//! sha256=3df9ae1408db73220dbe82128661688a63187c8af70581f8a32558ec0aee1032
+//! Input: registry/error-code-registry.json; version=2026-10-22.4;
+//! sha256=2dddaeb4d6a71cb86b63f6e2809659819bd8176e86e7afef090798f1dc40ba5a
 //! Entries: reason_codes=306, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1614,7 +1614,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_NAMESPACE_MISMATCH,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "Sub-reason for a delegated-handoff Event rejection when auth_data.executed_by is not within the applet_id registration's declared service / bot DID set or namespaces.actors pattern. Prevents a grant scoped to one applet from being exercised under an unrelated applet_id. See zh/extensions/applet-integration.md §11.",
+        description: "Realm/portal or handle routing target does not match the applicable namespace. This is not an Actor identity or delegation check; managed Actor provenance failures use applet_registration_unauthorized or capability_denied.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_ALREADY_CONSUMED,

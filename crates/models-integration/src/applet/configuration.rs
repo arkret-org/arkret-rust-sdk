@@ -44,6 +44,7 @@ pub enum AppletConfigurationCommand {
 #[serde(deny_unknown_fields)]
 pub struct AppletConfigurationIntent {
     pub request_id: RequestId,
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: ScopeRef,
     pub selection: AppletConfigurationSelection,
 }

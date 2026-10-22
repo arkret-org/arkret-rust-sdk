@@ -160,37 +160,31 @@ fn sample_wire_registration() -> AppletRegistrationPayload {
         jws: "header..sig".to_owned(),
         extra: Default::default(),
     });
-    package.to_registration(&evidence).unwrap()
+    package.to_registration(&evidence, None).unwrap()
 }
 
 #[test]
 fn exclusive_namespace_claims_conflict_only_within_the_same_domain() {
     let exclusive_pattern = AppletWireNamespaces {
-        actors: vec![AppletNamespaceEntry::exclusive(
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
-        )],
+        realms: vec![AppletNamespaceEntry::exclusive("slack:workspace:channel:*")],
         ..Default::default()
     };
     let exclusive_concrete = AppletWireNamespaces {
-        actors: vec![AppletNamespaceEntry::exclusive(
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
+        realms: vec![AppletNamespaceEntry::exclusive(
+            "slack:workspace:channel:u1",
         )],
         ..Default::default()
     };
     let conflicts = exclusive_pattern.conflicts_with(&exclusive_concrete);
     assert_eq!(conflicts.len(), 1);
-    assert_eq!(conflicts[0].domain, AppletNamespaceDomain::Actors);
+    assert_eq!(conflicts[0].domain, AppletNamespaceDomain::Realms);
 
     let shared_pattern = AppletWireNamespaces {
-        actors: vec![AppletNamespaceEntry::shared(
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
-        )],
+        realms: vec![AppletNamespaceEntry::shared("slack:workspace:channel:*")],
         ..Default::default()
     };
     let shared_concrete = AppletWireNamespaces {
-        actors: vec![AppletNamespaceEntry::shared(
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:u1",
-        )],
+        realms: vec![AppletNamespaceEntry::shared("slack:workspace:channel:u1")],
         ..Default::default()
     };
     assert!(shared_pattern.conflicts_with(&shared_concrete).is_empty());
@@ -212,10 +206,7 @@ fn package_with_required_fields() -> AppletPackage {
         "https://applet.example/cx",
         vec!["slack".to_owned()],
         AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::exclusive(
-                "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
-            )],
-            realms: vec![],
+            realms: vec![AppletNamespaceEntry::exclusive("slack:workspace:channel:*")],
             handles: vec![],
         },
     );
@@ -258,7 +249,7 @@ fn wire_registration_round_trips_with_the_exact_package_proof() {
     assert!(value.get("kind").is_none());
     let round_trip: AppletRegistrationPayload = serde_json::from_value(value).unwrap();
     assert_eq!(round_trip.applet_id, registration.applet_id);
-    assert_eq!(round_trip.namespaces.actors, registration.namespaces.actors);
+    assert_eq!(round_trip.namespaces.realms, registration.namespaces.realms);
     assert_eq!(round_trip.proof, registration.proof);
 }
 
@@ -312,7 +303,7 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
     carried_payload.proof.as_mut().unwrap().jws = "header.payload.sig".to_owned();
     assert!(carried_payload.validate().is_err());
 
-    let registration = package.to_registration(&evidence).unwrap();
+    let registration = package.to_registration(&evidence, None).unwrap();
     assert_eq!(registration.registration_epoch, package.registration_epoch);
     assert_eq!(registration.namespaces, package.namespaces);
     assert_eq!(registration.manifest.registration_epoch_evidence, evidence);
@@ -371,7 +362,7 @@ fn closed_registration_transcript_and_namespace_carriers_reject_unknown_members(
     assert!(serde_json::from_value::<AppletRegistrationEpochTranscript>(root_unknown).is_err());
 
     let mut nested_unknown = serde_json::to_value(&transcript).unwrap();
-    nested_unknown["derived_registration"]["namespaces"]["actors"][0]["unknown"] = json!(true);
+    nested_unknown["derived_registration"]["namespaces"]["realms"][0]["unknown"] = json!(true);
     assert!(serde_json::from_value::<AppletRegistrationEpochTranscript>(nested_unknown).is_err());
 
     let mut policy_unknown = serde_json::to_value(transcript).unwrap();
@@ -635,6 +626,7 @@ fn registration_epoch_evidence_wire_enforces_the_closed_schema_shape() {
 #[test]
 fn install_plan_digest_excludes_itself_and_scope_round_trips() {
     let mut plan = AppletInstallPlan {
+        service_id: service("slackbridge"),
         schema: "ak.schema.applet_install_plan.v1".to_owned(),
         plan_id: PlanId::new("ak:plan:plan_1").unwrap(),
         applet_id: AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
@@ -783,7 +775,7 @@ fn sample_authoring_request() -> AppletManagedActorAuthoringRequest {
             // hand-rolling a second spelling.
             serde_json::to_value(
                 package
-                    .to_registration(&registration_epoch_evidence)
+                    .to_registration(&registration_epoch_evidence, None)
                     .unwrap(),
             )
             .unwrap(),

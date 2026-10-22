@@ -17635,6 +17635,12 @@
                 "visibility": "pub",
                 "type": "AppletInstallationCurrentBinding",
                 "attributes": []
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
               }
             }
           }

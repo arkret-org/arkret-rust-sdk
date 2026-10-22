@@ -137,7 +137,7 @@ impl AppletInstallationAuthority {
             || grant.applet_id.is_some()
             || registration.executed_by.is_some()
             || grant.executed_by.is_some()
-            || registration.scope_ref != grant.scope_ref
+            || registration.scope_ref != arkret_wire::ScopeRef::realm(registration.realm_id.clone())
             || registration.realm_id != grant.realm_id
             || registration.actor_id.fixed_route_service_id().is_none()
             || registration.actor_id.fixed_route_service_id()
@@ -259,15 +259,22 @@ impl AppletAuthorityMaterialOutcome {
         if &self.applet_id != applet
             || self.effective_scope != request.effective_scope
             || self.registration.event.kind != EventKind::AppletRegistration
-            || self.registration.event.scope_ref != request.effective_scope
+            || self.registration.event.scope_ref
+                != arkret_wire::ScopeRef::realm(
+                    request
+                        .effective_scope
+                        .realm_id_opt()
+                        .expect("validated Realm scope")
+                        .clone(),
+                )
             || self.grant_events.len() != request.grant_ids.len()
-            || self.current_results.len() != request.grant_ids.len()
+            || self.current_results.len() < request.grant_ids.len()
+            || self.current_results.len() > request.grant_ids.len() + 1
         {
             return Err(WireError::Protocol(
                 "Applet material differs from its exact read request".into(),
             ));
         }
-        let stream = arkret_wire::CommitStreamRef::from_scope(&request.effective_scope, None)?;
         let mut originals = std::collections::BTreeMap::new();
         for original in &self.grant_events {
             let id = arkret_wire::GrantId::from_event_id(&original.event.event_id);
@@ -283,10 +290,49 @@ impl AppletAuthorityMaterialOutcome {
         }
         let mut seen = std::collections::BTreeSet::new();
         let mut service = None;
+        let mut registration_seen = false;
         for result in &self.current_results {
+            if let ExactCurrentResultsReadOutcome::Present {
+                entry: ExactCurrentResultEntry::AppletRegistration(row),
+                ..
+            } = result
+            {
+                if registration_seen
+                    || row.selector.applet_id != *applet
+                    || row.selector.service_id != self.service_id
+                    || row.source_stream_ref
+                        != (arkret_wire::CommitStreamRef::Realm {
+                            realm_id: request.effective_scope.realm_id().clone(),
+                        })
+                {
+                    return Err(WireError::Protocol(
+                        "Applet material includes an unrelated registration current".into(),
+                    ));
+                }
+                if let AppletInstallationCurrentBinding::Active {
+                    registration_epoch,
+                    service_id,
+                    ..
+                } = &self.current_binding
+                {
+                    if row.value.get("registration_epoch")
+                        != Some(&serde_json::json!(registration_epoch))
+                        || row.value.get("service_id") != Some(&serde_json::json!(service_id))
+                    {
+                        return Err(WireError::Protocol(
+                            "Applet current registration differs from active binding".into(),
+                        ));
+                    }
+                } else {
+                    return Err(WireError::Protocol(
+                        "Inactive material does not disclose replacement registration".into(),
+                    ));
+                }
+                registration_seen = true;
+                continue;
+            }
             let ExactCurrentResultsReadOutcome::Present {
                 entry: ExactCurrentResultEntry::CapabilityGrant(row),
-                effective_stream_head,
                 ..
             } = result
             else {
@@ -335,6 +381,11 @@ impl AppletAuthorityMaterialOutcome {
                     "Applet material grant subject must be its exact Service".into(),
                 ));
             };
+            if service_id != &self.service_id {
+                return Err(WireError::Protocol(
+                    "Applet material Service differs from grant subject".into(),
+                ));
+            }
             if service
                 .as_ref()
                 .is_some_and(|expected| expected != service_id)
@@ -371,15 +422,20 @@ impl AppletAuthorityMaterialOutcome {
             } = &self.current_binding
             {
                 if current_service != service_id
-                    || registration_ref.stream_ref != stream
+                    || registration_ref.stream_ref
+                        != (arkret_wire::CommitStreamRef::Realm {
+                            realm_id: request.effective_scope.realm_id().clone(),
+                        })
                     || !registration_epoch.as_str().starts_with("sha256:")
-                    || registration_ref.stream_position > effective_stream_head.stream_position
-                    || (registration_ref.stream_position == effective_stream_head.stream_position
-                        && registration_ref.commit_id != effective_stream_head.commit_id)
                 {
                     return Err(WireError::Protocol("Applet active binding differs from its Service, exact scope or current cut".into()));
                 }
             }
+        }
+        if seen.len() != request.grant_ids.len() {
+            return Err(WireError::Protocol(
+                "Applet material omitted a requested current grant".into(),
+            ));
         }
         Ok(())
     }

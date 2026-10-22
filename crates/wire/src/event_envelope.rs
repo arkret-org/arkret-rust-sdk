@@ -686,6 +686,11 @@ pub enum ScopeRef {
 }
 
 impl ScopeRef {
+    /// The public governance stream of a known Realm.
+    pub fn realm(realm_id: RealmId) -> Self {
+        Self::Realm { realm_id }
+    }
+
     /// MLS `group_id` derivation domain separator, `zh/models/realm-and-space.md`
     /// section 2.2. The trailing `0x00` separates it from the scope key bytes,
     /// which are printable ASCII and therefore cannot contain it.

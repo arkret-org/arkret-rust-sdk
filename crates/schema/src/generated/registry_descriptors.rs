@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-22.2;
-//! sha256=103ae952f29a7a0e999af294c5fd3c81a7c64e07fc5a466aefc81ddaee81311e Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-22.9;
+//! sha256=1dd5f15c1e88e2d4b5a7d8a3f7d2ce055aadf1c02197f433788c3177c7277991 Input: registry/
 //! account-data-key-registry.json; version=2026-10-05.2;
 //! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
 //! special_forms=15, actions=153, approval_carriers=2, schemas=229, account_data_patterns=24
@@ -682,7 +682,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "realm_actor_creation_scope",
             "realm_actor_candidate_and_controller_proof",
             "realm_actor_creation_atomic",
-            "ghost_actor_namespace_match",
         ],
         target_event_kinds: &[event_kind_str::REALM_ACTOR_CREATE],
         grant_authority_actions: &[],

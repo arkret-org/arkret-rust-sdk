@@ -1,49 +1,81 @@
 use super::registration::AppletNamespaceDomain;
 
-/// Strip the DID `#fragment` for actor-domain matching (`applet-schema.md`
-/// §2: `#fragment` does not participate). Other domains keep `#` literal.
-fn strip_fragment(domain: AppletNamespaceDomain, value: &str) -> &str {
-    if matches!(domain, AppletNamespaceDomain::Actors) {
-        value.split('#').next().unwrap_or(value)
-    } else {
-        value
-    }
-}
-
-/// Conservative overlap test between two exclusive namespace patterns.
-/// Conflict detection MUST NOT miss a real overlap, so this errs toward
-/// over-reporting: it strips a trailing `*` / `**` and tests prefix
-/// containment after fragment normalization.
+/// Exact nonempty intersection of the two namespace glob languages.
+/// Wildcards must consume at least one byte, matching the wire grammar.
 pub fn namespace_patterns_overlap(domain: AppletNamespaceDomain, left: &str, right: &str) -> bool {
-    let left = strip_fragment(domain, left);
-    let right = strip_fragment(domain, right);
-    if left == right {
-        return true;
+    #[derive(Clone, Copy)]
+    enum Token {
+        Literal(u8),
+        Star,
+        Deep,
     }
-    let left_prefix = left.trim_end_matches('*');
-    let right_prefix = right.trim_end_matches('*');
-    left_prefix.starts_with(right_prefix) || right_prefix.starts_with(left_prefix)
+    fn tokens(pattern: &str) -> Vec<Token> {
+        let mut result = Vec::new();
+        let mut bytes = pattern.bytes().peekable();
+        while let Some(byte) = bytes.next() {
+            result.push(match byte {
+                b'\\' if bytes.peek() == Some(&b'*') => {
+                    bytes.next();
+                    Token::Literal(b'*')
+                }
+                b'*' if bytes.peek() == Some(&b'*') => {
+                    bytes.next();
+                    Token::Deep
+                }
+                b'*' => Token::Star,
+                other => Token::Literal(other),
+            });
+        }
+        result
+    }
+    let left = tokens(left);
+    let right = tokens(right);
+    let accepts = |token: Token, byte| match token {
+        Token::Literal(literal) => literal == byte,
+        Token::Star => !domain.separators().contains(&byte),
+        Token::Deep => byte != b':',
+    };
+    let mut pending = vec![(0, 0)];
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some((a, b)) = pending.pop() {
+        if !seen.insert((a, b)) {
+            continue;
+        }
+        if a == left.len() && b == right.len() {
+            return true;
+        }
+        let (Some(&l), Some(&r)) = (left.get(a), right.get(b)) else {
+            continue;
+        };
+        if !(0..=255).any(|byte| accepts(l, byte) && accepts(r, byte)) {
+            continue;
+        }
+        pending.push((a + 1, b + 1));
+        if !matches!(l, Token::Literal(_)) {
+            pending.push((a, b + 1));
+        }
+        if !matches!(r, Token::Literal(_)) {
+            pending.push((a + 1, b));
+        }
+    }
+    false
 }
 
 /// Test whether `candidate` matches an applet namespace `pattern` in
 /// `domain`.
 ///
 /// Grammar (spec `applet-schema.md` §2):
-/// - `*` matches exactly one segment: one or more chars that are not a separator for `domain`
-///   (actor: `:`; realm / handle: `:` and `/`). It never crosses a separator and never matches an
-///   empty segment.
+/// - `*` matches exactly one segment: one or more chars that are not a separator for `domain` (`:`
+///   and `/`). It never crosses a separator and never matches an empty segment.
 /// - `**` matches one or more path-like segments: one or more chars that may include `/` but never
 ///   `:`. It never matches empty.
 /// - Literal `*` is escaped as `\*`.
-/// - For the actor domain a DID `#fragment` is ignored on both sides.
 /// - An empty pattern matches only an empty candidate.
 pub fn namespace_pattern_matches(
     domain: AppletNamespaceDomain,
     pattern: &str,
     candidate: &str,
 ) -> bool {
-    let pattern = strip_fragment(domain, pattern);
-    let candidate = strip_fragment(domain, candidate);
     namespace_pattern_match_bytes(
         domain.separators(),
         pattern.as_bytes(),
@@ -116,19 +148,47 @@ fn namespace_pattern_match_bytes(separators: &[u8], pattern: &[u8], candidate: &
 
 #[cfg(test)]
 mod tests {
-    use AppletNamespaceDomain::{Actors, Realms};
+    use AppletNamespaceDomain::Realms;
 
     use super::*;
 
     #[test]
+    fn namespace_overlap_checks_the_whole_language_not_sample_prefixes() {
+        for (left, right, expected) in [
+            ("team/*/room", "team/alice/*", true),
+            ("team/*/room", "team/alice/other", false),
+            ("team/*", "team/", false),
+            ("team/*", "team/alice/room", false),
+            ("team/**", "team/alice/room", true),
+            ("team/**", "team/alice:room", false),
+            ("literal\\*", "literal*", true),
+            ("literal\\*", "literalX", false),
+            ("*x", "y*", true),
+            ("a**z", "ab*z", true),
+            ("*", "", false),
+        ] {
+            assert_eq!(
+                namespace_patterns_overlap(Realms, left, right),
+                expected,
+                "{left} intersects {right}"
+            );
+            assert_eq!(
+                namespace_patterns_overlap(Realms, right, left),
+                expected,
+                "{right} intersects {left}"
+            );
+        }
+    }
+
+    #[test]
     fn single_star_matches_exactly_one_segment() {
         assert!(namespace_pattern_matches(
-            Actors,
+            Realms,
             "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
             "did:webvh:z6mkmanagedfixture:actors.example:managed:u123"
         ));
         assert!(!namespace_pattern_matches(
-            Actors,
+            Realms,
             "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
             "did:webvh:z6mkotherfixture:other.example:managed:u123"
         ));
@@ -136,15 +196,6 @@ mod tests {
             Realms,
             "slack:team:*:channel:*",
             "slack:team:T123:channel:C456:thread:1"
-        ));
-    }
-
-    #[test]
-    fn actor_matching_ignores_did_fragment() {
-        assert!(namespace_pattern_matches(
-            Actors,
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:*",
-            "did:webvh:z6mkmanagedfixture:actors.example:managed:u123#key-1"
         ));
     }
 
@@ -180,7 +231,7 @@ mod tests {
             "literalXpattern"
         ));
         assert!(!namespace_pattern_matches(
-            Actors,
+            Realms,
             "",
             "did:webvh:z6mkfixture:anything.example"
         ));

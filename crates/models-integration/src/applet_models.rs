@@ -301,6 +301,7 @@ impl AppletManagedActorAuthoringContext {
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
     pub revoke_plan_digest: Hash,
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: ScopeRef,
     pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -370,6 +371,7 @@ pub enum AppletInstallEffectiveStatus {
 pub struct AppletInstallOutcome {
     pub install_id: String,
     pub applet_id: AppletId,
+    pub service_id: arkret_wire::DidCoreId,
     pub registration_event_ref: EventId,
     pub registration_epoch: Hash,
     pub capability_grant_refs: Vec<GrantId>,
@@ -383,6 +385,7 @@ pub struct AppletInstallOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokePreviewRequestBody {
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: ScopeRef,
     pub reason_code: ReasonCode,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -470,6 +473,7 @@ pub enum AppletManagedMembershipRemoval {
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokePlan {
     pub applet_id: AppletId,
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: ScopeRef,
     pub registration_epoch: Hash,
     pub reason_code: ReasonCode,
@@ -668,14 +672,34 @@ pub struct AppletRevokeOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppletActorView {
     pub exists: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_realm_actor"
+    )]
     pub actor_id: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<ExternalRef>,
+}
+
+fn deserialize_optional_realm_actor<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<ActorId>, D::Error> {
+    let actor = Option::<ActorId>::deserialize(deserializer)?;
+    if actor
+        .as_ref()
+        .is_some_and(|actor| actor.as_realm_actor_id().is_none())
+    {
+        return Err(serde::de::Error::custom(
+            "Applet actor lookup requires a Realm ActorId",
+        ));
+    }
+    Ok(actor)
 }
 
 #[cfg(test)]
@@ -686,7 +710,7 @@ mod actor_view_tests {
     use super::*;
 
     #[test]
-    fn applet_actor_view_preserves_exact_actor_identity() {
+    fn applet_actor_view_preserves_exact_realm_identity() {
         let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
             .unwrap()
             .expect("spec schema registry");
@@ -694,25 +718,31 @@ mod actor_view_tests {
             "{}#/$defs/applet_actor_view",
             SchemaId::APPLET_EDGE_OPERATIONS_V1
         );
-        let principal = DidCoreId::new("ak:did_core:web:bot.example").unwrap();
+        let principal = DidCoreId::new("ak:did_core:webvh:zbot").unwrap();
         let mut identities = std::collections::BTreeSet::new();
-        for actor in [
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
-            )),
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
-            )),
-            ActorId::service(principal),
-        ] {
-            let value = json!({"exists": true, "actor_id": actor});
+        for seed in [1, 2] {
+            let realm = RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [seed; 32],
+            ));
+            let actor = ActorId::realm(arkret_wire::RealmActorId::new(realm, principal.clone()));
+            let value = json!({"exists":true,"actor_id":actor});
             registry.validate_value(&schema, &value).unwrap();
             let decoded: AppletActorView = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(decoded.actor_id.as_ref(), Some(&actor));
             assert_eq!(serde_json::to_value(decoded).unwrap(), value);
             assert!(identities.insert(actor));
+        }
+        for actor in [
+            ActorId::service(principal.clone()),
+            ActorId::account(AccountId::new(
+                principal,
+                DidCoreId::new("ak:did_core:webvh:zstation").unwrap(),
+            )),
+        ] {
+            let value = json!({"exists":true,"actor_id":actor});
+            assert!(registry.validate_value(&schema, &value).is_err());
+            assert!(serde_json::from_value::<AppletActorView>(value).is_err());
         }
     }
 }
@@ -1256,6 +1286,7 @@ impl AppletBotAuthoringRequestBasis {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletBotPreviewRequestBody {
+    pub service_id: arkret_wire::DidCoreId,
     pub effective_scope: ScopeRef,
     pub request_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

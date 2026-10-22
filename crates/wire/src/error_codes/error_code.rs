@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-22.1;
-//! sha256=3df9ae1408db73220dbe82128661688a63187c8af70581f8a32558ec0aee1032
+//! Input: registry/error-code-registry.json; version=2026-10-22.4;
+//! sha256=2dddaeb4d6a71cb86b63f6e2809659819bd8176e86e7afef090798f1dc40ba5a
 //! Entries: error_codes=159, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
@@ -1028,7 +1028,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A namespaces.actors pattern in the submitted Applet package or derived registration violates the actor namespace pattern shape: it is not a did:webvh pattern, its SCID segment is neither '*' nor a non-empty SCID, it pins the registration's own service SCID in the SCID segment so it can never match a compliant Ghost, its host segment is not a literal equal to the host of the bare did the service_id currently resolves to, or no segment follows that host. Install preview and install commit both fail closed. See zh/extensions/applet-schema.md 2 and zh/extensions/applet-integration.md 4.1.",
+        description: "A Realm/portal or handle namespace pattern violates the registered segment, wildcard or escaping grammar. Preview and commit fail closed. Actor DID namespaces are not supported. See zh/extensions/applet-schema.md section 2.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRegistrationEpochEvidenceDeactivated,

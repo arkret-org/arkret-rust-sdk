@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-22.2;
-//! sha256=103ae952f29a7a0e999af294c5fd3c81a7c64e07fc5a466aefc81ddaee81311e
+//! Input: registry/contract-registry.json; version=2026-10-22.9;
+//! sha256=1dd5f15c1e88e2d4b5a7d8a3f7d2ce055aadf1c02197f433788c3177c7277991
 //! Entries: operation_bundles=44 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -480,10 +480,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletActorReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::EdgeAppletCommandTransactionV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -493,22 +489,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::EdgeAppletReadPingV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletReadProtocolMetadataV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletRealmReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletThirdPartyLocationsReadListV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
                 binding_kind: BindingKind::HttpJson,
             },
         ],
