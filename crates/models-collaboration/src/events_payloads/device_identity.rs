@@ -320,7 +320,11 @@ pub struct DeviceAuthorizePayload {
     pub scopes: Option<DeviceAuthorizationScopes>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub not_before: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_device_authorize_expiry"
+    )]
     pub expires_at: Option<Option<DateTime<Utc>>>,
     pub authorization_binding_kind: DeviceAuthorizationBindingKind,
     /// PCR-local device generation accepted by the governing Station. This is
@@ -355,7 +359,7 @@ struct DeviceAuthorizePayloadWire {
     scopes: Option<DeviceAuthorizationScopes>,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     not_before: DateTime<Utc>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_device_authorize_expiry")]
     expires_at: Option<Option<DateTime<Utc>>>,
     authorization_binding_kind: DeviceAuthorizationBindingKind,
     authorized_generation_ref: u64,
@@ -376,6 +380,29 @@ struct DeviceAuthorizePayloadWire {
         deserialize_with = "crate::serde_absence::deserialize_present_nullable"
     )]
     expected_device_revision: Option<Option<arkret_wire::CurrentRevision>>,
+}
+
+fn deserialize_device_authorize_expiry<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<DateTime<Utc>>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp(deserializer)
+        .map(Some)
+}
+
+fn serialize_device_authorize_expiry<S>(
+    value: &Option<Option<DateTime<Utc>>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp(
+        &value.flatten(),
+        serializer,
+    )
 }
 
 impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
@@ -515,8 +542,10 @@ impl DeviceAuthorizePayload {
             "device_public_key_did": self.device_public_key_did, "hpke_key": self.hpke_key,
             "algorithms": self.algorithms, "device_key_algorithm": self.device_key_algorithm,
             "authorized_by": self.authorized_by, "authorization_binding_kind": self.authorization_binding_kind,
-            "authorized_generation_ref": self.authorized_generation_ref, "not_before": self.not_before,
-            "expires_at": self.expires_at.flatten(), "scopes": self.scopes, "applet_id": self.applet_id,
+            "authorized_generation_ref": self.authorized_generation_ref,
+            "not_before": canonical::format_timestamp_canonical(self.not_before),
+            "expires_at": self.expires_at.flatten().map(canonical::format_timestamp_canonical),
+            "scopes": self.scopes, "applet_id": self.applet_id,
             "expected_control_revision": self.expected_control_revision,
             "expected_device_revision": self.expected_device_revision,
         });
@@ -570,8 +599,8 @@ impl DeviceAuthorizePayload {
             "device_key_algorithm": self.device_key_algorithm,
             "authorized_by": authorized_by,
             "authorized_generation_ref": self.authorized_generation_ref,
-            "not_before": self.not_before,
-            "expires_at": expires_at,
+            "not_before": canonical::format_timestamp_canonical(self.not_before),
+            "expires_at": expires_at.copied().map(canonical::format_timestamp_canonical),
             "scopes": self.scopes,
             "recovery_session_id": self.recovery_session_id,
             "authorization_binding_kind": self.authorization_binding_kind,
@@ -821,6 +850,162 @@ mod device_authorize_tests {
             transcript.split_at(transcript.iter().position(|byte| *byte == b'\n').unwrap() + 1);
         let body: Value = serde_json::from_slice(body).unwrap();
         assert_eq!(body["authorized_generation_ref"], json!(1));
+    }
+
+    #[test]
+    fn expiry_preserves_absent_null_and_canonical_finite_values() {
+        let absent: DeviceAuthorizePayload =
+            serde_json::from_value(registration_payload_value()).unwrap();
+        assert_eq!(absent.expires_at, None);
+        assert!(
+            serde_json::to_value(absent)
+                .unwrap()
+                .get("expires_at")
+                .is_none()
+        );
+        let mut value = registration_payload_value();
+        value["expires_at"] = Value::Null;
+        let nullable: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(nullable.expires_at, Some(None));
+        assert_eq!(serde_json::to_value(nullable).unwrap(), value);
+        for expiry in ["2026-09-17T00:00:00.000Z", "2026-09-17T00:00:00.123Z"] {
+            value["expires_at"] = json!(expiry);
+            let finite: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(finite.expires_at, Some(Some(expiry.parse().unwrap())));
+            assert_eq!(serde_json::to_value(finite).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn authorization_times_reject_noncanonical_wire_spelling() {
+        for field in ["not_before", "expires_at"] {
+            for invalid in [
+                "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00.1Z",
+                "2026-09-17T00:00:00.123456Z",
+                "2026-09-17T00:00:00.123456789Z",
+                "2026-09-17T00:00:00.123+00:00",
+                "2026-09-17T00:00:00.123z",
+                "2026-02-30T00:00:00.123Z",
+            ] {
+                let mut value = registration_payload_value();
+                value[field] = json!(invalid);
+                assert!(
+                    serde_json::from_value::<DeviceAuthorizePayload>(value).is_err(),
+                    "{field}: {invalid}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn possession_transcripts_bind_canonical_milliseconds_after_wire_roundtrip() {
+        let account = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkstation").unwrap(),
+        );
+        for managed in [false, true] {
+            for expiry in ["2026-09-17T00:00:00.000Z", "2026-09-17T00:00:00.123Z"] {
+                let mut value = registration_payload_value();
+                value["expires_at"] = json!(expiry);
+                let scopes = arkret_schema_conformance::spec_json_artifact(
+                    "fixtures/applet-device-scope-fixture.json",
+                )
+                .unwrap();
+                let realm: arkret_wire::RealmId =
+                    serde_json::from_value(scopes["cases"][0]["scope"]["realm_id"].clone())
+                        .unwrap();
+                let actor = arkret_wire::ActorId::realm(arkret_wire::RealmActorId::new(
+                    realm,
+                    account.principal_id.clone(),
+                ));
+                if managed {
+                    value["authorization_binding_kind"] = json!("realm_managed_delegation");
+                    value["applet_id"] = json!("ak:applet:01964137-0000-7000-8000-000000000002");
+                    value["scopes"] = scopes["cases"][0]["scopes"].clone();
+                    value["expected_control_revision"] = json!({"commit_id": arkret_wire::RealmCommitId::from_digest([42; 32]), "stream_position": 0});
+                    value["expected_device_revision"] = Value::Null;
+                }
+                let mut payload: DeviceAuthorizePayload = serde_json::from_value(value).unwrap();
+                // Typed producers may start with a finer instant. Both the
+                // payload and its proof must freeze the same millisecond.
+                if expiry.ends_with(".123Z") {
+                    payload.expires_at =
+                        Some(Some("2026-09-17T00:00:00.123456789Z".parse().unwrap()));
+                }
+                let input = if managed {
+                    payload
+                        .realm_device_possession_signature_input(&actor)
+                        .unwrap()
+                } else {
+                    payload.device_possession_signature_input(&account).unwrap()
+                };
+                let body: Value =
+                    serde_json::from_slice(input.splitn(2, |byte| *byte == b'\n').nth(1).unwrap())
+                        .unwrap();
+                assert_eq!(body["not_before"], "2026-09-16T00:00:00.000Z");
+                assert_eq!(body["expires_at"], expiry);
+                let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+                let mut registry =
+                    arkret_schema_conformance::schema_registry_from_spec_artifacts(&artifacts)
+                        .unwrap();
+                let fragment = if managed {
+                    "device_authorize_realm_actor_possession_transcript"
+                } else {
+                    "device_authorize_possession_transcript"
+                };
+                let schema: Value = serde_json::from_slice(
+                    &std::fs::read(artifacts.join("schemas/event-payload.schema.json")).unwrap(),
+                )
+                .unwrap();
+                registry
+                    .register_fragment(
+                        "test:device-possession-canonical-time",
+                        schema,
+                        &format!("#/$defs/{fragment}"),
+                    )
+                    .unwrap();
+                registry
+                    .validate_value("test:device-possession-canonical-time", &body)
+                    .unwrap();
+                let wire = serde_json::to_value(&payload).unwrap();
+                assert_eq!(wire["expires_at"], expiry);
+                let mut received: DeviceAuthorizePayload = serde_json::from_value(wire).unwrap();
+                if managed {
+                    assert_eq!(
+                        received
+                            .realm_device_possession_signature_input(&actor)
+                            .unwrap(),
+                        input
+                    );
+                } else {
+                    assert_eq!(
+                        received
+                            .device_possession_signature_input(&account)
+                            .unwrap(),
+                        input
+                    );
+                }
+                received.expires_at = Some(Some(
+                    received.expires_at.flatten().unwrap() + chrono::Duration::milliseconds(1),
+                ));
+                if managed {
+                    assert_ne!(
+                        received
+                            .realm_device_possession_signature_input(&actor)
+                            .unwrap(),
+                        input
+                    );
+                } else {
+                    assert_ne!(
+                        received
+                            .device_possession_signature_input(&account)
+                            .unwrap(),
+                        input
+                    );
+                }
+            }
+        }
     }
 
     #[test]
