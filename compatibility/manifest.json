@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "f0750ac8398650f0a022effebf0aec169f58f1be",
+      "commit": "82b995965df3cd524c2d6d372986b30a62ab7a39",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "f0b4f980dcbf0a784434c67cef45288b47b89fe0",
+      "commit": "46a3fc952a244b4769be6a5886e9a96323204f6c",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "99b2d24decc1c3597e4639b787134d7882c8258d",
+      "commit": "104ca34cf435a29cc7148a2274bb6fdf2385ddc3",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "e170c348422a3bf7d93c1bca450ff5a85f861601",
+      "commit": "9d18ffb07724d75513f3a4659b0be65aaaf7c535",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -108,7 +108,7 @@
     },
     "flagon": {
       "repository": "arkret-org/flagon",
-      "commit": "919e7e1ad2d53566aa74360beefa227b91ec58c4",
+      "commit": "7e18af41379e82fc359790899008e553e7ef2b87",
       "checkout_path": "flagon",
       "roles": [
         "sdk-openapi-consumer"
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "94e38dfc064563a3b44c208314523d0ae7820a3e",
+      "commit": "58f3f9557c4b51243884fd7ef59d90a9a31d52a6",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
