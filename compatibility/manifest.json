@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "f39652839e0660004168ca9c8385ae7205f5f469",
+      "commit": "003c28ee4080ce48c2f9a33e2ed2d0b70efc938c",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "b07dc92b102e59f7fa167e08dd66e56872cca177",
+      "commit": "e2119d61f4ff47322ba2ab5d2d31b2e35815c017",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -1110,8 +1110,12 @@
   },
   "resolved_candidates": [
     {
+      "repository": "inkson",
+      "commit": "003c28ee4080ce48c2f9a33e2ed2d0b70efc938c"
+    },
+    {
       "repository": "cotest",
-      "commit": "b07dc92b102e59f7fa167e08dd66e56872cca177"
+      "commit": "e2119d61f4ff47322ba2ab5d2d31b2e35815c017"
     }
   ]
 }
