@@ -1058,18 +1058,43 @@ fn call_current_selector_requires_the_create_derived_call_identity() {
 }
 
 #[test]
-fn applet_registration_selector_has_one_closed_subject() {
-    let wire = json!({"kind":"applet_registration","applet_id":"ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d"});
+fn applet_registration_selector_has_one_closed_applet_service_pair() {
+    let applet_id = AppletId::new("ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d").unwrap();
+    let service_id = DidCoreId::new("ak:did_core:web:applet-a.example").unwrap();
+    let wire = json!({"kind":"applet_registration","applet_id":applet_id,"service_id":service_id});
     let selector: CurrentSelector = serde_json::from_value(wire.clone()).unwrap();
     assert!(matches!(
-        selector,
-        CurrentSelector::AppletRegistration { .. }
+        &selector,
+        CurrentSelector::AppletRegistration { applet_id: actual_applet, service_id: actual_service }
+            if actual_applet == &applet_id && actual_service == &service_id
     ));
-    assert_eq!(serde_json::to_value(selector).unwrap(), wire);
+    assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
+    let mut other_wire = wire.clone();
+    other_wire["service_id"] = json!("ak:did_core:web:applet-b.example");
+    let other: CurrentSelector = serde_json::from_value(other_wire.clone()).unwrap();
+    assert_ne!(selector, other);
+    assert_eq!(serde_json::to_value(&other).unwrap(), other_wire);
     for invalid in [
         json!({"kind":"applet_registration"}),
-        json!({"kind":"applet_registration","applet_id":"ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d","realm_id":"extra"}),
+        json!({"kind":"applet_registration","applet_id":applet_id}),
+        json!({"kind":"applet_registration","service_id":service_id}),
     ] {
+        assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+    }
+    for key in ["realm_id", "actor_id", "subject", "registration_epoch"] {
+        let mut invalid = wire.clone();
+        invalid[key] = json!("extra");
+        assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
+    }
+    for invalid_service in [
+        Value::Null,
+        json!("did:web:applet-a.example"),
+        json!("ak:device:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d"),
+        json!({"kind":"service","service_id":service_id}),
+        json!({"kind":"account","principal_id":service_id,"station_id":service_id}),
+    ] {
+        let mut invalid = wire.clone();
+        invalid["service_id"] = invalid_service;
         assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
     }
 }
