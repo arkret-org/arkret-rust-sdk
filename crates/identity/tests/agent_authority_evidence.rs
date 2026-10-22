@@ -14,7 +14,7 @@ use arkret_signatures::{
 };
 use arkret_wire::{
     AccountId, ActorId, AuthoredEvent, DeviceId, Did, DidCoreId, DidKey, DidUrl, ErrorCode, Event,
-    EventId, NonEmptyString, ProtocolSignature, ScopeRef, ServiceKind,
+    EventId, NonEmptyString, ProtocolSignature, RealmId, ScopeRef, ServiceKind,
 };
 use chrono::{DateTime, Duration, TimeZone as _, Utc};
 use ed25519_dalek::SigningKey;
