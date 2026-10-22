@@ -253,6 +253,8 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
     );
     let method = format!("{PRINCIPAL_DID}#{DEVICE}");
     let genesis = sign(genesis, &method, DEVICE_SEED);
+    assert_eq!(genesis.scope_ref, ScopeRef::RealmGenesis);
+    assert_eq!(genesis.realm_id, RealmId::from_event_id(&genesis.event_id));
     let raw = SigningKey::from_bytes(&[88; 32]).verifying_key().to_bytes();
     let encoded = arkret_canonical::base64url_encode(raw);
     let runtime = format!("{agent_did}#runtime-key");

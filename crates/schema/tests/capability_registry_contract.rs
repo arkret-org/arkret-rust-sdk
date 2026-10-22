@@ -70,11 +70,21 @@ fn only_registered_creation_approvals_use_an_explicit_administrator_grant() {
     for (action, _) in overridden {
         let descriptor = capability_action_descriptor(action);
         let carrier = approval_evidence_carrier_for_action(action).unwrap();
+        assert_eq!(carrier.carrier_field, "approval_signatures");
         match action {
             CapabilityActionId::AppletConfigure => {
                 assert_eq!(
                     descriptor.approval_requirement_eligibility,
                     ApprovalRequirementEligibility::RegisteredOperationCarrier
+                );
+                assert!(descriptor.target_event_kinds.is_empty());
+                assert_eq!(
+                    carrier.carrier_id,
+                    "applet_configuration.approval_signatures"
+                );
+                assert_eq!(
+                    carrier.operation_id,
+                    "ak.self.applet.configuration.command.submit.v1"
                 );
                 assert_eq!(carrier.allowed_target_kinds, &["operation"]);
                 assert_eq!(carrier.carrier_class, "non_event_operation");

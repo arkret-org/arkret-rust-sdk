@@ -251,6 +251,14 @@ impl<'de> Deserialize<'de> for HolderQuarantineEntry {
         D: serde::Deserializer<'de>,
     {
         let mut wire = HolderQuarantineEntryWire::deserialize(deserializer)?;
+        wire.source_peer_actor_id
+            .validate()
+            .map_err(serde::de::Error::custom)?;
+        if wire.source_peer_actor_id.signing_principal_id() != &wire.source_peer_principal_id {
+            return Err(serde::de::Error::custom(
+                "quarantine source Actor and quota principal differ",
+            ));
+        }
         let surface =
             holder_quarantine_surface_from_parts(&mut wire).map_err(serde::de::Error::custom)?;
         Ok(Self {
@@ -346,6 +354,7 @@ impl HolderQuarantine {
             ));
         }
         for entry in &self.quarantine_entries {
+            entry.source_peer_actor_id.validate()?;
             if &entry.account_id != account_id
                 || entry.source_peer_actor_id.signing_principal_id()
                     != &entry.source_peer_principal_id

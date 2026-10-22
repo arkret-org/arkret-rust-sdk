@@ -4827,7 +4827,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:7d68a0e5b091d71a",
+      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:cc64d8f4491199a5",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
