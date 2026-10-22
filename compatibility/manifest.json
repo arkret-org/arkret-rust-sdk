@@ -58,7 +58,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "4e8595c9372edcd669961c12e5013218c571bd47",
+      "commit": "b897850df88a26455e75fb483918751e104fff21",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
