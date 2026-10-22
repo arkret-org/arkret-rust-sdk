@@ -158,6 +158,9 @@ impl Client {
                 service_kind.as_str()
             )));
         }
+        if service_kind == ServiceKind::DirectoryService {
+            return self.directory_describe().await;
+        }
         let builder = self
             .public_request(Method::GET, "/_arkret/describe")?
             .query(&[("service_kind", service_kind.as_str())]);
@@ -281,14 +284,21 @@ impl Client {
     }
 
     pub async fn directory_describe(&self) -> Result<ServiceDescribe> {
-        self.get("/_arkret/find/directory/describe").await
+        let builder = self.public_request(Method::GET, "/_arkret/find/directory/describe")?;
+        let description: ServiceDescribe = self.send_json(builder).await?;
+        description.validate()?;
+        ServiceRequirements::new()
+            .service_kind(ServiceKind::DirectoryService)
+            .verify(&description)?;
+        Ok(description)
     }
 
     pub async fn directory_search_realms(
         &self,
         request: &DirectorySearchRealmsRequestBody,
     ) -> Result<DirectoryRealmSearchOutcome> {
-        self.post("/_arkret/find/directory/search-realms", request)
+        let builder = self.public_request(Method::POST, "/_arkret/find/directory/search-realms")?;
+        self.send_json(self.canonical_json_body(builder, request)?)
             .await
     }
 
@@ -296,7 +306,8 @@ impl Client {
         &self,
         request: &DirectoryResolveRealmRequestBody,
     ) -> Result<DirectoryRealmResolutionOutcome> {
-        self.post("/_arkret/find/directory/resolve-realm", request)
+        let builder = self.public_request(Method::POST, "/_arkret/find/directory/resolve-realm")?;
+        self.send_json(self.canonical_json_body(builder, request)?)
             .await
     }
 }
