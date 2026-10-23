@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "bed04d236d210ef38a6ddd1e4d8521b6f16a2266",
+      "commit": "a79fdce57159de1f25603b36c6e005b5686b2119",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
