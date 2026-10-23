@@ -1,8 +1,8 @@
 //! Bounded administrator intent and Applet execution carriers.
 //! A candidate is not a governance acceptance or a business authorization.
 use arkret_wire::{
-    ActorId, AppletId, ApprovalSignature, CommittedEventRef, DidCoreId, DidUrl, Event, EventKind,
-    Hash, PayloadSigner, RequestId, Result, ScopeRef, WireError,
+    ActorId, AppletId, ApprovalSignature, CommittedEventRef, DidCoreId, DidUrl, DomainSeparationId,
+    Event, EventKind, Hash, PayloadSigner, RequestId, Result, ScopeRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -299,7 +299,7 @@ fn sign<T: Serialize, S: PayloadSigner + ?Sized>(
 }
 
 impl AppletConfigurationExecutionRequest {
-    pub const SIGNATURE_DOMAIN: &str = "ak.applet.configuration_command.v1";
+    pub const SIGNATURE_DOMAIN: &str = DomainSeparationId::APPLET_CONFIGURATION_COMMAND_V1;
 
     pub fn signature_payload(&self) -> Result<Vec<u8>> {
         transcript(self, Self::SIGNATURE_DOMAIN)
@@ -335,7 +335,7 @@ impl AppletConfigurationExecutionRequest {
 }
 
 impl AppletConfigurationExecutionOutcome {
-    pub const SIGNATURE_DOMAIN: &str = "ak.applet.configuration_outcome.v1";
+    pub const SIGNATURE_DOMAIN: &str = DomainSeparationId::APPLET_CONFIGURATION_OUTCOME_V1;
 
     pub fn signature_payload(&self) -> Result<Vec<u8>> {
         transcript(self, Self::SIGNATURE_DOMAIN)

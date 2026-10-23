@@ -1,5 +1,7 @@
 //! Exact encrypted call invitation and holder-private Consent admission.
 
+use arkret_wire::DomainSeparationId;
+
 #[path = "generated/call_invitation_contracts.rs"]
 mod contracts;
 pub use contracts::*;
@@ -74,7 +76,7 @@ impl CallInvitationEnvelope {
     }
 
     pub fn signature_input(&self) -> arkret_wire::Result<Vec<u8>> {
-        domain_signing_input("ak.call.invitation.v1", self, "proof")
+        domain_signing_input(DomainSeparationId::CALL_INVITATION_V1, self, "proof")
     }
 }
 
@@ -126,7 +128,11 @@ pub fn voluntary_join_signing_input_from_value(
 
 impl CallInvitationAdmissionOutcome {
     pub fn signature_input(&self) -> arkret_wire::Result<Vec<u8>> {
-        domain_signing_input("ak.call.invitation.admission.v1", self, "proof")
+        domain_signing_input(
+            DomainSeparationId::CALL_INVITATION_ADMISSION_V1,
+            self,
+            "proof",
+        )
     }
 
     pub fn validate_for_request(
@@ -197,7 +203,7 @@ impl ConsentCurrentReadOutcome {
     }
 
     pub fn signature_input(&self) -> arkret_wire::Result<Vec<u8>> {
-        domain_signing_input("ak.consent.current_read.v1", self, "proof")
+        domain_signing_input(DomainSeparationId::CONSENT_CURRENT_READ_V1, self, "proof")
     }
 
     pub fn validate_for_request(

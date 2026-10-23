@@ -3,6 +3,7 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
+use arkret_wire::{CapabilityActionId, event_kind_str};
 
 use crate::model::{CapabilityAction, RealmBootstrapProfile, SpecInputs};
 use crate::render::{
@@ -561,13 +562,14 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                 });
         if matches!(
             row.action.as_str(),
-            "ak.applet.bot.provision" | "ak.applet.ghost.provision"
+            CapabilityActionId::APPLET_BOT_PROVISION | CapabilityActionId::APPLET_GHOST_PROVISION
         ) {
             if row.eligibility_kind != "event_submission_carrier"
                 || row.carrier_id != "event_admission_submission.approval_signatures"
                 || carrier.carrier_class != "event_submission"
-                || action.target_event_kinds != ["ak.realm.actor.create"]
-                || row.approver_capability_action.as_deref() != Some("ak.realm.admin")
+                || action.target_event_kinds != [event_kind_str::REALM_ACTOR_CREATE]
+                || row.approver_capability_action.as_deref()
+                    != Some(CapabilityActionId::REALM_ADMIN)
             {
                 bail!(
                     "approval eligibility override for {} requires its exact Realm actor creation approval carrier and Realm administrator",
@@ -598,9 +600,9 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         }
     }
     for required in [
-        "ak.applet.bot.provision",
-        "ak.applet.ghost.provision",
-        "ak.applet.configure",
+        CapabilityActionId::APPLET_BOT_PROVISION,
+        CapabilityActionId::APPLET_GHOST_PROVISION,
+        CapabilityActionId::APPLET_CONFIGURE,
     ] {
         if !overridden_actions.contains(required) {
             bail!("required approval qualification override missing for {required}");

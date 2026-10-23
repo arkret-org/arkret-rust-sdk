@@ -1,6 +1,6 @@
 //! Realm-owned Applet identities and control transactions.
 
-use arkret_wire::{DetachedSignatureContext, Result, ScopeRef, WireError};
+use arkret_wire::{DetachedSignatureContext, Result, SchemaId, ScopeRef, WireError};
 
 #[path = "generated/realm_actor_contracts.rs"]
 mod contracts;
@@ -80,7 +80,7 @@ impl RealmActorControlHttpMetadata {
 }
 
 impl RealmActorCreatePayload {
-    pub const SCHEMA: &'static str = "ak.schema.realm_actor_create.v1";
+    pub const SCHEMA: &'static str = SchemaId::REALM_ACTOR_CREATE_V1;
 
     pub fn validate(&self) -> Result<()> {
         self.actor_id.validate()?;
