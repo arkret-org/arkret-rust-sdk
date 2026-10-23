@@ -34,15 +34,19 @@ fn scope() -> ScopeRef {
     }
 }
 fn proof() -> PayloadProof {
-    serde_json::from_value(json!({"kind":"detached_jws","verification_method":"did:web:alice.example#device-1", "payload_digest":format!("sha256:{}","0".repeat(64)),"created_at":arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),"domain":"ak:trust_domain:station.example","audience":"ak:did_core:web:station.example","jws":"pending"})).unwrap()
+    serde_json::from_value(json!({"kind":"detached_jws","verification_method":"did:web:alice.example#device-1", "payload_digest":format!("sha256:{}","0".repeat(64)),"created_at":arkret_canonical::format_timestamp_canonical(chrono::Utc::now()),"domain":"ak:trust_domain:station.example","audience":"ak:did_core:web:station.example","jws":"pending"})).unwrap()
 }
 fn trust_domain() -> arkret_wire::TrustDomainId {
     "ak:trust_domain:testing.example".parse().unwrap()
 }
 fn key_material_request() -> arkret_models_crypto::PeerKeyPackagesClaimRequestBody {
+    key_material_request_at(chrono::Utc::now())
+}
+fn key_material_request_at(
+    at: chrono::DateTime<chrono::Utc>,
+) -> arkret_models_crypto::PeerKeyPackagesClaimRequestBody {
     let device = "ak:device:0198ff00-0000-7000-8000-000000000001";
     let method = format!("did:web:alice.example#{device}");
-    let at = chrono::Utc::now();
     let mut request: arkret_models_crypto::PeerKeyPackagesClaimRequestBody = serde_json::from_value(json!({
         "claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ",
         "target_account_id":AccountId::new(core("bob"),core("destination")),
@@ -50,11 +54,11 @@ fn key_material_request() -> arkret_models_crypto::PeerKeyPackagesClaimRequestBo
         "target_device_ids":["ak:device:0198ff00-0000-7000-8000-000000000002"],
         "intended_realm_id":scope().realm_id(), "mls_group_id":scope().canonical_mls_group_id().unwrap(),
         "claim_purpose":"realm_membership", "required_capabilities":["mimi.content.v1"],
-        "expires_at":arkret_canonical::normalize_timestamp_canonical(at+chrono::Duration::minutes(5)),
+        "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(5)),
         "service_binding":{"source_id":core("source"),"destination_id":core("destination")},
         "requester_authorization":{"kind":"device","verification_method":method,"requester_device_id":device,
             "device_authorize_event_id":EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[2;32]),
-            "signed_at":arkret_canonical::normalize_timestamp_canonical(at),"signature":{"kid":method,"sig":"AA"}}
+            "signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"sig":"AA"}}
     })).unwrap();
     let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
         &request.unsigned_request(),
@@ -69,6 +73,17 @@ fn key_material_request() -> arkret_models_crypto::PeerKeyPackagesClaimRequestBo
     request = serde_json::from_value(value).unwrap();
     request.validate_shape().unwrap();
     request
+}
+#[test]
+fn key_material_fixture_keeps_milliseconds_at_whole_seconds() {
+    let at = arkret_canonical::parse_timestamp_canonical("2026-10-24T00:00:00.000Z").unwrap();
+    let request = key_material_request_at(at);
+    let value = serde_json::to_value(request).unwrap();
+    assert_eq!(value["expires_at"], "2026-10-24T00:05:00.000Z");
+    assert_eq!(
+        value["requester_authorization"]["signed_at"],
+        "2026-10-24T00:00:00.000Z"
+    );
 }
 fn request_consent() -> MimiRequestConsentRequestBody {
     let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"voice_call","proofs":[proof()]})).unwrap();
