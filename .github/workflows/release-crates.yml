@@ -1,6 +1,8 @@
-name: Local package checks
+name: Release source packages
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -8,8 +10,12 @@ permissions:
 
 jobs:
   package:
-    name: Package workspace locally
-    runs-on: ubuntu-latest
+    name: Package workspace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: arkret-org/arkret-rust-sdk
     env:
       # Topologically sorted dependency order. Generated from
       # `cargo metadata --no-deps`; keep in sync with `RELEASING.md`.
@@ -44,15 +50,57 @@ jobs:
         arkret-server
         arkret
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - name: Checkout arkret-rust-sdk
+        uses: actions/checkout@v6
         with:
-          toolchain: "1.98"
-          components: rustfmt, clippy
-      - name: Resolve current compatible dependencies
-        run: cargo generate-lockfile
+          path: arkret-org/arkret-rust-sdk
+      - name: Checkout arkret-spec
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/arkret-spec
+          path: arkret-org/arkret-spec
+          ref: 8ae6fd0f14c630310a524e38b950b191918295e3
+          token: ${{ secrets.CI_REPO_TOKEN || github.token }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-features --all-targets -- -D warnings
-      - run: cargo test --all-features
+        with:
+          workspaces: arkret-org/arkret-rust-sdk
+      - run: cargo clippy --locked --all-features --all-targets -- -D warnings
+      - run: cargo test --locked --all-features
       - run: python tools/check-publish-order.py
       - run: cargo package --workspace --exclude arkret-schema-conformance --exclude arkret-test-kit --exclude-lockfile --locked --no-verify
+      - name: Package release sources
+        run: python .ci/package-release.py --target source --crates
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-source
+          path: arkret-org/arkret-rust-sdk/release-assets/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify release checksums
+        working-directory: release-assets
+        run: sha256sum --check ./*.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: release-assets/*

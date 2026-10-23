@@ -38,3 +38,4 @@ tools/spec-struct-proto/out/
 
 # Local validation evidence belongs to the implementation repository.
 /artifacts/
+/release-assets/

@@ -1,8 +1,26 @@
-# Local Release Readiness
+# Release Source Packages
 
-The Arkret Rust SDK is a 30-crate Cargo workspace. This repository's release
-readiness strand is local-only: it validates the coordinated crate set without
-publishing to crates.io, creating GitHub releases, or pushing tags.
+# Tag releases
+
+Pushing a `v*` tag builds and publishes a GitHub Release after every required
+build succeeds. `workflow_dispatch` builds the same artifacts without publishing
+a release; use it before tagging. Existing source versions are not changed.
+
+Sibling checkout revisions in the workflow are part of the release source set.
+Before tagging, update those pins to a compatible tested set and commit any
+required Cargo.lock changes. Do not replace pinned revisions with `main`. Each
+archive includes `build-info.json` with the source commits and lockfile hash,
+and a companion SHA-256 file. Verify it from the download directory with
+`sha256sum --check ./*.sha256`.
+
+Cross-repository private dependencies require `CI_REPO_TOKEN` with read access;
+`GITHUB_TOKEN` only supplies the current repository's permissions. Publishing
+uses the release job's `contents: write` permission.
+
+The SDK release contains the publishable workspace `.crate` source archives;
+it does not contain platform executables. Private conformance/test crates are
+excluded. The workflow does not publish to crates.io; its unpublished dependency
+set and Cargo git dependencies need a separate registry release plan.
 
 ## Crate set and package order
 
@@ -72,8 +90,8 @@ cargo audit --deny warnings --ignore RUSTSEC-2026-0124
 cargo run -p arkret-schema --example spec_drift_report
 ```
 
-Do not run `cargo publish`, do not create/push release tags, and do not create
-GitHub releases as part of this local readiness workflow.
+Local verification does not create tags or releases. Only a pushed `v*` tag
+activates the GitHub Release job.
 
 The `cargo audit` ignore is a tracked upstream-dependency exception for a
 package that is present in `Cargo.lock` but has no current upstream upgrade
