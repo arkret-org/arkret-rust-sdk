@@ -177,8 +177,7 @@ impl Client {
             base: keys,
             commit_key: None,
         };
-        if let arkret_models_integration::RealmActorMaterialResult::Event { commit, .. } =
-            &outcome.result
+        if let arkret_models_integration::RealmActorMaterial::Event { commit, .. } = &outcome.result
         {
             let method = &commit.signature.verification_method;
             let did = arkret_identity::verification_method_did(method.as_str())

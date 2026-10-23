@@ -14,7 +14,7 @@
 // sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
+// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
 
 /// Counterpart: `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
 /// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.

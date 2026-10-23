@@ -1,13 +1,14 @@
 //! Typed provider interoperability using the registered MIMI signature scene.
 use arkret_models_collaboration::mimi_operations::{
-    MimiIdentifierQueryOutcome, MimiIdentifierQueryRequestBody, MimiKeyMaterialOutcome,
-    MimiKeyMaterialRequestBody, MimiNotifyOutcome, MimiNotifyRequestBody, MimiProxyDownloadOutcome,
-    MimiProxyDownloadRequestBody, MimiReportAbuseOutcome, MimiReportAbuseRequestBody,
-    MimiRequestConsentOutcome, MimiRequestConsentRequestBody, MimiRoomUpdateOutcome,
-    MimiRoomUpdateRequestBody, MimiSubmitMessageOutcome, MimiSubmitMessageRequestBody,
-    MimiUpdateConsentOutcome, MimiUpdateConsentRequestBody,
+    MimiIdentifierQueryOutcome, MimiIdentifierQueryRequestBody, MimiNotifyOutcome,
+    MimiNotifyRequestBody, MimiProxyDownloadOutcome, MimiProxyDownloadRequestBody,
+    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, MimiRequestConsentOutcome,
+    MimiRequestConsentRequestBody, MimiRoomUpdateOutcome, MimiRoomUpdateRequestBody,
+    MimiSubmitMessageOutcome, MimiSubmitMessageRequestBody, MimiUpdateConsentOutcome,
+    MimiUpdateConsentRequestBody,
 };
 use arkret_models_collaboration::objects::interop::ProviderDirectory;
+use arkret_models_crypto::{PeerKeyPackagesClaimQueryOutcome, PeerKeyPackagesClaimRequestBody};
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::{DidCoreId, MimiRoomUri, MimiUri};
 use reqwest::Method;
@@ -121,17 +122,86 @@ impl Client {
         Ok(outcome)
     }
 
+    /// Submit the original native claim to the MIMI adapter. Its identity,
+    /// participant signature, ledger and receipt are shared with native claims.
     pub async fn mimi_request_key_material(
         &self,
-        request: &MimiKeyMaterialRequestBody,
-    ) -> Result<MimiKeyMaterialOutcome> {
-        for proof in &request.proofs {
-            request.proof_binding_bytes(proof)?;
+        request: &PeerKeyPackagesClaimRequestBody,
+        source_trust_domain: &arkret_wire::TrustDomainId,
+        destination_trust_domain: &arkret_wire::TrustDomainId,
+    ) -> Result<PeerKeyPackagesClaimQueryOutcome> {
+        request
+            .validate_shape()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if request.last_resort_allowed == Some(true)
+            || !request
+                .required_capabilities
+                .iter()
+                .any(|value| value.as_str() == "mimi.content.v1")
+        {
+            return Err(Error::Protocol(
+                "MIMI requires single-use packages with mimi.content.v1".into(),
+            ));
         }
-        let outcome: MimiKeyMaterialOutcome = self
-            .mimi_post("/_arkret/open/mimi/key-material", request, false, false)
+        let (_, room) = self.mimi_provider_identity.as_ref().ok_or_else(|| {
+            Error::Protocol("MIMI claim requires a configured source Station Service signer".into())
+        })?;
+        let room = room
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("MIMI claim requires a canonical room URI".into()))?;
+        let (source, destination) = self.service_signature_identity.as_ref().ok_or_else(|| {
+            Error::Protocol("MIMI claim requires source and destination Station identities".into())
+        })?;
+        if source != &request.service_binding.source_id
+            || destination != &request.service_binding.destination_id
+        {
+            return Err(Error::Protocol(
+                "MIMI claim must retain its original source and destination Station".into(),
+            ));
+        }
+        let builder = self
+            .canonical_json_body(
+                self.service_request(Method::POST, "/_arkret/open/mimi/key-material")?,
+                request,
+            )?
+            .header(HEADER_SOURCE_SERVICE_ID, source.as_str())
+            .header(HEADER_DESTINATION_SERVICE_ID, destination.as_str())
+            .header("Provider-ID", source.as_str())
+            .header("MIMI-Room-URI", room.as_str())
+            .header(
+                crate::HEADER_IDEMPOTENCY_KEY,
+                request.claim_request_id.as_str(),
+            )
+            .header("Source-Trust-Domain", source_trust_domain.as_str())
+            .header(
+                "Destination-Trust-Domain",
+                destination_trust_domain.as_str(),
+            );
+        let outcome: PeerKeyPackagesClaimQueryOutcome = self
+            .send_json_protocol_replay_safe_for_scenario(
+                builder,
+                HttpSignatureScenario::MimiProviderV1,
+            )
             .await?;
-        outcome.validate()?;
+        outcome
+            .validate_command_shape()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if outcome.claim_request_id != request.claim_request_id {
+            return Err(Error::Protocol(
+                "MIMI result does not identify the original native claim".into(),
+            ));
+        }
+        if let Some(claim) = &outcome.claim_outcome {
+            let receipt = &claim.claim_receipt;
+            if receipt.source_id != request.service_binding.source_id
+                || receipt.destination_id != request.service_binding.destination_id
+                || receipt.request_digest.as_str() != arkret_canonical::canonical_sha256(request)?
+            {
+                return Err(Error::Protocol(
+                    "MIMI claim receipt does not bind the exact native request".into(),
+                ));
+            }
+        }
         Ok(outcome)
     }
 

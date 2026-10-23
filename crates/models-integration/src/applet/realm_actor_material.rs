@@ -143,7 +143,7 @@ pub enum RealmActorOperationOutcome {
 #[serde(untagged, deny_unknown_fields)]
 // Accepted originals are carried intact; boxing would change the public Rust API.
 #[allow(clippy::large_enum_variant)]
-pub enum RealmActorMaterialResult {
+pub enum RealmActorMaterial {
     Current {
         entries: Vec<RealmActorMaterialCurrentEntry>,
     },
@@ -175,7 +175,7 @@ pub struct RealmActorMaterialOutcome {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub result: RealmActorMaterialResult,
+    pub result: RealmActorMaterial,
     pub signature: DetachedObjectSignature,
 }
 
@@ -196,7 +196,7 @@ pub struct RealmActorMaterialUnsigned {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub result: RealmActorMaterialResult,
+    pub result: RealmActorMaterial,
 }
 
 impl RealmActorMaterialUnsigned {
@@ -319,7 +319,7 @@ impl RealmActorMaterialOutcome {
             return Err(invalid());
         }
         match (&self.purpose, &self.result) {
-            (RealmActorMaterialPurpose::Current, RealmActorMaterialResult::Current { entries }) => {
+            (RealmActorMaterialPurpose::Current, RealmActorMaterial::Current { entries }) => {
                 if self.control_stream_head.is_none() || !(1..=16).contains(&entries.len()) {
                     return Err(invalid());
                 }
@@ -369,10 +369,7 @@ impl RealmActorMaterialOutcome {
                     }
                 }
             }
-            (
-                RealmActorMaterialPurpose::Event,
-                RealmActorMaterialResult::Event { event, commit, .. },
-            ) => {
+            (RealmActorMaterialPurpose::Event, RealmActorMaterial::Event { event, commit, .. }) => {
                 if self.control_stream_head.is_none()
                     || commit.stream_ref != stream
                     || commit.event_ref != event.event_id
@@ -390,10 +387,7 @@ impl RealmActorMaterialOutcome {
                     return Err(invalid());
                 }
             }
-            (
-                RealmActorMaterialPurpose::Outcome,
-                RealmActorMaterialResult::Outcome { outcome, .. },
-            ) => {
+            (RealmActorMaterialPurpose::Outcome, RealmActorMaterial::Outcome { outcome, .. }) => {
                 if let RealmActorOperationOutcome::DeviceRevoke {
                     proposal_ref,
                     authorization_ref,
@@ -455,7 +449,7 @@ impl RealmActorMaterialOutcome {
         match (request, &self.result) {
             (
                 RealmActorMaterialRequest::Current { selectors, .. },
-                RealmActorMaterialResult::Current { entries },
+                RealmActorMaterial::Current { entries },
             ) => {
                 if selectors.len() != entries.len()
                     || selectors.iter().zip(entries).any(|(requested, returned)| {
@@ -474,7 +468,7 @@ impl RealmActorMaterialOutcome {
             }
             (
                 RealmActorMaterialRequest::Event { target, .. },
-                RealmActorMaterialResult::Event { event, commit, .. },
+                RealmActorMaterial::Event { event, commit, .. },
             ) => {
                 if target.event_id != event.event_id
                     || target.commit_id != commit.commit_id
@@ -525,7 +519,7 @@ impl RealmActorMaterialOutcome {
                     target_request_digest,
                     ..
                 },
-                RealmActorMaterialResult::Outcome {
+                RealmActorMaterial::Outcome {
                     target_request_digest: returned,
                     ..
                 },

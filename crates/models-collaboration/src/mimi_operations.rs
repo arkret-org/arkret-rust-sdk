@@ -6,10 +6,9 @@ use std::num::NonZeroU64;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, CommittedEventRef, ConsentId, DeviceId, DidCoreId, DidUrl,
-    DomainSeparationId, EventAdmissionSubmission, EventId, EventKind, Hash, MimiRoomUri,
-    MlsGroupId, NonEmptyString, ObjectRef, PayloadProof, ProofContextId, RealmId, ReportId, Result,
-    ScopeRef, ServiceOperationId, StrandId, UnsignedPayloadProof, WireError, canonical,
-    event_kind_str,
+    DomainSeparationId, EventAdmissionSubmission, EventId, EventKind, Hash, MlsGroupId,
+    NonEmptyString, ObjectRef, PayloadProof, ProofContextId, RealmId, ReportId, Result, ScopeRef,
+    ServiceOperationId, StrandId, UnsignedPayloadProof, WireError, canonical, event_kind_str,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -17,8 +16,8 @@ use serde_json::Value;
 
 use crate::objects::mimi::{
     MimiCiphertext, MimiConsentPurpose, MimiDelivery, MimiDeliveryStatus, MimiFailure,
-    MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
-    MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
+    MimiIdentifier, MimiIdentifierMatch, MimiNotification, MimiNotificationRouting,
+    MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
 
 /// `mimi-operations.schema.json#/$defs/signature`; distinct from a generic
@@ -42,94 +41,6 @@ pub struct MimiOperationSignature {
     pub domain: NonEmptyString,
     pub audience: arkret_wire::Audience,
     pub jws: String,
-}
-
-impl MimiKeyMaterialRequestBody {
-    pub fn unsigned_payload(&self) -> Result<Value> {
-        mimi_unsigned_body_without_proofs(self)
-    }
-
-    pub fn payload_digest(&self) -> Result<Hash> {
-        mimi_payload_digest(&self.unsigned_payload()?)
-    }
-
-    /// Bind one actor proof to the exact unsigned key-material request.
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
-        proof.validate_production()?;
-        self.unsigned_proof_binding_bytes(&proof.unsigned())
-    }
-
-    pub fn unsigned_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
-        mimi_proof_binding_bytes(
-            ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
-            Some(serde_json::to_value(&self.requester_id)?),
-            vec![
-                ("strand_id", serde_json::to_value(&self.strand_id)?),
-                ("device_id", serde_json::to_value(&self.device_id)?),
-            ],
-            &self.payload_digest()?,
-            proof,
-        )
-    }
-}
-
-impl MimiKeyMaterialOutcome {
-    pub fn validate(&self) -> Result<()> {
-        if self.keypackages.is_none() && self.group_info.is_none() && self.failures.is_none() {
-            return Err(WireError::Protocol(
-                "MIMI key material outcome requires keypackages, group_info, or failures"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// The service signature covers the complete outcome with only `signature`
-    /// omitted, under its own registered proof context.
-    pub fn payload_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        mimi_payload_digest(&mimi_unsigned_body_without_signature(self)?)
-    }
-
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
-        proof.validate_production()?;
-        self.unsigned_proof_binding_bytes(&proof.unsigned())
-    }
-
-    pub fn unsigned_proof_binding_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
-        mimi_proof_binding_bytes(
-            ProofContextId::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
-            ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
-            None,
-            vec![],
-            &self.payload_digest()?,
-            proof,
-        )
-    }
-
-    pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
-        let signature = self.signature.as_ref().ok_or_else(|| {
-            WireError::Protocol("MIMI key material outcome signature is missing".to_owned())
-        })?;
-        let proof = UnsignedPayloadProof {
-            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: signature.verification_method.clone(),
-            payload_digest: signature.payload_digest.clone(),
-            created_at: signature.created_at,
-            domain: Some(signature.domain.as_str().to_owned()),
-            audience: Some(signature.audience.clone()),
-            proof_purpose: None,
-        };
-        if signature.kind != MimiSignatureKind::DetachedJws
-            || signature.payload_digest != self.payload_digest()?
-        {
-            return Err(WireError::Protocol(
-                "MIMI key material outcome signature metadata mismatch".to_owned(),
-            ));
-        }
-        self.unsigned_proof_binding_bytes(&proof)
-    }
 }
 
 impl MimiRoomUpdateRequestBody {
@@ -1263,51 +1174,6 @@ mod mimi_relay_tests {
     const EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
     const DIGEST: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
-
-    #[test]
-    fn key_material_request_proof_binds_exact_device_and_unsigned_body() {
-        let original: MimiKeyMaterialRequestBody = serde_json::from_value(json!({
-            "requester_id": "ak:did_core:web:provider.example",
-            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
-            "device_id": DEVICE,
-            "epoch": 3
-        }))
-        .unwrap();
-        let proof = PayloadProof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: DidUrl::new("did:web:provider.example#key-1").unwrap(),
-            payload_digest: original.payload_digest().unwrap(),
-            created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
-            domain: Some(ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1.to_owned()),
-            audience: Some(arkret_wire::Audience::Single(
-                "ak:did_core:web:station.example".to_owned(),
-            )),
-            proof_purpose: None,
-            jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
-        };
-        let original_bytes = original.proof_binding_bytes(&proof).unwrap();
-        let transcript = String::from_utf8(original_bytes.clone()).unwrap();
-        assert!(transcript.contains(ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1));
-        assert!(
-            transcript.contains(ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1)
-        );
-        assert!(transcript.contains("\"device_id\""));
-
-        let changed: MimiKeyMaterialRequestBody = serde_json::from_value(json!({
-            "requester_id": "ak:did_core:web:provider.example",
-            "strand_id": "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0",
-            "device_id": "ak:device:0198ff00-0000-7000-8000-000000000002",
-            "epoch": 3
-        }))
-        .unwrap();
-        assert!(changed.proof_binding_bytes(&proof).is_err());
-        let mut changed_proof = proof;
-        changed_proof.payload_digest = changed.payload_digest().unwrap();
-        assert_ne!(
-            original_bytes,
-            changed.proof_binding_bytes(&changed_proof).unwrap()
-        );
-    }
 
     fn identifier_query_request_value() -> Value {
         json!({

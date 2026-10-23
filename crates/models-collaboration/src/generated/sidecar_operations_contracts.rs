@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/principal-operations.schema.json
-// sha256=c38b1b1a301afa59c2566347c20c59d5349e54aa26a859d70bb608f40d531811
+// sha256=a1d6fc8b314af8c796f49639398ed443ff7a4067285131ff4e2bfded7dde8ac8
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
+// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
 
 /// Counterpart: `principal-operations.schema.json#/$defs/sidecar_stream_head`.
 /// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar

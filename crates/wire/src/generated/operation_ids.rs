@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-22.7;
-//! sha256=75953fffd87d57c571879864dad53607ecf7060c4816bc5eaf11f19a1f5ca440 Entries: registered=225
+//! Input: registry/contract-registry.json; version=2026-10-23.2;
+//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -3140,15 +3140,17 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_request_body",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_outcome",
         ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.open.mimi.exchange.request_key_material.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-21.2;
-//! sha256=67fe1e85c5595c6f6018626d1effa6b4d9245cc5ae1d7b82264c3f6c90b5671f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-23.2;
+//! sha256=4dfcd16f1168c786d41c926720172cf8ba7f59c1c5b427650fd05aafb1be2256 Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -16,15 +16,14 @@
 //! sha256=f30aa623670389336a25fae1c5e0dc3b0ba1fd3b80468dba57fb984c685996b8 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=38, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=46, aead_profiles=2
+//! Entries: proof_contexts=35, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=47, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ProofContextId {
     AccountBindingReceiptProofV1,
     AccountHandoffAuthenticationProofV1,
-    AccountRegistrationControlProofV1,
     AccountStatusRecordProofV1,
     AccountStatusReplicationReceiptProofV1,
     AccountabilityGrantProofV1,
@@ -44,8 +43,6 @@ pub enum ProofContextId {
     KeyBackupDeleteProofV1,
     MimiIdentifierQueryOutcomeProofV1,
     MimiIdentifierQueryRequestProofV1,
-    MimiKeyMaterialOutcomeProofV1,
-    MimiKeyMaterialRequestProofV1,
     MimiProviderDirectoryProofV1,
     MimiRequestConsentRequestProofV1,
     MimiUpdateConsentRequestProofV1,
@@ -66,7 +63,6 @@ impl ProofContextId {
     pub const ALL: &'static [Self] = &[
         Self::AccountBindingReceiptProofV1,
         Self::AccountHandoffAuthenticationProofV1,
-        Self::AccountRegistrationControlProofV1,
         Self::AccountStatusRecordProofV1,
         Self::AccountStatusReplicationReceiptProofV1,
         Self::AccountabilityGrantProofV1,
@@ -86,8 +82,6 @@ impl ProofContextId {
         Self::KeyBackupDeleteProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
         Self::MimiIdentifierQueryRequestProofV1,
-        Self::MimiKeyMaterialOutcomeProofV1,
-        Self::MimiKeyMaterialRequestProofV1,
         Self::MimiProviderDirectoryProofV1,
         Self::MimiRequestConsentRequestProofV1,
         Self::MimiUpdateConsentRequestProofV1,
@@ -108,8 +102,6 @@ impl ProofContextId {
         "ak.account_binding_receipt_proof.v1";
     pub const ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1: &'static str =
         "ak.account_handoff_authentication_proof.v1";
-    pub const ACCOUNT_REGISTRATION_CONTROL_PROOF_V1: &'static str =
-        "ak.account_registration_control_proof.v1";
     pub const ACCOUNT_STATUS_RECORD_PROOF_V1: &'static str = "ak.account_status_record_proof.v1";
     pub const ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1: &'static str =
         "ak.account_status_replication_receipt_proof.v1";
@@ -136,10 +128,6 @@ impl ProofContextId {
         "ak.mimi_identifier_query_outcome_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1: &'static str =
         "ak.mimi_identifier_query_request_proof.v1";
-    pub const MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1: &'static str =
-        "ak.mimi_key_material_outcome_proof.v1";
-    pub const MIMI_KEY_MATERIAL_REQUEST_PROOF_V1: &'static str =
-        "ak.mimi_key_material_request_proof.v1";
     pub const MIMI_PROVIDER_DIRECTORY_PROOF_V1: &'static str =
         "ak.mimi_provider_directory_proof.v1";
     pub const MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1: &'static str =
@@ -173,7 +161,6 @@ impl ProofContextId {
             Self::AccountHandoffAuthenticationProofV1 => {
                 Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1
             }
-            Self::AccountRegistrationControlProofV1 => Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1,
             Self::AccountStatusRecordProofV1 => Self::ACCOUNT_STATUS_RECORD_PROOF_V1,
             Self::AccountStatusReplicationReceiptProofV1 => {
                 Self::ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1
@@ -199,8 +186,6 @@ impl ProofContextId {
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
             Self::MimiIdentifierQueryOutcomeProofV1 => Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryRequestProofV1 => Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
-            Self::MimiKeyMaterialOutcomeProofV1 => Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
-            Self::MimiKeyMaterialRequestProofV1 => Self::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
             Self::MimiProviderDirectoryProofV1 => Self::MIMI_PROVIDER_DIRECTORY_PROOF_V1,
             Self::MimiRequestConsentRequestProofV1 => Self::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
             Self::MimiUpdateConsentRequestProofV1 => Self::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
@@ -240,9 +225,6 @@ impl ProofContextId {
             Self::ACCOUNT_HANDOFF_AUTHENTICATION_PROOF_V1 => {
                 Some(Self::AccountHandoffAuthenticationProofV1)
             }
-            Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1 => {
-                Some(Self::AccountRegistrationControlProofV1)
-            }
             Self::ACCOUNT_STATUS_RECORD_PROOF_V1 => Some(Self::AccountStatusRecordProofV1),
             Self::ACCOUNT_STATUS_REPLICATION_RECEIPT_PROOF_V1 => {
                 Some(Self::AccountStatusReplicationReceiptProofV1)
@@ -274,8 +256,6 @@ impl ProofContextId {
             Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1 => {
                 Some(Self::MimiIdentifierQueryRequestProofV1)
             }
-            Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1 => Some(Self::MimiKeyMaterialOutcomeProofV1),
-            Self::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1 => Some(Self::MimiKeyMaterialRequestProofV1),
             Self::MIMI_PROVIDER_DIRECTORY_PROOF_V1 => Some(Self::MimiProviderDirectoryProofV1),
             Self::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1 => {
                 Some(Self::MimiRequestConsentRequestProofV1)
@@ -320,6 +300,7 @@ impl ProofContextId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum DomainSeparationId {
+    AccountRegistrationControlProofV1,
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
     AppletConfigurationCommandV1,
@@ -370,6 +351,7 @@ pub enum DomainSeparationId {
 
 impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
+        Self::AccountRegistrationControlProofV1,
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
         Self::AppletConfigurationCommandV1,
@@ -418,6 +400,8 @@ impl DomainSeparationId {
         Self::WebsocketAuthV1,
     ];
 
+    pub const ACCOUNT_REGISTRATION_CONTROL_PROOF_V1: &'static str =
+        "ak.account_registration_control_proof.v1";
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.agent_authority_state_evidence.v1";
@@ -492,6 +476,7 @@ impl DomainSeparationId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountRegistrationControlProofV1 => Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1,
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
             Self::AppletConfigurationCommandV1 => Self::APPLET_CONFIGURATION_COMMAND_V1,
@@ -567,6 +552,9 @@ impl DomainSeparationId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACCOUNT_REGISTRATION_CONTROL_PROOF_V1 => {
+                Some(Self::AccountRegistrationControlProofV1)
+            }
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
             Self::APPLET_CONFIGURATION_COMMAND_V1 => Some(Self::AppletConfigurationCommandV1),
@@ -858,34 +846,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "code_verifier",
         ],
         schema_ref: "schemas/account-operations.schema.json#/$defs/account_handoff_authentication_proof",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AccountRegistrationControlProofV1,
-        context: "ak.account_registration_control_proof.v1",
-        object_family: "account_registration_control_proof",
-        consumer_operation: None,
-        binding_fields: &[
-            "proof_kind",
-            "challenge_id",
-            "challenge",
-            "purpose",
-            "request_canonical_digest",
-            "account_subject",
-            "principal_id",
-            "did",
-            "did_version_id",
-            "log_head_digest",
-            "control_key_digest",
-            "dpop_jkt",
-            "audience_id",
-            "origin",
-            "trust_domain",
-            "issued_at",
-            "expires_at",
-            "verification_method",
-            "witness_evidence?",
-        ],
-        schema_ref: "schemas/account-operations.schema.json#/$defs/account_registration_control_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::AccountStatusRecordProofV1,
@@ -1187,39 +1147,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience",
         ],
         schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_request_body",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::MimiKeyMaterialOutcomeProofV1,
-        context: "ak.mimi_key_material_outcome_proof.v1",
-        object_family: "mimi_key_material_outcome",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "operation_id",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_outcome",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::MimiKeyMaterialRequestProofV1,
-        context: "ak.mimi_key_material_request_proof.v1",
-        object_family: "mimi_key_material_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "strand_id",
-            "device_id",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_key_material_request_body",
     },
     ProofContextDescriptor {
         id: ProofContextId::MimiProviderDirectoryProofV1,

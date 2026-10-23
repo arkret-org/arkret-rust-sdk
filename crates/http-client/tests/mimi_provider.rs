@@ -13,7 +13,7 @@ use arkret_wire::{
     AccountId, ActorId, DidCoreId, EventAdmissionSubmission, EventId, EventKind, MimiRoomUri,
     PayloadProof, RealmId, ScopeRef,
 };
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{Signer as _, SigningKey};
 use serde_json::{Value, json};
 const STRAND: &str = "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
 const CONSENT: &str = "ak:consent:0198ff00-0000-7000-8000-000000000001";
@@ -35,6 +35,40 @@ fn scope() -> ScopeRef {
 }
 fn proof() -> PayloadProof {
     serde_json::from_value(json!({"kind":"detached_jws","verification_method":"did:web:alice.example#device-1", "payload_digest":format!("sha256:{}","0".repeat(64)),"created_at":arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now()),"domain":"ak:trust_domain:station.example","audience":"ak:did_core:web:station.example","jws":"pending"})).unwrap()
+}
+fn trust_domain() -> arkret_wire::TrustDomainId {
+    "ak:trust_domain:testing.example".parse().unwrap()
+}
+fn key_material_request() -> arkret_models_crypto::PeerKeyPackagesClaimRequestBody {
+    let device = "ak:device:0198ff00-0000-7000-8000-000000000001";
+    let method = format!("did:web:alice.example#{device}");
+    let at = chrono::Utc::now();
+    let mut request: arkret_models_crypto::PeerKeyPackagesClaimRequestBody = serde_json::from_value(json!({
+        "claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ",
+        "target_account_id":AccountId::new(core("bob"),core("destination")),
+        "requester_account_id":AccountId::new(core("alice"),core("source")),
+        "target_device_ids":["ak:device:0198ff00-0000-7000-8000-000000000002"],
+        "intended_realm_id":scope().realm_id(), "mls_group_id":scope().canonical_mls_group_id().unwrap(),
+        "claim_purpose":"realm_membership", "required_capabilities":["mimi.content.v1"],
+        "expires_at":arkret_canonical::normalize_timestamp_canonical(at+chrono::Duration::minutes(5)),
+        "service_binding":{"source_id":core("source"),"destination_id":core("destination")},
+        "requester_authorization":{"kind":"device","verification_method":method,"requester_device_id":device,
+            "device_authorize_event_id":EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[2;32]),
+            "signed_at":arkret_canonical::normalize_timestamp_canonical(at),"signature":{"kid":method,"sig":"AA"}}
+    })).unwrap();
+    let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
+        &request.unsigned_request(),
+        &request.service_binding,
+        &request.requester_authorization,
+    )
+    .unwrap();
+    let signature = SigningKey::from_bytes(&[4; 32]).sign(&input);
+    let mut value = serde_json::to_value(&request).unwrap();
+    value["requester_authorization"]["signature"]["sig"] =
+        json!(arkret_canonical::base64url_encode(signature.to_bytes()));
+    request = serde_json::from_value(value).unwrap();
+    request.validate_shape().unwrap();
+    request
 }
 fn request_consent() -> MimiRequestConsentRequestBody {
     let mut v:MimiRequestConsentRequestBody=serde_json::from_value(json!({"requester_actor_id":actor(),"holder_account_id":AccountId::new(core("bob"),core("station")),"purpose":"voice_call","proofs":[proof()]})).unwrap();
@@ -227,14 +261,13 @@ fn server(responses: Vec<(u16, Value)>) -> (Client, std::thread::JoinHandle<Vec<
 }
 #[tokio::test]
 async fn non_replayable_operations_are_signed_once_even_on_transient_failure() {
-    for operation in 0..7 {
+    for operation in [0, 2, 3, 4, 5, 6] {
         let (client, handle) = server(vec![(503, json!({}))]);
         let client = client
             .with_mimi_room(MimiRoomUri::new(ROOM).unwrap())
             .unwrap();
         let failed=match operation {
             0=>client.mimi_request_consent(&request_consent()).await.is_err(),
-            1=>client.mimi_request_key_material(&serde_json::from_value(json!({"requester_id":core("source"),"strand_id":STRAND,"device_id":"ak:device:0198ff00-0000-7000-8000-000000000001"})).unwrap()).await.is_err(),
             2=>client.mimi_update_room(STRAND,&room_request()).await.is_err(),
             3=>client.mimi_notify(STRAND,&serde_json::from_value(json!({"notification":{"kind":"delivery"}})).unwrap()).await.is_err(),
             4=>client.mimi_identifier_query(&serde_json::from_value(json!({"identifiers":[{"kind":"handle","identifier_commitment":format!("sha256:{}","1".repeat(64))}],"privacy_profile":"private_identifier_query"})).unwrap()).await.is_err(),
@@ -428,14 +461,17 @@ async fn own_station_directory_requires_https_before_any_authentication() {
 #[tokio::test]
 async fn malformed_successes_are_rejected() {
     let (client, handle) = server(vec![(200, json!({}))]);
-    let request=serde_json::from_value(json!({"requester_id":core("source"),"strand_id":STRAND,"device_id":"ak:device:0198ff00-0000-7000-8000-000000000001"})).unwrap();
-    assert!(matches!(
-        client.mimi_request_key_material(&request).await,
-        Err(arkret_http_client::Error::Wire(
-            arkret_wire::WireError::Protocol(_)
-        ))
-    ));
-    handle.join().unwrap();
+    let request = key_material_request();
+    let client = client
+        .with_mimi_room(MimiRoomUri::new(ROOM).unwrap())
+        .unwrap();
+    assert!(
+        client
+            .mimi_request_key_material(&request, &trust_domain(), &trust_domain())
+            .await
+            .is_err()
+    );
+    assert_eq!(handle.join().unwrap().len(), 1);
     let (client, handle) = server(vec![(
         200,
         json!({"accepted":true,"room_state_ref":EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[6;32])}),
@@ -478,5 +514,79 @@ async fn identifier_receipt_binds_commitment_multiplicity_without_imposing_order
         let (client, handle) = server(vec![(200, json!({"matches":matches,"has_more":false}))]);
         assert_eq!(client.mimi_identifier_query(&request).await.is_ok(), valid);
         handle.join().unwrap();
+    }
+}
+
+#[tokio::test]
+async fn key_material_retries_only_the_original_native_claim_and_signs_all_bindings() {
+    let request = key_material_request();
+    let pending =
+        json!({"claim_request_id":request.claim_request_id,"state":"pending","retry_after_ms":1});
+    let (client, handle) = server(vec![
+        (503, json!({"error":"temporarily_unavailable"})),
+        (200, pending),
+    ]);
+    let result = client
+        .with_mimi_room(MimiRoomUri::new(ROOM).unwrap())
+        .unwrap()
+        .mimi_request_key_material(&request, &trust_domain(), &trust_domain())
+        .await
+        .unwrap();
+    assert_eq!(
+        result.state,
+        arkret_models_crypto::PeerKeyPackagesClaimQueryState::Pending
+    );
+    let captured = handle.join().unwrap();
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].body, captured[1].body);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&captured[0].body).unwrap(),
+        serde_json::to_value(&request).unwrap()
+    );
+    for sent in captured {
+        assert!(sent.verify(true));
+        assert_eq!(sent.header("provider-id"), Some(core("source").as_str()));
+        assert_eq!(
+            sent.header("idempotency-key"),
+            Some(request.claim_request_id.as_str())
+        );
+        assert!(sent.header("authorization").is_none());
+        for name in [
+            "idempotency-key",
+            "mimi-room-uri",
+            "source-trust-domain",
+            "destination-trust-domain",
+        ] {
+            assert!(
+                sent.header("signature-input")
+                    .unwrap()
+                    .contains(&format!("\"{name}\""))
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn key_material_rejects_provider_only_and_last_resort_requests_before_io() {
+    for mutation in 0..3 {
+        let (client, handle) = server(vec![]);
+        let mut request = key_material_request();
+        match mutation {
+            0 => request.last_resort_allowed = Some(true),
+            1 => {
+                request.required_capabilities =
+                    vec![arkret_wire::NonEmptyString::new("ak.content.v1").unwrap()]
+            }
+            _ => request.service_binding.source_id = core("another-station"),
+        }
+        assert!(
+            client
+                .with_mimi_room(MimiRoomUri::new(ROOM).unwrap())
+                .unwrap()
+                .mimi_request_key_material(&request, &trust_domain(), &trust_domain())
+                .await
+                .is_err()
+        );
+        assert!(handle.join().unwrap().is_empty());
     }
 }

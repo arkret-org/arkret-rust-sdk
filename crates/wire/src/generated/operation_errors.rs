@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-22.3;
-//! sha256=f8195f9f9b3bb1085367e55d9c19917febc95e6774ed01af890b6fdfbddc07c4 Input: registry/
-//! contract-registry.json; version=2026-10-22.9;
-//! sha256=75953fffd87d57c571879864dad53607ecf7060c4816bc5eaf11f19a1f5ca440 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-23.1;
+//! sha256=79d4e0f27672a77d587a748f09a16900f68a8f39cdedb6871992fd38b4eac284 Input: registry/
+//! contract-registry.json; version=2026-10-23.3;
+//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5 Input: registry/
 //! error-code-registry.json; version=2026-10-22.4;
 //! sha256=2dddaeb4d6a71cb86b63f6e2809659819bd8176e86e7afef090798f1dc40ba5a Entries: operations=225
 
@@ -250,6 +250,9 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
         OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
         OperationSpecificError::Code(ErrorCode::SignatureWindowInvalid),
+        OperationSpecificError::Code(ErrorCode::ClaimFailed),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),

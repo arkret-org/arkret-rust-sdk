@@ -3,28 +3,30 @@
 use std::fs;
 
 use arkret_models_collaboration::mimi_operations::{
-    MimiKeyMaterialOutcome, MimiKeyMaterialRequestBody, MimiNotifyOutcome, MimiNotifyRequestBody,
-    MimiReportAbuseRequestBody, MimiRequestConsentOutcome, MimiRoomUpdateOutcome,
-    MimiRoomUpdateRequestBody, MimiUpdateConsentOutcome,
+    MimiNotifyOutcome, MimiNotifyRequestBody, MimiReportAbuseRequestBody,
+    MimiRequestConsentOutcome, MimiRoomUpdateOutcome, MimiRoomUpdateRequestBody,
+    MimiUpdateConsentOutcome,
 };
+use arkret_models_crypto::{PeerKeyPackagesClaimQueryOutcome, PeerKeyPackagesClaimRequestBody};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
-const STRAND: &str = "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
-const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
 const MLS_GROUP: &str = "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4";
 const EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const CONSENT: &str = "ak:consent:0198ff00-0000-7000-8000-000000000001";
 
 fn schema_accepts(fragment: &str, value: &Value) -> bool {
+    schema_accepts_from("mimi-operations.schema.json", fragment, value)
+}
+
+fn schema_accepts_from(document: &str, fragment: &str, value: &Value) -> bool {
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
     let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
-    let schema: Value = serde_json::from_slice(
-        &fs::read(artifacts.join("schemas/mimi-operations.schema.json")).unwrap(),
-    )
-    .unwrap();
+    let schema: Value =
+        serde_json::from_slice(&fs::read(artifacts.join("schemas").join(document)).unwrap())
+            .unwrap();
     registry
         .register_reference_document(schema.clone())
         .unwrap();
@@ -54,36 +56,73 @@ fn assert_closed_roundtrip<T: DeserializeOwned + Serialize>(fragment: &str, valu
 }
 
 #[test]
-fn key_material_request_and_outcome_are_closed() {
-    assert_closed_roundtrip::<MimiKeyMaterialRequestBody>(
-        "mimi_key_material_request_body",
-        json!({
-            "requester_id": "ak:did_core:web:provider.example",
-            "strand_id": STRAND,
-            "device_id": DEVICE
-        }),
-    );
-    assert_closed_roundtrip::<MimiKeyMaterialOutcome>(
-        "mimi_key_material_outcome",
-        json!({"keypackages": []}),
-    );
+fn key_material_reuses_closed_native_claim_without_a_second_mimi_carrier() {
+    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+    let fixture: Value = serde_json::from_slice(
+        &fs::read(artifacts.join("fixtures/keypackage-lifecycle-fixture.json")).unwrap(),
+    )
+    .unwrap();
+    let mut request = fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "local_and_remote_claim_share_closed_authorization_carrier")
+        .unwrap()["instance"]
+        .clone();
+    request["required_capabilities"] = json!(["mimi.content.v1"]);
+    let schema = "keypackage-operations.schema.json";
+    let request_fragment = "keypackages_claim_request_body";
+    assert!(schema_accepts_from(schema, request_fragment, &request));
+    let parsed: PeerKeyPackagesClaimRequestBody = serde_json::from_value(request.clone()).unwrap();
+    parsed.validate_shape().unwrap();
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), request);
+    for field in ["requester_id", "epoch", "proofs", "group_info"] {
+        let mut legacy = request.clone();
+        legacy[field] = json!("retired");
+        assert!(!schema_accepts_from(schema, request_fragment, &legacy));
+        assert!(serde_json::from_value::<PeerKeyPackagesClaimRequestBody>(legacy).is_err());
+    }
+    let pending =
+        json!({"claim_request_id": parsed.claim_request_id, "state":"pending", "retry_after_ms":1});
+    assert!(schema_accepts_from(
+        schema,
+        "peer_keypackages_claim_command_outcome",
+        &pending
+    ));
+    serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(pending)
+        .unwrap()
+        .validate_command_shape()
+        .unwrap();
+    let unknown = json!({"claim_request_id": parsed.claim_request_id, "state":"unknown"});
+    assert!(!schema_accepts_from(
+        schema,
+        "peer_keypackages_claim_command_outcome",
+        &unknown
+    ));
     assert!(
-        serde_json::from_value::<MimiKeyMaterialOutcome>(json!({}))
+        serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(unknown)
             .unwrap()
-            .validate()
+            .validate_command_shape()
             .is_err()
     );
-    let empty_proofs = json!({
-        "requester_id": "ak:did_core:web:provider.example",
-        "strand_id": STRAND,
-        "device_id": DEVICE,
-        "proofs": []
-    });
-    assert!(!schema_accepts(
+    for retired in [
+        json!({"keypackages":[]}),
+        json!({"group_info":{"mls_group_id":MLS_GROUP,"epoch":1,"group_info":"YQ"}}),
+    ] {
+        assert!(serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(retired).is_err());
+    }
+    let old: Value = serde_json::from_slice(
+        &fs::read(artifacts.join("schemas/mimi-operations.schema.json")).unwrap(),
+    )
+    .unwrap();
+    for retired in [
+        "group_info",
+        "keypackage",
         "mimi_key_material_request_body",
-        &empty_proofs
-    ));
-    assert!(serde_json::from_value::<MimiKeyMaterialRequestBody>(empty_proofs).is_err());
+        "mimi_key_material_outcome",
+    ] {
+        assert!(old["$defs"].get(retired).is_none());
+    }
 }
 
 #[test]

@@ -3,29 +3,9 @@
 use std::num::NonZeroU64;
 
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, Hash, MimiRoomUri, MimiUri, MlsGroupId, NonEmptyString,
-    ReasonCode,
+    Base64UrlString, DidCoreId, Hash, MimiRoomUri, MimiUri, NonEmptyString, ReasonCode,
 };
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiKeyPackage {
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keypackage_ref: Option<NonEmptyString>,
-    pub mls_keypackage: Base64UrlString,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiGroupInfo {
-    pub mls_group_id: MlsGroupId,
-    pub epoch: u64,
-    pub group_info: Base64UrlString,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

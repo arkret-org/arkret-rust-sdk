@@ -10,7 +10,8 @@ exclude = [
 version = 2
 ignore = [
     # Same accepted maintenance notice as Inkson: OpenMLS 0.9's RustCrypto
-    # backend pins hpke-rs 0.7 -> libcrux-sha3 0.0.10 -> hax-lib 0.3.7.
+    # backend's patched hpke-rs 0.8 still reaches libcrux-sha3 0.0.11
+    # and hax-lib 0.4.2, whose macro dependency remains unmaintained.
     # Remove this entry when that upstream chain replaces proc-macro-error2;
     # other advisories remain failures, including newly reported notices.
     { id = "RUSTSEC-2026-0173", reason = "transitive OpenMLS hax macro dependency with no compatible replacement" },
@@ -45,4 +46,4 @@ wildcards = "allow"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/arkret-org/secret-service-rs"]
+allow-git = ["https://github.com/arkret-org/secret-service-rs", "https://github.com/arkret-org/openmls"]

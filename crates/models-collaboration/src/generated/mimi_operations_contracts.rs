@@ -2,25 +2,22 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/mimi-operations.schema.json
-// sha256=e77636e8329bbf233a363f83931d8c7eff7c221974d377f9af9a7ae7c8eddd5f
+// sha256=422257434de49b364de37d21546a829b240ae6ba53f655f83e299e49f96724c6
 //
 // Input: schemas/common-ids.schema.json
 // sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
 //
 // Input: schemas/account-operations.schema.json
-// sha256=b4be514e16b4a5154a4cb3bd56cf062f9ffb2cfc29ef25a26777a29f1e3d7644
+// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
-// Input: schemas/mimi-interop.schema.json
-// sha256=1da40835f537bb2d61f690537162e825b6dc11a8fcb97b8ca7824b02fe137329
-//
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=cf32adc7dde893269afa676f7f507979b0f1899e2c565185d7a9f752c4f4e2ff
+// sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c47c2cf65d6369093f5d7c6c29aaabfd64872c6277db759f4cd74b82db0a8236
+// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
 /// Counterpart for
@@ -106,35 +103,6 @@ pub struct MimiProxyDownloadOutcome {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_key_material_request_body`.
-/// `mimi-operations.schema.json#/$defs/mimi_key_material_request_body`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiKeyMaterialRequestBody {
-    pub requester_id: DidCoreId,
-    pub strand_id: StrandId,
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub mimi_room_uri: Option<MimiRoomUri>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub mls_group_id: Option<MlsGroupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub epoch: Option<u64>,
-    #[serde(
-        default,
-        skip_serializing_if = "Vec::is_empty",
-        deserialize_with = "deserialize_nonempty_identifier_query_proofs"
-    )]
-    pub proofs: Vec<PayloadProof>,
-}
-
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_room_update_request_body`.
 /// `mimi-operations.schema.json#/$defs/mimi_room_update_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -197,25 +165,4 @@ pub struct MimiUpdateConsentOutcome {
     #[serde(with = "canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
     pub event_ref: EventId,
-}
-
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_key_material_outcome`.
-/// `mimi-operations.schema.json#/$defs/mimi_key_material_outcome`.
-/// Presence is preserved for the schema's at-least-one branch constraint.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiKeyMaterialOutcome {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub keypackages: Option<Vec<MimiKeyPackage>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub group_info: Option<MimiGroupInfo>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub failures: Option<Vec<MimiFailure>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub signature: Option<MimiOperationSignature>,
 }

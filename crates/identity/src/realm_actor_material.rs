@@ -1,7 +1,7 @@
 //! Cryptographic verification of exact, private Realm actor material.
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_models_integration::{
-    RealmActorMaterialOutcome, RealmActorMaterialRequest, RealmActorMaterialResult,
+    RealmActorMaterial, RealmActorMaterialOutcome, RealmActorMaterialRequest,
 };
 use arkret_wire::{ActorId, DetachedSignatureContext};
 use chrono::{DateTime, Utc};
@@ -67,7 +67,7 @@ pub fn verify_realm_actor_material(
         &key,
     )
     .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    if let RealmActorMaterialResult::Event {
+    if let RealmActorMaterial::Event {
         event,
         commit,
         producer_signer_fact,

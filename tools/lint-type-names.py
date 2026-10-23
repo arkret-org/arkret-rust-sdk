@@ -36,10 +36,6 @@ EXCEPTIONS = {
         "First-class moderation queue object with its own registered identifier and schema.",
     ("models-collaboration/src/governance/realm_governance.rs", "RealmLinkTransitionCandidate"):
         "Non-wire borrowed input to the local transition evaluator.",
-    ("models-collaboration/src/objects/mimi.rs", "MimiGroupInfo"):
-        "External MLS GroupInfo term in the MIMI binding.",
-    ("models-collaboration/src/objects/generated/interop_contracts.rs", "GroupInfo"):
-        "External MLS GroupInfo term in the MIMI binding.",
     ("models-collaboration/src/objects/productivity.rs", "RsvpResponse"):
         "Domain RSVP answer, not an endpoint response wrapper.",
 }

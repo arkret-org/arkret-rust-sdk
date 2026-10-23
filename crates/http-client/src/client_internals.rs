@@ -552,6 +552,15 @@ impl Client {
         {
             applicable_conditionals.push("mimi-room-uri");
         }
+        if scenario == HttpSignatureScenario::MimiProviderV1
+            && request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
+        {
+            for component in ["source-trust-domain", "destination-trust-domain"] {
+                if request.headers().contains_key(component) {
+                    applicable_conditionals.push(component);
+                }
+            }
+        }
         let url = request.url();
         let parts = SignedRequestParts {
             method: request.method().as_str().to_owned(),
