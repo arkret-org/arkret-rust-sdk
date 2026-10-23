@@ -158,7 +158,6 @@ impl DidCoreIdentityBundle {
             ));
         }
         self.identity.validate()?;
-        let key = &self.identity.identity.registration_key;
         let did = &self.identity.identity.did;
 
         let inception: ServiceWebvhInceptionOperation = serde_json::from_value(
@@ -170,7 +169,7 @@ impl DidCoreIdentityBundle {
         .map_err(|error| {
             IdentityError::Protocol(format!("identity bundle inception is malformed: {error}"))
         })?;
-        inception.validate_for(key)?;
+        inception.validate_for(&self.receipt_chains[0].registration_key)?;
         if project_did_to_core_id(&inception.state.id)? != self.identity.identity.service_id {
             return Err(IdentityError::Protocol(
                 "identity bundle history belongs to a different service DID".to_owned(),
@@ -216,7 +215,7 @@ impl DidCoreIdentityBundle {
         if self
             .receipt_chains
             .last()
-            .is_none_or(|receipt| receipt.version_id != self.identity.identity.version_id)
+            .is_none_or(|receipt| receipt != &self.identity.registration_receipt)
         {
             return Err(IdentityError::Protocol(
                 "identity bundle receipt chain does not end at the bundled identity version"
@@ -228,7 +227,13 @@ impl DidCoreIdentityBundle {
                 serde_json::from_value(entry.pointer("/state/id").cloned().ok_or_else(|| {
                     IdentityError::Protocol("identity bundle entry omits its DID".to_owned())
                 })?)?;
-            receipt.validate_for(key, &self.identity.identity.service_id, &entry_did)?;
+            receipt.validate_for(
+                &receipt.registration_key,
+                &self.identity.identity.service_id,
+                &entry_did,
+            )?;
+            let document: ServiceDidDocument = serde_json::from_value(entry["state"].clone())?;
+            document.validate_for(&receipt.registration_key)?;
             let version_id = entry
                 .get("versionId")
                 .and_then(Value::as_str)

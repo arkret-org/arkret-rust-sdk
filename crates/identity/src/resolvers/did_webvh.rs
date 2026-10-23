@@ -824,10 +824,13 @@ fn verify_did_webvh_v1_internal(
             && state_id != previous_state_id
         {
             if !effective_portable {
-                return Err(IdentityError::Protocol(
-                    "did:webvh rename requires portable=true in its predecessor effective state"
-                        .to_owned(),
-                ));
+                return Err(arkret_wire::WireError::ProtocolCode {
+                    code: arkret_wire::ErrorCode::DidMethodSuccessorInvalid,
+                    message:
+                        "did:webvh rename requires portable=true in its predecessor effective state"
+                            .to_owned(),
+                }
+                .into());
             }
             let links_predecessor = entry
                 .state
@@ -839,10 +842,13 @@ fn verify_did_webvh_v1_internal(
                         .any(|alias| alias.as_str() == Some(previous_state_id))
                 });
             if !links_predecessor {
-                return Err(IdentityError::Protocol(
-                    "did:webvh renamed state must include its direct predecessor in alsoKnownAs"
-                        .to_owned(),
-                ));
+                return Err(arkret_wire::WireError::ProtocolCode {
+                    code: arkret_wire::ErrorCode::DidMethodSuccessorInvalid,
+                    message:
+                        "did:webvh renamed state must include its direct predecessor in alsoKnownAs"
+                            .to_owned(),
+                }
+                .into());
             }
         }
         let previous_anchor = previous_version_id.unwrap_or(scid.as_str());

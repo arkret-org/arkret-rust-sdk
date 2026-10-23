@@ -276,6 +276,8 @@ fn portable_method_relocation_preserves_the_accepted_service_state() {
         state: &state,
     })
     .unwrap();
+    assert_eq!(relocation.submit_body.did.as_str(), target);
+    assert_eq!(relocation.submit_body.operation["state"]["id"], target);
     log_entries.push(relocation.log_entry);
     let raw_log = log_entries
         .iter()

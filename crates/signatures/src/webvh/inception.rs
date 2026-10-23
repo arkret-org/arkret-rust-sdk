@@ -1890,7 +1890,7 @@ pub fn prepare_webvh_relocation(
     )
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let submit_body = did_submit_body(
-        input.current_did,
+        input.target_did,
         sequence,
         Some(previous_event_digest),
         log_entry.clone(),

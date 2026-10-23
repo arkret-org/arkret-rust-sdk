@@ -174,7 +174,12 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
     let mut same_transition_enable = enabled.log_entry;
     same_transition_enable["state"] = target_state;
     let illegal_enable = vec![inception.log_entry.clone(), same_transition_enable];
-    assert!(verify_did_webvh_v1_log(&target, &illegal_enable).is_err());
+    assert_eq!(
+        verify_did_webvh_v1_log(&target, &illegal_enable)
+            .unwrap_err()
+            .error_code(),
+        Some(arkret_wire::ErrorCode::DidMethodSuccessorInvalid)
+    );
     assert!(
         validate_webvh_history_at(&target, &illegal_enable, at("2026-06-02T00:00:01Z")).is_err()
     );
@@ -238,7 +243,12 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
         illegal_disabled_relocation,
     ];
     let disabled_target = Did::new(disabled_target_did).unwrap();
-    assert!(verify_did_webvh_v1_log(&disabled_target, &illegal_disabled).is_err());
+    assert_eq!(
+        verify_did_webvh_v1_log(&disabled_target, &illegal_disabled)
+            .unwrap_err()
+            .error_code(),
+        Some(arkret_wire::ErrorCode::DidMethodSuccessorInvalid)
+    );
     assert!(
         validate_webvh_history_at(
             &disabled_target,
