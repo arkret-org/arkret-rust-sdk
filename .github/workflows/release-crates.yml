@@ -64,7 +64,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.98.0"
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-org/arkret-rust-sdk
