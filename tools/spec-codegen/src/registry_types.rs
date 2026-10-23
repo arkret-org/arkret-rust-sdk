@@ -2333,7 +2333,7 @@ fn generate_account_data_keys(artifacts_dir: &Path) -> Result<GeneratedOutput> {
         }
         writeln!(
             output,
-            "    /// Key pattern: `{}`.\n    pub const {}: &'static str = {};",
+            "    ///\n    /// Key pattern: `{}`.\n    pub const {}: &'static str = {};",
             string(row, "key_pattern")?,
             associated_name(value, &["ak."]),
             rust_string(value)

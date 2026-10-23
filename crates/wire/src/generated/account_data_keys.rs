@@ -70,7 +70,9 @@ impl AccountDataKey {
     /// Holder-private personal blocklist, written only as an encrypted ak.account_data.set value
     /// under the server-revision CAS. Only key-holding holder devices apply it to local
     /// projections, notifications and holder-private requests; v1 has no service plaintext
-    /// disclosure or filtering operation. Key pattern: `ak.account.blocklist`.
+    /// disclosure or filtering operation.
+    ///
+    /// Key pattern: `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
     /// Actor-private plaintext holder quarantine inbox for the two admission surfaces the consent
     /// gate defers under the default profile: invite delivery and
@@ -78,8 +80,9 @@ impl AccountDataKey {
     /// self PUT/DELETE and synthetic ak.account_data.set are forbidden. Accepted writes fan out as
     /// service-sender ak.account_data.update hints and MUST NOT expose contactability signals to
     /// the requester. Contact requests are metered by the same new-source quota but keep their own
-    /// pending_incoming state and never produce an entry here. Key pattern:
-    /// `ak.account.holder_quarantine`.
+    /// pending_incoming state and never produce an entry here.
+    ///
+    /// Key pattern: `ak.account.holder_quarantine`.
     pub const ACCOUNT_HOLDER_QUARANTINE: &'static str = "ak.account.holder_quarantine";
     /// Actor-private holder-side carrier for delivered directed invites on the notify branch
     /// (invite-addressing.md section 7). Written by the recipient Station through the delivery
@@ -87,8 +90,9 @@ impl AccountDataKey {
     /// envelope; it carries invite references and untrusted locator hints, no bearer credential,
     /// and its routing material MUST NOT enter the Invite object or Realm history. Bounded CAS
     /// register: at most 200 entries, expired entries purged first, then oldest evicted; accepted
-    /// writes fan out as ak.account_data.update actor-private device updates. Key pattern:
-    /// `ak.account.invite_delivery`.
+    /// writes fan out as ak.account_data.update actor-private device updates.
+    ///
+    /// Key pattern: `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
     /// Controller-owned encrypted draft created only by the controller holder's ak.account_data.set
     /// CAS. Both key components are fixed 43-character unpadded-base64url SHA-256 digests under
@@ -99,6 +103,7 @@ impl AccountDataKey {
     /// the source row; Station never sees plaintext or generates the encrypted value. Draft MUST
     /// NOT enter shared Realm history; publishing produces a new shared event referencing only an
     /// opaque digest. See actor-private-effects.md §3.2 and private-objects.md §4.1.
+    ///
     /// Key pattern: `ak.agent.draft.v1:<agent_id_sha256_b64u43>:<draft_id_sha256_b64u43>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
     /// Controller-private per-context Sidecar hosted-view state. controller_account_key is
@@ -107,14 +112,19 @@ impl AccountDataKey {
     /// Synchronizes only pin/local-collapse state and HLC, without changing either Strand, Track,
     /// access, read, watch, notification, or search state. The source Strand always merges
     /// authorized private Sidecar requests and user-facing replies for the controller, without
-    /// publish or a display-mode field. Key pattern:
+    /// publish or a display-mode field.
+    ///
+    /// Key pattern:
     /// `ak.agent.sidecar_view_state.v1:<controller_account_key>:<target_realm_id>:
     /// <target_strand_id>`.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.agent.sidecar_view_state.v1";
     /// Private client UI state such as sidebar, recent realms (canonical key recent_realms),
-    /// language, and layout preferences. Key pattern: `ak.client.ui_state`.
+    /// language, and layout preferences.
+    ///
+    /// Key pattern: `ak.client.ui_state`.
     pub const CLIENT_UI_STATE: &'static str = "ak.client.ui_state";
     /// Principal-private custom emoji and sticker collection metadata.
+    ///
     /// Key pattern: `ak.collections.stickers`.
     pub const COLLECTIONS_STICKERS: &'static str = "ak.collections.stickers";
     /// Principal-private holder-authored petname, explicitly confirmed PCR display-name baseline,
@@ -122,67 +132,91 @@ impl AccountDataKey {
     /// acceptance may initialize confirmed_display_name only from profile evidence displayed during
     /// acceptance and never auto-creates petname. principal_key is
     /// base64url(HMAC-SHA256(account_data_namespace_key, RFC8785_JCS(["ak.contacts.actor",
-    /// peer.principal_id]))). Decrypted plaintext validates as ak.schema.contact_remark.v1. Key
-    /// pattern: `ak.contacts.actor.<principal_key>`.
+    /// peer.principal_id]))). Decrypted plaintext validates as ak.schema.contact_remark.v1.
+    ///
+    /// Key pattern: `ak.contacts.actor.<principal_key>`.
     pub const CONTACTS_ACTOR: &'static str = "ak.contacts.actor";
     /// Private local remark, note, tag, and pin metadata for a Realm.
+    ///
     /// Key pattern: `ak.contacts.realm.<realm_id>`.
     pub const CONTACTS_REALM: &'static str = "ak.contacts.realm";
     /// Principal-private do-not-disturb schedule used by notification routing. Decrypted plaintext
-    /// validates as ak.schema.dnd_schedule.v1. Key pattern: `ak.dnd_schedule`.
+    /// validates as ak.schema.dnd_schedule.v1.
+    ///
+    /// Key pattern: `ak.dnd_schedule`.
     pub const DND_SCHEDULE: &'static str = "ak.dnd_schedule";
     /// Principal-private cross-device draft sync key. Raw target_ref MUST NOT appear in the
-    /// account-data key. Key pattern: `ak.draft.v1:<kind>:<target_key>:<slot_key>`.
+    /// account-data key.
+    ///
+    /// Key pattern: `ak.draft.v1:<kind>:<target_key>:<slot_key>`.
     pub const DRAFT_V1: &'static str = "ak.draft.v1";
     /// Principal-private cross-device file transfer record keyed by an HMAC-derived transfer_key.
     /// Blob bytes are stored through ak.self.blob.*; raw blob_ref, filename, target device ids, and
-    /// plaintext hashes MUST NOT appear in the account-data key. Key pattern:
-    /// `ak.file_transfer.v1:<transfer_key>`.
+    /// plaintext hashes MUST NOT appear in the account-data key.
+    ///
+    /// Key pattern: `ak.file_transfer.v1:<transfer_key>`.
     pub const FILE_TRANSFER_V1: &'static str = "ak.file_transfer.v1";
     /// Principal-private dismissed/archived state for one derived Notification. The encrypted value
     /// binds notification_id, state, HLC and device tie-break material; read/unread remains derived
-    /// from the read cursor. Key pattern: `ak.notifications.inbox.<notification_id>`.
+    /// from the read cursor.
+    ///
+    /// Key pattern: `ak.notifications.inbox.<notification_id>`.
     pub const NOTIFICATIONS_INBOX: &'static str = "ak.notifications.inbox";
     /// Principal-private manual presence preference whose decrypted plaintext validates as the
     /// closed presence-preference schema: pinned manual_state (online/idle/dnd), temporary
     /// status_message override, and clears_at expiry. Enforced client-side at send time across all
     /// of the principal's devices; services MUST NOT require plaintext or a projection of this key
-    /// and MUST NOT treat it as a policy projection surface. Key pattern:
-    /// `ak.presence.preference`.
+    /// and MUST NOT treat it as a policy projection surface.
+    ///
+    /// Key pattern: `ak.presence.preference`.
     pub const PRESENCE_PREFERENCE: &'static str = "ak.presence.preference";
     /// Principal-private sender-side presence visibility policy. Decrypted plaintext validates as
     /// the closed presence-visibility schema. Station sync surfaces MUST NOT project or read
     /// presence_visibility; encrypted Signal fanout is selected by the sender according to
-    /// profiles-presence.md section 3.4. Key pattern: `ak.presence.visibility`.
+    /// profiles-presence.md section 3.4.
+    ///
+    /// Key pattern: `ak.presence.visibility`.
     pub const PRESENCE_VISIBILITY: &'static str = "ak.presence.visibility";
     /// Principal-private notification and push rule configuration.
+    ///
     /// Key pattern: `ak.push_rules`.
     pub const PUSH_RULES: &'static str = "ak.push_rules";
     /// Private read-receipt send/display defaults and per-Realm or per-Strand overrides.
+    ///
     /// Key pattern: `ak.read_receipt.preferences`.
     pub const READ_RECEIPT_PREFERENCES: &'static str = "ak.read_receipt.preferences";
     /// Principal-private reminders keyed by opaque id; target_ref and note remain inside encrypted
-    /// value. Key pattern: `ak.reminders.v1:<id>`.
+    /// value.
+    ///
+    /// Key pattern: `ak.reminders.v1:<id>`.
     pub const REMINDERS_V1: &'static str = "ak.reminders.v1";
     /// Principal-private saved item in an HMAC-derived collection; each item is an independent
-    /// account-data value. Key pattern: `ak.saved.v1:<collection_key>:<target_key>`.
+    /// account-data value.
+    ///
+    /// Key pattern: `ak.saved.v1:<collection_key>:<target_key>`.
     pub const SAVED_V1: &'static str = "ak.saved.v1";
     /// Principal-private scheduled-send plan keyed by an independent producer-allocated
     /// ScheduledSendId. The plan carries no future EventId or MessageId. Dispatch derives the final
     /// EventId only after the complete canonical Event preimage exists, then retypes that Event
-    /// token into MessageId. Key pattern: `ak.scheduled_send.v1:<scheduled_send_id>`.
+    /// token into MessageId.
+    ///
+    /// Key pattern: `ak.scheduled_send.v1:<scheduled_send_id>`.
     pub const SCHEDULED_SEND_V1: &'static str = "ak.scheduled_send.v1";
     /// Encrypted client search-index manifest keyed by an HMAC-derived realm_key.
+    ///
     /// Key pattern: `ak.search.index_manifest.v1:<realm_key>`.
     pub const SEARCH_INDEX_MANIFEST_V1: &'static str = "ak.search.index_manifest.v1";
     /// Principal-private snooze state keyed by HMAC-derived target_key.
+    ///
     /// Key pattern: `ak.snooze.v1:<target_key>`.
     pub const SNOOZE_V1: &'static str = "ak.snooze.v1";
     /// Private per-Realm tags and ordering hints.
+    ///
     /// Key pattern: `ak.tags.realm.<realm_id>`.
     pub const TAGS_REALM: &'static str = "ak.tags.realm";
     /// Actor-private View definition. The encrypted value validates as ak.schema.view.v1 with
     /// visibility=private; it never enters a shared Realm View typed current result.
+    ///
     /// Key pattern: `ak.views.private.<view_id>`.
     pub const VIEWS_PRIVATE: &'static str = "ak.views.private";
 
