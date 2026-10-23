@@ -22,6 +22,10 @@ it does not contain platform executables. Private conformance/test crates are
 excluded. The workflow does not publish to crates.io; its unpublished dependency
 set and Cargo git dependencies need a separate registry release plan.
 
+The committed workspace `Cargo.lock` pins release verification. Individual
+`.crate` archives still exclude it, so downstream library consumers resolve
+their own dependency graphs.
+
 ## Crate set and package order
 
 These crates are packaged in dependency order so local package checks catch

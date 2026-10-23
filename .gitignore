@@ -39,3 +39,6 @@ tools/spec-struct-proto/out/
 # Local validation evidence belongs to the implementation repository.
 /artifacts/
 /release-assets/
+
+# Pin the workspace verification graph used by tag releases.
+!/Cargo.lock
