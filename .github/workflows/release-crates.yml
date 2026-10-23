@@ -54,12 +54,17 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: arkret-org/arkret-rust-sdk
+      - name: Resolve pinned specification
+        id: spec
+        run: >-
+          python -c 'import json; print("revision=" + json.load(open("compatibility/manifest.json"))["repositories"]["arkret-spec"]["commit"])'
+          >> "$GITHUB_OUTPUT"
       - name: Checkout arkret-spec
         uses: actions/checkout@v6
         with:
           repository: ${{ github.repository_owner }}/arkret-spec
           path: arkret-org/arkret-spec
-          ref: 8ae6fd0f14c630310a524e38b950b191918295e3
+          ref: ${{ steps.spec.outputs.revision }}
           token: ${{ secrets.CI_REPO_TOKEN || github.token }}
       - uses: actions/setup-python@v6
         with:
