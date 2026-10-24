@@ -22,7 +22,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "294d8a0a66e76bad554a0a72701a4d831fe4a6b0",
+      "commit": "58cd482e3b96dfd252fff0318ab00ecc0d89794c",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -32,7 +32,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "5e3cb54408e17c6eb7982165f5bbe8fc1ededd42",
+      "commit": "c93dd276ddbdb7105951ec07f1d6a4b47f3def85",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -50,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "82234a7c68b51f7ab657ef8898b4e28436f19e4c",
+      "commit": "e2a6d3538c859410460876dc91d35867b374ef08",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -92,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "6ab811b52b3168ecbd5c4a7f993e4d6e6162dae6",
+      "commit": "8671d68c4e8940e45920d2317a059130d3bfbfb3",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -101,7 +101,7 @@
     },
     "bridges": {
       "repository": "arkret-org/bridges",
-      "commit": "503b7544760c844a5c7ace5a6f01848b0364b7cc",
+      "commit": "204cc8a4c9b277bbe7fd35cc7d45fa8e172ebd3f",
       "checkout_path": "bridges",
       "roles": [
         "sdk-openapi-consumer"
@@ -117,7 +117,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "e678f6edd13380b515dad06ba194ab2bf9008cab",
+      "commit": "92ae2084e071c25fa783f2d7fc3069ed50047ccd",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
