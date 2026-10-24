@@ -955,13 +955,6 @@ impl AccountRequestErasureRequestBody {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AccountRequestErasureStatus {
-    Accepted,
-}
-
 /// Acceptance confirmation of a self-initiated account erasure request. It
 /// proves only that the intent is durably recorded; completion is observed
 /// through the existing account-status read surface and physical completion

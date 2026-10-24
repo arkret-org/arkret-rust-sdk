@@ -76,6 +76,25 @@
     "DeviceRevocationAdmissionInput": "AccountDeviceRevocationAdmissionInput",
     "DeviceRevocationAdmissionDecision": "AccountDeviceRevocationAdmissionDecision",
     "DeviceRevocationAdmissionRecord": "AccountDeviceRevocationAdmissionRecord",
-    "DeviceRevocationAdmissionAssessment": "AccountDeviceRevocationAdmissionAssessment"
+    "DeviceRevocationAdmissionAssessment": "AccountDeviceRevocationAdmissionAssessment",
+    "AccountRequestErasureStatus": "REMOVED: unregistered accepted-only response status without a field or caller",
+    "InviteLocatorStatus": "REMOVED: unregistered revoked-only response status without a field or caller",
+    "MlsGroupCurrent": "MlsGroupValue",
+    "TypedCurrentRow": "CurrentState",
+    "AccountCurrentView": "AccountStateView",
+    "MorphRow": "MorphView",
+    "SpaceRow": "SpaceView",
+    "StrandRow": "StrandView",
+    "RealmListRow": "AccountRealmView",
+    "ContactListRow": "ContactView",
+    "RealmOrganizationRelationshipRow": "RealmOrganizationRelationshipView",
+    "EffectiveCapabilityGrantRow": "EffectiveCapabilityGrantView",
+    "RealmStreamRow": "RealmStreamView",
+    "AccountDataRow": "AccountDataEntry",
+    "DeviceMessageDeliveredRow": "DeviceMessageDeliveredEntry",
+    "DeviceMessageUnknownRow": "DeviceMessageUnknownEntry",
+    "CalendarScheduleSourceExactRow": "CurrentCalendarScheduleSource",
+    "MimiRoomBindingCurrentRow": "CurrentMimiRoomBinding",
+    "WebvhWitnessRow": "DidBindingWitness"
   }
 }

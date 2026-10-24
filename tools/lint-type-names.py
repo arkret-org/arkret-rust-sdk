@@ -54,8 +54,8 @@ def violations(path: str, source: str) -> list[str]:
     masked = mask_non_code(source)
     errors = [name for name in DECLARATION.findall(masked)
               if name in RETIRED or (name.endswith(REJECTED) and (path, name) not in EXCEPTIONS)]
-    errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)\s*=', masked)
-                  if name.endswith(('RequestBody', 'ResponseBody', 'Row')))
+    errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)(?:\s*<[^;=]+>)?\s*=', masked)
+                  if name in RETIRED or name.endswith(('RequestBody', 'ResponseBody', 'Row')))
     errors.extend(row_reexports(masked))
     errors.extend(retired_reexports(masked))
     return errors

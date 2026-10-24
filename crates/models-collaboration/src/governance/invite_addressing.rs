@@ -159,13 +159,6 @@ impl InviteLocatorRevokeRequestBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum InviteLocatorStatus {
-    Revoked,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorIssueResponseBody {

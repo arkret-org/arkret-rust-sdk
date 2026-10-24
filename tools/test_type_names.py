@@ -18,6 +18,14 @@ class TypeNameTests(unittest.TestCase):
         self.assertEqual(gate.violations('models-crypto/src/http_bodies.rs',
             'pub struct KeyPackagesClaimRequestBody {} pub struct KeyPackagesClaimResponseBody {}'), [])
 
+    def test_retired_plain_and_generic_aliases_are_rejected(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub type GrantSnapshot = AgentGrantView; pub type GrantSnapshot<T> = Map<T>;'),
+            ['GrantSnapshot', 'GrantSnapshot'])
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub type IssueResponseBody<T> = Envelope<T>; pub type Result<T> = std::result::Result<T, Error>;'),
+            ['IssueResponseBody'])
+
     def test_row_reexports_cannot_restore_a_retired_public_alias(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
             'pub use domain::ObjectView as ObjectRow; pub use domain::{StateView as StateRow};'),
