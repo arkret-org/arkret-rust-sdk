@@ -6,6 +6,7 @@ import copy
 import importlib.util
 import json
 import re
+import posixpath
 import sys
 import tempfile
 import unittest
@@ -31,6 +32,28 @@ class ManifestFixture:
 
 class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
     """Tool behavior: no real consumer source or checkout state is required."""
+
+    def test_all_protocol_repositories_keep_independent_compile_coverage(self) -> None:
+        workflow = (self.sdk_root / ".github/workflows/compatibility.yml").read_text(encoding="utf-8")
+        self.assertIn('python -m pip install "cryptography>=41"', workflow)
+        for repository, entry in self.manifest["repositories"].items():
+            path = posixpath.normpath("arkret-org/" + entry["checkout_path"])
+            output = repository.replace("-", "_")
+            self.assertIn(f"path: {path}\n          ref: ${{{{ steps.manifest.outputs.{output} }}}}", workflow)
+        for repository in self.manifest["repositories"]:
+            if repository == "arkret-spec":
+                continue
+            checks = [row for row in self.manifest["checks"]
+                      if row["repository"] == repository and row["category"] == "compile"]
+            self.assertTrue(any("--target" not in row["command"] for row in checks), repository)
+        for repository in ("inkson", "codmin", "coauth", "flagon"):
+            self.assertTrue(any(row["repository"] == repository
+                                and "wasm32-unknown-unknown" in row["command"]
+                                for row in self.manifest["checks"]), repository)
+        savfox = next(row for row in self.manifest["checks"] if row["id"] == "savfox.compile")
+        self.assertIn("savfox-channels/arkret", savfox["command"])
+        self.assertIn("--all-targets", savfox["command"])
+        self.assertIn("--locked", savfox["command"])
 
     def test_repository_commits_must_be_exact(self) -> None:
         mutated = copy.deepcopy(self.manifest)
@@ -117,6 +140,15 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                     ]
                 },
             }
+            with self.assertRaisesRegex(gate.CompatibilityError, "compatibility-dto"):
+                gate.check_source_guards(document, workspace)
+            archived = workspace / "inkson/artifacts/evidence/source/compat.rs"
+            archived.parent.mkdir(parents=True)
+            source.rename(archived)
+            gate.check_source_guards(document, workspace)
+            nested = workspace / "inkson/src/artifacts/live.rs"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("pub struct CompatibilityDto {}\n", encoding="utf-8")
             with self.assertRaisesRegex(gate.CompatibilityError, "compatibility-dto"):
                 gate.check_source_guards(document, workspace)
 

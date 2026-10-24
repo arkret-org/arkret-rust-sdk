@@ -24,6 +24,12 @@ REQUIRED_REPOSITORIES = {
     "garth",
     "inkson",
     "cotest",
+    "codmin",
+    "floria",
+    "chime",
+    "flagon",
+    "bridges",
+    "savfox",
 }
 REQUIRED_POLICY = {
     "consumer-local-compatibility-dto",
@@ -280,10 +286,11 @@ def check_source_guards(document: dict[str, Any], workspace_root: Path) -> None:
     for repository, guards in guards_by_repository.items():
         root = repository_root(document, workspace_root, repository)
         for current_root, directory_names, file_names in os.walk(root):
+            current_path = Path(current_root)
             directory_names[:] = [
                 name for name in directory_names if name not in excluded_directories
+                and not (name == "artifacts" and current_path == root)
             ]
-            current_path = Path(current_root)
             for file_name in file_names:
                 path = current_path / file_name
                 if path.suffix not in source_suffixes:

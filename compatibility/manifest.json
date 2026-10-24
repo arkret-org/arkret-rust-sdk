@@ -10,6 +10,7 @@
       "floria",
       "coland",
       "coauth",
+      "codmin",
       "garth",
       "chime",
       "inkson",
@@ -31,7 +32,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "a79fdce57159de1f25603b36c6e005b5686b2119",
+      "commit": "0221174b9c382087f677925c185d9d4a0132be74",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -41,7 +42,7 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "2f675863b2056057267af18b91c45bd6d9b35de7",
+      "commit": "7aa06c0a3169282659ff1c008fc554f53fcadc53",
       "checkout_path": "floria",
       "roles": [
         "coland-build-dependency"
@@ -49,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "31471e645d9ce714160a30404e9adf0c99fd9e3f",
+      "commit": "134966f16b17ea7d442148a2babca53a4bf73274",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -58,7 +59,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "36736bc1ea4aed0d80e9685f8549a2c3876d1382",
+      "commit": "93b3dbca0e9469b2c9fd1cbf26e0fed809746a3b",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -67,7 +68,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "6ac90814d518159bace12b8bba79fac3064e2ab3",
+      "commit": "bf1dc4eaf66834451391a30f5c10e6367f638673",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -75,7 +76,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "1e593c349778f601745f9f9bc4be46a79a28079d",
+      "commit": "d86db503ec0603766c92efcf013ece48531c4e01",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -83,7 +84,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "94f11b6186cf6eddfe6fa4af04f83c5ac685b132",
+      "commit": "eae6d0d837e7f4c3c5322b83d719517c30285408",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -91,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "dd165d99b085e63647a87aae110b1add89e7f80d",
+      "commit": "66ff74b17e64033a36323f603602b3e4e8aac894",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -100,7 +101,7 @@
     },
     "bridges": {
       "repository": "arkret-org/bridges",
-      "commit": "75ca53df073c4b4c21e38fb4a508bb569bc90c0c",
+      "commit": "3ac6686ba073e4e5cb85d22ef9111854c982494e",
       "checkout_path": "bridges",
       "roles": [
         "sdk-openapi-consumer"
@@ -108,7 +109,7 @@
     },
     "flagon": {
       "repository": "arkret-org/flagon",
-      "commit": "714ef0c441cd2dac76e7f3222ffb3f353df5ea8f",
+      "commit": "a5b89c179ca8b1ac3c8c878898958bc5103cb2e6",
       "checkout_path": "flagon",
       "roles": [
         "sdk-openapi-consumer"
@@ -116,10 +117,19 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "ee769326247b79fd647eb8ba4c55a20617395c6e",
+      "commit": "f6b0e77f3725df018b1cceda13a0cc47b1ea10bb",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
+      ]
+    },
+    "codmin": {
+      "repository": "arkret-org/codmin",
+      "commit": "6a05086c534804d2daffda5886eb9a0b6c916ef2",
+      "checkout_path": "codmin",
+      "roles": [
+        "admin-consumer",
+        "protocol-consumer"
       ]
     }
   },
@@ -1075,6 +1085,143 @@
         "--all-features",
         "--locked"
       ]
+    },
+    {
+      "id": "codmin.compile",
+      "repository": "codmin",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "codmin canonical protocol consumption"
+      },
+      "working_directory": "codmin",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
+    },
+    {
+      "id": "chime.compile",
+      "repository": "chime",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "chime canonical protocol consumption"
+      },
+      "working_directory": "chime",
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
+    },
+    {
+      "id": "savfox.compile",
+      "repository": "savfox",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "savfox canonical protocol consumption"
+      },
+      "working_directory": "../savfox-ai/savfox",
+      "command": [
+        "cargo",
+        "check",
+        "-j",
+        "4",
+        "-p",
+        "savfox-channels",
+        "-p",
+        "savfox-gateway-server",
+        "-p",
+        "savfox-gateway-dioxus",
+        "--all-targets",
+        "--features",
+        "savfox-channels/arkret",
+        "--locked"
+      ]
+    },
+    {
+      "id": "inkson.compile-wasm",
+      "repository": "inkson",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "inkson canonical protocol consumption in browser"
+      },
+      "working_directory": "inkson",
+      "command": [
+        "cargo",
+        "check",
+        "--lib",
+        "--bin",
+        "inkson",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--features",
+        "web",
+        "--locked"
+      ]
+    },
+    {
+      "id": "codmin.compile-wasm",
+      "repository": "codmin",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "codmin canonical protocol consumption in browser"
+      },
+      "working_directory": "codmin",
+      "command": [
+        "cargo",
+        "check",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--locked"
+      ]
+    },
+    {
+      "id": "coauth.compile-wasm",
+      "repository": "coauth",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "coauth canonical protocol consumption in browser"
+      },
+      "working_directory": "coauth",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "coauth-frontend",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--locked"
+      ]
+    },
+    {
+      "id": "flagon.compile-wasm",
+      "repository": "flagon",
+      "category": "compile",
+      "surface": {
+        "kind": "type",
+        "name": "flagon canonical protocol consumption in browser"
+      },
+      "working_directory": "flagon",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "admin",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--locked"
+      ]
     }
   ],
   "policy": {
@@ -1092,7 +1239,8 @@
           "coauth",
           "garth",
           "inkson",
-          "cotest"
+          "cotest",
+          "codmin"
         ],
         "pattern": "(?i)\\bcompat(?:ibility)?[_ -]?dto\\b"
       },
@@ -1103,7 +1251,8 @@
           "coauth",
           "garth",
           "inkson",
-          "cotest"
+          "cotest",
+          "codmin"
         ],
         "pattern": "(?i)\\bdual[_ -]?read(?:ing)?\\b"
       },
@@ -1114,7 +1263,8 @@
           "coauth",
           "garth",
           "inkson",
-          "cotest"
+          "cotest",
+          "codmin"
         ],
         "pattern": "(?is)#\\[serde\\([^]]*flatten[^]]*\\)\\]\\s*(?:pub\\s+)?(?:extra|additional|unknown)\\b",
         "allow_paths": [
