@@ -50,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "e2a6d3538c859410460876dc91d35867b374ef08",
+      "commit": "5a248ba21bb11ee74e254b50917b65b23c8de0e6",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -84,7 +84,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "a996683da6f7b339e58ed1288942af03f73e4bc9",
+      "commit": "5210c5aa6f02e85581ddefbde6bf3a817960d969",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -92,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "8671d68c4e8940e45920d2317a059130d3bfbfb3",
+      "commit": "4c0580c7a3925eb30828ae97fa1a9e4ba68081e8",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
