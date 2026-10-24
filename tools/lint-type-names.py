@@ -48,6 +48,36 @@ def retired_reexports(masked: str) -> list[str]:
             for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", body) if name in RETIRED]
 
 
+def public_aliases(masked: str):
+    for match in re.finditer(r'\bpub\s+type\s+(\w+)', masked):
+        stack = []
+        for position in range(match.end(), len(masked)):
+            token = masked[position]
+            if token in '<([{':
+                stack.append(token)
+            elif token in '>)]}' and stack and stack[-1] == dict(zip('>)]}', '<([{'))[token]:
+                stack.pop()
+            elif token == '=' and not stack:
+                yield match[1], masked[position + 1:masked.index(';', position)].strip()
+                break
+            elif token == ';' and not stack:
+                break
+
+
+def noncanonical_aliases(masked: str) -> list[str]:
+    errors = [name for name, value in public_aliases(masked)
+              if name.endswith('Result') and name not in RETIRED
+              and not re.match(r'(?:(?:[A-Za-z_]\w*)::)*Result\s*<', value)]
+    for body in re.findall(r'\bpub\s+use\s+([^;]+);', masked):
+        for origin, name in re.findall(r'\b(\w+)\s+as\s+(\w+)', body):
+            if name in RETIRED or name.endswith(('Row', 'Rows')):
+                continue
+            if (name.endswith(('RequestBody', 'ResponseBody', 'Results'))
+                    or (name.endswith('Result') and not origin.endswith('Result'))):
+                errors.append(name)
+    return errors
+
+
 def violations(path: str, source: str) -> list[str]:
     # Reuse the audit lexer so declarations in comments and strings do not count.
     from wire_value_audit import mask_non_code
@@ -59,6 +89,7 @@ def violations(path: str, source: str) -> list[str]:
                   if name in RETIRED or name.endswith(('RequestBody', 'ResponseBody', 'Row', 'Rows', 'Results')))
     errors.extend(row_reexports(masked))
     errors.extend(retired_reexports(masked))
+    errors.extend(noncanonical_aliases(masked))
     return errors
 
 

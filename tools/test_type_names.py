@@ -9,6 +9,16 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_result_aliases_must_be_error_channels_and_bodies_have_one_owner(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub type LookupResult = LookupView; pub type ResultsResult<T> = Vec<T>; '
+            'pub use domain::{LookupView as LookupResult, Receipt as LookupResponseBody};'),
+            ['LookupResult', 'ResultsResult', 'LookupResult', 'LookupResponseBody'])
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub type ValidationResult<T> where T: Trait<Output = Value> = std::result::Result<T, Error>; '
+            'pub type InvalidResult<T> where T: Trait<Output = Result<T, Error>> = View<T>; '
+            'pub use error::Result as ValidationResult;'), ['InvalidResult'])
+
     def test_plural_wrappers_and_bare_row_reexports_are_rejected(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
             'pub struct RealmRows {} pub enum RealmResults {} pub type AliasRows = Vec<Realm>; '
