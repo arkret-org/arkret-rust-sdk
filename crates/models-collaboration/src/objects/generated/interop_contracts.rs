@@ -5,7 +5,7 @@
 // sha256=23bcdb30a0625be95b1f0ed7532962f5406840a9e7c8d81f182457129ce53eef
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/ciphertext`.
 /// Counterpart for `spec/v1/artifacts/schemas/mimi-operations.schema.json#/$defs/ciphertext`.

@@ -8,7 +8,7 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `erasure-receipt.schema.json#/properties/peer_receipts/items`.
 /// One per-peer fanout acknowledgement record maintained by the issuing server

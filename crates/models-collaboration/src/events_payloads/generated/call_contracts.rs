@@ -14,7 +14,7 @@
 // sha256=8032fa87b7a51d8ae5098b6c16de960b45704022744148e422daa523cea67870
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.

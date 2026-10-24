@@ -11,7 +11,7 @@
 // sha256=a9f8e018535373153901f38605e96a7e08b94e7c95ed826f8db6de98127d2495
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `event-payload.schema.json#/$defs/realm_join_rule_payload`.
 /// Strong payload for `ak.realm.join_rule`, whose wire schema is

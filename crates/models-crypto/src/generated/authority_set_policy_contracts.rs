@@ -5,7 +5,7 @@
 // sha256=117c43cd784874177c317507f281d49e5cfd2fa7c7ee136ba77abb5484697766
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `authority-set-policy.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

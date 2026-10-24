@@ -367,7 +367,7 @@ pub fn keypackages_upload_signing_input(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadResponseBody {
-    pub accepted: u32,
+    pub accepted_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<Failure>,
     #[serde(

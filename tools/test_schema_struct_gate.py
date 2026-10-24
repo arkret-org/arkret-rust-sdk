@@ -74,6 +74,21 @@ impl Serialize for Payload { fn serialize() {
             self.assertTrue(any('unregistered named object' in error
                                 for error in validate(registry, schemas, root)))
 
+    def test_compound_capitalization_cannot_escape_schema_coverage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'crates/models/src/lib.rs'
+            source.parent.mkdir(parents=True)
+            source.write_text('#[derive(Serialize)] pub struct KeyPackagesUploadResponseBody { pub stale: u32 }', encoding='utf-8')
+            schemas = root / 'schemas'
+            schemas.mkdir()
+            (schemas / 'keypackage-operations.schema.json').write_text(json.dumps({'$defs': {
+                'keypackages_upload_response_body': {'type': 'object', 'properties': {'accepted_count': {'type': 'integer'}}}
+            }}), encoding='utf-8')
+            registry = root / 'registry.json'
+            registry.write_text(json.dumps({'version': 1, 'mappings': [], 'exemptions': []}), encoding='utf-8')
+            self.assertTrue(any('unregistered named object' in error for error in validate(registry, schemas, root)))
+
     def test_full_width_coordinate_cannot_fall_back_to_json_number(self) -> None:
         for helper in ('', '#[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]'):
             with self.subTest(helper=helper), tempfile.TemporaryDirectory() as temporary:

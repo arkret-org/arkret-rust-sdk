@@ -9,6 +9,12 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_plural_wrappers_and_bare_row_reexports_are_rejected(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub struct RealmRows {} pub enum RealmResults {} pub type AliasRows = Vec<Realm>; '
+            'pub use domain::{View as Row, Views as Rows};'),
+            ['RealmRows', 'RealmResults', 'AliasRows', 'Row', 'Rows'])
+
     def test_duplicated_claim_bodies_cannot_restore_a_second_wire_owner(self):
         for name in ('PeerKeyPackagesClaimRequestBody', 'PeerKeyPackagesClaimResponseBody'):
             self.assertEqual(gate.violations('models-crypto/src/http_bodies.rs',

@@ -4063,6 +4063,74 @@
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::KeyBackupSourceCommitRef",
       "schema": "key-backup.schema.json#/properties/source_commit_ref"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/holder_quarantine.rs::HolderQuarantineInvalidation",
+      "schema": "holder-quarantine.schema.json#/$defs/consent_revoke_invalidation"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyPackageClaimRecord",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_claim_record"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyPackageUploadEntry",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_upload_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimFields",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_fields"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimServiceBinding",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_service_binding"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackageClaimReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackage_claim_receipt"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimQueryRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_query_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimQueryRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackageClaimTerminalReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_claim_terminal_receipt"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimQueryResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesConsumeRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_consume_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackageConsumeReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_consume_receipt"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesConsumeResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_consume_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesRevokeRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_revoke_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesRevokeResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_revoke_response_body"
+    },
+    {
+      "rust_type": "crates/wire/src/websocket_binding.rs::WebSocketDpopProof",
+      "schema": "websocket-dpop-proof.schema.json"
     }
   ],
   "exemptions": [

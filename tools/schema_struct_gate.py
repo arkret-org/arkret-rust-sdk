@@ -386,9 +386,12 @@ def validate(
                 f"unregistered schema counterpart {rust_type} ({item.pointer}); "
                 "add an exact mapping or explained exemption"
             )
-    candidates = named_object_candidates(spec_root)
+    # Compound spellings such as keypackage/KeyPackage and websocket/WebSocket
+    # are the same lexical candidate. A match still requires an exact owner
+    # binding; folding case never selects a schema on the caller's behalf.
+    candidates = {name.casefold() for name in named_object_candidates(spec_root)}
     for rust_type, item in structs.items():
-        if item.serializable and item.name in candidates and rust_type not in registered:
+        if item.serializable and item.name.casefold() in candidates and rust_type not in registered:
             errors.append(
                 f"unregistered named object {rust_type}; explicitly bind its canonical "
                 "schema or its checked wire representation (name equality is not identity)"

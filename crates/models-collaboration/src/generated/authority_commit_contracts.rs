@@ -8,7 +8,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`

@@ -15,7 +15,7 @@ OWNERS = ("wire", "models-identity", "models-crypto", "models-collaboration",
           "models-discovery", "models-integration")
 DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
 REJECTED = ("Result", "Candidate", "Item", "Response",
-            "Row", "Wrapper", "Info", "Details", "ResBody", "ReqBody")
+            "Row", "Rows", "Results", "Wrapper", "Info", "Details", "ResBody", "ReqBody")
 RETIRED = set(json.loads((ROOT / "tools/retired-public-type-names.json").read_text(encoding="utf-8"))["types"])
 EXCEPTIONS = {
     ("wire/src/platform.rs", "WasmHttpResponse"):
@@ -39,7 +39,8 @@ EXCEPTIONS = {
 
 def row_reexports(masked: str) -> list[str]:
     return [name for body in re.findall(r"\bpub\s+use\s+([^;]+);", masked)
-            for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*Row\b", body)]
+            for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", body)
+            if name.endswith(('Row', 'Rows'))]
 
 
 def retired_reexports(masked: str) -> list[str]:
@@ -55,7 +56,7 @@ def violations(path: str, source: str) -> list[str]:
     errors = [name for name in DECLARATION.findall(masked)
               if name in RETIRED or (name.endswith(REJECTED) and (path, name) not in EXCEPTIONS)]
     errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)', masked)
-                  if name in RETIRED or name.endswith(('RequestBody', 'ResponseBody', 'Row')))
+                  if name in RETIRED or name.endswith(('RequestBody', 'ResponseBody', 'Row', 'Rows', 'Results')))
     errors.extend(row_reexports(masked))
     errors.extend(retired_reexports(masked))
     return errors
@@ -82,7 +83,7 @@ def main() -> int:
         errors.extend(f"{relative}: {name}: public Row reexports are forbidden" for name in row_reexports(masked))
         errors.extend(f"{relative}: {name}: retired duplicate reexport" for name in retired_reexports(masked))
         for name in re.findall(r"\bpub\s+(?:struct|enum|type)\s+(\w+)", masked):
-            if name.endswith("Row") or name in RETIRED:
+            if name.endswith(("Row", "Rows")) or name in RETIRED:
                 errors.append(f"{relative}: {name}: public SDK models cannot use generic Row")
     errors.extend(f"stale type-name exception: {path}::{name}"
                   for path, name in EXCEPTIONS if (path, name) not in declarations)

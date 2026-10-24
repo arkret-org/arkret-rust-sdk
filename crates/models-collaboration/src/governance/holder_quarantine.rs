@@ -283,7 +283,7 @@ pub struct HolderQuarantineInvalidation {
     pub consent_scope: HolderQuarantineInvalidationScope,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
-    pub removed_entries: u64,
+    pub removed_entry_count: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -380,7 +380,7 @@ impl HolderQuarantine {
             }
         }
         if self.last_invalidation.as_ref().is_some_and(|value| {
-            !(1..=200).contains(&value.removed_entries) || value.revoked_at > self.updated_at
+            !(1..=200).contains(&value.removed_entry_count) || value.revoked_at > self.updated_at
         }) {
             return Err(WireError::Protocol(
                 "invalid holder quarantine revocation diagnostic".to_owned(),

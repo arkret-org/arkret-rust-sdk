@@ -47,9 +47,15 @@ fn keypackage_family_arrays_and_retry_minima_match_schema() {
         .find(|case| case["name"] == "revoke_with_reason")
         .unwrap()["unsigned_request"];
     serde_json::from_value::<KeyPackagesRevokeFields>(revoke.clone()).unwrap();
-    let outcome = json!({"accepted":1,"keypackage_refs":[revoke["keypackage_refs"][0]]});
+    let outcome = json!({"accepted_count":1,"keypackage_refs":[revoke["keypackage_refs"][0]]});
     serde_json::from_value::<KeyPackagesUploadResponseBody>(outcome.clone()).unwrap();
-    serde_json::from_value::<KeyPackagesUploadResponseBody>(json!({"accepted":0})).unwrap();
+    serde_json::from_value::<KeyPackagesUploadResponseBody>(json!({"accepted_count":0})).unwrap();
+    for retired in [
+        json!({"accepted": 1}),
+        json!({"accepted_count": 1, "accepted": 1}),
+    ] {
+        assert!(serde_json::from_value::<KeyPackagesUploadResponseBody>(retired).is_err());
+    }
     for value in [
         json!([]),
         json!([revoke["keypackage_refs"][0], revoke["keypackage_refs"][0]]),

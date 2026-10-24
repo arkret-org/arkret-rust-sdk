@@ -5,7 +5,7 @@
 // sha256=24ce65b5dac11e00aba03d5d059426386fd0a4f2bab2e3cf30d2a86eb8dee2d6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `did-binding-contracts.schema.json#/$defs/limited_trust`.
 /// Per-pin limited-trust record

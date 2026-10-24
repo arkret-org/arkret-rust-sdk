@@ -8,7 +8,7 @@
 // sha256=279cc187893bea352ae89e4718237a618b5b1852d5778b54a29b94a1769c3fbd
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
+// sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
 
 /// Counterpart: `content-block-poll.schema.json#/$defs/poll_answer`.
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_answer`.

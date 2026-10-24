@@ -21102,6 +21102,108 @@
       "schema": "key-backup.schema.json#/properties/source_commit_ref",
       "category": "domain_semantics",
       "reason": "Canonical source checkpoint shared by encrypted key-backup envelopes and active-series selection, with parent-specific signature and chain validation retained."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/holder_quarantine.rs::HolderQuarantineInvalidation",
+      "schema": "holder-quarantine.schema.json#/$defs/consent_revoke_invalidation",
+      "category": "domain_semantics",
+      "reason": "Retain the owning public DTO and its domain serde validation; the explicit exact schema mapping checks every canonical wire member, including the accepted or removed element count."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesUploadResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_upload_response_body",
+      "category": "domain_semantics",
+      "reason": "Retain the owning public DTO and its domain serde validation; the explicit exact schema mapping checks every canonical wire member, including the accepted or removed element count."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyPackageClaimRecord",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_claim_record",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyPackageUploadEntry",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_upload_entry",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimFields",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_fields",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimServiceBinding",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_service_binding",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackageClaimReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackage_claim_receipt",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimQueryRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_query_request_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimQueryRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_request_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackageClaimTerminalReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_claim_terminal_receipt",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::PeerKeyPackagesClaimQueryResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_response_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesConsumeRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_consume_request_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackageConsumeReceipt",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackage_consume_receipt",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesConsumeResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_consume_response_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesRevokeRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_revoke_request_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesRevokeResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_revoke_response_body",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/wire/src/websocket_binding.rs::WebSocketDpopProof",
+      "schema": "websocket-dpop-proof.schema.json",
+      "category": "domain_semantics",
+      "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
     }
   ],
   "retained_exemptions": [
