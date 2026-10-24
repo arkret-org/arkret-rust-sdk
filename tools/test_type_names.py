@@ -20,8 +20,9 @@ class TypeNameTests(unittest.TestCase):
 
     def test_retired_plain_and_generic_aliases_are_rejected(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
-            'pub type GrantSnapshot = AgentGrantView; pub type GrantSnapshot<T> = Map<T>;'),
-            ['GrantSnapshot', 'GrantSnapshot'])
+            'pub type GrantSnapshot = AgentGrantView; pub type GrantSnapshot<T> = Map<T>; '
+            'pub type GrantSnapshot<T> where T: Clone = Map<T>;'),
+            ['GrantSnapshot', 'GrantSnapshot', 'GrantSnapshot'])
         self.assertEqual(gate.violations('wire/src/new.rs',
             'pub type IssueResponseBody<T> = Envelope<T>; pub type Result<T> = std::result::Result<T, Error>;'),
             ['IssueResponseBody'])
