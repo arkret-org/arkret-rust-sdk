@@ -7,6 +7,7 @@ exemptions. Wire field names and schema fragments are independent of Rust names.
 """
 
 from pathlib import Path
+import json
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ OWNERS = ("wire", "models-identity", "models-crypto", "models-collaboration",
 DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
 REJECTED = ("Result", "Candidate", "Item", "Response",
             "Row", "Wrapper", "Info", "Details", "ResBody", "ReqBody")
+RETIRED = set(json.loads((ROOT / "tools/retired-public-type-names.json").read_text(encoding="utf-8"))["types"])
 EXCEPTIONS = {
     ("wire/src/platform.rs", "WasmHttpResponse"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
@@ -40,16 +42,22 @@ def row_reexports(masked: str) -> list[str]:
             for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*Row\b", body)]
 
 
+def retired_reexports(masked: str) -> list[str]:
+    return [name for body in re.findall(r"\bpub\s+use\s+([^;]+);", masked)
+            for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", body) if name in RETIRED]
+
+
 def violations(path: str, source: str) -> list[str]:
     # Reuse the audit lexer so declarations in comments and strings do not count.
     from wire_value_audit import mask_non_code
 
     masked = mask_non_code(source)
     errors = [name for name in DECLARATION.findall(masked)
-              if name.endswith(REJECTED) and (path, name) not in EXCEPTIONS]
+              if name in RETIRED or (name.endswith(REJECTED) and (path, name) not in EXCEPTIONS)]
     errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)\s*=', masked)
                   if name.endswith(('RequestBody', 'ResponseBody', 'Row')))
     errors.extend(row_reexports(masked))
+    errors.extend(retired_reexports(masked))
     return errors
 
 
@@ -72,8 +80,9 @@ def main() -> int:
             continue
         masked = mask_non_code(path.read_text(encoding="utf-8"))
         errors.extend(f"{relative}: {name}: public Row reexports are forbidden" for name in row_reexports(masked))
+        errors.extend(f"{relative}: {name}: retired duplicate reexport" for name in retired_reexports(masked))
         for name in re.findall(r"\bpub\s+(?:struct|enum|type)\s+(\w+)", masked):
-            if name.endswith("Row"):
+            if name.endswith("Row") or name in RETIRED:
                 errors.append(f"{relative}: {name}: public SDK models cannot use generic Row")
     errors.extend(f"stale type-name exception: {path}::{name}"
                   for path, name in EXCEPTIONS if (path, name) not in declarations)

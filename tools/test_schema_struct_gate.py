@@ -232,5 +232,31 @@ pub struct Payload {{
         )
 
 
+
+
+
+class PublicModelShapeReviewTests(unittest.TestCase):
+    def test_third_copy_cannot_inherit_an_exact_owner_review(self):
+        from tools.public_model_duplicates import review_errors
+        review = {'owners': ['a::InvitationProof', 'b::AdmissionProof'],
+                  'reason': 'Invitation and holder admission have separate registered signing transcripts.'}
+        self.assertEqual(review_errors({frozenset(review['owners'])}, [review]), [])
+        self.assertTrue(review_errors({frozenset([*review['owners'], 'c::AnotherProof'])}, [review]))
+        self.assertTrue(review_errors(set(), [review]))
+
+    def test_wire_types_and_serde_attributes_are_part_of_the_representation(self):
+        from dataclasses import replace
+        from tools.public_model_duplicates import duplicate_groups
+        from tools.schema_struct_gate import RustStruct
+        a = RustStruct('crates/models-crypto/src/a.rs::A', '', 'A', 1,
+                       frozenset({'x', 'y'}), False, None, None,
+                       {'x': ('String', ''), 'y': ('bool', '')}, True)
+        b = replace(a, rust_type='crates/models-crypto/src/b.rs::B', name='B')
+        self.assertTrue(duplicate_groups({a.rust_type: a, b.rust_type: b}))
+        for fields in ({'x': ('String', ''), 'y': ('u64', '')},
+                       {'x': ('String', ''), 'y': ('bool', 'default')}):
+            self.assertFalse(duplicate_groups({a.rust_type: a, b.rust_type: replace(b, scalar_fields=fields)}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 //! Key-backup active-series event payloads and transition validation.
 
+use arkret_models_crypto::KeyBackupSourceCommitRef;
 use arkret_wire::ActorId;
 
 use crate::internal_prelude::*;
@@ -22,13 +23,6 @@ struct UnsignedKeyBackupActiveSeriesAuthData {
     device_authorize_event_id: EventId,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyBackupActiveSeriesSourceCommitRef {
-    pub realm_commit_id: RealmCommitId,
-    pub device_generation_ref: u64,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyBackupActiveSeries {
     pub schema: String,
@@ -37,7 +31,7 @@ pub struct KeyBackupActiveSeries {
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
-    pub source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
+    pub source_commit_ref: KeyBackupSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub signature_proof: KeyBackupActiveSeriesSignatureProof,
@@ -58,7 +52,7 @@ pub struct UnsignedKeyBackupActiveSeries {
     active_series_id: BackupSeriesId,
     series_pointer_version: u64,
     previous_series_ids: Vec<BackupSeriesId>,
-    source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
+    source_commit_ref: KeyBackupSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
     signature_proof: UnsignedKeyBackupActiveSeriesAuthData,
@@ -114,7 +108,7 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id,
             series_pointer_version,
             previous_series_ids,
-            source_commit_ref: KeyBackupActiveSeriesSourceCommitRef {
+            source_commit_ref: KeyBackupSourceCommitRef {
                 realm_commit_id,
                 device_generation_ref: trust_anchor.generation_ref,
             },

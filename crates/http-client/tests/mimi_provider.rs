@@ -39,15 +39,15 @@ fn proof() -> PayloadProof {
 fn trust_domain() -> arkret_wire::TrustDomainId {
     "ak:trust_domain:testing.example".parse().unwrap()
 }
-fn key_material_request() -> arkret_models_crypto::PeerKeyPackagesClaimRequestBody {
+fn key_material_request() -> arkret_models_crypto::KeyPackagesClaimRequestBody {
     key_material_request_at(chrono::Utc::now())
 }
 fn key_material_request_at(
     at: chrono::DateTime<chrono::Utc>,
-) -> arkret_models_crypto::PeerKeyPackagesClaimRequestBody {
+) -> arkret_models_crypto::KeyPackagesClaimRequestBody {
     let device = "ak:device:0198ff00-0000-7000-8000-000000000001";
     let method = format!("did:web:alice.example#{device}");
-    let mut request: arkret_models_crypto::PeerKeyPackagesClaimRequestBody = serde_json::from_value(json!({
+    let mut request: arkret_models_crypto::KeyPackagesClaimRequestBody = serde_json::from_value(json!({
         "claim_request_id":"AAAAAAAAAAAAAAAAAAAAAQ",
         "target_account_id":AccountId::new(core("bob"),core("destination")),
         "requester_account_id":AccountId::new(core("alice"),core("source")),

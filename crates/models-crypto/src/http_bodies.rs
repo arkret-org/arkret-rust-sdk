@@ -520,133 +520,6 @@ pub struct KeyPackagesClaimServiceBinding {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimRequestBody {
-    pub claim_request_id: Base64UrlString,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_account_id: Option<AccountId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_actor_id: Option<ActorId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub requester_account_id: Option<AccountId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub requester_actor_id: Option<ActorId>,
-    pub intended_realm_id: RealmId,
-    pub mls_group_id: MlsGroupId,
-    pub claim_purpose: PeerKeyPackageClaimPurpose,
-    #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
-    pub required_capabilities: Vec<NonEmptyString>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Vec::is_empty",
-        deserialize_with = "deserialize_keypackage_unique_nonempty"
-    )]
-    pub target_device_ids: Vec<DeviceId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_keypackage_ref: Option<KeyPackageRef>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_agent_id: Option<DidCoreId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_agent_verification_method: Option<DidUrl>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub target_agent_key_authorize_event_id: Option<EventId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_keypackage_positive_millis"
-    )]
-    pub timeout_ms: Option<u64>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub strand_id: Option<StrandId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub pair_key: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub last_resort_allowed: Option<bool>,
-    pub service_binding: KeyPackagesClaimServiceBinding,
-    pub requester_authorization: PeerKeyPackageRequesterAuthorization,
-}
-
-impl PeerKeyPackagesClaimRequestBody {
-    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimFields {
-        PeerKeyPackagesClaimFields {
-            claim_request_id: self.claim_request_id.clone(),
-            target_account_id: self.target_account_id.clone(),
-            target_actor_id: self.target_actor_id.clone(),
-            requester_account_id: self.requester_account_id.clone(),
-            requester_actor_id: self.requester_actor_id.clone(),
-            intended_realm_id: self.intended_realm_id.clone(),
-            mls_group_id: self.mls_group_id.clone(),
-            claim_purpose: self.claim_purpose,
-            required_capabilities: self.required_capabilities.clone(),
-            expires_at: self.expires_at,
-            target_device_ids: self.target_device_ids.clone(),
-            target_keypackage_ref: self.target_keypackage_ref.clone(),
-            target_agent_id: self.target_agent_id.clone(),
-            target_agent_verification_method: self.target_agent_verification_method.clone(),
-            target_agent_key_authorize_event_id: self.target_agent_key_authorize_event_id.clone(),
-            timeout_ms: self.timeout_ms,
-            strand_id: self.strand_id.clone(),
-            pair_key: self.pair_key.clone(),
-            last_resort_allowed: self.last_resort_allowed,
-        }
-    }
-
-    pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
-        validate_key_packages_claim_request_shape(
-            &self.unsigned_request(),
-            &self.requester_authorization,
-        )
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimRequestBody {
     pub claim_request_id: Base64UrlString,
     #[serde(
@@ -771,34 +644,6 @@ impl KeyPackagesClaimRequestBody {
     }
 }
 
-impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
-    fn from(value: &KeyPackagesClaimRequestBody) -> Self {
-        Self {
-            claim_request_id: value.claim_request_id.clone(),
-            target_account_id: value.target_account_id.clone(),
-            target_actor_id: value.target_actor_id.clone(),
-            requester_account_id: value.requester_account_id.clone(),
-            requester_actor_id: value.requester_actor_id.clone(),
-            intended_realm_id: value.intended_realm_id.clone(),
-            mls_group_id: value.mls_group_id.clone(),
-            claim_purpose: value.claim_purpose,
-            required_capabilities: value.required_capabilities.clone(),
-            expires_at: value.expires_at,
-            target_device_ids: value.target_device_ids.clone(),
-            target_keypackage_ref: value.target_keypackage_ref.clone(),
-            target_agent_id: value.target_agent_id.clone(),
-            target_agent_verification_method: value.target_agent_verification_method.clone(),
-            target_agent_key_authorize_event_id: value.target_agent_key_authorize_event_id.clone(),
-            timeout_ms: value.timeout_ms,
-            strand_id: value.strand_id.clone(),
-            pair_key: value.pair_key.clone(),
-            last_resort_allowed: value.last_resort_allowed,
-            service_binding: value.service_binding.clone(),
-            requester_authorization: value.requester_authorization.clone(),
-        }
-    }
-}
-
 fn validate_key_packages_claim_request_shape(
     unsigned_request: &PeerKeyPackagesClaimFields,
     requester_authorization: &PeerKeyPackageRequesterAuthorization,
@@ -884,16 +729,6 @@ pub struct PeerKeyPackageClaimReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimResponseBody {
-    pub claim_request_id: Base64UrlString,
-    #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
-    pub claims: Vec<KeyPackageClaimRecord>,
-    pub claim_receipt: PeerKeyPackageClaimReceipt,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeyPackagesClaimResponseBody {
     pub claim_request_id: Base64UrlString,
     #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
@@ -902,28 +737,6 @@ pub struct KeyPackagesClaimResponseBody {
 }
 
 impl KeyPackagesClaimResponseBody {
-    /// Enforce the cross-field receipt/outcome bindings that JSON Schema
-    /// cannot express by itself.
-    pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
-        validate_key_packages_claim_outcome_shape(
-            &self.claim_request_id,
-            &self.claims,
-            &self.claim_receipt,
-        )
-    }
-}
-
-impl From<PeerKeyPackagesClaimResponseBody> for KeyPackagesClaimResponseBody {
-    fn from(value: PeerKeyPackagesClaimResponseBody) -> Self {
-        Self {
-            claim_request_id: value.claim_request_id,
-            claims: value.claims,
-            claim_receipt: value.claim_receipt,
-        }
-    }
-}
-
-impl PeerKeyPackagesClaimResponseBody {
     /// Enforce the cross-field receipt/outcome bindings that JSON Schema
     /// cannot express by itself.
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
@@ -1078,7 +891,7 @@ pub struct PeerKeyPackagesClaimQueryResponseBody {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub claim_outcome: Option<PeerKeyPackagesClaimResponseBody>,
+    pub claim_outcome: Option<KeyPackagesClaimResponseBody>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

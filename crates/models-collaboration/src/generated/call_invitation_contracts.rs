@@ -11,7 +11,7 @@
 //! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
+//! sha256=449548ffe916fc20fdfa401c27c8bb4c71e9b2b7d85b5d4534c920be64e8ac22
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -552,6 +552,8 @@ def main() -> int:
     if args.bootstrap:
         bootstrap(args.registry, args.spec_root)
     errors = validate(args.registry, args.spec_root)
+    from public_model_duplicates import check as duplicate_errors
+    errors.extend(duplicate_errors(scan_structs()))
     if errors:
         print("schema struct gate failed:", file=sys.stderr)
         for error in errors:

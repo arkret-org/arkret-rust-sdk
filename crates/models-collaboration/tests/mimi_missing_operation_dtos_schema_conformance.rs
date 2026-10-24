@@ -7,9 +7,7 @@ use arkret_models_collaboration::mimi_operations::{
     MimiRequestConsentResponseBody, MimiRoomUpdateRequestBody, MimiRoomUpdateResponseBody,
     MimiUpdateConsentResponseBody,
 };
-use arkret_models_crypto::{
-    PeerKeyPackagesClaimQueryResponseBody, PeerKeyPackagesClaimRequestBody,
-};
+use arkret_models_crypto::{KeyPackagesClaimRequestBody, PeerKeyPackagesClaimQueryResponseBody};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -75,14 +73,14 @@ fn key_material_reuses_closed_native_claim_without_a_second_mimi_carrier() {
     let schema = "keypackage-operations.schema.json";
     let request_fragment = "keypackages_claim_request_body";
     assert!(schema_accepts_from(schema, request_fragment, &request));
-    let parsed: PeerKeyPackagesClaimRequestBody = serde_json::from_value(request.clone()).unwrap();
+    let parsed: KeyPackagesClaimRequestBody = serde_json::from_value(request.clone()).unwrap();
     parsed.validate_shape().unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), request);
     for field in ["requester_id", "epoch", "proofs", "group_info"] {
         let mut legacy = request.clone();
         legacy[field] = json!("retired");
         assert!(!schema_accepts_from(schema, request_fragment, &legacy));
-        assert!(serde_json::from_value::<PeerKeyPackagesClaimRequestBody>(legacy).is_err());
+        assert!(serde_json::from_value::<KeyPackagesClaimRequestBody>(legacy).is_err());
     }
     let pending =
         json!({"claim_request_id": parsed.claim_request_id, "state":"pending", "retry_after_ms":1});

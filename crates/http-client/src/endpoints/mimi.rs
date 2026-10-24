@@ -8,9 +8,7 @@ use arkret_models_collaboration::mimi_operations::{
     MimiUpdateConsentResponseBody,
 };
 use arkret_models_collaboration::objects::interop::ProviderDirectory;
-use arkret_models_crypto::{
-    PeerKeyPackagesClaimQueryResponseBody, PeerKeyPackagesClaimRequestBody,
-};
+use arkret_models_crypto::{KeyPackagesClaimRequestBody, PeerKeyPackagesClaimQueryResponseBody};
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::{DidCoreId, MimiRoomUri, MimiUri};
 use reqwest::Method;
@@ -128,7 +126,7 @@ impl Client {
     /// participant signature, ledger and receipt are shared with native claims.
     pub async fn mimi_request_key_material(
         &self,
-        request: &PeerKeyPackagesClaimRequestBody,
+        request: &KeyPackagesClaimRequestBody,
         source_trust_domain: &arkret_wire::TrustDomainId,
         destination_trust_domain: &arkret_wire::TrustDomainId,
     ) -> Result<PeerKeyPackagesClaimQueryResponseBody> {

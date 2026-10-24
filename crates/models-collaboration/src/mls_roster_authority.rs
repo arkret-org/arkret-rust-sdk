@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use arkret_models_crypto::{
-    KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimResponseBody,
+    KeyOperationSignature, KeyPackagesClaimResponseBody, PeerKeyPackageClaimReceipt,
 };
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::{
@@ -131,7 +131,7 @@ impl MlsAddAuthorityAttestation {
 #[serde(deny_unknown_fields)]
 pub struct MlsAttestAddRequestBody {
     pub attestation: MlsAddAuthorityAttestation,
-    pub claim_outcome: PeerKeyPackagesClaimResponseBody,
+    pub claim_outcome: KeyPackagesClaimResponseBody,
 }
 
 impl MlsAttestAddRequestBody {

@@ -21084,6 +21084,24 @@
       "schema_field_set": "accepted",
       "category": "domain_semantics",
       "reason": "Retain the canonical validating model and its domain methods; the schema struct gate checks the actual serialized member representation."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
+      "category": "domain_semantics",
+      "reason": "Canonical self and peer claim wire carrier; shared receipt, requester authority and domain validation remain in the owning crypto implementation."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_response_body",
+      "category": "domain_semantics",
+      "reason": "Canonical self and peer claim wire carrier; shared receipt, requester authority and domain validation remain in the owning crypto implementation."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup.rs::KeyBackupSourceCommitRef",
+      "schema": "key-backup.schema.json#/properties/source_commit_ref",
+      "category": "domain_semantics",
+      "reason": "Canonical source checkpoint shared by encrypted key-backup envelopes and active-series selection, with parent-specific signature and chain validation retained."
     }
   ],
   "retained_exemptions": [

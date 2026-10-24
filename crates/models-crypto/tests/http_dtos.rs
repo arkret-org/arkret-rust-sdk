@@ -1,28 +1,13 @@
-use std::any::TypeId;
-
 use arkret_models_crypto::KeyPackageClaimRecord;
 use arkret_models_crypto::http_bodies::{
     KeyPackageConsumeReceipt, KeyPackagesClaimRequestBody, KeyPackagesClaimResponseBody,
     KeyPackagesConsumeFields, KeyPackagesConsumeResponseBody, PeerKeyPackagesClaimFields,
-    PeerKeyPackagesClaimRequestBody, PeerKeyPackagesClaimResponseBody,
 };
 use arkret_wire::DidCoreId;
 use serde_json::json;
 
 fn core_id(_name: &str) -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
-}
-
-#[test]
-fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
-    assert_ne!(
-        TypeId::of::<KeyPackagesClaimRequestBody>(),
-        TypeId::of::<PeerKeyPackagesClaimRequestBody>()
-    );
-    assert_ne!(
-        TypeId::of::<KeyPackagesClaimResponseBody>(),
-        TypeId::of::<PeerKeyPackagesClaimResponseBody>()
-    );
 }
 
 #[test]
@@ -217,7 +202,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let mut empty = outcome.clone();
     empty["claims"] = json!([]);
     assert!(serde_json::from_value::<KeyPackagesClaimResponseBody>(empty.clone()).is_err());
-    assert!(serde_json::from_value::<PeerKeyPackagesClaimResponseBody>(empty).is_err());
+    assert!(serde_json::from_value::<KeyPackagesClaimResponseBody>(empty).is_err());
     let parsed: KeyPackagesClaimResponseBody = serde_json::from_value(outcome).unwrap();
     assert_eq!(parsed.claims[0].principal_id, core_id("alice"));
     assert!(parsed.claims[0].device_authorize_event_id.is_some());
@@ -396,7 +381,7 @@ fn claim_arrays_preserve_presence_and_timeout_obeys_schema_minimum() {
         let self_body: KeyPackagesClaimRequestBody =
             serde_json::from_value(signed.clone()).unwrap();
         self_body.validate_shape().unwrap();
-        let peer_body: PeerKeyPackagesClaimRequestBody =
+        let peer_body: KeyPackagesClaimRequestBody =
             serde_json::from_value(signed.clone()).unwrap();
         peer_body.validate_shape().unwrap();
         let transcript = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
@@ -448,7 +433,7 @@ fn claim_arrays_preserve_presence_and_timeout_obeys_schema_minimum() {
                 row["branch"]
             );
             assert!(
-                serde_json::from_value::<PeerKeyPackagesClaimRequestBody>(signed_invalid).is_err(),
+                serde_json::from_value::<KeyPackagesClaimRequestBody>(signed_invalid).is_err(),
                 "peer {} {field}",
                 row["branch"]
             );

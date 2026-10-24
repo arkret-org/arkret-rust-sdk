@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "reviews": [
+    {
+      "owners": [
+        "crates/models-collaboration/src/agent_operations.rs::AgentDeactivateRequestBody",
+        "crates/models-collaboration/src/agent_operations.rs::AgentPauseRequestBody"
+      ],
+      "reason": "The submitted Events have different registered kind constants and lifecycle authorization effects."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDeactivatePayload",
+        "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentPausePayload",
+        "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentResumePayload"
+      ],
+      "reason": "Distinct pause, resume and terminal-deactivation transition constants and predecessor statuses."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationEntry",
+        "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationSource"
+      ],
+      "reason": "A source permits add and remove deltas; retained current entries permit only the add branch."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/events_payloads/generated/capability_contracts.rs::CapabilityRelinquishPayload",
+        "crates/models-collaboration/src/events_payloads/generated/capability_contracts.rs::CapabilityRevokePayload"
+      ],
+      "reason": "Issuer revocation and subject relinquishment use different registered authority and signing purposes."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/events_payloads/generated/mimi_contracts.rs::MimiRoomBindingPayloadBindingScope",
+        "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs::SidecarStrandContextRef"
+      ],
+      "reason": "A MIMI provider binding target and a Sidecar strand context have independent context and admission obligations."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/generated/agent_operations_contracts.rs::KeyStateCurrentSignerEvidence",
+        "crates/models-integration/src/applet_models.rs::AppletServiceSignerEvidence"
+      ],
+      "reason": "Agent current signer evidence and Applet Service signer evidence require different authenticated signer kinds."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationMedia",
+        "crates/models-collaboration/src/objects/media.rs::ArkretNativeMediaPermissions"
+      ],
+      "reason": "An invitation selects at least one medium; native token permissions may deny every medium."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionProof",
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationProof",
+        "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallVoluntaryJoinProof"
+      ],
+      "reason": "Invitation, holder admission and voluntary join use separate registered signing transcripts."
+    },
+    {
+      "owners": [
+        "crates/models-collaboration/src/sync_frames/demand_sync.rs::RealmInvalidation",
+        "crates/models-collaboration/src/sync_frames/demand_sync.rs::RealmListRemoval"
+      ],
+      "reason": "Removing list membership and invalidating a retained Realm are distinct account-stream frame actions."
+    },
+    {
+      "owners": [
+        "crates/models-crypto/src/security_transaction.rs::ClientStepAttestationSignatureProof",
+        "crates/models-crypto/src/security_transaction.rs::RecoveryReceiptSignatureProof"
+      ],
+      "reason": "Client step attestations and recovery receipts bind independent purpose-separated signed parents."
+    }
+  ]
+}

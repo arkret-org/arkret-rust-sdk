@@ -4051,6 +4051,18 @@
       "rust_type": "crates/wire/src/device_revocation.rs::AccountDeviceRevokedState",
       "schema": "device-revocation-state.schema.json#/$defs/account_device_revoked_state",
       "schema_field_set": "accepted"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimRequestBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/http_bodies.rs::KeyPackagesClaimResponseBody",
+      "schema": "keypackage-operations.schema.json#/$defs/keypackages_claim_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup.rs::KeyBackupSourceCommitRef",
+      "schema": "key-backup.schema.json#/properties/source_commit_ref"
     }
   ],
   "exemptions": [
